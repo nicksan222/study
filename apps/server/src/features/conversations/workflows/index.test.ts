@@ -30,7 +30,7 @@ import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/service/index';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
@@ -137,7 +137,7 @@ testStable(
     );
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
     const domain = () =>
-      Layer.mergeAll(Conversations.layer, Sources.layer, Materials.layer).pipe(
+      Layer.mergeAll(Conversations.layer, Sources.layer, Documents.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const services = () =>
@@ -173,7 +173,7 @@ testStable(
         E,
         | Database
         | Context.Service.Identifier<typeof Conversations>
-        | Context.Service.Identifier<typeof Materials>
+        | Context.Service.Identifier<typeof Documents>
       >
     ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
 
@@ -463,7 +463,7 @@ testStable(
         omissions: []
       });
       const old = context.db.orm
-        .insert(s.documents)
+        .insert(s.content_snapshots)
         .values({ source_id: source.id, extractor_version: 1n, meta, created_at: 1n })
         .returning()
         .get();
@@ -493,6 +493,20 @@ testStable(
           document_id: old.id
         })
         .run();
+      context.db.orm
+        .insert(s.source_snapshots)
+        .values({
+          source_id: source.id,
+          revision: 1n,
+          bytes: Buffer.from([1]),
+          kind: 'text',
+          mime: 'text/plain'
+        })
+        .run();
+      context.db.orm
+        .insert(s.source_extraction_revisions)
+        .values({ source_id: source.id, revision: 1n, snapshot_id: old.id })
+        .run();
       await run(
         Effect.flatMap(Conversations, (c) =>
           c.postMessage({
@@ -512,7 +526,7 @@ testStable(
       assertEventType(grounded, 'ConversationGenerationRequested', 'wrong event');
 
       const replacement = context.db.orm
-        .insert(s.documents)
+        .insert(s.content_snapshots)
         .values({ source_id: source.id, extractor_version: 1n, meta, created_at: 2n })
         .returning()
         .get();
@@ -531,6 +545,10 @@ testStable(
           text: 'alpha new evidence',
           anchor: JSON.stringify({ type: 'page', page: 2 })
         })
+        .run();
+      context.db.orm
+        .insert(s.source_extraction_revisions)
+        .values({ source_id: source.id, revision: 1n, snapshot_id: replacement.id })
         .run();
       context.db.orm.run(
         sql`UPDATE source_processing SET document_id = ${replacement.id} WHERE source_id = ${source.id}`
@@ -617,7 +635,7 @@ testStable(
       assert.deepEqual(attachmentEdit.citations, attachmentAnswer.citations);
       const selected = await run(
         Effect.gen(function* () {
-          const materials = yield* Materials;
+          const materials = yield* Documents;
           const conversations = yield* Conversations;
           const session = yield* conversations.createSession({ title: 'Selected passages' });
           const block = createBlock({
@@ -631,10 +649,11 @@ testStable(
             ]
           });
           const material = yield* materials.create({
+            createKey: crypto.randomUUID(),
+            inputs: [],
+            citations: [],
             title: 'Exact authored input',
-            publish: true,
-            content: {
-              kind: 'document',
+            document: {
               blocks: [block],
               meta: {
                 extractor: null,
@@ -649,39 +668,28 @@ testStable(
               }
             }
           });
-          const documentId = context.db.orm
-            .select()
-            .from(s.material_document_versions)
-            .all()
-            .find((row) => row.version_id === material.version.id)!.document_id;
+          assert.ok(material.version);
 
           yield* conversations.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
             targets: [
               {
-                versionId: material.version.id,
-                documentId,
+                input: { kind: 'document', versionId: material.version.id },
                 scope: {
                   kind: 'ranges',
                   ranges: [
                     {
-                      versionId: material.version.id,
-                      documentId,
                       blockId: block.id,
                       start: 14,
                       end: 36
                     },
                     {
-                      versionId: material.version.id,
-                      documentId,
                       blockId: block.id,
                       start: 14,
                       end: 19
                     },
                     {
-                      versionId: material.version.id,
-                      documentId,
                       blockId: block.id,
                       start: 50,
                       end: 55

@@ -1,4 +1,3 @@
-/* eslint-disable study/database-ownership -- Upgrade fixture must open the old schema with the official migrator. */
 import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -7,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
 import { workflowEventSchema } from '@study/contracts/events';
+/* eslint-disable study/database-ownership -- Upgrade fixture must open the old schema with the official migrator. */
 import { testMigration } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
@@ -14,7 +14,8 @@ import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 import { Schema } from 'effect';
 
 import { Db } from '../src/index.ts';
-import { material_source_snapshots, source_processing, source_snapshots } from '../src/schema.ts';
+import { source_extraction_revisions, source_processing, source_snapshots } from '../src/schema.ts';
+import { requireRow } from './rows.ts';
 
 testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
   'upgrading existing sources captures their current input and retains their last document',
@@ -66,30 +67,30 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
         const state = upgraded.orm.select().from(source_processing).get();
         const snapshot = upgraded.orm.select().from(source_snapshots).get();
 
-        assert.equal(state?.revision, 1n);
-        assert.equal(state?.document_id, 1n);
-        assert.ok(state?.request_id);
+        assert.ok(state);
+        assert.ok(snapshot);
+        assert.equal(state.revision, 1n);
+        assert.equal(state.document_id, 1n);
+        assert.ok(state.request_id);
         assert.equal(state.published_request_id, state.request_id);
-        assert.deepEqual(snapshot?.bytes, input);
-        const pin = upgraded.orm.select().from(material_source_snapshots).get();
-
-        assert.equal(pin?.revision, 1n);
-        assert.deepEqual(JSON.parse(pin!.metadata), {
-          id: '1',
-          name: 'Existing notes',
-          kind: 'text',
-          mime: 'text/plain',
-          origin: 'attachment',
-          projectId: '1',
-          projectName: 'Old project',
-          sizeBytes: String(input.length),
-          sha256: '00'.repeat(32),
-          uri: null,
-          createdAt: '1'
-        });
-        assert.equal(snapshot?.kind, 'text');
-        assert.equal(snapshot?.mime, 'text/plain');
+        assert.deepEqual(snapshot.bytes, input);
+        const pin = upgraded.orm.select().from(source_extraction_revisions).get();
+        assert.ok(pin);
+        assert.equal(pin.source_id, 1n);
+        assert.equal(pin.revision, 1n);
+        assert.equal(pin.snapshot_id, 1n);
+        assert.equal(
+          requireRow(upgraded.orm.get(sql`SELECT name, project_id FROM sources WHERE id=1`)).name,
+          'Existing notes'
+        );
+        assert.equal(requireRow(upgraded.orm.get(sql`SELECT count(*) n FROM materials`)).n, 0n);
+        assert.equal(snapshot.kind, 'text');
+        assert.equal(snapshot.mime, 'text/plain');
         assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.equal(
+          upgraded.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_source_snapshots'`),
+          undefined
+        );
       } finally {
         upgraded.close();
       }
@@ -98,7 +99,7 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
 
       try {
         assert.equal(reopened.orm.select().from(source_snapshots).all().length, 1);
-        assert.equal(reopened.orm.select().from(material_source_snapshots).all().length, 1);
+        assert.equal(reopened.orm.select().from(source_extraction_revisions).all().length, 1);
         assert.equal(reopened.orm.select().from(source_processing).all().length, 1);
       } finally {
         reopened.close();
@@ -152,7 +153,7 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
 
         assert.equal(snapshots.length, 2);
         assert.deepEqual(snapshots.find((s) => s.revision === 1n)?.bytes, Buffer.from([1]));
-        const pin = upgraded.orm.select().from(material_source_snapshots).get()!;
+        const pin = upgraded.orm.select().from(source_processing).get()!;
 
         assert.equal(pin.revision, 2n);
         assert.deepEqual(
@@ -175,6 +176,10 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
         if (event.type === 'SourceProcessingRequested') assert.equal(event.sourceId, 1n);
 
         assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.equal(
+          upgraded.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_source_snapshots'`),
+          undefined
+        );
       } finally {
         upgraded.close();
       }
@@ -304,6 +309,10 @@ testMigration({ migration: 'source_upgrade', retention: 'permanent' })(
           )
         );
         assert.deepEqual(upgraded.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.equal(
+          upgraded.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_source_snapshots'`),
+          undefined
+        );
       } finally {
         upgraded.close();
       }

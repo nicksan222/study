@@ -258,10 +258,10 @@ testStable('material publication events identify a published material version', 
 });
 
 testStable('registered workflows accept canonical failure values', async () => {
-  const { sourceIndexedWorkflow } = await import('#server/features/materials/workflows/index');
+  const { sourceIngestionWorkflow } = await import('#server/features/sources/workflows/index');
   const failure = { kind: 'cancelled', message: 'superseded', retryAfterMs: null };
 
-  assert.deepEqual(Schema.decodeUnknownSync(sourceIndexedWorkflow.errorSchema)(failure), failure);
+  assert.deepEqual(Schema.decodeUnknownSync(sourceIngestionWorkflow.errorSchema)(failure), failure);
 });
 
 testStable('disabled subscriptions leave events unscheduled', () => {

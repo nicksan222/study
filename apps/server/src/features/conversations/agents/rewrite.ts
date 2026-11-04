@@ -16,7 +16,7 @@
 import { replyOutputSchema } from '@study/contracts/ai/reply';
 import { rewriteAgentInputSchema } from '@study/contracts/conversations/schemas';
 
-import { sourcesTool } from '#server/features/conversations/tools/sources';
+import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const rewriteAgent = defineAgent({

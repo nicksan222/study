@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { DocumentId, MaterialVersionId } from '@study/contracts/ids';
+import type { ContentSnapshotId, MaterialVersionId } from '@study/contracts/ids';
 import { inArray, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -20,32 +20,6 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 /** Logical stored UTF-8 body bytes, excluding SQLite row/index overhead and retained copies. */
 
 export function makeHistoryBodyBytes({ db }: StoreResources) {
-  function documentPayloads(docs: readonly DocumentId[]) {
-    const payloads: (string | null)[] = [];
-
-    for (const id of docs) {
-      const current = db.orm
-        .select()
-        .from(s.source_processing)
-        .where(eq(s.source_processing.document_id, id))
-        .get();
-
-      if (current) continue;
-
-      payloads.push(
-        db.orm.select().from(s.documents).where(eq(s.documents.id, id)).get()?.meta ?? null
-      );
-
-      for (const b of db.orm.select().from(s.blocks).where(eq(s.blocks.document_id, id)).all())
-        payloads.push(b.text, b.content, b.anchor);
-
-      for (const c of db.orm.select().from(s.chunks).where(eq(s.chunks.document_id, id)).all())
-        payloads.push(c.text, c.anchor);
-    }
-
-    return payloads;
-  }
-
   function quizPayloads(ids: readonly MaterialVersionId[]) {
     const payloads: (string | null)[] = [];
 
@@ -92,23 +66,6 @@ export function makeHistoryBodyBytes({ db }: StoreResources) {
       .all())
       payloads.push(r.payload);
 
-    const docs = db.orm
-      .select()
-      .from(s.material_document_versions)
-      .where(inArray(s.material_document_versions.version_id, [...ids]))
-      .all()
-      .map((r) => r.document_id);
-
-    for (const pin of db.orm
-      .select()
-      .from(s.material_source_snapshots)
-      .where(inArray(s.material_source_snapshots.version_id, [...ids]))
-      .all()) {
-      payloads.push(pin.metadata);
-
-      if (pin.document_id !== null && !docs.includes(pin.document_id)) docs.push(pin.document_id);
-    }
-
     for (const c of db.orm
       .select()
       .from(s.material_flashcard_entries)
@@ -116,7 +73,7 @@ export function makeHistoryBodyBytes({ db }: StoreResources) {
       .all())
       payloads.push(c.front, c.back);
 
-    payloads.push(...documentPayloads(docs), ...quizPayloads(ids));
+    payloads.push(...quizPayloads(ids));
 
     return payloads.reduce<bigint>(
       (total, value) => total + BigInt(value === null ? 0 : Buffer.byteLength(value)),

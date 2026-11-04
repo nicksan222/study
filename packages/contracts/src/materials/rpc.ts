@@ -3,7 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
-  documentIdSchema,
+  contentSnapshotIdSchema,
   sourceIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
@@ -18,23 +18,9 @@ import {
   requestMaterialDeletionSchema,
   materialDeletionSchema
 } from './deletion.ts';
-import {
-  createManualDocumentSchema,
-  applyDocumentProposalSchema,
-  keepDocumentProposalSchema,
-  documentProposalOutcomeSchema,
-  proposalKeySchema,
-  saveDocumentInputSchema,
-  undoDocumentInputSchema,
-  documentEditOutcomeSchema,
-  compareDocumentInputSchema,
-  documentComparisonSchema
-} from './editing.ts';
-import * as evidence from './evidence.ts';
 import { exportMaterialVersionInputSchema, materialVersionFileSchema } from './export.ts';
 import * as history from './history.ts';
 import {
-  documentTransformSchema,
   materialGenerationSnapshotSchema,
   materialGenerationInputSchema,
   materialGenerationSchema,
@@ -71,23 +57,9 @@ export const materialVersionInputSchema = versionKey;
 /** Exact retained Document block ownership; no current Source lookup is implied. */
 export const materialVersionImageInputSchema = Schema.Struct({
   id: materialVersionIdSchema,
-  documentId: documentIdSchema,
+  documentId: contentSnapshotIdSchema,
   blockId: blockIdSchema
 });
-
-export const materialVersionDocumentSchema = Schema.Struct({
-  id: documentIdSchema,
-  document: documentSchema
-});
-
-export const materialVersionImageSchema = Schema.Struct({
-  sourceId: sourceIdSchema,
-  revision: sourceRevisionSchema,
-  mime: Schema.String,
-  bytes: Schema.Uint8Array
-});
-
-export const importedMaterialInputSchema = Schema.Struct({ sourceId: sourceIdSchema });
 
 export const archiveInputSchema = materialKey;
 
@@ -176,11 +148,6 @@ const linked = attachInputSchema;
 
 export const requestMaterialGenerationInputSchema = materialGenerationInputSchema;
 
-export const requestDocumentTransformInputSchema = Schema.Struct({
-  title: materialGenerationInputSchema.fields.title,
-  ...documentTransformSchema.fields
-});
-
 const generationKeySchema = Schema.Struct({
   requestId: Schema.String.check(Schema.isMinLength(1))
 });
@@ -194,21 +161,6 @@ export const MaterialsRpc = RpcGroup.make(
   Rpc.make('exportMaterialVersion', {
     payload: exportMaterialVersionInputSchema,
     success: materialVersionFileSchema,
-    error: failureSchema
-  }),
-  Rpc.make('materialVersionDocument', {
-    payload: materialVersionInputSchema,
-    success: materialVersionDocumentSchema,
-    error: failureSchema
-  }),
-  Rpc.make('materialVersionImage', {
-    payload: materialVersionImageInputSchema,
-    success: materialVersionImageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('importedMaterial', {
-    payload: importedMaterialInputSchema,
-    success: materialSummarySchema,
     error: failureSchema
   }),
   Rpc.make('previewHistoryPrune', {
@@ -249,101 +201,6 @@ export const MaterialsRpc = RpcGroup.make(
   Rpc.make('retryDeletion', {
     payload: materialDeletionKeySchema,
     success: materialDeletionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('assessCitation', {
-    payload: evidence.assessCitationSchema,
-    success: evidence.citationSupportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('citationSupport', {
-    payload: evidence.citationSupportInputSchema,
-    success: evidence.citationSupportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('resolveEvidence', {
-    payload: evidence.evidenceReferenceSchema,
-    success: evidence.evidenceResolutionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('createAnnotation', {
-    payload: evidence.createAnnotationSchema,
-    success: evidence.annotationOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('annotation', {
-    payload: evidence.annotationKeySchema,
-    success: evidence.annotationSchema,
-    error: failureSchema
-  }),
-  Rpc.make('annotations', {
-    payload: evidence.annotationPageInputSchema,
-    success: evidence.annotationPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('annotationHistory', {
-    payload: evidence.annotationHistoryInputSchema,
-    success: evidence.annotationHistorySchema,
-    error: failureSchema
-  }),
-  Rpc.make('updateAnnotation', {
-    payload: evidence.updateAnnotationSchema,
-    success: evidence.annotationOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('reanchorAnnotation', {
-    payload: evidence.reanchorAnnotationSchema,
-    success: evidence.annotationOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('deleteAnnotation', {
-    payload: evidence.annotationMutationSchema,
-    success: evidence.annotationOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('dependencyStatus', {
-    payload: dependentsInputSchema,
-    success: evidence.dependencyPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('createManualDocument', {
-    payload: createManualDocumentSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('applyDocumentProposal', {
-    payload: applyDocumentProposalSchema,
-    success: documentProposalOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('keepDocumentProposal', {
-    payload: keepDocumentProposalSchema,
-    success: documentProposalOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('compareDocumentProposal', {
-    payload: proposalKeySchema,
-    success: documentComparisonSchema,
-    error: failureSchema
-  }),
-  Rpc.make('saveDocument', {
-    payload: saveDocumentInputSchema,
-    success: documentEditOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('undoDocument', {
-    payload: undoDocumentInputSchema,
-    success: documentEditOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('compareDocument', {
-    payload: compareDocumentInputSchema,
-    success: documentComparisonSchema,
-    error: failureSchema
-  }),
-  Rpc.make('requestDocumentTransform', {
-    payload: requestDocumentTransformInputSchema,
-    success: materialGenerationSchema,
     error: failureSchema
   }),
   Rpc.make('materialGeneration', {
@@ -396,11 +253,6 @@ export const MaterialsRpc = RpcGroup.make(
     success: materialVersionDetailSchema,
     error: failureSchema
   }),
-  Rpc.make('materialVersionExport', {
-    payload: materialVersionInputSchema,
-    success: sourceExportSchema,
-    error: failureSchema
-  }),
   Rpc.make('materials', {
     payload: materialsInputSchema,
     success: materialPageSchema,
@@ -408,16 +260,6 @@ export const MaterialsRpc = RpcGroup.make(
   }),
   Rpc.make('materialVersions', {
     payload: materialVersionsInputSchema,
-    success: versionPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('inputs', {
-    payload: inputsInputSchema,
-    success: versionPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('dependents', {
-    payload: dependentsInputSchema,
     success: versionPageSchema,
     error: failureSchema
   }),

@@ -11,7 +11,7 @@
  */
 
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
 
 import { createBlock } from '@study/contracts/sources/document';
@@ -23,7 +23,7 @@ import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { Conversations } from '#server/features/conversations/index';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { Sources } from '#server/features/sources/index';
 import { backupFixture, changedArtifact, meta, packet } from '#testing/managed-backups';
 
@@ -45,8 +45,11 @@ testStable(
       );
 
       const document = await f.app.nativeRuntime.runPromise(
-        Effect.flatMap(Materials, (materials) =>
-          materials.createManualDocument({
+        Effect.flatMap(Documents, (documents) =>
+          documents.create({
+            createKey: randomUUID(),
+            inputs: [],
+            citations: [],
             title: 'Image root',
             document: {
               meta,
@@ -72,7 +75,12 @@ testStable(
           yield* c.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
-            targets: [{ versionId: document.version.id, scope: { kind: 'document' } }]
+            targets: [
+              {
+                input: { kind: 'document', versionId: document.version!.id },
+                scope: { kind: 'document' }
+              }
+            ]
           });
 
           yield* c.captureSessionContext({

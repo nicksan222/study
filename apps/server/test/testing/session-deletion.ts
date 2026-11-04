@@ -13,9 +13,10 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
-import type { MaterialVersionId, SessionId } from '@study/contracts/ids';
+import type { StudyDocumentVersionId, SessionId } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -27,7 +28,7 @@ import {
   sessionDeletionHandler,
   sessionDeletionWorkflow
 } from '#server/features/conversations/workflows/deletion';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import type { documentTransformFixture } from '#testing/document-transform';
@@ -53,23 +54,27 @@ export function setup(
   fixture: DeletionFixture,
   marker: string,
   target = false,
-  additionalInputVersionId?: MaterialVersionId
+  additionalInputVersionId?: StudyDocumentVersionId
 ) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const chats = yield* Conversations;
 
-      const materials = yield* Materials;
+      const documents = yield* Documents;
 
       const session = yield* chats.createUntitledSession({});
 
       const other = yield* chats.createSession({ title: 'Keep other session' });
 
-      const library = yield* materials.createManualDocument({
+      const library = yield* documents.create({
+        createKey: randomUUID(),
+        inputs: [],
+        citations: [],
         title: 'Shared independent input',
         document: { blocks: [paragraph('Independent library evidence')], meta }
       });
 
+      assert.ok(library.version);
       yield* chats.postMessage({ sessionId: session.id, text: marker, requestReply: false });
 
       yield* chats.requestTitle({ sessionId: session.id });
@@ -84,10 +89,18 @@ export function setup(
         sessionId: session.id,
         expectedRevision: 0n,
         targets: [
-          { versionId: library.version.id, scope: { kind: 'document' } },
+          {
+            input: { kind: 'document', versionId: library.version.id },
+            scope: { kind: 'document' }
+          },
           ...(additionalInputVersionId === undefined
             ? []
-            : [{ versionId: additionalInputVersionId, scope: { kind: 'document' as const } }])
+            : [
+                {
+                  input: { kind: 'document' as const, versionId: additionalInputVersionId },
+                  scope: { kind: 'document' as const }
+                }
+              ])
         ]
       });
 
@@ -112,7 +125,14 @@ export function setup(
         preferences: {}
       });
 
-      return { session, other, library, capture, request, pending };
+      return {
+        session,
+        other,
+        library: { ...library, version: library.version },
+        capture,
+        request,
+        pending
+      };
     }).pipe(Effect.provide(fixture.domain()))
   );
 }
@@ -155,7 +175,11 @@ export function cleanup(fixture: DeletionFixture, id: SessionId) {
   );
 }
 
-export function assertScrubbed(fixture: DeletionFixture, marker: string) {
+export function assertScrubbed(
+  fixture: DeletionFixture,
+  marker: string,
+  retainAuthoredMetadata = true
+) {
   // Scan every logical application table, including full status, outbox and payload rows.
   // FTS shadow pages are physical index storage, not additional logical conversation records.
   const tables = fixture.context.db.orm.all<{ name: string }>(sql`
@@ -166,7 +190,24 @@ export function assertScrubbed(fixture: DeletionFixture, marker: string) {
 
   for (const table of tables) {
     const content = JSON.stringify(
-      fixture.context.db.orm.all(sql.raw(`SELECT * FROM "${table.name.replaceAll('"', '""')}"`)),
+      fixture.context.db.orm
+        .all(sql.raw(`SELECT * FROM "${table.name.replaceAll('"', '""')}"`))
+        .map((row) => {
+          if (!retainAuthoredMetadata) return row;
+          // Authored versions and requests intentionally retain their instructions; session cleanup
+          // removes raw captures, not independent document generation metadata.
+          if (table.name === 'study_document_versions') return { ...row, instruction: null };
+          if (table.name === 'study_document_transform_requests')
+            return {
+              ...row,
+              instruction: null,
+              request:
+                typeof row.request === 'string'
+                  ? JSON.stringify({ ...JSON.parse(row.request), instruction: null })
+                  : row.request
+            };
+          return row;
+        }),
       (_, value) => (typeof value === 'bigint' ? String(value) : value)
     );
 
@@ -175,34 +216,22 @@ export function assertScrubbed(fixture: DeletionFixture, marker: string) {
 }
 
 /** Keep exact historic annotations on independently published versions through cleanup. */
-export function annotateLibrary(fixture: DeletionFixture, ids: readonly MaterialVersionId[]) {
+export function annotateLibrary(fixture: DeletionFixture, ids: readonly StudyDocumentVersionId[]) {
   return Effect.runPromise(
     Effect.gen(function* () {
-      const materials = yield* Materials;
+      const documents = yield* Documents;
 
       for (const id of ids) {
-        const version = yield* materials.materialVersion({ id });
-
-        const document = fixture.context.db.orm
-          .select()
-          .from(s.material_document_versions)
-          .where(eq(s.material_document_versions.version_id, id))
-          .get();
-
-        assert.ok(document);
-
-        if (version.content.kind !== 'document') throw new Error('Expected Document');
-
-        const block = version.content.blocks[0];
-
+        const version = yield* documents.version({ id });
+        const block = version.document.blocks[0];
         assert.ok(block);
 
-        const created = yield* materials.createAnnotation({
+        const created = yield* documents.createAnnotation({
           target: {
-            materialId: version.material_id,
+            documentId: version.documentId,
             range: {
               versionId: id,
-              documentId: document.document_id,
+              snapshotId: version.snapshotId,
               blockId: block.id,
               start: 0,
               end: 1
@@ -218,27 +247,28 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly Material
   );
 }
 
-export function libraryState(fixture: DeletionFixture, ids: readonly MaterialVersionId[]) {
+export function libraryState(fixture: DeletionFixture, ids: readonly StudyDocumentVersionId[]) {
   return Effect.runPromise(
     Effect.gen(function* () {
-      const materials = yield* Materials;
+      const documents = yield* Documents;
 
       const results = [];
 
       for (const id of ids) {
-        const version = yield* materials.materialVersion({ id });
+        const version = yield* documents.version({ id });
 
-        const citations = yield* materials.citations({ id, limit: 100 });
+        const citations = version.citations;
 
-        const annotations = yield* materials.annotations({
-          materialId: version.material_id,
+        const annotations = yield* documents.annotations({
+          documentId: version.documentId,
+          includeDeleted: true,
           limit: 100
         });
 
         const histories = [];
 
         for (const annotation of annotations.items)
-          histories.push(yield* materials.annotationHistory({ id: annotation.id, limit: 100 }));
+          histories.push(yield* documents.annotationHistory({ id: annotation.id, limit: 100 }));
 
         results.push({ version, citations, annotations, histories });
       }

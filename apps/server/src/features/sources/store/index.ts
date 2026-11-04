@@ -15,8 +15,8 @@
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
-import { documentIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import type { SourceId, DocumentId } from '@study/contracts/ids';
+import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
+import type { SourceId, ContentSnapshotId } from '@study/contracts/ids';
 import { encodeBlockContent, decodeBlockContent } from '@study/contracts/sources/document';
 import {
   correctBlockInputSchema,
@@ -35,6 +35,8 @@ import { Option, Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
+
+import { sourceDeletionBlockers } from './retention.ts';
 
 const revision = sourceRevisionSchema;
 
@@ -102,31 +104,13 @@ function makeHelpers({ db }: StoreResources) {
     };
   }
 
-  function unavailable(id: SourceId) {
-    return (
-      db.orm
-        .select()
-        .from(tables.material_imports)
-        .innerJoin(
-          tables.material_deletion_members,
-          eq(tables.material_imports.material_id, tables.material_deletion_members.material_id)
-        )
-        .where(eq(tables.material_imports.source_id, id))
-        .get() !== undefined
-    );
-  }
-
   function find(id: SourceId) {
-    if (unavailable(id)) throw new StudyError('not_found', 'Source is unavailable');
-
     const row = selectSources().where(eq(tables.sources.id, id)).get();
 
     return row ? sourceRow(row) : null;
   }
 
   function state(id: SourceId) {
-    if (unavailable(id)) throw new StudyError('not_found', 'Source is unavailable');
-
     const row = db.orm
       .select()
       .from(tables.source_processing)
@@ -157,7 +141,7 @@ function makeHelpers({ db }: StoreResources) {
     return current;
   }
 
-  function readDocument(row: { id: DocumentId; meta: string }) {
+  function readDocument(row: { id: ContentSnapshotId; meta: string }) {
     const blocks = db.orm
       .select({
         id: tables.blocks.editing_id,
@@ -198,22 +182,6 @@ export const SourceStore = defineStore({
   make: ({ db, clock }) => {
     const { selectSources, sourceRow, find, state, checkState } = makeHelpers({ db, clock });
 
-    function documentVersionReferences() {
-      return db.orm
-        .select({
-          id: tables.material_document_versions.version_id
-        })
-        .from(tables.material_document_versions)
-        .innerJoin(
-          tables.documents,
-          eq(tables.documents.id, tables.material_document_versions.document_id)
-        )
-        .innerJoin(
-          tables.material_versions,
-          eq(tables.material_versions.id, tables.material_document_versions.version_id)
-        );
-    }
-
     function setProcessingRequest(id: SourceId, requestId: string) {
       db.orm
         .update(tables.source_processing)
@@ -251,10 +219,7 @@ export const SourceStore = defineStore({
           run: (input) =>
             selectSources()
               .where(
-                and(
-                  sql`NOT EXISTS (SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=${tables.sources.id})`,
-                  input.before === undefined ? undefined : lt(tables.sources.id, input.before)
-                )
+                and(input.before === undefined ? undefined : lt(tables.sources.id, input.before))
               )
               .orderBy(desc(tables.sources.id))
               .limit(input.limit)
@@ -368,50 +333,25 @@ export const SourceStore = defineStore({
           input: sourceIdSchema,
           output: Schema.Boolean,
           run: (id) => {
-            if (
-              db.orm
-                .select()
-                .from(tables.document_assets)
-                .where(eq(tables.document_assets.source_id, id))
-                .get()
-            )
-              throw new StudyError('invalid_input', 'Document assets retain this source revision');
+            if (sourceDeletionBlockers({ db }, id).length)
+              throw new StudyError(
+                'invalid_input',
+                'Exact evidence or image assets retain this source'
+              );
 
-            for (const table of [
-              tables.material_file_versions,
-              tables.material_audio_versions,
-              tables.material_video_versions,
-              tables.material_image_versions,
-              tables.material_link_versions
-            ]) {
-              const published = db.orm
-                .select({ id: table.version_id })
-                .from(table)
-                .innerJoin(
-                  tables.material_versions,
-                  eq(tables.material_versions.id, table.version_id)
-                )
-                .where(
-                  and(eq(table.source_id, id), eq(tables.material_versions.status, 'published'))
-                )
-                .get();
+            db.orm
+              .delete(tables.source_extraction_revisions)
+              .where(eq(tables.source_extraction_revisions.source_id, id))
+              .run();
+            db.orm
+              .delete(tables.content_snapshots)
+              .where(eq(tables.content_snapshots.source_id, id))
+              .run();
 
-              if (published)
-                throw new StudyError('invalid_input', 'Published source content is immutable');
-            }
-
-            const publishedDocument = documentVersionReferences()
-              .where(
-                and(
-                  eq(tables.documents.source_id, id),
-                  eq(tables.material_versions.status, 'published')
-                )
-              )
-              .get();
-
-            if (publishedDocument)
-              throw new StudyError('invalid_input', 'Published source content is immutable');
-
+            db.orm
+              .delete(tables.session_sources)
+              .where(eq(tables.session_sources.source_id, id))
+              .run();
             return (
               db.orm.delete(tables.sources).where(eq(tables.sources.id, id)).run().changes !== 0n
             );
@@ -491,7 +431,7 @@ export const SourceStore = defineStore({
         }),
         publishSourceDocument: storeMutation({
           input: Schema.Struct({ ...changeSchema.fields, document: documentSchema }),
-          output: Schema.Struct({ documentId: documentIdSchema, published: Schema.Boolean }),
+          output: Schema.Struct({ documentId: contentSnapshotIdSchema, published: Schema.Boolean }),
           run: (input) => {
             const current = checkState(input.id, input.expectedRevision, input.requestId);
 
@@ -532,15 +472,16 @@ export const SourceStore = defineStore({
             }
 
             const id = db.orm
-              .insert(tables.documents)
+              .insert(tables.content_snapshots)
               .values({
                 source_id: input.id,
-                extractor: doc.meta.extractor as typeof tables.documents.$inferInsert.extractor,
+                extractor: doc.meta
+                  .extractor as typeof tables.content_snapshots.$inferInsert.extractor,
                 extractor_version: BigInt(doc.meta.extractorVersion),
                 meta: JSON.stringify(doc.meta),
                 created_at: unixSeconds(clock)
               })
-              .run().lastInsertRowid as DocumentId;
+              .run().lastInsertRowid as ContentSnapshotId;
 
             doc.blocks.forEach((block, ordinal) =>
               db.orm
@@ -653,29 +594,6 @@ export const SourceSnapshotStore = defineStore({
         input: snapshotKey,
         output: snapshotSchema,
         run: (input) => {
-          const deleted = db.orm
-            .select()
-            .from(tables.material_imports)
-            .innerJoin(
-              tables.material_deletion_members,
-              eq(tables.material_imports.material_id, tables.material_deletion_members.material_id)
-            )
-            .where(eq(tables.material_imports.source_id, input.id))
-            .get();
-          const retained = db.orm
-            .select()
-            .from(tables.document_assets)
-            .where(
-              and(
-                eq(tables.document_assets.source_id, input.id),
-                eq(tables.document_assets.revision, BigInt(input.revision))
-              )
-            )
-            .get();
-
-          if (deleted && !retained)
-            throw new StudyError('not_found', 'Source revision is unavailable');
-
           const row = db.orm
             .select()
             .from(tables.source_snapshots)
@@ -714,15 +632,15 @@ export const SourceDocumentStore = defineStore({
         sourceDocument: storeQuery({
           role: 'required',
           input: sourceIdSchema,
-          output: Schema.Struct({ id: documentIdSchema, document: documentSchema }),
+          output: Schema.Struct({ id: contentSnapshotIdSchema, document: documentSchema }),
           run: (sourceId) => {
             find(sourceId);
             const row = db.orm
-              .select({ id: tables.documents.id, meta: tables.documents.meta })
+              .select({ id: tables.content_snapshots.id, meta: tables.content_snapshots.meta })
               .from(tables.source_processing)
               .innerJoin(
-                tables.documents,
-                eq(tables.documents.id, tables.source_processing.document_id)
+                tables.content_snapshots,
+                eq(tables.content_snapshots.id, tables.source_processing.document_id)
               )
               .where(eq(tables.source_processing.source_id, sourceId))
               .get();
@@ -749,20 +667,20 @@ export const HistoricalDocumentStore = defineStore({
         document: storeQuery({
           role: 'required',
           input: Schema.Struct({
-            id: documentIdSchema,
+            id: contentSnapshotIdSchema,
             sourceId: sourceIdSchema,
             projectId: Schema.NullOr(projectIdSchema)
           }),
-          output: Schema.Struct({ id: documentIdSchema, document: documentSchema }),
+          output: Schema.Struct({ id: contentSnapshotIdSchema, document: documentSchema }),
           run: (input) => {
             find(input.sourceId);
             const row = db.orm
-              .select({ id: tables.documents.id, meta: tables.documents.meta })
-              .from(tables.documents)
-              .innerJoin(tables.sources, eq(tables.sources.id, tables.documents.source_id))
+              .select({ id: tables.content_snapshots.id, meta: tables.content_snapshots.meta })
+              .from(tables.content_snapshots)
+              .innerJoin(tables.sources, eq(tables.sources.id, tables.content_snapshots.source_id))
               .where(
                 and(
-                  eq(tables.documents.id, input.id),
+                  eq(tables.content_snapshots.id, input.id),
                   eq(tables.sources.id, input.sourceId),
                   input.projectId === null
                     ? isNull(tables.sources.project_id)

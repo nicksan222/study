@@ -137,7 +137,7 @@ testStable(
       assert.equal(after.pendingAttachments, undefined);
       assert.equal(after.messages[0]?.attachments[0]?.sourceId, source.id);
       assert.equal(
-        after.messages[0]?.attachments[0]?.documentId,
+        after.messages[0]?.attachments[0]?.snapshotId,
         (yield* client['sources.sourceProcessing']({ id: source.id })).documentId
       );
     }

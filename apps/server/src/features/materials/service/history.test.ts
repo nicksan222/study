@@ -22,12 +22,14 @@ import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Conversations } from '#server/features/conversations/index';
+import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { documentTransformFixture } from '#testing/document-transform';
 import { deletionDocument, acceptMaterialDeletion } from '#testing/material-deletion';
 import { cleanupHistory as cleanup } from '#testing/material-history';
 import { withTestPublication } from '#testing/publication';
+import { cleanup as cleanupSession } from '#testing/session-deletion';
 
 testStable('retention policy and explicit candidate scope have positive finite bounds', () => {
   const policy = Schema.decodeUnknownSync(historyPolicySchema);
@@ -46,7 +48,7 @@ testStable('retention policy and explicit candidate scope have positive finite b
 });
 
 testStable(
-  'native RPC previews referenced exact history, prunes it and preserves the current Material and derivative',
+  'native RPC prunes exact learning history while preserving its current version and an independent output',
   async () => {
     const f = await documentTransformFixture();
 
@@ -57,20 +59,31 @@ testStable(
 
           const root = yield* m.create({
             title: 'History',
-            content: { kind: 'document', ...deletionDocument('HISTORY_MARKER_REMOVE') },
+            content: {
+              kind: 'diagram',
+              format: 'mermaid',
+              payload: 'flowchart TD\nA[HISTORY_MARKER_REMOVE]'
+            },
             publish: true
           });
 
           const kept = yield* m.createVersion({
             materialId: root.id,
-            content: { kind: 'document', ...deletionDocument('CURRENT_MARKER_KEEP') },
+            content: {
+              kind: 'diagram',
+              format: 'mermaid',
+              payload: 'flowchart TD\nA[CURRENT_MARKER_KEEP]'
+            },
             publish: true
           });
 
           const derivative = yield* m.create({
             title: 'Copy',
-            content: { kind: 'document', ...deletionDocument('COPY_MARKER_KEEP') },
-            inputs: [root.version.id],
+            content: {
+              kind: 'diagram',
+              format: 'mermaid',
+              payload: 'flowchart TD\nA[COPY_MARKER_KEEP]'
+            },
             publish: true
           });
 
@@ -87,7 +100,7 @@ testStable(
 
           assert.deepEqual(preview.candidateIds, [root.version.id]);
 
-          assert.ok(preview.references.some((r) => r.dependentVersionId === derivative.version.id));
+          assert.deepEqual(preview.references, []);
 
           assert.ok(preview.removedBodyBytes > 0n);
 
@@ -108,18 +121,6 @@ testStable(
             (yield* Effect.flip(m.materialVersion({ id: root.version.id }))).kind,
             'not_found'
           );
-
-          const evidence = yield* m.resolveEvidence({
-            kind: 'anchor',
-            versionId: root.version.id,
-            anchor: { type: 'authored' },
-            quote: 'HISTORY'
-          });
-
-          assert.equal(evidence.availability, 'unavailable');
-
-          if (evidence.availability === 'unavailable')
-            assert.equal(evidence.reason, 'version_pruned');
 
           return { root, kept, current, derivative, input };
         }).pipe(Effect.provide(f.domain()), Effect.scoped)
@@ -143,10 +144,9 @@ testStable(
             saved.derivative.version.id
           );
 
-          assert.equal(
-            (yield* m.inputs({ id: saved.derivative.version.id, limit: 30 })).items[0]!
-              .availability,
-            'unavailable'
+          assert.deepEqual(
+            (yield* m.materialVersion({ id: saved.derivative.version.id })).inputs,
+            []
           );
 
           const history = yield* m.materialVersions({ materialId: saved.root.id, limit: 30 });
@@ -165,18 +165,6 @@ testStable(
             0
           );
 
-          assert.equal(
-            (yield* Effect.flip(
-              m.undoDocument({
-                materialId: saved.root.id,
-                expectedVersionId: saved.kept.id,
-                restoreVersionId: saved.root.version.id,
-                undoKey: 'restore-pruned'
-              })
-            )).kind,
-            'not_found'
-          );
-
           assert.deepEqual(
             yield* m.requestHistoryPrune(saved.input),
             yield* m.historyPrune({ operationId: saved.input.operationId })
@@ -185,7 +173,7 @@ testStable(
       );
 
       const markerRows = f.context.db.orm.all(
-        sql`SELECT content,text FROM blocks WHERE text LIKE '%HISTORY_MARKER_REMOVE%'`
+        sql`SELECT payload FROM material_diagram_versions WHERE payload LIKE '%HISTORY_MARKER_REMOVE%'`
       );
 
       assert.deepEqual(markerRows, []);
@@ -211,7 +199,7 @@ testStable(
 
           const root = yield* m.create({
             title: 'Bounds',
-            content: { kind: 'document', ...deletionDocument('old') },
+            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[old]' },
             publish: true
           });
 
@@ -223,13 +211,13 @@ testStable(
 
           const draft = yield* m.createVersion({
             materialId: root.id,
-            content: { kind: 'document', ...deletionDocument('draft') },
+            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[draft]' },
             publish: false
           });
 
           const latest = yield* m.createVersion({
             materialId: root.id,
-            content: { kind: 'document', ...deletionDocument('new') },
+            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[new]' },
             publish: true
           });
 
@@ -316,13 +304,17 @@ testStable(
 
           const root = yield* m.create({
             title: 'Retry',
-            content: { kind: 'document', ...deletionDocument('retry-old') },
+            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[retry-old]' },
             publish: true
           });
 
           yield* m.createVersion({
             materialId: root.id,
-            content: { kind: 'document', ...deletionDocument('retry-current') },
+            content: {
+              kind: 'diagram',
+              format: 'mermaid',
+              payload: 'flowchart TD\nA[retry-current]'
+            },
             publish: true
           });
 
@@ -391,149 +383,130 @@ testStable(
 );
 
 testStable(
-  'pruned exact input retires private captures and generation while a fresh scope remains usable',
+  'authored exact captures block body retirement until raw session cleanup, while fresh work uses the independent current head',
   async () => {
     const f = await documentTransformFixture();
-
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
-          const m = yield* Materials;
-
-          const c = yield* Conversations;
-
-          const root = yield* m.create({
+          const docs = yield* Documents;
+          const chats = yield* Conversations;
+          const root = yield* docs.create({
+            createKey: 'capture-prune',
             title: 'Input history',
-            content: { kind: 'document', ...deletionDocument('CAPTURE_PAYLOAD_PRUNE') },
-            publish: true
+            document: deletionDocument('CAPTURE_PAYLOAD_PRUNE'),
+            inputs: [],
+            citations: []
           });
-
-          const session = yield* c.createSession({ title: 'Retained session' });
-
-          yield* c.postMessage({
+          assert.ok(root.version);
+          const session = yield* chats.createUntitledSession({});
+          yield* chats.postMessage({
             sessionId: session.id,
-            text: 'RETAINED_MESSAGE_COPY',
+            text: 'RAW_MESSAGE_PRIVATE',
             requestReply: false
           });
-
-          yield* c.updateSessionSelection({
+          yield* chats.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
-            targets: [{ versionId: root.version.id, scope: { kind: 'document' } }]
+            targets: [
+              {
+                input: { kind: 'document', versionId: root.version.id },
+                scope: { kind: 'document' }
+              }
+            ]
           });
-
-          const captureInput = {
+          const capture = yield* chats.captureSessionContext({
             sessionId: session.id,
             intentKey: 'same-run',
             instruction: 'PRIVATE_CAPTURE_PRUNE',
             preferences: {}
-          };
-
-          const capture = yield* c.captureSessionContext(captureInput);
-
-          const generation = yield* c.requestDocumentTransform({
+          });
+          const generation = yield* chats.requestDocumentTransform({
             contextRequestId: capture.requestId,
-            title: 'Pending transform',
+            title: 'Pending',
             operations: ['clarity']
           });
-
-          const current = yield* m.createVersion({
-            materialId: root.id,
-            content: { kind: 'document', ...deletionDocument('FRESH_INPUT_KEEP') },
-            publish: true
+          const current = yield* docs.save({
+            documentId: root.id,
+            expectedVersionId: root.version.id,
+            key: 'current-head',
+            document: deletionDocument('FRESH_INPUT_KEEP')
           });
-
-          const scope = { materialId: root.id, policy: { keepLatest: 1 } };
-
-          const preview = yield* m.previewHistoryPrune(scope);
-
-          assert.ok(preview.privateRequestIds.includes(capture.requestId));
-
-          yield* m.requestHistoryPrune({
-            ...scope,
-            operationId: 'capture-prune',
-            candidateIds: preview.candidateIds,
-            token: preview.token
-          });
-
+          const scope = { documentId: root.id, keepLatest: 1 };
+          const preview = yield* docs.previewHistory(scope);
+          assert.deepEqual(preview.blockedVersionIds, [root.version.id]);
           assert.equal(
-            (yield* Effect.flip(c.sessionContext({ requestId: capture.requestId }))).kind,
-            'not_found'
+            (yield* Effect.flip(docs.retireHistory({ ...scope, token: preview.token }))).kind,
+            'invalid_input'
           );
-
           assert.equal(
-            (yield* Effect.flip(
-              m.materialGeneration({ requestId: generation.id, verifyOnly: true })
-            )).kind,
-            'not_found'
+            (yield* chats.sessionContext({ requestId: capture.requestId })).instruction,
+            'PRIVATE_CAPTURE_PRUNE'
           );
-
-          return { captureInput, capture, generation, session, current };
+          yield* chats.deleteSession(session.id);
+          const released = yield* docs.previewHistory(scope);
+          assert.deepEqual(released.blockedVersionIds, []);
+          yield* docs.retireHistory({ ...scope, token: released.token });
+          return {
+            rootId: root.id,
+            currentId: current.submittedVersionId,
+            sessionId: session.id,
+            captureId: capture.requestId,
+            requestId: generation.id
+          };
         }).pipe(Effect.provide(f.domain()))
       );
-
-      await cleanup(f, 'capture-prune');
-
+      await cleanupSession(f, saved.sessionId);
+      f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
-          const c = yield* Conversations;
-
+          const docs = yield* Documents;
+          const chats = yield* Conversations;
           assert.equal(
-            (yield* Effect.flip(c.captureSessionContext(saved.captureInput))).kind,
+            (yield* Effect.flip(chats.sessionContext({ requestId: saved.captureId }))).kind,
             'not_found'
           );
-
+          assert.equal((yield* docs.transform({ requestId: saved.requestId })).cancelled, true);
           assert.equal(
             (yield* Effect.flip(
-              c.retryDocumentTransform({
-                requestId: saved.generation.id,
-                retryId: 'same-run-retry'
+              chats.retryDocumentTransform({
+                requestId: saved.requestId,
+                retryId: 'no-resurrection'
               })
             )).kind,
             'not_found'
           );
-
-          const selection = yield* c.sessionSelection({ sessionId: saved.session.id });
-
-          yield* c.updateSessionSelection({
-            sessionId: saved.session.id,
-            expectedRevision: selection.revision,
-            targets: [{ versionId: saved.current.id, scope: { kind: 'document' } }]
+          const session = yield* chats.createUntitledSession({});
+          yield* chats.updateSessionSelection({
+            sessionId: session.id,
+            expectedRevision: 0n,
+            targets: [
+              {
+                input: { kind: 'document', versionId: saved.currentId },
+                scope: { kind: 'document' }
+              }
+            ]
           });
-
-          const fresh = yield* c.captureSessionContext({
-            ...saved.captureInput,
-            intentKey: 'fresh-work'
+          const fresh = yield* chats.captureSessionContext({
+            sessionId: session.id,
+            intentKey: 'fresh',
+            instruction: '',
+            preferences: {}
           });
-
-          assert.equal(fresh.inputs[0]?.versionId, saved.current.id);
+          assert.deepEqual(fresh.inputs[0]?.input, {
+            kind: 'document',
+            versionId: saved.currentId
+          });
+          assert.equal((yield* docs.document({ id: saved.rootId })).headVersionId, saved.currentId);
         }).pipe(Effect.provide(f.domain()))
       );
-
-      assert.deepEqual(
-        f.context.db.orm
-          .select()
-          .from(s.session_run_contexts)
-          .where(eq(s.session_run_contexts.request_id, saved.capture.requestId))
-          .all(),
-        []
-      );
-
       assert.equal(
-        f.context.db.orm
-          .select()
-          .from(s.material_generation_requests)
-          .where(eq(s.material_generation_requests.id, saved.generation.id))
-          .get()?.payload,
-        '{}'
+        f.context.db.orm.get(
+          sql`SELECT count(*) n FROM message_versions WHERE text='RAW_MESSAGE_PRIVATE'`
+        )?.n,
+        0n
       );
-
-      assert.equal(
-        f.context.db.orm.all(
-          sql`SELECT text FROM message_versions WHERE text='RETAINED_MESSAGE_COPY'`
-        ).length,
-        1
-      );
+      assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
     } finally {
       await f.close();
     }

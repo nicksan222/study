@@ -20,8 +20,6 @@ import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { makeProposalRetirement } from './session-retirement.ts';
-
 const payloadCodec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema));
 
 type RetirementScope = { kind: 'deletion'; id: MaterialId } | { kind: 'history'; id: string };
@@ -29,52 +27,18 @@ type RetirementScope = { kind: 'deletion'; id: MaterialId } | { kind: 'history';
 export function makeGenerationRetirement(resources: StoreResources) {
   const { db } = resources;
 
-  const retireProposal = makeProposalRetirement(resources);
-
-  function affectedRequests(
-    versionIds: readonly MaterialVersionId[],
-    contextIds: readonly string[]
-  ) {
-    const versions = db.orm
-      .select({
-        id: s.material_versions.id,
-        generation_request_id: s.material_versions.generation_request_id
-      })
+  function affectedRequests(versionIds: readonly MaterialVersionId[]) {
+    const requests = db.orm
+      .select({ id: s.material_versions.generation_request_id })
       .from(s.material_versions)
-      .where(inArray(s.material_versions.id, [...versionIds]))
-      .all();
-
-    const inputs = db.orm
-      .select()
-      .from(s.material_generation_inputs)
-      .where(
-        inArray(
-          s.material_generation_inputs.version_id,
-          versions.map((v) => v.id)
-        )
-      )
-      .all();
-
-    const dependentIds = new Set([
-      ...inputs.map((input) => input.request_id),
-      ...versions.flatMap((version) =>
-        version.generation_request_id === null ? [] : [version.generation_request_id]
-      )
-    ]);
-
+      .where(inArray(s.material_versions.id, versionIds))
+      .all()
+      .flatMap((row) => (row.id === null ? [] : [row.id]));
     return db.orm
       .select()
       .from(s.material_generation_requests)
-      .all()
-      .filter(
-        (request) =>
-          dependentIds.has(request.id) ||
-          (request.payload !== '{}' &&
-            contextIds.includes(
-              Schema.decodeUnknownSync(payloadCodec)(request.payload).documentTransform
-                ?.contextRequestId ?? ''
-            ))
-      );
+      .where(inArray(s.material_generation_requests.id, requests))
+      .all();
   }
 
   function isScrubbed(requestId: string) {
@@ -86,14 +50,13 @@ export function makeGenerationRetirement(resources: StoreResources) {
 
     const input = db.orm
       .select()
-      .from(s.material_generation_inputs)
-      .where(eq(s.material_generation_inputs.request_id, requestId))
+      .from(s.material_evidence_inputs)
+      .where(eq(s.material_evidence_inputs.request_id, requestId))
       .get();
 
     return (
       request?.payload === '{}' &&
       request.cancelled &&
-      request.result_metadata === null &&
       request.result_version_id === null &&
       request.result_hash === null &&
       input === undefined
@@ -101,8 +64,6 @@ export function makeGenerationRetirement(resources: StoreResources) {
   }
 
   function scrubRequest(requestId: string) {
-    retireProposal(requestId);
-
     db.orm
       .update(s.material_versions)
       .set({ instruction: null })
@@ -118,7 +79,6 @@ export function makeGenerationRetirement(resources: StoreResources) {
       .update(s.material_generation_requests)
       .set({
         payload: '{}',
-        result_metadata: null,
         cancelled: true,
         result_version_id: null,
         result_hash: null
@@ -127,8 +87,8 @@ export function makeGenerationRetirement(resources: StoreResources) {
       .run();
 
     db.orm
-      .delete(s.material_generation_inputs)
-      .where(eq(s.material_generation_inputs.request_id, requestId))
+      .delete(s.material_evidence_inputs)
+      .where(eq(s.material_evidence_inputs.request_id, requestId))
       .run();
   }
 

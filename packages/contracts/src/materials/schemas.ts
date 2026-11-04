@@ -1,93 +1,30 @@
 import { Effect, Schema } from 'effect';
 
 import {
-  documentIdSchema,
   materialCardIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
   projectIdSchema,
   quizQuestionIdSchema,
   quizChoiceIdSchema,
-  sessionIdSchema,
-  sourceIdSchema
+  sessionIdSchema
 } from '../ids.ts';
-import {
-  anchorSchema,
-  blockIdSchema,
-  documentSchema,
-  documentTextRangeSchema,
-  sourceSchema
-} from '../sources/schemas.ts';
-import { citationSupportSchema, evidenceResolutionSchema } from './evidence.ts';
+import { contentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
+import { learningCitationSchema } from './inputs.ts';
 
 export { materialIdSchema };
 
 const nonemptySchema = Schema.Trim.check(Schema.isMinLength(1));
 
-export const materialKindSchema = Schema.Literals([
-  'file',
-  'audio',
-  'video',
-  'image',
-  'link',
-  'document',
-  'diagram',
-  'quiz',
-  'flashcards'
-]);
+export const materialKindSchema = Schema.Literals(['diagram', 'quiz', 'flashcards']);
 
-export const materialGenerationKindSchema = Schema.Literals([
-  'flashcards',
-  'diagram',
-  'quiz',
-  'document'
-]);
-
-/** Session transforms create independent derivatives or retain explicit target proposals. */
-export const documentTransformSchema = Schema.Struct({
-  contextRequestId: Schema.String.check(Schema.isMinLength(1)),
-  editTargetVersionId: Schema.optional(materialVersionIdSchema),
-  operations: Schema.Array(
-    Schema.Literals([
-      'clarity',
-      'grammar',
-      'structure',
-      'combine',
-      'deduplicate',
-      'summarize',
-      'explain',
-      'expand',
-      'translate',
-      'factual_correction'
-    ])
-  ).check(Schema.isBetweenLength(1, 10))
-}).check(Schema.makeFilter((value) => new Set(value.operations).size === value.operations.length));
-
-export const documentTransformReportSchema = Schema.Struct({
-  notes: Schema.Array(
-    Schema.Struct({
-      kind: Schema.Literals([
-        'addition',
-        'omission',
-        'conflict',
-        'uncertainty',
-        'correction_proposal',
-        'limit'
-      ]),
-      explanation: Schema.Trim.check(Schema.isBetweenLength(1, 4000)),
-      blockIds: Schema.Array(blockIdSchema).check(Schema.isMaxLength(200))
-    })
-  ).check(Schema.isBetweenLength(1, 200))
-});
+export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diagram', 'quiz']);
 
 export const materialGenerationInputSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema),
-  documentTransform: Schema.optional(documentTransformSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
   kind: materialGenerationKindSchema,
-  inputVersionIds: Schema.mutable(Schema.Array(materialVersionIdSchema)).check(
-    Schema.isBetweenLength(0, 20)
-  ),
+  inputs: Schema.mutable(Schema.Array(contentInputSchema)).check(Schema.isBetweenLength(1, 20)),
   instruction: Schema.optional(Schema.Trim.check(Schema.isBetweenLength(1, 100000))),
   scopeId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
   questionSpec: Schema.optional(
@@ -96,7 +33,7 @@ export const materialGenerationInputSchema = Schema.Struct({
 }).check(
   Schema.makeFilter(
     (value) =>
-      new Set(value.inputVersionIds).size === value.inputVersionIds.length &&
+      new Set(value.inputs.map(contentInputKey)).size === value.inputs.length &&
       (value.questionSpec === undefined || value.kind === 'quiz') &&
       validGenerationScope(value)
   )
@@ -104,28 +41,15 @@ export const materialGenerationInputSchema = Schema.Struct({
 
 function validGenerationScope(value: {
   kind: typeof materialGenerationKindSchema.Type;
-  documentTransform?: typeof documentTransformSchema.Type;
   projectId?: typeof projectIdSchema.Type;
   scopeId?: string;
-  inputVersionIds: readonly (typeof materialVersionIdSchema.Type)[];
+  inputs: readonly (typeof contentInputSchema.Type)[];
 }) {
-  if (value.kind === 'document')
-    return (
-      value.documentTransform !== undefined &&
-      value.projectId === undefined &&
-      value.scopeId === undefined
-    );
-
-  return (
-    value.documentTransform === undefined &&
-    value.projectId !== undefined &&
-    value.inputVersionIds.length > 0
-  );
+  return value.projectId !== undefined && value.inputs.length > 0;
 }
 
 export const materialGenerationPayloadSchema = Schema.Struct({
-  documentTransform: materialGenerationInputSchema.fields.documentTransform,
-  inputVersionIds: materialGenerationInputSchema.fields.inputVersionIds,
+  inputs: materialGenerationInputSchema.fields.inputs,
   title: materialGenerationInputSchema.fields.title,
   kind: materialGenerationKindSchema,
   instruction: materialGenerationInputSchema.fields.instruction,
@@ -140,33 +64,15 @@ export const materialGenerationSchema = Schema.Struct({
 
 export const materialGenerationSnapshotSchema = Schema.Struct({
   ...materialGenerationSchema.fields,
-  documentIds: Schema.Array(documentIdSchema),
   cancelled: Schema.Boolean,
-  report: Schema.NullOr(documentTransformReportSchema),
   resultVersionId: Schema.NullOr(materialVersionIdSchema)
 });
 
-export const materialOperationSchema = Schema.Literals([
-  'original',
-  'edit',
-  'summarize',
-  'translate',
-  'generate',
-  'extract',
-  'transcribe'
-]);
+export const materialOperationSchema = Schema.Literals(['original', 'edit', 'generate']);
 
 export const materialStatusSchema = Schema.Literals(['draft', 'published']);
 
-export const materialCreatorSchema = Schema.Literals(['user', 'agent', 'import']);
-
-export const materialAnchorSchema = anchorSchema;
-
-export const materialDocumentSchema = documentSchema;
-
-const materialDocumentInputIsValid = (document: typeof materialDocumentSchema.Type) =>
-  Schema.is(documentSchema)(document) &&
-  document.blocks.every((block) => block.anchor.type === 'authored');
+export const materialCreatorSchema = Schema.Literals(['user', 'agent']);
 
 const quizChoiceInputSchema = Schema.Struct({ text: nonemptySchema, isCorrect: Schema.Boolean });
 
@@ -252,38 +158,12 @@ const pairedDimensions = Schema.makeFilter(
 );
 
 export const materialContentInputSchema = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal('file'), sourceId: sourceIdSchema }),
-  Schema.Struct({
-    kind: Schema.Literal('audio'),
-    sourceId: sourceIdSchema,
-    durationMs: nonnegativeNullableBigIntSchema,
-    sampleRate: positiveNullableBigIntSchema,
-    channels: positiveNullableBigIntSchema
-  }),
-  Schema.Struct({
-    kind: Schema.Literal('video'),
-    sourceId: sourceIdSchema,
-    durationMs: nonnegativeNullableBigIntSchema,
-    width: positiveNullableBigIntSchema,
-    height: positiveNullableBigIntSchema
-  }).check(pairedDimensions),
-  Schema.Struct({
-    kind: Schema.Literal('image'),
-    sourceId: sourceIdSchema,
-    width: positiveNullableBigIntSchema,
-    height: positiveNullableBigIntSchema
-  }).check(pairedDimensions),
-  Schema.Struct({ kind: Schema.Literal('link'), sourceId: sourceIdSchema }),
-  Schema.Struct({ kind: Schema.Literal('document'), ...materialDocumentSchema.fields }).check(
-    Schema.makeFilter(materialDocumentInputIsValid)
-  ),
   materialDiagramContentInputSchema,
   materialQuizContentInputSchema,
   materialFlashcardsContentInputSchema
 ]);
 
 export const materialGenerationPublicationSchema = Schema.Struct({
-  report: Schema.optional(documentTransformReportSchema),
   generationEventId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
   requestId: Schema.String.check(Schema.isMinLength(1)),
   content: materialContentInputSchema,
@@ -291,66 +171,14 @@ export const materialGenerationPublicationSchema = Schema.Struct({
     Schema.Array(
       Schema.Struct({
         marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
-        inputVersionId: materialVersionIdSchema,
+        input: contentInputSchema,
         blockOrdinal: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-        target: Schema.optional(documentTextRangeSchema),
+        target: Schema.optional(contentRangeSchema),
         quote: Schema.String.check(Schema.isMinLength(1))
       })
     )
   ),
   language: Schema.optional(Schema.NullOr(Schema.Trim.check(Schema.isBetweenLength(1, 64))))
-});
-
-const importedExtractionFields = {
-  extracted: Schema.NullOr(Schema.Struct({ id: documentIdSchema, document: documentSchema }))
-};
-
-const fileContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('file'),
-  sourceId: sourceIdSchema,
-  ...importedExtractionFields,
-  source: sourceSchema
-});
-
-const audioContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('audio'),
-  sourceId: sourceIdSchema,
-  ...importedExtractionFields,
-  source: sourceSchema,
-  durationMs: nonnegativeNullableBigIntSchema,
-  sampleRate: positiveNullableBigIntSchema,
-  channels: positiveNullableBigIntSchema
-});
-
-const videoContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('video'),
-  sourceId: sourceIdSchema,
-  ...importedExtractionFields,
-  source: sourceSchema,
-  durationMs: nonnegativeNullableBigIntSchema,
-  width: positiveNullableBigIntSchema,
-  height: positiveNullableBigIntSchema
-});
-
-const imageContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('image'),
-  sourceId: sourceIdSchema,
-  ...importedExtractionFields,
-  source: sourceSchema,
-  width: positiveNullableBigIntSchema,
-  height: positiveNullableBigIntSchema
-});
-
-const linkContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('link'),
-  sourceId: sourceIdSchema,
-  ...importedExtractionFields,
-  source: sourceSchema
-});
-
-const documentContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('document'),
-  ...materialDocumentSchema.fields
 });
 
 const diagramContentDetailSchema = Schema.Struct({
@@ -416,12 +244,6 @@ const flashcardContentDetailSchema = Schema.Struct({
 });
 
 export const materialContentDetailSchema = Schema.Union([
-  fileContentDetailSchema,
-  audioContentDetailSchema,
-  videoContentDetailSchema,
-  imageContentDetailSchema,
-  linkContentDetailSchema,
-  documentContentDetailSchema,
   diagramContentDetailSchema,
   quizContentDetailSchema,
   flashcardContentDetailSchema
@@ -451,7 +273,7 @@ const materialVersionBaseFields = {
   instruction: Schema.NullOr(Schema.String),
   language: Schema.NullOr(Schema.String),
   created_at: Schema.BigInt,
-  inputs: Schema.mutable(Schema.Array(materialVersionIdSchema)),
+  inputs: Schema.mutable(Schema.Array(contentInputSchema)),
   parents: Schema.mutable(Schema.Array(materialVersionIdSchema))
 };
 
@@ -463,48 +285,6 @@ const materialVersionDetailFor = <
   publishedAt: PublishedAtSchema
 ) =>
   Schema.Union([
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('file'),
-      content: fileContentDetailSchema
-    }),
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('audio'),
-      content: audioContentDetailSchema
-    }),
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('video'),
-      content: videoContentDetailSchema
-    }),
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('image'),
-      content: imageContentDetailSchema
-    }),
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('link'),
-      content: linkContentDetailSchema
-    }),
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('document'),
-      content: documentContentDetailSchema
-    }),
     Schema.Struct({
       ...materialVersionBaseFields,
       status,
@@ -545,14 +325,6 @@ export const draftMaterialVersionDetailSchema = materialVersionDetailFor(
 
 export const materialSchema = Schema.Struct({
   description: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isMaxLength(240)))),
-  importProcessing: Schema.optional(
-    Schema.Struct({
-      sourceId: sourceIdSchema,
-      revision: Schema.Int,
-      requestId: Schema.String,
-      status: Schema.Literals(['pending', 'ready', 'failed'])
-    })
-  ),
   projectIds: Schema.Array(projectIdSchema),
   id: materialIdSchema,
   kind: materialKindSchema,
@@ -576,27 +348,18 @@ export const materialDetailSchema = Schema.Struct({
   latestDraftVersion: Schema.NullOr(draftMaterialVersionDetailSchema)
 });
 
-export const materialCitationSchema = Schema.Struct({
-  precision: Schema.optional(Schema.Literals(['exact', 'approximate', 'unavailable'])),
-  support: Schema.optional(citationSupportSchema),
-  evidence: Schema.optional(evidenceResolutionSchema),
-  marker: Schema.BigInt.check(Schema.isBetweenBigInt({ minimum: 1n, maximum: 4294967295n })),
-  inputVersionId: materialVersionIdSchema,
-  anchor: materialAnchorSchema,
-  target: Schema.optional(documentTextRangeSchema),
-  quote: nonemptySchema
-});
+export const materialCitationSchema = learningCitationSchema;
 
 const uniqueMaterialLinks = Schema.makeFilter(
-  (links: { inputs?: readonly bigint[]; parents?: readonly bigint[] }) =>
-    [links.inputs, links.parents].every(
-      (ids) => ids === undefined || new Set(ids).size === ids.length
-    )
+  (links: { inputs?: readonly (typeof contentInputSchema.Type)[]; parents?: readonly bigint[] }) =>
+    (links.inputs === undefined ||
+      new Set(links.inputs.map(contentInputKey)).size === links.inputs.length) &&
+    (links.parents === undefined || new Set(links.parents).size === links.parents.length)
 );
 
 export const materialLinksInputSchema = Schema.Struct({
   inputs: Schema.optional(
-    Schema.mutable(Schema.Array(materialVersionIdSchema)).check(Schema.isMaxLength(1000))
+    Schema.mutable(Schema.Array(contentInputSchema)).check(Schema.isMaxLength(1000))
   ),
   parents: Schema.optional(
     Schema.mutable(Schema.Array(materialVersionIdSchema)).check(Schema.isMaxLength(1000))

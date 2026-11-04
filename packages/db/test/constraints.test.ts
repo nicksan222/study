@@ -44,7 +44,7 @@ function seed(db: NodeSQLiteDatabase) {
     .returning()
     .get();
   const document = db
-    .insert(schema.documents)
+    .insert(schema.content_snapshots)
     .values({ source_id: source.id, extractor_version: 0n, meta: '{}', created_at: 1n })
     .returning()
     .get();

@@ -3,11 +3,13 @@ import { Schema } from 'effect';
 import { titleSnapshotSchema } from './conversations/schemas.ts';
 import { errorKindSchema } from './errors.ts';
 import {
-  documentIdSchema,
+  contentSnapshotIdSchema,
   recordingIdSchema,
   materialIdSchema,
-  materialAnnotationIdSchema,
+  studyDocumentIdSchema,
+  studyDocumentAnnotationIdSchema,
   materialVersionIdSchema,
+  studyDocumentVersionIdSchema,
   projectIdSchema,
   sourceIdSchema,
   sessionIdSchema,
@@ -31,7 +33,7 @@ export const sourceIndexedSchema = Schema.Struct({
   type: Schema.Literal('SourceIndexed'),
   projectId: Schema.NullOr(projectIdSchema),
   sourceId: sourceIdSchema,
-  documentId: documentIdSchema
+  documentId: contentSnapshotIdSchema
 });
 
 export const sourceDeletedSchema = Schema.Struct({
@@ -65,7 +67,7 @@ export const sourceCorrectionRequestedSchema = Schema.Struct({
   type: Schema.Literal('SourceCorrectionRequested'),
   sourceId: sourceIdSchema,
   requestId: Schema.String.check(Schema.isMinLength(1)),
-  documentId: documentIdSchema,
+  documentId: contentSnapshotIdSchema,
   ordinal: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   before: Schema.String,
   after: Schema.String
@@ -75,6 +77,31 @@ const sourcePublicationRequestedSchema = Schema.Union([
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema
 ]);
+
+const sourceHistoryPrunedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('SourceHistoryPruned'),
+  sourceId: sourceIdSchema,
+  snapshotIds: Schema.Array(contentSnapshotIdSchema)
+});
+
+export const documentGenerationRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('DocumentGenerationRequested'),
+  requestId: Schema.String.check(Schema.isMinLength(1))
+});
+const documentGenerationFailedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('DocumentGenerationFailed'),
+  requestId: Schema.String,
+  generationEventId: Schema.String,
+  errorKind: errorKindSchema
+});
+const documentPublishedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('DocumentPublished'),
+  versionId: studyDocumentVersionIdSchema
+});
 
 export const materialGenerationRequestedSchema = Schema.Struct({
   ...envelope,
@@ -102,11 +129,11 @@ export const materialPublishedSchema = Schema.Struct({
   materialVersionId: materialVersionIdSchema
 });
 
-const materialAnnotationChangedSchema = Schema.Struct({
+const documentAnnotationChangedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('MaterialAnnotationChanged'),
-  annotationId: materialAnnotationIdSchema,
-  materialId: materialIdSchema,
+  type: Schema.Literal('DocumentAnnotationChanged'),
+  annotationId: studyDocumentAnnotationIdSchema,
+  documentId: studyDocumentIdSchema,
   revision: Schema.BigInt.check(
     Schema.isBetweenBigInt({ minimum: 1n, maximum: 9223372036854775807n })
   )
@@ -178,6 +205,10 @@ export const recordingPostRequestedSchema = Schema.Struct({
 });
 
 export const workflowEventSchema = Schema.Union([
+  sourceHistoryPrunedSchema,
+  documentGenerationRequestedSchema,
+  documentGenerationFailedSchema,
+  documentPublishedSchema,
   materialHistoryPruneRequestedSchema,
   materialDeletionRequestedSchema,
   sessionDeletionRequestedSchema,
@@ -189,7 +220,7 @@ export const workflowEventSchema = Schema.Union([
   sourceProjectChangedSchema,
   sourceProcessingFailedSchema,
   materialPublishedSchema,
-  materialAnnotationChangedSchema,
+  documentAnnotationChangedSchema,
   materialGenerationRequestedSchema,
   materialGenerationFailedSchema,
   conversationGenerationRequestedSchema,
@@ -197,8 +228,6 @@ export const workflowEventSchema = Schema.Union([
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema
 ]);
-
-export type SourceIndexed = typeof sourceIndexedSchema.Type;
 
 export type SourcePublicationRequested = typeof sourcePublicationRequestedSchema.Type;
 

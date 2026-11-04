@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-import type { DocumentId } from '@study/contracts/ids';
+import type { ContentSnapshotId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -89,7 +89,10 @@ for (const [name, text] of [
               bytes,
               projectId: null
             });
-            const original = (yield* materials.materials({ archived: false, limit: 10 })).items[0]!;
+            assert.deepEqual(
+              (yield* materials.materials({ archived: false, limit: 10 })).items,
+              []
+            );
             const state = yield* sources.sourceProcessing(source.id);
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
@@ -106,7 +109,7 @@ for (const [name, text] of [
               correlationId: state.requestId,
               depth: 0
             };
-            let retainedDocumentId: DocumentId | null = null;
+            let retainedDocumentId: ContentSnapshotId | null = null;
             let execution = engine.execute(sourceIngestionWorkflow, {
               executionId: 'empty',
               payload: { event }
@@ -159,9 +162,15 @@ for (const [name, text] of [
 
             for (let replay = 0; replay < 2; replay++) {
               assert.equal((yield* Effect.flip(execution)).kind, 'invalid_input');
+              const failure = context.db.orm
+                .select()
+                .from(tables.workflowEvents)
+                .all()
+                .map((row) => decodeEvent(row.payload))
+                .findLast((event) => event.type === 'SourceProcessingFailed');
               assert.equal(
-                (yield* materials.material({ id: original.id })).importProcessing?.status,
-                'failed'
+                failure?.type === 'SourceProcessingFailed' && failure.sourceId,
+                source.id
               );
               assert.equal(
                 (yield* sources.sourceProcessing(source.id)).documentId,
@@ -170,7 +179,7 @@ for (const [name, text] of [
             }
 
             assert.equal(
-              context.db.orm.select().from(tables.documents).all().length,
+              context.db.orm.select().from(tables.content_snapshots).all().length,
               retainedDocumentId === null ? 0 : 1
             );
             assert.equal(
@@ -182,7 +191,7 @@ for (const [name, text] of [
               1
             );
             assert.deepEqual(
-              (yield* materials.materialVersionExport({ id: original.version.id })).bytes,
+              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes,
               new Uint8Array(bytes)
             );
 

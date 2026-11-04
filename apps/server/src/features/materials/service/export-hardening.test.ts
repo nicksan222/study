@@ -14,6 +14,7 @@
 
 import assert from 'node:assert/strict';
 
+import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
@@ -26,13 +27,15 @@ import { testStable } from '@study/testing/node';
 import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
+import { Documents } from '#server/features/documents/index';
+import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
 import { Materials } from '#server/features/materials/index';
 import { makeCitations } from '#server/features/materials/store/citations';
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
-import { exportBudget } from '#server/features/materials/store/export-budget';
 import { makeReads } from '#server/features/materials/store/reads';
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
+import { exportBudget } from '#server/platform/content-export/budget';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
@@ -42,13 +45,13 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 import { serializeMaterialVersion } from './export-serializer.ts';
 
 function fixture() {
-  const location = createTestDatabase();
+  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
-  const services = Layer.mergeAll(Materials.layer, Sources.layer).pipe(
+  const services = Layer.mergeAll(Materials.layer, Sources.layer, Documents.layer).pipe(
     Layer.provideMerge(database)
   );
-  const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive).pipe(
+  const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive, DocumentsRpcLive).pipe(
     Layer.provideMerge(services)
   );
 
@@ -64,73 +67,77 @@ function fixture() {
 
 for (const retirement of ['deletion', 'prune'] as const) {
   testStable(
-    `native export rejects a retained leaf after deep ancestor ${retirement} acceptance`,
+    `exact authored export and ancestor ${retirement} honor retained descendant pins`,
     async () => {
       const f = fixture();
-
       try {
         await Effect.runPromise(
-          Effect.scoped(
-            Effect.gen(function* () {
-              const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-              const ancestor = yield* rpc('materials.createManualDocument', {
-                title: 'Ancestor',
-                document: deletionDocument('Retained ancestor')
+          Effect.gen(function* () {
+            const rpc = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
+            const ancestor = yield* rpc('documents.create', {
+              createKey: `export-${retirement}`,
+              title: 'Ancestor',
+              document: deletionDocument('Retained ancestor'),
+              inputs: [],
+              citations: []
+            });
+            assert.ok(ancestor.version);
+            const chain = [ancestor];
+            let input = ancestor.version.id;
+            for (let depth = 0; depth < 4; depth++) {
+              const next = yield* rpc('documents.create', {
+                createKey: `${retirement}-${depth}`,
+                title: `Depth ${depth}`,
+                document: deletionDocument(`Derived ${depth}`),
+                inputs: [{ kind: 'document', versionId: input }],
+                citations: []
               });
-              let input = ancestor.version.id;
-
-              for (let depth = 0; depth < 4; depth++) {
-                const next = yield* rpc('materials.create', {
-                  title: `Depth ${depth}`,
-                  inputs: [input],
-                  publish: true,
-                  content: { kind: 'document', ...deletionDocument(`Derived ${depth}`) }
-                });
-
-                input = next.version.id;
-              }
-
-              const key = { id: input, format: 'markdown' as const };
-              const before = yield* rpc('materials.exportMaterialVersion', key);
-
-              assert.ok(new TextDecoder().decode(before.bytes).includes('Derived 3'));
-
-              if (retirement === 'prune') {
-                yield* rpc('materials.createVersion', {
-                  materialId: ancestor.id,
-                  publish: true,
-                  content: { kind: 'document', ...deletionDocument('Replacement') }
-                });
-                const scope = { materialId: ancestor.id, policy: { keepLatest: 1 } };
-                const preview = yield* rpc('materials.previewHistoryPrune', scope);
-
-                assert.ok(preview.candidateIds.includes(ancestor.version.id));
-                yield* rpc('materials.requestHistoryPrune', {
-                  ...scope,
-                  operationId: 'export-deep-prune',
-                  token: preview.token,
-                  candidateIds: preview.candidateIds
-                });
-              } else {
-                const preview = yield* rpc('materials.previewDeletion', {
-                  materialId: ancestor.id
-                });
-
-                // Keep descendants retained: export must inspect transitive inputs itself.
-                yield* rpc('materials.requestDeletion', {
-                  materialId: ancestor.id,
-                  token: preview.token,
-                  descendantIds: []
-                });
-              }
-
-              assert.equal((yield* rpc('materials.materialVersion', { id: input })).id, input);
-              assert.equal(
-                (yield* Effect.flip(rpc('materials.exportMaterialVersion', key))).kind,
-                'not_found'
-              );
-            })
-          ).pipe(Effect.provide(f.handlers))
+              assert.ok(next.version);
+              chain.push(next);
+              input = next.version.id;
+            }
+            const key = { id: input, format: 'markdown' as const };
+            const before = yield* rpc('documents.exportFile', key);
+            assert.ok(new TextDecoder().decode(before.bytes).includes('Derived 3'));
+            if (retirement === 'prune')
+              yield* rpc('documents.save', {
+                documentId: ancestor.id,
+                expectedVersionId: ancestor.version.id,
+                key: 'replace',
+                document: deletionDocument('Replacement')
+              });
+            const scope = { documentId: ancestor.id, keepLatest: 1 };
+            const preview =
+              retirement === 'prune'
+                ? yield* rpc('documents.previewHistory', scope)
+                : yield* rpc('documents.previewDeletion', { id: ancestor.id });
+            assert.deepEqual(preview.blockedVersionIds, [ancestor.version.id]);
+            const attempted =
+              retirement === 'prune'
+                ? rpc('documents.retireHistory', { ...scope, token: preview.token })
+                : rpc('documents.delete', { documentId: ancestor.id, token: preview.token });
+            assert.equal((yield* Effect.flip(attempted)).kind, 'invalid_input');
+            assert.deepEqual(yield* rpc('documents.exportFile', key), before);
+            for (const descendant of chain.slice(1).reverse()) {
+              const selected = yield* rpc('documents.previewDeletion', { id: descendant.id });
+              assert.deepEqual(selected.blockedVersionIds, []);
+              yield* rpc('documents.delete', { documentId: descendant.id, token: selected.token });
+            }
+            const released =
+              retirement === 'prune'
+                ? yield* rpc('documents.previewHistory', scope)
+                : yield* rpc('documents.previewDeletion', { id: ancestor.id });
+            assert.deepEqual(released.blockedVersionIds, []);
+            if (retirement === 'prune')
+              yield* rpc('documents.retireHistory', { ...scope, token: released.token });
+            else yield* rpc('documents.delete', { documentId: ancestor.id, token: released.token });
+            assert.equal(
+              (yield* Effect.flip(
+                rpc('documents.exportFile', { id: ancestor.version.id, format: 'markdown' })
+              )).kind,
+              'not_found'
+            );
+          }).pipe(Effect.scoped, Effect.provide(f.handlers))
         );
       } finally {
         f.close();
@@ -149,13 +156,17 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+            const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
             const document = deletionDocument('Evidence é😀');
-            const owner = yield* rpc('materials.createManualDocument', {
+            const owner = yield* docs('documents.create', {
+              createKey: crypto.randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Evidence',
               document
             });
-            const retained = yield* rpc('materials.materialVersionDocument', {
-              id: owner.version.id
+            const retained = yield* docs('documents.version', {
+              id: owner.version!.id
             });
             const contents: (typeof materialContentInputSchema.Type)[] = [
               { kind: 'flashcards', cards: [{ front: 'Question é', back: 'Answer 😀' }] },
@@ -180,7 +191,7 @@ testStable(
             for (const content of contents) {
               const aid = yield* rpc('materials.create', {
                 title: content.kind,
-                inputs: [owner.version.id],
+                inputs: [{ kind: 'document', versionId: owner.version!.id }],
                 publish: false,
                 content
               });
@@ -190,12 +201,10 @@ testStable(
                 citations: [
                   {
                     marker: 4294967295n,
-                    inputVersionId: owner.version.id,
+                    input: { kind: 'document' as const, versionId: owner.version!.id },
                     anchor: { type: 'authored' },
                     quote: 'Evidence',
                     target: {
-                      versionId: owner.version.id,
-                      documentId: retained.id,
                       blockId: document.blocks[0]!.id,
                       start: 0,
                       end: 8
@@ -222,14 +231,18 @@ testStable(
                 decoded
               );
               assert.equal(JSON.parse(text).version.id, String(version.id));
-              assert.equal(decoded.citations[0]!.evidence?.precision, 'exact');
+              assert.deepEqual(decoded.citations[0]!.target, {
+                blockId: document.blocks[0]!.id,
+                start: 0,
+                end: 8
+              });
               assert.equal(file.mediaType, 'application/json');
               // Exercise a legal identity beyond Number's exact range without changing SQLite rows.
               const wide = {
                 ...version,
                 id: Schema.decodeUnknownSync(materialVersionIdSchema)(9007199254740993n)
               };
-              const wideFile = serializeMaterialVersion(wide, 'aid_json', null, citations);
+              const wideFile = serializeMaterialVersion(wide, 'aid_json', citations);
 
               assert.equal(
                 Schema.decodeUnknownSync(codec)(new TextDecoder().decode(wideFile.bytes)).version
@@ -256,6 +269,7 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+            const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
             const cells = [
               '=1+1',
               '  +SUM(A1)',
@@ -316,7 +330,7 @@ testStable(
 );
 
 testStable(
-  'citation snapshot accepts its exact UTF-8 budget and stops before a later retired owner',
+  'citation snapshot accepts its exact UTF-8 budget without expanding retained evidence bodies',
   async () => {
     const f = fixture();
 
@@ -325,32 +339,40 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+            const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
             const body = deletionDocument('é😀'.repeat(32 * 1024));
-            const owner = yield* rpc('materials.createManualDocument', {
+            const owner = yield* docs('documents.create', {
+              createKey: crypto.randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Large',
               document: body
             });
-            const later = yield* rpc('materials.createManualDocument', {
+            const later = yield* docs('documents.create', {
+              createKey: crypto.randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Later',
               document: deletionDocument('Later')
             });
-            const retained = yield* rpc('materials.materialVersionDocument', {
-              id: owner.version.id
+            const retained = yield* docs('documents.version', {
+              id: owner.version!.id
             });
             const claim = yield* rpc('materials.create', {
               title: 'Bounded',
               publish: false,
-              inputs: [owner.version.id, later.version.id],
-              content: { kind: 'document', ...deletionDocument('Claim') }
+              inputs: [
+                { kind: 'document', versionId: owner.version!.id },
+                { kind: 'document', versionId: later.version!.id }
+              ],
+              content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' }
             });
             const first = {
               marker: 1n,
-              inputVersionId: owner.version.id,
+              input: { kind: 'document' as const, versionId: owner.version!.id },
               anchor: { type: 'authored' as const },
               quote: 'é',
               target: {
-                versionId: owner.version.id,
-                documentId: retained.id,
                 blockId: body.blocks[0]!.id,
                 start: 0,
                 end: 1
@@ -380,63 +402,39 @@ testStable(
                 { ...first, marker: 2n },
                 {
                   marker: 3n,
-                  inputVersionId: later.version.id,
+                  input: { kind: 'document' as const, versionId: later.version!.id },
                   anchor: { type: 'authored' },
                   quote: 'Later'
                 }
               ]
             });
             yield* rpc('materials.publishVersion', { id: claim.version.id });
-            const claimDocument = yield* rpc('materials.materialVersionDocument', {
-              id: claim.version.id
-            });
-
-            yield* rpc('materials.assessCitation', {
-              claim: {
-                materialId: claim.id,
-                range: {
-                  versionId: claim.version.id,
-                  documentId: claimDocument.id,
-                  blockId: claimDocument.document.blocks[0]!.id,
-                  start: 0,
-                  end: 5
-                }
-              },
-              evidence: { materialId: owner.id, range: first.target },
-              marker: 1n,
-              judgment: 'supports',
-              note: 'Manual assessment'
-            });
             const expected = (yield* rpc('materials.citations', {
               id: claim.version.id,
               limit: 10
             })).items;
-            const resources = { db: f.context.db, clock: f.context.clock };
-            const reads = makeReads(resources);
-            const loaded: Parameters<typeof reads.readCanonicalDocument>[0][] = [];
-            const readDocument = (id: Parameters<typeof reads.readCanonicalDocument>[0]) => {
-              loaded.push(id);
-
-              return reads.readCanonicalDocument(id);
-            };
             const actual = f.context.transaction(() =>
-              makeCitations(resources, readDocument).readCitations(claim.version.id)
+              makeCitations({ db: f.context.db, clock: f.context.clock }).readCitations(
+                claim.version.id
+              )
             );
-
             assert.deepEqual(actual, expected);
-            assert.ok(loaded.includes(retained.id));
-            // Claim resolution only happens through support, proving callback forwarding there too.
-            assert.ok(loaded.includes(claimDocument.id));
-            const preview = yield* rpc('materials.previewDeletion', { materialId: later.id });
-
-            yield* rpc('materials.requestDeletion', {
-              materialId: later.id,
-              token: preview.token,
-              descendantIds: []
-            });
-            // Resolving the retired third owner would produce not_found; budget exhaustion must win first.
+            const preview = yield* docs('documents.previewDeletion', { id: later.id });
+            assert.deepEqual(preview.blockedVersionIds, [later.version!.id]);
+            assert.equal(
+              (yield* Effect.flip(
+                docs('documents.delete', { documentId: later.id, token: preview.token })
+              )).kind,
+              'invalid_input'
+            );
             assert.equal((yield* Effect.flip(snapshot(exact))).kind, 'invalid_input');
-            assert.equal((yield* Effect.flip(snapshot(MAX_EXPORT_BYTES))).kind, 'not_found');
+            const bounded = yield* snapshot(MAX_EXPORT_BYTES);
+            assert.equal(bounded.citations.length, 3);
+            assert.ok(
+              JSON.stringify(bounded, (_, value) =>
+                typeof value === 'bigint' ? String(value) : value
+              ).length < 8192
+            );
           })
         ).pipe(Effect.provide(f.handlers))
       );

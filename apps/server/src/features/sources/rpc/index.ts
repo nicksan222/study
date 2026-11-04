@@ -24,6 +24,15 @@ export const SourcesRpcLive = defineRpc(
     const sources = yield* Sources;
 
     return {
+      'sources.previewHistory': (input) => sources.previewHistory(input),
+      'sources.retireHistory': (input) => sources.retireHistory(input),
+      'sources.extractions': (v) => sources.extractions(v),
+      'sources.exportRevision': (v) => sources.exportRevision(v),
+      'sources.currentExtraction': (v) => sources.currentExtraction(v),
+      'sources.extraction': (v) => sources.extraction(v),
+      'sources.sessionSources': (v) => sources.sessionSources(v),
+      'sources.attachSource': (v) => sources.attachSource(v),
+      'sources.detachSource': (v) => sources.detachSource(v),
       'sources.importCapability': (value) => sources.importCapability(value),
       'sources.sourceExport': ({ id }) => sources.sourceExport(id),
       'sources.source': ({ id }) => sources.source(id),
@@ -35,6 +44,7 @@ export const SourcesRpcLive = defineRpc(
       'sources.replaceSource': (input) => sources.replaceSource(input),
       'sources.setSourceProject': (input) => sources.setSourceProject(input),
       'sources.correctBlock': (input) => sources.correctBlock(input),
+      'sources.previewDeletion': (input) => sources.previewDeletion(input),
       'sources.deleteSource': (input) => sources.deleteSource(input),
       'sources.requestSourceProcessing': (input) => sources.requestSourceProcessing(input)
     };

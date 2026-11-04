@@ -40,11 +40,11 @@ export function makeReplaceDraftAction(resources: StoreResources) {
       if (version.kind !== input.content.kind)
         throw new StudyError('invalid_input', 'Version kind must match material');
 
-      db.delete(s.material_version_citations)
-        .where(eq(s.material_version_citations.version_id, version.id))
+      db.delete(s.material_evidence_citations)
+        .where(eq(s.material_evidence_citations.version_id, version.id))
         .run();
-      db.delete(s.material_version_inputs)
-        .where(eq(s.material_version_inputs.version_id, version.id))
+      db.delete(s.material_evidence_inputs)
+        .where(eq(s.material_evidence_inputs.version_id, version.id))
         .run();
       db.delete(s.material_version_parents)
         .where(eq(s.material_version_parents.version_id, version.id))

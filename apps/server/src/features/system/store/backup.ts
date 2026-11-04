@@ -36,16 +36,19 @@ export const BackupScopeStore = defineStore({
           return {
             materials: count(sql`SELECT count(*) n FROM materials`),
             versions: count(sql`SELECT count(*) n FROM material_versions`),
-            documents: count(sql`SELECT count(*) n FROM documents`),
+            documents: count(sql`SELECT count(*) n FROM study_documents`),
+            documentVersions: count(sql`SELECT count(*) n FROM study_document_versions`),
+            extractions: count(sql`SELECT count(*) n FROM source_extraction_revisions`),
+            documentRetirements: count(sql`SELECT count(*) n FROM study_document_retirements`),
             sources: count(sql`SELECT count(*) n FROM sources`),
             collections: count(sql`SELECT count(*) n FROM projects`),
             sessions: count(sql`SELECT count(*) n FROM sessions`),
-            annotations: count(sql`SELECT count(*) n FROM material_annotations`),
+            annotations: count(sql`SELECT count(*) n FROM study_document_annotations`),
             quizAttempts: count(sql`SELECT count(*) n FROM material_quiz_attempts`),
             cardReviews: count(sql`SELECT count(*) n FROM material_card_reviews`),
             practiceSlots: count(sql`SELECT count(*) n FROM learning_practice_slots`),
             tombstones: count(
-              sql`SELECT (SELECT count(*) FROM material_deletions) + (SELECT count(*) FROM session_deletions) n`
+              sql`SELECT (SELECT count(*) FROM material_deletions) + (SELECT count(*) FROM session_deletions) + (SELECT count(*) FROM study_document_deletions) n`
             ),
             historyPrunes: count(sql`SELECT count(*) n FROM material_history_prunes`),
             prunedVersions: count(sql`SELECT count(*) n FROM material_history_members`)

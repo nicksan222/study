@@ -15,15 +15,15 @@
 
 import assert from 'node:assert/strict';
 
-import type { MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialVersionId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
-import { eq, sql } from '@study/db';
-import { material_document_versions } from '@study/db/schema';
+import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 
+import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -32,9 +32,9 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 testStable('guarded generation publishes once and replays its receipt', async () => {
-  const location = createTestDatabase();
+  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const context = new ServerContext(location.open());
-  const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
+  const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
   let complete = false;
@@ -49,12 +49,15 @@ testStable('guarded generation publishes once and replays its receipt', async ()
       Effect.gen(function* () {
         const projects = yield* Projects;
         const materials = yield* Materials;
+        const documents = yield* Documents;
         const project = yield* projects.createProject({ name: 'Generation' });
-        const doc = yield* materials.create({
+        const doc = yield* documents.create({
+          createKey: crypto.randomUUID(),
+          inputs: [],
+          citations: [],
           projectId: project.id,
           title: 'Doc',
-          content: {
-            kind: 'document',
+          document: {
             blocks: [plainBlock('paragraph', 'Source evidence', { type: 'authored' })],
             meta: {
               extractor: null,
@@ -76,7 +79,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           projectId: project.id,
           title: 'Late',
           kind: 'flashcards',
-          inputVersionIds: [doc.version.id],
+          inputs: [{ kind: 'document', versionId: doc.version!.id }],
           scopeId: scope.scopeId
         });
         const request = yield* materials.requestMaterialGeneration({
@@ -84,13 +87,18 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           scopeId: scope.scopeId,
           title: 'Cards',
           kind: 'flashcards',
-          inputVersionIds: [doc.version.id]
+          inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
         const value = {
           requestId: request.id,
           content: { kind: 'flashcards' as const, cards: [{ front: 'Q', back: 'A' }] },
           citations: [
-            { marker: 1n, inputVersionId: doc.version.id, blockOrdinal: 0, quote: 'Source' }
+            {
+              marker: 1n,
+              input: { kind: 'document' as const, versionId: doc.version!.id },
+              blockOrdinal: 0,
+              quote: 'Source'
+            }
           ]
         };
 
@@ -146,17 +154,28 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           'invalid_input'
         );
         const other = yield* projects.createProject({ name: 'Other' });
-        const foreign = yield* materials.create({
+        const foreign = yield* documents.create({
+          createKey: crypto.randomUUID(),
+          inputs: [],
+          citations: [],
           projectId: other.id,
           title: 'Foreign',
-          content: doc.version.content
+          document: {
+            ...doc.version!.document,
+            blocks: [plainBlock('paragraph', 'Foreign evidence', { type: 'authored' })]
+          }
         });
 
         assert.equal(
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
-              citations: [{ ...value.citations[0]!, inputVersionId: foreign.version.id }]
+              citations: [
+                {
+                  ...value.citations[0]!,
+                  input: { kind: 'document' as const, versionId: foreign.version!.id }
+                }
+              ]
             })
           )).kind,
           'invalid_input'
@@ -177,7 +196,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           projectId: project.id,
           title: 'Quiz',
           kind: 'quiz',
-          inputVersionIds: [doc.version.id],
+          inputs: [{ kind: 'document', versionId: doc.version!.id }],
           questionSpec: { count: 1, kind: 'open' }
         });
         const question = {
@@ -244,47 +263,18 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         const published = yield* materials.materialVersion({ id: result });
 
         assert.equal(published.operation, 'generate');
-        assert.deepEqual(published.inputs, [doc.version.id]);
-        const inputDocumentId = context.db.orm
-          .select()
-          .from(material_document_versions)
-          .where(eq(material_document_versions.version_id, doc.version.id))
-          .get()!.document_id;
-
+        assert.deepEqual(published.inputs, [{ kind: 'document', versionId: doc.version!.id }]);
         assert.deepEqual((yield* materials.citations({ id: result, limit: 10 })).items, [
           {
-            precision: 'approximate',
-            support: { state: 'unassessed' },
-            evidence: {
-              availability: 'available',
-              reference: {
-                kind: 'anchor',
-                versionId: doc.version.id,
-                anchor: { type: 'authored' },
-                quote: 'Source'
-              },
-              materialId: doc.id,
-              origin: 'user',
-              precision: 'approximate',
-              location: { type: 'authored' },
-              locationPrecision: 'unavailable',
-              block: null,
-              excerpt: null,
-              revision: {
-                inputVersionId: doc.version.id,
-                currentVersionId: doc.version.id,
-                inputDocumentId,
-                currentDocumentId: inputDocumentId,
-                source: null,
-                state: 'current'
-              }
-            },
             marker: 1n,
-            inputVersionId: doc.version.id,
+            input: { kind: 'document', versionId: doc.version!.id },
             anchor: { type: 'authored' },
-            quote: 'Source'
+            quote: 'Source',
+            target: undefined
           }
         ]);
+        const blocked = yield* documents.previewDeletion({ id: doc.id });
+        assert.deepEqual(blocked.blockedVersionIds, [doc.version!.id]);
         assert.throws(() =>
           context.db.orm.run(
             sql`UPDATE material_generation_requests SET result_hash='changed' WHERE id=${request.id}`
@@ -313,7 +303,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
             projectId: project.id,
             title: 'Generated',
             kind: content.kind,
-            inputVersionIds: [doc.version.id],
+            inputs: [{ kind: 'document', versionId: doc.version!.id }],
             instruction: 'Focus'
           });
           const id = yield* materials.publishMaterialGeneration({
@@ -331,10 +321,10 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           projectId: project.id,
           title: 'Stale',
           kind: 'flashcards',
-          inputVersionIds: [doc.version.id]
+          inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
 
-        yield* materials.archive({ id: doc.id });
+        yield* documents.archive({ id: doc.id, archived: true });
         assert.equal(
           (yield* Effect.flip(materials.materialGeneration({ requestId: stale.id }))).kind,
           'invalid_input'
@@ -370,6 +360,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
     await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
+        const documents = yield* Documents;
         const error = yield* Effect.flip(
           withPublicationGuard(
             context,
@@ -405,13 +396,13 @@ testStable('guarded generation publishes once and replays its receipt', async ()
 });
 
 testStable('receipt persists across reopen and a new workflow execution', async () => {
-  const location = createTestDatabase();
+  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   let context = new ServerContext(location.open());
   let requestId = '';
-  let versionId = 0n as MaterialVersionId;
+  let versionId: StudyDocumentVersionId;
   let resultId = 0n as MaterialVersionId;
   const run = async (executionId: string, replay: boolean) => {
-    const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
     const workflow = Workflow.make('generation-reopen-test', {
@@ -424,15 +415,18 @@ testStable('receipt persists across reopen and a new workflow execution', async 
         context,
         Effect.gen(function* () {
           const materials = yield* Materials;
+          const documents = yield* Documents;
 
           if (!replay) {
             const projects = yield* Projects;
             const project = yield* projects.createProject({ name: 'Reopen' });
-            const doc = yield* materials.create({
+            const doc = yield* documents.create({
+              createKey: crypto.randomUUID(),
+              inputs: [],
+              citations: [],
               projectId: project.id,
               title: 'Doc',
-              content: {
-                kind: 'document',
+              document: {
                 blocks: [plainBlock('paragraph', 'Evidence', { type: 'authored' })],
                 meta: {
                   extractor: null,
@@ -448,12 +442,12 @@ testStable('receipt persists across reopen and a new workflow execution', async 
               }
             });
 
-            versionId = doc.version.id;
+            versionId = doc.version!.id;
             requestId = (yield* materials.requestMaterialGeneration({
               projectId: project.id,
               title: 'Cards',
               kind: 'flashcards',
-              inputVersionIds: [versionId]
+              inputs: [{ kind: 'document', versionId }]
             })).id;
           }
 
@@ -461,7 +455,12 @@ testStable('receipt persists across reopen and a new workflow execution', async 
             requestId,
             content: { kind: 'flashcards' as const, cards: [{ front: 'Q', back: 'A' }] },
             citations: [
-              { marker: 1n, inputVersionId: versionId, blockOrdinal: 0, quote: 'Evidence' }
+              {
+                marker: 1n,
+                input: { kind: 'document' as const, versionId },
+                blockOrdinal: 0,
+                quote: 'Evidence'
+              }
             ]
           };
 

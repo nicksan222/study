@@ -253,7 +253,7 @@ testStable(
       try {
         assert.deepEqual(contender.message, { state: 'rejected', kind: 'transient' });
         await contender.exited;
-        assert.equal(restored.store.db.orm.select().from(s.materials).all().length, 1);
+        assert.equal(restored.store.db.orm.select().from(s.study_documents).all().length, 1);
       } finally {
         contender.child.kill('SIGKILL');
         await restored.close();

@@ -19,11 +19,7 @@ import { Effect } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { documentTransformFixture } from '#testing/document-transform';
-import {
-  acceptMaterialDeletion,
-  cleanupMaterial,
-  deletionDocument
-} from '#testing/material-deletion';
+import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-deletion';
 import { acceptHistory, cleanupHistory } from '#testing/material-history';
 import { withTestPublication } from '#testing/publication';
 import { assertScrubbed, awaitNativeStatus } from '#testing/session-deletion';
@@ -42,13 +38,21 @@ for (const failSettlement of [false, true]) {
             const root = yield* m.create({
               title: 'Atomic pruning',
               publish: true,
-              content: { kind: 'document', ...deletionDocument('ROLLBACK_HISTORY_PRIVATE') }
+              content: {
+                kind: 'diagram',
+                format: 'mermaid',
+                payload: 'flowchart TD\nA[ROLLBACK_HISTORY_PRIVATE]'
+              }
             });
 
             const current = yield* m.createVersion({
               materialId: root.id,
               publish: true,
-              content: { kind: 'document', ...deletionDocument('ROLLBACK_CURRENT_KEEP') }
+              content: {
+                kind: 'diagram',
+                format: 'mermaid',
+                payload: 'flowchart TD\nA[ROLLBACK_CURRENT_KEEP]'
+              }
             });
 
             const currentVersion = yield* m.materialVersion({ id: current.id });
@@ -59,10 +63,10 @@ for (const failSettlement of [false, true]) {
 
         await acceptHistory(f, saved.root.id, 'history-rollback');
 
-        const before = f.context.db.orm.select().from(s.blocks).all();
+        const before = f.context.db.orm.select().from(s.material_diagram_versions).all();
 
         f.context.db.orm.run(
-          sql`CREATE TRIGGER reject_history_cleanup BEFORE DELETE ON documents BEGIN SELECT RAISE(ABORT,'injected cleanup'); END`
+          sql`CREATE TRIGGER reject_history_cleanup BEFORE DELETE ON material_diagram_versions BEGIN SELECT RAISE(ABORT,'injected cleanup'); END`
         );
 
         if (failSettlement)
@@ -86,13 +90,13 @@ for (const failSettlement of [false, true]) {
 
         assert.equal(state.completedAt, null);
 
-        assert.deepEqual(f.context.db.orm.select().from(s.blocks).all(), before);
+        assert.deepEqual(f.context.db.orm.select().from(s.material_diagram_versions).all(), before);
 
         assert.ok(
           f.context.db.orm
             .select()
-            .from(s.material_document_versions)
-            .where(eq(s.material_document_versions.version_id, saved.root.version.id))
+            .from(s.material_diagram_versions)
+            .where(eq(s.material_diagram_versions.version_id, saved.root.version.id))
             .get()
         );
 
@@ -143,7 +147,7 @@ for (const failSettlement of [false, true]) {
           ).pipe(Effect.provide(f.domain()))
         );
 
-        assert.deepEqual(f.context.db.orm.select().from(s.blocks).all(), before);
+        assert.deepEqual(f.context.db.orm.select().from(s.material_diagram_versions).all(), before);
 
         await cleanupHistory(f, state.operationId);
 

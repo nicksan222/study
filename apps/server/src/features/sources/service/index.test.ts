@@ -16,6 +16,7 @@
 
 import assert from 'node:assert/strict';
 
+import { projectIdSchema } from '@study/contracts/ids';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
 import { correctBlockText, plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
@@ -23,10 +24,12 @@ import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 
+import { Documents } from '#server/features/documents/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { deletionDocument } from '#testing/material-deletion';
 import { createUnregisteredSource } from '#testing/source';
 
 import { Sources } from './index.ts';
@@ -68,7 +71,7 @@ testStable(
             'invalid_input'
           );
           assert.deepEqual(yield* sources.sourceProcessing(first.id), state);
-          assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 4);
+          assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 2);
           assert.equal(
             (yield* Effect.flip(
               sources.replaceSource({
@@ -98,7 +101,7 @@ testStable(
           });
 
           assert.notEqual(next.requestId, state.requestId);
-          assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 5);
+          assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 3);
           assert.equal((yield* sources.sourceSnapshot({ id: first.id, revision: 1 })).kind, 'text');
         }).pipe(Effect.provide(layer))
       );
@@ -224,7 +227,7 @@ testStable('publication requires a real active workflow grant', async () => {
       );
 
       assert.equal(denied.kind, 'internal');
-      assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 0);
+      assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 0);
       const workflow = Workflow.make('source-publication-test', {
         payload: { id: Schema.String },
         idempotencyKey: ({ id }) => id
@@ -248,7 +251,7 @@ testStable('publication requires a real active workflow grant', async () => {
                   sql`CREATE TRIGGER reject_index_event BEFORE INSERT ON workflow_events WHEN NEW.type = 'SourceIndexed' BEGIN SELECT RAISE(ABORT, 'rejected'); END`
                 );
                 yield* Effect.flip(sources.publishSourceDocument(input));
-                assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 0);
+                assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 0);
                 assert.equal(context.db.orm.all(sql`SELECT * FROM chunks`).length, 0);
                 assert.equal(
                   context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'hello'`)
@@ -354,7 +357,7 @@ testStable('publication requires a real active workflow grant', async () => {
       assert.equal(hits[0]!.first_block, 0n);
       assert.equal(hits[0]!.last_block, 0n);
       assert.equal(context.db.orm.all(sql`SELECT * FROM chunks`).length, 2);
-      assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 2);
+      assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
       assert.equal(
         context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`).length,
         2
@@ -402,7 +405,7 @@ testStable(
     };
     const search = (word: string, project: bigint) =>
       context.db.orm.all(
-        sql`SELECT c.text FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid JOIN documents d ON d.id = c.document_id JOIN sources s ON s.id = d.source_id WHERE chunks_fts MATCH ${word} AND d.id = (SELECT MAX(latest.id) FROM documents latest WHERE latest.source_id = d.source_id) AND s.project_id = ${project}`
+        sql`SELECT c.text FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid JOIN content_snapshots d ON d.id = c.document_id JOIN sources s ON s.id = d.source_id WHERE chunks_fts MATCH ${word} AND d.id = (SELECT MAX(latest.id) FROM content_snapshots latest WHERE latest.source_id = d.source_id) AND s.project_id = ${project}`
       );
 
     try {
@@ -462,7 +465,7 @@ testStable(
             )).kind,
             'invalid_input'
           );
-          assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 1);
+          assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 1);
           const replacement = {
             ...document,
             blocks: [
@@ -623,7 +626,7 @@ testStable('deleting a pending source fences publication and removes indexed con
         'source_blobs',
         'source_snapshots',
         'source_processing',
-        'documents',
+        'content_snapshots',
         'blocks',
         'chunks'
       ]) {
@@ -645,52 +648,76 @@ testStable('deleting a pending source fences publication and removes indexed con
   }
 });
 
-testStable('published and archived source-backed materials prevent source deletion', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
-  const { Materials } = await import('#server/features/materials/index');
-  const layer = Layer.mergeAll(Sources.layer, Materials.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
-
-  try {
-    context.db.orm.run(
-      sql`INSERT INTO projects (id, name, created_at, updated_at) VALUES (1, 'Project', 1, 1)`
+testStable(
+  'uploads remain Sources and only an explicit authored copy pins source history, even when archived',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Layer.mergeAll(Sources.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const sources = yield* Sources;
-        const materials = yield* Materials;
-        const source = yield* sources.createSource({
-          name: 'test.txt',
-          bytes: new Uint8Array([1]),
-          projectId: 1n as ProjectId
-        });
-        const material = yield* materials.material({
-          id: (yield* materials.materials({
-            projectId: 1n as ProjectId,
-            archived: false,
-            limit: 10
-          })).items[0]!.id
-        });
-
-        yield* materials.archive({ id: material.id });
-        assert.equal(
-          (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
-          'invalid_input'
-        );
-        assert.equal((yield* sources.source(source.id)).id, source.id);
-        assert.equal(
-          (yield* sources.setSourceProject({ id: source.id, projectId: null })).projectId,
-          null
-        );
-      }).pipe(Effect.provide(layer))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+    try {
+      context.db.orm.run(
+        sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1)`
+      );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const documents = yield* Documents;
+          const source = yield* sources.createSource({
+            name: 'test.txt',
+            bytes: new TextEncoder().encode('Evidence'),
+            projectId: projectIdSchema.make(1n)
+          });
+          assert.equal(
+            context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM materials`)!.n,
+            0n
+          );
+          assert.equal(
+            context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM study_documents`)!.n,
+            0n
+          );
+          const state = yield* sources.sourceProcessing(source.id);
+          const published = yield* transaction((tx) =>
+            tx.store(SourceStore).publishSourceDocument({
+              id: source.id,
+              expectedRevision: state.revision,
+              requestId: state.requestId!,
+              document: {
+                ...deletionDocument('Evidence'),
+                blocks: [plainBlock('paragraph', 'Evidence', { type: 'paragraph', index: 1 })]
+              }
+            })
+          );
+          const copy = yield* documents.copySource({
+            createKey: 'editable-source-copy',
+            title: 'Editable copy',
+            sourceId: source.id,
+            revision: 1n,
+            snapshotId: published.documentId
+          });
+          yield* documents.archive({ id: copy.id, archived: true });
+          assert.equal(
+            (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind,
+            'invalid_input'
+          );
+          assert.equal((yield* sources.source(source.id)).id, source.id);
+          assert.equal(
+            (yield* sources.setSourceProject({ id: source.id, projectId: null })).projectId,
+            null
+          );
+          assert.equal(
+            context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM materials`)!.n,
+            0n
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
 testStable('source export returns the stored bytes and canonical link URI', async () => {
   const location = createTestDatabase();
@@ -1014,3 +1041,141 @@ testStable('project reassignment preserves an explicit message attachment', asyn
     location.cleanup();
   }
 });
+
+testStable(
+  'exact source extractions and session links never substitute a pending revision or author a document',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Sources.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const sources = yield* Sources;
+          const source = yield* sources.createSource({
+            name: 'exact.txt',
+            bytes: new TextEncoder().encode('old'),
+            projectId: null
+          });
+          const state = yield* sources.sourceProcessing(source.id);
+          const published = yield* transaction((tx) =>
+            tx.store(SourceStore).publishSourceDocument({
+              id: source.id,
+              expectedRevision: 1,
+              requestId: state.requestId!,
+              document: {
+                blocks: [
+                  plainBlock('paragraph', 'Exact old extraction', { type: 'paragraph', index: 1 })
+                ],
+                meta: {
+                  extractor: null,
+                  extractorVersion: 1,
+                  provider: null,
+                  durationMs: null,
+                  pageCount: null,
+                  refiners: [],
+                  waitingFor: [],
+                  corrected: false,
+                  omissions: []
+                }
+              }
+            })
+          );
+          const exact = { sourceId: source.id, revision: 1n, snapshotId: published.documentId };
+          assert.equal(
+            (yield* sources.extraction(exact)).document.blocks[0].text,
+            'Exact old extraction'
+          );
+          assert.equal(
+            (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
+            published.documentId
+          );
+          const session = context.db.orm.get<{ id: bigint }>(
+            sql`INSERT INTO sessions(title,title_source,created_at,updated_at) VALUES('Session','user',1,1) RETURNING id`
+          )!;
+          yield* sources.attachSource({
+            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sourceId: source.id
+          });
+          yield* sources.attachSource({
+            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sourceId: source.id
+          });
+          assert.equal(
+            (yield* sources.sessionSources({
+              sessionId: session.id as import('@study/contracts/ids').SessionId,
+              limit: 100
+            })).length,
+            1
+          );
+          yield* sources.replaceSource({
+            id: source.id,
+            expectedRevision: 1,
+            name: 'exact.txt',
+            bytes: new TextEncoder().encode('new')
+          });
+          assert.equal(
+            new TextDecoder().decode(
+              (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
+            ),
+            'old'
+          );
+          assert.equal(
+            new TextDecoder().decode(
+              (yield* sources.exportRevision({ sourceId: source.id, revision: 2n })).bytes
+            ),
+            'new'
+          );
+          const history = yield* sources.extractions({ sourceId: source.id, limit: 1 });
+          assert.deepEqual(
+            history.items.map((item) => [item.revision, item.snapshotId]),
+            [[1n, published.documentId]]
+          );
+          assert.equal(history.next, null);
+          assert.equal(
+            (yield* Effect.flip(sources.exportRevision({ sourceId: source.id, revision: 999n })))
+              .kind,
+            'not_found'
+          );
+          const links = yield* sources.sessionSources({
+            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            limit: 100
+          });
+          assert.equal(links[0].revision, 2n);
+          assert.equal(links[0].pending, true);
+          assert.equal(links[0].snapshotId, null);
+          assert.equal(yield* sources.currentExtraction({ id: source.id }), null);
+          assert.equal(
+            (yield* sources.extraction(exact)).document.blocks[0].text,
+            'Exact old extraction'
+          );
+          assert.equal(
+            (yield* Effect.flip(sources.extraction({ ...exact, revision: 2n }))).kind,
+            'not_found'
+          );
+          assert.equal(
+            context.db.orm.get<{ n: number }>(sql`SELECT count(*) n FROM study_documents`)!.n,
+            0n
+          );
+          yield* sources.detachSource({
+            sessionId: session.id as import('@study/contracts/ids').SessionId,
+            sourceId: source.id
+          });
+          assert.deepEqual(
+            yield* sources.sessionSources({
+              sessionId: session.id as import('@study/contracts/ids').SessionId,
+              limit: 100
+            }),
+            []
+          );
+          assert.equal((yield* sources.extraction(exact)).snapshotId, published.documentId);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

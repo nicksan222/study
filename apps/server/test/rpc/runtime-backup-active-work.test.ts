@@ -12,12 +12,14 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
 import { Conversations } from '#server/features/conversations/index';
+import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
@@ -44,21 +46,30 @@ for (const action of ['apply', 'keep'] as const)
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
-            const m = yield* Materials;
+            const m = yield* Documents;
 
             const c = yield* Conversations;
 
-            const document = yield* m.createManualDocument({
+            const document = yield* m.create({
+              createKey: randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Target',
               document: backupDocument('Target body')
             });
 
+            assert.ok(document.version);
             const session = yield* c.createUntitledSession({});
 
             yield* c.updateSessionSelection({
               sessionId: session.id,
               expectedRevision: 0n,
-              targets: [{ versionId: document.version.id, scope: { kind: 'document' } }]
+              targets: [
+                {
+                  input: { kind: 'document', versionId: document.version.id },
+                  scope: { kind: 'document' }
+                }
+              ]
             });
 
             const capture = yield* c.captureSessionContext({
@@ -75,7 +86,7 @@ for (const action of ['apply', 'keep'] as const)
               editTargetVersionId: document.version.id
             });
 
-            return { document, capture, request };
+            return { document: { ...document, version: document.version }, capture, request };
           }).pipe(Effect.provide(source.domain()))
         );
 
@@ -87,15 +98,15 @@ for (const action of ['apply', 'keep'] as const)
           }
         );
 
-        const proposed = await source.execute(
-          source.event(saved.request.id),
+        const proposed = await source.executeAuthored(
+          source.authoredEvent(saved.request.id),
           `backup-proposal-${action}`
         );
 
         const input = {
           requestId: saved.request.id,
           key: 'consumed-proposal',
-          baseVersionId: saved.document.version.id,
+          title: 'Independent kept copy',
           expectedVersionId: saved.document.version.id
         };
 
@@ -116,7 +127,7 @@ for (const action of ['apply', 'keep'] as const)
 
         const c = await app.nativeRuntime.runPromise(Conversations);
 
-        const m = await app.nativeRuntime.runPromise(Materials);
+        const m = await app.nativeRuntime.runPromise(Documents);
 
         const replay = await app.nativeRuntime.runPromise(
           action === 'apply' ? c.applyDocumentProposal(input) : c.keepDocumentProposal(input)
@@ -124,12 +135,11 @@ for (const action of ['apply', 'keep'] as const)
 
         assert.deepEqual(replay, { ...outcome, replayed: true });
         assert.equal(
-          (await app.nativeRuntime.runPromise(m.materialVersion({ id: outcome.resultVersionId })))
-            .id,
+          (await app.nativeRuntime.runPromise(m.version({ id: outcome.resultVersionId }))).id,
           outcome.resultVersionId
         );
         assert.equal(
-          (await app.nativeRuntime.runPromise(m.materialVersion({ id: proposed }))).id,
+          (await app.nativeRuntime.runPromise(m.version({ id: proposed }))).id,
           proposed
         );
         assert.deepEqual(
@@ -152,11 +162,11 @@ for (const action of ['apply', 'keep'] as const)
           'not_found'
         );
 
-        const before = app.store.db.orm.select().from(s.material_versions).all();
+        const before = app.store.db.orm.select().from(s.study_document_versions).all();
 
         await app.workers.start();
         await app.workers.stop();
-        assert.deepEqual(app.store.db.orm.select().from(s.material_versions).all(), before);
+        assert.deepEqual(app.store.db.orm.select().from(s.study_document_versions).all(), before);
       } finally {
         await target?.close();
         await source.close();
@@ -184,18 +194,21 @@ testStable(
 
           const project = yield* projects.createProject({ name: 'Practice backup' });
 
-          yield* projects.addMaterial({ projectId: project.id, materialId: document.id });
+          yield* (yield* Documents).attachProject({
+            projectId: project.id,
+            documentId: document.id
+          });
 
           const generation = yield* m.requestMaterialGeneration({
             projectId: project.id,
             kind: 'flashcards',
             title: 'Pending aid',
-            inputVersionIds: [document.version.id]
+            inputs: [{ kind: 'document', versionId: document.version.id }]
           });
 
           const practice = yield* learning.startPractice({
             projectId: project.id,
-            inputVersionIds: [document.version.id]
+            inputs: [{ kind: 'document', versionId: document.version.id }]
           });
 
           const quiz = yield* m.create({
@@ -275,7 +288,7 @@ testStable(
       const fresh = await app.nativeRuntime.runPromise(
         learning.startPractice({
           projectId: saved.project.id,
-          inputVersionIds: [document.version.id]
+          inputs: [{ kind: 'document', versionId: document.version.id }]
         })
       );
 
@@ -331,12 +344,12 @@ testStable(
 
       const app = target.app;
 
-      const before = app.store.db.orm.select().from(s.documents).all();
+      const before = app.store.db.orm.select().from(s.content_snapshots).all();
 
       assert.ok(before.some((row) => row.id === completed.documentId));
       await app.workers.start();
       await app.workers.stop();
-      assert.deepEqual(app.store.db.orm.select().from(s.documents).all(), before);
+      assert.deepEqual(app.store.db.orm.select().from(s.content_snapshots).all(), before);
       assert.deepEqual(target.requests, []);
       assert.ok(
         app.store.db.orm

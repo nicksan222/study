@@ -1,0 +1,1 @@
+ALTER TABLE `documents` RENAME TO `content_snapshots`;

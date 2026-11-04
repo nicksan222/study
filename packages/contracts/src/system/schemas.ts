@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 
 import {
+  studyDocumentIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
   projectIdSchema,
@@ -19,6 +20,7 @@ export const searchKindSchema = Schema.Literals([
   'source',
   'passage',
   'material',
+  'document',
   'question'
 ]);
 
@@ -30,7 +32,15 @@ const materialSearchTargetSchema = Schema.Struct({
 });
 
 export const searchHitSchema = Schema.Struct({
-  kind: Schema.Literals(['project', 'session', 'message', 'source', 'material', 'question']),
+  kind: Schema.Literals([
+    'project',
+    'session',
+    'message',
+    'source',
+    'material',
+    'document',
+    'question'
+  ]),
   title: Schema.String,
   at: Schema.BigInt,
   context: Schema.optional(Schema.String),
@@ -45,6 +55,7 @@ export const searchHitSchema = Schema.Struct({
       type: Schema.Literal('session'),
       sessionId: sessionIdSchema
     }),
+    Schema.Struct({ type: Schema.Literal('document'), documentId: studyDocumentIdSchema }),
     materialSearchTargetSchema,
     Schema.Struct({
       type: Schema.Literal('question'),

@@ -27,11 +27,6 @@ import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
-import { Materials } from '#server/features/materials/index';
-import {
-  sourceIndexedHandler,
-  sourceIndexedWorkflow
-} from '#server/features/materials/workflows/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/service/index';
@@ -49,20 +44,16 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 testStable(
-  'native ingestion and projection let quick sessions capture a historic imported extraction',
+  'native ingestion lets quick sessions capture a historic exact source extraction without projections',
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
     const domain = () =>
-      Layer.mergeAll(
-        Sources.layer,
-        Materials.layer,
-        Conversations.layer,
-        Settings.layer,
-        Projects.layer
-      ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+      Layer.mergeAll(Sources.layer, Conversations.layer, Settings.layer, Projects.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
+      );
     const services = () =>
       Layer.mergeAll(
         ConversationsRpcLive.pipe(Layer.provideMerge(domain())),
@@ -80,7 +71,6 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const sources = yield* Sources;
-            const materials = yield* Materials;
             const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
             const projects = yield* Projects;
             const collection = yield* projects.createProject({ name: 'Temporary organization' });
@@ -89,11 +79,9 @@ testStable(
               bytes: new TextEncoder().encode('Hello historic extraction'),
               projectId: collection.id
             });
-            const original = (yield* materials.materials({ archived: false, limit: 10 })).items[0]!;
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-            yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
 
             function* ingest(revision: number) {
               const state = yield* sources.sourceProcessing(source.id);
@@ -127,29 +115,17 @@ testStable(
                 yield* projects.deleteProject({ id: collection.id });
               }
 
-              const projected = yield* engine.execute(sourceIndexedWorkflow, {
-                executionId: 'projection-' + revision,
-                payload: { event: indexed }
-              });
-
-              const replayed = yield* engine.execute(sourceIndexedWorkflow, {
-                executionId: 'projection-replay-' + revision,
-                payload: { event: indexed }
-              });
-
-              assert.equal(replayed.extracted.version.id, projected.extracted.version.id);
               assert.equal(
-                (yield* materials.material({ id: original.id })).importProcessing?.status,
-                'ready'
+                (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
+                documentId
               );
-              assert.equal(context.db.orm.select().from(tables.project_materials).all().length, 0);
-
-              return { documentId, projected };
+              assert.equal(context.db.orm.select().from(tables.materials).all().length, 0);
+              assert.equal(context.db.orm.select().from(tables.study_documents).all().length, 0);
+              return { documentId };
             }
 
             const first = yield* ingest(1);
 
-            assert.equal(first.projected.extracted.id, original.id);
             assert.equal((yield* sources.sourceProcessing(source.id)).documentId, first.documentId);
             const session = yield* client('conversations.createSession', {
               title: 'Historic import'
@@ -161,7 +137,17 @@ testStable(
                 client('conversations.updateSessionSelection', {
                   sessionId: session.id,
                   expectedRevision: 0n,
-                  targets: [{ versionId: original.version.id, scope: { kind: 'document' } }]
+                  targets: [
+                    {
+                      input: {
+                        kind: 'source',
+                        sourceId: source.id,
+                        revision: 2n,
+                        snapshotId: first.documentId
+                      },
+                      scope: { kind: 'document' }
+                    }
+                  ]
                 })
               )).kind,
               'not_found'
@@ -175,20 +161,18 @@ testStable(
             const latest = yield* ingest(2);
 
             assert.notEqual(latest.documentId, first.documentId);
-            assert.equal(latest.projected.extracted.id, original.id);
-            assert.notEqual(
-              latest.projected.extracted.version.id,
-              first.projected.extracted.version.id
-            );
-
             // Select after replacement: resolution must follow the version pin, never processing head.
             yield* client('conversations.updateSessionSelection', {
               sessionId: session.id,
               expectedRevision: 0n,
               targets: [
                 {
-                  versionId: first.projected.extracted.version.id,
-                  documentId: first.documentId,
+                  input: {
+                    kind: 'source',
+                    sourceId: source.id,
+                    revision: 1n,
+                    snapshotId: first.documentId
+                  },
                   scope: { kind: 'document' }
                 }
               ]
@@ -201,14 +185,14 @@ testStable(
             });
 
             assert.deepEqual(snapshot.messages, []);
-            assert.equal(snapshot.inputs[0]!.documentId, first.documentId);
+            assert.equal(snapshot.inputs[0]!.snapshotId, first.documentId);
             assert.equal(snapshot.inputs[0]!.excerpts[0]!.text, 'Hello historic extraction');
             assert.deepEqual(
               snapshot.inputs[0]!.document,
-              (yield* sources.document({
-                id: first.documentId,
+              (yield* sources.extraction({
                 sourceId: source.id,
-                projectId: null
+                revision: 1n,
+                snapshotId: first.documentId
               })).document
             );
 
@@ -444,7 +428,7 @@ for (const input of ['attachment', 'link'] as const)
       try {
         // Fail publication after the decode checkpoint, then restore the crash window on disk.
         context.db.orm.run(
-          sql`CREATE TRIGGER fail_document BEFORE INSERT ON documents BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
+          sql`CREATE TRIGGER fail_document BEFORE INSERT ON content_snapshots BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
         );
         const payload = await Effect.runPromise(
           Effect.scoped(
@@ -832,7 +816,7 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
 
   try {
     context.db.orm.run(
-      sql`CREATE TRIGGER fail_link_document BEFORE INSERT ON documents BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
+      sql`CREATE TRIGGER fail_link_document BEFORE INSERT ON content_snapshots BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
     );
     const payload = await Effect.runPromise(
       Effect.scoped(
@@ -1117,7 +1101,7 @@ testStable(
               }),
               id
             );
-            assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 2);
+            assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
             assert.equal(
               context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
                 .length,
@@ -1162,7 +1146,7 @@ testStable(
               (yield* sources.sourceDocument(captured.sourceId)).document.blocks[0].text,
               'after'
             );
-            assert.equal(context.db.orm.all(sql`SELECT * FROM documents`).length, 2);
+            assert.equal(context.db.orm.all(sql`SELECT * FROM content_snapshots`).length, 2);
             assert.equal(
               context.db.orm.all(sql`SELECT * FROM workflow_events WHERE type = 'SourceIndexed'`)
                 .length,

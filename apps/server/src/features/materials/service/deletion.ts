@@ -40,53 +40,6 @@ type Scope = { materialIds: readonly MaterialId[]; sourceIds: readonly SourceId[
 type Inspect = { token: string; requestIds: readonly string[] };
 
 export type ParticipantSet = {
-  Conversations: {
-    inspectMaterialHistory: (
-      tx: Transaction,
-      ids: readonly MaterialVersionId[]
-    ) => { token: string; requestIds: readonly string[]; messageCitationCount: number };
-    prepareMaterialHistory: (
-      tx: Transaction,
-      input: { operationId: string; versionIds: readonly MaterialVersionId[] }
-    ) => readonly string[];
-    scrubMaterialHistory: (tx: Transaction, operationId: string) => void;
-
-    inspectMaterialDeletion: (
-      tx: Transaction,
-      scope: Scope
-    ) => Inspect & {
-      sessionIds: readonly SessionId[];
-      messageCitationCount: number;
-    };
-    prepareMaterialDeletion: (
-      tx: Transaction,
-      scope: Scope & { deletionId: MaterialId }
-    ) => readonly string[];
-    scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
-  };
-  Sources: {
-    inspectMaterialHistory: (
-      tx: Transaction,
-      ids: readonly MaterialVersionId[]
-    ) => {
-      token: string;
-      sourceRevisions: typeof historyPreviewSchema.Type.sourceRevisions;
-      requestIds: readonly string[];
-    };
-    prepareMaterialHistory: (
-      tx: Transaction,
-      input: { operationId: string; versionIds: readonly MaterialVersionId[] }
-    ) => void;
-    scrubMaterialHistory: (tx: Transaction, operationId: string) => void;
-
-    inspectMaterialDeletion: (tx: Transaction, ids: readonly SourceId[]) => string;
-    prepareMaterialDeletion: (tx: Transaction, id: MaterialId) => readonly string[];
-    scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
-  };
-  Recordings: {
-    inspectMaterialDeletion: (tx: Transaction, ids: readonly SourceId[]) => Inspect;
-    scrubMaterialDeletion: (tx: Transaction, id: MaterialId) => void;
-  };
   Learning: {
     inspectMaterialHistory: (tx: Transaction, ids: readonly MaterialVersionId[]) => Inspect;
     prepareMaterialHistory: (
@@ -110,19 +63,11 @@ export function deletionParticipantsLayer(participants: ParticipantSet) {
 }
 
 const eventTypes = [
-  'RecordingPostRequested',
   'PracticeSlotRequested',
   'QuizAnswerSubmitted',
   'MaterialPublished',
-  'MaterialAnnotationChanged',
   'MaterialGenerationRequested',
-  'MaterialGenerationFailed',
-  'ConversationGenerationRequested',
-  'SourceProcessingRequested',
-  'SourceCorrectionRequested',
-  'SourceIndexed',
-  'SourceProcessingFailed',
-  'SourceProjectChanged'
+  'MaterialGenerationFailed'
 ] as const;
 
 function emit(tx: Transaction, value: typeof materialDeletionSchema.Type) {
@@ -145,27 +90,13 @@ function correlations(tx: Transaction, id: MaterialId) {
 function preview(tx: Transaction, materialId: MaterialId, participants: ParticipantSet) {
   const base = tx.store(MaterialDeletionPreviewStore).materialDeletionPreview(materialId);
 
-  const materialIds = [materialId, ...base.descendants];
-
-  const conversation = participants.Conversations.inspectMaterialDeletion(tx, {
-    materialIds,
-    sourceIds: base.sourceIds
-  });
-
-  const source = participants.Sources.inspectMaterialDeletion(tx, base.sourceIds);
-
-  const recordings = participants.Recordings.inspectMaterialDeletion(tx, base.sourceIds);
-
+  const learning = participants.Learning.inspectMaterialHistory(tx, base.versionIds);
   return {
     ...base,
     token: createHash('sha256')
-      .update(JSON.stringify([base.token, conversation.token, source, recordings.token]))
+      .update(JSON.stringify([base.token, learning.token]))
       .digest('hex'),
-    sessionIds: [...new Set([...base.sessionIds, ...conversation.sessionIds])],
-    privateRequestIds: [
-      ...new Set([...base.privateRequestIds, ...conversation.requestIds, ...recordings.requestIds])
-    ],
-    retainedMessageCitationCount: conversation.messageCitationCount
+    privateRequestIds: [...new Set([...base.privateRequestIds, ...learning.requestIds])]
   };
 }
 
@@ -198,57 +129,17 @@ export function materialDeletionOperations() {
 
           if (Option.isSome(previous)) return status;
 
-          const sourceIdsForScope = tx
-            .store(MaterialDeletionOwnershipStore)
-            .materialDeletionOwnership(status.materialId).sourceIds;
-
-          const contextIds = participants.Conversations.prepareMaterialDeletion(tx, {
-            deletionId: status.materialId,
-            materialIds: status.materialIds,
-            sourceIds: sourceIdsForScope
-          });
-
           const ownership = tx.store(MaterialDeletionOwnershipStore);
-
-          ownership.retain({
-            deletionId: status.materialId,
-            requestIds: contextIds,
-            kind: 'context'
-          });
-
           tx.store(MaterialGenerationCleanupStore).prepare({
             kind: 'deletion',
-            id: status.materialId,
-            contextIds
+            id: status.materialId
           });
-
-          const sourceIds = participants.Sources.prepareMaterialDeletion(tx, status.materialId);
-
           const learningIds = participants.Learning.prepareMaterialDeletion(tx, status.materialIds);
-
-          const recordingIds = participants.Recordings.inspectMaterialDeletion(
-            tx,
-            sourceIdsForScope
-          ).requestIds;
-
-          ownership.retain({
-            deletionId: status.materialId,
-            requestIds: sourceIds,
-            kind: 'source'
-          });
-
-          ownership.retain({
-            deletionId: status.materialId,
-            requestIds: recordingIds,
-            kind: 'recording'
-          });
-
           ownership.retain({
             deletionId: status.materialId,
             requestIds: learningIds,
             kind: 'learning'
           });
-
           ownership.retain({
             deletionId: status.materialId,
             requestIds: ownership.materialDeletionOwnership(status.materialId).publicationIds,
@@ -295,15 +186,9 @@ export function materialDeletionOperations() {
             id: status.materialId
           });
 
-          participants.Conversations.scrubMaterialDeletion(tx, status.materialId);
-
           participants.Learning.scrubMaterialDeletion(tx, status.materialIds);
 
           tx.store(MaterialDeletionStore).scrub(status.materialId);
-
-          participants.Sources.scrubMaterialDeletion(tx, status.materialId);
-
-          participants.Recordings.scrubMaterialDeletion(tx, status.materialId);
 
           Workflows.scrubRetiredCorrelations(tx, correlations(tx, status.materialId));
 

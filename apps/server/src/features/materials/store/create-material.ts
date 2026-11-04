@@ -33,19 +33,13 @@ export function makeCreateMaterial(resources: StoreResources) {
   const { assertProject, assertSession, insertVersion } = makeWrites(resources);
   const { attachMaterial } = makeSessionMembership(resources);
 
-  function createMaterial(
-    input: CreateMaterialInput,
-    creator: 'user' | 'import' = 'user'
-  ): MaterialDetailDto {
+  function createMaterial(input: CreateMaterialInput): MaterialDetailDto {
     return materialIntegrity(() =>
-      insertMaterial(Schema.decodeUnknownSync(createMaterialInputSchema)(input), creator)
+      insertMaterial(Schema.decodeUnknownSync(createMaterialInputSchema)(input))
     );
   }
 
-  function insertMaterial(
-    input: CreateMaterialInput,
-    creator: 'user' | 'import'
-  ): MaterialDetailDto {
+  function insertMaterial(input: CreateMaterialInput): MaterialDetailDto {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
     if (input.sessionId !== undefined) assertSession(input.sessionId);
@@ -68,7 +62,7 @@ export function makeCreateMaterial(resources: StoreResources) {
         .values({ project_id: input.projectId, material_id: row.id })
         .run();
 
-    insertVersion(row.id, input, creator === 'import' ? { documentId: null } : undefined);
+    insertVersion(row.id, input);
 
     if (input.sessionId !== undefined) attachMaterial(input.sessionId, row.id);
 

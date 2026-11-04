@@ -31,24 +31,20 @@ export const MaterialDeletionOwnershipStore = defineStore({
         input: materialIdSchema,
         output: Schema.Struct({
           publicationIds: Schema.Array(Schema.String),
-          requestIds: Schema.Array(Schema.String),
-          sourceIds: Schema.Array(sourceIdSchema)
+          requestIds: Schema.Array(Schema.String)
         }),
         run: (id) => ({
           publicationIds: db.orm
             .select()
             .from(s.workflowEvents)
-            .where(
-              inArray(s.workflowEvents.type, ['MaterialPublished', 'MaterialAnnotationChanged'])
-            )
+            .where(inArray(s.workflowEvents.type, ['MaterialPublished']))
             .all()
             .filter((e) => {
               if (e.payload === '{}') return false;
 
               const p = decodeEvent(e.payload);
 
-              if (p.type !== 'MaterialPublished' && p.type !== 'MaterialAnnotationChanged')
-                return false;
+              if (p.type !== 'MaterialPublished') return false;
 
               return db.orm
                 .select()
@@ -58,20 +54,6 @@ export const MaterialDeletionOwnershipStore = defineStore({
                 .some((m) => m.material_id === p.materialId);
             })
             .map((e) => e.correlationId),
-          sourceIds: db.orm
-            .select()
-            .from(s.material_imports)
-            .where(
-              inArray(
-                s.material_imports.material_id,
-                db.orm
-                  .select({ id: s.material_deletion_members.material_id })
-                  .from(s.material_deletion_members)
-                  .where(eq(s.material_deletion_members.deletion_id, id))
-              )
-            )
-            .all()
-            .map((r) => r.source_id),
           requestIds: db.orm
             .select()
             .from(s.material_deletion_requests)
@@ -86,7 +68,7 @@ export const MaterialDeletionOwnershipStore = defineStore({
         input: Schema.Struct({
           deletionId: materialIdSchema,
           requestIds: Schema.Array(Schema.String),
-          kind: Schema.Literals(['context', 'source', 'learning', 'publication', 'recording'])
+          kind: Schema.Literals(['learning', 'publication'])
         }),
         output: Schema.Void,
         run: ({ deletionId, requestIds, kind }) => {

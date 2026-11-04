@@ -27,6 +27,7 @@ import { Effect, Schema } from 'effect';
 import { makeStudyClient } from '#server/client/index';
 import { Auth } from '#server/features/auth/index';
 import { Conversations } from '#server/features/conversations/index';
+import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
@@ -87,7 +88,7 @@ testStable(
 
             const backup = yield* client['system.createBackup']({});
 
-            assert.equal(backup.scope.materials, 1);
+            assert.equal(backup.scope.documents, 1);
             assert.equal(backup.credentials, 'excluded');
 
             const list = yield* client['system.listBackups']({});
@@ -215,8 +216,11 @@ testStable(
       );
 
       await f.app.nativeRuntime.runPromise(
-        Effect.flatMap(Materials, (materials) =>
-          materials.createManualDocument({
+        Effect.flatMap(Documents, (documents) =>
+          documents.create({
+            createKey: randomUUID(),
+            inputs: [],
+            citations: [],
             title: 'Managed image',
             document: {
               meta,
@@ -265,33 +269,29 @@ testStable(
 
           const project = yield* projects.createProject({ name: 'Collection' });
 
-          yield* projects.addMaterial({ projectId: project.id, materialId: saved.id });
+          yield* (yield* Documents).attachProject({ projectId: project.id, documentId: saved.id });
           yield* (yield* Conversations).createSession({ title: 'Session' });
           yield* (yield* Learning).startPractice({
             projectId: project.id,
-            inputVersionIds: [saved.version.id]
+            inputs: [{ kind: 'document', versionId: saved.version.id }]
           });
         })
       );
 
-      const documentId = db
-        .select()
-        .from(s.material_document_versions)
-        .where(eq(s.material_document_versions.version_id, saved.version.id))
-        .get()!.document_id;
+      const documentId = saved.version.snapshotId;
 
       const block = db.select().from(s.blocks).where(eq(s.blocks.document_id, documentId)).get()!;
 
       await f.app.nativeRuntime.runPromise(
-        Effect.flatMap(Materials, (materials) =>
-          materials.createAnnotation({
+        Effect.flatMap(Documents, (documents) =>
+          documents.createAnnotation({
             kind: 'note',
             note: 'Retained note',
             target: {
-              materialId: saved.id,
+              documentId: saved.id,
               range: {
                 versionId: saved.version.id,
-                documentId,
+                snapshotId: documentId,
                 blockId: block.editing_id,
                 start: 0,
                 end: 3
@@ -305,11 +305,11 @@ testStable(
         questions: db.select().from(s.material_quiz_questions).all(),
         attempts: db.select().from(s.material_quiz_attempts).all(),
         imageRoots: db.select().from(s.document_assets).all(),
-        documents: db.select().from(s.documents).all(),
+        documents: db.select().from(s.content_snapshots).all(),
         blocks: db.select().from(s.blocks).all(),
         assets: db.select().from(s.source_snapshots).all(),
         originals: db.select().from(s.source_blobs).all(),
-        annotations: db.select().from(s.material_annotation_revisions).all()
+        annotations: db.select().from(s.study_document_annotation_revisions).all()
       };
 
       const api = await f.api();
@@ -333,12 +333,12 @@ testStable(
       assert.deepEqual(restored.select().from(s.document_assets).all(), expected.imageRoots);
       assert.equal(restored.select().from(s.learning_practice_controls).get()!.enabled, false);
       assert.equal(restored.select().from(s.learning_practice_slots).get()!.status, 'cancelled');
-      assert.deepEqual(restored.select().from(s.documents).all(), expected.documents);
+      assert.deepEqual(restored.select().from(s.content_snapshots).all(), expected.documents);
       assert.deepEqual(restored.select().from(s.blocks).all(), expected.blocks);
       assert.deepEqual(restored.select().from(s.source_snapshots).all(), expected.assets);
       assert.deepEqual(restored.select().from(s.source_blobs).all(), expected.originals);
       assert.deepEqual(
-        restored.select().from(s.material_annotation_revisions).all(),
+        restored.select().from(s.study_document_annotation_revisions).all(),
         expected.annotations
       );
       assert.equal(
@@ -400,7 +400,9 @@ testStable(
           });
         }),
         changedArtifact(f.location.dir, bytes, (db, manifest) => {
-          db.exec("INSERT INTO documents(extractor_version,meta,created_at) VALUES(1,'{}',1)");
+          db.exec(
+            "INSERT INTO content_snapshots(extractor_version,meta,created_at) VALUES(1,'{}',1)"
+          );
           Object.assign(manifest, {
             scope: { ...manifest.scope, documents: manifest.scope.documents + 1 }
           });
@@ -584,7 +586,7 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopenedApi.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.equal(f.app.store.db.orm.select().from(s.materials).all().length, 0);
+      assert.equal(f.app.store.db.orm.select().from(s.study_documents).all().length, 0);
     } finally {
       await f.close();
     }

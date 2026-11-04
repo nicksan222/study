@@ -1,3 +1,8 @@
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
+import type {
+  selectionReferenceSchema,
+  selectionRangeSchema
+} from '@study/contracts/conversations/context';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Registers durable conversation workflows and handlers for processing conversation  │
@@ -12,7 +17,6 @@
  * │ performed by guarded activities.                                                         │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
 import { runPreferencesSchema } from '@study/contracts/conversations/context';
 import {
   publishReplyInputSchema,
@@ -29,8 +33,7 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { versionIdSchema } from '@study/contracts/ids';
-import type { DocumentId, SourceId, MaterialVersionId } from '@study/contracts/ids';
-import type { DocumentTextRange } from '@study/contracts/sources/document';
+import type { ContentSnapshotId, SourceId, MaterialVersionId } from '@study/contracts/ids';
 import { Effect, Result, Schema } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 
@@ -123,16 +126,16 @@ export const conversationReplyHandler = ({
           const seen = new Set<string>();
 
           for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
-            const key = `${attachment.sourceId}:${attachment.documentId}`;
+            const key = `${attachment.sourceId}:${attachment.revision}:${attachment.snapshotId}`;
 
             if (seen.has(key)) continue;
 
             seen.add(key);
             const { document } = yield* sources
-              .document({
-                id: attachment.documentId,
+              .extraction({
                 sourceId: attachment.sourceId,
-                projectId: attachment.projectId
+                revision: attachment.revision,
+                snapshotId: attachment.snapshotId
               })
               .pipe(
                 Effect.mapError((error) =>
@@ -147,7 +150,16 @@ export const conversationReplyHandler = ({
             catalog.addDocument({
               key,
               name: attachment.sourceName,
-              reference: { sourceId: attachment.sourceId, documentId: attachment.documentId },
+              reference: {
+                input: {
+                  kind: 'source',
+                  sourceId: attachment.sourceId,
+                  revision: attachment.revision,
+                  snapshotId: attachment.snapshotId
+                },
+                sourceId: attachment.sourceId,
+                documentId: attachment.snapshotId
+              },
               blocks: document.blocks
             });
           }
@@ -375,28 +387,26 @@ export const conversationAttachmentWakeRegistration = defineWorkflowHandler(
 function selectionCatalog(snapshot: typeof replySnapshotSchema.Type) {
   const catalog = createEvidenceCatalog<{
     sourceId: SourceId | null;
-    materialVersionId?: MaterialVersionId;
-    selectedRange?: DocumentTextRange;
-    documentId: DocumentId;
+    input: typeof selectionReferenceSchema.Type;
+    selectedRange?: typeof selectionRangeSchema.Type;
+    documentId: ContentSnapshotId;
   }>([]);
 
   for (const input of snapshot.context?.inputs ?? [])
     for (const [index, excerpt] of input.excerpts.entries())
       catalog.addDocument({
-        key: `selection:${input.versionId}:${index}`,
+        key: `selection:${selectionReferenceKey(input.input)}:${index}`,
         name: input.name,
         quoteLimit: 100000,
         reference: {
-          sourceId: null,
-          materialVersionId: input.versionId,
+          sourceId: input.input.kind === 'source' ? input.input.sourceId : null,
+          input: input.input,
           selectedRange: {
-            versionId: input.versionId,
-            documentId: input.documentId,
             blockId: excerpt.blockId,
             start: excerpt.start,
             end: excerpt.end
           },
-          documentId: input.documentId
+          documentId: input.snapshotId
         },
         blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
       });

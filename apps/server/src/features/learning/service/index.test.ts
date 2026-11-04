@@ -15,6 +15,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
 import { projectIdSchema } from '@study/contracts/ids';
@@ -25,6 +26,7 @@ import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option, Schema } from 'effect';
 
+import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -57,7 +59,11 @@ testStable('missing attempts are optional or typed failures', async () => {
       }).pipe(
         Effect.provide(
           Learning.layer
-            .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+            .pipe(
+              Layer.provideMerge(Settings.layer),
+              Layer.provideMerge(Materials.layer),
+              Layer.provideMerge(Documents.layer)
+            )
             .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
@@ -376,7 +382,11 @@ testStable(
         }).pipe(
           Effect.provide(
             Learning.layer
-              .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+              .pipe(
+                Layer.provideMerge(Settings.layer),
+                Layer.provideMerge(Materials.layer),
+                Layer.provideMerge(Documents.layer)
+              )
               .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
           )
         )
@@ -484,7 +494,11 @@ testStable('daily allowance limits new cards and review schedules persist', asyn
       }).pipe(
         Effect.provide(
           Learning.layer
-            .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+            .pipe(
+              Layer.provideMerge(Settings.layer),
+              Layer.provideMerge(Materials.layer),
+              Layer.provideMerge(Documents.layer)
+            )
             .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )
@@ -511,11 +525,13 @@ testStable('practice starts idempotently with two captured pending slots', async
       Effect.gen(function* () {
         const learning = yield* Learning;
         const materials = yield* Materials;
-        const doc = yield* materials.create({
+        const doc = yield* (yield* Documents).create({
+          createKey: randomUUID(),
+          inputs: [],
+          citations: [],
           projectId: project.id,
           title: 'Document',
-          content: {
-            kind: 'document',
+          document: {
             blocks: [plainBlock('paragraph', 'Study', { type: 'authored' })],
             meta: {
               extractor: null,
@@ -532,11 +548,11 @@ testStable('practice starts idempotently with two captured pending slots', async
         });
         const first = yield* learning.startPractice({
           projectId: project.id,
-          inputVersionIds: [doc.version.id]
+          inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
         const second = yield* learning.startPractice({
           projectId: project.id,
-          inputVersionIds: [doc.version.id]
+          inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
 
         assert.equal(first.epoch, second.epoch);
@@ -583,7 +599,7 @@ testStable('practice starts idempotently with two captured pending slots', async
                 projectId: project.id,
                 title: 'Question',
                 kind: 'quiz',
-                inputVersionIds: [doc.version.id],
+                inputs: [{ kind: 'document', versionId: doc.version!.id }],
                 scopeId: first.epoch!,
                 questionSpec: { count: 1, kind: 'choice' }
               }
@@ -593,7 +609,7 @@ testStable('practice starts idempotently with two captured pending slots', async
         );
         const restarted = yield* learning.startPractice({
           projectId: project.id,
-          inputVersionIds: [doc.version.id]
+          inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
 
         assert.notEqual(restarted.epoch, first.epoch);
@@ -601,7 +617,11 @@ testStable('practice starts idempotently with two captured pending slots', async
       }).pipe(
         Effect.provide(
           Learning.layer
-            .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+            .pipe(
+              Layer.provideMerge(Settings.layer),
+              Layer.provideMerge(Materials.layer),
+              Layer.provideMerge(Documents.layer)
+            )
             .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
       )

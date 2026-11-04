@@ -1,11 +1,6 @@
 import { Schema } from 'effect';
 
-import {
-  projectIdSchema,
-  sourceIdSchema,
-  documentIdSchema,
-  materialVersionIdSchema
-} from '../ids.ts';
+import { projectIdSchema, sourceIdSchema, contentSnapshotIdSchema } from '../ids.ts';
 import { sourceKinds } from './sniff.ts';
 
 export const sourceSchema = Schema.Struct({
@@ -243,10 +238,11 @@ export const documentSchema = Schema.Struct({
   meta: documentMetaSchema
 });
 
-export const documentTextRangeSchema = Schema.Struct({
-  versionId: materialVersionIdSchema,
-  documentId: documentIdSchema,
-  blockId: blockIdSchema,
-  start: natural,
-  end: natural
-}).check(Schema.makeFilter((range) => range.end >= range.start));
+export const documentBlockDifferenceSchema = Schema.Struct({
+  kind: Schema.Literals(['inserted', 'removed', 'changed', 'moved']),
+  blockId: blockSchema.fields.id,
+  beforeOrdinal: Schema.NullOr(Schema.Int),
+  afterOrdinal: Schema.NullOr(Schema.Int),
+  before: Schema.NullOr(blockSchema),
+  after: Schema.NullOr(blockSchema)
+});

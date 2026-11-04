@@ -106,60 +106,11 @@ function makeHistory(resources: StoreResources) {
       .slice(0, input.policy.keepLatest)
       .map((v) => v.id);
 
-    const proposalReceipts = db.orm.select().from(s.document_proposal_receipts).all();
-
-    const proposals = db.orm
-      .select()
-      .from(s.document_proposals)
-      .all()
-      .filter(
-        (p) =>
-          !proposalReceipts.some(
-            (r) => r.request_id === p.request_id && r.result_version_id !== null
-          )
-      );
-
-    const proposalInputs = db.orm
-      .select()
-      .from(s.material_generation_inputs)
-      .where(
-        inArray(
-          s.material_generation_inputs.request_id,
-          proposals.map((p) => p.request_id)
-        )
-      )
-      .all();
-
-    const snapshots = db.orm.select().from(s.material_source_snapshots).all();
-
-    const processing = db.orm.select().from(s.source_processing).all();
-
     const protectedVersions: (typeof h.historyPreviewSchema.Type)['protected'][number][] = [];
-
-    const eligible = retained.filter((v) => {
-      const pin = snapshots.find((p) => p.version_id === v.id);
-
+    const eligible = retained.filter((version) => {
       const reason =
-        v.status === 'draft'
-          ? 'draft'
-          : latest.includes(v.id)
-            ? 'keep_latest'
-            : proposals.some((p) => p.base_version_id === v.id || p.proposed_version_id === v.id) ||
-                proposalInputs.some((i) => i.version_id === v.id)
-              ? 'proposal'
-              : pin &&
-                  (v.operation === 'original' ||
-                    processing.some(
-                      (p) =>
-                        p.source_id === pin.source_id &&
-                        p.document_id === pin.document_id &&
-                        pin.document_id !== null
-                    ))
-                ? 'source_root'
-                : null;
-
-      if (reason !== null) protectedVersions.push({ versionId: v.id, reason });
-
+        version.status === 'draft' ? 'draft' : latest.includes(version.id) ? 'keep_latest' : null;
+      if (reason !== null) protectedVersions.push({ versionId: version.id, reason });
       return reason === null;
     });
 
@@ -169,36 +120,16 @@ function makeHistory(resources: StoreResources) {
       .slice(0, 100)
       .map((v) => v.id);
 
-    const references: (typeof h.historyPreviewSchema.Type)['references'][number][] = db.orm
+    const references = db.orm
       .select()
-      .from(s.material_version_inputs)
-      .where(inArray(s.material_version_inputs.input_version_id, candidateIds))
+      .from(s.material_version_parents)
+      .where(inArray(s.material_version_parents.parent_version_id, candidateIds))
       .all()
-      .map((r) => ({
-        versionId: r.input_version_id,
-        dependentVersionId: r.version_id,
-        relationship: 'input' as const
+      .map((row) => ({
+        versionId: row.parent_version_id,
+        dependentVersionId: row.version_id,
+        relationship: 'parent' as const
       }));
-
-    references.push(
-      ...db.orm
-        .select()
-        .from(s.material_version_parents)
-        .where(inArray(s.material_version_parents.parent_version_id, candidateIds))
-        .all()
-        .map((r) => ({
-          versionId: r.parent_version_id,
-          dependentVersionId: r.version_id,
-          relationship: 'parent' as const
-        }))
-    );
-
-    const generation = db.orm
-      .select()
-      .from(s.material_generation_inputs)
-      .where(inArray(s.material_generation_inputs.version_id, candidateIds))
-      .all();
-
     const outputs = versions
       .filter((v) => candidateIds.includes(v.id) && v.generation_request_id !== null)
       .map((v) => v.generation_request_id!);
@@ -206,49 +137,15 @@ function makeHistory(resources: StoreResources) {
     const requests = db.orm
       .select()
       .from(s.material_generation_requests)
-      .where(
-        inArray(s.material_generation_requests.id, [
-          ...generation.map((r) => r.request_id),
-          ...outputs
-        ])
-      )
+      .where(inArray(s.material_generation_requests.id, outputs))
       .all();
 
     const publications = historyPublications(db, candidateIds);
 
-    const annotationRevisions = db.orm
-      .select()
-      .from(s.material_annotation_revisions)
-      .where(inArray(s.material_annotation_revisions.version_id, candidateIds))
-      .all();
-
-    const assessments = db.orm
-      .select()
-      .from(s.material_citation_assessments)
-      .where(
-        or(
-          inArray(s.material_citation_assessments.claim_version_id, candidateIds),
-          inArray(s.material_citation_assessments.evidence_version_id, candidateIds)
-        )
-      )
-      .all();
-
-    const edits = db.orm
-      .select()
-      .from(s.document_edit_receipts)
-      .where(
-        or(
-          inArray(s.document_edit_receipts.expected_version_id, candidateIds),
-          inArray(s.document_edit_receipts.current_version_id, candidateIds),
-          inArray(s.document_edit_receipts.submitted_version_id, candidateIds)
-        )
-      )
-      .all();
-
     const citations = db.orm
       .select()
-      .from(s.material_version_citations)
-      .where(inArray(s.material_version_citations.version_id, candidateIds))
+      .from(s.material_evidence_citations)
+      .where(inArray(s.material_evidence_citations.version_id, candidateIds))
       .all();
 
     const bodies = candidateIds.map((id) => reads.readVersion(id));
@@ -261,19 +158,9 @@ function makeHistory(resources: StoreResources) {
       hasMore: eligible.length > 100,
       protected: protectedVersions,
       references,
-      privateRequestIds: [
-        ...new Set([
-          ...generation.map((r) => r.request_id),
-          ...outputs,
-          ...publications.map((e) => e.correlationId)
-        ])
-      ],
-      retainedMessageCitationCount: 0,
-      sourceRevisions: [],
+      privateRequestIds: [...new Set([...outputs, ...publications.map((e) => e.correlationId)])],
       removedBodyBytes,
-      byteSemantics: 'logical_body_columns_and_source_blobs' as const,
-      missingEvidence: 'exact_pruned_versions' as const,
-      retainedCopies: 'other_versions_and_published_messages' as const
+      byteSemantics: 'learning_body_columns' as const
     };
 
     return {
@@ -281,18 +168,9 @@ function makeHistory(resources: StoreResources) {
       token: historyHash({
         value,
         versions,
-        proposals,
-        proposalInputs,
-        proposalReceipts,
-        snapshots,
-        processing,
-        generation,
         bodies,
         requests,
         publications,
-        annotationRevisions,
-        assessments,
-        edits,
         citations
       })
     };
@@ -301,38 +179,7 @@ function makeHistory(resources: StoreResources) {
   function scrub(operationId: string) {
     const ids = status(operationId).candidateIds;
 
-    db.orm
-      .delete(s.material_citation_assessments)
-      .where(
-        or(
-          inArray(s.material_citation_assessments.claim_version_id, [...ids]),
-          inArray(s.material_citation_assessments.evidence_version_id, [...ids])
-        )
-      )
-      .run();
-
-    db.orm
-      .delete(s.material_annotation_revisions)
-      .where(inArray(s.material_annotation_revisions.version_id, [...ids]))
-      .run();
-
-    db.orm
-      .delete(s.document_edit_receipts)
-      .where(
-        or(
-          inArray(s.document_edit_receipts.expected_version_id, [...ids]),
-          inArray(s.document_edit_receipts.current_version_id, [...ids]),
-          inArray(s.document_edit_receipts.submitted_version_id, [...ids])
-        )
-      )
-      .run();
-
     for (const id of ids) {
-      db.orm
-        .delete(s.material_version_citations)
-        .where(eq(s.material_version_citations.version_id, id))
-        .run();
-
       removeContent(id);
 
       db.orm
@@ -425,7 +272,7 @@ export const MaterialHistoryStore = defineStore({
           input: Schema.Struct({
             ...h.historyOperationKeySchema.fields,
             requestIds: Schema.Array(Schema.String),
-            kind: Schema.Literals(['generation', 'context', 'learning', 'publication', 'source'])
+            kind: Schema.Literals(['generation', 'learning', 'publication'])
           }),
           output: Schema.Void,
           run: ({ operationId, requestIds, kind }) => {

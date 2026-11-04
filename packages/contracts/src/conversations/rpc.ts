@@ -4,6 +4,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 import { failureSchema } from '../errors.ts';
 import {
   materialVersionIdSchema,
+  studyDocumentVersionIdSchema,
   messageIdSchema,
   partIdSchema,
   projectIdSchema,
@@ -50,9 +51,9 @@ export const sessionGenerationSchema = Schema.Struct({
   contextRequestId: Schema.NullOr(Schema.String),
   state: Schema.Literals(['available', 'retired', 'unavailable']),
   cancelled: Schema.Boolean,
-  resultVersionId: Schema.NullOr(materialVersionIdSchema),
-  proposedVersionId: Schema.NullOr(materialVersionIdSchema),
-  baseVersionId: Schema.NullOr(materialVersionIdSchema)
+  resultVersionId: Schema.NullOr(studyDocumentVersionIdSchema),
+  proposedVersionId: Schema.NullOr(studyDocumentVersionIdSchema),
+  baseVersionId: Schema.NullOr(studyDocumentVersionIdSchema)
 });
 
 const sessionGenerationPageSchema = Schema.Struct({

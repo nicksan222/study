@@ -14,7 +14,8 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type {
-  DocumentId,
+  ContentSnapshotId,
+  StudyDocumentId,
   ProjectId,
   SourceId,
   ChunkId,
@@ -37,10 +38,11 @@ type SearchTarget =
   | {
       type: 'passage';
       id: ChunkId;
-      documentId: DocumentId;
+      documentId: ContentSnapshotId;
       sourceId: SourceId;
       anchor: typeof anchorSchema.Type;
     }
+  | { type: 'document'; id: StudyDocumentId }
   | { type: 'material'; id: MaterialTarget['materialId'] }
   | { type: 'question'; id: QuestionTarget['questionId'] };
 
@@ -76,6 +78,7 @@ export function makeSearch({ db }: StoreResources) {
       'passage',
       'message',
       'material',
+      'document',
       'question'
     ];
     const project = options.projectId ?? null;
@@ -85,6 +88,7 @@ export function makeSearch({ db }: StoreResources) {
     searchMessages(expression, kinds, project, limit, hits);
     searchCatalog(expression, kinds, project, limit, hits);
     searchNames(query, kinds, project, limit, hits);
+    searchDocuments(tokens, kinds, project, limit, hits);
 
     return hits.sort((a, b) => a.rank - b.rank).slice(0, limit);
   }
@@ -98,7 +102,7 @@ export function makeSearch({ db }: StoreResources) {
   ) {
     if (kinds.includes('passage')) {
       const rows = db.orm.all(
-        sql`SELECT c.id,c.document_id,c.anchor,c.text,d.source_id,s.project_id,bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c ON c.id=chunks_fts.rowid JOIN documents d ON d.id=c.document_id JOIN sources s ON s.id=d.source_id WHERE chunks_fts MATCH ${expression} AND NOT EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members dm ON dm.material_id=i.material_id WHERE i.source_id=s.id) AND d.id=(SELECT published.document_id FROM source_processing published WHERE published.source_id=d.source_id) AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
+        sql`SELECT c.id,c.document_id,c.anchor,c.text,d.source_id,s.project_id,bm25(chunks_fts) AS rank FROM chunks_fts JOIN chunks c ON c.id=chunks_fts.rowid JOIN content_snapshots d ON d.id=c.document_id JOIN sources s ON s.id=d.source_id WHERE chunks_fts MATCH ${expression} AND d.id=(SELECT published.document_id FROM source_processing published WHERE published.source_id=d.source_id) AND (${project} IS NULL OR s.project_id=${project}) ORDER BY rank LIMIT ${limit}`
       );
 
       for (const r of rows)
@@ -106,7 +110,7 @@ export function makeSearch({ db }: StoreResources) {
           target: {
             type: 'passage',
             id: r.id as ChunkId,
-            documentId: r.document_id as DocumentId,
+            documentId: r.document_id as ContentSnapshotId,
             sourceId: r.source_id as SourceId,
             anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(r.anchor as string))
           },
@@ -158,7 +162,7 @@ export function makeSearch({ db }: StoreResources) {
         sql`SELECT kind,target_id,project_id,text,bm25(catalog_fts) AS rank FROM catalog_fts WHERE catalog_fts MATCH ${expression} AND kind IN (${sql.join(
           catalog.map((kind) => sql`${kind}`),
           sql`, `
-        )}) AND (kind NOT IN ('material','question') OR EXISTS(SELECT 1 FROM materials m WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND EXISTS(SELECT 1 FROM material_versions v WHERE v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id=m.id AND latest.status='published') AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND (catalog_fts.kind='material' AND m.id=CAST(target_id AS INTEGER) OR catalog_fts.kind='question' AND EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=v.id AND q.id=CAST(target_id AS INTEGER)))))) AND NOT (kind='source' AND EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members dm ON dm.material_id=i.material_id WHERE i.source_id=CAST(target_id AS INTEGER))) AND (${project} IS NULL OR
+        )}) AND (kind NOT IN ('material','question') OR EXISTS(SELECT 1 FROM materials m WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND EXISTS(SELECT 1 FROM material_versions v WHERE v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id=m.id AND latest.status='published') AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND (catalog_fts.kind='material' AND m.id=CAST(target_id AS INTEGER) OR catalog_fts.kind='question' AND EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=v.id AND q.id=CAST(target_id AS INTEGER)))))) AND (${project} IS NULL OR
  (kind='material' AND EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='question' AND EXISTS(SELECT 1 FROM project_materials pm JOIN material_versions v ON v.material_id=pm.material_id JOIN material_quiz_questions q ON q.version_id=v.id WHERE q.id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='session' AND EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=CAST(target_id AS INTEGER) AND ps.project_id=${project})) OR
@@ -183,6 +187,37 @@ export function makeSearch({ db }: StoreResources) {
         });
       }
     }
+  }
+
+  function searchDocuments(
+    tokens: string[],
+    kinds: readonly SearchKind[],
+    project: ProjectId | null,
+    limit: number,
+    hits: SearchHit[]
+  ) {
+    if (!kinds.includes('document')) return;
+    const body = sql`coalesce((SELECT group_concat(b.text,char(10)) FROM blocks b WHERE b.document_id=v.content_snapshot_id),'')`;
+    const searchable = sql`d.title || char(10) || coalesce(d.description,'') || char(10) || ${body}`;
+    const rows = db.orm.all(sql`SELECT d.id,substr(${searchable},1,400) AS text
+      FROM study_documents d JOIN study_document_versions v ON v.document_id=d.id
+      AND v.status='published' AND v.number=(SELECT max(h.number) FROM study_document_versions h
+        WHERE h.document_id=d.id AND h.status='published')
+      WHERE d.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM study_document_deletions x WHERE x.document_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM study_document_retirements x WHERE x.version_id=v.id)
+      AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_documents p WHERE p.document_id=d.id AND p.project_id=${project}))
+      AND ${sql.join(
+        tokens.map((token) => sql`instr(lower(${searchable}),lower(${token}))>0`),
+        sql` AND `
+      )}
+      ORDER BY d.updated_at DESC,d.id DESC LIMIT ${limit}`);
+    for (const row of rows)
+      hits.push({
+        target: { type: 'document', id: row.id as StudyDocumentId },
+        projectId: project,
+        text: row.text as string,
+        rank: 0
+      });
   }
 
   function searchNames(
@@ -234,7 +269,7 @@ export function makeSearch({ db }: StoreResources) {
       .select({ id: table.id, projectId: scope, text: label })
       .from(table)
       .where(
-        sql`${kind === 'source' ? sql`NOT EXISTS(SELECT 1 FROM material_imports i JOIN material_deletion_members dm ON dm.material_id=i.material_id WHERE i.source_id=${schema.sources.id})` : sql`1`} AND ${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
+        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
       )
       .limit(limit)
       .all();

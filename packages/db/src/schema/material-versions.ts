@@ -13,6 +13,7 @@ import {
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { materialKinds, materialOperations } from '../material-kinds.ts';
+import { libraryContentColumns } from './column-types.ts';
 
 /** Durable library content; collection and session membership never own it. */
 export const materials = sqliteTable(
@@ -20,13 +21,7 @@ export const materials = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MaterialId>(),
     kind: text({ enum: materialKinds }).notNull(),
-    title: text().notNull(),
-    description: text(),
-    create_key: text(),
-    creation_intent: text(),
-    created_at: integer().$type<bigint>().notNull(),
-    updated_at: integer().$type<bigint>().notNull(),
-    archived_at: integer().$type<bigint>()
+    ...libraryContentColumns()
   },
   (t) => [
     uniqueIndex('materials_id_kind_unique').on(t.id, t.kind),
@@ -39,10 +34,7 @@ export const materials = sqliteTable(
       'materials_creation_intent_check',
       sql`(${t.create_key} IS NULL AND ${t.creation_intent} IS NULL) OR (length(${t.create_key}) BETWEEN 1 AND 200 AND json_valid(${t.creation_intent}))`
     ),
-    check(
-      'materials_kind_check',
-      sql`kind IN ('file','audio','video','image','link','document','diagram','quiz','flashcards')`
-    ),
+    check('materials_kind_check', sql`kind IN ('diagram','quiz','flashcards')`),
     check('materials_title_check', sql`length(trim(title)) BETWEEN 1 AND 200`),
     check(
       'materials_times_check',
@@ -63,7 +55,7 @@ export const material_versions = sqliteTable(
       .notNull()
       .default('draft'),
     operation: text({ enum: materialOperations }).notNull().default('original'),
-    creator: text({ enum: ['user', 'agent', 'import'] })
+    creator: text({ enum: ['user', 'agent'] })
       .notNull()
       .default('user'),
     instruction: text(),
@@ -93,11 +85,8 @@ export const material_versions = sqliteTable(
       'material_versions_status_check',
       sql`status IN ('draft','published') AND ((status = 'published') = (published_at IS NOT NULL))`
     ),
-    check(
-      'material_versions_operation_check',
-      sql`operation IN ('original','edit','summarize','translate','generate','extract','transcribe')`
-    ),
-    check('material_versions_creator_check', sql`creator IN ('user','agent','import')`),
+    check('material_versions_operation_check', sql`operation IN ('original','edit','generate')`),
+    check('material_versions_creator_check', sql`creator IN ('user','agent')`),
     check(
       'material_versions_language_check',
       sql`language IS NULL OR length(trim(language)) BETWEEN 1 AND 64`
@@ -136,34 +125,12 @@ export const material_version_parents = sqliteTable(
   ]
 );
 
-export const material_version_inputs = sqliteTable(
-  'material_version_inputs',
-  {
-    version_id: integer().$type<MaterialVersionId>().notNull(),
-    input_version_id: integer().$type<MaterialVersionId>().notNull()
-  },
-  (t) => [
-    primaryKey({ columns: [t.version_id, t.input_version_id] }),
-    foreignKey({
-      columns: [t.version_id],
-      foreignColumns: [material_versions.id]
-    }).onDelete('cascade'),
-    foreignKey({
-      columns: [t.input_version_id],
-      foreignColumns: [material_versions.id]
-    }).onDelete('cascade'),
-    index('material_version_inputs_input_idx').on(t.input_version_id, t.version_id),
-    check('material_version_inputs_distinct_check', sql`version_id != input_version_id`)
-  ]
-);
-
 export const material_generation_requests = sqliteTable(
   'material_generation_requests',
   {
     id: text().primaryKey(),
     project_id: integer().$type<ProjectId>(),
     cancelled: integer({ mode: 'boolean' }).notNull().default(false),
-    result_metadata: text(),
     payload: text().notNull(),
     result_version_id: integer().$type<MaterialVersionId>(),
     result_hash: text(),
@@ -180,27 +147,5 @@ export const material_generation_requests = sqliteTable(
       columns: [t.result_version_id],
       foreignColumns: [material_versions.id]
     }).onDelete('no action')
-  ]
-);
-
-export const material_generation_inputs = sqliteTable(
-  'material_generation_inputs',
-  {
-    request_id: text().notNull(),
-    version_id: integer().$type<MaterialVersionId>().notNull(),
-    position: integer().$type<bigint>().notNull()
-  },
-  (t) => [
-    primaryKey({ columns: [t.request_id, t.version_id] }),
-    uniqueIndex('material_generation_inputs_position_unique').on(t.request_id, t.position),
-    foreignKey({
-      columns: [t.request_id],
-      foreignColumns: [material_generation_requests.id]
-    }).onDelete('cascade'),
-    foreignKey({
-      columns: [t.version_id],
-      foreignColumns: [material_versions.id]
-    }).onDelete('no action'),
-    check('material_generation_inputs_position_check', sql`${t.position} >= 0`)
   ]
 );

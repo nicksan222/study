@@ -14,6 +14,7 @@
 import { createServer } from 'node:http';
 
 import type { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
+import type { documentGenerationRequestedSchema } from '@study/contracts/events';
 import type { materialGenerationRequestedSchema } from '@study/contracts/events';
 import type { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
 import * as s from '@study/db/schema';
@@ -23,13 +24,17 @@ import { WorkflowEngine } from 'effect/workflow';
 
 import { Conversations } from '#server/features/conversations/index';
 import { conversationReplyWorkflow } from '#server/features/conversations/workflows/index';
+import { Documents } from '#server/features/documents/index';
+import {
+  documentTransformWorkflow,
+  documentTransformHandler
+} from '#server/features/documents/workflows/transform';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import {
   materialGenerationWorkflow,
   materialGenerationHandler
 } from '#server/features/materials/workflows/generation';
-import { sourceIndexedWorkflow } from '#server/features/materials/workflows/index';
 import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/index';
 import { recordingPostWorkflow } from '#server/features/recordings/workflows/index';
@@ -107,7 +112,7 @@ export async function documentTransformFixture() {
   }
 
   try {
-    const location = createTestDatabase();
+    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
 
     cleanups.push(() => location.cleanup());
     const openContext = () => {
@@ -186,7 +191,8 @@ export async function documentTransformFixture() {
     const domain = () =>
       Layer.mergeAll(
         Materials.layer,
-        Materials.deletionParticipantsLayer({ Conversations, Learning, Sources, Recordings }),
+        Documents.layer,
+        Materials.deletionParticipantsLayer({ Learning }),
         Projects.layer,
         Conversations.layer,
         Settings.layer,
@@ -204,11 +210,11 @@ export async function documentTransformFixture() {
               context,
               [
                 materialGenerationWorkflow,
+                documentTransformWorkflow,
                 recordingPostWorkflow,
                 conversationReplyWorkflow,
                 sourceIngestionWorkflow,
-                sourceCorrectionWorkflow,
-                sourceIndexedWorkflow
+                sourceCorrectionWorkflow
               ],
               input
             ).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine))
@@ -248,6 +254,20 @@ export async function documentTransformFixture() {
         context = openContext();
         contextOpen = true;
       },
+      authoredEvent(requestId: string): typeof documentGenerationRequestedSchema.Type {
+        const event = context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .all()
+          .filter((row) => row.payload !== '{}')
+          .map((row) => decodeEvent(row.payload))
+          .findLast(
+            (event) => event.type === 'DocumentGenerationRequested' && event.requestId === requestId
+          );
+        if (event?.type !== 'DocumentGenerationRequested')
+          throw new Error('Missing authored request event');
+        return event;
+      },
       event(requestId: string): typeof materialGenerationRequestedSchema.Type {
         const event = context.db.orm
           .select()
@@ -271,6 +291,20 @@ export async function documentTransformFixture() {
               yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
               return yield* engine.execute(materialGenerationWorkflow, {
+                executionId,
+                payload: { event }
+              });
+            }).pipe(Effect.provide(services()))
+          )
+        );
+      },
+      executeAuthored(event: typeof documentGenerationRequestedSchema.Type, executionId: string) {
+        return Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const engine = yield* WorkflowEngine.WorkflowEngine;
+              yield* engine.register(documentTransformWorkflow, documentTransformHandler);
+              return yield* engine.execute(documentTransformWorkflow, {
                 executionId,
                 payload: { event }
               });

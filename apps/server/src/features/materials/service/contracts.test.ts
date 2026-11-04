@@ -19,29 +19,20 @@ import { materialContentDetailSchema } from '@study/contracts/materials/schemas'
 import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
-testStable('source-backed material content uses the canonical public source shape', () => {
-  const source = {
-    id: 1n,
-    name: 'source',
-    kind: 'text',
-    mime: 'text/plain',
-    origin: 'import',
-    projectId: 1n,
-    projectName: 'project',
-    sizeBytes: 3n,
-    sha256: new Uint8Array(32),
-    uri: null,
-    createdAt: 1n
-  };
-
-  const detail = Schema.decodeUnknownSync(materialContentDetailSchema)({
-    kind: 'file',
-    sourceId: 1n,
-    source,
-    extracted: null
-  });
-
-  assert.deepEqual(detail, { kind: 'file', sourceId: 1n, source, extracted: null });
+testStable('Materials rejects retired source and authored document kinds', () => {
+  for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
+    assert.equal(
+      Schema.is(materialContentDetailSchema)({ kind, sourceId: 1n, source: {}, extracted: null }),
+      false
+    );
+  assert.equal(
+    Schema.is(materialContentDetailSchema)({
+      kind: 'diagram',
+      format: 'mermaid',
+      payload: 'flowchart LR; A-->B'
+    }),
+    true
+  );
 });
 
 testStable('native materials RPC names cover the complete public API', async () => {
@@ -50,29 +41,7 @@ testStable('native materials RPC names cover the complete public API', async () 
   assert.deepEqual(
     [...MaterialsRpc.requests.keys()].sort(),
     [
-      'citationSupport',
-      'assessCitation',
-      'annotation',
-      'annotations',
-      'annotationHistory',
-      'resolveEvidence',
-      'dependencyStatus',
-      'createAnnotation',
-      'updateAnnotation',
-      'reanchorAnnotation',
-      'deleteAnnotation',
-      'applyDocumentProposal',
-      'compareDocument',
-      'compareDocumentProposal',
-      'createManualDocument',
-      'keepDocumentProposal',
-      'saveDocument',
-      'undoDocument',
-      'archive',
-      'attach',
-      'create',
-      'createVersion',
-      'deleteDraft',
+      'exportMaterialVersion',
       'previewHistoryPrune',
       'requestHistoryPrune',
       'historyPrune',
@@ -81,31 +50,28 @@ testStable('native materials RPC names cover the complete public API', async () 
       'requestDeletion',
       'deletion',
       'retryDeletion',
-      'detach',
-      'material',
-      'citations',
-      'dependents',
-      'inputs',
-      'importedMaterial',
-      'materialVersion',
-      'materialVersionDocument',
-      'materialVersionImage',
-      'materialVersionExport',
-      'exportMaterialVersion',
-      'materials',
-      'materialVersions',
-      'publishVersion',
-      'rename',
-      'updateDescription',
-      'reorder',
-      'replaceDraft',
-      'requestMaterialGeneration',
-      'requestDocumentTransform',
       'materialGeneration',
       'cancelMaterialGeneration',
       'retryMaterialGeneration',
-      'setCitations',
-      'unarchive'
+      'requestMaterialGeneration',
+      'archive',
+      'unarchive',
+      'create',
+      'createVersion',
+      'material',
+      'materialVersion',
+      'materials',
+      'materialVersions',
+      'citations',
+      'attach',
+      'detach',
+      'updateDescription',
+      'rename',
+      'reorder',
+      'replaceDraft',
+      'deleteDraft',
+      'publishVersion',
+      'setCitations'
     ]
       .map((name) => `materials.${name}`)
       .sort()

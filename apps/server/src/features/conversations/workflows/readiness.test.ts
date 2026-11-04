@@ -35,11 +35,14 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
+import { cancelExecution, WorkflowControl } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { workflowStore } from '#server/platform/workflows/store';
 import { dispatchPending } from '#server/platform/workflows/triggers';
 import { createUnregisteredSource } from '#testing/source';
 
+import { sessionDeletionWorkflow, sessionDeletionHandler } from './deletion.ts';
 import {
   conversationReplyHandler,
   conversationReplyWorkflow,
@@ -179,6 +182,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .select()
             .from(tables.workflowEvents)
             .all()
+            .filter((row) => row.payload !== '{}')
             .map((row) => decodeEvent(row.payload))
             .find((event) => event.type === 'SourceProcessingRequested');
 
@@ -192,6 +196,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .select()
             .from(tables.workflowEvents)
             .all()
+            .filter((row) => row.payload !== '{}')
             .map((row) => decodeEvent(row.payload))
             .find((event) => event.type === 'SourceIndexed');
 
@@ -264,6 +269,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .select()
             .from(tables.workflowEvents)
             .all()
+            .filter((row) => row.payload !== '{}')
             .map((item) => decodeEvent(item.payload))
             .find(
               (item) =>
@@ -280,6 +286,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .select()
             .from(tables.workflowEvents)
             .all()
+            .filter((row) => row.payload !== '{}')
             .map((item) => decodeEvent(item.payload))
             .find((item) => item.type === 'SourceIndexed' && item.sourceId === earlySource.id);
 
@@ -331,6 +338,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .select()
             .from(tables.workflowEvents)
             .all()
+            .filter((row) => row.payload !== '{}')
             .map((item) => decodeEvent(item.payload))
             .find(
               (item) =>
@@ -349,6 +357,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .select()
             .from(tables.workflowEvents)
             .all()
+            .filter((row) => row.payload !== '{}')
             .map((item) => decodeEvent(item.payload))
             .find(
               (item) => item.type === 'SourceProcessingFailed' && item.sourceId === failedSource.id
@@ -430,6 +439,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                 .select()
                 .from(tables.workflowEvents)
                 .all()
+                .filter((row) => row.payload !== '{}')
                 .map((item) => decodeEvent(item.payload))
                 .find(
                   (item) =>
@@ -489,8 +499,28 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
             assert.equal(nextResult.value._tag, 'Suspended');
 
-            if (['delete', 'later-pending', 'ready-reference'].includes(mode))
-              yield* sources.deleteSource({ id: nextSource.id });
+            if (['delete', 'later-pending', 'ready-reference'].includes(mode)) {
+              assert.equal(
+                (yield* Effect.flip(sources.deleteSource({ id: nextSource.id }))).kind,
+                'invalid_input'
+              );
+              assert.deepEqual(
+                yield* conversations.inspectReplySnapshot({ requestId: nextRequest.requestId }),
+                captured
+              );
+              yield* conversations.deleteSession(nextSession.id);
+              assert.equal(yield* sources.deleteSource({ id: nextSource.id }), true);
+              assert.equal(calls, 2);
+              assert.equal(
+                context.db.orm
+                  .select()
+                  .from(tables.conversation_reply_requests)
+                  .where(eq(tables.conversation_reply_requests.request_id, nextRequest.requestId))
+                  .get(),
+                undefined
+              );
+              return;
+            }
 
             yield* invalidateSource();
 
@@ -521,6 +551,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                   .select()
                   .from(tables.workflowEvents)
                   .all()
+                  .filter((row) => row.payload !== '{}')
                   .map((item) => decodeEvent(item.payload))
                   .find(
                     (item) =>
@@ -542,6 +573,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
               .select()
               .from(tables.workflowEvents)
               .all()
+              .filter((row) => row.payload !== '{}')
               .map((item) => decodeEvent(item.payload))
               .findLast(
                 (item) =>
@@ -615,144 +647,182 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
   }
 });
 
-testStable('a pending reply survives reopening and wakes on deletion', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
-  const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-  const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
-  const services = () => {
-    const database = Layer.succeed(Database, { store: context });
+testStable(
+  'a pending reply survives reopening and protects its source until raw session deletion',
+  async () => {
+    const location = createTestDatabase();
+    let context = new ServerContext(location.open());
+    const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
+    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+    const services = () => {
+      const database = Layer.succeed(Database, { store: context });
 
-    return Layer.mergeAll(
-      database,
-      Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provideMerge(database)),
-      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-      agentsLayer({
-        model: () => Effect.succeed(model),
-        language: 'en',
-        searchSources: () => Effect.succeed([])
-      }),
-      workflowEngineLayer(context)
-    );
-  };
+      const engine = workflowEngineLayer(context);
+      const control = Layer.effect(
+        WorkflowControl,
+        Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
+          cancel: (input: Parameters<typeof cancelExecution>[2]) =>
+            cancelExecution(context, [conversationReplyWorkflow], input).pipe(
+              Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
+            )
+        }))
+      ).pipe(Layer.provideMerge(engine));
+      return Layer.mergeAll(
+        database,
+        Layer.merge(Conversations.layer, Sources.layer).pipe(Layer.provideMerge(database)),
+        Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+        agentsLayer({
+          model: () => Effect.succeed(model),
+          language: 'en',
+          searchSources: () => Effect.succeed([])
+        }),
+        control
+      );
+    };
 
-  try {
-    const saved = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const conversations = yield* Conversations;
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+    try {
+      const saved = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const conversations = yield* Conversations;
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-          yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
-          const project = context.db.orm
-            .insert(tables.projects)
-            .values({ name: 'P', created_at: 1n, updated_at: 1n })
-            .returning()
-            .get();
-          const session = yield* conversations.createSession({
-            project: project.id,
-            title: 'Chat'
-          });
-          const source = yield* createUnregisteredSource({
-            projectId: project.id,
-            name: 'pending.txt',
-            bytes: new TextEncoder().encode('pending')
-          });
+            yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
+            const project = context.db.orm
+              .insert(tables.projects)
+              .values({ name: 'P', created_at: 1n, updated_at: 1n })
+              .returning()
+              .get();
+            const session = yield* conversations.createSession({
+              project: project.id,
+              title: 'Chat'
+            });
+            const source = yield* createUnregisteredSource({
+              projectId: project.id,
+              name: 'pending.txt',
+              bytes: new TextEncoder().encode('pending')
+            });
 
-          yield* conversations.postMessage({
-            sessionId: session.id,
-            text: 'Question',
-            sourceIds: [source.id]
-          });
-          const request = yield* conversations.requestReply({ sessionId: session.id });
+            yield* conversations.postMessage({
+              sessionId: session.id,
+              text: 'Question',
+              sourceIds: [source.id]
+            });
+            const request = yield* conversations.requestReply({ sessionId: session.id });
 
-          dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
-          const receipt = context.db.orm
-            .select()
-            .from(tables.workflowReceipts)
-            .where(eq(tables.workflowReceipts.subscription, 'conversation-reply'))
-            .get()!;
-          const event = decodeEvent(
-            context.db.orm
+            dispatchPending(context, conversationReplyRegistration.triggers, Date.now());
+            const receipt = context.db.orm
+              .select()
+              .from(tables.workflowReceipts)
+              .where(eq(tables.workflowReceipts.subscription, 'conversation-reply'))
+              .get()!;
+            const event = decodeEvent(
+              context.db.orm
+                .select()
+                .from(tables.workflowEvents)
+                .where(eq(tables.workflowEvents.eventId, receipt.eventId))
+                .get()!.payload
+            );
+
+            assertEventType(event, 'ConversationGenerationRequested', 'wrong event');
+
+            yield* engine.execute(conversationReplyWorkflow, {
+              executionId: receipt.executionId,
+              payload: { event },
+              discard: true
+            });
+            let result = yield* engine.poll(conversationReplyWorkflow, receipt.executionId);
+
+            while (Option.isNone(result)) {
+              yield* Effect.sleep('10 millis');
+              result = yield* engine.poll(conversationReplyWorkflow, receipt.executionId);
+            }
+
+            assert.equal(result.value._tag, 'Suspended');
+
+            return {
+              sessionId: session.id,
+              sourceId: source.id,
+              request,
+              event,
+              executionId: receipt.executionId
+            };
+          }).pipe(Effect.provide(services()))
+        )
+      );
+
+      context.close();
+      context = new ServerContext(location.open());
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const sources = yield* Sources;
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
+            yield* engine.register(
+              conversationAttachmentWakeWorkflow,
+              conversationAttachmentWakeHandler
+            );
+            assert.equal(
+              (yield* Effect.flip(sources.deleteSource({ id: saved.sourceId }))).kind,
+              'invalid_input'
+            );
+            const conversations = yield* Conversations;
+            assert.ok(
+              yield* conversations.inspectReplySnapshot({ requestId: saved.request.requestId })
+            );
+            yield* engine.register(sessionDeletionWorkflow, sessionDeletionHandler);
+            yield* conversations.deleteSession(saved.sessionId);
+            const cleanup = context.db.orm
               .select()
               .from(tables.workflowEvents)
-              .where(eq(tables.workflowEvents.eventId, receipt.eventId))
-              .get()!.payload
-          );
-
-          assertEventType(event, 'ConversationGenerationRequested', 'wrong event');
-
-          yield* engine.execute(conversationReplyWorkflow, {
-            executionId: receipt.executionId,
-            payload: { event },
-            discard: true
-          });
-          let result = yield* engine.poll(conversationReplyWorkflow, receipt.executionId);
-
-          while (Option.isNone(result)) {
-            yield* Effect.sleep('10 millis');
-            result = yield* engine.poll(conversationReplyWorkflow, receipt.executionId);
-          }
-
-          assert.equal(result.value._tag, 'Suspended');
-
-          return { sourceId: source.id, request, event, executionId: receipt.executionId };
-        }).pipe(Effect.provide(services()))
-      )
-    );
-
-    context.close();
-    context = new ServerContext(location.open());
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const sources = yield* Sources;
-          const engine = yield* WorkflowEngine.WorkflowEngine;
-
-          yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
-          yield* engine.register(
-            conversationAttachmentWakeWorkflow,
-            conversationAttachmentWakeHandler
-          );
-          yield* sources.deleteSource({ id: saved.sourceId });
-          const deleted = context.db.orm
-            .select()
-            .from(tables.workflowEvents)
-            .all()
-            .map((row) => decodeEvent(row.payload))
-            .find((event) => event.type === 'SourceDeleted' && event.sourceId === saved.sourceId);
-
-          assertEventType(deleted, 'SourceDeleted', 'missing deletion');
-
-          yield* engine.execute(conversationAttachmentWakeWorkflow, {
-            executionId: 'reopen-wake',
-            payload: { event: deleted }
-          });
-          const error = yield* Effect.flip(
-            engine.execute(conversationReplyWorkflow, {
-              executionId: saved.executionId,
-              payload: { event: saved.event }
-            })
-          );
-
-          assert.equal(error.kind, 'invalid_input');
-          assert.equal(
-            context.db.orm
+              .all()
+              .filter((row) => row.type === 'SessionDeletionRequested')
+              .map((row) => decodeEvent(row.payload))
+              .find(
+                (event) =>
+                  event.type === 'SessionDeletionRequested' && event.sessionId === saved.sessionId
+              );
+            assertEventType(cleanup, 'SessionDeletionRequested', 'missing cleanup event');
+            yield* engine.execute(sessionDeletionWorkflow, {
+              executionId: 'reopen-cleanup',
+              payload: { event: cleanup }
+            });
+            assert.equal(workflowStore(context).execution(saved.executionId)?.status, 'cancelled');
+            assert.equal(yield* sources.deleteSource({ id: saved.sourceId }), true);
+            const deleted = context.db.orm
               .select()
-              .from(tables.conversation_reply_requests)
-              .where(eq(tables.conversation_reply_requests.request_id, saved.request.requestId))
-              .get(),
-            undefined
-          );
-        }).pipe(Effect.provide(services()))
-      )
-    );
-  } finally {
-    await auth.dispose();
-    context.close();
-    location.cleanup();
+              .from(tables.workflowEvents)
+              .all()
+              .filter((row) => row.payload !== '{}')
+              .map((row) => decodeEvent(row.payload))
+              .find((event) => event.type === 'SourceDeleted' && event.sourceId === saved.sourceId);
+
+            assertEventType(deleted, 'SourceDeleted', 'missing deletion');
+
+            yield* engine.execute(conversationAttachmentWakeWorkflow, {
+              executionId: 'reopen-wake',
+              payload: { event: deleted }
+            });
+            assert.equal(
+              context.db.orm
+                .select()
+                .from(tables.conversation_reply_requests)
+                .where(eq(tables.conversation_reply_requests.request_id, saved.request.requestId))
+                .get(),
+              undefined
+            );
+          }).pipe(Effect.provide(services()))
+        )
+      );
+    } finally {
+      await auth.dispose();
+      context.close();
+      location.cleanup();
+    }
   }
-});
+);
 
 function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
   event: ReturnType<typeof decodeEvent> | undefined,

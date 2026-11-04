@@ -1,0 +1,51 @@
+/** Raw-session citation identity points at exact external content owners. */
+import type {
+  ContentSnapshotId,
+  StudyDocumentVersionId,
+  SourceId,
+  VersionId
+} from '@study/contracts/ids';
+import type { BlockId } from '@study/contracts/sources/document';
+import { sql } from 'drizzle-orm';
+import { sqliteTable, integer, text, primaryKey, index, check } from 'drizzle-orm/sqlite-core';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+
+import { content_snapshots } from './content-snapshots.ts';
+import { message_versions } from './conversations.ts';
+import { sources } from './sources.ts';
+import { study_document_versions } from './study-documents.ts';
+
+export const citations = sqliteTable(
+  'citations',
+  {
+    version_id: integer()
+      .$type<VersionId>()
+      .notNull()
+      .references((): AnySQLiteColumn => message_versions.id, {
+        onDelete: 'cascade'
+      }),
+    marker: integer().$type<bigint>().notNull(),
+    source_id: integer()
+      .$type<SourceId>()
+      .references((): AnySQLiteColumn => sources.id, { onDelete: 'set null' }),
+    authored_version_id: integer()
+      .$type<StudyDocumentVersionId>()
+      .references((): AnySQLiteColumn => study_document_versions.id, { onDelete: 'set null' }),
+    source_revision: integer().$type<bigint>(),
+    document_id: integer()
+      .$type<ContentSnapshotId>()
+      .references((): AnySQLiteColumn => content_snapshots.id, { onDelete: 'set null' }),
+    block_id: text().$type<BlockId>(),
+    range_start: integer().$type<bigint>(),
+    range_end: integer().$type<bigint>(),
+    source_name: text().notNull(),
+    anchor: text().notNull(),
+    quote: text().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.version_id, t.marker] }),
+    index('citations_source_idx').on(t.source_id),
+    check('citations_check_1', sql`marker BETWEEN 1 AND 4294967295`),
+    check('citations_check_2', sql`json_valid(anchor)`)
+  ]
+);

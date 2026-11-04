@@ -14,6 +14,8 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type { materialVersionsInputSchema } from '@study/contracts/materials/rpc';
+import { materialVersionSummarySchema } from '@study/contracts/materials/schemas';
+import { Schema } from 'effect';
 
 type Input = typeof materialVersionsInputSchema.Type;
 
@@ -55,13 +57,15 @@ export function makeListVersionsAction(resources: StoreResources) {
 
     return {
       items: page.map((v) =>
-        store.orm
-          .select()
-          .from(s.material_history_members)
-          .where(eq(s.material_history_members.version_id, v.id))
-          .get()
-          ? { ...v, instruction: null, language: null, availability: 'unavailable' as const }
-          : v
+        Schema.decodeUnknownSync(materialVersionSummarySchema)(
+          store.orm
+            .select()
+            .from(s.material_history_members)
+            .where(eq(s.material_history_members.version_id, v.id))
+            .get()
+            ? { ...v, instruction: null, language: null, availability: 'unavailable' as const }
+            : v
+        )
       ),
       nextCursor: rows.length > input.limit ? page.at(-1)!.id : null
     };

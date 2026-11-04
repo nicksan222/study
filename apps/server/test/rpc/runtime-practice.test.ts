@@ -16,6 +16,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
 import { StudyRpc } from '@study/contracts/rpc';
@@ -183,11 +184,13 @@ for (const mode of [
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const project = yield* client['projects.createProject']({ name: 'Practice' });
-            const document = yield* client['materials.create']({
+            const document = yield* client['documents.create']({
+              createKey: randomUUID(),
+              inputs: [],
+              citations: [],
               projectId: project.id,
               title: 'Evidence',
-              content: {
-                kind: 'document',
+              document: {
                 blocks: [plainBlock('paragraph', 'alpha evidence', { type: 'authored' })],
                 meta: {
                   extractor: null,
@@ -210,7 +213,7 @@ for (const mode of [
             });
             const initial = yield* client['learning.startPractice']({
               projectId: project.id,
-              inputVersionIds: [document.version.id]
+              inputs: [{ kind: 'document', versionId: document.version!.id }]
             });
 
             assert.equal(initial.slots.length, 2);
@@ -220,7 +223,7 @@ for (const mode of [
             );
 
             if (mode === 'archived-before-request')
-              yield* client['materials.archive']({ id: document.id });
+              yield* client['documents.archive']({ id: document.id, archived: true });
 
             yield* client['system.startWorkers']({});
             let ready = initial;
@@ -235,7 +238,7 @@ for (const mode of [
             }
 
             if (mode === 'archived-before-request')
-              yield* client['materials.unarchive']({ id: document.id });
+              yield* client['documents.archive']({ id: document.id, archived: false });
 
             yield* recoverFailedPractice();
 

@@ -1,10 +1,10 @@
-/* eslint-disable study/database-ownership -- Upgrade test uses the official migrator to seed the preceding schema. */
 import assert from 'node:assert/strict';
 import { cpSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
+/* eslint-disable study/database-ownership -- Upgrade test uses the official migrator to seed the preceding schema. */
 import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
@@ -14,19 +14,19 @@ import type { Db } from '../src/index.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
-    INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'document','Input',1,1),(2,'diagram','Requested',1,1);
-    INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'document',1,1),(3,1,'document',2,1);
-    INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,1,'{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','Evidence','marks',json_array()))));
-    INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 2,extractor_version,meta,created_at FROM documents WHERE id=1;
-    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) SELECT 2,ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1;
-    INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1),(3,2);
-    UPDATE material_versions SET status='published',published_at=2 WHERE id IN(1,3);
-    INSERT OR IGNORE INTO project_materials(project_id,material_id) SELECT 1,id FROM materials;
-    INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1"]}',1);
-    INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('request',1,0);
-    INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'diagram',1,'agent','generate',1);
-    INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
+ INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(1,'Input',1,1);
+ INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(1,1,'{}',1),(2,1,'{}',1);
+ INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content)
+ SELECT id,0,'paragraph','Evidence','{"type":"authored"}','input-'||id,'{"type":"paragraph","inlines":[{"type":"text","text":"Evidence","marks":[]}]}' FROM content_snapshots;
+ INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1),(3,1,2,2,1);
+ UPDATE study_document_versions SET status='published',published_at=2;
+ INSERT INTO project_documents(project_id,document_id) VALUES(1,1);
+ INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(2,'diagram','Requested',1,1);
+ INSERT INTO project_materials(project_id,material_id) VALUES(1,2);
+ INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"document","versionId":"1"}]}',1);
+ INSERT INTO material_evidence_inputs(request_id,position,document_version_id) VALUES('request',0,1);
+ INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'diagram',1,'agent','generate',1);
+ INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
 
 const historicalSeed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
     INSERT INTO materials(id,project_id,kind,title,created_at,updated_at) VALUES(1,1,'document','Input',1,1),(2,1,'diagram','Requested',1,1);
@@ -43,7 +43,7 @@ const historicalSeed = `INSERT INTO projects(id,name,created_at,updated_at) VALU
     INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
 
 function fixture(scoped = false) {
-  const location = createTestDatabase();
+  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
   const db = location.open();
 
   db.exec(
@@ -54,8 +54,8 @@ function fixture(scoped = false) {
             "INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1); INSERT INTO materials"
           )
           .replace(
-            '"title":"Requested","kind":"diagram","inputVersionIds"',
-            '"title":"Requested","kind":"diagram","scopeId":"scope","inputVersionIds"'
+            '"title":"Requested","kind":"diagram","inputs"',
+            '"title":"Requested","kind":"diagram","scopeId":"scope","inputs"'
           )
       : seed
   );
@@ -93,14 +93,14 @@ testStable('captured generation intent and ordered inputs cannot be rewritten or
       )
     );
     assert.throws(() =>
-      db.exec(`UPDATE material_generation_inputs SET version_id=3 WHERE request_id='request'`)
+      db.exec(
+        `UPDATE material_evidence_inputs SET document_version_id=3 WHERE request_id='request'`
+      )
     );
-    assert.throws(() =>
-      db.exec(`DELETE FROM material_generation_inputs WHERE request_id='request'`)
-    );
+    assert.throws(() => db.exec(`DELETE FROM material_evidence_inputs WHERE request_id='request'`));
     assert.throws(() =>
       db.exec(
-        `INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('request',3,1)`
+        `INSERT INTO material_evidence_inputs(request_id,document_version_id,position) VALUES('request',3,1)`
       )
     );
     assert.throws(() => db.exec(`DELETE FROM material_generation_requests WHERE id='request'`));
@@ -116,7 +116,7 @@ testStable(
     const { db, close } = fixture();
 
     try {
-      db.exec(`INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
+      db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE material_versions SET status='published',published_at=2 WHERE id=2;
       UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request';`);
@@ -125,7 +125,7 @@ testStable(
         db.exec(`UPDATE material_generation_requests SET result_version_id=1 WHERE id='request'`)
       );
       assert.throws(() =>
-        db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('other',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1"]}',1);
+        db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('other',1,'{"title":"Requested","kind":"diagram","inputs":["1"]}',1);
       UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='other'`)
       );
       assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
@@ -253,7 +253,7 @@ testStable('closed scopes fence direct publication of a valid generated draft', 
   const { db, close } = fixture(true);
 
   try {
-    db.exec(`INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1);
+    db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE material_generation_scopes SET enabled=0,updated_at=2 WHERE id='scope';`);
     assert.throws(
@@ -271,7 +271,7 @@ testStable('generation publication rejects a captured input removed from its col
 
   try {
     db.exec(
-      "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_materials WHERE material_id=1;"
+      "INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_documents WHERE document_id=1;"
     );
     assert.throws(() =>
       db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2")
@@ -286,7 +286,7 @@ testStable('the first generation receipt rejects an input removed after output p
 
   try {
     db.exec(
-      "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_materials WHERE material_id=1;"
+      "INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_documents WHERE document_id=1;"
     );
     assert.throws(() =>
       db.exec(
@@ -307,9 +307,9 @@ testStable(
 
     try {
       db.exec(
-        "INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+        "INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
           '0'.repeat(64) +
-          "' WHERE id='request'; DELETE FROM project_materials WHERE material_id=1;"
+          "' WHERE id='request'; DELETE FROM project_documents WHERE document_id=1;"
       );
       assert.doesNotThrow(() =>
         db.exec(
@@ -339,23 +339,22 @@ for (const stage of ['publication', 'receipt']) {
 
       try {
         db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
-        INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(3,'document','Second input',1,1);
-        INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(4,3,'document',1,1);
-        INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM documents WHERE id=1;
+        INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(3,'Second input',1,1);
+        INSERT INTO content_snapshots(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM content_snapshots WHERE id=1;
         INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) SELECT 3,ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1;
-        INSERT INTO material_document_versions(version_id,document_id) VALUES(4,3);
-        UPDATE material_versions SET status='published',published_at=2 WHERE id=4;
-        INSERT INTO project_materials(project_id,material_id) VALUES(1,3),(2,3);
+        INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(4,3,1,3,1);
+        UPDATE study_document_versions SET status='published',published_at=2 WHERE id=4;
+        INSERT INTO project_documents(project_id,document_id) VALUES(1,3),(2,3);
         INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-          VALUES('multiple',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1","4"]}',1);
-        INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('multiple',1,0),('multiple',4,1);
-        INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1),(2,4);
+          VALUES('multiple',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"document","versionId":"1"},{"kind":"document","versionId":"4"}]}',1);
+        INSERT INTO material_evidence_inputs(request_id,document_version_id,position) VALUES('multiple',1,0),('multiple',4,1);
+        INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0),(2,4,1);
         UPDATE material_versions SET generation_request_id='multiple' WHERE id=2;`);
 
         if (stage === 'receipt')
           db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
 
-        db.exec('DELETE FROM project_materials WHERE project_id=1 AND material_id=3');
+        db.exec('DELETE FROM project_documents WHERE project_id=1 AND document_id=3');
         const write =
           stage === 'publication'
             ? "UPDATE material_versions SET status='published',published_at=2 WHERE id=2"
@@ -375,7 +374,7 @@ for (const stage of ['publication', 'receipt']) {
           db.orm.get('SELECT status FROM material_versions WHERE id=2')?.status,
           stage === 'publication' ? 'draft' : 'published'
         );
-        db.exec('INSERT INTO project_materials(project_id,material_id) VALUES(1,3)');
+        db.exec('INSERT INTO project_documents(project_id,document_id) VALUES(1,3)');
         assert.doesNotThrow(() => db.exec(write));
         assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
       } finally {
@@ -396,16 +395,20 @@ testStable(
         db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
 
       assert.throws(publish);
-      db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,3)');
+      db.exec(
+        'INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,3,1)'
+      );
       assert.throws(publish);
-      db.exec('INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(2,1)');
+      db.exec(
+        'INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0)'
+      );
       assert.throws(publish);
-      db.exec('DELETE FROM material_version_inputs WHERE version_id=2 AND input_version_id=3');
+      db.exec('DELETE FROM material_evidence_inputs WHERE version_id=2 AND document_version_id=3');
       assert.doesNotThrow(publish);
       assert.deepEqual(
         db.orm
-          .all('SELECT input_version_id FROM material_version_inputs WHERE version_id=2')
-          .map((row) => row.input_version_id),
+          .all('SELECT document_version_id FROM material_evidence_inputs WHERE version_id=2')
+          .map((row) => row.document_version_id),
         [1n]
       );
       assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
@@ -415,280 +418,24 @@ testStable(
   }
 );
 
-function proposalFixture(
-  captureMutation?: { path: string; value: string },
-  targetId: string | null = '1',
-  outputMaterialId: 1 | 3 = 1,
-  outputRequestId: 'document/capture' | 'request' = 'document/capture'
-) {
-  const f = fixture();
-
-  try {
-    f.db.exec(
-      "INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1)"
-    );
-
-    const capture = JSON.stringify({
-      requestId: 'capture',
-      sessionId: '1',
-      inputs: [{ versionId: '1', materialId: '1', documentId: '1', scope: { kind: 'document' } }]
-    });
-
-    const snapshot =
-      captureMutation === undefined
-        ? sql`${capture}`
-        : sql`json_set(${capture},${captureMutation.path},${captureMutation.value})`;
-
-    f.db.orm
-      .run(sql`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot)
-      VALUES('capture',1,'proposal','{}',${snapshot})`);
-
-    const payload = JSON.stringify({
-      title: 'Proposal',
-      kind: 'document',
-      inputVersionIds: ['1'],
-      documentTransform: {
-        contextRequestId: 'capture',
-        operations: ['clarity'],
-        ...(targetId === null ? {} : { editTargetVersionId: targetId })
-      }
-    });
-
-    f.db.orm.run(
-      sql`INSERT INTO material_generation_requests(id,payload,created_at) VALUES('document/capture',${payload},1)`
-    );
-
-    if (outputMaterialId === 3)
-      f.db.exec(
-        "INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(3,'document','Wrong target',1,1)"
-      );
-
-    f.db.orm
-      .run(sql`INSERT INTO material_versions(id,material_id,kind,number,creator,operation,generation_request_id,created_at)
-      VALUES(4,${outputMaterialId},'document',3,'agent','generate',${outputRequestId},1)`);
-
-    f.db.exec(`
-      INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('document/capture',1,0);
-      INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM documents WHERE id=1;
-      INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content)
-      SELECT 3,ordinal,kind,text,anchor,lower(hex(randomblob(16))),content FROM blocks WHERE document_id=1;
-      INSERT INTO material_document_versions(version_id,document_id) VALUES(4,3);
-      INSERT INTO material_version_inputs(version_id,input_version_id) VALUES(4,1);
-    `);
-
-    if (outputMaterialId === 1)
-      f.db.exec(
-        'INSERT INTO material_version_parents(version_id,parent_version_id,material_id) VALUES(4,1,1)'
-      );
-
-    return f;
-  } catch (error) {
-    f.close();
-
-    throw error;
-  }
-}
-
-function retainProposal(db: Db) {
-  db.exec(`INSERT INTO document_proposals(request_id,session_id,base_version_id,proposed_version_id)
-    VALUES('document/capture',1,1,4)`);
-}
-
-function recordProposalReceipt(db: Db, hash = '0'.repeat(64)) {
-  db.orm.run(sql`UPDATE material_generation_requests
-    SET result_version_id=4,result_hash=${hash},result_metadata=${'{"notes":[{"kind":"limit","explanation":"Structural only","blockIds":[]}]}'}
-    WHERE id='document/capture'`);
-}
+const preCutoverSeed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
+    INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'document','Input',1,1),(2,'diagram','Requested',1,1);
+    INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'document',1,1),(3,1,'document',2,1);
+    INSERT INTO documents(id,extractor_version,meta,created_at) VALUES(1,1,'{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false}',1);
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) VALUES(1,0,'paragraph','Evidence','{"type":"page","page":1}',lower(hex(randomblob(16))),json_object('type','paragraph','inlines',json_array(json_object('type','text','text','Evidence','marks',json_array()))));
+    INSERT INTO documents(id,extractor_version,meta,created_at) SELECT 2,extractor_version,meta,created_at FROM documents WHERE id=1;
+    INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) SELECT 2,ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1;
+    INSERT INTO material_document_versions(version_id,document_id) VALUES(1,1),(3,2);
+    UPDATE material_versions SET status='published',published_at=2 WHERE id IN(1,3);
+    INSERT OR IGNORE INTO project_materials(project_id,material_id) SELECT 1,id FROM materials;
+    INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"diagram","inputVersionIds":["1"]}',1);
+    INSERT INTO material_generation_inputs(request_id,version_id,position) VALUES('request',1,0);
+    INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'diagram',1,'agent','generate',1);
+    INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
 
 function triggerConstraint(error: unknown) {
   const cause = error instanceof Error && error.cause instanceof Error ? error.cause : error;
-
   return cause instanceof Error && 'errcode' in cause && cause.errcode === 1811;
-}
-
-// Each fixture is a migrated file. Mutate before retention so failures exercise
-// first-receipt validation rather than the immutable retained-output guards.
-const invalidDraftReceipts = [
-  ['unretained output', '', false],
-  ['wrong base revision', "INSERT INTO document_proposals VALUES('document/capture',1,3,4)", false],
-  ['wrong session', "INSERT INTO document_proposals VALUES('document/capture',2,1,4)", false],
-  ['wrong request', '', true, 'request'],
-  ['missing captured input', 'DELETE FROM material_version_inputs WHERE version_id=4', true],
-  [
-    'substituted input revision',
-    'UPDATE material_version_inputs SET input_version_id=3 WHERE version_id=4',
-    true
-  ],
-  ['extra input revision', 'INSERT INTO material_version_inputs VALUES(4,3)', true],
-  [
-    'wrong parent revision',
-    'UPDATE material_version_parents SET parent_version_id=3 WHERE version_id=4',
-    true
-  ],
-  ['missing parent', 'DELETE FROM material_version_parents WHERE version_id=4', true],
-  ['forged creator', "UPDATE material_versions SET creator='user' WHERE id=4", true],
-  ['wrong operation', "UPDATE material_versions SET operation='edit' WHERE id=4", true],
-  ['wrong instruction', "UPDATE material_versions SET instruction='Different' WHERE id=4", true]
-] as const;
-
-for (const [name, mutation, retain, outputRequestId] of invalidDraftReceipts) {
-  testStable(`draft generation receipt rejects ${name}`, () => {
-    // Bind at insertion: changing an existing request binding is independently forbidden.
-    const { db, close } = proposalFixture(undefined, '1', 1, outputRequestId);
-
-    try {
-      if (mutation) db.exec(mutation);
-
-      if (retain) retainProposal(db);
-
-      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
-
-      assert.equal(
-        db.orm.get(
-          "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
-        )?.result_version_id,
-        null
-      );
-
-      assert.equal(db.orm.get('SELECT status FROM material_versions WHERE id=4')?.status, 'draft');
-
-      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-    } finally {
-      close();
-    }
-  });
-}
-
-testStable('a receipt cannot retain a draft from a different target Material', () => {
-  const { db, close } = proposalFixture(undefined, '1', 3);
-
-  try {
-    retainProposal(db);
-
-    assert.throws(() => recordProposalReceipt(db), triggerConstraint);
-
-    assert.equal(
-      db.orm.get('SELECT material_id FROM material_versions WHERE id=4')?.material_id,
-      3n
-    );
-
-    assert.equal(
-      db.orm.get(
-        "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
-      )?.result_version_id,
-      null
-    );
-
-    assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-  } finally {
-    close();
-  }
-});
-
-for (const [name, path, value] of [
-  ['partial target scope', '$.inputs[0].scope.kind', 'blocks'],
-  ['wrong captured Material', '$.inputs[0].materialId', '2'],
-  ['wrong captured Document', '$.inputs[0].documentId', '2'],
-  ['wrong capture identity', '$.requestId', 'other'],
-  ['wrong captured session', '$.sessionId', '2']
-] as const) {
-  testStable(`draft generation receipt rejects ${name}`, () => {
-    const { db, close } = proposalFixture({ path, value });
-
-    try {
-      retainProposal(db);
-
-      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
-
-      assert.equal(
-        db.orm.get(
-          "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
-        )?.result_version_id,
-        null
-      );
-    } finally {
-      close();
-    }
-  });
-}
-
-for (const barrier of [
-  "UPDATE material_generation_requests SET cancelled=1 WHERE id='document/capture'",
-  'DELETE FROM sessions WHERE id=1'
-]) {
-  testStable(`retained draft receipt preserves the publication barrier: ${barrier}`, () => {
-    const { db, close } = proposalFixture();
-
-    try {
-      retainProposal(db);
-
-      db.exec(barrier);
-
-      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
-    } finally {
-      close();
-    }
-  });
-}
-
-testStable(
-  'an exact retained proposal can commit a draft receipt without publishing or weakening immutability',
-  () => {
-    const { db, close } = proposalFixture();
-
-    try {
-      retainProposal(db);
-
-      assert.throws(() => recordProposalReceipt(db, 'g'.repeat(64)), triggerConstraint);
-
-      recordProposalReceipt(db);
-
-      assert.equal(db.orm.get('SELECT status FROM material_versions WHERE id=4')?.status, 'draft');
-
-      assert.equal(
-        db.orm.get(
-          "SELECT result_version_id FROM material_generation_requests WHERE id='document/capture'"
-        )?.result_version_id,
-        4n
-      );
-
-      for (const mutation of [
-        "UPDATE material_versions SET published_at=2,status='published' WHERE id=4",
-        "UPDATE blocks SET text='Forged' WHERE document_id=3",
-        'DELETE FROM material_document_versions WHERE version_id=4',
-        'DELETE FROM material_version_inputs WHERE version_id=4',
-        'DELETE FROM material_version_parents WHERE version_id=4',
-        'DELETE FROM document_proposals',
-        "UPDATE material_generation_requests SET result_hash='" +
-          '1'.repeat(64) +
-          "' WHERE id='document/capture'",
-        "UPDATE material_generation_requests SET result_metadata='{}' WHERE id='document/capture'"
-      ])
-        assert.throws(() => db.exec(mutation), triggerConstraint);
-
-      db.exec('DELETE FROM sessions WHERE id=1');
-
-      assert.doesNotThrow(() => recordProposalReceipt(db));
-
-      assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
-    } finally {
-      close();
-    }
-  }
-);
-
-for (const targetId of [null, '3']) {
-  testStable(`a retained draft cannot bypass the exact request target ${targetId}`, () => {
-    const { db, close } = proposalFixture(undefined, targetId);
-
-    try {
-      retainProposal(db);
-
-      assert.throws(() => recordProposalReceipt(db), triggerConstraint);
-    } finally {
-      close();
-    }
-  });
 }
 
 testStable(
@@ -713,7 +460,7 @@ testStable(
 
         migrate(drizzle({ client: sqlite }), { migrationsFolder: previous });
 
-        sqlite.exec(seed);
+        sqlite.exec(preCutoverSeed);
 
         sqlite.exec(`INSERT INTO material_version_inputs VALUES(2,1);
         UPDATE material_versions SET generation_request_id='request' WHERE id=2;
@@ -760,7 +507,7 @@ testStable(
 );
 
 testStable(
-  'session retirement upgrade clears only proven private instruction metadata and seals every other published field',
+  'session retirement upgrade preserves authored metadata and exact published content independently of private captures',
   () => {
     const location = createTestDatabase();
 
@@ -783,170 +530,97 @@ testStable(
 
         old.exec('PRAGMA foreign_keys=ON; PRAGMA recursive_triggers=ON;');
 
-        old.exec(seed);
+        old.exec(preCutoverSeed);
 
-        seedPrivateSessionOutput(drizzle({ client: old }), 1, 4, 'OLD_PRIVATE_INSTRUCTION_8');
+        seedPrivateSessionOutput(
+          drizzle({ client: old }),
+          1,
+          4,
+          'OLD_PRIVATE_INSTRUCTION_8',
+          'documents'
+        );
 
-        seedPrivateSessionOutput(drizzle({ client: old }), 2, 5, 'OTHER_PRIVATE_INSTRUCTION_8');
+        seedPrivateSessionOutput(
+          drizzle({ client: old }),
+          2,
+          5,
+          'OTHER_PRIVATE_INSTRUCTION_8',
+          'documents'
+        );
       } finally {
         old.close();
       }
 
       let db = location.open();
-
       try {
         const before = retainedSessionLibrary(db);
-
-        const other = db.orm.get('SELECT * FROM material_versions WHERE id=5');
-
-        const oldVersion = db.orm.get('SELECT * FROM material_versions WHERE id=4');
-
-        assert.equal(oldVersion?.instruction, 'OLD_PRIVATE_INSTRUCTION_8');
-
-        assert.throws(
-          () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
-          triggerConstraint
+        const versions = db.orm.all<{
+          id: bigint;
+          instruction: string;
+          content_snapshot_id: bigint;
+        }>(
+          'SELECT id,instruction,content_snapshot_id FROM study_document_versions WHERE instruction IS NOT NULL ORDER BY id'
         );
-
-        assert.throws(
-          () =>
-            db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',2)"),
-          triggerConstraint
+        assert.equal(versions.length, 2);
+        assert.deepEqual(
+          versions.map((v) => v.instruction),
+          ['OLD_PRIVATE_INSTRUCTION_8', 'OTHER_PRIVATE_INSTRUCTION_8']
         );
-
-        db.exec(
-          "INSERT INTO session_deletions(session_id,operation_id,status,created_at) VALUES(1,'delete-old-capture','pending',2)"
-        );
-
-        assert.throws(
-          () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4'),
-          triggerConstraint
-        );
-
-        assert.throws(
-          () =>
-            db.exec("INSERT INTO session_generation_retirements VALUES('document/private-2',1)"),
-          triggerConstraint
-        );
-
-        db.exec("INSERT INTO session_generation_retirements VALUES('document/private-1',1)");
-
-        for (const assignment of [
-          'id=400',
-          'material_id=5',
-          "kind='diagram'",
-          'number=2',
-          "status='draft',published_at=NULL",
-          "operation='edit'",
-          "creator='user'",
-          "generation_request_id='document/private-2'",
-          "language='it'",
-          'created_at=7',
-          'published_at=7'
-        ]) {
+        for (const version of versions) {
+          for (const assignment of [
+            'instruction=NULL',
+            "creator='user'",
+            "operation='edit'",
+            "language='it'",
+            'created_at=7',
+            'published_at=7',
+            'document_id=999'
+          ])
+            assert.throws(
+              () =>
+                db.orm.run(
+                  sql.raw(`UPDATE study_document_versions SET ${assignment} WHERE id=${version.id}`)
+                ),
+              triggerConstraint
+            );
           assert.throws(
-            () => db.exec(`UPDATE material_versions SET instruction=NULL,${assignment} WHERE id=4`),
+            () =>
+              db.orm.run(
+                sql`UPDATE blocks SET text='overwritten' WHERE document_id=${version.content_snapshot_id}`
+              ),
+            triggerConstraint
+          );
+          assert.throws(
+            () =>
+              db.orm.run(sql`DELETE FROM study_document_citations WHERE version_id=${version.id}`),
             triggerConstraint
           );
         }
-
-        assert.throws(
-          () => db.exec("UPDATE material_versions SET instruction='replacement' WHERE id=4"),
-          triggerConstraint
-        );
-
-        assert.throws(
-          () => db.exec('UPDATE material_versions SET instruction=NULL WHERE id=5'),
-          triggerConstraint
-        );
-
-        assert.throws(
-          () => db.exec("UPDATE blocks SET text='overwritten' WHERE document_id=4"),
-          triggerConstraint
-        );
-
-        assert.throws(
-          () => db.exec('DELETE FROM material_version_citations WHERE version_id=4'),
-          triggerConstraint
-        );
-        // Failure/restart keeps the narrow provenance proof usable; no guards are removed.
-        db.exec(
-          "UPDATE session_deletions SET status='failed',error_kind='internal' WHERE session_id=1"
-        );
-
-        db.close();
-
-        db = location.open();
-
-        db.transaction(() => {
-          db.exec('UPDATE material_versions SET instruction=NULL WHERE id=4');
-
-          db.exec(
-            "UPDATE material_generation_requests SET payload='{}',result_metadata=NULL,cancelled=1 WHERE id='document/private-1'"
-          );
-
-          db.exec("DELETE FROM material_generation_inputs WHERE request_id='document/private-1'");
-
-          db.exec('DELETE FROM sessions WHERE id=1');
-
-          db.exec(
-            "UPDATE session_deletions SET status='completed',error_kind=NULL,completed_at=3 WHERE session_id=1"
-          );
-        });
-
-        const after = db.orm.get('SELECT * FROM material_versions WHERE id=4');
-
-        assert.deepEqual(after, { ...oldVersion, instruction: null });
-
-        assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
-
-        assert.deepEqual(retainedSessionLibrary(db), before);
-
-        assert.throws(
-          () =>
-            db.exec(
-              "UPDATE material_versions SET instruction='OLD_PRIVATE_INSTRUCTION_8' WHERE id=4"
-            ),
-          triggerConstraint
-        );
-
-        assert.throws(
-          () =>
-            db.exec(
-              "UPDATE material_generation_requests SET payload=json_object('instruction','OLD_PRIVATE_INSTRUCTION_8') WHERE id='document/private-1'"
-            ),
-          triggerConstraint
-        );
-
-        db.close();
-
-        db = location.open();
-
-        assert.deepEqual(retainedSessionLibrary(db), before);
-
         assert.equal(
-          db.orm.get('SELECT instruction FROM material_versions WHERE id=4')?.instruction,
+          db.orm.get("SELECT 1 FROM sqlite_schema WHERE name='session_generation_retirements'"),
+          undefined
+        );
+        db.exec('DELETE FROM sessions WHERE id=1');
+        assert.deepEqual(retainedSessionLibrary(db), before);
+        assert.equal(
+          db.orm.get("SELECT 1 FROM session_run_contexts WHERE request_id='private-1'"),
+          undefined
+        );
+        assert.equal(
+          db.orm.get(
+            "SELECT instruction FROM study_document_transform_requests WHERE id='document/private-1'"
+          )?.instruction,
+          'OLD_PRIVATE_INSTRUCTION_8'
+        );
+        assert.equal(
+          db.orm.get(
+            "SELECT session_id FROM study_document_transform_requests WHERE id='document/private-1'"
+          )?.session_id,
           null
         );
-
-        assert.deepEqual(db.orm.get('SELECT * FROM material_versions WHERE id=5'), other);
-
-        for (const table of [
-          'sessions',
-          'session_run_contexts',
-          'material_generation_requests',
-          'material_versions',
-          'documents',
-          'blocks'
-        ]) {
-          const persisted = JSON.stringify(
-            db.orm.all(sql.raw(`SELECT * FROM ${table}`)),
-            (_, value) => (typeof value === 'bigint' ? String(value) : value)
-          );
-
-          assert.ok(!persisted.includes('OLD_PRIVATE_INSTRUCTION_8'), table);
-        }
-
+        db.close();
+        db = location.open();
+        assert.deepEqual(retainedSessionLibrary(db), before);
         assert.deepEqual(db.orm.all('PRAGMA foreign_key_check'), []);
       } finally {
         db.close();
@@ -961,7 +635,8 @@ function seedPrivateSessionOutput(
   db: ReturnType<typeof drizzle>,
   sessionId: number,
   id: number,
-  instruction: string
+  instruction: string,
+  snapshotTable: 'documents' | 'content_snapshots' = 'content_snapshots'
 ) {
   const contextId = `private-${sessionId}`;
 
@@ -1006,7 +681,7 @@ function seedPrivateSessionOutput(
     VALUES(${id},${id},'document',1,'agent','generate',${instruction},${requestId},'en',1)`);
 
   db.run(
-    sql`INSERT INTO documents(id,extractor_version,meta,created_at) SELECT ${id},extractor_version,meta,created_at FROM documents WHERE id=1`
+    sql`INSERT INTO ${sql.identifier(snapshotTable)}(id,extractor_version,meta,created_at) SELECT ${id},extractor_version,meta,created_at FROM ${sql.identifier(snapshotTable)} WHERE id=1`
   );
 
   db.run(sql`INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content)
@@ -1028,19 +703,11 @@ function seedPrivateSessionOutput(
 
 function retainedSessionLibrary(db: Db) {
   return {
-    documents: db.orm.all('SELECT * FROM documents WHERE id IN (1,4,5) ORDER BY id'),
-    blocks: db.orm.all(
-      'SELECT * FROM blocks WHERE document_id IN (1,4,5) ORDER BY document_id,ordinal'
-    ),
-    citations: db.orm.all(
-      'SELECT * FROM material_version_citations WHERE version_id IN (4,5) ORDER BY version_id,marker'
-    ),
-    inputs: db.orm.all(
-      'SELECT * FROM material_version_inputs WHERE version_id IN (4,5) ORDER BY version_id'
-    ),
-    documentsByVersion: db.orm.all(
-      'SELECT * FROM material_document_versions WHERE version_id IN (1,4,5) ORDER BY version_id'
-    ),
-    materials: db.orm.all('SELECT * FROM materials WHERE id IN (1,4,5) ORDER BY id')
+    documents: db.orm.all('SELECT * FROM study_documents ORDER BY id'),
+    versions: db.orm.all('SELECT * FROM study_document_versions ORDER BY id'),
+    snapshots: db.orm.all('SELECT * FROM content_snapshots ORDER BY id'),
+    blocks: db.orm.all('SELECT * FROM blocks ORDER BY document_id,ordinal'),
+    citations: db.orm.all('SELECT * FROM study_document_citations ORDER BY version_id,marker'),
+    inputs: db.orm.all('SELECT * FROM study_document_inputs ORDER BY version_id,position')
   };
 }

@@ -12,16 +12,20 @@
 
 import { StudyError } from '@study/contracts/errors';
 import { and, eq } from '@study/db';
-import {
-  material_history_requests,
-  material_deletion_requests,
-  workflow_retired_correlations
-} from '@study/db/schema';
+import { session_retired_intents, workflow_retired_correlations } from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeAssertContextAvailable({ db }: StoreResources) {
-  return (requestId: string, deletionMessage: string, actionable = true) => {
+  return (requestId: string, actionable = true) => {
+    if (
+      db.orm
+        .select()
+        .from(session_retired_intents)
+        .where(eq(session_retired_intents.request_id, requestId))
+        .get()
+    )
+      throw new StudyError('not_found', 'Captured input history is unavailable');
     if (
       actionable &&
       db.orm
@@ -36,23 +40,5 @@ export function makeAssertContextAvailable({ db }: StoreResources) {
         .get()
     )
       throw new StudyError('not_found', 'Captured reply has been retired');
-
-    if (
-      db.orm
-        .select({ id: material_history_requests.request_id })
-        .from(material_history_requests)
-        .where(eq(material_history_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Captured input history is unavailable');
-
-    if (
-      db.orm
-        .select({ id: material_deletion_requests.request_id })
-        .from(material_deletion_requests)
-        .where(eq(material_deletion_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', deletionMessage);
   };
 }

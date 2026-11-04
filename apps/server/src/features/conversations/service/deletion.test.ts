@@ -26,9 +26,8 @@ import {
   sessionDeletionHandler,
   sessionDeletionWorkflow
 } from '#server/features/conversations/workflows/deletion';
-import { Materials } from '#server/features/materials/index';
-import { materialGenerationWorkflow } from '#server/features/materials/workflows/generation';
-import { decodeEvent } from '#server/platform/workflows/events';
+import { Documents } from '#server/features/documents/index';
+import { documentTransformWorkflow } from '#server/features/documents/workflows/transform';
 import { workflowStore } from '#server/platform/workflows/store';
 import { dispatchPending } from '#server/platform/workflows/triggers';
 import { documentTransformFixture } from '#testing/document-transform';
@@ -84,7 +83,12 @@ testStable(
               client('conversations.updateSessionSelection', {
                 sessionId: saved.session.id,
                 expectedRevision: 1n,
-                targets: [{ versionId: saved.library.version.id, scope: { kind: 'document' } }]
+                targets: [
+                  {
+                    input: { kind: 'document', versionId: saved.library.version.id },
+                    scope: { kind: 'document' }
+                  }
+                ]
               }).pipe(Effect.asVoid)
             ];
 
@@ -133,9 +137,9 @@ testStable(
           [
             {
               subscription: 'delete-test-generation',
-              event: 'MaterialGenerationRequested',
+              event: 'DocumentGenerationRequested',
               workflowVersion: 1,
-              workflow: materialGenerationWorkflow,
+              workflow: documentTransformWorkflow,
               enabled: () => true,
               emits: []
             }
@@ -156,7 +160,7 @@ testStable(
           assert.ok(status.completedAt !== null);
           assert.deepEqual(yield* chats.deleteSession(saved.session.id), status);
           assert.equal(
-            (yield* (yield* Materials).materialVersion({ id: saved.library.version.id })).status,
+            (yield* (yield* Documents).version({ id: saved.library.version.id })).status,
             'published'
           );
           const retainedThread = yield* chats.thread({ sessionId: saved.other.id, limit: 10 });
@@ -176,7 +180,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
 
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
       fixture.reopen();
       assert.deepEqual(
         await Effect.runPromise(
@@ -192,9 +196,9 @@ testStable(
           [
             {
               subscription: 'delete-test-generation',
-              event: 'MaterialGenerationRequested',
+              event: 'DocumentGenerationRequested',
               workflowVersion: 1,
-              workflow: materialGenerationWorkflow,
+              workflow: documentTransformWorkflow,
               enabled: () => true,
               emits: []
             }
@@ -203,7 +207,7 @@ testStable(
         ),
         0
       );
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
     }
@@ -236,7 +240,7 @@ testStable(
       );
       assert.equal(fixture.context.db.orm.select().from(s.session_deletions).all().length, 0);
       assert.equal(
-        fixture.context.db.orm.select().from(s.session_generation_retirements).all().length,
+        fixture.context.db.orm.select().from(s.workflow_retired_correlations).all().length,
         0
       );
       assert.equal(
@@ -265,7 +269,7 @@ testStable(
       );
 
       fixture.context.db.orm.run(
-        sql.raw(`CREATE TRIGGER reject_retirement BEFORE UPDATE ON material_generation_requests
+        sql.raw(`CREATE TRIGGER reject_retirement BEFORE UPDATE ON workflow_events
       WHEN NEW.payload='{}' BEGIN SELECT RAISE(ABORT, 'injected private content must not enter status'); END`)
       );
       await cleanup(fixture, saved.session.id).catch(() => undefined);
@@ -298,7 +302,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, saved.session.id);
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
       assert.equal(
         await Effect.runPromise(
           Effect.flatMap(Conversations, (chats) => chats.sessionDeletion(saved.session.id)).pipe(
@@ -330,7 +334,7 @@ testStable(
 
       fixture.context.db.orm.run(
         sql.raw(
-          `CREATE TRIGGER reject_private_retirement BEFORE UPDATE ON material_generation_requests WHEN NEW.payload='{}' BEGIN SELECT RAISE(ABORT, 'injected cleanup failure'); END`
+          `CREATE TRIGGER reject_private_retirement BEFORE UPDATE ON workflow_events WHEN NEW.payload='{}' BEGIN SELECT RAISE(ABORT, 'injected cleanup failure'); END`
         )
       );
       fixture.context.db.orm.run(
@@ -362,7 +366,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, saved.session.id);
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
       assert.equal(
         fixture.context.db.orm.select().from(s.session_deletions).get()?.status,
         'completed'
@@ -389,21 +393,24 @@ testStable(
           output: validDocumentTransformOutput('INTENTIONAL_PUBLISHED_COPY_8 [1]')
         }
       );
-      await fixture.execute(fixture.event(saved.request.id), 'completed-before-delete');
+      await fixture.executeAuthored(
+        fixture.authoredEvent(saved.request.id),
+        'completed-before-delete'
+      );
       const receipt = fixture.context.db.orm
         .select()
-        .from(s.material_generation_requests)
-        .where(eq(s.material_generation_requests.id, saved.request.id))
+        .from(s.study_document_transform_requests)
+        .where(eq(s.study_document_transform_requests.id, saved.request.id))
         .get()!;
 
       assert.ok(receipt.result_version_id);
       assert.equal(
         fixture.context.db.orm
           .select()
-          .from(s.material_versions)
-          .where(eq(s.material_versions.id, receipt.result_version_id))
+          .from(s.study_document_versions)
+          .where(eq(s.study_document_versions.id, receipt.result_version_id))
           .get()?.instruction,
-        null
+        marker + '-instruction'
       );
 
       const retainedIds = [saved.library.version.id, receipt.result_version_id];
@@ -418,25 +425,24 @@ testStable(
         )
       );
       await cleanup(fixture, saved.session.id);
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
       assert.equal(
         fixture.context.db.orm
           .select()
-          .from(s.material_generation_requests)
-          .where(eq(s.material_generation_requests.id, saved.request.id))
+          .from(s.study_document_transform_requests)
+          .where(eq(s.study_document_transform_requests.id, saved.request.id))
           .get()?.result_version_id,
         receipt.result_version_id
       );
       await Effect.runPromise(
         Effect.gen(function* () {
-          const result = yield* (yield* Materials).materialVersion({
+          const result = yield* (yield* Documents).version({
             id: receipt.result_version_id!
           });
 
           assert.equal(result.status, 'published');
-          assert.equal(result.content.kind, 'document');
           assert.ok(
-            JSON.stringify(result.content, (_, value) =>
+            JSON.stringify(result.document, (_, value) =>
               typeof value === 'bigint' ? String(value) : value
             ).includes('INTENTIONAL_PUBLISHED_COPY_8')
           );
@@ -445,12 +451,12 @@ testStable(
       const libraryEvent = fixture.context.db.orm
         .select()
         .from(s.workflowEvents)
-        .where(eq(s.workflowEvents.type, 'MaterialPublished'))
+        .where(eq(s.workflowEvents.type, 'DocumentPublished'))
         .all()
         .find((row) => row.correlationId === saved.request.id);
 
       assert.ok(libraryEvent);
-      assert.notEqual(libraryEvent.payload, '{}');
+      assert.equal(libraryEvent.payload, '{}');
 
       assert.deepEqual(await libraryState(fixture, retainedIds), beforeDeletion);
 
@@ -463,7 +469,7 @@ testStable(
       native.start(
         'independent-library-consumer',
         'library-consumer-test',
-        JSON.stringify({ event: decodeEvent(libraryEvent.payload) }, (_, value) =>
+        JSON.stringify({ documentVersionId: receipt.result_version_id }, (_, value) =>
           typeof value === 'bigint' ? String(value) : value
         ),
         undefined
@@ -493,14 +499,14 @@ testStable(
       assert.throws(() =>
         native.start(
           'late-new-id',
-          materialGenerationWorkflow._tag,
+          documentTransformWorkflow._tag,
           JSON.stringify({
-            event: { type: 'MaterialGenerationRequested', correlationId: saved.request.id, marker }
+            event: { type: 'DocumentGenerationRequested', correlationId: saved.request.id, marker }
           }),
           undefined
         )
       );
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
     }
@@ -515,7 +521,7 @@ testStable(
 
     try {
       const saved = await setup(fixture, marker);
-      const event = fixture.event(saved.request.id);
+      const event = fixture.authoredEvent(saved.request.id);
 
       fixture.replies.push(
         { kind: 'sources', query: 'independent' },
@@ -532,18 +538,18 @@ testStable(
           )
         )
       );
-      await assert.rejects(fixture.execute(event, 'late-provider-delete'));
+      await assert.rejects(fixture.executeAuthored(event, 'late-provider-delete'));
       assert.equal(fixture.bodies.length, 2);
       await cleanup(fixture, saved.session.id);
       const request = fixture.context.db.orm
         .select()
-        .from(s.material_generation_requests)
-        .where(eq(s.material_generation_requests.id, saved.request.id))
+        .from(s.study_document_transform_requests)
+        .where(eq(s.study_document_transform_requests.id, saved.request.id))
         .get();
 
       assert.equal(request?.result_version_id, null);
-      assert.equal(fixture.context.db.orm.select().from(s.materials).all().length, 1);
-      assertScrubbed(fixture, marker);
+      assert.equal(fixture.context.db.orm.select().from(s.study_documents).all().length, 1);
+      assertScrubbed(fixture, marker, true);
 
       assertScrubbed(fixture, 'Late unpublished response');
 
@@ -554,7 +560,7 @@ testStable(
         ).includes('Late unpublished response')
       );
       fixture.reopen();
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
     }
@@ -569,7 +575,7 @@ testStable(
 
     try {
       const saved = await setup(fixture, marker);
-      const event = fixture.event(saved.request.id);
+      const event = fixture.authoredEvent(saved.request.id);
       const gate = DurableDeferred.make('suspended-session');
       const independentGate = DurableDeferred.make('independent-library');
       const independent = Workflow.make('independent-library-test', {
@@ -595,12 +601,12 @@ testStable(
               return saved.library.version.id;
             });
 
-            yield* engine.register(materialGenerationWorkflow, () => suspendedGeneration);
+            yield* engine.register(documentTransformWorkflow, () => suspendedGeneration);
             yield* engine.register(independent, () =>
               DurableDeferred.await(independentGate).pipe(Effect.as('independent survived'))
             );
             yield* engine.register(sessionDeletionWorkflow, sessionDeletionHandler);
-            yield* engine.execute(materialGenerationWorkflow, {
+            yield* engine.execute(documentTransformWorkflow, {
               executionId: 'suspended-session-run',
               payload: { event },
               discard: true
@@ -631,7 +637,7 @@ testStable(
               'suspended'
             );
             yield* engine.deferredDone(gate, {
-              workflowName: materialGenerationWorkflow._tag,
+              workflowName: documentTransformWorkflow._tag,
               executionId: 'suspended-session-run',
               deferredName: gate.name,
               exit: Exit.void
@@ -649,12 +655,12 @@ testStable(
 
             yield* awaitNativeStatus(fixture, 'independent-run', 'completed');
 
-            assertScrubbed(fixture, marker);
+            assertScrubbed(fixture, marker, true);
           }).pipe(Effect.provide(fixture.services()))
         )
       );
       fixture.reopen();
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
     }
@@ -662,7 +668,7 @@ testStable(
 );
 
 testStable(
-  'kept and applied library results survive removal of their proposal draft and prompt receipts',
+  'kept and applied authored results preserve independent proposals and receipts after raw session deletion',
   async () => {
     const fixture = await documentTransformFixture();
     const marker = 'PROPOSAL_ONLY_SESSION_8';
@@ -677,18 +683,21 @@ testStable(
           output: validDocumentTransformOutput('Retained edited result [1]')
         }
       );
-      await fixture.execute(fixture.event(saved.request.id), 'proposal-before-delete');
+      await fixture.executeAuthored(
+        fixture.authoredEvent(saved.request.id),
+        'proposal-before-delete'
+      );
       const retained = await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations;
           const keep = yield* chats.keepDocumentProposal({
             requestId: saved.request.id,
-            key: 'keep-before-delete'
+            key: 'keep-before-delete',
+            title: 'Independent kept copy'
           });
           const applyValue = {
             requestId: saved.request.id,
             key: 'apply-before-delete',
-            baseVersionId: saved.library.version.id,
             expectedVersionId: saved.library.version.id
           };
           const apply = yield* chats.applyDocumentProposal(applyValue);
@@ -700,50 +709,49 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
 
-      assert.throws(() =>
-        fixture.context.db.orm.run(sql`
-      INSERT INTO retired_document_proposal_receipts
-      (key,intent,current_version_id,proposed_version_id,request_id,operation,outcome,base_version_id,result_version_id)
-      SELECT r.key,json_set(r.intent,'$.projectId','999'),r.current_version_id,p.proposed_version_id,r.request_id,r.operation,r.outcome,p.base_version_id,r.result_version_id
-      FROM document_proposal_receipts r JOIN document_proposals p ON p.request_id=r.request_id
-      WHERE r.key='keep-before-delete'
-    `)
-      );
-      assert.equal(
-        fixture.context.db.orm.select().from(s.retired_document_proposal_receipts).all().length,
-        0
-      );
+      const retainedProposal = fixture.context.db.orm
+        .select()
+        .from(s.study_document_proposals)
+        .all();
+      const retainedReceipts = fixture.context.db.orm
+        .select()
+        .from(s.study_document_proposal_receipts)
+        .all();
       await cleanup(fixture, saved.session.id);
-      assert.equal(fixture.context.db.orm.select().from(s.document_proposals).all().length, 0);
-      assert.equal(
-        fixture.context.db.orm.select().from(s.document_proposal_receipts).all().length,
-        0
+      assert.deepEqual(
+        fixture.context.db.orm.select().from(s.study_document_proposals).all(),
+        retainedProposal
+      );
+      assert.deepEqual(
+        fixture.context.db.orm.select().from(s.study_document_proposal_receipts).all(),
+        retainedReceipts
       );
       assert.equal(
         fixture.context.db.orm
           .select()
-          .from(s.material_versions)
-          .where(eq(s.material_versions.id, retained.apply.proposedVersionId))
-          .get(),
-        undefined
+          .from(s.study_document_versions)
+          .where(eq(s.study_document_versions.id, retained.apply.proposedVersionId))
+          .get()?.status,
+        'draft'
       );
-      assertScrubbed(fixture, marker);
+      assertScrubbed(fixture, marker, true);
       fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations;
-          const materials = yield* Materials;
+          const documents = yield* Documents;
 
           for (const id of [
             retained.keep.resultVersionId!,
             retained.apply.resultVersionId!,
             saved.library.version.id
           ])
-            assert.equal((yield* materials.materialVersion({ id })).status, 'published');
+            assert.equal((yield* documents.version({ id })).status, 'published');
 
           const kept = yield* chats.keepDocumentProposal({
             requestId: saved.request.id,
-            key: 'keep-before-delete'
+            key: 'keep-before-delete',
+            title: 'Independent kept copy'
           });
           const applied = yield* chats.applyDocumentProposal(retained.applyValue);
 
@@ -751,12 +759,16 @@ testStable(
           assert.deepEqual(applied, { ...retained.apply, replayed: true });
           assert.equal(
             (yield* Effect.flip(
-              chats.keepDocumentProposal({ requestId: saved.request.id, key: 'new-after-delete' })
+              chats.keepDocumentProposal({
+                requestId: saved.request.id,
+                key: 'new-after-delete',
+                title: 'Late copy'
+              })
             )).kind,
             'not_found'
           );
           assert.equal(
-            (yield* materials.citations({ id: applied.resultVersionId!, limit: 10 })).items.length,
+            (yield* documents.version({ id: applied.resultVersionId! })).citations.length,
             1
           );
         }).pipe(Effect.provide(fixture.domain()))

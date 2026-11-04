@@ -10,6 +10,7 @@ import {
   quizAttemptIdSchema,
   quizQuestionIdSchema
 } from '../ids.ts';
+import { contentInputSchema } from '../inputs.ts';
 import {
   cardReviewSchema,
   cardScheduleSchema,
@@ -135,7 +136,7 @@ export const practiceSlotSchema = Schema.Struct({
   status: Schema.Literals(['pending', 'ready', 'answered', 'cancelled', 'failed']),
   generationAttempt: Schema.BigInt,
   failureKind: Schema.NullOr(errorKindSchema),
-  inputVersionIds: Schema.mutable(Schema.Array(materialVersionIdSchema)),
+  inputs: Schema.mutable(Schema.Array(contentInputSchema)),
   versionId: Schema.NullOr(materialVersionIdSchema),
   attemptId: Schema.NullOr(quizAttemptIdSchema)
 });
@@ -144,9 +145,7 @@ export const practiceInputSchema = Schema.Struct({ projectId: projectIdSchema })
 
 export const startPracticeInputSchema = Schema.Struct({
   projectId: projectIdSchema,
-  inputVersionIds: Schema.mutable(Schema.Array(materialVersionIdSchema)).check(
-    Schema.isBetweenLength(1, 20)
-  )
+  inputs: Schema.mutable(Schema.Array(contentInputSchema)).check(Schema.isBetweenLength(1, 20))
 });
 
 export const answerPracticeQuestionInputSchema = Schema.Struct({

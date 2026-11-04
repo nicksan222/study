@@ -1,3 +1,4 @@
+import { StudyError } from '@study/contracts/errors';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Groups read-side material store operations and their typed query definitions.      │
@@ -11,30 +12,32 @@
  * │ policy and composes these private operations.                                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { StudyError } from '@study/contracts/errors';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import type {
-  DocumentId,
+  ContentSnapshotId,
   MaterialId,
   MaterialVersionId,
   QuizChoiceId,
   QuizQuestionId
 } from '@study/contracts/ids';
+import {
+  materialCreatorSchema,
+  materialKindSchema,
+  materialSummarySchema
+} from '@study/contracts/materials/schemas';
 import type {
   MaterialDetailDto,
   MaterialSummaryDto,
   MaterialVersionDetailDto
 } from '@study/contracts/materials/schemas';
-import { decodeBlockContent } from '@study/contracts/sources/document';
 import { eq, and, asc, desc, sql, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
+import { decodeStoredBlock } from '#server/platform/database/content-block';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { anchorSchema, documentSchema } from './schemas.ts';
-import { decodeSourceSnapshot } from './source-snapshot.ts';
+import { makeExactInputs } from './exact-inputs.ts';
 
 type QuizQuestionDetailDto = Extract<
   MaterialVersionDetailDto,
@@ -48,7 +51,8 @@ export function required<T>(value: T | null | undefined): T {
   return value;
 }
 
-export function makeReads({ db: store }: StoreResources) {
+export function makeReads(resources: StoreResources) {
+  const store = resources.db;
   function assertAvailable(id: MaterialId) {
     if (
       store.orm
@@ -94,118 +98,9 @@ export function makeReads({ db: store }: StoreResources) {
     if (draft && row.status !== 'draft')
       throw new StudyError('invalid_input', 'Published versions are immutable');
 
-    if (
-      draft &&
-      store.orm
-        .select()
-        .from(s.document_proposals)
-        .where(eq(s.document_proposals.proposed_version_id, id))
-        .get()
-    )
-      throw new StudyError('invalid_input', 'Generated proposals are immutable');
-
-    if (
-      draft &&
-      store.orm
-        .select()
-        .from(s.document_edit_receipts)
-        .where(eq(s.document_edit_receipts.submitted_version_id, id))
-        .get()
-    )
-      throw new StudyError('invalid_input', 'Retained edit alternatives are immutable');
-
     if (draft) materialRow(row.material_id, true);
 
     return row;
-  }
-
-  function readSource(id: MaterialVersionId) {
-    const row = required(
-      store.orm
-        .select()
-        .from(s.material_source_snapshots)
-        .where(eq(s.material_source_snapshots.version_id, id))
-        .get()
-    );
-
-    return decodeSourceSnapshot(row.metadata);
-  }
-
-  function versionDocumentId(id: MaterialVersionId): DocumentId | null {
-    return (
-      store.orm
-        .select()
-        .from(s.material_document_versions)
-        .where(eq(s.material_document_versions.version_id, id))
-        .get()?.document_id ??
-      store.orm
-        .select()
-        .from(s.material_source_snapshots)
-        .where(eq(s.material_source_snapshots.version_id, id))
-        .get()?.document_id ??
-      null
-    );
-  }
-
-  function extracted(id: MaterialVersionId) {
-    const documentId = versionDocumentId(id);
-
-    if (documentId === null) return null;
-
-    return { id: documentId, document: readCanonicalDocument(documentId) };
-  }
-
-  function importProcessing(materialId: MaterialId) {
-    const row = store.orm
-      .select({ state: s.source_processing })
-      .from(s.material_imports)
-      .innerJoin(
-        s.source_processing,
-        eq(s.source_processing.source_id, s.material_imports.source_id)
-      )
-      .where(eq(s.material_imports.material_id, materialId))
-      .get();
-
-    if (!row) return undefined;
-
-    const state = row.state;
-
-    const ready =
-      state.published_request_id === state.request_id &&
-      state.document_id !== null &&
-      store.orm
-        .select()
-        .from(s.material_source_snapshots)
-        .where(eq(s.material_source_snapshots.document_id, state.document_id))
-        .get() !== undefined;
-
-    const failed = store.orm
-      .select()
-      .from(s.workflowEvents)
-      .where(
-        and(
-          eq(s.workflowEvents.type, 'SourceProcessingFailed'),
-          sql`json_extract(${s.workflowEvents.payload}, '$.requestId') = ${state.request_id}`
-        )
-      )
-      .get();
-
-    const retired = store.orm
-      .select()
-      .from(s.workflow_retired_correlations)
-      .where(eq(s.workflow_retired_correlations.correlation_id, state.request_id))
-      .get();
-
-    return {
-      sourceId: state.source_id,
-      revision: Number(state.revision),
-      requestId: state.request_id,
-      status: ready
-        ? ('ready' as const)
-        : failed || retired
-          ? ('failed' as const)
-          : ('pending' as const)
-    };
   }
 
   function readVersion(id: MaterialVersionId): MaterialVersionDetailDto | null {
@@ -229,13 +124,8 @@ export function makeReads({ db: store }: StoreResources) {
 
     return {
       ...row,
-      inputs: store.orm
-        .select()
-        .from(s.material_version_inputs)
-        .where(eq(s.material_version_inputs.version_id, id))
-        .orderBy(asc(s.material_version_inputs.input_version_id))
-        .all()
-        .map((r) => r.input_version_id),
+      creator: Schema.decodeUnknownSync(materialCreatorSchema)(row.creator),
+      inputs: makeExactInputs(resources).inputs({ kind: 'version', id }),
       parents: store.orm
         .select()
         .from(s.material_version_parents)
@@ -254,22 +144,12 @@ export function makeReads({ db: store }: StoreResources) {
     switch (row.kind) {
       case 'diagram':
         return readDiagram(base);
-      case 'file':
-        return readFile(base);
-      case 'link':
-        return readLink(base);
-      case 'audio':
-        return readAudio(base);
-      case 'video':
-        return readVideo(base);
-      case 'image':
-        return readImage(base);
-      case 'document':
-        return readDocument(base);
       case 'quiz':
         return readQuiz(base);
       case 'flashcards':
         return readFlashcards(base);
+      default:
+        throw new StudyError('not_found', 'Learning artifact is unavailable');
     }
   }
 
@@ -291,188 +171,6 @@ export function makeReads({ db: store }: StoreResources) {
       kind: 'diagram',
       content: { kind: c.kind, format: c.format, payload: c.payload }
     };
-  }
-
-  function readFile(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'file' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_file_versions)
-        .where(eq(s.material_file_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'file',
-      content: {
-        kind: c.kind,
-        sourceId: c.source_id,
-        source: readSource(id),
-        extracted: extracted(id)
-      }
-    };
-  }
-
-  function readLink(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'link' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_link_versions)
-        .where(eq(s.material_link_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'link',
-      content: {
-        kind: c.kind,
-        sourceId: c.source_id,
-        source: readSource(id),
-        extracted: extracted(id)
-      }
-    };
-  }
-
-  function readAudio(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'audio' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_audio_versions)
-        .where(eq(s.material_audio_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'audio',
-      content: {
-        kind: c.kind,
-        sourceId: c.source_id,
-        source: readSource(id),
-        extracted: extracted(id),
-        durationMs: c.duration_ms,
-        sampleRate: c.sample_rate,
-        channels: c.channels
-      }
-    };
-  }
-
-  function readVideo(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'video' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_video_versions)
-        .where(eq(s.material_video_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'video',
-      content: {
-        kind: c.kind,
-        sourceId: c.source_id,
-        source: readSource(id),
-        extracted: extracted(id),
-        durationMs: c.duration_ms,
-        width: c.width,
-        height: c.height
-      }
-    };
-  }
-
-  function readImage(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'image' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_image_versions)
-        .where(eq(s.material_image_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'image',
-      content: {
-        kind: c.kind,
-        sourceId: c.source_id,
-        source: readSource(id),
-        extracted: extracted(id),
-        width: c.width,
-        height: c.height
-      }
-    };
-  }
-
-  function readDocument(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'document' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_document_versions)
-        .where(eq(s.material_document_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'document',
-      content: { kind: 'document', ...readCanonicalDocument(c.document_id) }
-    };
-  }
-
-  function readCanonicalDocument(documentId: DocumentId) {
-    try {
-      const doc = required(
-        store.orm.select().from(s.documents).where(eq(s.documents.id, documentId)).get()
-      );
-
-      const blocks = store.orm
-        .select()
-        .from(s.blocks)
-        .where(eq(s.blocks.document_id, doc.id))
-        .orderBy(asc(s.blocks.ordinal))
-        .all()
-        .map((b) => ({
-          id: b.editing_id,
-          kind: b.kind,
-          content: decodeBlockContent(b.content),
-          text: b.text,
-          anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(b.anchor))
-        }));
-
-      return Schema.decodeUnknownSync(documentSchema)({ blocks, meta: JSON.parse(doc.meta) });
-    } catch (cause) {
-      if (Schema.isSchemaError(cause))
-        throw new StudyError('internal', 'Invalid persisted document', { cause });
-
-      throw cause;
-    }
   }
 
   function readQuiz(
@@ -586,7 +284,7 @@ export function makeReads({ db: store }: StoreResources) {
 
     return {
       ...row,
-      importProcessing: importProcessing(row.id),
+      kind: Schema.decodeUnknownSync(materialKindSchema)(row.kind),
       projectIds: store.orm
         .select()
         .from(s.project_materials)
@@ -660,7 +358,7 @@ export function makeReads({ db: store }: StoreResources) {
           r.material.id,
           {
             ...r.material,
-            importProcessing: importProcessing(r.material.id),
+            kind: Schema.decodeUnknownSync(materialKindSchema)(r.material.kind),
             projectIds: store.orm
               .select()
               .from(s.project_materials)
@@ -675,14 +373,14 @@ export function makeReads({ db: store }: StoreResources) {
       })
     );
 
-    return ids.map((id) => required(byMaterial.get(id)));
+    return ids.map((id) =>
+      Schema.decodeUnknownSync(materialSummarySchema)(required(byMaterial.get(id)))
+    );
   }
 
   return {
     materialRow,
     versionRow,
-    versionDocumentId,
-    readCanonicalDocument,
     readVersion,
     readMaterial,
     readMaterialSummaries

@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+
+import { errorKindSchema, failureSchema } from '@study/contracts/errors';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Coordinates persistence for practice sessions and responses.                       │
@@ -11,10 +14,6 @@
  * │ composes these private operations.                                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { randomUUID } from 'node:crypto';
-
-import { errorKindSchema, failureSchema } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import {
   materialVersionIdSchema,
@@ -22,6 +21,8 @@ import {
   quizQuestionIdSchema
 } from '@study/contracts/ids';
 import type { MaterialVersionId, ProjectId } from '@study/contracts/ids';
+import { contentInputSchema, contentInputKey } from '@study/contracts/inputs';
+import type { ContentInput } from '@study/contracts/inputs';
 import {
   practiceInputSchema,
   startPracticeInputSchema,
@@ -38,6 +39,7 @@ import * as s from '@study/db/schema';
 import { Cause, Exit, Schema, Option } from 'effect';
 import { Workflow } from 'effect/workflow';
 
+import { contentInputColumns } from '#server/platform/database/content-input';
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -152,11 +154,9 @@ function makePractice(resources: StoreResources) {
     status: row.status === 'pending' && failure ? ('failed' as const) : row.status,
     generationAttempt: row.generation_attempt,
     failureKind: row.status === 'pending' ? failure : null,
-    inputVersionIds: Schema.decodeUnknownSync(
-      Schema.fromJsonString(
-        Schema.toCodecJson(Schema.mutable(Schema.Array(materialVersionIdSchema)))
-      )
-    )(row.input_version_ids),
+    inputs: Schema.decodeUnknownSync(
+      Schema.fromJsonString(Schema.toCodecJson(Schema.mutable(Schema.Array(contentInputSchema))))
+    )(row.inputs),
     versionId: row.version_id,
     attemptId: row.attempt_id
   });
@@ -207,7 +207,7 @@ function makePractice(resources: StoreResources) {
     projectId: ProjectId,
     epoch: string,
     ordinal: bigint,
-    inputVersionIds: readonly MaterialVersionId[]
+    inputs: readonly ContentInput[]
   ) {
     const id = randomUUID();
 
@@ -220,69 +220,35 @@ function makePractice(resources: StoreResources) {
         ordinal,
         kind: ordinal % 3n === 2n ? 'open' : 'choice',
         status: 'pending',
-        input_version_ids: JSON.stringify(inputVersionIds.map(String))
+        inputs: Schema.encodeSync(
+          Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
+        )(inputs)
       })
       .run();
 
+    for (const [position, input] of inputs.entries())
+      db.orm
+        .insert(s.learning_practice_inputs)
+        .values({
+          slot_id: id,
+          position: BigInt(position),
+          ...contentInputColumns(input)
+        })
+        .run();
     return id;
   }
 
-  function assertPracticeInputs(
-    projectId: ProjectId,
-    inputVersionIds: readonly MaterialVersionId[]
-  ) {
-    for (const id of inputVersionIds) {
-      const row = db.orm
-        .select()
-        .from(s.material_versions)
-        .where(
-          and(
-            eq(s.material_versions.id, id),
-            inArray(
-              s.material_versions.material_id,
-              db.orm
-                .select({ id: s.project_materials.material_id })
-                .from(s.project_materials)
-                .where(eq(s.project_materials.project_id, projectId))
-            ),
-            eq(s.material_versions.status, 'published')
-          )
-        )
-        .get();
-
-      const material =
-        row && db.orm.select().from(s.materials).where(eq(s.materials.id, row.material_id)).get();
-
-      const document = db.orm
-        .select()
-        .from(s.material_document_versions)
-        .where(eq(s.material_document_versions.version_id, id))
-        .get();
-
-      const imported = db.orm
-        .select()
-        .from(s.material_source_snapshots)
-        .where(eq(s.material_source_snapshots.version_id, id))
-        .get()?.document_id;
-
-      if (!row || !material || material.archived_at !== null || (!document && !imported))
-        invalid('practice input must be an active published project document');
-    }
-  }
-
-  function start(projectId: ProjectId, inputVersionIds: readonly MaterialVersionId[]) {
+  function start(projectId: ProjectId, inputs: readonly ContentInput[]) {
     const existing = control(projectId);
 
     if (existing?.enabled) return [];
 
     if (
-      !inputVersionIds.length ||
-      inputVersionIds.length > 20 ||
-      new Set(inputVersionIds).size !== inputVersionIds.length
+      !inputs.length ||
+      inputs.length > 20 ||
+      new Set(inputs.map(contentInputKey)).size !== inputs.length
     )
       invalid('invalid practice inputs');
-
-    assertPracticeInputs(projectId, inputVersionIds);
 
     const epoch = randomUUID();
 
@@ -292,10 +258,7 @@ function makePractice(resources: StoreResources) {
       .onConflictDoUpdate({ target: controls.project_id, set: { epoch, enabled: true } })
       .run();
 
-    return [
-      reserve(projectId, epoch, 0n, inputVersionIds),
-      reserve(projectId, epoch, 1n, inputVersionIds)
-    ];
+    return [reserve(projectId, epoch, 0n, inputs), reserve(projectId, epoch, 1n, inputs)];
   }
 
   function stop(projectId: ProjectId, epoch: string) {
@@ -316,6 +279,24 @@ function makePractice(resources: StoreResources) {
         )
       )
       .run();
+    db.orm
+      .delete(s.learning_practice_inputs)
+      .where(
+        inArray(
+          s.learning_practice_inputs.slot_id,
+          db.orm
+            .select({ id: slots.id })
+            .from(slots)
+            .where(
+              and(
+                eq(slots.project_id, projectId),
+                eq(slots.epoch, epoch),
+                eq(slots.status, 'cancelled')
+              )
+            )
+        )
+      )
+      .run();
   }
 
   function assertPublicationIntent(row: typeof slots.$inferSelect, slotId: string) {
@@ -332,15 +313,15 @@ function makePractice(resources: StoreResources) {
       Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
     )(request.payload);
 
-    const captured = view(row).inputVersionIds;
+    const captured = view(row).inputs;
 
     if (
       intent.kind !== 'quiz' ||
       intent.scopeId !== row.epoch ||
       intent.questionSpec?.count !== 1 ||
       intent.questionSpec.kind !== row.kind ||
-      intent.inputVersionIds.length !== captured.length ||
-      intent.inputVersionIds.some((id, i) => id !== captured[i])
+      intent.inputs.length !== captured.length ||
+      intent.inputs.some((input, i) => contentInputKey(input) !== contentInputKey(captured[i]!))
     )
       invalid('invalid practice generation intent');
   }
@@ -436,6 +417,10 @@ function makePractice(resources: StoreResources) {
 
   function refill(row: Slot) {
     db.orm.update(slots).set({ status: 'answered' }).where(eq(slots.id, row.id)).run();
+    db.orm
+      .delete(s.learning_practice_inputs)
+      .where(eq(s.learning_practice_inputs.slot_id, row.id))
+      .run();
 
     const last = requireRow(
       db.orm
@@ -447,7 +432,7 @@ function makePractice(resources: StoreResources) {
         .get()
     );
 
-    return reserve(row.project_id, row.epoch, last.ordinal + 1n, view(row).inputVersionIds);
+    return reserve(row.project_id, row.epoch, last.ordinal + 1n, view(row).inputs);
   }
 
   return {
@@ -516,12 +501,13 @@ export const PracticeStore = defineStore({
               .set({ status: 'cancelled' })
               .where(eq(slots.status, 'pending'))
               .run();
+            db.orm.delete(s.learning_practice_inputs).run();
           }
         }),
         start: storeMutation({
           input: startPracticeInputSchema,
           output: Schema.Array(Schema.String),
-          run: (input) => start(input.projectId, input.inputVersionIds)
+          run: (input) => start(input.projectId, input.inputs)
         }),
         stop: storeMutation({
           input: Schema.Struct({ ...practiceInputSchema.fields, epoch: Schema.String }),
@@ -731,10 +717,10 @@ export const PracticeBackupStore = defineStore({
         output: Schema.Boolean,
         run: () => {
           const ids = Schema.decodeUnknownSync(
-            Schema.fromJsonString(Schema.toCodecJson(Schema.Array(materialVersionIdSchema)))
+            Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
           );
 
-          for (const row of db.orm.select().from(slots).all()) ids(row.input_version_ids);
+          for (const row of db.orm.select().from(slots).all()) ids(row.inputs);
 
           return !db.orm.get(
             sql`SELECT 1 FROM learning_practice_controls WHERE enabled=1 UNION ALL SELECT 1 FROM learning_practice_slots WHERE status='pending' LIMIT 1`

@@ -152,7 +152,8 @@ testStable('snapshots survive replacement and stale publications leave no docume
       null
     );
     assert.equal(
-      context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM documents`)?.count,
+      context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM content_snapshots`)
+        ?.count,
       0n
     );
     await Effect.runPromise(
@@ -189,7 +190,8 @@ testStable('snapshots survive replacement and stale publications leave no docume
       )
     );
     assert.equal(
-      context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM documents`)?.count,
+      context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM content_snapshots`)
+        ?.count,
       0n
     );
     assert.equal(
@@ -239,7 +241,8 @@ testStable('snapshots survive replacement and stale publications leave no docume
       )
     );
     assert.equal(
-      context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM documents`)?.count,
+      context.db.orm.get<{ count: bigint }>(sql`SELECT count(*) AS count FROM content_snapshots`)
+        ?.count,
       1n
     );
     assert.equal(

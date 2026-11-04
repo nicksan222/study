@@ -77,14 +77,14 @@ testStable(
 
             assert.ok('kind' in stale);
             assert.equal(stale.kind, 'invalid_input');
-            assert.equal(context.db.orm.select().from(workflowEvents).all().length, 2);
+            assert.equal(context.db.orm.select().from(workflowEvents).all().length, 1);
             const renewed = yield* client['sources.requestSourceProcessing']({
               id: created.id,
               expectedRevision: state.revision
             });
 
             assert.notEqual(renewed.requestId, state.requestId);
-            assert.equal(context.db.orm.select().from(workflowEvents).all().length, 3);
+            assert.equal(context.db.orm.select().from(workflowEvents).all().length, 2);
             const response = yield* Effect.promise(() =>
               fetch(`${url}/rpc`, {
                 method: 'POST',

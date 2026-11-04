@@ -10,7 +10,7 @@ testStable(
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/projects/store.ts': `import { sessions, projects } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(sessions); db.insert(projects); db.update(sessions); db.execute('UPDATE sessions SET title = 1');`,
       'src/features/learning/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute('UPDATE preferences SET value = 1');`,
-      'src/features/materials/store.ts': `import { documents } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(documents);`
+      'src/features/documents/store.ts': `import { content_snapshots } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
     });
 
     assert.equal(diagnostics.length, 3);
@@ -31,7 +31,7 @@ testStable('recognizes aliases and SQL without confusing unrelated APIs or reads
       logger.update(schema.sessions); parser.run('UPDATE sessions SET x=1');
       function shadow(s) { db.delete(s); }
     `,
-    'src/features/sources/store.ts': `import { documents, chunks } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(documents); db.insert(chunks);`,
+    'src/features/sources/store.ts': `import { content_snapshots, chunks } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots); db.insert(chunks);`,
     'src/features/projects/store.test.ts': `import { sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.update(sessions);`
   });
 
@@ -90,31 +90,31 @@ testStable(
 );
 
 testStable(
-  'import identity and representation pins remain material-owned across acquisition participants',
+  'source import receipts and extraction revisions remain source-owned across acquisition participants',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/sources/store.ts': `
+      'src/features/materials/store.ts': `
       import * as schema from '@study/db/schema';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      const { material_imports: identities } = schema;
-      const pins = schema.material_source_snapshots;
+      const { source_recording_imports: identities } = schema;
+      const pins = schema.source_extraction_revisions;
       db.select().from(identities);
       db.insert(identities);
       db.update(pins);
-      sql\`DELETE FROM material_imports WHERE source_id=1\`;
+      sql\`DELETE FROM source_recording_imports WHERE source_id=1\`;
     `,
-      'src/features/materials/store.ts': `
-      import { material_imports, material_source_snapshots } from '@study/db/schema';
+      'src/features/sources/store.ts': `
+      import { source_recording_imports, source_extraction_revisions } from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(material_imports); db.insert(material_source_snapshots);
+      db.insert(source_recording_imports); db.insert(source_extraction_revisions);
     `
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature sources may not write material_imports.',
-      'Feature sources may not write material_imports.',
-      'Feature sources may not write material_source_snapshots.'
+      'Feature materials may not write source_recording_imports.',
+      'Feature materials may not write source_recording_imports.',
+      'Feature materials may not write source_extraction_revisions.'
     ]);
   }
 );
@@ -163,21 +163,21 @@ testStable(
       db.select().from(captures);
       db.insert(captures);
       sql\`DELETE FROM session_run_contexts WHERE session_id=1\`;
-      db.insert(schema.material_source_snapshots);
+      db.insert(schema.material_evidence_inputs);
     `,
       'src/features/conversations/store/capture.ts': `
       import * as schema from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
       db.insert(schema.session_run_contexts);
       db.delete(schema.session_run_contexts);
-      db.select().from(schema.material_document_versions);
-      db.update(schema.material_document_versions);
+      db.select().from(schema.study_document_versions);
+      db.update(schema.study_document_versions);
       db.insert(schema.session_materials);
     `
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature conversations may not write material_document_versions.',
+      'Feature conversations may not write study_document_versions.',
       'Feature conversations may not write session_materials.',
       'Feature materials may not write session_run_contexts.',
       'Feature materials may not write session_run_contexts.'
@@ -186,7 +186,7 @@ testStable(
 );
 
 testStable(
-  'transform receipts and citations remain material-owned while coordinators can only read them',
+  'learning generation receipts and citations remain material-owned while coordinators can only read them',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/conversations/store/transform.ts': `
@@ -194,86 +194,86 @@ testStable(
       import type { Db } from '@study/db'; declare const db: Db;
       db.select().from(s.material_generation_requests);
       db.update(s.material_generation_requests);
-      db.insert(s.material_generation_inputs);
-      db.delete(s.material_version_citations);
+      db.insert(s.material_evidence_inputs);
+      db.delete(s.material_evidence_citations);
     `,
       'src/features/materials/store/generation.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
       db.update(s.material_generation_requests);
-      db.insert(s.material_generation_inputs);
-      db.insert(s.material_version_citations);
+      db.insert(s.material_evidence_inputs);
+      db.insert(s.material_evidence_citations);
     `
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature conversations may not write material_generation_inputs.',
+      'Feature conversations may not write material_evidence_inputs.',
       'Feature conversations may not write material_generation_requests.',
-      'Feature conversations may not write material_version_citations.'
+      'Feature conversations may not write material_evidence_citations.'
     ]);
   }
 );
 
 testStable(
-  'edit and proposal receipts stay Material-owned and asset roots stay trigger-derived',
+  'edit and proposal receipts stay Documents-owned and asset roots stay trigger-derived',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/materials/store/editing.ts': `
+      'src/features/documents/store/editing.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.document_edit_receipts);
-      db.insert(s.document_proposals);
-      db.insert(s.document_proposal_receipts);
+      db.insert(s.study_document_edit_receipts);
+      db.insert(s.study_document_proposals);
+      db.insert(s.study_document_proposal_receipts);
       db.delete(s.document_assets);
     `,
       'src/features/conversations/store/proposals.ts': `
       import * as schema from '@study/db/schema';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.select().from(schema.document_proposals);
-      const { document_proposals: proposals } = schema;
+      db.select().from(schema.study_document_proposals);
+      const { study_document_proposals: proposals } = schema;
       db.insert(proposals);
-      db.update(schema.document_edit_receipts);
-      sql\`DELETE FROM document_proposal_receipts WHERE key=\${key}\`;
+      db.update(schema.study_document_edit_receipts);
+      sql\`DELETE FROM study_document_proposal_receipts WHERE key=\${key}\`;
     `
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature conversations may not write document_edit_receipts.',
-      'Feature conversations may not write document_proposal_receipts.',
-      'Feature conversations may not write document_proposals.',
-      'Feature materials may not write document_assets.'
+      'Feature conversations may not write study_document_edit_receipts.',
+      'Feature conversations may not write study_document_proposal_receipts.',
+      'Feature conversations may not write study_document_proposals.',
+      'Feature documents may not write document_assets.'
     ]);
   }
 );
 
 testStable(
-  'historic annotations and manual judgments stay Materials-owned while message citations stay Conversations-owned',
+  'historic annotations and manual judgments stay Documents-owned while message citations stay Conversations-owned',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/conversations/store/evidence.ts': `
       import * as s from '@study/db/schema';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      const { material_annotations: annotations } = s;
+      const { study_document_annotations: annotations } = s;
       db.select().from(annotations);
       db.insert(annotations);
-      db.update(s['material_annotation_revisions']);
-      sql\`DELETE FROM material_citation_assessments WHERE marker=1\`;
+      db.update(s['study_document_annotation_revisions']);
+      sql\`DELETE FROM study_document_citation_assessments WHERE marker=1\`;
       db.insert(s.citations);
     `,
       'src/features/sources/store/correction.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.material_citation_assessments);
-      db.delete(s.material_annotation_revisions);
+      db.insert(s.study_document_citation_assessments);
+      db.delete(s.study_document_annotation_revisions);
     `,
-      'src/features/materials/store/evidence.ts': `
+      'src/features/documents/store/evidence.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.material_annotations);
-      db.insert(s.material_annotation_revisions);
-      db.insert(s.material_citation_assessments);
+      db.insert(s.study_document_annotations);
+      db.insert(s.study_document_annotation_revisions);
+      db.insert(s.study_document_citation_assessments);
       db.select().from(s.citations);
       db.update(s.citations);
     `
@@ -282,56 +282,56 @@ testStable(
     assert.deepEqual(
       diagnostics.map(({ message }) => message).sort(),
       [
-        'Feature conversations may not write material_annotations.',
-        'Feature conversations may not write material_annotation_revisions.',
-        'Feature conversations may not write material_citation_assessments.',
-        'Feature sources may not write material_citation_assessments.',
-        'Feature sources may not write material_annotation_revisions.',
-        'Feature materials may not write citations.'
+        'Feature conversations may not write study_document_annotations.',
+        'Feature conversations may not write study_document_annotation_revisions.',
+        'Feature conversations may not write study_document_citation_assessments.',
+        'Feature sources may not write study_document_citation_assessments.',
+        'Feature sources may not write study_document_annotation_revisions.',
+        'Feature documents may not write citations.'
       ].sort()
     );
   }
 );
 
 testStable(
-  'deletion barriers are Conversations-owned and proposal retirement proofs are Materials-owned',
+  'deletion barriers are Conversations-owned and proposal retirement proofs are Documents-owned',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/conversations/store/deletion.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.session_deletions); db.insert(s.session_deletion_correlations);
-      db.select().from(s.session_generation_retirements);
-      db.delete(s.retired_document_proposal_receipts); db.insert(s.session_generation_retirements);
+      db.select().from(s.study_document_transform_requests);
+      db.delete(s.study_document_proposal_receipts); db.insert(s.study_document_transform_requests);
     `,
-      'src/features/materials/store/session-retirement.ts': `
+      'src/features/documents/store/session-retirement.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.session_generation_retirements); db.insert(s.retired_document_proposal_receipts);
+      db.insert(s.study_document_transform_requests); db.insert(s.study_document_proposal_receipts);
       db.select().from(s.session_deletions); db.update(s.session_deletions); db.delete(s.session_deletion_correlations);
     `
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature conversations may not write retired_document_proposal_receipts.',
-      'Feature conversations may not write session_generation_retirements.',
-      'Feature materials may not write session_deletion_correlations.',
-      'Feature materials may not write session_deletions.'
+      'Feature conversations may not write study_document_proposal_receipts.',
+      'Feature conversations may not write study_document_transform_requests.',
+      'Feature documents may not write session_deletion_correlations.',
+      'Feature documents may not write session_deletions.'
     ]);
   }
 );
 
 testStable(
-  'Material deletion proofs stay with Materials and exact source cleanup candidates stay with Sources',
+  'Material deletion proofs stay with Materials and exact source extraction revisions stay with Sources',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/materials/store/deletion.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_deletions); db.insert(s.material_deletion_members); db.insert(s.material_deletion_requests);
-      db.select().from(s.source_material_deletion_assets); db.delete(s.source_material_deletion_assets);
+      db.select().from(s.source_extraction_revisions); db.delete(s.source_extraction_revisions);
     `,
       'src/features/sources/store/material-deletion.ts': `
       import * as s from '@study/db/schema'; import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      const { source_material_deletion_assets: candidates } = s;
+      const { source_extraction_revisions: candidates } = s;
       db.insert(candidates); db.delete(s.source_blobs); db.delete(s.source_snapshots);
       db.select().from(s.material_deletion_members); db.insert(s.material_deletion_members);
       sql\`UPDATE material_deletions SET status='completed'\`;
@@ -343,7 +343,7 @@ testStable(
       db.update(s.material_deletion_requests);
     `,
       'src/features/learning/store/material-deletion.ts': `
-      import { source_material_deletion_assets as candidates } from '@study/db/schema';
+      import { source_extraction_revisions as candidates } from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db; db.insert(candidates);
     `
     });
@@ -351,41 +351,41 @@ testStable(
     assert.deepEqual(
       diagnostics.map(({ message }) => message).sort(),
       [
-        'Feature materials may not write source_material_deletion_assets.',
+        'Feature materials may not write source_extraction_revisions.',
         'Feature sources may not write material_deletion_members.',
         'Feature sources may not write material_deletions.',
         'Feature sources may not write material_deletion_requests.',
         'Feature conversations may not write material_deletion_requests.',
-        'Feature learning may not write source_material_deletion_assets.'
+        'Feature learning may not write source_extraction_revisions.'
       ].sort()
     );
   }
 );
 
 testStable(
-  'history intent, exact version barriers and source cleanup roots have one owning feature',
+  'retired intents, exact version barriers and source extraction history have one owning feature',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/materials/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_history_prunes); db.insert(s.material_history_members); db.insert(s.material_history_requests);
-      db.insert(s.source_history_documents); db.insert(s.conversation_history_intents);
+      db.insert(s.source_extraction_revisions); db.insert(s.session_retired_intents);
     `,
       'src/features/sources/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.source_history_documents); db.insert(s.source_history_revisions); db.update(s.material_history_members);
+      db.insert(s.source_extraction_revisions); db.insert(s.source_snapshots); db.update(s.material_history_members);
     `,
       'src/features/conversations/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.conversation_history_intents); db.insert(s.material_history_requests);
+      db.insert(s.session_retired_intents); db.insert(s.material_history_requests);
     `
     });
 
     assert.deepEqual(
       diagnostics.map(({ message }) => message).sort(),
       [
-        'Feature materials may not write source_history_documents.',
-        'Feature materials may not write conversation_history_intents.',
+        'Feature materials may not write source_extraction_revisions.',
+        'Feature materials may not write session_retired_intents.',
         'Feature sources may not write material_history_members.',
         'Feature conversations may not write material_history_requests.'
       ].sort()
@@ -406,30 +406,30 @@ testStable(
 
       db.delete(schema.material_history_members); db.insert(schema.material_history_prunes);
 
-      db.insert(schema.source_history_documents); db.update(schema.source_history_revisions);
+      db.insert(schema.source_extraction_revisions); db.update(schema.source_snapshots);
 
-      sql\`DELETE FROM conversation_history_intents WHERE request_id=\${requestId}\`;
+      sql\`DELETE FROM session_retired_intents WHERE request_id=\${requestId}\`;
 
     `,
       'src/features/sources/store/material-history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.source_history_documents); db.insert(s.source_history_revisions);
+      db.insert(s.source_extraction_revisions); db.insert(s.source_snapshots);
 
     `,
       'src/features/conversations/store/material-history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.conversation_history_intents);
+      db.insert(s.session_retired_intents);
 
     `
     });
 
     assert.deepEqual(diagnostics.map(({ message }) => message).sort(), [
-      'Feature learning may not write conversation_history_intents.',
+      'Feature learning may not write session_retired_intents.',
       'Feature learning may not write material_history_members.',
       'Feature learning may not write material_history_prunes.',
       'Feature learning may not write material_history_requests.',
-      'Feature learning may not write source_history_documents.',
-      'Feature learning may not write source_history_revisions.'
+      'Feature learning may not write source_extraction_revisions.',
+      'Feature learning may not write source_snapshots.'
     ]);
   }
 );

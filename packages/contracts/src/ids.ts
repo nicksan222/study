@@ -28,9 +28,9 @@ export const versionIdSchema = positiveId.pipe(Schema.brand('VersionId'));
 
 export type VersionId = typeof versionIdSchema.Type;
 
-export const documentIdSchema = positiveId.pipe(Schema.brand('DocumentId'));
+export const contentSnapshotIdSchema = positiveId.pipe(Schema.brand('ContentSnapshotId'));
 
-export type DocumentId = typeof documentIdSchema.Type;
+export type ContentSnapshotId = typeof contentSnapshotIdSchema.Type;
 
 export const recordingIdSchema = positiveId.pipe(Schema.brand('RecordingId'));
 
@@ -64,6 +64,15 @@ export const materialCardIdSchema = positiveId.pipe(Schema.brand('MaterialCardId
 
 export type MaterialCardId = typeof materialCardIdSchema.Type;
 
-export const materialAnnotationIdSchema = positiveId.pipe(Schema.brand('MaterialAnnotationId'));
+export const studyDocumentIdSchema = positiveId.pipe(Schema.brand('StudyDocumentId'));
 
-export type MaterialAnnotationId = typeof materialAnnotationIdSchema.Type;
+export type StudyDocumentId = typeof studyDocumentIdSchema.Type;
+
+export const studyDocumentVersionIdSchema = positiveId.pipe(Schema.brand('StudyDocumentVersionId'));
+
+export type StudyDocumentVersionId = typeof studyDocumentVersionIdSchema.Type;
+
+export const studyDocumentAnnotationIdSchema = positiveId.pipe(
+  Schema.brand('StudyDocumentAnnotationId')
+);
+export type StudyDocumentAnnotationId = typeof studyDocumentAnnotationIdSchema.Type;

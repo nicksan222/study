@@ -31,18 +31,14 @@ import type { documentTransformFixture } from '#testing/document-transform';
 
 export type MaterialDeletionFixture = Awaited<ReturnType<typeof documentTransformFixture>>;
 
-export function acceptMaterialDeletion(
-  fixture: MaterialDeletionFixture,
-  materialId: MaterialId,
-  descendantIds: readonly MaterialId[] = []
-) {
+export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materialId: MaterialId) {
   return Effect.runPromise(
     Effect.gen(function* () {
       const materials = yield* Materials;
 
       const preview = yield* materials.previewDeletion({ materialId });
 
-      return yield* materials.requestDeletion({ materialId, descendantIds, token: preview.token });
+      return yield* materials.requestDeletion({ materialId, token: preview.token });
     }).pipe(Effect.provide(fixture.domain()))
   );
 }

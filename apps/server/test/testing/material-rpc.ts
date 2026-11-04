@@ -20,7 +20,5 @@ import { Recordings } from '#server/features/recordings/index';
 import { Sources } from '#server/features/sources/index';
 
 export const materialRpcHandlers = MaterialsRpcLive.pipe(
-  Layer.provide(
-    Materials.deletionParticipantsLayer({ Conversations, Learning, Sources, Recordings })
-  )
+  Layer.provide(Materials.deletionParticipantsLayer({ Learning }))
 );

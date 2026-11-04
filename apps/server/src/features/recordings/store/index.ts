@@ -21,13 +21,7 @@ import {
 } from '@study/contracts/recordings/rpc';
 import { recordingPostSchema, recordingViewSchema } from '@study/contracts/recordings/schemas';
 import { and, asc, desc, eq, lt, sql } from '@study/db';
-import {
-  recording_chunks,
-  recording_posts,
-  recordings,
-  sessions,
-  material_deletion_requests
-} from '@study/db/schema';
+import { recording_chunks, recording_posts, recordings, sessions } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
 import {
@@ -70,15 +64,6 @@ function makeHelpers({ db }: StoreResources) {
   }
 
   function post(requestId: string) {
-    if (
-      db.orm
-        .select()
-        .from(material_deletion_requests)
-        .where(eq(material_deletion_requests.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Recording capture is unavailable');
-
     const row = required(
       db.orm.select().from(recording_posts).where(eq(recording_posts.request_id, requestId)).get()
     );

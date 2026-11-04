@@ -20,9 +20,11 @@ import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect } from 'effect';
 
+import { Documents } from '#server/features/documents/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { useStore } from '#server/platform/definitions/define-store';
+import { deletionDocument } from '#testing/material-deletion';
 
 import { SystemStore } from './index.ts';
 
@@ -72,7 +74,7 @@ testStable('passage search retains anchors and ignores superseded documents', as
       sql`INSERT INTO sources (id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES (1,1,'attachment','text','text/plain','Notes',1,zeroblob(32),1)`
     );
     context.db.orm.run(
-      sql`INSERT INTO documents (id,source_id,extractor_version,meta,created_at) VALUES (1,1,1,'{}',1),(2,1,1,'{}',2),(3,1,1,'{}',3)`
+      sql`INSERT INTO content_snapshots (id,source_id,extractor_version,meta,created_at) VALUES (1,1,1,'{}',1),(2,1,1,'{}',2),(3,1,1,'{}',3)`
     );
     context.db.orm.run(
       sql`INSERT INTO chunks (id,document_id,ordinal,first_block,last_block,anchor,text,content_hash) VALUES (1,1,0,0,0,'{"type":"page","page":1}','obsolete fossils',zeroblob(32)),(2,2,0,0,0,'{"type":"page","page":2}','current molecules',zeroblob(32)),(3,3,0,0,0,'{"type":"page","page":3}','unpublished atoms',zeroblob(32))`
@@ -276,6 +278,59 @@ testStable(
           })
         ),
         []
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'authored search uses the independent document identity and only its visible published head',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const documents = yield* Documents;
+          const document = yield* documents.create({
+            createKey: 'search-document',
+            title: 'Independent notes',
+            document: deletionDocument('Obsolete passage token'),
+            inputs: [],
+            citations: []
+          });
+          const base = document.version!;
+          yield* documents.save({
+            documentId: document.id,
+            expectedVersionId: base.id,
+            key: 'search-edit',
+            document: deletionDocument('HeadOnlySearchToken')
+          });
+          const store = yield* useStore(SystemStore);
+          assert.deepEqual(
+            yield* store.searches({ query: 'Obsolete', kinds: ['document'], limit: 10 }),
+            []
+          );
+          const hits = yield* store.searches({
+            query: 'HeadOnlySearchToken',
+            kinds: ['document'],
+            limit: 10
+          });
+          assert.equal(hits.length, 1);
+          assert.equal(hits[0].kind, 'document');
+          assert.deepEqual(hits[0].target, { type: 'document', documentId: document.id });
+          yield* documents.archive({ id: document.id, archived: true });
+          assert.deepEqual(
+            yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['document'], limit: 10 }),
+            []
+          );
+        }).pipe(
+          Effect.provide(Documents.layer),
+          Effect.provideService(Database, { store: context })
+        )
       );
     } finally {
       context.close();

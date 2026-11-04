@@ -12,7 +12,7 @@
 
 import assert from 'node:assert/strict';
 
-import type { MaterialId, DocumentId } from '@study/contracts/ids';
+import type { MaterialId, ContentSnapshotId } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
@@ -26,10 +26,6 @@ import {
   materialHistoryHandler
 } from '#server/features/materials/workflows/history';
 import {
-  sourceIndexedWorkflow,
-  sourceIndexedHandler
-} from '#server/features/materials/workflows/index';
-import {
   sourceIngestionWorkflow,
   sourceIngestionHandler,
   sourceCorrectionWorkflow,
@@ -38,7 +34,7 @@ import {
 import { decodeEvent } from '#server/platform/workflows/events';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
 
-export function historyEvent(f: MaterialDeletionFixture, operationId: string) {
+function historyEvent(f: MaterialDeletionFixture, operationId: string) {
   const event = f.context.db.orm
     .select()
     .from(s.workflowEvents)
@@ -126,9 +122,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
 
         yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
 
-        yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
-
-        const documentId: DocumentId =
+        const documentId: ContentSnapshotId =
           event.type === 'SourceCorrectionRequested'
             ? yield* engine.execute(sourceCorrectionWorkflow, {
                 executionId: `correction/${event.eventId}`,
@@ -150,12 +144,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
 
         assert.ok(indexed?.type === 'SourceIndexed');
 
-        const projected = yield* engine.execute(sourceIndexedWorkflow, {
-          executionId: `projection/${indexed.eventId}`,
-          payload: { event: indexed }
-        });
-
-        return { documentId, projected };
+        return { documentId };
       }).pipe(Effect.provide(f.services()))
     )
   );

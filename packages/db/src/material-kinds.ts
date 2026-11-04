@@ -1,22 +1,3 @@
-/** Closed storage kinds; transformations such as summarize preserve document shape. */
-export const materialKinds = [
-  'file',
-  'audio',
-  'video',
-  'image',
-  'link',
-  'document',
-  'diagram',
-  'quiz',
-  'flashcards'
-] as const;
-
-export const materialOperations = [
-  'original',
-  'edit',
-  'summarize',
-  'translate',
-  'generate',
-  'extract',
-  'transcribe'
-] as const;
+/** Genuine learning artifacts have independent immutable version histories. */
+export const materialKinds = ['diagram', 'quiz', 'flashcards'] as const;
+export const materialOperations = ['original', 'edit', 'generate'] as const;

@@ -7,7 +7,7 @@
  * │ - Reads retained captures separately from availability-checked resume inputs.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Conversations owns these private records; Materials resolves canonical                   │
+ * │ Conversations owns these private records; public content owners resolve canonical                   │
  * │ selected content.                                                                        │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
@@ -27,10 +27,13 @@ import { and, eq } from '@study/db';
 import {
   sessions,
   session_run_contexts,
+  session_context_documents,
+  session_context_sources,
+  session_retired_intents,
   messages,
   message_parts,
   message_versions,
-  conversation_history_intents
+  session_deletions
 } from '@study/db/schema';
 import { Schema, Option } from 'effect';
 
@@ -59,6 +62,7 @@ function assertHistoryBoundary(
 function canonicalIntent(input: typeof sessionContextIntentSchema.Type) {
   return {
     sessionId: input.sessionId,
+    additionalSessionIds: input.additionalSessionIds,
     threadRoot: input.threadRoot,
     throughMessageId: input.askDigest ? undefined : input.throughMessageId,
     askDigest: input.askDigest,
@@ -92,6 +96,11 @@ function makeContextReads({ db, clock }: StoreResources) {
   function decodeContext(value: string) {
     const snapshot = Schema.decodeUnknownSync(contextCodec)(value);
 
+    for (const id of [snapshot.sessionId, ...(snapshot.additionalSessionIds ?? [])]) {
+      if (db.orm.select().from(session_deletions).where(eq(session_deletions.session_id, id)).get())
+        throw new StudyError('not_found', 'Captured session is unavailable');
+    }
+
     for (const item of snapshot.messages) {
       const version = db.orm
         .select()
@@ -122,7 +131,7 @@ function makeContextReads({ db, clock }: StoreResources) {
   const assertContextAvailable = makeAssertContextAvailable({ db, clock });
 
   function requiredContext(requestId: string, available: boolean) {
-    assertContextAvailable(requestId, 'Captured context is unavailable', available);
+    assertContextAvailable(requestId, available);
 
     const row = retainedContext(requestId);
 
@@ -230,17 +239,16 @@ export const SessionContextIntentStore = defineStore({
             if (
               db.orm
                 .select()
-                .from(conversation_history_intents)
+                .from(session_retired_intents)
                 .where(
                   and(
-                    eq(conversation_history_intents.session_id, input.sessionId),
-                    eq(conversation_history_intents.intent_key, input.intentKey)
+                    eq(session_retired_intents.session_id, input.sessionId),
+                    eq(session_retired_intents.intent_key, input.intentKey)
                   )
                 )
                 .get()
             )
               throw new StudyError('not_found', 'Captured input history is unavailable');
-
             const row = db.orm
               .select()
               .from(session_run_contexts)
@@ -254,7 +262,7 @@ export const SessionContextIntentStore = defineStore({
 
             if (!row) return Option.none();
 
-            assertContextAvailable(row.request_id, 'Captured reply is unavailable');
+            assertContextAvailable(row.request_id);
 
             if (
               !sameIntent(
@@ -283,6 +291,29 @@ export const SessionContextStore = defineStore({
       makeContextReads(resources);
 
     const { conversationHistory, conversationRoot } = makeHistory(resources);
+    function captureHistory(input: typeof sessionContextIntentSchema.Type) {
+      let history = conversationHistory(
+        input.sessionId,
+        input.throughMessageId,
+        input.threadRoot,
+        true
+      );
+      if (input.threadRoot !== undefined) {
+        const part = db.orm
+          .select()
+          .from(message_parts)
+          .where(eq(message_parts.id, input.threadRoot))
+          .get();
+        if (!part) throw new StudyError('not_found', 'Thread root is unavailable');
+        const root = conversationRoot(input.sessionId, part.message_id);
+        let size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
+        while (size > 200000 && history.length > 1) size -= history.shift()!.text.length;
+        if (size > 200000) throw new StudyError('invalid_input', 'Thread context exceeds limit');
+        history = [root, ...history];
+      }
+      assertHistoryBoundary(history, input.throughMessageId);
+      return history;
+    }
 
     return {
       queries: {
@@ -297,7 +328,7 @@ export const SessionContextStore = defineStore({
           input: replySnapshotInputSchema,
           output: Schema.Option(runSelectionContextSchema),
           run: ({ requestId }) => {
-            assertContextAvailable(requestId, 'Captured context is unavailable');
+            assertContextAvailable(requestId);
 
             const row = retainedContext(requestId);
 
@@ -316,35 +347,7 @@ export const SessionContextStore = defineStore({
           run: (input) => {
             const row = session(input.sessionId);
 
-            let history = conversationHistory(
-              row.id,
-              input.throughMessageId,
-              input.threadRoot,
-              true
-            );
-
-            if (input.threadRoot !== undefined) {
-              const part = db.orm
-                .select()
-                .from(message_parts)
-                .where(eq(message_parts.id, input.threadRoot))
-                .get();
-
-              if (!part) throw new StudyError('not_found', 'Thread root is unavailable');
-
-              const root = conversationRoot(row.id, part.message_id);
-
-              let size = root.text.length + history.reduce((n, item) => n + item.text.length, 0);
-
-              while (size > 200000 && history.length > 1) size -= history.shift()!.text.length;
-
-              if (size > 200000)
-                throw new StudyError('invalid_input', 'Thread context exceeds limit');
-
-              history = [root, ...history];
-            }
-
-            assertHistoryBoundary(history, input.throughMessageId);
+            let history = captureHistory(input);
 
             const total = db.orm
               .select()
@@ -352,7 +355,21 @@ export const SessionContextStore = defineStore({
               .where(eq(messages.session_id, row.id))
               .all().length;
 
+            const includedSessions = input.additionalSessionIds?.map((sessionId) => {
+              const included = session(sessionId);
+              history = [...history, ...conversationHistory(sessionId, undefined, undefined, true)];
+              return {
+                sessionId,
+                title: included.title,
+                selectionRevision: included.selection_revision
+              };
+            });
+
+            if (history.reduce((size, item) => size + item.text.length, 0) > 200000)
+              throw new StudyError('invalid_input', 'Combined conversation context exceeds limit');
+
             const intent = {
+              additionalSessionIds: input.additionalSessionIds,
               sessionId: input.sessionId,
               intentKey: input.intentKey,
               instruction: input.instruction,
@@ -368,7 +385,16 @@ export const SessionContextStore = defineStore({
               selectionRevision: row.selection_revision,
               inputs: input.inputs,
               messages: history,
-              excludedMessages: total - history.length
+              includedSessions,
+              excludedMessages:
+                total +
+                (input.additionalSessionIds ?? []).reduce(
+                  (count, id) =>
+                    count +
+                    db.orm.select().from(messages).where(eq(messages.session_id, id)).all().length,
+                  0
+                ) -
+                history.length
             };
 
             if (!history.length && !input.inputs.length)
@@ -388,6 +414,26 @@ export const SessionContextStore = defineStore({
               })
               .run();
 
+            for (const selected of input.inputs) {
+              const reference = selected.input;
+              if (reference.kind === 'document')
+                db.orm
+                  .insert(session_context_documents)
+                  .values({ request_id: input.requestId, version_id: reference.versionId })
+                  .onConflictDoNothing()
+                  .run();
+              else
+                db.orm
+                  .insert(session_context_sources)
+                  .values({
+                    request_id: input.requestId,
+                    source_id: reference.sourceId,
+                    revision: reference.revision,
+                    snapshot_id: reference.snapshotId
+                  })
+                  .onConflictDoNothing()
+                  .run();
+            }
             return snapshot;
           }
         })
@@ -419,6 +465,9 @@ export const SessionContextValidityStore = defineStore({
 
             return (
               owner.selection_revision === captured.selectionRevision &&
+              (captured.includedSessions ?? []).every(
+                (item) => session(item.sessionId).selection_revision === item.selectionRevision
+              ) &&
               captured.messages.every(
                 (item) =>
                   db.orm.select().from(messages).where(eq(messages.id, item.messageId)).get()

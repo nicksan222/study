@@ -23,16 +23,29 @@ import type {
 } from '@study/contracts/sources/capabilities';
 import type { Document } from '@study/contracts/sources/document';
 import type {
+  sourceHistoryInputSchema,
+  sourceHistoryRetireSchema,
   sourcePageInputSchema,
+  sourceLinkSchema,
+  exactExtractionInputSchema,
   correctBlockInputSchema,
   setSourceProjectInputSchema
 } from '@study/contracts/sources/rpc';
 import { sniff } from '@study/contracts/sources/sniff';
 import { Effect, Option } from 'effect';
 
-import { Materials } from '#server/features/materials/index';
 import { decoderPath } from '#server/features/sources/decoders/capability';
 import { SourceBackupStore } from '#server/features/sources/store/backup';
+import {
+  SourceExtractionsStore,
+  SourceRevisionExportsStore,
+  CurrentExtractionStore,
+  SessionSourcesStore
+} from '#server/features/sources/store/exact-extraction';
+import {
+  SourceHistoryStore,
+  SourceHistoryRetirementStore
+} from '#server/features/sources/store/history';
 import {
   SourceStore,
   SourceExportStore,
@@ -43,6 +56,11 @@ import {
   SourceFailureNoticeStore
 } from '#server/features/sources/store/index';
 import { RecordingImportStore } from '#server/features/sources/store/recording';
+import {
+  SourceRetirementStore,
+  SourceDeletionPreviewStore
+} from '#server/features/sources/store/retirement';
+import { Workflows } from '#server/features/workflows/index';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { defineService } from '#server/platform/definitions/define-service';
@@ -55,23 +73,17 @@ import {
 import { pageById } from '#server/platform/definitions/page-by-id';
 import { validateLink } from '#server/platform/http/index';
 
-import {
-  prepareMaterialDeletion,
-  scrubMaterialDeletion,
-  inspectMaterialDeletion
-} from './material-deletion.ts';
-import {
-  prepareMaterialHistory,
-  scrubMaterialHistory,
-  inspectMaterialHistory
-} from './material-history.ts';
-
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 
 export const Sources = defineService(
   'study/Sources',
   Effect.gen(function* () {
     const sources = yield* useStore(SourceStore);
+    const histories = yield* useStore(SourceHistoryStore);
+    const extractions = yield* useStore(SourceExtractionsStore);
+    const revisions = yield* useStore(SourceRevisionExportsStore);
+    const currentExtraction = yield* useStore(CurrentExtractionStore);
+    const sessionSources = yield* useStore(SessionSourcesStore);
 
     const exports = yield* useStore(SourceExportStore);
 
@@ -136,6 +148,27 @@ export const Sources = defineService(
       findSource: sources.findSource,
       sources: (input: SourcePageInput) => pageById(sources.sources, input),
       sourceProcessing: processing.sourceProcessing,
+      extraction: (v: typeof exactExtractionInputSchema.Type) =>
+        sources.source(v.sourceId).pipe(Effect.andThen(extractions.extraction(v))),
+      currentExtraction: (v: Parameters<typeof currentExtraction.findCurrentExtraction>[0]) =>
+        sources
+          .source(v.id)
+          .pipe(
+            Effect.andThen(currentExtraction.findCurrentExtraction(v)),
+            Effect.map(Option.getOrNull)
+          ),
+      extractions: (v: Parameters<typeof extractions.extractions>[0]) =>
+        sources.source(v.sourceId).pipe(Effect.andThen(extractions.extractions(v))),
+      exportRevision: (v: Parameters<typeof revisions.revisionExport>[0]) =>
+        sources.source(v.sourceId).pipe(Effect.andThen(revisions.revisionExport(v))),
+      sessionSources: sessionSources.sessionSources,
+      attachSource: (v: typeof sourceLinkSchema.Type) =>
+        transaction((tx) => {
+          tx.store(SourceStore).source(v.sourceId);
+          tx.store(SessionSourcesStore).attachSource(v);
+        }),
+      detachSource: (v: typeof sourceLinkSchema.Type) =>
+        transaction((tx) => tx.store(SessionSourcesStore).detachSource(v)),
       sourceSnapshot: snapshots.sourceSnapshot,
       sourceDocument: documents.sourceDocument,
       document: historical.document,
@@ -148,8 +181,6 @@ export const Sources = defineService(
           const source = tx
             .store(SourceStore)
             .createSource({ ...input, ...detected, origin: 'attachment', uri: null, requestId });
-
-          Materials.registerImportedSource(tx, source.id);
 
           requested(tx, source.id, 1, requestId);
 
@@ -171,8 +202,6 @@ export const Sources = defineService(
             uri,
             requestId
           });
-
-          Materials.registerImportedSource(tx, source.id);
 
           requested(tx, source.id, 1, requestId);
 
@@ -218,8 +247,6 @@ export const Sources = defineService(
             uri: null
           });
 
-          Materials.registerImportedSource(tx, source.id);
-
           imports.saveRecordingImport({ ...input, sourceId: source.id, hash });
 
           requested(tx, source.id, 1, input.requestId, input.requestId);
@@ -244,15 +271,64 @@ export const Sources = defineService(
             .store(SourceStore)
             .replaceSourceInput({ ...input, ...detected, requestId });
 
-          Materials.registerImportedSource(tx, input.id);
-
           requested(tx, input.id, result.revision, requestId);
 
           return result;
         }),
+      previewHistory: (input: typeof sourceHistoryInputSchema.Type) =>
+        histories.sourceHistory(input),
+      retireHistory: (input: typeof sourceHistoryRetireSchema.Type) =>
+        transaction((tx) => {
+          const preview = tx.store(SourceHistoryStore).sourceHistory(input);
+          const { ids, inputIds } = tx
+            .store(SourceHistoryRetirementStore)
+            .retiredExtractionCorrelation({
+              sourceId: input.sourceId,
+              snapshotIds: preview.candidates.map((item) => item.snapshotId)
+            });
+          Workflows.retireCorrelations(tx, ids, [
+            'SourceProcessingRequested',
+            'SourceCorrectionRequested',
+            'SourceIndexed',
+            'SourceProcessingFailed'
+          ]);
+          // The retained output's content-free SourceIndexed event must remain dispatchable.
+          Workflows.retireCorrelations(tx, inputIds, ['SourceCorrectionRequested']);
+          Workflows.scrubRetiredCorrelations(tx, ids);
+          Workflows.scrubRetiredCorrectionInputs(tx, inputIds);
+          const result = tx.store(SourceHistoryStore).retireSourceHistory(input);
+          if (result.candidates.length) {
+            const eventId = randomUUID();
+            tx.emit({
+              type: 'SourceHistoryPruned',
+              eventId,
+              causationId: null,
+              correlationId: eventId,
+              inputVersion: 1,
+              depth: 0,
+              sourceId: input.sourceId,
+              snapshotIds: result.candidates.map((item) => item.snapshotId)
+            });
+          }
+          return result;
+        }),
+      previewDeletion: ({ id }: { id: SourceId }) =>
+        transaction((tx) => tx.store(SourceDeletionPreviewStore).sourceDeletion(id)),
       deleteSource: (input: { id: SourceId }) =>
         transaction((tx) => {
+          const { ids } = tx.store(SourceRetirementStore).sourceRetirement(input.id);
           const deleted = tx.store(SourceStore).deleteSource(input.id);
+          const executions = deleted
+            ? Workflows.retireCorrelations(tx, ids, [
+                'SourceProcessingRequested',
+                'SourceCorrectionRequested',
+                'SourceProcessingFailed',
+                'SourceIndexed',
+                'SourceProjectChanged'
+              ])
+            : [];
+
+          if (deleted) Workflows.scrubRetiredCorrelations(tx, ids);
 
           if (deleted) {
             const eventId = randomUUID();
@@ -268,8 +344,11 @@ export const Sources = defineService(
             });
           }
 
-          return deleted;
-        }),
+          return { deleted, executions };
+        }).pipe(
+          Effect.tap(({ executions }) => Workflows.interruptRetiredExecutions(executions)),
+          Effect.map(({ deleted }) => deleted)
+        ),
       requestSourceProcessing: (input: { id: SourceId; expectedRevision: number }) =>
         transaction((tx) => {
           const requestId = randomUUID();
@@ -291,8 +370,6 @@ export const Sources = defineService(
           const state = tx.store(SourceProcessingStore).sourceProcessing(input.id);
 
           if (before.projectId !== input.projectId) {
-            Materials.assignImportedSourceProject(tx, input.id);
-
             const eventId = randomUUID();
 
             tx.emit({
@@ -397,12 +474,19 @@ export const Sources = defineService(
     };
   }),
   {
-    validateBackup: (tx: Transaction) => tx.store(SourceBackupStore).backupAsset(undefined),
-    prepareMaterialHistory,
-    scrubMaterialHistory,
-    inspectMaterialHistory,
-    prepareMaterialDeletion,
-    scrubMaterialDeletion,
-    inspectMaterialDeletion
+    currentExtractionInTransaction: (tx: Transaction, id: SourceId) => {
+      tx.store(SourceStore).source(id);
+      return Option.getOrNull(tx.store(CurrentExtractionStore).findCurrentExtraction({ id }));
+    },
+    sourceInTransaction: (tx: Transaction, id: SourceId) => tx.store(SourceStore).source(id),
+    extractionInTransaction: (tx: Transaction, v: typeof exactExtractionInputSchema.Type) => {
+      tx.store(SourceStore).source(v.sourceId);
+      return tx.store(SourceExtractionsStore).extraction(v);
+    },
+    attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {
+      tx.store(SourceStore).source(v.sourceId);
+      tx.store(SessionSourcesStore).attachSource(v);
+    },
+    validateBackup: (tx: Transaction) => tx.store(SourceBackupStore).backupAsset(undefined)
   }
 );

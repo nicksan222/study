@@ -12,6 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { eq, sql } from '@study/db';
@@ -23,18 +24,13 @@ import { RpcTest } from 'effect/rpc';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { documentTransformFixture } from '#testing/document-transform';
-import {
-  acceptMaterialDeletion,
-  cleanupMaterial,
-  deletionDocument
-} from '#testing/material-deletion';
-import { acceptHistory, cleanupHistory } from '#testing/material-history';
+import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 import { cleanup } from '#testing/session-deletion';
 
@@ -47,7 +43,7 @@ testStable(
     const handlers = () =>
       ConversationsRpcLive.pipe(
         Layer.provideMerge(
-          Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer, Sources.layer)
+          Layer.mergeAll(Conversations.layer, Documents.layer, Settings.layer, Sources.layer)
         ),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
@@ -58,19 +54,26 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
             const c = yield* Conversations;
-            const materials = yield* Materials;
+            const documents = yield* Documents;
             const session = yield* rpc('conversations.createSession', { title: 'Ask' });
             const other = yield* rpc('conversations.createSession', { title: 'Other' });
-            const material = yield* materials.create({
+            const material = yield* documents.create({
               title: 'Exact input',
-              content: { kind: 'document', ...deletionDocument('Selected evidence') },
-              publish: true
+              document: deletionDocument('Selected evidence'),
+              createKey: randomUUID(),
+              inputs: [],
+              citations: []
             });
 
             yield* rpc('conversations.updateSessionSelection', {
               sessionId: session.id,
               expectedRevision: 0n,
-              targets: [{ versionId: material.version.id, scope: { kind: 'document' } }]
+              targets: [
+                {
+                  input: { kind: 'document', versionId: material.version!.id },
+                  scope: { kind: 'document' }
+                }
+              ]
             });
             const source = yield* (yield* Sources).createSource({
               projectId: null,
@@ -187,7 +190,12 @@ testStable(
             yield* rpc('conversations.updateSessionSelection', {
               sessionId: session.id,
               expectedRevision: 2n,
-              targets: [{ versionId: material.version.id, scope: { kind: 'document' } }]
+              targets: [
+                {
+                  input: { kind: 'document', versionId: material.version!.id },
+                  scope: { kind: 'document' }
+                }
+              ]
             });
             assert.deepEqual(
               yield* rpc('conversations.ask', {
@@ -446,7 +454,7 @@ testStable(
 
 for (const mode of ['history', 'material', 'session'] as const) {
   testStable(
-    `Ask cannot resurrect its captured authority after native ${mode} cleanup`,
+    `Ask cannot resurrect after session cleanup and exact pins protect ${mode} retirement`,
     async () => {
       const f = await documentTransformFixture();
 
@@ -454,18 +462,25 @@ for (const mode of ['history', 'material', 'session'] as const) {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const c = yield* Conversations;
-            const materials = yield* Materials;
-            const material = yield* materials.create({
+            const documents = yield* Documents;
+            const material = yield* documents.create({
               title: 'Cleanup',
-              content: { kind: 'document', ...deletionDocument('Private captured input') },
-              publish: true
+              document: deletionDocument('Private captured input'),
+              createKey: randomUUID(),
+              inputs: [],
+              citations: []
             });
             const session = yield* c.createUntitledSession({});
 
             yield* c.updateSessionSelection({
               sessionId: session.id,
               expectedRevision: 0n,
-              targets: [{ versionId: material.version.id, scope: { kind: 'document' } }]
+              targets: [
+                {
+                  input: { kind: 'document', versionId: material.version!.id },
+                  scope: { kind: 'document' }
+                }
+              ]
             });
             const input = {
               sessionId: session.id,
@@ -478,7 +493,10 @@ for (const mode of ['history', 'material', 'session'] as const) {
             const captured = yield* c.inspectSessionContext({ requestId: result.requestId });
 
             assert.equal(captured.selectionRevision, 1n);
-            assert.equal(captured.inputs[0]?.versionId, material.version.id);
+            assert.deepEqual(captured.inputs[0]?.input, {
+              kind: 'document',
+              versionId: material.version!.id
+            });
             assert.equal(captured.messages.at(-1)?.versionId, result.userVersionId);
             yield* withTestPublication(
               f.context,
@@ -496,31 +514,52 @@ for (const mode of ['history', 'material', 'session'] as const) {
             });
 
             if (mode === 'history')
-              yield* materials.createVersion({
-                materialId: material.id,
-                content: { kind: 'document', ...deletionDocument('New head') },
-                publish: true
+              yield* documents.save({
+                documentId: material.id,
+                expectedVersionId: material.version!.id,
+                key: randomUUID(),
+                document: deletionDocument('New head')
               });
 
             return { input, result, material, session, manualVersionId: manual.activeVersionId! };
           }).pipe(Effect.provide(f.domain()))
         );
 
-        if (mode === 'history') {
-          const accepted = await acceptHistory(f, saved.material.id, 'ask-history-cleanup');
-
-          await cleanupHistory(f, accepted.operationId);
-        } else if (mode === 'material') {
-          await acceptMaterialDeletion(f, saved.material.id);
-          await cleanupMaterial(f, saved.material.id);
-        } else {
-          await Effect.runPromise(
-            Effect.flatMap(Conversations, (c) => c.deleteSession(saved.session.id)).pipe(
-              Effect.provide(f.domain())
-            )
-          );
-          await cleanup(f, saved.session.id);
-        }
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const docs = yield* Documents;
+            if (mode === 'history') {
+              const preview = yield* docs.previewHistory({
+                documentId: saved.material.id,
+                keepLatest: 1
+              });
+              assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
+              assert.equal(
+                (yield* Effect.flip(
+                  docs.retireHistory({
+                    documentId: saved.material.id,
+                    keepLatest: 1,
+                    token: preview.token
+                  })
+                )).kind,
+                'invalid_input'
+              );
+            } else if (mode === 'material') {
+              const preview = yield* docs.previewDeletion({ id: saved.material.id });
+              assert.ok(preview.blockedVersionIds.includes(saved.material.version!.id));
+              assert.equal(
+                (yield* Effect.flip(
+                  docs.delete({ documentId: saved.material.id, token: preview.token })
+                )).kind,
+                'invalid_input'
+              );
+            }
+            const chats = yield* Conversations;
+            assert.deepEqual(yield* chats.ask(saved.input), saved.result);
+            yield* chats.deleteSession(saved.session.id);
+          }).pipe(Effect.provide(f.domain()))
+        );
+        await cleanup(f, saved.session.id);
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -535,36 +574,17 @@ for (const mode of ['history', 'material', 'session'] as const) {
               versionId: saved.result.versionId
             };
 
-            if (mode === 'session')
-              assert.equal((yield* Effect.flip(c.replyVersion(key))).kind, 'not_found');
-            else {
-              assert.deepEqual(
-                yield* c.replyVersion({ ...key, versionId: saved.manualVersionId }),
-                {
-                  state: 'manual'
-                }
-              );
-              const provenance = yield* c.replyVersion(key);
-
-              assert.ok(provenance.state === 'retired' || provenance.state === 'unavailable');
-              assert.equal(provenance.requestId, saved.result.requestId);
-              assert.equal(
-                f.context.db.orm
-                  .select()
-                  .from(s.conversation_history_intents)
-                  .where(eq(s.conversation_history_intents.intent_key, saved.input.intentKey))
-                  .all().length,
-                1
-              );
-              assert.equal(
-                f.context.db.orm
-                  .select()
-                  .from(s.session_run_contexts)
-                  .where(eq(s.session_run_contexts.request_id, saved.result.requestId))
-                  .all().length,
-                0
-              );
-            }
+            assert.equal((yield* Effect.flip(c.replyVersion(key))).kind, 'not_found');
+            const docs = yield* Documents;
+            assert.equal((yield* docs.document({ id: saved.material.id })).id, saved.material.id);
+            assert.equal(
+              f.context.db.orm
+                .select()
+                .from(s.session_run_contexts)
+                .where(eq(s.session_run_contexts.request_id, saved.result.requestId))
+                .all().length,
+              0
+            );
           }).pipe(Effect.provide(f.domain()))
         );
       } finally {

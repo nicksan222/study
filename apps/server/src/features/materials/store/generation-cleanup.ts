@@ -31,11 +31,10 @@ const historyScopeSchema = Schema.Struct({ kind: Schema.Literal('history'), id: 
 const scopeSchema = Schema.Union([deletionScopeSchema, historyScopeSchema]);
 
 const prepareSchema = Schema.Union([
-  Schema.Struct({ ...deletionScopeSchema.fields, contextIds: Schema.Array(Schema.String) }),
+  deletionScopeSchema,
   Schema.Struct({
     ...historyScopeSchema.fields,
-    versionIds: Schema.Array(materialVersionIdSchema),
-    contextIds: Schema.Array(Schema.String)
+    versionIds: Schema.Array(materialVersionIdSchema)
   })
 ]);
 
@@ -103,7 +102,7 @@ export const MaterialGenerationCleanupStore = defineStore({
     }
 
     function prepare(scope: typeof prepareSchema.Type) {
-      const requests = retirement.affectedRequests(selectedVersions(scope), scope.contextIds);
+      const requests = retirement.affectedRequests(selectedVersions(scope));
       const ownedIds: string[] = [];
 
       for (const request of requests) {

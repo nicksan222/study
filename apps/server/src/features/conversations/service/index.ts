@@ -15,7 +15,10 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { resolvedSelectionSchema } from '@study/contracts/conversations/context';
+import {
+  resolvedSelectionSchema,
+  selectionReferenceKey
+} from '@study/contracts/conversations/context';
 import type {
   sessionContextIntentSchema,
   captureSessionContextSchema,
@@ -44,12 +47,15 @@ import type {
   reanswerInputSchema,
   rewriteMessageInputSchema
 } from '@study/contracts/conversations/schemas';
+import type * as editing from '@study/contracts/documents/editing';
+import type {
+  transformRequestSchema,
+  transformPublicationSchema
+} from '@study/contracts/documents/transform';
 import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
-import type * as editing from '@study/contracts/materials/editing';
-import type { requestDocumentTransformInputSchema } from '@study/contracts/materials/rpc';
-import type { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
+import type { ContentInput } from '@study/contracts/inputs';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
@@ -82,8 +88,9 @@ import {
 } from '#server/features/conversations/store/reply';
 import { SessionSummaryStore } from '#server/features/conversations/store/sidebar-summary';
 import { TitleStore } from '#server/features/conversations/store/title';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
+import { Sources } from '#server/features/sources/index';
 import { Workflows } from '#server/features/workflows/index';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
@@ -95,16 +102,7 @@ import {
 import { impactToken } from '#server/platform/definitions/impact-token';
 
 import { resolveMessageCitations, resolveVersionCitations } from './citations.ts';
-import {
-  prepareMaterialDeletion,
-  scrubMaterialDeletion,
-  inspectMaterialDeletion
-} from './material-deletion.ts';
-import {
-  prepareMaterialHistory,
-  scrubMaterialHistory,
-  inspectMaterialHistory
-} from './material-history.ts';
+import { resolveSelection } from './selection.ts';
 
 /** Recognizes whole assistant mention tokens without matching identifier suffixes. */
 function mentionsAssistant(text: string) {
@@ -169,39 +167,45 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
-      applyDocumentProposal: (value: typeof editing.applyDocumentProposalSchema.Type) =>
+      applyDocumentProposal: (value: typeof editing.applyProposalSchema.Type) =>
         transaction((tx) => {
-          const replay = Materials.findDocumentProposalReceipt(tx, value, 'apply');
-
-          if (Option.isSome(replay)) return replay.value;
-
-          const context = proposalContext(tx, value);
-
-          const relevantValid = tx
-            .store(SessionContextValidityStore)
-            .sessionContextValidity({ requestId: context.requestId });
-
-          return Materials.applyDocumentProposal(tx, value, relevantValid);
+          const replay = Documents.findProposalReceiptInTransaction(tx, {
+            ...value,
+            operation: 'apply'
+          });
+          if (replay) return replay;
+          const request = Documents.findTransformInTransaction(tx, value);
+          let relevantValid = true;
+          if (request) {
+            if (request.cancelled)
+              throw new StudyError('cancelled', 'Proposal generation is unavailable');
+            const context = readCapturedContext(tx, request.contextRequestId);
+            relevantValid =
+              context.inputs.every((item) => inputIsCurrent(tx, item.input)) &&
+              tx
+                .store(SessionContextValidityStore)
+                .sessionContextValidity({ requestId: request.contextRequestId });
+          }
+          return Documents.applyProposalInTransaction(tx, value, relevantValid);
         }),
-      keepDocumentProposal: (value: typeof editing.keepDocumentProposalSchema.Type) =>
+      keepDocumentProposal: (value: typeof editing.keepProposalSchema.Type) =>
         transaction((tx) => {
-          const replay = Materials.findDocumentProposalReceipt(tx, value, 'keep');
-
-          if (Option.isSome(replay)) return replay.value;
-
-          proposalContext(tx, value);
-
-          return Materials.keepDocumentProposal(tx, value);
+          const replay = Documents.findProposalReceiptInTransaction(tx, {
+            ...value,
+            operation: 'keep'
+          });
+          if (replay) return replay;
+          const request = Documents.findTransformInTransaction(tx, value);
+          if (request) {
+            if (request.cancelled)
+              throw new StudyError('cancelled', 'Proposal generation is unavailable');
+            readCapturedContext(tx, request.contextRequestId);
+          }
+          return Documents.keepProposalInTransaction(tx, value);
         }),
-      compareDocumentProposal: (value: typeof editing.proposalKeySchema.Type) =>
-        transaction((tx) => {
-          proposalContext(tx, value);
-
-          return Materials.compareDocumentProposal(tx, value);
-        }),
-      requestDocumentTransform: (value: typeof requestDocumentTransformInputSchema.Type) =>
+      requestDocumentTransform: (value: typeof transformRequestSchema.Type) =>
         transaction((tx) =>
-          Materials.requestDocumentTransform(
+          Documents.requestTransformInTransaction(
             tx,
             readCapturedContext(tx, value.contextRequestId),
             value
@@ -209,28 +213,26 @@ export const Conversations = defineService(
         ),
       documentTransformContext: (value: { requestId: string }) =>
         transaction((tx) => {
-          const request = Materials.readGeneration(tx, value);
-
-          if (!request.documentTransform)
-            throw new StudyError('invalid_input', 'Not a session transform');
-
-          const context = readCapturedContext(tx, request.documentTransform.contextRequestId);
-
-          Materials.assertDocumentContext(request, context);
-
+          const request = Documents.transformInTransaction(tx, value);
+          const context = readCapturedContext(tx, request.contextRequestId);
+          if (request.cancelled || context.instruction !== request.instruction)
+            throw new StudyError('cancelled', 'Document generation is unavailable');
           return context;
         }),
-      publishDocumentTransform: (value: typeof materialGenerationPublicationSchema.Type) =>
+      publishDocumentTransform: (value: typeof transformPublicationSchema.Type) =>
         publicationTransaction((tx) => {
-          const context = pendingTransformContext(tx, value.requestId);
-
-          return Materials.publishDocumentTransform(tx, context, value);
+          const request = Documents.transformInTransaction(tx, value);
+          const context =
+            request.resultVersionId === null
+              ? readCapturedContext(tx, request.contextRequestId)
+              : undefined;
+          return Documents.publishTransformInTransaction(tx, context, value);
         }),
       retryDocumentTransform: (value: { requestId: string; retryId: string }) =>
         transaction((tx) => {
-          const context = pendingTransformContext(tx, value.requestId);
-
-          return Materials.retryDocumentTransform(tx, context, value);
+          const request = Documents.transformInTransaction(tx, value);
+          if (request.resultVersionId === null) readCapturedContext(tx, request.contextRequestId);
+          return Documents.retryTransformInTransaction(tx, value);
         }),
       sessionSelection: selections.sessionSelection,
       updateSessionSelection: (input: typeof updateSessionSelectionSchema.Type) =>
@@ -352,27 +354,43 @@ export const Conversations = defineService(
           if (Option.isSome(tx.store(SessionDeletionStore).findSessionDeletion(input.sessionId)))
             throw new StudyError('not_found', 'Session is unavailable');
 
-          const items = Materials.sessionGenerations(tx, input).map((item) => {
-            if (item.state !== 'available' || item.contextRequestId === null) return item;
+          const items = Documents.transformsInTransaction(tx, input)
+            .map((request) => ({
+              requestId: request.id,
+              contextRequestId: request.contextRequestId,
+              state: 'available' as 'available' | 'unavailable' | 'retired',
+              cancelled: request.cancelled,
+              resultVersionId:
+                request.editTargetVersionId === undefined ? request.resultVersionId : null,
+              proposedVersionId:
+                request.editTargetVersionId === undefined ? null : request.resultVersionId,
+              baseVersionId: request.editTargetVersionId ?? null
+            }))
+            .map((item) => {
+              if (item.state !== 'available' || item.contextRequestId === null) return item;
 
-            try {
-              readCapturedContext(tx, item.contextRequestId);
+              try {
+                readCapturedContext(tx, item.contextRequestId);
 
-              return item;
-            } catch (error) {
-              if (
-                error instanceof StudyError &&
-                (error.kind === 'not_found' || error.kind === 'invalid_input')
-              )
-                return { ...item, state: 'unavailable' as const };
+                return item;
+              } catch (error) {
+                if (
+                  error instanceof StudyError &&
+                  (error.kind === 'not_found' || error.kind === 'invalid_input')
+                )
+                  return { ...item, state: 'unavailable' as const };
 
-              throw error;
-            }
-          });
+                throw error;
+              }
+            });
           const last = items.at(-1);
           const more =
             last && items.length === input.limit
-              ? Materials.sessionGenerations(tx, { ...input, limit: 1, before: last.requestId })
+              ? Documents.transformsInTransaction(tx, {
+                  ...input,
+                  limit: 1,
+                  before: last.requestId
+                })
               : [];
 
           return { items, next: more.length && last ? last.requestId : null };
@@ -440,7 +458,7 @@ export const Conversations = defineService(
             throw new StudyError('invalid_input', 'Session selection changed');
 
           tx.store(ReplyStore).prepareReply(input);
-          const note = tx.store(MessageStore).postMessage(input);
+          const note = postMessage(tx, input);
           const context = captureContext(
             tx,
             { ...intent, throughMessageId: note.id },
@@ -539,7 +557,7 @@ export const Conversations = defineService(
 
           if (existing !== null) return existing;
 
-          const message = tx.store(MessageStore).postMessage({
+          const message = postMessage(tx, {
             sessionId: input.sessionId,
             text: '',
             sourceIds: [input.sourceId]
@@ -552,7 +570,7 @@ export const Conversations = defineService(
           const preferences = yield* readWorkspacePreferences();
 
           return yield* transaction((tx) => {
-            const message = tx.store(MessageStore).postMessage(input);
+            const message = postMessage(tx, input);
 
             const mentioned = mentionsAssistant(input.text);
 
@@ -675,8 +693,6 @@ export const Conversations = defineService(
 
           if (status.status === 'completed' || status.attempt !== value.attempt) return status;
 
-          Materials.scrubSessionRetirement(tx, value.sessionId);
-
           Workflows.scrubRetiredCorrelations(tx, deletionCorrelations(tx, value.sessionId));
 
           return tx.store(SessionDeletionStore).settle({ ...value, errorKind: null });
@@ -698,7 +714,7 @@ export const Conversations = defineService(
             .store(SessionDeletionStore)
             .accept({ sessionId: id, operationId: randomUUID() });
 
-          const generations = Materials.prepareSessionRetirement(tx, {
+          const generations = Documents.prepareSessionRetirement(tx, {
             sessionId: id,
             contextIds: owned.contextIds
           });
@@ -713,6 +729,7 @@ export const Conversations = defineService(
             [...owned.correlations, ...generations],
             deletionEventTypes
           );
+          tx.store(SessionDeletionStore).retireCaptures(owned.contextIds);
           tx.store(SessionDeletionStore).removeConversation(id);
           emitDeletion(tx, status);
 
@@ -723,24 +740,26 @@ export const Conversations = defineService(
   {
     prepareBackup: (tx: Transaction) => tx.store(ConversationBackupStore).prepare(undefined),
     validateBackup: (tx: Transaction, requireRetired = false) =>
-      tx.store(ConversationBackupStore).backupConversation(requireRetired),
-    prepareMaterialHistory,
-    scrubMaterialHistory,
-    inspectMaterialHistory,
-    prepareMaterialDeletion,
-    scrubMaterialDeletion,
-    inspectMaterialDeletion
+      tx.store(ConversationBackupStore).backupConversation(requireRetired)
   }
 );
+
+/** Source membership is independent of the raw message that introduced it. */
+function postMessage(tx: Transaction, input: typeof postMessageInputSchema.Type) {
+  const message = tx.store(MessageStore).postMessage(input);
+  for (const sourceId of input.sourceIds ?? [])
+    Sources.attachInTransaction(tx, { sessionId: input.sessionId, sourceId });
+  return message;
+}
 
 function resolveTargets(
   tx: Transaction,
   targets: typeof updateSessionSelectionSchema.Type.targets
 ) {
-  if (new Set(targets.map((target) => target.versionId)).size !== targets.length)
+  if (new Set(targets.map((target) => selectionReferenceKey(target.input))).size !== targets.length)
     throw new StudyError('invalid_input', 'Duplicate selected version');
 
-  const resolved = targets.map((target) => Materials.resolveSessionSelection(tx, target));
+  const resolved = targets.map((target) => resolveSelection(tx, target));
 
   if (resolved.reduce((sum, item) => sum + item.excerpts.length, 0) > 200)
     throw new StudyError('invalid_input', 'Selected context has too many passages');
@@ -820,26 +839,105 @@ function captureContext(
     return existing.value;
   }
 
-  const selection = tx
-    .store(SessionSelectionStore)
-    .sessionSelection({ sessionId: input.sessionId });
+  const ids = [input.sessionId, ...(input.additionalSessionIds ?? [])];
 
-  return store.capture({ ...input, requestId, inputs: resolveTargets(tx, selection.targets) });
+  if (
+    new Set(ids).size !== ids.length ||
+    (ids.length > 1 && (input.threadRoot !== undefined || input.throughMessageId !== undefined))
+  )
+    throw new StudyError('invalid_input', 'Combined capture requires distinct whole sessions');
+
+  const targets = ids.flatMap(
+    (sessionId) => tx.store(SessionSelectionStore).sessionSelection({ sessionId }).targets
+  );
+  const inputs = input.additionalSessionIds
+    ? resolveCombinedTargets(tx, targets)
+    : resolveTargets(tx, targets);
+
+  return store.capture({ ...input, requestId, inputs });
+}
+
+/** Union exact selected passages without duplicating shared source versions. */
+function resolveCombinedTargets(
+  tx: Transaction,
+  targets: typeof updateSessionSelectionSchema.Type.targets
+) {
+  const grouped = new Map<string, Array<typeof resolvedSelectionSchema.Type>>();
+  for (const target of targets) {
+    const resolved = resolveSelection(tx, target);
+    const key = selectionReferenceKey(target.input);
+    grouped.set(key, [...(grouped.get(key) ?? []), resolved]);
+  }
+  if (grouped.size > 20)
+    throw new StudyError('invalid_input', 'Combined selection has too many documents');
+
+  return resolveTargets(
+    tx,
+    [...grouped.values()].map((items) => {
+      const whole = items.find((item) => item.scope.kind === 'document');
+      if (whole) return whole;
+      if (items.length === 1) return items[0]!;
+      const first = items[0]!;
+      if (items.every((item) => item.scope.kind === 'blocks')) {
+        const blockIds = [
+          ...new Set(
+            items.flatMap((item) => (item.scope.kind === 'blocks' ? item.scope.blockIds : []))
+          )
+        ];
+        return {
+          input: first.input,
+          scope: { kind: 'blocks' as const, blockIds }
+        };
+      }
+      const ranges = [
+        ...new Map(
+          items
+            .flatMap((item) =>
+              item.excerpts.map((excerpt) => ({
+                blockId: excerpt.blockId,
+                start: excerpt.start,
+                end: excerpt.end
+              }))
+            )
+            .map((range) => [`${range.blockId}:${range.start}:${range.end}`, range])
+        ).values()
+      ];
+      return {
+        input: first.input,
+        scope: { kind: 'ranges' as const, ranges }
+      };
+    })
+  );
 }
 
 const resolvedCodec = Schema.fromJsonString(Schema.toCodecJson(resolvedSelectionSchema));
 
 function assertCapturedTarget(tx: Transaction, target: typeof resolvedSelectionSchema.Type) {
-  const resolved = Materials.resolveSessionSelection(tx, target);
+  const resolved = resolveSelection(tx, target);
 
   if (
     Schema.encodeSync(resolvedCodec)({ ...resolved, name: target.name }) !==
     Schema.encodeSync(resolvedCodec)(target)
   )
-    throw new StudyError('not_found', 'Captured material content is unavailable');
+    throw new StudyError('not_found', 'Captured exact content is unavailable');
 }
 
 /** Availability checked immutable context, composed inside another feature transaction. */
+
+function inputIsCurrent(tx: Transaction, input: ContentInput) {
+  if (input.kind === 'document') {
+    const version = Documents.versionInTransaction(tx, input.versionId);
+    return (
+      Documents.documentInTransaction(tx, { id: version.documentId }).headVersionId === version.id
+    );
+  }
+  const current = Sources.currentExtractionInTransaction(tx, input.sourceId);
+  return (
+    current !== null &&
+    current.revision === input.revision &&
+    current.snapshotId === input.snapshotId
+  );
+}
 
 function readCapturedContext(tx: Transaction, requestId: string) {
   const snapshot = tx.store(SessionContextStore).sessionContext({ requestId });
@@ -849,38 +947,6 @@ function readCapturedContext(tx: Transaction, requestId: string) {
   for (const target of snapshot.inputs) assertCapturedTarget(tx, target);
 
   return snapshot;
-}
-
-/** Completed receipts no longer require a retained session capture. */
-
-function pendingTransformContext(tx: Transaction, requestId: string) {
-  const request = Materials.readGeneration(tx, { requestId, verifyOnly: true });
-
-  if (!request.documentTransform) throw new StudyError('invalid_input', 'Not a session transform');
-
-  return request.resultVersionId === null
-    ? readCapturedContext(tx, request.documentTransform.contextRequestId)
-    : undefined;
-}
-
-/** Retained proposals are actionable only while their exact session capture is available. */
-
-function proposalContext(tx: Transaction, value: typeof editing.proposalKeySchema.Type) {
-  const proposal = Materials.documentProposal(tx, value);
-
-  const request = Materials.readGeneration(tx, { requestId: value.requestId, verifyOnly: true });
-
-  if (!request.documentTransform || request.cancelled)
-    throw new StudyError('cancelled', 'Proposal generation is unavailable');
-
-  const context = readCapturedContext(tx, request.documentTransform.contextRequestId);
-
-  if (context.sessionId !== proposal.sessionId)
-    throw new StudyError('invalid_input', 'Proposal session mismatch');
-
-  Materials.assertDocumentContext(request, context);
-
-  return context;
 }
 
 function deletionCorrelations(tx: Transaction, id: SessionId) {
@@ -903,6 +969,9 @@ function emitDeletion(tx: Transaction, value: typeof sessionDeletionSchema.Type)
 /** Source extraction and MaterialPublished notifications have independent library ownership. */
 
 const deletionEventTypes = [
+  'DocumentGenerationRequested',
+  'DocumentGenerationFailed',
+  'DocumentPublished',
   'ConversationGenerationRequested',
   'ConversationTitleRequested',
   'RecordingPostRequested',

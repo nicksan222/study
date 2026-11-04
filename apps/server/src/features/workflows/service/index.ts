@@ -12,20 +12,22 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import type { WorkflowEvent } from '@study/contracts/events';
+import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import type {
   executionSchema,
   cancelExecutionInputSchema,
   executionsInputSchema
 } from '@study/contracts/workflows/schemas';
 import type { Cause } from 'effect';
-import { Effect, Queue, Stream } from 'effect';
+import { Effect, Option, Queue, Schema, Stream } from 'effect';
 
 import { ExecutionStore } from '#server/features/workflows/store/index';
 import { databaseChanges } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
-import { useStore } from '#server/platform/definitions/define-store';
+import { useStore, transaction } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { WorkflowRetirementStore } from '#server/platform/workflows/retirement';
 
@@ -95,7 +97,33 @@ export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflo
     eventTypes: readonly WorkflowEvent['type'][]
   ) => tx.store(WorkflowRetirementStore).fence({ ids, eventTypes }),
   scrubRetiredCorrelations: (tx: Transaction, ids: readonly string[]) =>
-    tx.store(WorkflowRetirementStore).scrub(ids)
+    tx.store(WorkflowRetirementStore).scrub(ids),
+  scrubRetiredCorrectionInputs: (tx: Transaction, ids: readonly string[]) =>
+    tx.store(WorkflowRetirementStore).scrubCorrectionInputs(ids),
+  cancelCorrelatedExecutions: (requestId: string, workflow: string) =>
+    Effect.gen(function* () {
+      const runs = yield* transaction((tx) =>
+        correlatedExecutions(tx, requestId).filter(
+          (run) => run.workflow === workflow && run.canCancel
+        )
+      );
+      if (!runs.length) return;
+      const control = yield* Effect.serviceOption(WorkflowControl);
+      if (Option.isNone(control))
+        return yield* Effect.fail(
+          new StudyError('unsupported', 'Native cancellation control is unavailable')
+        );
+      for (const run of runs) yield* control.value.cancel({ id: run.id, mode: 'safe' });
+    }),
+  interruptRetiredExecutions: (ids: readonly string[]) =>
+    Effect.gen(function* () {
+      const control = yield* Effect.serviceOption(WorkflowControl);
+      if (Option.isNone(control)) return;
+      for (const id of ids)
+        yield* control.value
+          .cancel({ id: Schema.decodeUnknownSync(executionIdSchema)(id), mode: 'unsafe' })
+          .pipe(Effect.ignore);
+    })
 });
 
 /** Inspect native runs in a caller transaction without transferring execution ownership. */

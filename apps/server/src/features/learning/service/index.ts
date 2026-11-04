@@ -111,6 +111,7 @@ export const Learning = defineService(
         readPracticeSlotStore.findPracticeSlot({ slotId }).pipe(Effect.map(Option.getOrNull)),
       startPractice: (input: typeof startPracticeInputSchema.Type) =>
         transaction((tx) => {
+          Materials.validateContentInputsInTransaction(tx, input.inputs, input.projectId, true);
           const ids = tx.store(PracticeStore).start(input);
 
           const result = tx.store(PracticeStore).practice({ projectId: input.projectId });

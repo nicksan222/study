@@ -1,9 +1,18 @@
 import type { ErrorKind } from '@study/contracts/errors';
 import type { MaterialVersionId, ProjectId, QuizAttemptId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable,
+  integer,
+  text,
+  uniqueIndex,
+  index,
+  check,
+  primaryKey
+} from 'drizzle-orm/sqlite-core';
 
 import { sqliteBoolean } from './column-types.ts';
+import { exactContentInputColumns, exactContentInputConstraints } from './exact-content-input.ts';
 import { material_quiz_attempts } from './learning-content.ts';
 import { material_versions } from './material-versions.ts';
 import { projects } from './sources.ts';
@@ -40,7 +49,7 @@ export const learning_practice_slots = sqliteTable(
     status: text({ enum: ['pending', 'ready', 'answered', 'cancelled'] }).notNull(),
     generation_attempt: integer().$type<bigint>().notNull().default(0n),
     failure_kind: text().$type<ErrorKind>(),
-    input_version_ids: text().notNull(),
+    inputs: text().notNull(),
     version_id: integer()
       .$type<MaterialVersionId>()
       .references(() => material_versions.id),
@@ -53,7 +62,29 @@ export const learning_practice_slots = sqliteTable(
     index('learning_practice_slot_status').on(t.project_id, t.epoch, t.status),
     check(
       'learning_practice_slot_values',
-      sql`length(${t.id}) > 0 AND length(${t.epoch}) > 0 AND ${t.ordinal} >= 0 AND ${t.kind} IN ('choice', 'open') AND ${t.status} IN ('pending', 'ready', 'answered', 'cancelled') AND json_valid(${t.input_version_ids}) AND ((${t.version_id} IS NULL) = (${t.attempt_id} IS NULL)) AND (${t.status} NOT IN ('ready', 'answered') OR ${t.version_id} IS NOT NULL)`
+      sql`length(${t.id}) > 0 AND length(${t.epoch}) > 0 AND ${t.ordinal} >= 0 AND ${t.kind} IN ('choice', 'open') AND ${t.status} IN ('pending', 'ready', 'answered', 'cancelled') AND json_valid(${t.inputs}) AND ((${t.version_id} IS NULL) = (${t.attempt_id} IS NULL)) AND (${t.status} NOT IN ('ready', 'answered') OR ${t.version_id} IS NOT NULL)`
     )
+  ]
+);
+
+export const learning_practice_inputs = sqliteTable(
+  'learning_practice_inputs',
+  {
+    slot_id: text()
+      .notNull()
+      .references(() => learning_practice_slots.id, { onDelete: 'cascade' }),
+    position: integer().$type<bigint>().notNull(),
+    ...exactContentInputColumns()
+  },
+  (t) => [
+    primaryKey({ columns: [t.slot_id, t.position] }),
+    ...exactContentInputConstraints(t),
+    index('learning_practice_inputs_document').on(t.document_version_id),
+    index('learning_practice_inputs_source').on(
+      t.source_id,
+      t.source_revision,
+      t.source_snapshot_id
+    ),
+    check('learning_practice_inputs_position', sql`${t.position}>=0`)
   ]
 );

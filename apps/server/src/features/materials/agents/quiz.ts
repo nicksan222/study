@@ -15,7 +15,7 @@
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { materialQuizContentInputSchema } from '@study/contracts/materials/schemas';
 
-import { sourcesTool } from '#server/features/materials/tools/sources';
+import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 const instructions = (language: string) =>

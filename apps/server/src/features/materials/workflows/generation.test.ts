@@ -24,6 +24,7 @@ import { testStable } from '@study/testing/node';
 import { Effect, Exit, Layer, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 
+import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/service/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
@@ -40,15 +41,17 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
-import { sourceIndexedWorkflow, sourceIndexedHandler } from './index.ts';
 
 testStable('rejects mismatched generation event before reaching a provider', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
-  const domain = Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer).pipe(
-    Layer.provideMerge(database)
-  );
+  const domain = Layer.mergeAll(
+    Projects.layer,
+    Materials.layer,
+    Sources.layer,
+    Documents.layer
+  ).pipe(Layer.provideMerge(database));
   const services = Layer.mergeAll(
     domain,
     database,
@@ -67,11 +70,13 @@ testStable('rejects mismatched generation event before reaching a provider', asy
         const projects = yield* Projects;
         const materials = yield* Materials;
         const project = yield* projects.createProject({ name: 'test' });
-        const doc = yield* materials.create({
+        const doc = yield* (yield* Documents).create({
+          createKey: crypto.randomUUID(),
+          inputs: [],
+          citations: [],
           projectId: project.id,
           title: 'doc',
-          content: {
-            kind: 'document',
+          document: {
             blocks: [plainBlock('paragraph', 'alpha', { type: 'authored' })],
             meta: {
               extractor: null,
@@ -91,7 +96,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
           projectId: project.id,
           title: 'cards',
           kind: 'flashcards',
-          inputVersionIds: [doc.version.id]
+          inputs: [{ kind: 'document', versionId: doc.version!.id }]
         });
         const value = decodeEvent(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
@@ -215,7 +220,7 @@ testStable(
     );
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
     const domain = () =>
-      Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer).pipe(
+      Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Documents.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const services = () =>
@@ -271,22 +276,19 @@ testStable(
               }
             }
           });
-          const row = context.db.orm
-            .select()
-            .from(s.workflowEvents)
-            .all()
-            .find((event) => event.type === 'SourceIndexed');
-
-          assert.ok(row);
-          const event = decodeEvent(row.payload);
-
-          assertEventType(event, 'SourceIndexed', 'missing projection');
-          yield* engine.register(sourceIndexedWorkflow, sourceIndexedHandler);
-
-          return (yield* engine.execute(sourceIndexedWorkflow, {
-            executionId: 'project-evidence',
-            payload: { event }
-          })).extracted;
+          const exact = yield* sources.currentExtraction({ id: source.id });
+          assert.ok(exact);
+          assert.equal(context.db.orm.select().from(s.materials).all().length, 0);
+          return {
+            projectId: project.id,
+            sourceId: source.id,
+            input: {
+              kind: 'source' as const,
+              sourceId: source.id,
+              revision: exact.revision,
+              snapshotId: exact.snapshotId
+            }
+          };
         }).pipe(Effect.scoped, Effect.provide(services()))
       );
       const generate = async (
@@ -297,10 +299,10 @@ testStable(
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
             m.requestMaterialGeneration({
-              projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0]),
+              projectId: doc.projectId,
               title: kind,
               kind,
-              inputVersionIds: [doc.version.id]
+              inputs: [doc.input]
             })
           ).pipe(Effect.provide(domain()))
         );
@@ -563,10 +565,10 @@ testStable(
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
             m.requestMaterialGeneration({
-              projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0]),
+              projectId: doc.projectId,
               title: 'race',
               kind: 'flashcards',
-              inputVersionIds: [doc.version.id]
+              inputs: [doc.input]
             })
           ).pipe(Effect.provide(domain()))
         );
@@ -599,13 +601,15 @@ testStable(
         );
       const archive = () =>
         Effect.runPromise(
-          Effect.flatMap(Materials, (m) => m.archive({ id: doc.id })).pipe(Effect.provide(domain()))
+          Effect.flatMap(Sources, (sources) =>
+            sources.setSourceProject({ id: doc.sourceId, projectId: null })
+          ).pipe(Effect.provide(domain()))
         );
       const unarchive = () =>
         Effect.runPromise(
-          Effect.flatMap(Materials, (m) => m.unarchive({ id: doc.id })).pipe(
-            Effect.provide(domain())
-          )
+          Effect.flatMap(Sources, (sources) =>
+            sources.setSourceProject({ id: doc.sourceId, projectId: doc.projectId })
+          ).pipe(Effect.provide(domain()))
         );
       const stale = await request();
 
@@ -717,21 +721,21 @@ testStable(
 
           yield* materials.openGenerationScope({
             scopeId: 'closed-scope',
-            projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0])
+            projectId: doc.projectId
           });
           yield* materials.requestMaterialGenerationOnce({
             requestId: 'closed-request',
             request: {
-              projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0]),
+              projectId: doc.projectId,
               title: 'closed',
               kind: 'flashcards',
-              inputVersionIds: [doc.version.id],
+              inputs: [doc.input],
               scopeId: 'closed-scope'
             }
           });
           yield* materials.closeGenerationScope({
             scopeId: 'closed-scope',
-            projectId: Schema.decodeUnknownSync(projectIdSchema)(doc.projectIds[0])
+            projectId: doc.projectId
           });
         }).pipe(Effect.provide(domain()))
       );

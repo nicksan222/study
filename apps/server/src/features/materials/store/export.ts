@@ -20,41 +20,11 @@ import { and, asc, eq, gt } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
+import { exportBudget } from '#server/platform/content-export/budget';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makeCitations } from './citations.ts';
-import { exportBudget } from './export-budget.ts';
 import { makeReads } from './reads.ts';
-
-/** Availability and graph links without hydrating unrelated version content. */
-export const MaterialExportInputsStore = defineStore({
-  name: 'study/MaterialExportInputsStore',
-  entity: { singular: 'exportInputGraph', plural: 'exportInputGraphs' },
-  make: (resources) => ({
-    queries: {
-      exportInputGraph: storeQuery({
-        role: 'required',
-        input: materialVersionInputSchema,
-        output: Schema.Struct({ ids: Schema.Array(materialVersionIdSchema) }),
-        run: ({ id }) => {
-          makeReads(resources).versionRow(id);
-          const rows = resources.db.orm
-            .select({ id: s.material_version_inputs.input_version_id })
-            .from(s.material_version_inputs)
-            .where(eq(s.material_version_inputs.version_id, id))
-            .limit(1001)
-            .all();
-
-          if (rows.length > 1000)
-            throw new StudyError('invalid_input', 'Export dependency limit exceeded');
-
-          return { ids: rows.map((row) => row.id) };
-        }
-      })
-    },
-    mutations: {}
-  })
-});
 
 /** Resolves and budgets each citation before retaining it, with a one-Document cache. */
 export const MaterialExportCitationsStore = defineStore({
@@ -74,38 +44,23 @@ export const MaterialExportCitationsStore = defineStore({
 
           reads.versionRow(id);
           const bytes = exportBudget(budget);
-          let cached:
-            | {
-                id: Parameters<typeof reads.readCanonicalDocument>[0];
-                document: ReturnType<typeof reads.readCanonicalDocument>;
-              }
-            | undefined;
-          const citations = makeCitations(resources, (documentId) => {
-            if (cached?.id === documentId) return cached.document;
-
-            // Release the prior document before loading another, keeping the cache bounded.
-            cached = undefined;
-            const document = reads.readCanonicalDocument(documentId);
-
-            exportBudget().consume(document);
-            cached = { id: documentId, document };
-
-            return document;
-          });
+          const citations = makeCitations(resources);
           const result: (typeof materialCitationSchema.Type)[] = [];
           let cursor: bigint | undefined;
 
           for (;;) {
             const row = resources.db.orm
               .select()
-              .from(s.material_version_citations)
+              .from(s.material_evidence_citations)
               .where(
                 and(
-                  eq(s.material_version_citations.version_id, id),
-                  cursor === undefined ? undefined : gt(s.material_version_citations.marker, cursor)
+                  eq(s.material_evidence_citations.version_id, id),
+                  cursor === undefined
+                    ? undefined
+                    : gt(s.material_evidence_citations.marker, cursor)
                 )
               )
-              .orderBy(asc(s.material_version_citations.marker))
+              .orderBy(asc(s.material_evidence_citations.marker))
               .limit(1)
               .get();
 
@@ -114,7 +69,6 @@ export const MaterialExportCitationsStore = defineStore({
             if (result.length >= 10000)
               throw new StudyError('invalid_input', 'Export citation limit exceeded');
 
-            reads.versionRow(row.input_version_id);
             const citation = citations.readCitationDetails(row);
 
             bytes.consume(citation);

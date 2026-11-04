@@ -6,7 +6,7 @@ import {
   materialIdSchema,
   materialVersionIdSchema,
   sourceIdSchema,
-  documentIdSchema
+  contentSnapshotIdSchema
 } from '../ids.ts';
 
 export const historyPolicySchema = Schema.Struct({
@@ -35,34 +35,20 @@ export const historyPreviewSchema = Schema.Struct({
   protected: Schema.Array(
     Schema.Struct({
       versionId: materialVersionIdSchema,
-      reason: Schema.Literals(['keep_latest', 'draft', 'proposal', 'source_root'])
+      reason: Schema.Literals(['keep_latest', 'draft'])
     })
   ),
   references: Schema.Array(
     Schema.Struct({
       versionId: materialVersionIdSchema,
       dependentVersionId: materialVersionIdSchema,
-      relationship: Schema.Literals(['input', 'parent'])
+      relationship: Schema.Literal('parent')
     })
   ),
   privateRequestIds: Schema.Array(Schema.String),
-  retainedMessageCitationCount: Schema.Int,
-  sourceRevisions: Schema.Array(
-    Schema.Struct({
-      sourceId: sourceIdSchema,
-      revision: Schema.BigInt,
-      bytes: Schema.BigInt,
-      retained: Schema.Boolean,
-      retainedVersionIds: Schema.Array(materialVersionIdSchema),
-      retainedDocumentIds: Schema.Array(documentIdSchema),
-      currentSourceRevision: Schema.Boolean
-    })
-  ),
   /** UTF-8 bytes in stored body columns; source BLOB lengths are reported separately. */
   removedBodyBytes: Schema.BigInt,
-  byteSemantics: Schema.Literal('logical_body_columns_and_source_blobs'),
-  missingEvidence: Schema.Literal('exact_pruned_versions'),
-  retainedCopies: Schema.Literal('other_versions_and_published_messages')
+  byteSemantics: Schema.Literal('learning_body_columns')
 });
 
 export const requestHistoryPruneSchema = Schema.Struct({

@@ -148,7 +148,7 @@ export const practiceSlotHandler = ({ event }: typeof practiceSlotWorkflow.paylo
           projectId: slot.projectId,
           title: text(yield* settings.language(), 'PracticeQuestionTitle'),
           kind: 'quiz' as const,
-          inputVersionIds: slot.inputVersionIds,
+          inputs: slot.inputs,
           scopeId: slot.epoch,
           questionSpec: { count: 1 as const, kind: slot.kind }
         };

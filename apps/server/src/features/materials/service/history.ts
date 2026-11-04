@@ -37,14 +37,8 @@ const eventTypes = [
   'PracticeSlotRequested',
   'QuizAnswerSubmitted',
   'MaterialPublished',
-  'MaterialAnnotationChanged',
   'MaterialGenerationRequested',
-  'MaterialGenerationFailed',
-  'ConversationGenerationRequested',
-  'SourceIndexed',
-  'SourceCorrectionRequested',
-  'SourceProcessingRequested',
-  'SourceProcessingFailed'
+  'MaterialGenerationFailed'
 ] as const;
 
 function preview(
@@ -54,25 +48,11 @@ function preview(
 ) {
   const base = tx.store(MaterialHistoryPreviewStore).materialHistoryPreview(input);
 
-  const conversation = participants.Conversations.inspectMaterialHistory(tx, base.candidateIds);
-
   const learning = participants.Learning.inspectMaterialHistory(tx, base.candidateIds);
-
-  const source = participants.Sources.inspectMaterialHistory(tx, base.candidateIds);
-
   return {
     ...base,
-    sourceRevisions: source.sourceRevisions,
-    retainedMessageCitationCount: conversation.messageCitationCount,
-    privateRequestIds: [
-      ...new Set([
-        ...base.privateRequestIds,
-        ...conversation.requestIds,
-        ...learning.requestIds,
-        ...source.requestIds
-      ])
-    ],
-    token: historyHash([base.token, conversation.token, source.token, learning.token])
+    privateRequestIds: [...new Set([...base.privateRequestIds, ...learning.requestIds])],
+    token: historyHash([base.token, learning.token])
   };
 }
 
@@ -120,37 +100,11 @@ export function materialHistoryOperations() {
 
           const state = store.accept(input);
 
-          const sourceIds = participants.Sources.inspectMaterialHistory(
-            tx,
-            state.candidateIds
-          ).requestIds;
-
-          participants.Sources.prepareMaterialHistory(tx, {
-            operationId: state.operationId,
-            versionIds: state.candidateIds
-          });
-
-          store.retain({ operationId: state.operationId, requestIds: sourceIds, kind: 'source' });
-
-          const contextIds = participants.Conversations.inspectMaterialHistory(
-            tx,
-            state.candidateIds
-          ).requestIds;
-
-          store.retain({ operationId: state.operationId, requestIds: contextIds, kind: 'context' });
-
-          participants.Conversations.prepareMaterialHistory(tx, {
-            operationId: state.operationId,
-            versionIds: state.candidateIds
-          });
-
           tx.store(MaterialGenerationCleanupStore).prepare({
             kind: 'history',
             id: state.operationId,
-            versionIds: state.candidateIds,
-            contextIds
+            versionIds: state.candidateIds
           });
-
           store.retain({
             operationId: state.operationId,
             requestIds: tx
@@ -214,13 +168,9 @@ export function materialHistoryOperations() {
             id: input.operationId
           });
 
-          participants.Conversations.scrubMaterialHistory(tx, input.operationId);
-
           participants.Learning.scrubMaterialHistory(tx, state.candidateIds);
 
           tx.store(MaterialHistoryStore).scrub(input);
-
-          participants.Sources.scrubMaterialHistory(tx, input.operationId);
 
           Workflows.scrubRetiredCorrelations(tx, requests(tx, input.operationId));
 

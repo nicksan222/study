@@ -1,0 +1,247 @@
+/** Authored generation receipts retain metadata independently of raw sessions and retired bodies. */
+
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+
+import { sql } from '@study/db';
+import * as s from '@study/db/schema';
+import { testStable } from '@study/testing/node';
+import { Effect } from 'effect';
+
+import { Conversations } from '#server/features/conversations/index';
+import { Documents } from '#server/features/documents/index';
+import { documentTransformFixture } from '#testing/document-transform';
+import { deletionDocument } from '#testing/material-deletion';
+import { assertScrubbed, cleanup, validDocumentTransformOutput } from '#testing/session-deletion';
+
+for (const mode of ['history', 'delete'] as const)
+  testStable(
+    `generated authored ${mode} retires bodies without reassigning receipts, erasing instructions or resurrecting captures`,
+    async () => {
+      const f = await documentTransformFixture();
+      try {
+        const saved = await Effect.runPromise(
+          Effect.gen(function* () {
+            const docs = yield* Documents;
+            const chats = yield* Conversations;
+            const input = yield* docs.create({
+              createKey: randomUUID(),
+              title: 'Evidence',
+              document: deletionDocument('Generation evidence'),
+              inputs: [],
+              citations: []
+            });
+            assert.ok(input.version);
+            const session = yield* chats.createUntitledSession({});
+            yield* chats.updateSessionSelection({
+              sessionId: session.id,
+              expectedRevision: 0n,
+              targets: [
+                {
+                  input: { kind: 'document', versionId: input.version.id },
+                  scope: { kind: 'document' }
+                }
+              ]
+            });
+            const capture = yield* chats.captureSessionContext({
+              sessionId: session.id,
+              intentKey: 'generate',
+              instruction: 'Retained authored generation instruction',
+              preferences: {}
+            });
+            const request = yield* chats.requestDocumentTransform({
+              contextRequestId: capture.requestId,
+              title: 'Authored output',
+              operations: ['clarity']
+            });
+            return { input: { ...input, version: input.version }, session, capture, request };
+          }).pipe(Effect.provide(f.domain()))
+        );
+        const event = f.authoredEvent(saved.request.id);
+        f.replies.push(
+          { kind: 'sources', query: 'Generation evidence' },
+          { kind: 'output', output: validDocumentTransformOutput('INTENTIONAL_AUTHORED_BODY [1]') }
+        );
+        const resultId = await f.executeAuthored(event, 'authored-generation');
+        // Exercise every private native storage location, including recovery registrations.
+        f.context.db.orm.run(
+          sql`INSERT INTO workflow_deferreds(execution_id,name,result) VALUES('authored-generation','private-copy','"INTENTIONAL_AUTHORED_BODY"')`
+        );
+        f.context.db.orm.run(
+          sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('authored-generation','INTENTIONAL_AUTHORED_BODY','INTENTIONAL_AUTHORED_BODY')`
+        );
+        f.context.db.orm.run(
+          sql`INSERT INTO workflow_clocks(execution_id,name,deferred_name,due_at) VALUES('authored-generation','INTENTIONAL_AUTHORED_BODY','private-copy',1)`
+        );
+        const independentPayload = JSON.stringify({
+          event: {
+            ...event,
+            requestId: 'independent-request',
+            correlationId: 'independent-request',
+            eventId: 'independent-event'
+          }
+        });
+        f.context.db.orm.run(
+          sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at) VALUES('independent-native','document-transform/v1',1,${independentPayload},'suspended',1,1)`
+        );
+        f.context.db.orm.run(
+          sql`INSERT INTO workflow_deferreds(execution_id,name,result) VALUES('independent-native','independent-checkpoint','"Independent private content"')`
+        );
+        const retained = await Effect.runPromise(
+          Effect.gen(function* () {
+            const docs = yield* Documents;
+            const chats = yield* Conversations;
+            const output = yield* docs.version({ id: resultId });
+            assert.notEqual(output.documentId, saved.input.id);
+            assert.deepEqual(output.inputs, [
+              { kind: 'document', versionId: saved.input.version.id }
+            ]);
+            const copy = yield* docs.create({
+              createKey: randomUUID(),
+              title: 'Independent intentional copy',
+              document: deletionDocument('Independent intentional copy'),
+              inputs: [],
+              citations: []
+            });
+            assert.ok(copy.version);
+            f.context.db.exec(
+              "CREATE TRIGGER reject_private_retirement BEFORE DELETE ON blocks BEGIN SELECT RAISE(ABORT,'injected retirement rollback'); END"
+            );
+            const failedPreview = yield* docs.previewDeletion({ id: output.documentId });
+            yield* Effect.flip(
+              docs.delete({ documentId: output.documentId, token: failedPreview.token })
+            );
+            assert.equal(
+              f.context.db.orm.get(
+                sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'INTENTIONAL_AUTHORED_BODY')>0`
+              )?.n,
+              1n
+            );
+            assert.equal(
+              f.context.db.orm.get(
+                sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${saved.request.id}`
+              )?.n,
+              0n
+            );
+            assert.ok(yield* docs.version({ id: output.id }));
+            f.context.db.exec('DROP TRIGGER reject_private_retirement');
+            if (mode === 'history') {
+              const current = yield* docs.save({
+                documentId: output.documentId,
+                expectedVersionId: output.id,
+                key: 'current',
+                document: deletionDocument('Current authored body')
+              });
+              const scope = { documentId: output.documentId, keepLatest: 1 };
+              const preview = yield* docs.previewHistory(scope);
+              assert.deepEqual(preview.versionIds, [output.id]);
+              yield* docs.retireHistory({ ...scope, token: preview.token });
+              assert.equal(
+                (yield* docs.version({ id: current.submittedVersionId })).document.blocks[0]?.text,
+                'Current authored body'
+              );
+            } else {
+              const preview = yield* docs.previewDeletion({ id: output.documentId });
+              yield* docs.delete({ documentId: output.documentId, token: preview.token });
+            }
+            assert.equal((yield* Effect.flip(docs.version({ id: output.id }))).kind, 'not_found');
+            // Retirement must scrub native output while the independent raw session still exists.
+            assert.equal(
+              f.context.db.orm.get(
+                sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'INTENTIONAL_AUTHORED_BODY')>0`
+              )?.n,
+              0n
+            );
+            assert.ok(
+              f.context.db.orm.get(sql`SELECT 1 FROM sessions WHERE id=${saved.session.id}`)
+            );
+            assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
+            // Raw session pins and any current authored version keep original evidence alive.
+            assert.ok(
+              (yield* docs.previewDeletion({ id: saved.input.id })).blockedVersionIds.includes(
+                saved.input.version.id
+              )
+            );
+            return { copy: copy.version, outputId: output.documentId };
+          }).pipe(Effect.provide(f.domain()))
+        );
+        // Reopen with the raw session retained: retiring its independent output is sufficient.
+        f.reopen();
+        assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM sessions WHERE id=${saved.session.id}`));
+        assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
+        assert.equal(
+          f.context.db.orm.get(
+            sql`SELECT result FROM workflow_deferreds WHERE execution_id='independent-native'`
+          )?.result,
+          '"Independent private content"'
+        );
+        const callsBeforeReplay = f.bodies.length;
+        await assert.rejects(f.executeAuthored(event, 'retired-body-session-retained-replay'));
+        assert.equal(f.bodies.length, callsBeforeReplay);
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const docs = yield* Documents;
+            const chats = yield* Conversations;
+            yield* chats.deleteSession(saved.session.id);
+            if (mode === 'history') {
+              assert.ok(
+                (yield* docs.previewDeletion({ id: saved.input.id })).blockedVersionIds.includes(
+                  saved.input.version.id
+                )
+              );
+              const preview = yield* docs.previewDeletion({ id: retained.outputId });
+              yield* docs.delete({ documentId: retained.outputId, token: preview.token });
+            }
+            const released = yield* docs.previewDeletion({ id: saved.input.id });
+            assert.deepEqual(released.blockedVersionIds, []);
+            yield* docs.delete({ documentId: saved.input.id, token: released.token });
+          }).pipe(Effect.provide(f.domain()))
+        );
+        await cleanup(f, saved.session.id);
+        f.reopen();
+        await Effect.runPromise(
+          Effect.gen(function* () {
+            const docs = yield* Documents;
+            const chats = yield* Conversations;
+            assert.deepEqual(yield* docs.version({ id: retained.copy.id }), retained.copy);
+            assert.equal((yield* Effect.flip(docs.version({ id: resultId }))).kind, 'not_found');
+            assert.equal(
+              (yield* Effect.flip(chats.sessionContext({ requestId: saved.capture.requestId })))
+                .kind,
+              'not_found'
+            );
+            const request = yield* docs.transform({ requestId: saved.request.id });
+            assert.equal(request.resultVersionId, resultId);
+            assert.equal(request.instruction, 'Retained authored generation instruction');
+          }).pipe(Effect.provide(f.domain()))
+        );
+        const receipt = f.context.db.orm.select().from(s.study_document_generation_requests).get();
+        assert.equal(receipt?.document_id, retained.outputId);
+        assert.equal(receipt.result_version_id, resultId);
+        assert.equal(
+          f.context.db.orm.get(
+            sql`SELECT instruction FROM study_document_versions WHERE id=${resultId}`
+          )?.instruction,
+          'Retained authored generation instruction'
+        );
+        for (const mutation of [
+          sql`UPDATE study_document_generation_requests SET result_version_id=NULL`,
+          sql`UPDATE study_document_generation_requests SET document_id=${saved.input.id}`,
+          sql`DELETE FROM study_document_generation_requests`
+        ])
+          assert.throws(() => f.context.db.orm.run(mutation));
+        const calls = f.bodies.length;
+        await assert.rejects(f.executeAuthored(event, 'late-retired-authored-generation'));
+        assert.equal(f.bodies.length, calls);
+        assert.equal(
+          f.context.db.orm.get(
+            sql`SELECT count(*) n FROM blocks WHERE text LIKE '%INTENTIONAL_AUTHORED_BODY%'`
+          )?.n,
+          0n
+        );
+        assert.deepEqual(f.context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+      } finally {
+        await f.close();
+      }
+    }
+  );

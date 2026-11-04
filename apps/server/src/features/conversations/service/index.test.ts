@@ -17,13 +17,17 @@
 import assert from 'node:assert/strict';
 
 import type { SessionId } from '@study/contracts/ids';
+import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 
+import { Documents } from '#server/features/documents/index';
 import { Projects } from '#server/features/projects/index';
+import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 
 import { Conversations } from './index.ts';
@@ -517,7 +521,8 @@ testStable(
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
-    const { sources, documents, source_processing } = await import('@study/db/schema');
+    const { sources, source_snapshots, content_snapshots, source_processing } =
+      await import('@study/db/schema');
     const { eq } = await import('@study/db');
     const layer = () =>
       Layer.merge(Projects.layer, Conversations.layer).pipe(
@@ -547,8 +552,12 @@ testStable(
             })
             .returning()
             .get();
+          context.db.orm
+            .insert(source_snapshots)
+            .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
+            .run();
           const document = context.db.orm
-            .insert(documents)
+            .insert(content_snapshots)
             .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
             .returning()
             .get();
@@ -583,7 +592,7 @@ testStable(
       context.close();
       context = new ServerContext(location.open());
       const newer = context.db.orm
-        .insert(documents)
+        .insert(content_snapshots)
         .values({ source_id: saved.source.id, extractor_version: 1n, meta: '{}', created_at: 2n })
         .returning()
         .get();
@@ -601,7 +610,7 @@ testStable(
           });
 
           assert.equal(snapshot.messages[0]?.versionId, saved.message.activeVersionId);
-          assert.equal(snapshot.messages[0]?.attachments[0]?.documentId, saved.document.id);
+          assert.equal(snapshot.messages[0]?.attachments[0]?.snapshotId, saved.document.id);
           assert.equal(snapshot.messages[0]?.attachments[0]?.sourceName, 'a.txt');
           yield* conversations.setActiveVersion({
             messageId: saved.message.id,
@@ -662,7 +671,8 @@ testStable('outbox failure rolls back reply request and pending message', async 
 testStable('reply captures pending attachments and invalidates deleted context', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const { sources, documents, source_processing } = await import('@study/db/schema');
+  const { sources, source_snapshots, content_snapshots, source_processing } =
+    await import('@study/db/schema');
   const { eq } = await import('@study/db');
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -696,6 +706,10 @@ testStable('reply captures pending attachments and invalidates deleted context',
         });
 
         context.db.orm
+          .insert(source_snapshots)
+          .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
+          .run();
+        context.db.orm
           .insert(source_processing)
           .values({
             source_id: source.id,
@@ -709,7 +723,7 @@ testStable('reply captures pending attachments and invalidates deleted context',
         assert.equal(pending.pendingAttachments?.length, 1);
         assert.equal(pending.pendingAttachments?.[0]?.sourceId, source.id);
         const document = context.db.orm
-          .insert(documents)
+          .insert(content_snapshots)
           .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
           .returning()
           .get();
@@ -904,7 +918,7 @@ testStable('title context selects the latest fifty messages within its text budg
 });
 
 testStable(
-  'titles respect the aggregate text budget and do not require ready attachment documents',
+  'titles respect the aggregate text budget and do not require ready attachment content_snapshots',
   async () => {
     const { Settings } = await import('#server/features/settings/index');
     const { Sources } = await import('#server/features/sources/index');
@@ -972,7 +986,8 @@ testStable(
 testStable('attachment threads are isolated, owned and paginated', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const { sources, documents, source_processing } = await import('@study/db/schema');
+  const { sources, source_snapshots, content_snapshots, source_processing } =
+    await import('@study/db/schema');
   const layer = Layer.merge(Projects.layer, Conversations.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -998,8 +1013,12 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
           })
           .returning()
           .get();
+        context.db.orm
+          .insert(source_snapshots)
+          .values({ source_id: source.id, revision: 1n, bytes: Buffer.from('a') })
+          .run();
         const document = context.db.orm
-          .insert(documents)
+          .insert(content_snapshots)
           .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
           .returning()
           .get();
@@ -1179,3 +1198,81 @@ testStable('posting a message can request a reply explicitly or by assistant men
     location.cleanup();
   }
 });
+
+testStable(
+  'session source links survive raw message deletion while authored documents keep independent project lifetime',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Layer.mergeAll(
+      Projects.layer,
+      Conversations.layer,
+      Sources.layer,
+      Documents.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects,
+            sessions = yield* Conversations,
+            sources = yield* Sources,
+            documents = yield* Documents;
+          const project = yield* projects.createProject({ name: 'Independent lifetime' });
+          const session = yield* sessions.createSession({
+            title: 'Raw session',
+            project: project.id
+          });
+          const source = yield* sources.createSource({
+            name: 'session.txt',
+            bytes: new TextEncoder().encode('Original bytes'),
+            projectId: project.id
+          });
+          const message = yield* sessions.postMessage({
+            sessionId: session.id,
+            text: 'Raw note',
+            sourceIds: [source.id],
+            requestReply: false
+          });
+          assert.equal(
+            (yield* sources.sessionSources({ sessionId: session.id, limit: 100 }))[0].id,
+            source.id
+          );
+          const authored = yield* documents.create({
+            createKey: 'independent-session-document',
+            title: 'Authored output',
+            document: deletionDocument('Authored body'),
+            inputs: [],
+            citations: [],
+            sessionId: session.id
+          });
+          assert.deepEqual(authored.projectIds, [project.id]);
+          yield* sessions.deleteMessage(message.id);
+          assert.equal(
+            (yield* sources.sessionSources({ sessionId: session.id, limit: 100 }))[0].id,
+            source.id
+          );
+          yield* sessions.deleteSession(session.id);
+          assert.equal(
+            (yield* documents.document({ id: authored.id })).version!.document.blocks[0].text,
+            'Authored body'
+          );
+          assert.deepEqual((yield* documents.document({ id: authored.id })).projectIds, [
+            project.id
+          ]);
+          assert.equal(
+            (yield* documents.documents({ projectId: project.id, limit: 100, archived: false }))
+              .items[0].id,
+            authored.id
+          );
+          assert.equal((yield* sources.source(source.id)).name, 'session.txt');
+          assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM session_sources`)?.n, 0n);
+          assert.equal(context.db.orm.get(sql`SELECT count(*) n FROM messages`)?.n, 0n);
+          assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

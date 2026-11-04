@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { documentTransformReportSchema } from '../materials/schemas.ts';
+import { transformReportSchema } from '../documents/transform.ts';
 import { blockContentSchema } from '../sources/schemas.ts';
 
 /** Transient provider output uses ordinals until fresh canonical blocks exist. */
@@ -10,8 +10,8 @@ export const documentTransformOutputSchema = Schema.Struct({
   ),
   notes: Schema.Array(
     Schema.Struct({
-      kind: documentTransformReportSchema.fields.notes.value.fields.kind,
-      explanation: documentTransformReportSchema.fields.notes.value.fields.explanation,
+      kind: transformReportSchema.fields.notes.value.fields.kind,
+      explanation: transformReportSchema.fields.notes.value.fields.explanation,
       blockOrdinals: Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
     })
   ).check(Schema.isBetweenLength(1, 200))

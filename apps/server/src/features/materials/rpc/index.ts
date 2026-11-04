@@ -35,64 +35,16 @@ export const MaterialsRpcLive = defineRpc(
       'materials.requestDeletion': (value) => materials.requestDeletion(value),
       'materials.deletion': (value) => materials.deletion(value),
       'materials.retryDeletion': (value) => materials.retryDeletion(value),
-      'materials.applyDocumentProposal': (value) =>
-        Option.isSome(conversations)
-          ? conversations.value.applyDocumentProposal(value)
-          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
-      'materials.keepDocumentProposal': (value) =>
-        Option.isSome(conversations)
-          ? conversations.value.keepDocumentProposal(value)
-          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
-      'materials.compareDocumentProposal': (value) =>
-        Option.isSome(conversations)
-          ? conversations.value.compareDocumentProposal(value)
-          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
-      'materials.requestDocumentTransform': (value) =>
-        Option.isSome(conversations)
-          ? conversations.value.requestDocumentTransform(value)
-          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
       'materials.materialGeneration': (value) =>
         materials.materialGeneration({ ...value, verifyOnly: true }),
       'materials.cancelMaterialGeneration': (value) => materials.cancelMaterialGeneration(value),
-      'materials.retryMaterialGeneration': (value) =>
-        materials
-          .materialGeneration({ ...value, verifyOnly: true })
-          .pipe(
-            Effect.flatMap((request) =>
-              request.documentTransform
-                ? Option.isSome(conversations)
-                  ? conversations.value.retryDocumentTransform(value)
-                  : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'))
-                : materials.retryMaterialGenerationOnce(value)
-            )
-          ),
+      'materials.retryMaterialGeneration': (value) => materials.retryMaterialGenerationOnce(value),
       'materials.requestMaterialGeneration': (value) => materials.requestMaterialGeneration(value),
-      'materials.citationSupport': (value) => materials.citationSupport(value),
-      'materials.assessCitation': (value) => materials.assessCitation(value),
-      'materials.annotation': (value) => materials.annotation(value),
-      'materials.annotations': (value) => materials.annotations(value),
-      'materials.annotationHistory': (value) => materials.annotationHistory(value),
-      'materials.resolveEvidence': (value) => materials.resolveEvidence(value),
-      'materials.dependencyStatus': (value) => materials.dependencyStatus(value),
-      'materials.createAnnotation': (value) => materials.createAnnotation(value),
-      'materials.updateAnnotation': (value) => materials.updateAnnotation(value),
-      'materials.reanchorAnnotation': (value) => materials.reanchorAnnotation(value),
-      'materials.deleteAnnotation': (value) => materials.deleteAnnotation(value),
-      'materials.createManualDocument': (value) => materials.createManualDocument(value),
-      'materials.saveDocument': (value) => materials.saveDocument(value),
-      'materials.undoDocument': (value) => materials.undoDocument(value),
-      'materials.compareDocument': (value) => materials.compareDocument(value),
       'materials.exportMaterialVersion': (value) => materials.exportMaterialVersion(value),
-      'materials.materialVersionDocument': (value) => materials.materialVersionDocument(value),
-      'materials.importedMaterial': (value) => materials.importedMaterial(value),
-      'materials.materialVersionImage': (value) => materials.materialVersionImage(value),
       'materials.material': (value) => materials.material(value),
       'materials.materials': (value) => materials.materials(value),
       'materials.materialVersion': (value) => materials.materialVersion(value),
-      'materials.materialVersionExport': (value) => materials.materialVersionExport(value),
       'materials.materialVersions': (value) => materials.materialVersions(value),
-      'materials.inputs': (value) => materials.inputs(value),
-      'materials.dependents': (value) => materials.dependents(value),
       'materials.citations': (value) => materials.citations(value),
       'materials.create': (value) => materials.create(value),
       'materials.createVersion': (value) => materials.createVersion(value),

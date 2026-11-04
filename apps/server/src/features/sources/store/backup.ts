@@ -35,22 +35,7 @@ function makeAssetValidation({ db }: StoreResources) {
       .where(eq(s.source_blobs.source_id, source.id))
       .get();
 
-    if (!blob) {
-      const retired = db.orm
-        .get(sql`SELECT 1 FROM material_imports i JOIN material_deletion_members d ON d.material_id=i.material_id WHERE i.source_id=${source.id}
-        UNION ALL SELECT 1 FROM source_material_deletion_assets a JOIN material_deletions d ON d.material_id=a.deletion_id WHERE a.source_id=${source.id} AND d.status='completed' LIMIT 1`);
-
-      if (
-        !retired ||
-        source.name !== '-' ||
-        source.uri !== null ||
-        source.size_bytes !== 1n ||
-        !Buffer.from(source.sha256).equals(Buffer.alloc(32))
-      )
-        invalid();
-
-      return;
-    }
+    if (!blob) invalid();
 
     if (
       BigInt(blob.bytes.length) !== source.size_bytes ||

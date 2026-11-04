@@ -121,6 +121,28 @@ export const SystemStore = defineStore({
       ];
     }
 
+    function presentDocument(
+      hit: SearchHit,
+      target: Extract<SearchHit['target'], { type: 'document' }>
+    ): (typeof searchHitSchema.Type)[] {
+      const row = db.orm
+        .select()
+        .from(schema.study_documents)
+        .where(eq(schema.study_documents.id, target.id))
+        .get();
+      return row
+        ? [
+            {
+              kind: 'document',
+              title: row.title,
+              excerpt: hit.text,
+              at: row.updated_at,
+              target: { type: 'document', documentId: row.id }
+            }
+          ]
+        : [];
+    }
+
     function presentMaterial(
       hit: SearchHit,
       target: Extract<SearchHit['target'], { type: 'material' | 'question' }>
@@ -172,6 +194,8 @@ export const SystemStore = defineStore({
               limit: input.limit
             }).flatMap((hit): (typeof searchHitSchema.Type)[] => {
               const target = hit.target;
+
+              if (target.type === 'document') return presentDocument(hit, target);
 
               if (target.type === 'project') return presentProject(target);
 

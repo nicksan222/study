@@ -124,7 +124,7 @@ export class Db {
     const schema = this.schemaSqlIdentity();
 
     const migrations = this.sqlite
-      .prepare('SELECT hash,created_at FROM __drizzle_migrations ORDER BY id')
+      .prepare('SELECT hash,created_at FROM __drizzle_migrations ORDER BY created_at,hash')
       .all();
 
     return createHash('sha256')

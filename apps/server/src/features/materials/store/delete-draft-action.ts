@@ -45,15 +45,6 @@ export function makeDeleteDraftAction(resources: StoreResources) {
       )
         throw new StudyError('invalid_input', 'Cannot delete the only material version');
 
-      db.delete(s.material_version_citations)
-        .where(eq(s.material_version_citations.version_id, input.id))
-        .run();
-      db.delete(s.material_version_inputs)
-        .where(eq(s.material_version_inputs.version_id, input.id))
-        .run();
-      db.delete(s.material_version_parents)
-        .where(eq(s.material_version_parents.version_id, input.id))
-        .run();
       removeContent(input.id);
       db.delete(s.material_versions).where(eq(s.material_versions.id, input.id)).run();
 

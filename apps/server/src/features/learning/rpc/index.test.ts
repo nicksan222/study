@@ -14,6 +14,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import type { QuizAttemptId } from '@study/contracts/ids';
 import { LearningRpc } from '@study/contracts/learning/rpc';
@@ -23,6 +24,7 @@ import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
+import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
@@ -36,7 +38,11 @@ testStable('native learning RPC maps missing attempts to typed failures', async 
   const context = new ServerContext(location.open());
   const handlers = LearningRpcLive.pipe(
     Layer.provide(
-      Learning.layer.pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+      Learning.layer.pipe(
+        Layer.provideMerge(Settings.layer),
+        Layer.provideMerge(Materials.layer),
+        Layer.provideMerge(Documents.layer)
+      )
     ),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -70,6 +76,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
   const services = Learning.layer.pipe(
     Layer.provideMerge(Settings.layer),
     Layer.provideMerge(Materials.layer),
+    Layer.provideMerge(Documents.layer),
     Layer.provideMerge(db)
   );
   const handlers = LearningRpcLive.pipe(Layer.provide(services));
@@ -85,11 +92,13 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
       Effect.scoped(
         Effect.gen(function* () {
           const materials = yield* Materials;
-          const doc = yield* materials.create({
+          const doc = yield* (yield* Documents).create({
+            createKey: randomUUID(),
+            inputs: [],
+            citations: [],
             projectId: project.id,
             title: 'Document',
-            content: {
-              kind: 'document',
+            document: {
               blocks: [plainBlock('paragraph', 'Source', { type: 'authored' })],
               meta: {
                 extractor: null,
@@ -107,7 +116,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
           const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
           const started = yield* client('learning.startPractice', {
             projectId: project.id,
-            inputVersionIds: [doc.version.id]
+            inputs: [{ kind: 'document', versionId: doc.version!.id }]
           });
 
           assert.equal(started.slots.length, 2);

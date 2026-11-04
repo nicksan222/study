@@ -2,11 +2,25 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
-import { documentIdSchema, projectIdSchema, sourceIdSchema } from '../ids.ts';
+import {
+  contentSnapshotIdSchema,
+  projectIdSchema,
+  sourceIdSchema,
+  sessionIdSchema
+} from '../ids.ts';
 import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
-import { sourceSchema } from './schemas.ts';
+import { documentSchema, sourceSchema } from './schemas.ts';
 
 export const sourceExportSchema = Schema.Struct({ source: sourceSchema, bytes: Schema.Uint8Array });
+
+export const sourceDeletionPreviewSchema = Schema.Struct({
+  sourceId: sourceIdSchema,
+  name: Schema.String,
+  revisionCount: Schema.BigInt,
+  extractionCount: Schema.BigInt,
+  blockedBy: Schema.Array(Schema.Literals(['exact_inputs', 'image_assets'])),
+  retainedCopies: Schema.Literal('authored_outputs_and_raw_session_records')
+});
 
 export const sourceRevisionSchema = Schema.Int.check(Schema.isGreaterThan(0));
 
@@ -15,7 +29,7 @@ export const sourceProcessingSchema = Schema.Struct({
   sourceId: sourceIdSchema,
   revision: sourceRevisionSchema,
   requestId: Schema.NullOr(Schema.String.check(Schema.isMinLength(1))),
-  documentId: Schema.NullOr(documentIdSchema)
+  documentId: Schema.NullOr(contentSnapshotIdSchema)
 });
 
 export const setSourceProjectInputSchema = Schema.Struct({
@@ -25,7 +39,7 @@ export const setSourceProjectInputSchema = Schema.Struct({
 
 export const correctBlockInputSchema = Schema.Struct({
   id: sourceIdSchema,
-  documentId: documentIdSchema,
+  documentId: contentSnapshotIdSchema,
   ordinal: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   before: Schema.String,
   after: Schema.String
@@ -41,7 +55,125 @@ const sourcePageSchema = Schema.Struct({
   next: Schema.NullOr(sourceIdSchema)
 });
 
+export const exactExtractionInputSchema = Schema.Struct({
+  sourceId: sourceIdSchema,
+  revision: Schema.BigInt.check(Schema.isGreaterThanBigInt(0n)),
+  snapshotId: contentSnapshotIdSchema
+});
+const extractionCursorSchema = Schema.Struct({
+  revision: Schema.BigInt,
+  snapshotId: contentSnapshotIdSchema
+});
+export const extractionHistoryInputSchema = Schema.Struct({
+  sourceId: sourceIdSchema,
+  limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
+  before: Schema.optional(extractionCursorSchema)
+});
+const extractionIdentitySchema = Schema.Struct({
+  ...exactExtractionInputSchema.fields,
+  createdAt: Schema.BigInt
+});
+export const extractionPageSchema = Schema.Struct({
+  items: Schema.Array(extractionIdentitySchema),
+  next: Schema.NullOr(extractionCursorSchema)
+});
+export const revisionExportInputSchema = Schema.Struct({
+  sourceId: sourceIdSchema,
+  revision: exactExtractionInputSchema.fields.revision
+});
+export const revisionExportSchema = Schema.Struct({
+  ...revisionExportInputSchema.fields,
+  name: Schema.String,
+  mime: Schema.String,
+  bytes: Schema.Uint8Array
+});
+export const currentExtractionInputSchema = Schema.Struct({ id: sourceIdSchema });
+export const exactExtractionSchema = Schema.Struct({
+  ...exactExtractionInputSchema.fields,
+  name: Schema.String,
+  document: documentSchema
+});
+export const sessionSourcesInputSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
+  afterPosition: Schema.optional(Schema.BigInt.check(Schema.isGreaterThanOrEqualToBigInt(0n)))
+});
+export const sourceLinkSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  sourceId: sourceIdSchema
+});
+export const sessionSourceSchema = Schema.Struct({
+  id: sourceIdSchema,
+  position: Schema.BigInt,
+  name: Schema.String,
+  kind: sourceSchema.fields.kind,
+  revision: Schema.BigInt,
+  snapshotId: Schema.NullOr(contentSnapshotIdSchema),
+  pending: Schema.Boolean
+});
+export const sourceHistoryInputSchema = Schema.Struct({
+  sourceId: sourceIdSchema,
+  keepLatest: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+});
+export const sourceHistoryPreviewSchema = Schema.Struct({
+  ...sourceHistoryInputSchema.fields,
+  name: Schema.String,
+  token: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
+  candidates: Schema.Array(extractionIdentitySchema),
+  blockedSnapshotIds: Schema.Array(contentSnapshotIdSchema),
+  semantics: Schema.Literal('retire_extractions_keep_original_revisions')
+});
+export const sourceHistoryRetireSchema = Schema.Struct({
+  ...sourceHistoryInputSchema.fields,
+  token: sourceHistoryPreviewSchema.fields.token
+});
+
 export const SourcesRpc = RpcGroup.make(
+  Rpc.make('previewHistory', {
+    payload: sourceHistoryInputSchema,
+    success: sourceHistoryPreviewSchema,
+    error: failureSchema
+  }),
+  Rpc.make('retireHistory', {
+    payload: sourceHistoryRetireSchema,
+    success: sourceHistoryPreviewSchema,
+    error: failureSchema
+  }),
+  Rpc.make('extractions', {
+    payload: extractionHistoryInputSchema,
+    success: extractionPageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('exportRevision', {
+    payload: revisionExportInputSchema,
+    success: revisionExportSchema,
+    error: failureSchema
+  }),
+  Rpc.make('currentExtraction', {
+    payload: currentExtractionInputSchema,
+    success: Schema.NullOr(exactExtractionSchema),
+    error: failureSchema
+  }),
+  Rpc.make('extraction', {
+    payload: exactExtractionInputSchema,
+    success: exactExtractionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('sessionSources', {
+    payload: sessionSourcesInputSchema,
+    success: Schema.Array(sessionSourceSchema),
+    error: failureSchema
+  }),
+  Rpc.make('attachSource', {
+    payload: sourceLinkSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
+  Rpc.make('detachSource', {
+    payload: sourceLinkSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
   Rpc.make('importCapability', {
     payload: importCapabilityInputSchema,
     success: importCapabilitySchema,
@@ -108,6 +240,11 @@ export const SourcesRpc = RpcGroup.make(
   Rpc.make('correctBlock', {
     payload: correctBlockInputSchema,
     success: sourceProcessingSchema,
+    error: failureSchema
+  }),
+  Rpc.make('previewDeletion', {
+    payload: { id: sourceIdSchema },
+    success: sourceDeletionPreviewSchema,
     error: failureSchema
   }),
   Rpc.make('deleteSource', {

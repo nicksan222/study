@@ -21,16 +21,13 @@ import { RpcTest } from 'effect/rpc';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { documentTransformFixture } from '#testing/document-transform';
-import {
-  acceptMaterialDeletion,
-  cleanupMaterial,
-  deletionDocument
-} from '#testing/material-deletion';
+import { deletionDocument } from '#testing/material-deletion';
+import { cleanup } from '#testing/session-deletion';
 
 testStable(
-  'session generation RPC discovers bounded exact requests across reopen and input retirement',
+  'session generation RPC discovers bounded exact requests across reopen, cancellation and session retirement',
   async () => {
     const fixture = await documentTransformFixture();
 
@@ -38,19 +35,27 @@ testStable(
       const setup = await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Conversations;
-          const materials = yield* Materials;
+          const documents = yield* Documents;
           const session = yield* chats.createSession({ title: 'Discover' });
           const other = yield* chats.createSession({ title: 'Other' });
-          const input = yield* materials.create({
+          const input = yield* documents.create({
+            createKey: 'discovery-input',
+            inputs: [],
+            citations: [],
             title: 'Input',
-            publish: true,
-            content: { kind: 'document', ...deletionDocument('Retained discovery evidence') }
+            document: deletionDocument('Retained discovery evidence')
           });
 
+          assert.ok(input.version);
           yield* chats.updateSessionSelection({
             sessionId: session.id,
             expectedRevision: 0n,
-            targets: [{ versionId: input.version.id, scope: { kind: 'document' } }]
+            targets: [
+              {
+                input: { kind: 'document', versionId: input.version.id },
+                scope: { kind: 'document' }
+              }
+            ]
           });
           const note = yield* chats.postMessage({
             sessionId: session.id,
@@ -133,26 +138,33 @@ testStable(
           );
         }).pipe(Effect.provide(fixture.domain()))
       );
-      await acceptMaterialDeletion(fixture, setup.input.id);
-      await cleanupMaterial(fixture, setup.input.id);
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const docs = yield* Documents;
+          const chats = yield* Conversations;
+          assert.ok((yield* docs.previewDeletion({ id: setup.input.id })).blockedVersionIds.length);
+          yield* docs.cancelTransform({ requestId: setup.requests[0]!.requestId });
+          const page = yield* chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 });
+          assert.equal(page.items[0]?.cancelled, true);
+          assert.ok(page.items.every((item) => item.state === 'available'));
+          yield* chats.deleteSession(setup.session.id);
+        }).pipe(Effect.provide(fixture.domain()))
+      );
+      await cleanup(fixture, setup.session.id);
       fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
-          const page = yield* (yield* Conversations).sessionGenerations({
-            sessionId: setup.session.id,
-            limit: 100
-          });
-
-          assert.deepEqual(
-            page.items.map((i) => i.requestId),
-            setup.requests.map((i) => i.requestId)
+          const chats = yield* Conversations;
+          assert.equal(
+            (yield* Effect.flip(
+              chats.sessionGenerations({ sessionId: setup.session.id, limit: 100 })
+            )).kind,
+            'not_found'
           );
-          assert.ok(
-            page.items.every(
-              (i) =>
-                i.state === 'retired' && i.resultVersionId === null && i.proposedVersionId === null
-            )
-          );
+          const docs = yield* Documents;
+          const retained = yield* docs.document({ id: setup.input.id });
+          assert.ok(retained.version);
+          assert.equal(retained.version.document.blocks[0]?.text, 'Retained discovery evidence');
         }).pipe(Effect.provide(fixture.domain()))
       );
     } finally {

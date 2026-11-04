@@ -12,21 +12,23 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
-import type { DocumentId, MaterialVersionId, SourceId } from '@study/contracts/ids';
+import type { StudyDocumentVersionId, SourceId } from '@study/contracts/ids';
+import { studyDocumentVersionIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -34,7 +36,6 @@ import { Database } from '#server/platform/database/database';
 import { withTestPublication } from '#testing/publication';
 
 const content = (value: string) => ({
-  kind: 'document' as const,
   blocks: [createBlock({ type: 'paragraph', inlines: [{ type: 'text', text: value, marks: [] }] })],
   meta: {
     extractor: null,
@@ -55,7 +56,7 @@ testStable(
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const services = () =>
-      Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer).pipe(
+      Layer.mergeAll(Conversations.layer, Documents.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const handlers = () => ConversationsRpcLive.pipe(Layer.provideMerge(services()));
@@ -65,30 +66,25 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
-            const materials = yield* Materials;
+            const documents = yield* Documents;
             const first = yield* client('conversations.createSession', { title: 'Quick' });
             const second = yield* client('conversations.createSession', { title: 'Other' });
             const body = content('before 😀 selected after');
-            const material = yield* materials.create({
+            const material = yield* documents.create({
+              createKey: randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Shared',
-              content: body,
-              publish: true
+              document: body
             });
-            const documentId = context.db.orm
-              .select()
-              .from(s.material_document_versions)
-              .where(eq(s.material_document_versions.version_id, material.version.id))
-              .get()!.document_id;
+            const documentId = material.version!.snapshotId;
             const range = {
-              versionId: material.version.id,
-              documentId,
               blockId: body.blocks[0]!.id,
               start: 10,
               end: 18
             };
             const target = {
-              versionId: material.version.id,
-              documentId,
+              input: { kind: 'document' as const, versionId: material.version!.id },
               scope: { kind: 'ranges' as const, ranges: [range] }
             };
 
@@ -131,10 +127,18 @@ testStable(
                 client('conversations.updateSessionSelection', {
                   sessionId: second.id,
                   expectedRevision: 0n,
-                  targets: [{ ...target, documentId: 999n as DocumentId }]
+                  targets: [
+                    {
+                      ...target,
+                      input: {
+                        kind: 'document',
+                        versionId: Schema.decodeUnknownSync(studyDocumentVersionIdSchema)(999n)
+                      }
+                    }
+                  ]
                 })
               )).kind,
-              'invalid_input'
+              'not_found'
             );
             const intent = {
               sessionId: first.id,
@@ -146,10 +150,11 @@ testStable(
 
             assert.equal(snapshot.inputs[0]!.excerpts[0]!.text, 'selected');
             assert.deepEqual(snapshot.messages, []);
-            yield* materials.createVersion({
-              materialId: material.id,
-              content: content('new content'),
-              publish: true
+            yield* documents.save({
+              documentId: material.id,
+              expectedVersionId: material.version!.id,
+              key: randomUUID(),
+              document: content('new content')
             });
             yield* client('conversations.updateSessionSelection', {
               sessionId: first.id,
@@ -239,7 +244,7 @@ testStable(
                         {
                           marker: 1,
                           sourceId: null,
-                          materialVersionId: material.version.id,
+                          input: { kind: 'document' as const, versionId: material.version!.id },
                           selectedRange: range,
                           documentId,
                           blockOrdinal: 0,
@@ -259,7 +264,7 @@ testStable(
                 {
                   marker: 1,
                   sourceId: null,
-                  materialVersionId: material.version.id,
+                  input: { kind: 'document' as const, versionId: material.version!.id },
                   selectedRange: range,
                   documentId,
                   blockOrdinal: 0,
@@ -268,7 +273,7 @@ testStable(
                 {
                   marker: 2,
                   sourceId: null,
-                  materialVersionId: material.version.id,
+                  input: { kind: 'document' as const, versionId: material.version!.id },
                   selectedRange: range,
                   documentId,
                   blockOrdinal: 0,
@@ -304,12 +309,14 @@ testStable(
 
             const answer = yield* client('conversations.message', { id: request.messageId });
 
-            assert.equal(answer.citations[0]!.materialVersionId, material.version.id);
+            assert.deepEqual(answer.citations[0]!.input, {
+              kind: 'document',
+              versionId: material.version!.id
+            });
             assert.equal(answer.citations[0]!.rangeStart, 10);
             assert.equal(answer.citations[0]!.rangeEnd, 18);
             assert.equal(answer.citations[0]!.origin, 'agent');
             assert.equal(answer.citations[0]!.precision, 'exact');
-            assert.deepEqual(answer.citations[0]!.support, { state: 'unassessed' });
             const evidence = answer.citations[0]!.evidence;
 
             assert.equal(evidence?.availability, 'available');
@@ -317,10 +324,7 @@ testStable(
             if (evidence?.availability === 'available') {
               assert.equal(evidence.precision, 'exact');
               assert.equal(evidence.excerpt, 'selected');
-              assert.equal(evidence.revision.inputVersionId, material.version.id);
-              assert.equal(evidence.revision.inputDocumentId, documentId);
-              assert.equal(evidence.revision.state, 'stale');
-              assert.notEqual(evidence.revision.currentVersionId, material.version.id);
+              assert.equal(evidence.snapshotId, documentId);
             }
 
             const thread = yield* client('conversations.thread', {
@@ -443,7 +447,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const layer = Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer).pipe(
+    const layer = Layer.mergeAll(Conversations.layer, Documents.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -451,7 +455,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const conversations = yield* Conversations;
-          const materials = yield* Materials;
+          const documents = yield* Documents;
           const first = yield* conversations.createSession({ title: 'One' });
           const second = yield* conversations.createSession({ title: 'Two' });
 
@@ -466,25 +470,29 @@ testStable(
             )).kind,
             'invalid_input'
           );
-          const a = yield* materials.create({
+          const a = yield* documents.create({
+            createKey: randomUUID(),
+            inputs: [],
+            citations: [],
             title: 'A',
             sessionId: first.id,
-            content: content('Alpha'),
-            publish: true
+            document: content('Alpha')
           });
-          const b = yield* materials.create({
+          const b = yield* documents.create({
+            createKey: randomUUID(),
+            inputs: [],
+            citations: [],
             title: 'B',
-            content: content('Beta'),
-            publish: true
+            document: content('Beta')
           });
 
           assert.deepEqual(
             (yield* conversations.sessionSelection({ sessionId: first.id })).targets,
             []
           );
-          yield* materials.detach({ sessionId: first.id, materialId: a.id });
+          yield* documents.detach({ sessionId: first.id, documentId: a.id });
           const targets = [a, b].map((item) => ({
-            versionId: item.version.id,
+            input: { kind: 'document' as const, versionId: item.version!.id },
             scope: { kind: 'document' as const }
           }));
 
@@ -511,17 +519,34 @@ testStable(
           });
 
           assert.deepEqual(
-            ordered.inputs.map((item) => item.versionId),
-            [b.version.id, a.version.id]
+            ordered.inputs.map((item) => item.input),
+            [
+              { kind: 'document', versionId: b.version!.id },
+              { kind: 'document', versionId: a.version!.id }
+            ]
           );
           assert.equal(
             (yield* conversations.sessionSelection({ sessionId: second.id })).targets.length,
             1
           );
-          const draft = yield* materials.create({
+          const draftOwner = yield* documents.create({
+            createKey: randomUUID(),
+            inputs: [],
+            citations: [],
             title: 'Draft',
-            content: content('Unpublished'),
-            publish: false
+            document: content('Unpublished')
+          });
+          yield* documents.save({
+            documentId: draftOwner.id,
+            expectedVersionId: draftOwner.version!.id,
+            key: randomUUID(),
+            document: content('Published replacement')
+          });
+          const draft = yield* documents.save({
+            documentId: draftOwner.id,
+            expectedVersionId: draftOwner.version!.id,
+            key: randomUUID(),
+            document: content('Retained alternative')
           });
 
           assert.equal(
@@ -529,10 +554,15 @@ testStable(
               conversations.updateSessionSelection({
                 sessionId: second.id,
                 expectedRevision: 1n,
-                targets: [{ versionId: draft.version.id, scope: { kind: 'document' } }]
+                targets: [
+                  {
+                    input: { kind: 'document', versionId: draft.submittedVersionId },
+                    scope: { kind: 'document' }
+                  }
+                ]
               })
             )).kind,
-            'not_found'
+            'invalid_input'
           );
           assert.equal(
             (yield* Effect.flip(
@@ -606,7 +636,7 @@ testStable(
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const services = () =>
-      Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer, Settings.layer).pipe(
+      Layer.mergeAll(Conversations.layer, Documents.layer, Sources.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const handlers = () => ConversationsRpcLive.pipe(Layer.provideMerge(services()));
@@ -617,7 +647,7 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
-            const materials = yield* Materials;
+            const documents = yield* Documents;
             const sources = yield* Sources;
             const session = yield* client('conversations.createSession', {
               title: 'Selected image'
@@ -633,10 +663,13 @@ testStable(
               revision: 1,
               alt: 'Selected figure caption'
             });
-            const material = yield* materials.create({
+            const material = yield* documents.create({
+              createKey: randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Illustrated document',
-              publish: true,
-              content: {
+
+              document: {
                 ...content('Hidden surrounding text'),
                 blocks: [content('Hidden surrounding text').blocks[0]!, block]
               }
@@ -646,7 +679,10 @@ testStable(
               sessionId: session.id,
               expectedRevision: 0n,
               targets: [
-                { versionId: material.version.id, scope: { kind: 'blocks', blockIds: [block.id] } }
+                {
+                  input: { kind: 'document', versionId: material.version!.id },
+                  scope: { kind: 'blocks', blockIds: [block.id] }
+                }
               ]
             });
             const intent = {
@@ -668,14 +704,11 @@ testStable(
               expectedRevision: 1n,
               targets: [
                 {
-                  versionId: material.version.id,
-                  documentId: input.documentId,
+                  input: { kind: 'document', versionId: material.version!.id },
                   scope: {
                     kind: 'ranges',
                     ranges: [
                       {
-                        versionId: material.version.id,
-                        documentId: input.documentId,
                         blockId: block.id,
                         start: 0,
                         end: 8
@@ -699,10 +732,12 @@ testStable(
               name: 'figure.png',
               bytes: new Uint8Array([...bytes, 0])
             });
-            yield* materials.createVersion({
-              materialId: material.id,
-              publish: true,
-              content: {
+            yield* documents.save({
+              documentId: material.id,
+              expectedVersionId: material.version!.id,
+              key: randomUUID(),
+
+              document: {
                 ...content('New surrounding text'),
                 blocks: [
                   createBlock(
@@ -733,7 +768,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const conversations = yield* Conversations;
-          const materials = yield* Materials;
+          const documents = yield* Documents;
           const sources = yield* Sources;
 
           assert.deepEqual(
@@ -754,7 +789,7 @@ testStable(
             'not_found'
           );
           assert.equal(
-            (yield* materials.material({ id: saved.material.id })).id,
+            (yield* documents.document({ id: saved.material.id })).id,
             saved.material.id
           );
           assert.deepEqual(
@@ -770,68 +805,30 @@ testStable(
   }
 );
 
-function assertUnavailableCitationTargets(
-  mismatch: (typeof chatMessageSchema.Type.citations)[number],
-  unpublished: (typeof chatMessageSchema.Type.citations)[number],
-  draftVersionId: MaterialVersionId
-) {
-  assert.equal(mismatch!.precision, 'unavailable');
-  assert.equal(mismatch!.evidence?.availability, 'unavailable');
-
-  if (mismatch!.evidence?.availability !== 'unavailable')
-    throw new Error('Expected mismatched identity');
-
-  assert.equal(mismatch!.evidence.reason, 'document_mismatch');
-  assert.equal(unpublished!.precision, 'unavailable');
-  assert.equal(unpublished!.evidence?.availability, 'unavailable');
-
-  if (unpublished!.evidence?.availability !== 'unavailable')
-    throw new Error('Expected unpublished identity');
-
-  assert.equal(unpublished!.evidence.reason, 'version_missing');
-  assert.equal(unpublished!.materialVersionId, draftVersionId);
-}
-
 function assertRetainedCitationShapes(
   read: typeof chatMessageSchema.Type,
   anchor: Extract<(typeof chatMessageSchema.Type.citations)[number]['anchor'], { type: 'text' }>,
-  materialVersionId: MaterialVersionId,
-  latestVersionId: MaterialVersionId,
-  draftVersionId: MaterialVersionId,
+  versionId: StudyDocumentVersionId,
+  _latestVersionId: StudyDocumentVersionId,
+  draftVersionId: StudyDocumentVersionId,
   sourceId: SourceId
 ) {
-  const [legacy, mismatch, unpublished, attachment] = read.citations;
-
-  assert.equal(legacy!.precision, 'approximate');
-  assert.equal(legacy!.evidence?.availability, 'available');
-
-  if (legacy!.evidence?.availability !== 'available') throw new Error('Expected retained anchor');
-
-  assert.equal(legacy!.evidence.precision, 'approximate');
-  assert.equal(legacy!.evidence.excerpt, null);
-  assert.equal(legacy!.evidence.block, null);
-  assert.deepEqual(legacy!.evidence.location, anchor);
-  assert.equal(legacy!.evidence.revision.inputVersionId, materialVersionId);
-  assert.equal(legacy!.evidence.revision.currentVersionId, latestVersionId);
-  assert.equal(legacy!.evidence.revision.state, 'stale');
-  assert.equal(legacy!.documentId, null);
-  assert.equal(legacy!.rangeStart, null);
-  assertUnavailableCitationTargets(mismatch!, unpublished!, draftVersionId);
-
-  assert.equal(attachment!.precision, 'approximate');
-  assert.deepEqual(attachment!.evidence, {
-    availability: 'unavailable',
-    precision: 'approximate',
-    reason: 'attachment_target_unresolved',
-    sourceId,
-    anchor,
-    quote: 'Retained attachment'
-  });
-
+  const [incomplete, mismatch, unpublished, attachment] = read.citations;
   for (const citation of read.citations) {
-    assert.deepEqual(citation.support, { state: 'unassessed' });
-    assert.equal(citation.rangeStart === null || typeof citation.rangeStart === 'number', true);
+    assert.equal(citation.precision, 'unavailable');
+    assert.deepEqual(citation.evidence, {
+      availability: 'unavailable',
+      precision: 'unavailable',
+      reason: 'captured_input_unavailable'
+    });
+    assert.deepEqual(citation.anchor, anchor);
   }
+  assert.deepEqual(incomplete!.input, { kind: 'document', versionId });
+  assert.equal(incomplete!.documentId, null);
+  assert.deepEqual(mismatch!.input, { kind: 'document', versionId });
+  assert.deepEqual(unpublished!.input, { kind: 'document', versionId: draftVersionId });
+  assert.equal(attachment!.sourceId, sourceId);
+  assert.equal(attachment!.quote, 'Retained attachment');
 }
 
 testStable(
@@ -842,7 +839,7 @@ testStable(
     const handlers = () =>
       ConversationsRpcLive.pipe(
         Layer.provideMerge(
-          Layer.mergeAll(Conversations.layer, Materials.layer, Sources.layer, Settings.layer)
+          Layer.mergeAll(Conversations.layer, Documents.layer, Sources.layer, Settings.layer)
         ),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
@@ -852,34 +849,32 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
-            const materials = yield* Materials;
+            const documents = yield* Documents;
             const session = yield* rpc('conversations.createSession', { title: 'Historic shapes' });
             const body = content('Same words in distinct documents');
-            const material = yield* materials.create({
+            const material = yield* documents.create({
+              createKey: randomUUID(),
+              inputs: [],
+              citations: [],
               title: 'Published',
-              content: body,
-              publish: true
+              document: body
             });
-            const latest = yield* materials.createVersion({
-              materialId: material.id,
-              content: content(body.blocks[0]!.text),
-              publish: true
+            const latestOutcome = yield* documents.save({
+              documentId: material.id,
+              expectedVersionId: material.version!.id,
+              key: randomUUID(),
+              document: content(body.blocks[0]!.text)
             });
-            const draft = yield* materials.createVersion({
-              materialId: material.id,
-              content: body,
-              publish: false
+            const draftOutcome = yield* documents.save({
+              documentId: material.id,
+              expectedVersionId: material.version!.id,
+              key: randomUUID(),
+              document: body
             });
-            const documentId = context.db.orm
-              .select()
-              .from(s.material_document_versions)
-              .where(eq(s.material_document_versions.version_id, material.version.id))
-              .get()!.document_id;
-            const latestDocumentId = context.db.orm
-              .select()
-              .from(s.material_document_versions)
-              .where(eq(s.material_document_versions.version_id, latest.id))
-              .get()!.document_id;
+            const documentId = material.version!.snapshotId;
+            const latest = yield* documents.version({ id: latestOutcome.submittedVersionId });
+            const draft = yield* documents.version({ id: draftOutcome.submittedVersionId });
+            const latestDocumentId = latest.snapshotId;
             const source = yield* (yield* Sources).createSource({
               projectId: null,
               name: 'attachment.txt',
@@ -899,7 +894,7 @@ testStable(
             const base = {
               version_id: message.activeVersionId!,
               source_id: null,
-              material_version_id: material.version.id,
+              authored_version_id: material.version!.id,
               document_id: null,
               block_id: null,
               range_start: null,
@@ -925,7 +920,7 @@ testStable(
                 {
                   ...base,
                   marker: 3n,
-                  material_version_id: draft.id,
+                  authored_version_id: draft.id,
                   document_id: documentId,
                   block_id: body.blocks[0]!.id,
                   range_start: 0n,
@@ -934,7 +929,7 @@ testStable(
                 {
                   ...base,
                   marker: 4n,
-                  material_version_id: null,
+                  authored_version_id: null,
                   source_id: source.id,
                   quote: 'Retained attachment'
                 }
@@ -946,7 +941,7 @@ testStable(
             assertRetainedCitationShapes(
               read,
               anchor,
-              material.version.id,
+              material.version!.id,
               latest.id,
               draft.id,
               source.id
@@ -1032,7 +1027,7 @@ testStable(
     const context = new ServerContext(location.open());
     const handlers = ConversationsRpcLive.pipe(
       Layer.provideMerge(
-        Layer.mergeAll(Conversations.layer, Materials.layer, Settings.layer, Sources.layer).pipe(
+        Layer.mergeAll(Conversations.layer, Documents.layer, Settings.layer, Sources.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
         )
       )

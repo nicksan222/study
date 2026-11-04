@@ -19,6 +19,7 @@ import { Effect } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
 import { Conversations } from '#server/features/conversations/index';
+import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
@@ -44,8 +45,15 @@ export const backupPolicy: SnapshotPolicy = {
       db,
       transaction((tx) => {
         Materials.prepareBackup(tx);
+        const authoredRequests = Documents.prepareBackup(tx);
+        Workflows.retireCorrelations(tx, authoredRequests, [
+          'DocumentGenerationRequested',
+          'DocumentGenerationFailed',
+          'DocumentPublished'
+        ]);
         Learning.prepareBackup(tx);
         Materials.validateBackup(tx);
+        Documents.validateBackup(tx);
         Sources.validateBackup(tx);
         Conversations.validateBackup(tx);
         Themes.validateBackup(tx);
@@ -64,6 +72,7 @@ export const backupPolicy: SnapshotPolicy = {
       db,
       transaction((tx) => {
         Materials.validateBackup(tx);
+        Documents.validateBackup(tx);
         Sources.validateBackup(tx);
         Conversations.validateBackup(tx, true);
         Themes.validateBackup(tx);

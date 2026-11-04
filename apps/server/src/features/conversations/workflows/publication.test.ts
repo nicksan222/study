@@ -17,7 +17,15 @@ import assert from 'node:assert/strict';
 
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { eq, sql } from '@study/db';
-import { blocks, documents, sessions, source_processing, sources } from '@study/db/schema';
+import {
+  blocks,
+  content_snapshots,
+  sessions,
+  source_processing,
+  sources,
+  source_snapshots,
+  source_extraction_revisions
+} from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer, Schema } from 'effect';
@@ -62,8 +70,23 @@ testStable(
           .returning()
           .get();
         const document = context.db.orm
-          .insert(documents)
-          .values({ source_id: source.id, extractor_version: 1n, meta: '{}', created_at: 1n })
+          .insert(content_snapshots)
+          .values({
+            source_id: source.id,
+            extractor_version: 1n,
+            meta: JSON.stringify({
+              extractor: null,
+              extractorVersion: 1,
+              provider: null,
+              durationMs: null,
+              pageCount: null,
+              refiners: [],
+              waitingFor: [],
+              corrected: false,
+              omissions: []
+            }),
+            created_at: 1n
+          })
           .returning()
           .get();
 
@@ -92,6 +115,20 @@ testStable(
             document_id: document.id
           })
           .run();
+        context.db.orm
+          .insert(source_snapshots)
+          .values({
+            source_id: source.id,
+            revision: 1n,
+            bytes: Buffer.from([1]),
+            kind: 'text',
+            mime: 'text/plain'
+          })
+          .run();
+        context.db.orm
+          .insert(source_extraction_revisions)
+          .values({ source_id: source.id, revision: 1n, snapshot_id: document.id })
+          .run();
         yield* conversations.postMessage({
           sessionId: session.id,
           text: 'question',
@@ -105,6 +142,12 @@ testStable(
             {
               marker: 1,
               sourceId: source.id,
+              input: {
+                kind: 'source' as const,
+                sourceId: source.id,
+                revision: 1n,
+                snapshotId: document.id
+              },
               documentId: document.id,
               blockOrdinal: 0,
               quote: 'quoted passage'
@@ -219,19 +262,22 @@ testStable(
                 assert.deepEqual(message.citations, [
                   {
                     origin: 'agent',
-                    precision: 'approximate',
                     support: { state: 'unassessed' },
+                    precision: 'approximate',
                     evidence: {
-                      availability: 'unavailable',
+                      availability: 'available',
                       precision: 'approximate',
-                      reason: 'attachment_target_unresolved',
-                      sourceId: source.id,
-                      anchor: { type: 'page', page: 3 },
-                      quote: 'quoted passage'
+                      snapshotId: document.id,
+                      excerpt: 'quoted passage'
                     },
                     marker: 1,
                     sourceId: source.id,
-                    materialVersionId: null,
+                    input: {
+                      kind: 'source',
+                      sourceId: source.id,
+                      revision: 1n,
+                      snapshotId: document.id
+                    },
                     documentId: document.id,
                     blockId: context.db.orm
                       .select()

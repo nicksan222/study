@@ -1,4 +1,3 @@
-/* eslint-disable study/database-ownership -- Upgrade fixture uses the official migrator for the preceding schema. */
 import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,6 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
+/* eslint-disable study/database-ownership -- Upgrade fixture uses the official migrator for the preceding schema. */
 import { testStable } from '@study/testing/node';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/node-sqlite';
@@ -83,13 +83,13 @@ testStable(
 
         assert.ok(
           db.get(
-            sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='material_deletion_reply_publication'`
+            sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='conversation_reply_requests_active_insert'`
           )
         );
 
         assert.ok(
           db.get(
-            sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='history_reply_publication'`
+            sql`SELECT name FROM sqlite_schema WHERE type='trigger' AND name='conversation_reply_version_active_update'`
           )
         );
 
@@ -126,7 +126,10 @@ testStable(
           db.get(sql`SELECT source_id FROM citations WHERE version_id=1`)?.source_id,
           1n
         );
-        assert.equal(db.get(sql`SELECT source_id FROM documents WHERE id=1`)?.source_id, 1n);
+        assert.equal(
+          db.get(sql`SELECT source_id FROM content_snapshots WHERE id=1`)?.source_id,
+          1n
+        );
         assert.equal(
           db.get(sql`SELECT due FROM material_card_schedules WHERE card_id=1`)?.due,
           99n

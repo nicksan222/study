@@ -31,6 +31,7 @@ export function makeListAction(resources: StoreResources) {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
     return [
+      inArray(s.materials.kind, ['diagram', 'quiz', 'flashcards']),
       sql`NOT EXISTS (SELECT 1 FROM material_deletion_members d WHERE d.material_id=${s.materials.id})`,
       input.projectId === undefined
         ? undefined

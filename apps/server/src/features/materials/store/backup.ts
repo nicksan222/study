@@ -15,10 +15,8 @@
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
-import {
-  annotationRevisionSchema,
-  citationAssessmentSchema
-} from '@study/contracts/materials/evidence';
+import { contentInputSchema } from '@study/contracts/inputs';
+import { learningCitationSchema } from '@study/contracts/materials/inputs';
 import {
   materialVersionDetailSchema,
   materialGenerationPayloadSchema
@@ -30,119 +28,63 @@ import { Schema } from 'effect';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+import { makeExactInputs } from './exact-inputs.ts';
 import { makeReads } from './reads.ts';
-import { decodeSourceSnapshot } from './source-snapshot.ts';
-
-function makeBackupValidation(resources: StoreResources) {
-  const { db } = resources;
-
-  const reads = makeReads(resources);
-
-  function pin(pin: typeof s.material_source_snapshots.$inferSelect) {
-    const metadata = decodeSourceSnapshot(pin.metadata);
-
-    const blob = db.orm
-      .select()
-      .from(s.source_snapshots)
-      .where(
-        and(
-          eq(s.source_snapshots.source_id, pin.source_id),
-          eq(s.source_snapshots.revision, pin.revision)
-        )
-      )
-      .get();
-
-    if (
-      !blob ||
-      metadata.id !== pin.source_id ||
-      metadata.sizeBytes !== BigInt(blob.bytes.length) ||
-      !createHash('sha256').update(blob.bytes).digest().equals(Buffer.from(metadata.sha256))
-    )
-      throw new StudyError('invalid_input', 'Backup pinned source bytes are incomplete');
-  }
-
-  function version(version: typeof s.material_versions.$inferSelect) {
-    if (
-      db.orm.get(
-        sql`SELECT 1 FROM material_deletion_members WHERE material_id=${version.material_id} UNION ALL SELECT 1 FROM material_history_members WHERE version_id=${version.id} LIMIT 1`
-      )
-    )
-      return;
-
-    Schema.decodeUnknownSync(materialVersionDetailSchema)(reads.readVersion(version.id));
-  }
-
-  return { reads, pin, version };
-}
 
 export const MaterialBackupStore = defineStore({
   name: 'study/MaterialBackupStore',
   entity: { singular: 'backupValidation', plural: 'backupValidations' },
-  make: (resources) => {
-    const validate = makeBackupValidation(resources);
-
-    const { reads } = validate;
-
-    return {
-      queries: {
-        backupValidation: storeQuery({
-          role: 'required',
-          input: Schema.Void,
-          output: Schema.Boolean,
-          run: () => {
-            const { db } = resources;
-
+  make: (resources) => ({
+    queries: {
+      backupValidation: storeQuery({
+        role: 'required',
+        input: Schema.Void,
+        output: Schema.Array(
+          Schema.Struct({
+            inputs: Schema.Array(contentInputSchema),
+            citations: Schema.Array(learningCitationSchema)
+          })
+        ),
+        run: () => {
+          const { db } = resources;
+          if (
+            db.orm.get(
+              sql`SELECT 1 FROM material_deletions WHERE status!='completed' UNION ALL SELECT 1 FROM material_history_prunes WHERE status!='completed' LIMIT 1`
+            )
+          )
+            throw new StudyError('invalid_input', 'Backup requires completed learning cleanup');
+          if (
+            db.orm.get(
+              sql`SELECT 1 FROM material_generation_requests WHERE cancelled=0 AND result_version_id IS NULL AND payload!='{}' LIMIT 1`
+            )
+          )
+            throw new StudyError('invalid_input', 'Backup contains pending learning authority');
+          const generation = Schema.decodeUnknownSync(
+            Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
+          );
+          for (const row of db.orm.select().from(s.material_generation_requests).all())
+            if (row.payload !== '{}') generation(row.payload);
+          const reads = makeReads(resources);
+          const evidence = makeExactInputs(resources);
+          const result = [];
+          for (const row of db.orm.select().from(s.material_versions).all()) {
             if (
               db.orm.get(
-                sql`SELECT 1 FROM material_deletions WHERE status != 'completed' UNION ALL SELECT 1 FROM material_history_prunes WHERE status != 'completed' LIMIT 1`
+                sql`SELECT 1 FROM material_deletion_members WHERE material_id=${row.material_id} UNION ALL SELECT 1 FROM material_history_members WHERE version_id=${row.id} LIMIT 1`
               )
             )
-              throw new StudyError('invalid_input', 'Backup requires completed cleanup');
-
-            if (
-              db.orm.get(
-                sql`SELECT 1 FROM material_generation_requests WHERE cancelled=0 AND result_version_id IS NULL AND payload != '{}' LIMIT 1`
-              )
-            )
-              throw new StudyError('invalid_input', 'Backup contains pending generation authority');
-
-            const generation = Schema.decodeUnknownSync(
-              Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
+              continue;
+            const version = Schema.decodeUnknownSync(materialVersionDetailSchema)(
+              reads.readVersion(row.id)
             );
-
-            for (const row of db.orm.select().from(s.material_generation_requests).all())
-              if (row.payload !== '{}') generation(row.payload);
-
-            for (const pin of db.orm.select().from(s.material_source_snapshots).all())
-              validate.pin(pin);
-
-            for (const row of db.orm.select().from(s.documents).all())
-              reads.readCanonicalDocument(row.id);
-
-            for (const version of db.orm.select().from(s.material_versions).all())
-              validate.version(version);
-
-            const annotation = Schema.decodeUnknownSync(
-              Schema.fromJsonString(Schema.toCodecJson(annotationRevisionSchema))
-            );
-
-            for (const row of db.orm.select().from(s.material_annotation_revisions).all())
-              annotation(row.payload);
-
-            const assessment = Schema.decodeUnknownSync(
-              Schema.fromJsonString(Schema.toCodecJson(citationAssessmentSchema))
-            );
-
-            for (const row of db.orm.select().from(s.material_citation_assessments).all())
-              assessment(row.payload);
-
-            return true;
+            result.push({ inputs: version.inputs, citations: evidence.citations(row.id) });
           }
-        })
-      },
-      mutations: {}
-    };
-  }
+          return result;
+        }
+      })
+    },
+    mutations: {}
+  })
 });
 
 export const MaterialPendingBackupStore = defineStore({

@@ -144,115 +144,58 @@ testStable(
 );
 
 testStable(
-  'exact attachment Source and Document proofs reject forged context ownership on the migrated schema',
+  'exact raw attachment pins reject forged source or extraction ownership while preserving current source roots',
   () => {
     const db = Db.open(':memory:');
-
     try {
-      db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at)
-      VALUES(1,'attachment','text','text/plain','source.txt',1,zeroblob(32),1),(2,'attachment','text','text/plain','other.txt',1,zeroblob(32),1);
-
-      INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'01'),(2,X'02');
-
-      INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,1,X'01','text','text/plain'),(2,1,X'02','text','text/plain');
-
-      INSERT INTO documents(id,source_id,extractor_version,meta,created_at) VALUES(1,1,1,'{}',1),(2,1,1,'{}',1);
-
-      INSERT INTO source_processing(source_id,revision,request_id,published_request_id,document_id) VALUES(1,1,'current','current',2);
-
-      INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'file','Source',1,1);
-
-      INSERT INTO material_versions(id,material_id,kind,number,operation,created_at)
-        VALUES(1,1,'file',1,'original',1),(2,1,'file',2,'extract',1),(3,1,'file',3,'extract',1);
-
-      INSERT INTO material_file_versions(version_id,source_id) VALUES(1,1),(2,1),(3,1);
-
-      INSERT INTO material_source_snapshots(version_id,source_id,revision,document_id,metadata)
-      SELECT v.id,1,1,NULL,
-        json_object('id','1','projectId',NULL,'projectName',NULL,'name','source.txt','kind','text','mime','text/plain','origin','attachment','sizeBytes','1','sha256',lower(hex(zeroblob(32))),'uri',NULL,'createdAt','1')
-      FROM material_versions v;
-
-      UPDATE material_versions SET status='published',published_at=2 WHERE id=1;
-
-      INSERT INTO material_imports(material_id,source_id) VALUES(1,1);
-
-      UPDATE material_source_snapshots SET document_id=CASE version_id WHEN 2 THEN 1 ELSE 2 END WHERE version_id IN(2,3);
-
-      INSERT INTO blocks(document_id,ordinal,editing_id,kind,content,text,anchor)
-      VALUES(1,0,'old-block','paragraph','{"type":"paragraph","inlines":[{"type":"text","text":"Old","marks":[]}]}','Old','{"type":"paragraph","index":0}'),
-        (2,0,'current-block','paragraph','{"type":"paragraph","inlines":[{"type":"text","text":"Current","marks":[]}]}','Current','{"type":"paragraph","index":0}');
-
-      UPDATE documents SET meta='{"extractor":null,"extractorVersion":1,"provider":null,"durationMs":null,"pageCount":null,"refiners":[],"waitingFor":[],"corrected":false,"omissions":[]}';
-
-      UPDATE material_versions SET status='published',published_at=2 WHERE id IN(2,3);
-
-      INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
-
-      INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
-
-      INSERT INTO message_versions(id,message_id,number,origin,status,created_at) VALUES(1,1,1,'answer','pending',1),(2,2,1,'answer','pending',1),(3,3,1,'answer','pending',1);`);
-
-      for (const [requestId, versionId, sourceId, documentId] of [
+      db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'attachment','text','text/plain','source.txt',1,zeroblob(32),1),(2,'attachment','text','text/plain','other.txt',1,zeroblob(32),1);
+  INSERT INTO source_blobs(source_id,bytes) VALUES(1,X'01'),(2,X'02');
+  INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,1,X'01','text','text/plain'),(2,1,X'02','text','text/plain');
+  INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,1,1,'{}',1),(2,1,1,'{}',1),(3,2,1,'{}',1);
+  INSERT INTO blocks(document_id,ordinal,editing_id,kind,content,text,anchor) SELECT id,0,'block-'||id,'paragraph','{"type":"paragraph","inlines":[{"type":"text","text":"Evidence","marks":[]}]}','Evidence','{"type":"paragraph","index":0}' FROM content_snapshots;
+  INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(1,1,1),(2,1,3);
+  INSERT INTO source_processing(source_id,revision,request_id,published_request_id,document_id) VALUES(1,1,'current','current',2);
+  INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
+  INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
+  INSERT INTO message_versions(id,message_id,number,origin,status,created_at) VALUES(1,1,1,'answer','pending',1),(2,2,1,'answer','pending',1),(3,3,1,'answer','pending',1);`);
+      for (const [requestId, versionId, sourceId, snapshotId] of [
         ['exact', 1, '1', '1'],
         ['wrong-source', 2, '2', '1'],
         ['wrong-document', 3, '1', '2']
-      ] as const) {
+      ] as const)
         db.orm.run(
-          dbSql`INSERT INTO conversation_reply_requests(request_id,session_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ context: { inputs: [] }, messages: [{ attachments: [{ sourceId, documentId }] }] })})`
+          dbSql`INSERT INTO conversation_reply_requests(request_id,session_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ messages: [{ attachments: [{ partId: '1', sourceId, revision: '1', snapshotId }] }] })})`
         );
-      }
-
-      db.exec(`INSERT INTO material_history_prunes(operation_id,material_id,keep_latest,token,selection,status,created_at)
-      VALUES('attachments',1,1,'${'e'.repeat(64)}','["1","2","3"]','pending',3);`);
-
+      db.exec(
+        "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('exact',1,1,1,1)"
+      );
       assert.throws(() =>
         db.exec(
-          "INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'attachments')"
+          "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-source',1,2,1,1)"
         )
       );
-
       assert.throws(() =>
         db.exec(
-          "INSERT INTO material_history_members(version_id,operation_id) VALUES(3,'attachments')"
+          "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-document',1,1,1,1)"
         )
       );
-
+      for (const statement of [
+        "UPDATE conversation_reply_sources SET snapshot_id=2 WHERE request_id='exact'",
+        "DELETE FROM conversation_reply_sources WHERE request_id='exact'",
+        'DELETE FROM source_extraction_revisions WHERE snapshot_id=1',
+        'DELETE FROM content_snapshots WHERE id=1',
+        'DELETE FROM content_snapshots WHERE id=2',
+        'DELETE FROM source_snapshots WHERE source_id=1 AND revision=1'
+      ])
+        assert.throws(() => db.exec(statement));
       db.exec(
-        "INSERT INTO material_history_members(version_id,operation_id) VALUES(2,'attachments')"
+        'DELETE FROM sessions WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
       );
-
-      db.exec(
-        "INSERT INTO source_history_documents(operation_id,document_id) VALUES('attachments',1)"
+      assert.equal(db.orm.get(dbSql`SELECT 1 FROM content_snapshots WHERE id=1`), undefined);
+      assert.equal(
+        db.orm.get(dbSql`SELECT document_id FROM source_processing WHERE source_id=1`)?.document_id,
+        2n
       );
-
-      assert.throws(() =>
-        db.exec(
-          "INSERT INTO source_history_documents(operation_id,document_id) VALUES('attachments',2)"
-        )
-      );
-
-      for (const requestId of ['wrong-source', 'wrong-document', 'unrelated-correlation']) {
-        assert.throws(() =>
-          db.orm.run(
-            dbSql`INSERT INTO material_history_requests(request_id,operation_id,kind) VALUES(${requestId},'attachments','context')`
-          )
-        );
-      }
-
-      db.exec(
-        "INSERT INTO material_history_requests(request_id,operation_id,kind) VALUES('exact','attachments','context')"
-      );
-
-      assert.throws(() =>
-        db.exec("UPDATE material_history_requests SET kind='publication' WHERE request_id='exact'")
-      );
-
-      assert.throws(() => db.exec('DELETE FROM source_history_documents WHERE document_id=1'));
-
-      assert.throws(() => db.exec('DELETE FROM documents WHERE id=2'));
-
-      assert.throws(() => db.exec('DELETE FROM source_snapshots WHERE source_id=1 AND revision=1'));
-
       assert.deepEqual(db.orm.all(dbSql`PRAGMA foreign_key_check`), []);
     } finally {
       db.close();

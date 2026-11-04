@@ -23,7 +23,7 @@ import { Db } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Schema } from 'effect';
 
-import { Materials } from '#server/features/materials/index';
+import { Documents } from '#server/features/documents/index';
 import { System } from '#server/features/system/index';
 import { App } from '#server/runtime/index';
 
@@ -109,8 +109,21 @@ export async function backupFixture(t?: TestContext) {
 
 export async function createDocument(app: App, text = 'Retained rich content') {
   return app.nativeRuntime.runPromise(
-    Effect.flatMap(Materials, (m) =>
-      m.createManualDocument({ title: text, document: document(text) })
+    Effect.flatMap(Documents, (m) =>
+      m
+        .create({
+          createKey: randomUUID(),
+          title: text,
+          document: document(text),
+          inputs: [],
+          citations: []
+        })
+        .pipe(
+          Effect.map((value) => {
+            if (!value.version) throw new Error('Missing created authored version');
+            return { ...value, version: value.version };
+          })
+        )
     )
   );
 }

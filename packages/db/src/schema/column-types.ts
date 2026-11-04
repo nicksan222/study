@@ -16,3 +16,16 @@ export function cleanupAttemptColumns() {
     completed_at: integer().$type<bigint>()
   };
 }
+
+/** Library metadata has one storage shape; each aggregate retains its own typed identity. */
+export function libraryContentColumns() {
+  return {
+    title: text().notNull(),
+    description: text(),
+    create_key: text(),
+    creation_intent: text(),
+    created_at: integer().$type<bigint>().notNull(),
+    updated_at: integer().$type<bigint>().notNull(),
+    archived_at: integer().$type<bigint>()
+  };
+}

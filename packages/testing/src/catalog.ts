@@ -4,6 +4,8 @@ export const regressions = {
 } as const;
 
 export const migrations = {
+  document_domains_cutover:
+    'Preserve exact authored documents, source captures and retained identities through the domain cutover',
   source_upgrade: 'Upgrade stored source snapshots while preserving retained documents',
   material_metadata_migration:
     'Migrate material metadata while preserving rows and database invariants',

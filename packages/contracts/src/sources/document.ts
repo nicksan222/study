@@ -1,9 +1,14 @@
 import { Schema } from 'effect';
 
-import type { DocumentId, MaterialVersionId } from '../ids.ts';
-import { blockIdSchema, blockContentSchema, canonicalText } from './schemas.ts';
+import {
+  blockIdSchema,
+  blockContentSchema,
+  canonicalText,
+  blockSchema,
+  documentBlockDifferenceSchema
+} from './schemas.ts';
 import type { BlockContent } from './schemas.ts';
-import type { anchorSchema, documentSchema, documentTextRangeSchema } from './schemas.ts';
+import type { anchorSchema, documentSchema } from './schemas.ts';
 
 type Mutable<T> = T extends string | number | bigint | boolean | null
   ? T
@@ -77,19 +82,41 @@ export const decodeBlockContent = Schema.decodeUnknownSync(persistedBlockContent
 
 export type BlockId = typeof blockIdSchema.Type;
 
-/**
- * Exact editor ranges use UTF-16 code units, matching JS strings and DOM selections.
- * A boundary inside a surrogate pair is invalid. Source anchors remain independent.
- */
-export type DocumentTextRange = typeof documentTextRangeSchema.Type;
+/** A plain correction retains location and identity, with explicit rich-format loss. */
+export function correctBlockText(block: Block, text: string): Block {
+  const content = block.content;
 
-export function validDocumentTextRange(
-  document: Document,
-  target: { versionId: MaterialVersionId; documentId: DocumentId },
-  range: DocumentTextRange
+  switch (content.type) {
+    case 'image':
+      return createBlock({ ...content, alt: text }, block.anchor, block.id);
+    case 'reference':
+      return createBlock(
+        { ...content, inlines: [{ type: 'text', text, marks: [] }] },
+        block.anchor,
+        block.id
+      );
+    case 'code':
+      return createBlock({ ...content, code: text }, block.anchor, block.id);
+    case 'heading':
+      return createBlock(
+        { ...content, inlines: [{ type: 'text', text, marks: [] }] },
+        block.anchor,
+        block.id
+      );
+    default:
+      return { ...plainBlock(block.kind, text, block.anchor), id: block.id };
+  }
+}
+
+/** Validate canonical block offsets independently of the owning domain's version identity. */
+export function validBlockTextRange(
+  document: Pick<typeof documentSchema.Type, 'blocks'>,
+  range: {
+    readonly blockId: typeof blockIdSchema.Type;
+    readonly start: number;
+    readonly end: number;
+  }
 ): boolean {
-  if (range.versionId !== target.versionId || range.documentId !== target.documentId) return false;
-
   const block = document.blocks.find((item) => item.id === range.blockId);
 
   if (
@@ -115,28 +142,52 @@ export function validDocumentTextRange(
   return boundary(range.start) && boundary(range.end);
 }
 
-/** A plain correction retains location and identity, with explicit rich-format loss. */
-export function correctBlockText(block: Block, text: string): Block {
-  const content = block.content;
+type PositionedBlock = { block: typeof blockSchema.Type; ordinal: number };
 
-  switch (content.type) {
-    case 'image':
-      return createBlock({ ...content, alt: text }, block.anchor, block.id);
-    case 'reference':
-      return createBlock(
-        { ...content, inlines: [{ type: 'text', text, marks: [] }] },
-        block.anchor,
-        block.id
-      );
-    case 'code':
-      return createBlock({ ...content, code: text }, block.anchor, block.id);
-    case 'heading':
-      return createBlock(
-        { ...content, inlines: [{ type: 'text', text, marks: [] }] },
-        block.anchor,
-        block.id
-      );
-    default:
-      return { ...plainBlock(block.kind, text, block.anchor), id: block.id };
-  }
+function differenceKind(a: PositionedBlock | undefined, b: PositionedBlock | undefined) {
+  if (!a) return 'inserted' as const;
+
+  if (!b) return 'removed' as const;
+
+  const equal = Schema.toEquivalence(blockSchema);
+
+  if (!equal(a.block, b.block)) return 'changed' as const;
+
+  if (a.ordinal !== b.ordinal) return 'moved' as const;
+
+  return null;
+}
+
+/** Structural comparison only: position and exact canonical rich block value, never factual support. */
+export function documentDifferences(
+  before: typeof documentSchema.Type,
+  after: typeof documentSchema.Type
+): (typeof documentBlockDifferenceSchema.Type)[] {
+  const left = new Map(before.blocks.map((block, ordinal) => [block.id, { block, ordinal }]));
+
+  const right = new Map(after.blocks.map((block, ordinal) => [block.id, { block, ordinal }]));
+
+  return [...new Set([...left.keys(), ...right.keys()])].flatMap((id) => {
+    const a = left.get(id),
+      b = right.get(id);
+
+    const kind = differenceKind(a, b);
+
+    const previous = a ?? { block: null, ordinal: null };
+
+    const next = b ?? { block: null, ordinal: null };
+
+    return kind === null
+      ? []
+      : [
+          {
+            kind,
+            blockId: id,
+            beforeOrdinal: previous.ordinal,
+            afterOrdinal: next.ordinal,
+            before: previous.block,
+            after: next.block
+          }
+        ];
+  });
 }

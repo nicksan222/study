@@ -1,0 +1,524 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Covers SQLite invariants for material versions, links, citations, and membership;  │
+ * │ RPC failure mapping; source-revision retention; and generation snapshots, idempotency,   │
+ * │ rollback, scope fencing, and retries.                                                    │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses real SQLite state to verify linked-version integrity and generation retries.      │
+ * │ - Uses database fixtures to verify service-visible invariants and failures.              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The suite uses real SQLite fixtures and service dependencies; domain state remains owned │
+ * │ by the feature implementation.                                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+
+import type { ProjectId } from '@study/contracts/ids';
+import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
+import { plainBlock } from '@study/contracts/sources/document';
+import { sql } from '@study/db';
+import { sessions, workflowEvents } from '@study/db/schema';
+import { createTestDatabase } from '@study/db/testing';
+import { testStable } from '@study/testing/node';
+import { Effect, Layer, Option, Schema } from 'effect';
+import { RpcTest } from 'effect/rpc';
+
+import { Documents } from '#server/features/documents/index';
+import { Materials } from '#server/features/materials/index';
+import { Projects } from '#server/features/projects/index';
+import { Sources } from '#server/features/sources/index';
+import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
+import { decodeEvent } from '#server/platform/workflows/events';
+import { materialRpcHandlers } from '#testing/material-rpc';
+
+const document = () => ({
+  blocks: [plainBlock('paragraph', 'Canonical material', { type: 'authored' })],
+  meta: {
+    extractor: null,
+    extractorVersion: 1,
+    provider: null,
+    durationMs: null,
+    pageCount: null,
+    refiners: [],
+    waitingFor: [],
+    corrected: false,
+    omissions: []
+  }
+});
+function createEvidence(input: { projectId: ProjectId; title: string }) {
+  return Effect.flatMap(Documents, (docs) =>
+    docs.create({
+      ...input,
+      createKey: randomUUID(),
+      document: document(),
+      inputs: [],
+      citations: []
+    })
+  ).pipe(
+    Effect.map((value) => {
+      assert.ok(value.version);
+      return { ...value, version: value.version };
+    })
+  );
+}
+testStable(
+  'generation requests persist immutable published document inputs and an outbox event',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Generation' });
+          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const request = yield* materials.requestMaterialGeneration({
+            projectId: project.id,
+            title: ' Cards ',
+            kind: 'flashcards',
+            inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+          });
+
+          assert.equal(request.title, 'Cards');
+          assert.deepEqual(request.inputs, [
+            { kind: 'document' as const, versionId: doc.version.id }
+          ]);
+          assert.equal(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .filter((event) => event.type === 'MaterialGenerationRequested').length,
+            1
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable('generation validation, rollback, RPC, and persistent snapshots', async () => {
+  const location = createTestDatabase();
+  let context = new ServerContext(location.open());
+  const makeServices = () =>
+    Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+  let requestId = '';
+  let documentId = 0n;
+  let versionId = 0n;
+  let otherRequestId = '';
+
+  try {
+    const services = makeServices();
+    const handlers = materialRpcHandlers.pipe(Layer.provide(services));
+
+    function* verifyGenerationSnapshots() {
+      const projects = yield* Projects;
+      const materials = yield* Materials;
+      const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
+      const project = yield* projects.createProject({ name: 'One' });
+      const other = yield* projects.createProject({ name: 'Two' });
+      const doc = yield* createEvidence({ projectId: project.id, title: 'Doc' });
+      const foreign = yield* createEvidence({ projectId: other.id, title: 'Foreign' });
+      const draftOwner = yield* createEvidence({ projectId: project.id, title: 'Draft' });
+      const docs = yield* Documents;
+      yield* docs.save({
+        documentId: draftOwner.id,
+        expectedVersionId: draftOwner.version.id,
+        key: randomUUID(),
+        document: document()
+      });
+      const alternative = yield* docs.save({
+        documentId: draftOwner.id,
+        expectedVersionId: draftOwner.version.id,
+        key: randomUUID(),
+        document: document()
+      });
+      const draft = yield* docs.version({ id: alternative.submittedVersionId });
+      const archived = yield* createEvidence({ projectId: project.id, title: 'Archived' });
+      yield* docs.archive({ id: archived.id, archived: true });
+      const diagram = yield* materials.create({
+        projectId: project.id,
+        title: 'Diagram',
+        content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
+      });
+      const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
+
+      for (const id of [foreign.version.id, draft.id, archived.version.id]) {
+        assert.equal(
+          (yield* Effect.flip(
+            materials.requestMaterialGeneration({
+              ...base,
+              inputs: [{ kind: 'document' as const, versionId: id }]
+            })
+          )).kind,
+          'invalid_input'
+        );
+      }
+
+      const parse = Schema.decodeUnknownSync(requestMaterialGenerationInputSchema);
+      assert.throws(() =>
+        parse({ ...base, inputs: [{ kind: 'material', versionId: diagram.version.id }] })
+      );
+
+      assert.throws(() =>
+        parse({
+          ...base,
+          inputs: [
+            { kind: 'document' as const, versionId: doc.version.id },
+            { kind: 'document' as const, versionId: doc.version.id }
+          ]
+        })
+      );
+      assert.throws(() => parse({ ...base, inputs: [] }));
+      assert.throws(() =>
+        parse({
+          ...base,
+          inputs: Array.from({ length: 21 }, (_, i) => ({
+            kind: 'document',
+            versionId: BigInt(i + 1)
+          }))
+        })
+      );
+      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
+      context.db.exec(
+        "CREATE TRIGGER reject_generation_event BEFORE INSERT ON workflow_events WHEN new.type='MaterialGenerationRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
+      );
+      yield* Effect.flip(
+        materials.requestMaterialGeneration({
+          ...base,
+          inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+        })
+      );
+      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
+      assert.equal(context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length, 0);
+      context.db.exec('DROP TRIGGER reject_generation_event');
+      const request = yield* client('materials.requestMaterialGeneration', {
+        ...base,
+        inputs: [{ kind: 'document' as const, versionId: doc.version.id }],
+        instruction: 'Focus'
+      });
+      const snapshot = yield* materials.materialGeneration({ requestId: request.id });
+
+      requestId = request.id;
+      versionId = doc.version.id;
+      documentId = doc.version.snapshotId;
+      assert.equal(snapshot.instruction, 'Focus');
+      const event = context.db.orm
+        .select()
+        .from(workflowEvents)
+        .all()
+        .find((row) => row.eventId === request.id)!;
+
+      assert.deepEqual(decodeEvent(event.payload), {
+        type: 'MaterialGenerationRequested',
+        eventId: request.id,
+        causationId: null,
+        correlationId: request.id,
+        inputVersion: 1,
+        depth: 0,
+        requestId: request.id,
+        projectId: project.id,
+        kind: 'quiz'
+      });
+      yield* docs.save({
+        documentId: doc.id,
+        expectedVersionId: doc.version.id,
+        key: randomUUID(),
+        document: document()
+      });
+      const otherRequest = yield* materials.requestMaterialGeneration({
+        projectId: other.id,
+        title: 'Other',
+        kind: 'diagram',
+        inputs: [{ kind: 'document' as const, versionId: foreign.version.id }]
+      });
+
+      otherRequestId = otherRequest.id;
+      assert.throws(() =>
+        context.db.orm.run(sql`DELETE FROM study_document_versions WHERE id=${doc.version.id}`)
+      );
+    }
+
+    await Effect.runPromise(
+      Effect.gen(verifyGenerationSnapshots).pipe(
+        Effect.provide(services),
+        Effect.provide(handlers),
+        Effect.scoped
+      )
+    );
+    context.close();
+    context = new ServerContext(location.open());
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const materials = yield* Materials;
+        const snapshot = yield* materials.materialGeneration({ requestId });
+
+        assert.deepEqual(snapshot.inputs, [{ kind: 'document', versionId }]);
+        const docs = yield* Documents;
+        const exact = snapshot.inputs[0];
+        assert.ok(exact?.kind === 'document');
+        assert.equal((yield* docs.version({ id: exact.versionId })).snapshotId, documentId);
+        context.db.orm.run(sql`DELETE FROM projects WHERE id=${snapshot.projectId}`);
+        assert.equal(
+          (yield* materials.materialGeneration({ requestId: otherRequestId })).id,
+          otherRequestId
+        );
+        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 2);
+        assert.equal(context.db.orm.all(sql`SELECT * FROM material_evidence_inputs`).length, 2);
+      }).pipe(Effect.provide(makeServices()))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+testStable(
+  'caller-owned generation keys replay the same request and reject changed intent',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Replay' });
+          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const request = {
+            projectId: project.id,
+            title: 'Question',
+            kind: 'quiz' as const,
+            inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+          };
+          const first = yield* materials.requestMaterialGenerationOnce({
+            requestId: 'slot-1',
+            request
+          });
+          const replay = yield* materials.requestMaterialGenerationOnce({
+            requestId: 'slot-1',
+            request
+          });
+
+          assert.deepEqual(replay, first);
+          assert.equal(
+            context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
+            1
+          );
+          assert.equal(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .filter((event) => event.type === 'MaterialGenerationRequested').length,
+            1
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              materials.requestMaterialGenerationOnce({
+                requestId: 'slot-1',
+                request: { ...request, title: 'Changed' }
+              })
+            )).kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'generation scopes retain tombstones and fence requests by project and intent',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Scope' });
+          const other = yield* projects.createProject({ name: 'Other' });
+          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+          const scope = { scopeId: 'epoch', projectId: project.id };
+          const request = {
+            projectId: project.id,
+            title: 'Question',
+            kind: 'quiz' as const,
+            inputs: [{ kind: 'document' as const, versionId: doc.version.id }],
+            scopeId: scope.scopeId,
+            questionSpec: { count: 1 as const, kind: 'open' as const }
+          };
+
+          yield* materials.openGenerationScope(scope);
+          yield* materials.openGenerationScope(scope);
+          yield* materials.requestMaterialGenerationOnce({ requestId: 'slot', request });
+          assert.equal(
+            (yield* materials.materialGeneration({ requestId: 'slot' })).questionSpec?.kind,
+            'open'
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              materials.requestMaterialGenerationOnce({
+                requestId: 'slot',
+                request: { ...request, questionSpec: { count: 1, kind: 'choice' } }
+              })
+            )).kind,
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* Effect.flip(materials.openGenerationScope({ ...scope, projectId: other.id })))
+              .kind,
+            'invalid_input'
+          );
+          yield* materials.closeGenerationScope(scope);
+          yield* materials.openGenerationScope(scope);
+          assert.equal(
+            (yield* Effect.flip(materials.materialGeneration({ requestId: 'slot' }))).kind,
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              materials.requestMaterialGenerationOnce({ requestId: 'new', request })
+            )).kind,
+            'invalid_input'
+          );
+          yield* materials.closeGenerationScope({ ...scope, scopeId: 'early' });
+          yield* materials.openGenerationScope({ ...scope, scopeId: 'early' });
+          assert.equal(
+            (yield* Effect.flip(
+              materials.requestMaterialGenerationOnce({
+                requestId: 'early-slot',
+                request: { ...request, scopeId: 'early' }
+              })
+            )).kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'explicit generation retries are idempotent and require active captured intent',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Retry' });
+          const doc = yield* createEvidence({ projectId: project.id, title: 'Document' });
+
+          yield* materials.openGenerationScope({ scopeId: 'scope', projectId: project.id });
+          yield* materials.requestMaterialGenerationOnce({
+            requestId: 'request',
+            request: {
+              projectId: project.id,
+              title: 'Question',
+              kind: 'quiz',
+              inputs: [{ kind: 'document' as const, versionId: doc.version.id }],
+              scopeId: 'scope'
+            }
+          });
+          yield* materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry' });
+          yield* materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry' });
+          const events = context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .map((row) => decodeEvent(row.payload));
+
+          assert.equal(
+            events.filter((event) => event.type === 'MaterialGenerationRequested').length,
+            2
+          );
+          assert.equal(
+            (yield* materials.materialGeneration({ requestId: 'request', eventId: 'retry' })).id,
+            'request'
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              materials.materialGeneration({ requestId: 'request', eventId: 'forged' })
+            )).kind,
+            'invalid_input'
+          );
+          yield* materials.requestMaterialGenerationOnce({
+            requestId: 'other-request',
+            request: {
+              projectId: project.id,
+              title: 'Other',
+              kind: 'quiz',
+              inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+            }
+          });
+          assert.equal(
+            (yield* Effect.flip(
+              materials.retryMaterialGenerationOnce({
+                requestId: 'other-request',
+                retryId: 'retry'
+              })
+            )).kind,
+            'invalid_input'
+          );
+          assert.equal(
+            (yield* Effect.flip(
+              materials.retryMaterialGenerationOnce({
+                requestId: 'request',
+                retryId: 'other-request'
+              })
+            )).kind,
+            'invalid_input'
+          );
+          yield* materials.closeGenerationScope({ scopeId: 'scope', projectId: project.id });
+          assert.equal(
+            (yield* Effect.flip(
+              materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry-2' })
+            )).kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

@@ -12,13 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  sessionSelectionTargetSchema,
-  resolvedSelectionSchema
-} from '@study/contracts/conversations/context';
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import { sourceIndexedSchema, materialGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema, projectIdSchema, sessionIdSchema } from '@study/contracts/ids';
+import { resolvedContentInputSchema } from '@study/contracts/inputs';
 import * as input from '@study/contracts/materials/rpc';
 import {
   materialGenerationSchema,
@@ -29,7 +26,6 @@ import {
   materialVersionDetailSchema,
   materialCitationSchema
 } from '@study/contracts/materials/schemas';
-import { validDocumentTextRange } from '@study/contracts/sources/document';
 import { sourceExportSchema } from '@study/contracts/sources/rpc';
 import { and, asc, eq, gt } from '@study/db';
 import * as tables from '@study/db/schema';
@@ -46,19 +42,15 @@ import { makeDeleteDraftAction } from './delete-draft-action.ts';
 import { makeDetachAction } from './detach-action.ts';
 import { makeGeneration } from './generation.ts';
 import { makeGetAction } from './get-action.ts';
-import { makeGetDependentsAction } from './get-dependents-action.ts';
-import { makeGetInputsAction } from './get-inputs-action.ts';
 import { makeGetVersionAction } from './get-version-action.ts';
 import { makeListAction } from './list-action.ts';
 import { makeListVersionsAction } from './list-versions-action.ts';
-import { makeProjectSource } from './project-source.ts';
 import { makePublishVersionAction } from './publish-version-action.ts';
 import { makeReads } from './reads.ts';
 import { makeRenameAction } from './rename-action.ts';
 import { makeReorderAction } from './reorder-action.ts';
 import { makeReplaceDraftAction } from './replace-draft-action.ts';
 import { makeSetCitationsAction } from './set-citations-action.ts';
-import { decodeSourceSnapshot } from './source-snapshot.ts';
 import { makeUnarchiveAction } from './unarchive-action.ts';
 
 export const MaterialsStore = defineStore({
@@ -93,8 +85,6 @@ export const MaterialsStore = defineStore({
 
     const { unarchive } = makeUnarchiveAction(resources);
 
-    const { projectSource, registerSource, assignSourceProject } = makeProjectSource(resources);
-
     return {
       queries: {
         material: storeQuery({
@@ -117,29 +107,6 @@ export const MaterialsStore = defineStore({
         })
       },
       mutations: {
-        assignSourceProject: storeMutation({
-          input: sourceIdSchema,
-          output: Schema.Void,
-          run: assignSourceProject
-        }),
-        registerSource: storeMutation({
-          input: sourceIdSchema,
-          output: Schema.Struct({
-            original: materialDetailSchema,
-            originalCreated: Schema.Boolean
-          }),
-          run: registerSource
-        }),
-        projectSource: storeMutation({
-          input: sourceIndexedSchema,
-          output: Schema.Struct({
-            original: materialDetailSchema,
-            extracted: materialDetailSchema,
-            originalCreated: Schema.Boolean,
-            extractedCreated: Schema.Boolean
-          }),
-          run: projectSource
-        }),
         create: storeMutation({
           input: input.createInputSchema,
           output: materialDetailSchema,
@@ -210,117 +177,6 @@ export const MaterialsStore = defineStore({
   }
 });
 
-function selectionSpans(
-  document: ReturnType<ReturnType<typeof makeReads>['readCanonicalDocument']>,
-  target: typeof sessionSelectionTargetSchema.Type,
-  versionId: typeof target.versionId,
-  documentId: NonNullable<typeof target.documentId>
-) {
-  const scope = target.scope;
-
-  const spans =
-    scope.kind === 'ranges'
-      ? scope.ranges
-      : document.blocks.flatMap((block) =>
-          (scope.kind === 'document' && block.text.length > 0) ||
-          (scope.kind === 'blocks' && scope.blockIds.includes(block.id))
-            ? [{ versionId, documentId, blockId: block.id, start: 0, end: block.text.length }]
-            : []
-        );
-
-  if (
-    scope.kind === 'blocks' &&
-    (new Set(scope.blockIds).size !== scope.blockIds.length ||
-      spans.length !== scope.blockIds.length)
-  )
-    throw new StudyError('invalid_input', 'Invalid selected blocks');
-
-  return spans;
-}
-
-export const MaterialSelectionStore = defineStore({
-  name: 'study/MaterialSelectionStore',
-  entity: { singular: 'materialSelection', plural: 'materialSelections' },
-  make: (resources) => {
-    const reads = makeReads(resources);
-
-    return {
-      queries: {
-        materialSelection: storeQuery({
-          role: 'required',
-          input: sessionSelectionTargetSchema,
-          output: resolvedSelectionSchema,
-          run: (target) => {
-            const version = reads.versionRow(target.versionId);
-
-            const documentId = reads.versionDocumentId(version.id);
-
-            if (version.status !== 'published' || documentId === null)
-              throw new StudyError('not_found', 'Selected material document is unavailable');
-
-            if (target.documentId !== undefined && documentId !== target.documentId)
-              throw new StudyError('invalid_input', 'Selected document does not match version');
-
-            const document = reads.readCanonicalDocument(documentId);
-
-            const material = reads.materialRow(version.material_id);
-
-            const scope = target.scope;
-
-            const spans = selectionSpans(document, target, version.id, documentId);
-
-            const seen = new Set<string>();
-
-            const excerpts = spans.map((range) => {
-              const key = `${range.blockId}:${range.start}:${range.end}`;
-
-              if (
-                !validDocumentTextRange(
-                  document,
-                  { versionId: target.versionId, documentId },
-                  range
-                ) ||
-                range.start === range.end ||
-                seen.has(key)
-              )
-                throw new StudyError('invalid_input', 'Invalid selected range');
-
-              seen.add(key);
-
-              const blockOrdinal = document.blocks.findIndex((block) => block.id === range.blockId);
-
-              const block = document.blocks[blockOrdinal]!;
-
-              return {
-                blockId: block.id,
-                blockOrdinal,
-                start: range.start,
-                end: range.end,
-                text: block.text.slice(range.start, range.end),
-                anchor: block.anchor,
-                content: scope.kind === 'ranges' ? undefined : block.content
-              };
-            });
-
-            if (!excerpts.length || !excerpts.some((item) => item.text.trim()))
-              throw new StudyError('invalid_input', 'Selected document has no text');
-
-            return {
-              ...target,
-              documentId,
-              materialId: material.id,
-              name: material.title,
-              document: scope.kind === 'document' ? document : undefined,
-              excerpts
-            };
-          }
-        })
-      },
-      mutations: {}
-    };
-  }
-});
-
 export const MaterialVersionsStore = defineStore({
   name: 'study/MaterialVersionsStore',
   entity: { singular: 'materialVersion', plural: 'materialVersions' },
@@ -355,89 +211,6 @@ export const MaterialVersionsStore = defineStore({
   }
 });
 
-export const MaterialVersionExportStore = defineStore({
-  name: 'study/MaterialVersionExportStore',
-  entity: { singular: 'materialVersionExport', plural: 'materialVersionExports' },
-  make: (resources) => {
-    const { db } = resources;
-    const { versionRow } = makeReads(resources);
-
-    return {
-      queries: {
-        materialVersionExport: storeQuery({
-          role: 'required',
-          input: input.materialVersionInputSchema,
-          output: sourceExportSchema,
-          run: (value) => {
-            versionRow(value.id);
-
-            const row = db.orm
-              .select({
-                metadata: tables.material_source_snapshots.metadata,
-                bytes: tables.source_snapshots.bytes
-              })
-              .from(tables.material_source_snapshots)
-              .innerJoin(
-                tables.source_snapshots,
-                and(
-                  eq(tables.material_source_snapshots.source_id, tables.source_snapshots.source_id),
-                  eq(tables.material_source_snapshots.revision, tables.source_snapshots.revision)
-                )
-              )
-              .where(eq(tables.material_source_snapshots.version_id, value.id))
-              .get();
-
-            return row
-              ? { source: decodeSourceSnapshot(row.metadata), bytes: new Uint8Array(row.bytes) }
-              : null;
-          }
-        })
-      },
-      mutations: {}
-    };
-  }
-});
-
-export const MaterialInputsStore = defineStore({
-  name: 'study/MaterialInputsStore',
-  entity: { singular: 'inputVersion', plural: 'inputVersions' },
-  make: (resources) => {
-    const { getInputs } = makeGetInputsAction(resources);
-
-    return {
-      queries: {
-        inputVersions: storeQuery({
-          role: 'collection',
-          input: input.inputsInputSchema,
-          output: input.versionPageSchema,
-          run: getInputs
-        })
-      },
-      mutations: {}
-    };
-  }
-});
-
-export const MaterialDependentsStore = defineStore({
-  name: 'study/MaterialDependentsStore',
-  entity: { singular: 'dependentVersion', plural: 'dependentVersions' },
-  make: (resources) => {
-    const { getDependents } = makeGetDependentsAction(resources);
-
-    return {
-      queries: {
-        dependentVersions: storeQuery({
-          role: 'collection',
-          input: input.dependentsInputSchema,
-          output: input.versionPageSchema,
-          run: getDependents
-        })
-      },
-      mutations: {}
-    };
-  }
-});
-
 export const MaterialCitationsStore = defineStore({
   name: 'study/MaterialCitationsStore',
   entity: { singular: 'citation', plural: 'citations' },
@@ -458,16 +231,16 @@ export const MaterialCitationsStore = defineStore({
 
             const rows = db.orm
               .select()
-              .from(tables.material_version_citations)
+              .from(tables.material_evidence_citations)
               .where(
                 and(
-                  eq(tables.material_version_citations.version_id, value.id),
+                  eq(tables.material_evidence_citations.version_id, value.id),
                   value.cursor === undefined
                     ? undefined
-                    : gt(tables.material_version_citations.marker, value.cursor)
+                    : gt(tables.material_evidence_citations.marker, value.cursor)
                 )
               )
-              .orderBy(asc(tables.material_version_citations.marker))
+              .orderBy(asc(tables.material_evidence_citations.marker))
               .limit(value.limit + 1)
               .all();
 
@@ -568,7 +341,7 @@ export const MaterialGenerationStore = defineStore({
         publishGeneration: storeMutation({
           input: Schema.Struct({
             ...materialGenerationPublicationSchema.fields,
-            proposalSessionId: Schema.optional(sessionIdSchema)
+            inputSnapshots: Schema.Array(resolvedContentInputSchema)
           }),
           output: Schema.Struct({
             versionId: input.materialVersionInputSchema.fields.id,

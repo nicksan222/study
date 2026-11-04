@@ -18,7 +18,7 @@ import {
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
-import { documentIdSchema } from '@study/contracts/ids';
+import { contentSnapshotIdSchema } from '@study/contracts/ids';
 import { correctBlockText } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { detectedMime, sniff } from '@study/contracts/sources/sniff';
@@ -46,7 +46,7 @@ export const sourceIngestionWorkflow = defineWorkflow({
   name: 'source-ingestion',
   version: 1,
   payload: Schema.Struct({ event: sourceProcessingRequestedSchema }),
-  success: documentIdSchema,
+  success: contentSnapshotIdSchema,
   error: failureSchema,
   idempotencyKey: ({ event }) => event.eventId
 });
@@ -267,7 +267,7 @@ function publishSource(
 
     return yield* Activity.make({
       name: 'publish-source',
-      success: documentIdSchema,
+      success: contentSnapshotIdSchema,
       error: failureSchema,
       execute: withPublicationGuard(store, sources.publishSourceDocument({ event, document }))
     });
@@ -278,7 +278,7 @@ export const sourceCorrectionWorkflow = defineWorkflow({
   name: 'source-correction',
   version: 1,
   payload: Schema.Struct({ event: sourceCorrectionRequestedSchema }),
-  success: documentIdSchema,
+  success: contentSnapshotIdSchema,
   error: failureSchema,
   idempotencyKey: ({ event }) => event.eventId
 });

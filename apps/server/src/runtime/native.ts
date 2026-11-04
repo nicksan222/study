@@ -23,6 +23,8 @@ import { AuthRpcLive } from '#server/features/auth/rpc/index';
 import { Auth } from '#server/features/auth/service/index';
 import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
+import { Documents } from '#server/features/documents/index';
+import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
 import { Learning } from '#server/features/learning/index';
 import { LearningRpcLive } from '#server/features/learning/rpc/index';
 import { Materials } from '#server/features/materials/index';
@@ -86,7 +88,8 @@ export function nativeLayers(
     Workflows.layer,
     Recordings.layer,
     Materials.layer,
-    Materials.deletionParticipantsLayer({ Conversations, Learning, Sources, Recordings }),
+    Documents.layer,
+    Materials.deletionParticipantsLayer({ Learning }),
     Conversations.layer,
     Learning.layer.pipe(Layer.provide(Layer.mergeAll(Settings.layer, Materials.layer))),
     Projects.layer,
@@ -161,6 +164,7 @@ export function nativeLayers(
     WorkflowsRpcLive,
     RecordingsRpcLive,
     MaterialsRpcLive,
+    DocumentsRpcLive,
     ConversationsRpcLive,
     LearningRpcLive,
     ProjectsRpcLive,

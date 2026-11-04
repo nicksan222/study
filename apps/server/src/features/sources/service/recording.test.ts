@@ -149,16 +149,12 @@ testStable(
                 assert.equal(context.db.orm.all(sql`SELECT * FROM sources`).length, 1);
                 assert.equal(context.db.orm.all(sql`SELECT * FROM source_snapshots`).length, 1);
                 assert.equal(context.db.orm.all(sql`SELECT * FROM source_processing`).length, 1);
-                assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 2);
+                assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, 1);
                 assert.equal(
                   context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length,
                   1
                 );
                 context.db.orm.run(sql`DROP TRIGGER reject_recording_event`);
-                assert.equal(
-                  (yield* Effect.flip(sources.deleteSource({ id: first.id }))).kind,
-                  'invalid_input'
-                );
                 assert.equal((yield* sources.importRecording(input)).id, first.id);
                 workflowStore(context).interrupt('recording-import-test', 'safe');
                 assert.equal(

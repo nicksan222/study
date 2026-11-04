@@ -66,7 +66,7 @@ function makeDeletion({ db, clock }: StoreResources) {
 
   function replayScope(input: typeof requestMaterialDeletionSchema.Type) {
     const previous = status(input.materialId);
-    const requested = [input.materialId, ...input.descendantIds];
+    const requested = [input.materialId];
 
     if (
       previous.materialId !== input.materialId ||
@@ -91,97 +91,32 @@ function makeDeletion({ db, clock }: StoreResources) {
     )
       throw new StudyError('invalid_input', 'Material deletion already accepted');
 
-    const versions = db.orm.select().from(s.material_versions).all();
-
-    const edges = db.orm.select().from(s.material_version_inputs).all();
-
-    const byId = new Map(versions.map((v) => [v.id, v.material_id]));
-
-    const found = new Set<MaterialId>([id]);
-
-    for (;;) {
-      const size = found.size;
-
-      for (const e of edges)
-        if (found.has(byId.get(e.input_version_id)!)) found.add(byId.get(e.version_id)!);
-
-      if (size === found.size) break;
-    }
-
-    const descendants = [...found].filter((x) => x !== id).sort((a, b) => (a < b ? -1 : 1));
-
-    const selectedVersions = versions.filter((v) => found.has(v.material_id));
-
-    const versionIds = selectedVersions.map((v) => v.id);
-
-    const references = edges
-      .filter((e) => found.has(byId.get(e.input_version_id)!))
-      .map((e) => ({
-        dependentMaterialId: byId.get(e.version_id)!,
-        inputVersionId: e.input_version_id
-      }));
-
-    const imports = db.orm
+    const versions = db.orm
       .select()
-      .from(s.material_imports)
-      .where(inArray(s.material_imports.material_id, [...found]))
+      .from(s.material_versions)
+      .where(eq(s.material_versions.material_id, id))
       .all();
-
-    const assets = db.orm.select().from(s.document_assets).all();
-
-    const generation = db.orm
-      .select()
-      .from(s.material_generation_inputs)
-      .where(inArray(s.material_generation_inputs.version_id, versionIds))
-      .all();
-
     const memberships = db.orm
       .select()
       .from(s.session_materials)
-      .where(inArray(s.session_materials.material_id, [...found]))
+      .where(eq(s.session_materials.material_id, id))
       .all();
-
     const value = {
       materialId: id,
-      descendants,
-      materials: [...found].map((materialId) => ({
-        materialId,
-        versionIds: versions.filter((v) => v.material_id === materialId).map((v) => v.id),
-        unavailable:
-          db.orm
-            .select()
-            .from(s.material_deletion_members)
-            .where(eq(s.material_deletion_members.material_id, materialId))
-            .get() !== undefined
-      })),
-      missingEvidence: 'exact_deleted_input_versions' as const,
-      versionIds,
-      references,
-      sourceIds: imports.map((x) => x.source_id),
-      sharedImageSourceIds: [
-        ...new Set(
-          assets
-            .filter((x) => imports.some((i) => i.source_id === x.source_id))
-            .map((x) => x.source_id)
-        )
-      ],
-      sessionIds: [...new Set(memberships.map((x) => x.session_id))],
-      retainedMessageCitationCount: 0,
+      versionIds: versions.map((version) => version.id),
+      sessionIds: memberships.map((link) => link.session_id),
       privateRequestIds: [
-        ...new Set([
-          ...generation.map((x) => x.request_id),
-          ...selectedVersions.flatMap((v) =>
-            v.generation_request_id === null ? [] : [v.generation_request_id]
+        ...new Set(
+          versions.flatMap((version) =>
+            version.generation_request_id === null ? [] : [version.generation_request_id]
           )
-        ])
-      ],
-      retainedCopies: 'unselected_materials_and_published_messages_including_recordings' as const
+        )
+      ]
     };
-
     const token = createHash('sha256')
       .update(
-        JSON.stringify({ value, selectedVersions, edges, assets }, (_, v) =>
-          typeof v === 'bigint' ? String(v) : v
+        JSON.stringify({ value, versions }, (_, item) =>
+          typeof item === 'bigint' ? String(item) : item
         )
       )
       .digest('hex');
@@ -231,12 +166,6 @@ export const MaterialDeletionStore = defineStore({
           }),
           output: materialDeletionSchema,
           run: (input) => {
-            if (
-              new Set([input.materialId, ...input.descendantIds]).size !==
-              input.descendantIds.length + 1
-            )
-              throw new StudyError('invalid_input', 'Deletion scope contains duplicates');
-
             const existing = db.orm
               .select()
               .from(s.material_deletion_members)
@@ -251,7 +180,7 @@ export const MaterialDeletionStore = defineStore({
                 .from(s.material_history_prunes)
                 .where(
                   sql`${s.material_history_prunes.material_id} IN (${sql.join(
-                    [input.materialId, ...input.descendantIds].map((id) => sql`${id}`),
+                    [input.materialId].map((id) => sql`${id}`),
                     sql`,`
                   )}) AND ${s.material_history_prunes.status} != 'completed'`
                 )
@@ -264,13 +193,7 @@ export const MaterialDeletionStore = defineStore({
             if (current.token !== input.token)
               throw new StudyError('invalid_input', 'Deletion preview changed');
 
-            const ids = [input.materialId, ...input.descendantIds];
-
-            if (
-              new Set(ids).size !== ids.length ||
-              input.descendantIds.some((id) => !current.descendants.includes(id))
-            )
-              throw new StudyError('invalid_input', 'Deletion requires distinct known descendants');
+            const ids = [input.materialId];
 
             if (
               db.orm
@@ -361,48 +284,7 @@ export const MaterialDeletionStore = defineStore({
 
             const versionIds = versions.map((v) => v.id);
 
-            db.orm
-              .delete(s.material_citation_assessments)
-              .where(
-                sql`${s.material_citation_assessments.claim_version_id} IN (${sql.join(
-                  versionIds.map((v) => sql`${v}`),
-                  sql`,`
-                )}) OR ${s.material_citation_assessments.evidence_version_id} IN (${sql.join(
-                  versionIds.map((v) => sql`${v}`),
-                  sql`,`
-                )})`
-              )
-              .run();
-
-            const annotations = db.orm
-              .select()
-              .from(s.material_annotations)
-              .where(inArray(s.material_annotations.material_id, [...deletion.materialIds]))
-              .all();
-
-            for (const a of annotations)
-              db.orm
-                .delete(s.material_annotation_revisions)
-                .where(eq(s.material_annotation_revisions.annotation_id, a.id))
-                .run();
-
-            db.orm
-              .delete(s.material_annotations)
-              .where(inArray(s.material_annotations.material_id, [...deletion.materialIds]))
-              .run();
-
-            db.orm
-              .delete(s.document_edit_receipts)
-              .where(inArray(s.document_edit_receipts.material_id, [...deletion.materialIds]))
-              .run();
-
             for (const v of versions) {
-              // Incoming edges/citations belong to retained copies and preserve the exact missing identity.
-
-              db.orm
-                .delete(s.material_version_citations)
-                .where(eq(s.material_version_citations.version_id, v.id))
-                .run();
               removeContent(v.id);
 
               db.orm

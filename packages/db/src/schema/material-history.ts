@@ -1,9 +1,8 @@
-import type { MaterialId, MaterialVersionId, SessionId } from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, check, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, check } from 'drizzle-orm/sqlite-core';
 
 import { cleanupAttemptColumns } from './column-types.ts';
-import { material_deletion_requests } from './material-deletions.ts';
 import { materials, material_versions } from './material-versions.ts';
 
 /** Durable explicit intent; stores identities and policy only, never a payload audit copy. */
@@ -53,27 +52,5 @@ export const material_history_requests = sqliteTable('material_history_requests'
   operation_id: text()
     .notNull()
     .references(() => material_history_prunes.operation_id),
-  kind: text({ enum: ['generation', 'context', 'learning', 'publication', 'source'] }).notNull()
+  kind: text({ enum: ['generation', 'learning', 'publication'] }).notNull()
 });
-
-/** Consumed intent identity outlives history or whole-Material cleanup without private payload. */
-export const conversation_history_intents = sqliteTable(
-  'conversation_history_intents',
-  {
-    session_id: integer().$type<SessionId>().notNull(),
-    intent_key: text().notNull(),
-    request_id: text()
-      .unique()
-      .references(() => material_history_requests.request_id),
-    deletion_request_id: text()
-      .unique()
-      .references(() => material_deletion_requests.request_id)
-  },
-  (t) => [
-    primaryKey({ columns: [t.session_id, t.intent_key] }),
-    check(
-      'conversation_intent_retirement_owner',
-      sql`(${t.request_id} IS NOT NULL) != (${t.deletion_request_id} IS NOT NULL)`
-    )
-  ]
-);

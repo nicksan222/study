@@ -67,13 +67,18 @@ export function emitEvent(context: ServerContext, event: WorkflowEvent, createdA
 }
 
 /** Preserve event identity and dispatch receipts while clearing exactly fenced event payloads. */
-export function scrubRetiredEvents(db: Db, ids: readonly string[]) {
+export function scrubRetiredEvents(
+  db: Db,
+  ids: readonly string[],
+  types?: readonly WorkflowEvent['type'][]
+) {
   db.orm
     .update(workflowEvents)
     .set({ payload: '{}' })
     .where(
       and(
         inArray(workflowEvents.correlationId, [...ids]),
+        types === undefined ? undefined : inArray(workflowEvents.type, [...types]),
         sql`EXISTS (SELECT 1 FROM ${workflow_retired_correlations} r WHERE r.correlation_id = ${workflowEvents.correlationId} AND r.event_type = ${workflowEvents.type})`
       )
     )

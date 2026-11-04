@@ -1,3 +1,4 @@
+import { selectionReferenceKey } from '@study/contracts/conversations/context';
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Persists reply-generation state and its resulting assistant message.               │
@@ -11,7 +12,6 @@
  * │ composes these private operations.                                                       │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import {
   anchorSchema,
@@ -35,17 +35,16 @@ import {
   blocks,
   citations,
   conversation_reply_requests,
-  documents,
+  content_snapshots,
   message_parts,
   message_versions,
   messages,
   sessions,
   source_processing,
+  source_extraction_revisions,
   sources,
   workflowEvents,
   session_run_contexts,
-  material_history_requests,
-  material_deletion_requests,
   workflow_retired_correlations,
   workflowReceipts
 } from '@study/db/schema';
@@ -60,8 +59,45 @@ import { makeAssertContextAvailable } from './context-availability.ts';
 import { makeHistory } from './history.ts';
 import { makeDiscardPending } from './pending.ts';
 import { makePersistence } from './persistence.ts';
+import { makeReplySourceInputs } from './reply-source-inputs.ts';
 import { makeThread } from './thread.ts';
 
+type ReplyCitation = (typeof publishReplyInputSchema.Type.citations)[number];
+type SelectedInput = (typeof runSelectionContextSchema.Type.inputs)[number];
+function citationExcerpt(selected: SelectedInput, citation: ReplyCitation) {
+  const range = citation.selectedRange;
+  if (!range) return undefined;
+  return selected.excerpts.find(
+    (item) =>
+      item.blockOrdinal === citation.blockOrdinal &&
+      item.blockId === range.blockId &&
+      item.start === range.start &&
+      item.end === range.end &&
+      item.text.includes(citation.quote)
+  );
+}
+function selectedCitationIdentity(input: SelectedInput['input']) {
+  return input.kind === 'source'
+    ? { source_id: input.sourceId, authored_version_id: null, source_revision: input.revision }
+    : { source_id: null, authored_version_id: input.versionId, source_revision: null };
+}
+const receiptCitationFields = [
+  'marker',
+  'source_id',
+  'source_name',
+  'authored_version_id',
+  'source_revision',
+  'document_id',
+  'block_id',
+  'range_start',
+  'range_end',
+  'anchor',
+  'quote'
+] as const;
+type ReceiptCitation = Pick<typeof citations.$inferSelect, (typeof receiptCitationFields)[number]>;
+function sameReceiptCitation(actual: ReceiptCitation, expected: ReceiptCitation) {
+  return receiptCitationFields.every((key) => actual[key] === expected[key]);
+}
 const codec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
 
 const persistedCodec = Schema.fromJsonString(
@@ -87,6 +123,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
   const { assertThreadRoot } = makeThread({ db, clock });
 
+  const sourceInputs = makeReplySourceInputs({ db, clock });
   function snapshot(
     input: typeof requestInput.Type,
     target?: {
@@ -208,7 +245,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
       const document = attachmentDocument(processing, source.id);
 
-      if (!document || processing?.published_request_id !== processing?.request_id) {
+      if (!processing || !document || processing.published_request_id !== processing.request_id) {
         if (!processing)
           throw new StudyError('invalid_input', 'attachment processing is unavailable');
 
@@ -230,7 +267,8 @@ function makeHelpers({ db, clock }: StoreResources) {
           partId: part.id,
           sourceId: source.id,
           sourceName: part.source_name,
-          documentId: document.id,
+          snapshotId: document.id,
+          revision: processing.revision,
           projectId: source.project_id
         }
       ];
@@ -338,6 +376,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       })
       .run();
 
+    sourceInputs.retain(result);
     db.orm.update(sessions).set({ updated_at: now }).where(eq(sessions.id, session.id)).run();
 
     return result;
@@ -371,16 +410,35 @@ function makeHelpers({ db, clock }: StoreResources) {
     sourceId: typeof sources.$inferSelect.id
   ) {
     if (processing?.document_id == null) return undefined;
+    if (
+      !db.orm
+        .select()
+        .from(source_extraction_revisions)
+        .where(
+          and(
+            eq(source_extraction_revisions.source_id, sourceId),
+            eq(source_extraction_revisions.revision, processing.revision),
+            eq(source_extraction_revisions.snapshot_id, processing.document_id)
+          )
+        )
+        .get()
+    )
+      return undefined;
 
     return db.orm
       .select()
-      .from(documents)
-      .where(and(eq(documents.id, processing.document_id), eq(documents.source_id, sourceId)))
+      .from(content_snapshots)
+      .where(
+        and(
+          eq(content_snapshots.id, processing.document_id),
+          eq(content_snapshots.source_id, sourceId)
+        )
+      )
       .get();
   }
 
   function replyContext(requestId: string, actionable = true) {
-    assertContextAvailable(requestId, 'Reply context is unavailable', actionable);
+    assertContextAvailable(requestId, actionable);
 
     const row = db.orm
       .select()
@@ -416,6 +474,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     )
       throw new StudyError('invalid_input', 'reply request is stale');
 
+    sourceInputs.assert(result);
     assertSnapshotAttachments(result);
 
     return result;
@@ -426,8 +485,13 @@ function makeHelpers({ db, clock }: StoreResources) {
       for (const part of item.attachments) {
         const document = db.orm
           .select()
-          .from(documents)
-          .where(and(eq(documents.id, part.documentId), eq(documents.source_id, part.sourceId)))
+          .from(content_snapshots)
+          .where(
+            and(
+              eq(content_snapshots.id, part.snapshotId),
+              eq(content_snapshots.source_id, part.sourceId)
+            )
+          )
           .get();
 
         const source = attachmentSource(part, immutable);
@@ -612,24 +676,13 @@ export const ReplyVersionStore = defineStore({
 
       if (retired) return { state: 'retired' as const, requestId };
 
-      const scrubbed =
-        db.orm
-          .select()
-          .from(material_history_requests)
-          .where(eq(material_history_requests.request_id, requestId))
-          .get() ||
-        db.orm
-          .select()
-          .from(material_deletion_requests)
-          .where(eq(material_deletion_requests.request_id, requestId))
-          .get();
       const context = db.orm
         .select()
         .from(session_run_contexts)
         .where(eq(session_run_contexts.request_id, requestId))
         .get();
 
-      if (scrubbed || !retained || !context) return { state: 'unavailable' as const, requestId };
+      if (!retained || !context) return { state: 'unavailable' as const, requestId };
 
       return {
         state: snapshotAvailable(retained) ? ('available' as const) : ('unavailable' as const),
@@ -766,7 +819,13 @@ export const ReplyStore = defineStore({
 
               const message = messages.find((item) => item.messageId === part.messageId);
 
-              if (!state || state.published_request_id !== part.requestId || !document || !message)
+              if (
+                !state ||
+                state.revision !== part.inputRevision ||
+                state.published_request_id !== part.requestId ||
+                !document ||
+                !message
+              )
                 throw new StudyError('invalid_input', 'attachment document is not ready');
 
               message.attachments.push({
@@ -774,7 +833,8 @@ export const ReplyStore = defineStore({
                 sourceId: part.sourceId,
                 sourceName: part.sourceName,
                 projectId: part.projectId,
-                documentId: document.id
+                snapshotId: document.id,
+                revision: part.inputRevision
               });
             }
 
@@ -803,6 +863,7 @@ export const ReplyStore = defineStore({
               .where(eq(conversation_reply_requests.request_id, input.requestId))
               .run();
 
+            makeReplySourceInputs({ db, clock }).retain(sealed);
             return sealed;
           }
         }),
@@ -934,44 +995,36 @@ export const ReplyStore = defineStore({
             ) {
               const selected = snapshot.context?.inputs.find(
                 (item) =>
-                  item.versionId === citation.materialVersionId &&
-                  item.documentId === citation.documentId
+                  citation.input !== undefined &&
+                  selectionReferenceKey(item.input) === selectionReferenceKey(citation.input) &&
+                  item.snapshotId === citation.documentId
               );
 
               const range = citation.selectedRange;
 
-              if (
-                !selected ||
-                !range ||
-                range.versionId !== selected.versionId ||
-                range.documentId !== selected.documentId
-              )
+              if (!selected || !range || selected.snapshotId !== citation.documentId)
                 return invalid();
 
-              const excerpt = selected.excerpts.find(
-                (item) =>
-                  item.blockOrdinal === citation.blockOrdinal &&
-                  item.blockId === range.blockId &&
-                  item.start === range.start &&
-                  item.end === range.end &&
-                  item.text.includes(citation.quote)
-              );
+              const excerpt = citationExcerpt(selected, citation);
 
               const document = db.orm
                 .select()
-                .from(documents)
-                .where(eq(documents.id, citation.documentId))
+                .from(content_snapshots)
+                .where(eq(content_snapshots.id, citation.documentId))
                 .get();
 
-              if (citation.sourceId !== null || !selected || !excerpt || !document)
+              if (
+                !excerpt ||
+                !document ||
+                citation.sourceId !== selectedCitationIdentity(selected.input).source_id
+              )
                 return invalid();
 
               return {
                 version_id: row.version_id,
                 marker: BigInt(citation.marker),
-                source_id: null,
-                material_version_id: selected.versionId,
-                document_id: selected.documentId,
+                ...selectedCitationIdentity(selected.input),
+                document_id: selected.snapshotId,
                 block_id: excerpt.blockId,
                 range_start: BigInt(excerpt.start),
                 range_end: BigInt(excerpt.end),
@@ -984,14 +1037,23 @@ export const ReplyStore = defineStore({
             function attachmentCitation(
               citation: (typeof publishReplyInputSchema.Type.citations)[number]
             ) {
-              if (citation.sourceId === null || citation.selectedRange !== undefined)
+              if (
+                citation.input.kind !== 'source' ||
+                citation.sourceId !== citation.input.sourceId ||
+                citation.sourceId === null ||
+                citation.selectedRange !== undefined
+              )
                 return invalid();
 
               const attachment = snapshot.messages
                 .flatMap((message) => message.attachments)
                 .find(
                   (part) =>
-                    part.sourceId === citation.sourceId && part.documentId === citation.documentId
+                    part.sourceId === citation.sourceId &&
+                    part.snapshotId === citation.documentId &&
+                    citation.input.kind === 'source' &&
+                    part.revision === citation.input.revision &&
+                    part.snapshotId === citation.input.snapshotId
                 );
 
               const source = db.orm
@@ -1002,11 +1064,11 @@ export const ReplyStore = defineStore({
 
               const document = db.orm
                 .select()
-                .from(documents)
+                .from(content_snapshots)
                 .where(
                   and(
-                    eq(documents.id, citation.documentId),
-                    eq(documents.source_id, citation.sourceId)
+                    eq(content_snapshots.id, citation.documentId),
+                    eq(content_snapshots.source_id, citation.sourceId)
                   )
                 )
                 .get();
@@ -1037,7 +1099,8 @@ export const ReplyStore = defineStore({
                 version_id: row.version_id,
                 marker: BigInt(citation.marker),
                 source_id: citation.sourceId,
-                material_version_id: null,
+                authored_version_id: null,
+                source_revision: attachment.revision,
                 document_id: citation.documentId,
                 block_id: block.editing_id,
                 range_start: null,
@@ -1049,7 +1112,7 @@ export const ReplyStore = defineStore({
             }
 
             const validated = input.citations.map((citation) =>
-              citation.materialVersionId !== undefined
+              citation.selectedRange !== undefined
                 ? selectedCitation(citation)
                 : attachmentCitation(citation)
             );
@@ -1064,9 +1127,12 @@ export const ReplyStore = defineStore({
                     .get() ||
                   !db.orm
                     .select()
-                    .from(documents)
+                    .from(content_snapshots)
                     .where(
-                      and(eq(documents.id, item.documentId), eq(documents.source_id, item.sourceId))
+                      and(
+                        eq(content_snapshots.id, item.snapshotId),
+                        eq(content_snapshots.source_id, item.sourceId)
+                      )
                     )
                     .get()
                 )
@@ -1088,22 +1154,7 @@ export const ReplyStore = defineStore({
                 saved.publication !== payload ||
                 version!.text !== input.text ||
                 existing.length !== expected.length ||
-                existing.some((item, i) => {
-                  const wanted = expected[i]!;
-
-                  return (
-                    item.marker !== wanted.marker ||
-                    item.source_id !== wanted.source_id ||
-                    item.source_name !== wanted.source_name ||
-                    item.material_version_id !== wanted.material_version_id ||
-                    item.document_id !== wanted.document_id ||
-                    item.block_id !== wanted.block_id ||
-                    item.range_start !== wanted.range_start ||
-                    item.range_end !== wanted.range_end ||
-                    item.anchor !== wanted.anchor ||
-                    item.quote !== wanted.quote
-                  );
-                })
+                existing.some((item, i) => !sameReceiptCitation(item, expected[i]!))
               )
                 invalid();
             }

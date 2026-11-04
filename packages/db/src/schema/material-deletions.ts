@@ -1,6 +1,6 @@
-import type { MaterialId, SourceId } from '@study/contracts/ids';
+import type { MaterialId } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, check, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, integer, text, check } from 'drizzle-orm/sqlite-core';
 
 import { cleanupAttemptColumns } from './column-types.ts';
 
@@ -41,20 +41,6 @@ export const material_deletion_requests = sqliteTable('material_deletion_request
     .notNull()
     .references(() => material_deletions.material_id),
   kind: text({
-    enum: ['generation', 'context', 'source', 'learning', 'publication', 'recording']
+    enum: ['generation', 'learning', 'publication']
   }).notNull()
 });
-
-/** Sources retains exact revisions before source-version and Document asset roots disappear. */
-export const source_material_deletion_assets = sqliteTable(
-  'source_material_deletion_assets',
-  {
-    deletion_id: integer()
-      .$type<MaterialId>()
-      .notNull()
-      .references(() => material_deletions.material_id),
-    source_id: integer().$type<SourceId>().notNull(),
-    revision: integer().$type<bigint>().notNull()
-  },
-  (t) => [primaryKey({ columns: [t.deletion_id, t.source_id, t.revision] })]
-);

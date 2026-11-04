@@ -61,6 +61,28 @@ function textOf(value: string, allowEmpty = false) {
   return text;
 }
 
+type CitationRow = typeof citations.$inferSelect;
+function citationInput(row: CitationRow) {
+  if (row.authored_version_id !== null)
+    return { kind: 'document' as const, versionId: row.authored_version_id };
+  if (row.source_id !== null && row.source_revision !== null && row.document_id !== null)
+    return {
+      kind: 'source' as const,
+      sourceId: row.source_id,
+      revision: row.source_revision,
+      snapshotId: row.document_id
+    };
+  return null;
+}
+function citationPrecision(row: CitationRow) {
+  return citationInput(row) !== null &&
+    row.document_id !== null &&
+    row.block_id !== null &&
+    row.range_start !== null &&
+    row.range_end !== null
+    ? ('exact' as const)
+    : ('approximate' as const);
+}
 function makeHelpers({ db, clock }: StoreResources) {
   const { assertThreadRoot } = makeThread({ db, clock });
 
@@ -73,18 +95,11 @@ function makeHelpers({ db, clock }: StoreResources) {
       .all()
       .map((c) => ({
         origin: 'agent' as const,
-        precision:
-          c.material_version_id !== null &&
-          c.document_id !== null &&
-          c.block_id !== null &&
-          c.range_start !== null &&
-          c.range_end !== null
-            ? ('exact' as const)
-            : ('approximate' as const),
+        precision: citationPrecision(c),
         support: { state: 'unassessed' as const },
         marker: Number(c.marker),
         sourceId: c.source_id,
-        materialVersionId: c.material_version_id,
+        input: citationInput(c),
         documentId: c.document_id,
         blockId: c.block_id,
         rangeStart: c.range_start === null ? null : Number(c.range_start),
@@ -398,7 +413,10 @@ export const MessageStore = defineStore({
                   version_id: version.id,
                   marker: BigInt(index + 1),
                   source_id: citation.sourceId,
-                  material_version_id: citation.materialVersionId,
+                  authored_version_id:
+                    citation.input?.kind === 'document' ? citation.input.versionId : null,
+                  source_revision:
+                    citation.input?.kind === 'source' ? citation.input.revision : null,
                   document_id: citation.documentId,
                   block_id: citation.blockId,
                   range_start: citation.rangeStart == null ? null : BigInt(citation.rangeStart),

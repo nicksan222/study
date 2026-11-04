@@ -1,18 +1,19 @@
 import { Schema } from 'effect';
 
 import {
-  documentIdSchema,
-  materialIdSchema,
-  materialVersionIdSchema,
+  contentSnapshotIdSchema,
+  studyDocumentIdSchema,
+  studyDocumentVersionIdSchema,
+  sourceIdSchema,
   sessionIdSchema,
   messageIdSchema,
   versionIdSchema,
   partIdSchema
 } from '../ids.ts';
+import { contentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
 import {
   blockIdSchema,
   anchorSchema,
-  documentTextRangeSchema,
   blockContentSchema,
   documentSchema
 } from '../sources/schemas.ts';
@@ -26,10 +27,13 @@ export const conversationMessageSnapshotSchema = Schema.Struct({
   text: Schema.String
 });
 
-/** Active context is independent of material membership; removal is an explicit guarded update. */
+/** A selection pins an authored version or an exact completed source extraction. */
+export const selectionReferenceSchema = contentInputSchema;
+
+export const selectionRangeSchema = contentRangeSchema;
+
 export const sessionSelectionTargetSchema = Schema.Struct({
-  versionId: materialVersionIdSchema,
-  documentId: Schema.optional(documentIdSchema),
+  input: selectionReferenceSchema,
   scope: Schema.Union([
     Schema.Struct({ kind: Schema.Literal('document') }),
     Schema.Struct({
@@ -38,10 +42,13 @@ export const sessionSelectionTargetSchema = Schema.Struct({
     }),
     Schema.Struct({
       kind: Schema.Literal('ranges'),
-      ranges: Schema.Array(documentTextRangeSchema).check(Schema.isBetweenLength(1, 200))
+      ranges: Schema.Array(selectionRangeSchema).check(Schema.isBetweenLength(1, 200))
     })
   ])
 });
+
+/** Stable identity includes the source revision and extraction, never a mutable head. */
+export const selectionReferenceKey = contentInputKey;
 
 export const selectionTargetsSchema = Schema.Array(sessionSelectionTargetSchema).check(
   Schema.isMaxLength(20)
@@ -67,6 +74,7 @@ export const runPreferencesSchema = Schema.Struct({
 
 export const captureSessionContextSchema = Schema.Struct({
   sessionId: sessionIdSchema,
+  additionalSessionIds: Schema.optional(Schema.Array(sessionIdSchema).check(Schema.isMinLength(1))),
   threadRoot: Schema.optional(partIdSchema),
   throughMessageId: Schema.optional(messageIdSchema),
   intentKey: Schema.String.check(Schema.isBetweenLength(1, 200)),
@@ -83,8 +91,8 @@ export const sessionContextIntentSchema = Schema.Struct({
 
 export const resolvedSelectionSchema = Schema.Struct({
   ...sessionSelectionTargetSchema.fields,
-  documentId: documentIdSchema,
-  materialId: materialIdSchema,
+  snapshotId: contentSnapshotIdSchema,
+  documentId: Schema.NullOr(studyDocumentIdSchema),
   name: Schema.String,
   document: Schema.optional(documentSchema),
   excerpts: Schema.Array(
@@ -104,6 +112,15 @@ export const runSelectionContextSchema = Schema.Struct({
   requestId: Schema.String,
   ...sessionContextIntentSchema.fields,
   selectionRevision: Schema.BigInt,
+  includedSessions: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        sessionId: sessionIdSchema,
+        title: Schema.NullOr(Schema.String),
+        selectionRevision: Schema.BigInt
+      })
+    )
+  ),
   inputs: Schema.Array(resolvedSelectionSchema),
   messages: Schema.Array(conversationMessageSnapshotSchema),
   excludedMessages: Schema.Int

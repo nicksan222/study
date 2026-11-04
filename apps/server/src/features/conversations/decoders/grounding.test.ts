@@ -16,7 +16,7 @@
 
 import assert from 'node:assert/strict';
 
-import type { DocumentId, SourceId } from '@study/contracts/ids';
+import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
 import { testStable } from '@study/testing/node';
 
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
@@ -25,7 +25,7 @@ testStable('citations only resolve excerpts exposed by search', () => {
   const catalog = createEvidenceCatalog([
     {
       key: '1:2',
-      reference: { sourceId: 1n as SourceId, documentId: 2n as DocumentId },
+      reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
       name: 'Notes',
       blocks: [{ text: 'alpha beta' }, { text: 'gamma' }]
     }
@@ -44,7 +44,7 @@ testStable('bounds excerpts and deduplicates captured documents', () => {
   const catalog = createEvidenceCatalog([]);
   const document = {
     key: '1:2',
-    reference: { sourceId: 1n as SourceId, documentId: 2n as DocumentId },
+    reference: { sourceId: 1n as SourceId, documentId: 2n as ContentSnapshotId },
     name: 'Notes',
     blocks: Array.from({ length: 250 }, () => ({ text: 'a'.repeat(2000) }))
   };

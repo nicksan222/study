@@ -10,14 +10,14 @@ import {
   check
 } from 'drizzle-orm/sqlite-core';
 
-import { documentReference } from '../columns.ts';
-import { documents } from './documents.ts';
+import { contentSnapshotReference } from '../columns.ts';
+import { content_snapshots } from './content-snapshots.ts';
 
 export const chunks = sqliteTable(
   'chunks',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<ChunkId>(),
-    document_id: documentReference(() => documents.id),
+    document_id: contentSnapshotReference(() => content_snapshots.id),
     ordinal: integer().$type<bigint>().notNull(),
     first_block: integer().$type<bigint>().notNull(),
     last_block: integer().$type<bigint>().notNull(),

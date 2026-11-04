@@ -39,18 +39,19 @@ export const SessionSummaryStore = defineStore({
                 bigint | null
               >`(SELECT p.settled FROM session_sidebar_preferences p WHERE p.session_id = ${sessions}.${sessions.id})`,
               generatedDocumentCount: sql<bigint>`(
-            SELECT count(*) FROM session_materials sm
-            JOIN materials mat ON mat.id = sm.material_id
-            WHERE sm.session_id = ${sessions}.${sessions.id} AND mat.kind = 'document' AND mat.archived_at IS NULL
-            AND EXISTS (SELECT 1 FROM material_versions mv WHERE mv.material_id = mat.id
-              AND mv.status = 'published' AND mv.creator = 'agent')
+            SELECT count(*) FROM session_documents sd
+            JOIN study_documents d ON d.id = sd.document_id
+            WHERE sd.session_id = ${sessions}.${sessions.id} AND d.archived_at IS NULL
+            AND NOT EXISTS(SELECT 1 FROM study_document_deletions deleted WHERE deleted.document_id=d.id)
+            AND EXISTS (SELECT 1 FROM study_document_versions v WHERE v.document_id = d.id
+              AND v.status = 'published' AND v.creator = 'agent'
+              AND NOT EXISTS(SELECT 1 FROM study_document_retirements r WHERE r.version_id=v.id))
           )`,
               activity: sql<'idle' | 'generating' | 'processing' | 'answering'>`CASE
             WHEN EXISTS (
-              SELECT 1 FROM material_generation_requests gr
-              JOIN session_run_contexts ctx ON ctx.request_id = json_extract(gr.payload, '$.documentTransform.contextRequestId')
+              SELECT 1 FROM study_document_transform_requests gr
               JOIN workflow_executions w ON json_extract(w.payload, '$.event.correlationId') = gr.id
-              WHERE ctx.session_id = ${sessions}.${sessions.id} AND gr.cancelled = 0 AND gr.result_version_id IS NULL
+              WHERE gr.session_id = ${sessions}.${sessions.id} AND gr.cancelled = 0 AND gr.result_version_id IS NULL
                 AND w.status IN ('running', 'suspended')
             ) THEN 'generating'
             WHEN EXISTS (

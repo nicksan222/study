@@ -1,74 +1,29 @@
-/**
- * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Encodes, decodes, and validates stored material content by its canonical content   │
- * │ kind.                                                                                    │
- * │                                                                                          │
- * │ Responsibilities:                                                                        │
- * │ - Keeps database content decoding aligned with canonical material schemas.               │
- * │ - Keeps persistence inputs and results typed for service-layer composition.              │
- * │                                                                                          │
- * │ Boundaries:                                                                              │
- * │ Typed store helpers own database access; the materials service applies policy and        │
- * │ composes these private operations.                                                       │
- * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
- */
-
+/** Canonical payload persistence for diagram, quiz and flashcard versions. */
 import { StudyError } from '@study/contracts/errors';
-import type { DocumentId, MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
-import { encodeBlockContent } from '@study/contracts/sources/document';
-import { and, eq, sql } from '@study/db';
+import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { required } from './reads.ts';
-import { encodeSourceSnapshot } from './source-snapshot.ts';
-
-export function makeContent(resources: StoreResources) {
-  const { db } = resources;
-  const store = db;
-
+export function makeContent({ db: store }: StoreResources) {
   function insertContent(
     version: typeof s.material_versions.$inferSelect,
-    c: MaterialContentInput,
-    importedDocumentId: DocumentId | null = null
+    content: MaterialContentInput
   ) {
-    assertContentSource(version, c);
-
-    switch (c.kind) {
+    switch (content.kind) {
       case 'diagram':
-        insertDiagram(version, c);
-        break;
-      case 'file':
-        insertFile(version, c);
-        break;
-      case 'link':
-        insertLink(version, c);
-        break;
-      case 'audio':
-        insertAudio(version, c);
-        break;
-      case 'video':
-        insertVideo(version, c);
-        break;
-      case 'image':
-        insertImage(version, c);
-        break;
-      case 'document':
-        insertDocument(version, c);
+        insertDiagram(version, content);
         break;
       case 'quiz':
-        insertQuiz(version, c);
+        insertQuiz(version, content);
         break;
       case 'flashcards':
-        insertFlashcards(version, c);
+        insertFlashcards(version, content);
         break;
     }
-
-    snapshotSource(version, c, importedDocumentId);
   }
-
   function insertDiagram(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'diagram' }>
@@ -81,189 +36,6 @@ export function makeContent(resources: StoreResources) {
         version_id: id,
         format: c.format,
         payload: c.payload
-      })
-      .run();
-  }
-
-  function insertFile(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'file' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    db.insert(s.material_file_versions)
-      .values({
-        version_id: id,
-        source_id: c.sourceId
-      })
-      .run();
-  }
-
-  function insertLink(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'link' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    db.insert(s.material_link_versions)
-      .values({
-        version_id: id,
-        source_id: c.sourceId
-      })
-      .run();
-  }
-
-  function insertAudio(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'audio' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    db.insert(s.material_audio_versions)
-      .values({
-        version_id: id,
-        source_id: c.sourceId,
-        duration_ms: c.durationMs,
-        sample_rate: c.sampleRate,
-        channels: c.channels
-      })
-      .run();
-  }
-
-  function insertVideo(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'video' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    db.insert(s.material_video_versions)
-      .values({
-        version_id: id,
-        source_id: c.sourceId,
-        duration_ms: c.durationMs,
-        width: c.width,
-        height: c.height
-      })
-      .run();
-  }
-
-  function insertImage(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'image' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    db.insert(s.material_image_versions)
-      .values({
-        version_id: id,
-        source_id: c.sourceId,
-        width: c.width,
-        height: c.height
-      })
-      .run();
-  }
-
-  function assertImageRevision(
-    version: typeof s.material_versions.$inferSelect,
-    sourceId: typeof s.sources.$inferSelect.id,
-    revision: bigint
-  ) {
-    const image = store.orm
-      .select()
-      .from(s.source_snapshots)
-      .where(
-        and(
-          eq(s.source_snapshots.source_id, sourceId),
-          eq(s.source_snapshots.revision, revision),
-          sql`((NOT EXISTS (
-        SELECT 1 FROM source_material_deletion_assets a WHERE a.source_id=${sourceId} AND a.revision=${revision}
-      ) AND NOT EXISTS (
-        SELECT 1 FROM source_history_revisions h WHERE h.source_id=${sourceId} AND h.revision=${revision}
-      )) OR EXISTS (
-        SELECT 1 FROM material_versions owner JOIN (
-          SELECT dv.version_id,a.source_id,a.revision FROM material_document_versions dv
-          JOIN document_assets a ON a.document_id=dv.document_id
-          UNION ALL SELECT version_id,source_id,revision FROM material_source_snapshots
-        ) asset ON asset.version_id=owner.id
-        WHERE asset.source_id=${sourceId} AND asset.revision=${revision} AND owner.status='published'
-        AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=owner.material_id)
-        AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=owner.id)
-        AND (owner.material_id=${version.material_id} OR EXISTS(
-          SELECT 1 FROM material_version_inputs i WHERE i.version_id=${version.id} AND i.input_version_id=owner.id
-        ))
-      ))`
-        )
-      )
-      .get();
-
-    if (!image || image.kind !== 'image' || !image.mime.toLowerCase().startsWith('image/'))
-      throw new StudyError('invalid_input', 'Managed image revision is unavailable');
-  }
-
-  function assertDocumentImages(version: typeof s.material_versions.$inferSelect) {
-    const assets = store.orm
-      .select({ sourceId: s.document_assets.source_id, revision: s.document_assets.revision })
-      .from(s.material_document_versions)
-      .innerJoin(
-        s.document_assets,
-        eq(s.document_assets.document_id, s.material_document_versions.document_id)
-      )
-      .where(eq(s.material_document_versions.version_id, version.id))
-      .all();
-
-    for (const asset of assets) assertImageRevision(version, asset.sourceId, asset.revision);
-  }
-
-  function insertDocument(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'document' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    for (const block of c.blocks) {
-      if (block.content.type === 'image')
-        assertImageRevision(version, block.content.sourceId, BigInt(block.content.revision));
-    }
-
-    db.delete(s.material_source_snapshots)
-      .where(eq(s.material_source_snapshots.version_id, id))
-      .run();
-    const doc = db
-      .insert(s.documents)
-      .values({
-        source_id: null,
-        extractor: null,
-        extractor_version: BigInt(c.meta.extractorVersion),
-        meta: JSON.stringify(c.meta),
-        created_at: version.created_at
-      })
-      .returning()
-      .get();
-
-    c.blocks.forEach((b, i) =>
-      db
-        .insert(s.blocks)
-        .values({
-          document_id: doc.id,
-          ordinal: BigInt(i),
-          kind: b.kind,
-          text: b.text,
-          editing_id: b.id,
-          content: encodeBlockContent(b.content),
-          anchor: JSON.stringify(b.anchor)
-        })
-        .run()
-    );
-    db.insert(s.material_document_versions)
-      .values({
-        version_id: id,
-        document_id: doc.id
       })
       .run();
   }
@@ -368,91 +140,14 @@ export function makeContent(resources: StoreResources) {
     });
   }
 
-  function contentSource(id: typeof s.sources.$inferSelect.id) {
-    return required(store.orm.select().from(s.sources).where(eq(s.sources.id, id)).get());
-  }
-
-  function assertContentSource(
-    version: typeof s.material_versions.$inferSelect,
-    c: MaterialContentInput
-  ) {
-    if ('sourceId' in c) {
-      contentSource(c.sourceId);
-      const binding = db.orm
-        .select()
-        .from(s.material_imports)
-        .where(eq(s.material_imports.material_id, version.material_id))
-        .get();
-
-      if (binding && binding.source_id !== c.sourceId)
-        throw new StudyError('invalid_input', 'Imported material identity is bound to its source');
-    }
-  }
-
-  function snapshotSource(
-    version: typeof s.material_versions.$inferSelect,
-    c: MaterialContentInput,
-    importedDocumentId: DocumentId | null
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    if ('sourceId' in c) {
-      const source = contentSource(c.sourceId);
-      const state = required(
-        db
-          .select()
-          .from(s.source_processing)
-          .where(eq(s.source_processing.source_id, c.sourceId))
-          .get()
-      );
-      const projectName =
-        source.project_id === null
-          ? null
-          : (db
-              .select({
-                name: s.projects.name
-              })
-              .from(s.projects)
-              .where(eq(s.projects.id, source.project_id))
-              .get()?.name ?? null);
-
-      db.insert(s.material_source_snapshots)
-        .values({
-          version_id: id,
-          source_id: source.id,
-          revision: state.revision,
-          document_id: importedDocumentId,
-          metadata: encodeSourceSnapshot({
-            id: source.id,
-            name: source.name,
-            kind: source.kind,
-            mime: source.mime,
-            origin: source.origin,
-            projectId: source.project_id,
-            projectName,
-            sizeBytes: source.size_bytes,
-            sha256: new Uint8Array(source.sha256),
-            uri: source.uri,
-            createdAt: source.created_at
-          })
-        })
-        .run();
-    }
-  }
-
   function removeContent(id: MaterialVersionId) {
     const db = store.orm;
-
-    db.delete(s.material_source_snapshots)
-      .where(eq(s.material_source_snapshots.version_id, id))
+    db.delete(s.material_evidence_citations)
+      .where(eq(s.material_evidence_citations.version_id, id))
       .run();
-    const doc = db
-      .select()
-      .from(s.material_document_versions)
-      .where(eq(s.material_document_versions.version_id, id))
-      .get();
-
+    db.delete(s.material_evidence_inputs)
+      .where(eq(s.material_evidence_inputs.version_id, id))
+      .run();
     for (const q of db
       .select()
       .from(s.material_quiz_questions)
@@ -470,31 +165,12 @@ export function makeContent(resources: StoreResources) {
       .run();
 
     for (const table of [
-      s.material_file_versions,
-      s.material_audio_versions,
-      s.material_video_versions,
-      s.material_image_versions,
-      s.material_link_versions,
-      s.material_document_versions,
       s.material_diagram_versions,
       s.material_quiz_versions,
       s.material_flashcard_versions
     ])
       db.delete(table).where(eq(table.version_id, id)).run();
-
-    if (
-      doc &&
-      db.select().from(s.documents).where(eq(s.documents.id, doc.document_id)).get()?.source_id ===
-        null
-    ) {
-      db.delete(s.blocks).where(eq(s.blocks.document_id, doc.document_id)).run();
-      db.delete(s.documents).where(eq(s.documents.id, doc.document_id)).run();
-    }
   }
 
-  return {
-    assertDocumentImages,
-    insertContent,
-    removeContent
-  };
+  return { insertContent, removeContent };
 }

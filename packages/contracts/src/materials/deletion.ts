@@ -14,34 +14,13 @@ export const materialDeletionKeySchema = Schema.Struct({ materialId: materialIdS
 export const materialDeletionPreviewSchema = Schema.Struct({
   materialId: materialIdSchema,
   token: Schema.String,
-  descendants: Schema.Array(materialIdSchema),
-  materials: Schema.Array(
-    Schema.Struct({
-      materialId: materialIdSchema,
-      versionIds: Schema.Array(materialVersionIdSchema),
-      unavailable: Schema.Boolean
-    })
-  ),
-  missingEvidence: Schema.Literal('exact_deleted_input_versions'),
   versionIds: Schema.Array(materialVersionIdSchema),
-  references: Schema.Array(
-    Schema.Struct({
-      dependentMaterialId: materialIdSchema,
-      inputVersionId: materialVersionIdSchema
-    })
-  ),
-  sourceIds: Schema.Array(sourceIdSchema),
-  sharedImageSourceIds: Schema.Array(sourceIdSchema),
   sessionIds: Schema.Array(sessionIdSchema),
-  retainedMessageCitationCount: Schema.Int,
-  privateRequestIds: Schema.Array(Schema.String),
-  retainedCopies: Schema.Literal('unselected_materials_and_published_messages_including_recordings')
+  privateRequestIds: Schema.Array(Schema.String)
 });
-
 export const requestMaterialDeletionSchema = Schema.Struct({
   materialId: materialIdSchema,
-  token: Schema.String,
-  descendantIds: Schema.Array(materialIdSchema)
+  token: Schema.String
 });
 
 export const materialDeletionSchema = Schema.Struct({

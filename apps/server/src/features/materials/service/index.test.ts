@@ -15,9 +15,10 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
+import { createBlock, plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { sessions, workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -25,6 +26,7 @@ import { testStable } from '@study/testing/node';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 
+import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
@@ -34,29 +36,21 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
-  kind: 'document' as const,
-  blocks: [plainBlock('paragraph' as const, 'Canonical material', { type: 'authored' })],
-  meta: {
-    extractor: null,
-    extractorVersion: 1,
-    provider: null,
-    durationMs: null,
-    pageCount: null,
-    refiners: [],
-    waitingFor: [],
-    corrected: false,
-    omissions: []
-  }
+  kind: 'diagram' as const,
+  format: 'mermaid' as const,
+  payload: 'flowchart LR; A-->B'
 };
-
 testStable(
   'materials versions, links, citations and session membership preserve SQLite invariants',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
+    const services = Layer.mergeAll(
+      Projects.layer,
+      Sources.layer,
+      Materials.layer,
+      Documents.layer
+    ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
     try {
       await Effect.runPromise(
@@ -70,27 +64,34 @@ testStable(
             name: 'notes.txt',
             bytes: new TextEncoder().encode('Canonical source')
           });
-          const imported = yield* materials.material({
-            id: (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
-              .items[0]!.id
+          assert.equal(
+            (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
+              .items.length,
+            0
+          );
+          const docs = yield* Documents;
+          const evidence = yield* docs.create({
+            createKey: randomUUID(),
+            title: 'Evidence',
+            document: {
+              blocks: [plainBlock('paragraph', 'Canonical material', { type: 'authored' })],
+              meta: {
+                extractor: null,
+                extractorVersion: 1,
+                provider: null,
+                durationMs: null,
+                pageCount: null,
+                refiners: [],
+                waitingFor: [],
+                corrected: false,
+                omissions: []
+              }
+            },
+            inputs: [],
+            citations: []
           });
-          const file = {
-            ...imported,
-            version: yield* materials.createVersion({
-              materialId: imported.id,
-              content: { kind: 'file', sourceId: source.id },
-              publish: false
-            })
-          };
-
-          assert.equal(file.version.content.kind, 'file');
-
-          if (file.version.content.kind === 'file') {
-            assert.equal(file.version.content.source.id, source.id);
-            assert.equal(file.version.content.source.projectId, project.id);
-            assert.equal(file.version.content.source.name, 'notes.txt');
-          }
-
+          assert.ok(evidence.version);
+          const input = { kind: 'document' as const, versionId: evidence.version.id };
           const another = yield* projects.createProject({ name: 'Other' });
           const first = yield* materials.create({
             projectId: project.id,
@@ -114,7 +115,7 @@ testStable(
           const next = yield* materials.createVersion({
             materialId: first.id,
             content,
-            inputs: [published.id],
+            inputs: [input],
             parents: [published.id],
             publish: false
           });
@@ -124,14 +125,14 @@ testStable(
             citations: [
               {
                 marker: 1n,
-                inputVersionId: published.id,
-                anchor: { type: 'page', page: 1 },
+                input,
+                anchor: { type: 'authored' },
                 quote: 'Canonical'
               },
               {
                 marker: 2n,
-                inputVersionId: published.id,
-                anchor: { type: 'page', page: 1 },
+                input,
+                anchor: { type: 'authored' },
                 quote: 'material'
               }
             ]
@@ -143,28 +144,27 @@ testStable(
             (yield* materials.citations({ id: next.id, limit: 1, cursor: 1n })).items[0]?.marker,
             2n
           );
-          assert.equal(
-            (yield* materials.inputs({ id: next.id, limit: 10 })).items[0]?.id,
-            published.id
-          );
-          assert.equal(
-            (yield* materials.dependents({ id: published.id, limit: 10 })).items[0]?.id,
-            next.id
-          );
+          assert.deepEqual((yield* materials.materialVersion({ id: next.id })).inputs, [input]);
           yield* materials.publishVersion({ id: next.id });
-          const foreign = yield* materials.create({
-            projectId: another.id,
+          const foreign = yield* docs.create({
+            createKey: randomUUID(),
             title: 'Foreign',
-            content
+            projectId: another.id,
+            document: {
+              blocks: [plainBlock('paragraph', 'Foreign evidence', { type: 'authored' })],
+              meta: evidence.version.document.meta
+            },
+            inputs: [],
+            citations: []
           });
-
+          assert.ok(foreign.version);
+          const foreignInput = { kind: 'document' as const, versionId: foreign.version.id };
           const shared = yield* materials.createVersion({
             materialId: first.id,
             content,
-            inputs: [foreign.version.id]
+            inputs: [foreignInput]
           });
-
-          assert.deepEqual(shared.inputs, [foreign.version.id]);
+          assert.deepEqual(shared.inputs, [foreignInput]);
           const session = context.db.orm
             .insert(sessions)
             .values({
@@ -212,7 +212,7 @@ testStable(
               .from(workflowEvents)
               .all()
               .filter((e) => e.type === 'MaterialPublished').length,
-            5
+            3
           );
         }).pipe(Effect.provide(services))
       );
@@ -226,9 +226,12 @@ testStable(
 testStable('native materials RPC uses the service and maps canonical failures', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-    Layer.provideMerge(Layer.succeed(Database, { store: context }))
-  );
+  const services = Layer.mergeAll(
+    Projects.layer,
+    Sources.layer,
+    Materials.layer,
+    Documents.layer
+  ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
   try {
@@ -250,7 +253,12 @@ testStable('native materials RPC uses the service and maps canonical failures', 
 
         assert.equal(failure.kind, 'invalid_input');
         const exportFailure = yield* Effect.flip(
-          client('materials.materialVersionExport', { id: material.version.id })
+          client('materials.exportMaterialVersion', {
+            id: Schema.decodeUnknownSync(
+              (yield* Effect.promise(() => import('@study/contracts/ids'))).materialVersionIdSchema
+            )(999999n),
+            format: 'aid_json'
+          })
         );
 
         assert.equal(exportFailure.kind, 'not_found');
@@ -261,543 +269,3 @@ testStable('native materials RPC uses the service and maps canonical failures', 
     location.cleanup();
   }
 });
-
-testStable(
-  'published image retains its source revision through replacement and draft cleanup',
-  async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-
-    const handlers = materialRpcHandlers.pipe(Layer.provide(services));
-
-    try {
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-          const projects = yield* Projects;
-          const sources = yield* Sources;
-          const materials = yield* Materials;
-          const project = yield* projects.createProject({ name: 'Images' });
-          const other = yield* projects.createProject({ name: 'Other' });
-          const source = yield* sources.createSource({
-            projectId: project.id,
-            name: 'image.png',
-            bytes: new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0])
-          });
-          const image = yield* materials.material({
-            id: (yield* materials.materials({ projectId: project.id, archived: false, limit: 10 }))
-              .items[0]!.id
-          });
-          const draft = yield* materials.createVersion({
-            materialId: image.id,
-            content: { kind: 'image', sourceId: source.id, width: null, height: null },
-            publish: false
-          });
-
-          yield* materials.deleteDraft({ id: draft.id });
-          assert.equal(context.db.orm.all(sql`SELECT * FROM material_source_snapshots`).length, 1);
-          const count = context.db.orm.all(sql`SELECT * FROM workflow_events`).length;
-
-          context.db.exec(
-            "CREATE TRIGGER reject_replace_event BEFORE INSERT ON workflow_events WHEN new.type='SourceProcessingRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
-          );
-          yield* Effect.flip(
-            sources.replaceSource({
-              id: source.id,
-              expectedRevision: 1,
-              name: 'new.png',
-              bytes: new Uint8Array([1, 2, 3])
-            })
-          );
-          assert.equal(context.db.orm.all(sql`SELECT * FROM workflow_events`).length, count);
-          assert.equal((yield* sources.sourceProcessing(source.id)).revision, 1);
-          context.db.exec('DROP TRIGGER reject_replace_event');
-          yield* sources.replaceSource({
-            id: source.id,
-            expectedRevision: 1,
-            name: 'new.png',
-            bytes: new Uint8Array([1, 2, 3])
-          });
-          const exported = yield* client('materials.materialVersionExport', {
-            id: image.version.id
-          });
-
-          assert.deepEqual(exported.source, source);
-          assert.deepEqual(exported.bytes, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]));
-          assert.deepEqual(
-            (yield* materials.materialVersion({ id: image.version.id })).content,
-            image.version.content
-          );
-          assert.throws(() =>
-            context.db.orm.run(
-              sql`UPDATE source_snapshots SET bytes=x'00' WHERE source_id=${source.id} AND revision=1`
-            )
-          );
-          assert.throws(() =>
-            context.db.orm.run(
-              sql`DELETE FROM source_snapshots WHERE source_id=${source.id} AND revision=1`
-            )
-          );
-          assert.throws(() =>
-            context.db.orm.run(
-              sql`UPDATE material_source_snapshots SET metadata='{}' WHERE version_id=${image.version.id}`
-            )
-          );
-          context.db.orm.run(sql`UPDATE sources SET project_id=${other.id} WHERE id=${source.id}`);
-          assert.equal(
-            (yield* materials.materialVersion({ id: image.version.id })).id,
-            image.version.id
-          );
-          context.db.orm.run(sql`DELETE FROM projects WHERE id=${project.id}`);
-        }).pipe(Effect.provide(services), Effect.provide(handlers), Effect.scoped)
-      );
-    } finally {
-      context.close();
-      location.cleanup();
-    }
-  }
-);
-
-testStable(
-  'generation requests persist immutable published document inputs and an outbox event',
-  async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-
-    try {
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const projects = yield* Projects;
-          const materials = yield* Materials;
-          const project = yield* projects.createProject({ name: 'Generation' });
-          const doc = yield* materials.create({
-            projectId: project.id,
-            title: 'Document',
-            content
-          });
-          const request = yield* materials.requestMaterialGeneration({
-            projectId: project.id,
-            title: ' Cards ',
-            kind: 'flashcards',
-            inputVersionIds: [doc.version.id]
-          });
-
-          assert.equal(request.title, 'Cards');
-          assert.deepEqual(request.inputVersionIds, [doc.version.id]);
-          assert.equal(
-            context.db.orm
-              .select()
-              .from(workflowEvents)
-              .all()
-              .filter((event) => event.type === 'MaterialGenerationRequested').length,
-            1
-          );
-        }).pipe(Effect.provide(services))
-      );
-    } finally {
-      context.close();
-      location.cleanup();
-    }
-  }
-);
-
-testStable('generation validation, rollback, RPC, and persistent snapshots', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
-  const makeServices = () =>
-    Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-  let requestId = '';
-  let documentId = 0n;
-  let versionId = 0n;
-  let otherRequestId = '';
-
-  try {
-    const services = makeServices();
-    const handlers = materialRpcHandlers.pipe(Layer.provide(services));
-
-    function* verifyGenerationSnapshots() {
-      const projects = yield* Projects;
-      const materials = yield* Materials;
-      const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-      const project = yield* projects.createProject({ name: 'One' });
-      const other = yield* projects.createProject({ name: 'Two' });
-      const doc = yield* materials.create({ projectId: project.id, title: 'Doc', content });
-      const foreign = yield* materials.create({ projectId: other.id, title: 'Foreign', content });
-      const draft = yield* materials.create({
-        projectId: project.id,
-        title: 'Draft',
-        content,
-        publish: false
-      });
-      const archived = yield* materials.create({
-        projectId: project.id,
-        title: 'Archived',
-        content
-      });
-
-      yield* materials.archive({ id: archived.id });
-      const diagram = yield* materials.create({
-        projectId: project.id,
-        title: 'Diagram',
-        content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
-      });
-      const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
-
-      for (const id of [
-        foreign.version.id,
-        draft.version.id,
-        archived.version.id,
-        diagram.version.id
-      ]) {
-        assert.equal(
-          (yield* Effect.flip(
-            materials.requestMaterialGeneration({ ...base, inputVersionIds: [id] })
-          )).kind,
-          'invalid_input'
-        );
-      }
-
-      const parse = Schema.decodeUnknownSync(requestMaterialGenerationInputSchema);
-
-      assert.throws(() => parse({ ...base, inputVersionIds: [doc.version.id, doc.version.id] }));
-      assert.throws(() => parse({ ...base, inputVersionIds: [] }));
-      assert.throws(() =>
-        parse({ ...base, inputVersionIds: Array.from({ length: 21 }, (_, i) => BigInt(i + 1)) })
-      );
-      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
-      context.db.exec(
-        "CREATE TRIGGER reject_generation_event BEFORE INSERT ON workflow_events WHEN new.type='MaterialGenerationRequested' BEGIN SELECT RAISE(ABORT, 'rejected'); END"
-      );
-      yield* Effect.flip(
-        materials.requestMaterialGeneration({ ...base, inputVersionIds: [doc.version.id] })
-      );
-      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 0);
-      assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_inputs`).length, 0);
-      context.db.exec('DROP TRIGGER reject_generation_event');
-      const request = yield* client('materials.requestMaterialGeneration', {
-        ...base,
-        inputVersionIds: [doc.version.id],
-        instruction: 'Focus'
-      });
-      const snapshot = yield* materials.materialGeneration({ requestId: request.id });
-
-      requestId = request.id;
-      versionId = doc.version.id;
-      documentId = snapshot.documentIds[0]!;
-      assert.equal(snapshot.instruction, 'Focus');
-      const event = context.db.orm
-        .select()
-        .from(workflowEvents)
-        .all()
-        .find((row) => row.eventId === request.id)!;
-
-      assert.deepEqual(decodeEvent(event.payload), {
-        type: 'MaterialGenerationRequested',
-        eventId: request.id,
-        causationId: null,
-        correlationId: request.id,
-        inputVersion: 1,
-        depth: 0,
-        requestId: request.id,
-        projectId: project.id,
-        kind: 'quiz'
-      });
-      yield* materials.createVersion({ materialId: doc.id, content });
-      const otherRequest = yield* materials.requestMaterialGeneration({
-        projectId: other.id,
-        title: 'Other',
-        kind: 'diagram',
-        inputVersionIds: [foreign.version.id]
-      });
-
-      otherRequestId = otherRequest.id;
-      assert.throws(() =>
-        context.db.orm.run(sql`DELETE FROM material_versions WHERE id=${doc.version.id}`)
-      );
-    }
-
-    await Effect.runPromise(
-      Effect.gen(verifyGenerationSnapshots).pipe(
-        Effect.provide(services),
-        Effect.provide(handlers),
-        Effect.scoped
-      )
-    );
-    context.close();
-    context = new ServerContext(location.open());
-    await Effect.runPromise(
-      Effect.gen(function* () {
-        const materials = yield* Materials;
-        const snapshot = yield* materials.materialGeneration({ requestId });
-
-        assert.deepEqual(snapshot.inputVersionIds, [versionId]);
-        assert.deepEqual(snapshot.documentIds, [documentId]);
-        context.db.orm.run(sql`DELETE FROM projects WHERE id=${snapshot.projectId}`);
-        assert.equal(
-          (yield* materials.materialGeneration({ requestId: otherRequestId })).id,
-          otherRequestId
-        );
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length, 2);
-        assert.equal(context.db.orm.all(sql`SELECT * FROM material_generation_inputs`).length, 2);
-      }).pipe(Effect.provide(makeServices()))
-    );
-  } finally {
-    context.close();
-    location.cleanup();
-  }
-});
-
-testStable(
-  'caller-owned generation keys replay the same request and reject changed intent',
-  async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-
-    try {
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const projects = yield* Projects;
-          const materials = yield* Materials;
-          const project = yield* projects.createProject({ name: 'Replay' });
-          const doc = yield* materials.create({
-            projectId: project.id,
-            title: 'Document',
-            content
-          });
-          const request = {
-            projectId: project.id,
-            title: 'Question',
-            kind: 'quiz' as const,
-            inputVersionIds: [doc.version.id]
-          };
-          const first = yield* materials.requestMaterialGenerationOnce({
-            requestId: 'slot-1',
-            request
-          });
-          const replay = yield* materials.requestMaterialGenerationOnce({
-            requestId: 'slot-1',
-            request
-          });
-
-          assert.deepEqual(replay, first);
-          assert.equal(
-            context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
-            1
-          );
-          assert.equal(
-            context.db.orm
-              .select()
-              .from(workflowEvents)
-              .all()
-              .filter((event) => event.type === 'MaterialGenerationRequested').length,
-            1
-          );
-          assert.equal(
-            (yield* Effect.flip(
-              materials.requestMaterialGenerationOnce({
-                requestId: 'slot-1',
-                request: { ...request, title: 'Changed' }
-              })
-            )).kind,
-            'invalid_input'
-          );
-        }).pipe(Effect.provide(services))
-      );
-    } finally {
-      context.close();
-      location.cleanup();
-    }
-  }
-);
-
-testStable(
-  'generation scopes retain tombstones and fence requests by project and intent',
-  async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-
-    try {
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const projects = yield* Projects;
-          const materials = yield* Materials;
-          const project = yield* projects.createProject({ name: 'Scope' });
-          const other = yield* projects.createProject({ name: 'Other' });
-          const doc = yield* materials.create({
-            projectId: project.id,
-            title: 'Document',
-            content
-          });
-          const scope = { scopeId: 'epoch', projectId: project.id };
-          const request = {
-            projectId: project.id,
-            title: 'Question',
-            kind: 'quiz' as const,
-            inputVersionIds: [doc.version.id],
-            scopeId: scope.scopeId,
-            questionSpec: { count: 1 as const, kind: 'open' as const }
-          };
-
-          yield* materials.openGenerationScope(scope);
-          yield* materials.openGenerationScope(scope);
-          yield* materials.requestMaterialGenerationOnce({ requestId: 'slot', request });
-          assert.equal(
-            (yield* materials.materialGeneration({ requestId: 'slot' })).questionSpec?.kind,
-            'open'
-          );
-          assert.equal(
-            (yield* Effect.flip(
-              materials.requestMaterialGenerationOnce({
-                requestId: 'slot',
-                request: { ...request, questionSpec: { count: 1, kind: 'choice' } }
-              })
-            )).kind,
-            'invalid_input'
-          );
-          assert.equal(
-            (yield* Effect.flip(materials.openGenerationScope({ ...scope, projectId: other.id })))
-              .kind,
-            'invalid_input'
-          );
-          yield* materials.closeGenerationScope(scope);
-          yield* materials.openGenerationScope(scope);
-          assert.equal(
-            (yield* Effect.flip(materials.materialGeneration({ requestId: 'slot' }))).kind,
-            'invalid_input'
-          );
-          assert.equal(
-            (yield* Effect.flip(
-              materials.requestMaterialGenerationOnce({ requestId: 'new', request })
-            )).kind,
-            'invalid_input'
-          );
-          yield* materials.closeGenerationScope({ ...scope, scopeId: 'early' });
-          yield* materials.openGenerationScope({ ...scope, scopeId: 'early' });
-          assert.equal(
-            (yield* Effect.flip(
-              materials.requestMaterialGenerationOnce({
-                requestId: 'early-slot',
-                request: { ...request, scopeId: 'early' }
-              })
-            )).kind,
-            'invalid_input'
-          );
-        }).pipe(Effect.provide(services))
-      );
-    } finally {
-      context.close();
-      location.cleanup();
-    }
-  }
-);
-
-testStable(
-  'explicit generation retries are idempotent and require active captured intent',
-  async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-
-    try {
-      await Effect.runPromise(
-        Effect.gen(function* () {
-          const projects = yield* Projects;
-          const materials = yield* Materials;
-          const project = yield* projects.createProject({ name: 'Retry' });
-          const doc = yield* materials.create({
-            projectId: project.id,
-            title: 'Document',
-            content
-          });
-
-          yield* materials.openGenerationScope({ scopeId: 'scope', projectId: project.id });
-          yield* materials.requestMaterialGenerationOnce({
-            requestId: 'request',
-            request: {
-              projectId: project.id,
-              title: 'Question',
-              kind: 'quiz',
-              inputVersionIds: [doc.version.id],
-              scopeId: 'scope'
-            }
-          });
-          yield* materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry' });
-          yield* materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry' });
-          const events = context.db.orm
-            .select()
-            .from(workflowEvents)
-            .all()
-            .map((row) => decodeEvent(row.payload));
-
-          assert.equal(
-            events.filter((event) => event.type === 'MaterialGenerationRequested').length,
-            2
-          );
-          assert.equal(
-            (yield* materials.materialGeneration({ requestId: 'request', eventId: 'retry' })).id,
-            'request'
-          );
-          assert.equal(
-            (yield* Effect.flip(
-              materials.materialGeneration({ requestId: 'request', eventId: 'forged' })
-            )).kind,
-            'invalid_input'
-          );
-          yield* materials.requestMaterialGenerationOnce({
-            requestId: 'other-request',
-            request: {
-              projectId: project.id,
-              title: 'Other',
-              kind: 'quiz',
-              inputVersionIds: [doc.version.id]
-            }
-          });
-          assert.equal(
-            (yield* Effect.flip(
-              materials.retryMaterialGenerationOnce({
-                requestId: 'other-request',
-                retryId: 'retry'
-              })
-            )).kind,
-            'invalid_input'
-          );
-          assert.equal(
-            (yield* Effect.flip(
-              materials.retryMaterialGenerationOnce({
-                requestId: 'request',
-                retryId: 'other-request'
-              })
-            )).kind,
-            'invalid_input'
-          );
-          yield* materials.closeGenerationScope({ scopeId: 'scope', projectId: project.id });
-          assert.equal(
-            (yield* Effect.flip(
-              materials.retryMaterialGenerationOnce({ requestId: 'request', retryId: 'retry-2' })
-            )).kind,
-            'invalid_input'
-          );
-        }).pipe(Effect.provide(services))
-      );
-    } finally {
-      context.close();
-      location.cleanup();
-    }
-  }
-);

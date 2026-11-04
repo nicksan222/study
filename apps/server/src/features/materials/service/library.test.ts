@@ -12,6 +12,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { projectIdSchema, materialIdSchema, sessionIdSchema } from '@study/contracts/ids';
@@ -27,6 +28,7 @@ import { RpcTest } from 'effect/rpc';
 
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Conversations } from '#server/features/conversations/service/index';
+import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
@@ -36,7 +38,11 @@ import { Database } from '#server/platform/database/database';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
-  kind: 'document',
+  kind: 'diagram',
+  format: 'mermaid',
+  payload: 'flowchart TD\nA-->B'
+} satisfies MaterialContentInput;
+const authored = () => ({
   blocks: [plainBlock('paragraph', 'Independent library', { type: 'authored' })],
   meta: {
     extractor: null,
@@ -49,7 +55,24 @@ const content = {
     corrected: false,
     omissions: []
   }
-} satisfies MaterialContentInput;
+});
+function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
+  return Effect.flatMap(Documents, (docs) =>
+    docs.create({
+      createKey: randomUUID(),
+      projectId,
+      title,
+      document: authored(),
+      inputs: [],
+      citations: []
+    })
+  ).pipe(
+    Effect.map((value) => {
+      assert.ok(value.version);
+      return { ...value, version: value.version };
+    })
+  );
+}
 
 testStable(
   'native RPC creates an uncollected material shared by quick sessions and preserves it after session deletion',
@@ -133,9 +156,13 @@ testStable(
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const services = () =>
-      Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Conversations.layer).pipe(
-        Layer.provideMerge(Layer.succeed(Database, { store: context }))
-      );
+      Layer.mergeAll(
+        Projects.layer,
+        Materials.layer,
+        Documents.layer,
+        Sources.layer,
+        Conversations.layer
+      ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
     try {
       const saved = await Effect.runPromise(
@@ -152,14 +179,16 @@ testStable(
             projectId: a.id,
             bytes: new TextEncoder().encode('Original bytes')
           });
-          const original = yield* materials.material({
-            id: (yield* materials.materials({ projectId: a.id, archived: false, limit: 10 }))
-              .items[0]!.id
+          const original = yield* materials.create({
+            projectId: a.id,
+            title: 'Independent learning diagram',
+            content
           });
+          const evidence = yield* createAuthored(a.id, 'Exact authored input');
           const material = yield* materials.create({
             title: 'Shared',
             content,
-            inputs: [original.version.id]
+            inputs: [{ kind: 'document', versionId: evidence.version.id }]
           });
 
           for (const project of [a, b]) {
@@ -212,7 +241,7 @@ testStable(
           );
           yield* projects.deleteProject({ id: a.id });
 
-          return { material, original, source, session, b };
+          return { material, original, evidence, source, session, b };
         }).pipe(Effect.provide(services()))
       );
 
@@ -226,7 +255,9 @@ testStable(
           const material = yield* materials.material({ id: saved.material.id });
 
           assert.equal(material.version.id, saved.material.version.id);
-          assert.deepEqual(material.version.inputs, [saved.original.version.id]);
+          assert.deepEqual(material.version.inputs, [
+            { kind: 'document', versionId: saved.evidence.version.id }
+          ]);
           assert.deepEqual(material.projectIds, [saved.b.id]);
           assert.deepEqual((yield* conversations.session(saved.session.id)).projectIds, [
             saved.b.id
@@ -234,7 +265,7 @@ testStable(
           assert.equal((yield* sources.source(saved.source.id)).id, saved.source.id);
           assert.equal(
             new TextDecoder().decode(
-              (yield* materials.materialVersionExport({ id: saved.original.version.id })).bytes
+              (yield* sources.exportRevision({ sourceId: saved.source.id, revision: 1n })).bytes
             ),
             'Original bytes'
           );
@@ -254,7 +285,7 @@ testStable(
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const services = () =>
-      Layer.mergeAll(Projects.layer, Materials.layer, Conversations.layer).pipe(
+      Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer, Conversations.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
 
@@ -263,32 +294,34 @@ testStable(
         Effect.gen(function* () {
           const projects = yield* Projects;
           const materials = yield* Materials;
+          const docs = yield* Documents;
           const conversations = yield* Conversations;
           const a = yield* projects.createProject({ name: 'Requested' });
           const b = yield* projects.createProject({ name: 'Other membership' });
-          const input = yield* materials.create({ projectId: a.id, title: 'Captured', content });
-          const unrelated = yield* materials.create({
-            projectId: a.id,
-            title: 'Unselected',
-            content
-          });
+          const input = yield* createAuthored(a.id, 'Captured');
+          const unrelated = yield* createAuthored(a.id, 'Unselected');
           const session = yield* conversations.createSession({ title: 'Selection is not scope' });
 
-          yield* projects.addMaterial({ projectId: b.id, materialId: input.id });
+          yield* docs.attachProject({ projectId: b.id, documentId: input.id });
           yield* projects.addSession({ projectId: a.id, sessionId: session.id });
 
           for (const material of [input, unrelated])
-            yield* materials.attach({ sessionId: session.id, materialId: material.id });
+            yield* docs.attach({ sessionId: session.id, documentId: material.id });
 
           const request = yield* materials.requestMaterialGeneration({
             projectId: a.id,
             title: 'Exact',
             kind: 'diagram',
-            inputVersionIds: [input.version.id]
+            inputs: [{ kind: 'document', versionId: input.version.id }]
           });
 
-          yield* materials.createVersion({ materialId: input.id, content });
-          yield* projects.removeMaterial({ projectId: a.id, materialId: input.id });
+          yield* docs.save({
+            documentId: input.id,
+            expectedVersionId: input.version.id,
+            key: 'advance-head',
+            document: authored()
+          });
+          yield* docs.detachProject({ projectId: a.id, documentId: input.id });
           const events = context.db.orm.select().from(workflowEvents).all();
           const requests = context.db.orm.all(sql`SELECT * FROM material_generation_requests`);
 
@@ -302,7 +335,7 @@ testStable(
                 projectId: a.id,
                 title: 'No fallback',
                 kind: 'diagram',
-                inputVersionIds: [input.version.id]
+                inputs: [{ kind: 'document', versionId: input.version.id }]
               })
             )).kind,
             'invalid_input'
@@ -323,6 +356,7 @@ testStable(
         Effect.gen(function* () {
           const projects = yield* Projects;
           const materials = yield* Materials;
+          const docs = yield* Documents;
           const conversations = yield* Conversations;
 
           assert.equal(
@@ -330,19 +364,16 @@ testStable(
               .kind,
             'invalid_input'
           );
-          yield* projects.addMaterial({ projectId: saved.a.id, materialId: saved.input.id });
+          yield* docs.attachProject({ projectId: saved.a.id, documentId: saved.input.id });
           assert.deepEqual(
-            (yield* materials.materialGeneration({ requestId: saved.request.id })).inputVersionIds,
-            [saved.input.version.id]
+            (yield* materials.materialGeneration({ requestId: saved.request.id })).inputs,
+            [{ kind: 'document', versionId: saved.input.version.id }]
           );
           yield* projects.removeSession({ projectId: saved.a.id, sessionId: saved.session.id });
           assert.deepEqual((yield* conversations.session(saved.session.id)).projectIds, []);
           assert.equal(
-            (yield* materials.materials({
-              sessionId: saved.session.id,
-              archived: false,
-              limit: 10
-            })).items.length,
+            (yield* docs.documents({ sessionId: saved.session.id, archived: false, limit: 10 }))
+              .items.length,
             2
           );
           yield* projects.deleteProject({ id: saved.a.id });
@@ -359,23 +390,21 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Materials;
+          const docs = yield* Documents;
           const conversations = yield* Conversations;
 
           for (const original of [saved.input, saved.unrelated]) {
-            assert.deepEqual((yield* materials.material({ id: original.id })).projectIds, []);
+            assert.deepEqual((yield* docs.document({ id: original.id })).projectIds, []);
             assert.deepEqual(
-              (yield* materials.materialVersion({ id: original.version.id })).content,
-              content
+              (yield* docs.version({ id: original.version.id })).document,
+              original.version.document
             );
           }
 
           assert.deepEqual((yield* conversations.session(saved.session.id)).projectIds, []);
           assert.equal(
-            (yield* materials.materials({
-              sessionId: saved.session.id,
-              archived: false,
-              limit: 10
-            })).items.length,
+            (yield* docs.documents({ sessionId: saved.session.id, archived: false, limit: 10 }))
+              .items.length,
             2
           );
           assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);

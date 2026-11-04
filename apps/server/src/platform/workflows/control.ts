@@ -52,7 +52,12 @@ export function cancelExecution(
 
     if (!row) return yield* Effect.fail(new StudyError('not_found', 'Workflow execution missing'));
 
-    if (isTerminalExecution(row.status)) return;
+    // Retired runs may still own an in-memory provider fiber after durable scrubbing.
+    if (
+      isTerminalExecution(row.status) &&
+      !(value.mode === 'unsafe' && workflowStore(context).retired(value.id))
+    )
+      return;
 
     const workflow = definitions.find((definition) => definition._tag === row.workflow_tag);
 

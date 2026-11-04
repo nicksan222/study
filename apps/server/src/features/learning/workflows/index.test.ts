@@ -15,6 +15,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
 import { failureSchema } from '@study/contracts/errors';
@@ -27,6 +28,7 @@ import type { Context } from 'effect';
 import { Effect, Layer, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
 
+import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
@@ -111,7 +113,11 @@ testStable(
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         Layer.succeed(Database, { store: context }),
         Learning.layer
-          .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+          .pipe(
+            Layer.provideMerge(Settings.layer),
+            Layer.provideMerge(Materials.layer),
+            Layer.provideMerge(Documents.layer)
+          )
           .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
         agentsLayer({
           model: () => Effect.succeed(model),
@@ -127,7 +133,11 @@ testStable(
         effect.pipe(
           Effect.provide(
             Learning.layer
-              .pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer))
+              .pipe(
+                Layer.provideMerge(Settings.layer),
+                Layer.provideMerge(Materials.layer),
+                Layer.provideMerge(Documents.layer)
+              )
               .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
           )
         )
@@ -303,7 +313,11 @@ testStable(
     const context = new ServerContext(location.open());
     const dbLayer = Layer.succeed(Database, { store: context });
     const services = Layer.mergeAll(
-      Learning.layer.pipe(Layer.provideMerge(Settings.layer), Layer.provideMerge(Materials.layer)),
+      Learning.layer.pipe(
+        Layer.provideMerge(Settings.layer),
+        Layer.provideMerge(Materials.layer),
+        Layer.provideMerge(Documents.layer)
+      ),
       workflowEngineLayer(context)
     ).pipe(Layer.provideMerge(dbLayer));
 
@@ -320,11 +334,13 @@ testStable(
             const materials = yield* Materials;
             const learning = yield* Learning;
             const engine = yield* WorkflowEngine.WorkflowEngine;
-            const doc = yield* materials.create({
+            const doc = yield* (yield* Documents).create({
+              createKey: randomUUID(),
+              inputs: [],
+              citations: [],
               projectId: project.id,
               title: 'Document',
-              content: {
-                kind: 'document',
+              document: {
                 blocks: [plainBlock('paragraph', 'Practice source', { type: 'authored' })],
                 meta: {
                   extractor: null,
@@ -342,7 +358,7 @@ testStable(
 
             yield* learning.startPractice({
               projectId: project.id,
-              inputVersionIds: [doc.version.id]
+              inputs: [{ kind: 'document', versionId: doc.version!.id }]
             });
             const event = decodeEvent(
               context.db.orm
@@ -443,7 +459,7 @@ testStable(
             assert.equal(retried.slotId, failed.slotId);
             assert.equal(retried.ordinal, failed.ordinal);
             assert.equal(retried.kind, failed.kind);
-            assert.deepEqual(retried.inputVersionIds, failed.inputVersionIds);
+            assert.deepEqual(retried.inputs, failed.inputs);
             yield* learning.retryPracticeQuestion({ slotId: event.slotId });
             assert.equal(
               yield* engine.execute(practiceFailureWorkflow, {
@@ -567,7 +583,7 @@ testStable(
                     citations: [
                       {
                         marker: 1n,
-                        inputVersionId: doc.version.id,
+                        input: { kind: 'document', versionId: doc.version!.id },
                         blockOrdinal: 0,
                         quote: 'Practice source'
                       }
@@ -668,7 +684,7 @@ testStable(
             yield* learning.stopPractice({ projectId: project.id });
             yield* learning.startPractice({
               projectId: project.id,
-              inputVersionIds: [doc.version.id]
+              inputs: [{ kind: 'document', versionId: doc.version!.id }]
             });
             const replay = yield* learning.answerPracticeQuestion({
               slotId: ready.slotId,
@@ -686,6 +702,11 @@ testStable(
               )).kind,
               'invalid_input'
             );
+            const manualOutput = yield* materials.create({
+              projectId: project.id,
+              title: 'Manual diagram',
+              content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA-->B' }
+            });
             const manual = {
               type: 'MaterialPublished' as const,
               eventId: 'manual',
@@ -694,8 +715,8 @@ testStable(
               inputVersion: 1,
               depth: 0,
               projectId: project.id,
-              materialId: doc.id,
-              materialVersionId: doc.version.id
+              materialId: manualOutput.id,
+              materialVersionId: manualOutput.version.id
             };
 
             assert.equal(

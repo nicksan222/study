@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { projectIdSchema } from '@study/contracts/ids';
-import { testStable, testMigration } from '@study/testing/node';
+import { testMigration, testStable } from '@study/testing/node';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Schema } from 'effect';
 
@@ -209,18 +209,19 @@ testMigration({ migration: 'ask_migration', retention: 'permanent' })(
           'message_fts_ad',
           'message_fts_finish',
           'conversation_recording_posts_validate_insert',
-          'material_deletion_reply_publication',
-          'history_reply_publication',
-          'conversation_history_intents_update',
-          'conversation_history_intents_delete',
-          'conversation_history_intents_valid',
-          'session_history_intent_insert'
+          'session_retired_intents_owner',
+          'session_retired_intents_update',
+          'session_retired_intents_delete',
+          'session_retired_intent_recapture',
+          'conversation_reply_sources_capture',
+          'conversation_reply_sources_immutable',
+          'conversation_reply_sources_retained'
         ])
           assert.ok(names.has(name), name);
 
         assert.throws(() =>
-          connection.orm.run(sql`INSERT INTO conversation_history_intents
-        (session_id,intent_key,deletion_request_id) VALUES (1,'forged','missing')`)
+          connection.orm.run(sql`INSERT INTO session_retired_intents
+        (session_id,intent_key,request_id,reason) VALUES (1,'forged','missing','input_retired')`)
         );
         assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
       } finally {

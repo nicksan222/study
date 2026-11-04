@@ -20,10 +20,14 @@ import { Option, Schema } from 'effect';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
+import { makeContextRetirement } from './context-retirement.ts';
+
 export const SessionDeletionStore = defineStore({
   name: 'study/SessionDeletionStore',
   entity: { singular: 'sessionDeletion', plural: 'sessionDeletions' },
-  make: ({ db, clock }) => {
+  make: (resources) => {
+    const { db, clock } = resources;
+    const retirement = makeContextRetirement(resources);
     function read(id: typeof sessionIdSchema.Type) {
       const row = db.orm
         .select()
@@ -95,6 +99,31 @@ export const SessionDeletionStore = defineStore({
               .run();
 
             return read(sessionId)!;
+          }
+        }),
+        retireCaptures: storeMutation({
+          input: Schema.Array(Schema.String),
+          output: Schema.Void,
+          run: (ids) => {
+            for (const id of ids) {
+              const captured = db.orm
+                .select()
+                .from(s.session_run_contexts)
+                .where(eq(s.session_run_contexts.request_id, id))
+                .get();
+              if (captured)
+                db.orm
+                  .insert(s.session_retired_intents)
+                  .values({
+                    session_id: captured.session_id,
+                    intent_key: captured.intent_key,
+                    request_id: id,
+                    reason: 'session_deleted'
+                  })
+                  .onConflictDoNothing()
+                  .run();
+              retirement.scrubRequest(id);
+            }
           }
         }),
         removeConversation: storeMutation({
@@ -171,7 +200,9 @@ export const SessionDeletionOwnershipStore = defineStore({
           const contextIds = db.orm
             .select()
             .from(s.session_run_contexts)
-            .where(eq(s.session_run_contexts.session_id, id))
+            .where(
+              sql`${s.session_run_contexts.session_id}=${id} OR EXISTS(SELECT 1 FROM json_each(${s.session_run_contexts.snapshot}, '$.additionalSessionIds') included WHERE CAST(included.value AS TEXT)=${String(id)})`
+            )
             .all()
             .map((row) => row.request_id);
           const events = db.orm

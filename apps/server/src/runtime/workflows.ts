@@ -22,6 +22,7 @@ import {
   conversationAttachmentWakeRegistration
 } from '#server/features/conversations/workflows/index';
 import { conversationTitleRegistration } from '#server/features/conversations/workflows/title';
+import { documentTransformRegistration } from '#server/features/documents/workflows/transform';
 import {
   quizGradingRegistration,
   practiceSlotRegistration,
@@ -31,13 +32,13 @@ import {
 import { materialDeletionRegistration } from '#server/features/materials/workflows/deletion';
 import { materialGenerationRegistration } from '#server/features/materials/workflows/generation';
 import { materialHistoryRegistration } from '#server/features/materials/workflows/history';
-import { sourceIndexedRegistration } from '#server/features/materials/workflows/index';
 import { recordingPostRegistration } from '#server/features/recordings/workflows/index';
 import { sourceCorrectionRegistration } from '#server/features/sources/workflows/index';
 import { sourceIngestionRegistration } from '#server/features/sources/workflows/index';
 
 /** Each workflow is registered once with its durable event subscriptions. */
 const entries = [
+  documentTransformRegistration,
   materialHistoryRegistration,
   materialDeletionRegistration,
   sessionDeletionRegistration,
@@ -49,7 +50,6 @@ const entries = [
   conversationReplyRegistration,
   sourceIngestionRegistration,
   sourceCorrectionRegistration,
-  sourceIndexedRegistration,
   quizGradingRegistration,
   practiceSlotRegistration,
   practicePublicationRegistration

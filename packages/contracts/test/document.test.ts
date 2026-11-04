@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { testStable } from '@study/testing/node';
 import { Schema } from 'effect';
 
-import { documentIdSchema, materialVersionIdSchema } from '../src/ids.ts';
-import { createBlock, validDocumentTextRange } from '../src/sources/document.ts';
-import { anchorSchema, documentTextRangeSchema } from '../src/sources/schemas.ts';
+import { contentRangeSchema } from '../src/inputs.ts';
+import { createBlock, validBlockTextRange } from '../src/sources/document.ts';
+import { anchorSchema } from '../src/sources/schemas.ts';
 
 testStable(
   'editor ranges use exact UTF-16 boundaries independently of source byte positions',
@@ -28,11 +28,7 @@ testStable(
         omissions: []
       }
     };
-    const target = {
-      versionId: Schema.decodeUnknownSync(materialVersionIdSchema)(1n),
-      documentId: Schema.decodeUnknownSync(documentIdSchema)(1n)
-    };
-    const range = { ...target, blockId: block.id, start: 0, end: 5 };
+    const range = { blockId: block.id, start: 0, end: 5 };
 
     for (const [start, end] of [
       [0, 0],
@@ -42,7 +38,7 @@ testStable(
       [4, 5],
       [5, 5]
     ]) {
-      assert.equal(validDocumentTextRange(document, target, { ...range, start, end }), true);
+      assert.equal(validBlockTextRange(document, { ...range, start, end }), true);
     }
 
     for (const [start, end] of [
@@ -57,15 +53,15 @@ testStable(
       [0, Number.POSITIVE_INFINITY],
       [100, 109]
     ]) {
-      assert.equal(validDocumentTextRange(document, target, { ...range, start, end }), false);
+      assert.equal(validBlockTextRange(document, { ...range, start, end }), false);
     }
 
-    assert.equal(Schema.is(documentTextRangeSchema)({ ...range, start: 0.5 }), false);
+    assert.equal(Schema.is(contentRangeSchema)({ ...range, start: 0.5 }), false);
     assert.equal(
-      Schema.is(documentTextRangeSchema)({ ...range, end: Number.MAX_SAFE_INTEGER + 1 }),
+      Schema.is(contentRangeSchema)({ ...range, end: Number.MAX_SAFE_INTEGER + 1 }),
       false
     );
-    assert.equal(Schema.is(documentTextRangeSchema)({ ...range, start: 3, end: 1 }), false);
+    assert.equal(Schema.is(contentRangeSchema)({ ...range, start: 3, end: 1 }), false);
     assert.deepEqual(block.anchor, {
       type: 'text',
       lineStart: 1,

@@ -15,18 +15,20 @@
  */
 
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
-import { material_versions, materials, workflow_executions } from '@study/db/schema';
+import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/node';
 import { Effect, Layer } from 'effect';
 
 import { Conversations } from '#server/features/conversations/service/index';
-import { Materials } from '#server/features/materials/service/index';
+import { Documents } from '#server/features/documents/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { withTestPublication } from '#testing/publication';
 
 const meta = {
   language: null,
@@ -47,7 +49,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const layer = Layer.merge(Conversations.layer, Materials.layer).pipe(
+    const layer = Layer.merge(Conversations.layer, Documents.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -55,7 +57,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const conversations = yield* Conversations;
-          const library = yield* Materials;
+          const library = yield* Documents;
           const session = yield* conversations.createSession({ title: 'Study' });
 
           yield* conversations.setSessionSettled({ id: session.id, settled: true });
@@ -80,28 +82,43 @@ testStable(
             meta
           };
 
-          yield* library.createManualDocument({ title: 'Manual', document, sessionId: session.id });
-          const generated = yield* library.create({
-            title: 'Generated',
-            content: {
-              kind: 'document',
-              ...document,
-              blocks: [plainBlock('paragraph', 'Generated', { type: 'authored' })]
-            },
+          yield* library.create({
+            createKey: randomUUID(),
+            title: 'Manual',
+            document,
             sessionId: session.id,
-            publish: false
+            inputs: [],
+            citations: []
           });
-
-          context.db.orm
-            .update(material_versions)
-            .set({ creator: 'agent' })
-            .where(eq(material_versions.id, generated.version.id))
-            .run();
           assert.equal(
             (yield* conversations.sessionSummaries({})).items[0]?.generatedDocumentCount,
             0n
           );
-          yield* library.publishVersion({ id: generated.version.id });
+          yield* withTestPublication(
+            context,
+            library
+              .createGenerated({
+                requestId: 'sidebar-generated',
+                title: 'Generated',
+                document: {
+                  ...document,
+                  blocks: [plainBlock('paragraph', 'Generated', { type: 'authored' })]
+                },
+                inputs: [],
+                citations: [],
+                operation: 'generate',
+                instruction: 'Generate',
+                language: null,
+                sessionId: session.id
+              })
+              .pipe(Effect.asVoid)
+          );
+          const generated = (yield* library.documents({
+            sessionId: session.id,
+            limit: 10,
+            archived: false
+          })).items.find((item) => item.title === 'Generated');
+          assert.ok(generated);
           const summary = (yield* conversations.sessionSummaries({})).items[0];
 
           assert.deepEqual(summary, {
@@ -111,11 +128,7 @@ testStable(
             running: false,
             activity: 'idle'
           });
-          context.db.orm
-            .update(materials)
-            .set({ archived_at: generated.created_at })
-            .where(eq(materials.id, generated.id))
-            .run();
+          yield* library.archive({ id: generated.id, archived: true });
           assert.equal(
             (yield* conversations.sessionSummaries({})).items[0]?.generatedDocumentCount,
             0n

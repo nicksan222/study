@@ -15,13 +15,8 @@
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import { eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
-
-const inputIdsCodec = Schema.fromJsonString(
-  Schema.toCodecJson(Schema.Array(materialVersionIdSchema))
-);
 
 export function makeMaterialRetirement({ db }: StoreResources) {
   function inspect(versions: readonly (typeof materialVersionIdSchema.Type)[]) {
@@ -35,14 +30,7 @@ export function makeMaterialRetirement({ db }: StoreResources) {
       .select()
       .from(s.learning_practice_slots)
       .all()
-      .filter(
-        (p) =>
-          (p.version_id !== null && versions.includes(p.version_id)) ||
-          (p.status === 'pending' &&
-            Schema.decodeUnknownSync(inputIdsCodec)(p.input_version_ids).some((v) =>
-              versions.includes(v)
-            ))
-      );
+      .filter((slot) => slot.version_id !== null && versions.includes(slot.version_id));
 
     const events = db.orm
       .select({ eventId: s.workflowEvents.eventId, correlationId: s.workflowEvents.correlationId })
@@ -67,6 +55,10 @@ export function makeMaterialRetirement({ db }: StoreResources) {
     const { slots, requestIds } = inspect(versions);
 
     for (const p of slots) {
+      db.orm
+        .delete(s.learning_practice_inputs)
+        .where(eq(s.learning_practice_inputs.slot_id, p.id))
+        .run();
       const ownsOutput = p.version_id !== null && versions.includes(p.version_id);
 
       db.orm

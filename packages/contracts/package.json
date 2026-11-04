@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./inputs": "./src/inputs.ts",
     "./ai/document-transform": "./src/ai/document-transform.ts",
     "./ai/grade": "./src/ai/grade.ts",
     "./ai/reply": "./src/ai/reply.ts",
@@ -53,15 +54,23 @@
     "./themes/rpc": "./src/themes/rpc.ts",
     "./system/rpc": "./src/system/rpc.ts",
     "./conversations/rpc": "./src/conversations/rpc.ts",
-    "./materials/evidence": "./src/materials/evidence.ts",
+    "./materials/inputs": "./src/materials/inputs.ts",
     "./materials/history": "./src/materials/history.ts",
     "./materials/deletion": "./src/materials/deletion.ts",
-    "./materials/editing": "./src/materials/editing.ts",
     "./materials/export": "./src/materials/export.ts",
     "./materials/rpc": "./src/materials/rpc.ts",
     "./learning/rpc": "./src/learning/rpc.ts",
     "./workflows/schemas": "./src/workflows/schemas.ts",
-    "./workflows/rpc": "./src/workflows/rpc.ts"
+    "./workflows/rpc": "./src/workflows/rpc.ts",
+    "./documents/schemas": "./src/documents/schemas.ts",
+    "./documents/editing": "./src/documents/editing.ts",
+    "./documents/rpc": "./src/documents/rpc.ts",
+    "./documents/types": "./src/documents/types.ts",
+    "./documents": "./src/documents/index.ts",
+    "./documents/evidence": "./src/documents/evidence.ts",
+    "./documents/transform": "./src/documents/transform.ts",
+    "./exports": "./src/exports.ts",
+    "./documents/export": "./src/documents/export.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

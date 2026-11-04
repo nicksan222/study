@@ -1,8 +1,7 @@
 import { Schema } from 'effect';
 
 import {
-  documentIdSchema,
-  materialVersionIdSchema,
+  contentSnapshotIdSchema,
   messageIdSchema,
   partIdSchema,
   projectIdSchema,
@@ -11,9 +10,9 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
-import { evidenceResolutionSchema } from '../materials/evidence.ts';
-import { anchorSchema, blockIdSchema, documentTextRangeSchema } from '../sources/schemas.ts';
+import { anchorSchema, blockIdSchema } from '../sources/schemas.ts';
 import { sourceKindSchema } from '../sources/sniff.ts';
+import { selectionReferenceSchema, selectionRangeSchema } from './context.ts';
 import {
   runSelectionContextSchema,
   runPreferencesSchema,
@@ -52,22 +51,24 @@ const citationSchema = Schema.Struct({
   precision: Schema.optional(Schema.Literals(['exact', 'approximate', 'unavailable'])),
   evidence: Schema.optional(
     Schema.Union([
-      evidenceResolutionSchema,
+      Schema.Struct({
+        availability: Schema.Literal('available'),
+        precision: Schema.Literals(['exact', 'approximate']),
+        excerpt: Schema.String,
+        snapshotId: contentSnapshotIdSchema
+      }),
       Schema.Struct({
         availability: Schema.Literal('unavailable'),
-        precision: Schema.Literal('approximate'),
-        reason: Schema.Literal('attachment_target_unresolved'),
-        sourceId: Schema.NullOr(sourceIdSchema),
-        anchor: anchorSchema,
-        quote: Schema.String
+        precision: Schema.Literal('unavailable'),
+        reason: Schema.Literal('captured_input_unavailable')
       })
     ])
   ),
   support: Schema.optional(Schema.Struct({ state: Schema.Literal('unassessed') })),
   marker: Schema.Number,
   sourceId: Schema.NullOr(sourceIdSchema),
-  materialVersionId: Schema.optional(Schema.NullOr(materialVersionIdSchema)),
-  documentId: Schema.optional(Schema.NullOr(documentIdSchema)),
+  input: Schema.optional(Schema.NullOr(selectionReferenceSchema)),
+  documentId: Schema.optional(Schema.NullOr(contentSnapshotIdSchema)),
   blockId: Schema.optional(Schema.NullOr(blockIdSchema)),
   rangeStart: Schema.optional(Schema.NullOr(Schema.Int)),
   rangeEnd: Schema.optional(Schema.NullOr(Schema.Int)),
@@ -222,7 +223,8 @@ export const replySnapshotSchema = Schema.Struct({
           partId: partIdSchema,
           sourceId: sourceIdSchema,
           sourceName: Schema.String,
-          documentId: documentIdSchema,
+          revision: Schema.BigInt.check(Schema.isGreaterThanBigInt(0n)),
+          snapshotId: contentSnapshotIdSchema,
           projectId: Schema.NullOr(projectIdSchema)
         })
       )
@@ -237,9 +239,9 @@ export const publishReplyInputSchema = Schema.Struct({
     Schema.Struct({
       marker: Schema.Number,
       sourceId: Schema.NullOr(sourceIdSchema),
-      materialVersionId: Schema.optional(materialVersionIdSchema),
-      selectedRange: Schema.optional(documentTextRangeSchema),
-      documentId: documentIdSchema,
+      input: selectionReferenceSchema,
+      selectedRange: Schema.optional(selectionRangeSchema),
+      documentId: contentSnapshotIdSchema,
       blockOrdinal: Schema.Number,
       quote: Schema.String
     })

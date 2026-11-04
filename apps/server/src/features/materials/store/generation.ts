@@ -18,12 +18,13 @@ import { createHash } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { SessionId } from '@study/contracts/ids';
+import { contentInputKey, resolvedContentInputSchema } from '@study/contracts/inputs';
 import {
-  documentTransformReportSchema,
   materialGenerationInputSchema,
   materialGenerationPayloadSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
+import { validBlockTextRange } from '@study/contracts/sources/document';
 import { decodeBlockContent } from '@study/contracts/sources/document';
 import { hasTextualContent } from '@study/contracts/sources/schemas';
 import { and, asc, eq, inArray } from '@study/db';
@@ -36,24 +37,20 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 import { makeCreateMaterial } from './create-material.ts';
-import { makeProposalRegistration } from './document-proposals.ts';
+import { makeExactInputs } from './exact-inputs.ts';
 import { makeReads, required } from './reads.ts';
-import { anchorSchema } from './schemas.ts';
 import { makeSetCitationsAction } from './set-citations-action.ts';
 import { makeWrites, now } from './writes.ts';
-
-const reportCodec = Schema.fromJsonString(Schema.toCodecJson(documentTransformReportSchema));
 
 const codec = Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema));
 
 export function makeGeneration(resources: StoreResources) {
   const { db, clock } = resources;
+  const exact = makeExactInputs(resources);
 
   const { createMaterial } = makeCreateMaterial(resources);
 
-  const registerProposal = makeProposalRegistration(resources);
-
-  const { materialRow, versionRow, versionDocumentId, readVersion } = makeReads(resources);
+  const { materialRow, versionRow, readVersion } = makeReads(resources);
 
   const { setCitations } = makeSetCitationsAction(resources);
 
@@ -74,9 +71,8 @@ export function makeGeneration(resources: StoreResources) {
         projectId: input.projectId,
         title: input.title,
         kind: input.kind,
-        documentTransform: input.documentTransform,
         instruction: input.instruction,
-        inputVersionIds: input.inputVersionIds,
+        inputs: input.inputs,
         scopeId: input.scopeId,
         questionSpec: input.questionSpec
       });
@@ -99,20 +95,9 @@ export function makeGeneration(resources: StoreResources) {
   }) {
     const request = Schema.decodeUnknownSync(materialGenerationInputSchema)(value.request);
 
-    if (
-      request.documentTransform &&
-      value.requestId !== `document/${request.documentTransform.contextRequestId}`
-    )
-      throw new StudyError(
-        'invalid_input',
-        'Document request must use its captured context identity'
-      );
-
     assertActiveScope(request);
 
-    assertRequestedInputVersions(request);
-
-    const { title, kind, instruction, scopeId, questionSpec, documentTransform } = request;
+    const { title, kind, instruction, scopeId, questionSpec } = request;
 
     db.orm
       .insert(s.material_generation_requests)
@@ -120,52 +105,20 @@ export function makeGeneration(resources: StoreResources) {
         id: value.requestId,
         project_id: request.projectId ?? null,
         payload: Schema.encodeSync(codec)({
-          documentTransform,
           title,
           kind,
           instruction,
           scopeId,
           questionSpec,
-          inputVersionIds: request.inputVersionIds
+          inputs: request.inputs
         }),
         created_at: now(clock)
       })
       .run();
 
-    if (request.inputVersionIds.length)
-      db.orm
-        .insert(s.material_generation_inputs)
-        .values(
-          request.inputVersionIds.map((id, position) => ({
-            request_id: value.requestId,
-            version_id: id,
-            position: BigInt(position)
-          }))
-        )
-        .run();
+    exact.insertInputs({ kind: 'request', id: value.requestId }, request.inputs);
 
     return { id: value.requestId, ...request };
-  }
-
-  function assertRequestedInputVersions(request: typeof materialGenerationInputSchema.Type) {
-    for (const id of request.inputVersionIds) {
-      const version = versionRow(id);
-
-      const material = materialRow(version.material_id);
-
-      if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
-
-      if (version.status !== 'published' || material.archived_at !== null)
-        throw new StudyError(
-          'invalid_input',
-          'Generation requires active published documents in the project'
-        );
-
-      if (versionDocumentId(id) === null)
-        throw new StudyError('invalid_input', 'Generation requires an extracted document revision');
-    }
-
-    for (const id of request.inputVersionIds) assertTextEvidence(required(versionDocumentId(id)));
   }
 
   function readGeneration(requestId: string) {
@@ -194,35 +147,20 @@ export function makeGeneration(resources: StoreResources) {
       .get();
 
     if (!row) return null;
-
-    if (
-      db.orm
-        .select()
-        .from(s.session_generation_retirements)
-        .where(eq(s.session_generation_retirements.request_id, requestId))
-        .get()
-    )
-      throw new StudyError('not_found', 'Session generation has been retired');
-
-    const inputs = db.orm
-      .select({
-        versionId: s.material_generation_inputs.version_id,
-        documentId: s.material_generation_inputs.version_id
-      })
-      .from(s.material_generation_inputs)
-      .where(eq(s.material_generation_inputs.request_id, requestId))
-      .orderBy(asc(s.material_generation_inputs.position))
-      .all()
-      .map((input) => ({ ...input, documentId: versionDocumentId(input.versionId) }));
-
-    if (inputs.some((input) => input.documentId === null))
-      throw new StudyError('invalid_input', 'Generation inputs are incomplete');
+    if (row.payload === '{}')
+      throw new StudyError('not_found', 'Generation inputs are unavailable');
 
     const payload = Schema.decodeUnknownSync(codec)(row.payload);
+    const inputs =
+      row.cancelled && row.result_version_id === null
+        ? payload.inputs
+        : exact.inputs({ kind: 'request', id: requestId });
 
     if (
-      payload.inputVersionIds.length !== inputs.length ||
-      payload.inputVersionIds.some((id, index) => id !== inputs[index]?.versionId)
+      payload.inputs.length !== inputs.length ||
+      payload.inputs.some(
+        (input, index) => contentInputKey(input) !== contentInputKey(inputs[index]!)
+      )
     )
       throw new StudyError('invalid_input', 'Generation inputs differ from captured intent');
 
@@ -230,56 +168,15 @@ export function makeGeneration(resources: StoreResources) {
       id: row.id,
       projectId: row.project_id ?? undefined,
       cancelled: row.cancelled,
-      report:
-        row.result_metadata === null
-          ? null
-          : Schema.decodeUnknownSync(reportCodec)(row.result_metadata),
       ...payload,
-      inputVersionIds: inputs.map((input) => input.versionId),
-      documentIds: inputs.map((input) => required(input.documentId)),
+      inputs,
       resultVersionId: row.result_version_id
     };
   }
 
-  function assertTextEvidence(documentId: NonNullable<ReturnType<typeof versionDocumentId>>) {
-    const blocks = db.orm
-      .select({ content: s.blocks.content })
-      .from(s.blocks)
-      .where(eq(s.blocks.document_id, documentId))
-      .all();
-
-    if (!blocks.some((block) => hasTextualContent(decodeBlockContent(block.content))))
-      throw new StudyError('invalid_input', 'Generation requires captured textual evidence');
-  }
-
   function validateInputs(request: NonNullable<ReturnType<typeof readGeneration>>) {
-    if (
-      (request.kind !== 'document' && request.inputVersionIds.length === 0) ||
-      request.inputVersionIds.length !== request.documentIds.length
-    )
-      throw new StudyError('invalid_input', 'Generation inputs are incomplete');
-
-    for (const [index, id] of request.inputVersionIds.entries()) {
-      const version = versionRow(id);
-
-      const material = materialRow(version.material_id, true);
-
-      if (request.projectId !== undefined) assertMembership(request.projectId, material.id);
-
-      const documentId = versionDocumentId(id);
-
-      if (documentId !== null) assertTextEvidence(documentId);
-
-      if (
-        version.status !== 'published' ||
-        documentId === null ||
-        documentId !== request.documentIds[index]
-      )
-        throw new StudyError(
-          'invalid_input',
-          'Generation requires active published documents in the project'
-        );
-    }
+    if (!request.inputs.length)
+      throw new StudyError('invalid_input', 'Generation input capture is unavailable');
   }
 
   function generationContext(requestId: string, eventId?: string, verifyOnly = false) {
@@ -404,7 +301,9 @@ export function makeGeneration(resources: StoreResources) {
   );
 
   function publishGeneration(
-    input: typeof materialGenerationPublicationSchema.Type & { proposalSessionId?: SessionId }
+    input: typeof materialGenerationPublicationSchema.Type & {
+      inputSnapshots: readonly (typeof resolvedContentInputSchema.Type)[];
+    }
   ) {
     const value = Schema.decodeUnknownSync(materialGenerationPublicationSchema)(input);
 
@@ -419,7 +318,6 @@ export function makeGeneration(resources: StoreResources) {
             requestId: value.requestId,
             content: value.content,
             language: value.language,
-            report: value.report,
             citations
           })
         )
@@ -451,19 +349,19 @@ export function makeGeneration(resources: StoreResources) {
 
     assertGenerationContent(request, value);
 
-    const resolved = citations.map((citation) => resolveGenerationCitation(request, citation));
+    const resolved = citations.map((citation) =>
+      resolveGenerationCitation(request, citation, input.inputSnapshots)
+    );
 
     const event = assertGenerationEvent(request, value.generationEventId ?? request.id);
 
-    const result = createGenerationOutput(request, value, input.proposalSessionId, resolved);
+    const result = createGenerationOutput(request, value, resolved);
 
     db.orm
       .update(s.material_generation_requests)
       .set({
         result_version_id: result.versionId,
-        result_hash: hash,
-        result_metadata:
-          value.report === undefined ? null : Schema.encodeSync(reportCodec)(value.report)
+        result_hash: hash
       })
       .where(eq(s.material_generation_requests.id, request.id))
       .run();
@@ -477,36 +375,27 @@ export function makeGeneration(resources: StoreResources) {
   function createGenerationOutput(
     request: NonNullable<ReturnType<typeof readGeneration>>,
     value: typeof materialGenerationPublicationSchema.Type,
-    proposalSessionId: SessionId | undefined,
     resolved: ReturnType<typeof resolveGenerationCitation>[]
   ) {
-    const targetVersionId = request.documentTransform?.editTargetVersionId;
-
-    const target = targetVersionId === undefined ? undefined : versionRow(targetVersionId);
-
     const versionInput = {
       content: value.content,
-      inputs: request.inputVersionIds,
+      inputs: request.inputs,
       operation: 'generate' as const,
       language: value.language,
       publish: false
     };
 
-    const material =
-      target === undefined
-        ? createMaterial({ ...versionInput, projectId: request.projectId, title: request.title })
-        : {
-            id: target.material_id,
-            version: {
-              id: insertVersion(target.material_id, { ...versionInput, parents: [target.id] })
-            }
-          };
+    const material = createMaterial({
+      ...versionInput,
+      projectId: request.projectId,
+      title: request.title
+    });
 
     db.orm
       .update(s.material_versions)
       .set({
         creator: 'agent',
-        instruction: request.documentTransform ? null : (request.instruction ?? null),
+        instruction: request.instruction ?? null,
         generation_request_id: request.id
       })
       .where(eq(s.material_versions.id, material.version.id))
@@ -514,49 +403,37 @@ export function makeGeneration(resources: StoreResources) {
 
     setCitations({ id: material.version.id, citations: resolved });
 
-    if (target === undefined) publish(material.version.id);
-    else
-      registerProposal({
-        requestId: request.id,
-        sessionId: required(proposalSessionId),
-        baseVersionId: target.id,
-        proposedVersionId: material.version.id
-      });
-
-    return {
-      versionId: material.version.id,
-      ...(target === undefined ? { materialId: material.id } : {})
-    };
+    publish(material.version.id);
+    return { versionId: material.version.id, materialId: material.id };
   }
 
   function resolveGenerationCitation(
     request: NonNullable<ReturnType<typeof readGeneration>>,
-    citation: (typeof materialGenerationPublicationSchema.Type)['citations'][number]
+    citation: (typeof materialGenerationPublicationSchema.Type)['citations'][number],
+    snapshots: readonly (typeof resolvedContentInputSchema.Type)[]
   ) {
-    const index = request.inputVersionIds.indexOf(citation.inputVersionId);
-
-    if (index < 0 || !citation.quote.trim())
-      throw new StudyError('invalid_input', 'Invalid citation');
-
-    const block = db.orm
-      .select()
-      .from(s.blocks)
-      .where(
-        and(
-          eq(s.blocks.document_id, request.documentIds[index]!),
-          eq(s.blocks.ordinal, BigInt(citation.blockOrdinal))
-        )
-      )
-      .get();
-
+    const key = contentInputKey(citation.input);
+    const selected = snapshots.find((snapshot) => contentInputKey(snapshot.input) === key);
+    if (!selected || !request.inputs.some((input) => contentInputKey(input) === key))
+      throw new StudyError('invalid_input', 'Citation is outside exact learning inputs');
+    const block = selected.document.blocks[citation.blockOrdinal];
     if (!block || !block.text.includes(citation.quote))
-      throw new StudyError('invalid_input', 'Citation does not match its source block');
-
+      throw new StudyError('invalid_input', 'Citation does not match its exact source block');
+    if (
+      citation.target &&
+      (citation.target.blockId !== block.id ||
+        !validBlockTextRange(selected.document, citation.target) ||
+        !block.text.slice(citation.target.start, citation.target.end).includes(citation.quote))
+    )
+      throw new StudyError(
+        'invalid_input',
+        'Citation target does not match its exact source passage'
+      );
     return {
       marker: citation.marker,
-      inputVersionId: citation.inputVersionId,
-      anchor: Schema.decodeUnknownSync(anchorSchema)(JSON.parse(block.anchor)),
-      ...(citation.target === undefined ? {} : { target: citation.target }),
+      input: citation.input,
+      anchor: block.anchor,
+      target: citation.target,
       quote: citation.quote
     };
   }
@@ -570,44 +447,11 @@ export function makeGeneration(resources: StoreResources) {
     if (value.content.kind !== request.kind)
       throw new StudyError('invalid_input', 'Generation kind mismatch');
 
-    const targetVersionId = request.documentTransform?.editTargetVersionId;
-
-    const target =
-      targetVersionId === undefined ? undefined : required(readVersion(targetVersionId));
-
-    const inheritedIds =
-      target?.kind === 'document' ? target.content.blocks.map((block) => block.id) : [];
-
-    assertFreshDerivativeIds(value.content, inheritedIds);
-
-    if (request.kind !== 'document' && value.citations.length === 0)
+    if (value.citations.length === 0)
       throw new StudyError('invalid_input', 'Generated content must cite captured evidence');
 
     if (new Set(value.citations.map((c) => c.marker)).size !== value.citations.length)
       throw new StudyError('invalid_input', 'Duplicate citation markers');
-  }
-
-  function assertFreshDerivativeIds(
-    content: typeof materialGenerationPublicationSchema.Type.content,
-    inheritedIds: readonly string[] = []
-  ) {
-    const freshIds =
-      content.kind === 'document'
-        ? content.blocks
-            .filter((block) => !inheritedIds.includes(block.id))
-            .map((block) => block.id)
-        : [];
-
-    if (
-      content.kind === 'document' &&
-      freshIds.length &&
-      db.orm
-        .select({ id: s.blocks.id })
-        .from(s.blocks)
-        .where(inArray(s.blocks.editing_id, freshIds))
-        .get()
-    )
-      throw new StudyError('invalid_input', 'Derivative block identities must be fresh');
   }
 
   type Scope = {
@@ -681,12 +525,14 @@ export function makeGeneration(resources: StoreResources) {
   function cancelGeneration(value: { requestId: string }) {
     const request = required(readGeneration(value.requestId));
 
-    if (request.resultVersionId === null)
+    if (request.resultVersionId === null) {
       db.orm
         .update(s.material_generation_requests)
         .set({ cancelled: true })
         .where(eq(s.material_generation_requests.id, value.requestId))
         .run();
+      exact.releaseInputs({ kind: 'request', id: value.requestId });
+    }
 
     return required(readGeneration(value.requestId));
   }
