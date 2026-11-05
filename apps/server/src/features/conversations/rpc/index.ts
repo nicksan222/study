@@ -25,6 +25,8 @@ export const ConversationsRpcLive = defineRpc(
     const conversations = yield* Conversations;
 
     return {
+      'conversations.setMessageKind': (input) => conversations.setMessageKind(input),
+      'conversations.answerQuestion': (input) => conversations.answerQuestion(input),
       'conversations.archivedItems': (input) => conversations.archivedItems(input),
       'conversations.setItemArchived': (input) => conversations.setItemArchived(input),
       'conversations.sessionSelection': (input) => conversations.sessionSelection(input),

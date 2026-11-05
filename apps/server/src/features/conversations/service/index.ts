@@ -43,6 +43,9 @@ import type {
   sessionGenerationPageInputSchema
 } from '@study/contracts/conversations/rpc';
 import type {
+  questionVersionInputSchema,
+  setMessageKindInputSchema,
+  questionClassificationSchema,
   askInputSchema,
   replyVersionInputSchema,
   publishReplyInputSchema,
@@ -84,6 +87,7 @@ import {
   MessageStore,
   MessageVersionCitationsStore
 } from '#server/features/conversations/store/message';
+import { QuestionStore, QuestionAnswerStore } from '#server/features/conversations/store/questions';
 import { RecordingPostStore } from '#server/features/conversations/store/recording';
 import {
   ReplyStore,
@@ -184,6 +188,31 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
+      setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
+          return yield* transaction((tx) => {
+            tx.store(QuestionStore).setQuestionKind(input);
+            if (input.kind === 'question' && preferences.autoAnswerQuestions)
+              answerQuestion(tx, input);
+            return tx.store(MessageStore).message(input.messageId);
+          });
+        }),
+      answerQuestion: (input: typeof questionVersionInputSchema.Type) =>
+        transaction((tx) => answerQuestion(tx, input)),
+      questionSnapshot: (input: typeof questionVersionInputSchema.Type) =>
+        transaction((tx) => tx.store(QuestionStore).questionSnapshot(input)),
+      publishQuestion: (
+        input: typeof questionVersionInputSchema.Type & typeof questionClassificationSchema.Type
+      ) =>
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
+          return yield* publicationTransaction((tx) => {
+            const accepted = tx.store(QuestionStore).publishQuestion(input);
+            if (accepted && input.kind === 'question' && preferences.autoAnswerQuestions)
+              answerQuestion(tx, input);
+          });
+        }),
       applyDocumentProposal: (value: typeof editing.applyProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Documents.findProposalReceiptInTransaction(tx, {
@@ -355,6 +384,7 @@ export const Conversations = defineService(
         }),
       replySnapshot: (input: { requestId: string }) =>
         transaction((tx) => {
+          tx.store(QuestionStore).assertQuestionAnswer(input);
           const snapshot = tx.store(ReplyStore).replySnapshot(input);
 
           if (snapshot.context) {
@@ -389,6 +419,7 @@ export const Conversations = defineService(
             if (Option.isSome(context))
               for (const target of context.value.inputs) assertCapturedTarget(tx, target);
 
+            tx.store(QuestionStore).assertQuestionAnswer(input);
             const versionId = tx.store(ReplyStore).publishReply(input);
 
             if (preferences.autoTitleSessions) {
@@ -532,6 +563,7 @@ export const Conversations = defineService(
 
           emitReplyRequest(tx, result, 'reply');
 
+          retainExplicitQuestionAnswer(tx, note, result);
           return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
@@ -571,6 +603,14 @@ export const Conversations = defineService(
           if (Option.isSome(previous)) return previous.value;
 
           const result = tx.store(ReplyStore).requestReply({ ...input, requestId, context });
+
+          const target = context.messages.at(-1);
+          if (target?.role === 'user')
+            retainExplicitQuestionAnswer(
+              tx,
+              tx.store(MessageStore).message(target.messageId),
+              result
+            );
 
           emitReplyRequest(tx, result, 'reply');
 
@@ -663,6 +703,7 @@ export const Conversations = defineService(
                 context
               });
 
+              retainExplicitQuestionAnswer(tx, message, result);
               tx.emit({
                 type: 'ConversationGenerationRequested',
                 eventId: randomUUID(),
@@ -685,15 +726,24 @@ export const Conversations = defineService(
           resolveMessageCitations(tx, tx.store(MessageStore).updateMessageDescription(input))
         ),
       editMessage: (input: typeof editMessageInputSchema.Type) =>
-        transaction((tx) => resolveMessageCitations(tx, tx.store(MessageStore).editMessage(input))),
+        transaction((tx) => {
+          const message = tx.store(MessageStore).editMessage(input);
+          scheduleQuestion(tx, message);
+          return resolveMessageCitations(tx, message);
+        }),
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>
-        transaction((tx) =>
-          resolveMessageCitations(tx, tx.store(MessageStore).setActiveVersion(input))
-        ),
+        transaction((tx) => {
+          const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
+          const message = tx.store(MessageStore).setActiveVersion(input);
+          if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
+          return resolveMessageCitations(tx, message);
+        }),
       deleteMessageVersion: (input: typeof setActiveVersionInputSchema.Type) =>
-        transaction((tx) =>
-          resolveMessageCitations(tx, tx.store(MessageStore).deleteMessageVersion(input))
-        ),
+        transaction((tx) => {
+          const message = tx.store(MessageStore).deleteMessageVersion(input);
+          scheduleQuestion(tx, message, true);
+          return resolveMessageCitations(tx, message);
+        }),
       deleteMessage: (id: MessageId) =>
         transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>
@@ -831,6 +881,8 @@ export const Conversations = defineService(
 /** Source membership is independent of the raw message that introduced it. */
 function postMessage(tx: Transaction, input: typeof postMessageInputSchema.Type) {
   const message = tx.store(MessageStore).postMessage(input);
+
+  scheduleQuestion(tx, message);
 
   for (const sourceId of input.sourceIds ?? [])
     Sources.attachInTransaction(tx, { sessionId: input.sessionId, sourceId });
@@ -1072,7 +1124,105 @@ const deletionEventTypes = [
   'DocumentPublished',
   'ConversationGenerationRequested',
   'ConversationTitleRequested',
+  'ConversationQuestionRequested',
   'RecordingPostRequested',
   'MaterialGenerationRequested',
   'MaterialGenerationFailed'
 ] as const;
+
+function scheduleQuestion(
+  tx: Transaction,
+  message: typeof import('@study/contracts/conversations/schemas').chatMessageSchema.Type,
+  reclassify = false
+) {
+  if (
+    message.role !== 'user' ||
+    message.format === 'document' ||
+    !message.activeVersionId ||
+    message.question?.origin === 'manual'
+  )
+    return;
+  if (
+    !reclassify &&
+    tx
+      .store(QuestionStore)
+      .questionSnapshot({ messageId: message.id, expectedActiveVersionId: message.activeVersionId })
+      .scheduled
+  )
+    return;
+  tx.emit({
+    type: 'ConversationQuestionRequested',
+    eventId: reclassify ? randomUUID() : `question/${message.id}/${message.activeVersionId}`,
+    causationId: null,
+    correlationId: `question/${message.id}/${message.activeVersionId}`,
+    inputVersion: 1,
+    depth: 0,
+    sessionId: message.sessionId,
+    messageId: message.id,
+    versionId: message.activeVersionId
+  });
+}
+function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchema.Type) {
+  const existing = tx.store(QuestionAnswerStore).findQuestionAnswer(input);
+  if (Option.isSome(existing)) {
+    if (!questionAnswerRetryable(tx, existing.value)) return existing.value;
+    tx.store(QuestionStore).retireQuestionAnswer(input);
+  }
+  const message = tx.store(MessageStore).message(input.messageId);
+  const intentKey = `question/${message.id}/${input.expectedActiveVersionId}/${randomUUID()}`;
+  const context = captureContext(
+    tx,
+    {
+      sessionId: message.sessionId,
+      threadRoot: message.threadRoot ?? undefined,
+      throughMessageId: message.id,
+      intentKey,
+      instruction: '',
+      preferences: {}
+    },
+    randomUUID(),
+    true
+  );
+  if (
+    context.messages.at(-1)?.messageId !== message.id ||
+    context.messages.at(-1)?.versionId !== input.expectedActiveVersionId
+  )
+    throw new StudyError('invalid_input', 'Question context changed');
+  const result = tx.store(ReplyStore).requestQuestionReply({
+    sessionId: message.sessionId,
+    threadRoot: message.threadRoot ?? undefined,
+    requestId: context.requestId,
+    context
+  });
+  tx.store(QuestionStore).retainQuestionAnswer({ ...input, answer: result });
+  emitReplyRequest(tx, result, 'reply');
+  return result;
+}
+
+function retainExplicitQuestionAnswer(
+  tx: Transaction,
+  message: typeof import('@study/contracts/conversations/schemas').chatMessageSchema.Type,
+  answer: typeof replyRequestSchema.Type
+) {
+  if (message.role === 'user' && message.format !== 'document' && message.activeVersionId)
+    tx.store(QuestionStore).retainQuestionAnswer({
+      messageId: message.id,
+      expectedActiveVersionId: message.activeVersionId,
+      answer,
+      guard: false
+    });
+}
+
+function questionAnswerRetryable(tx: Transaction, receipt: typeof replyRequestSchema.Type) {
+  const answer = tx.store(MessageStore).message(receipt.messageId);
+  const version = answer.versions.find((v) => v.id === receipt.versionId);
+  if (version?.status === 'complete') return false;
+  const runs = Workflows.correlatedExecutions(tx, receipt.requestId);
+  return (
+    runs.length > 0 &&
+    runs.every(
+      (run) =>
+        (run.status === 'completed' && run.outcome === 'failure') || run.status === 'cancelled'
+    )
+  );
+}

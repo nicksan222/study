@@ -103,7 +103,28 @@ export const messageFormatSchema = Schema.Literals(messageFormats);
 
 export const messageDescriptionSchema = Schema.String.check(Schema.isMaxLength(240));
 
+const questionKindSchema = Schema.Literals(['note', 'question', 'undetermined']);
+export const questionVersionInputSchema = Schema.Struct({
+  messageId: messageIdSchema,
+  expectedActiveVersionId: versionIdSchema
+});
+export const setMessageKindInputSchema = Schema.Struct({
+  ...questionVersionInputSchema.fields,
+  kind: Schema.Literals(['note', 'question'])
+});
+export const questionClassificationSchema = Schema.Struct({ kind: questionKindSchema });
+
 export const chatMessageSchema = Schema.Struct({
+  question: Schema.optional(
+    Schema.Struct({
+      kind: questionKindSchema,
+      origin: Schema.Literals(['automatic', 'manual']),
+      versionId: versionIdSchema,
+      answerMessageId: Schema.optional(messageIdSchema),
+      answerRequestId: Schema.optional(Schema.String),
+      answerArchived: Schema.optional(Schema.Boolean)
+    })
+  ),
   format: Schema.optional(messageFormatSchema),
   description: Schema.optional(Schema.NullOr(messageDescriptionSchema)),
   captureKey: Schema.optional(Schema.NullOr(captureKeySchema)),

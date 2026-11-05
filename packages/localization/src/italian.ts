@@ -1,6 +1,19 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  WorkspaceAutoAnswerQuestions: 'Rispondi automaticamente alle domande',
+  WorkspaceAutoAnswerQuestionsHelp:
+    'Rispondi alle nuove domande rilevate con il modello medio. Lascia disattivato per rispondere manualmente a ogni domanda.',
+  SessionRestoreAnswer: 'Ripristina risposta',
+  SessionRetryAnswer: 'Riprova la risposta',
+  SessionQuestion: 'Domanda',
+  SessionQuestionActions: 'Azioni della domanda',
+  SessionAnswerQuestion: 'Rispondi',
+  SessionRequestingAnswer: 'Richiesta della risposta…',
+  SessionMarkAsQuestion: 'Segna come domanda',
+  SessionMarkAsNote: 'Segna come nota',
+  SessionViewAnswer: 'Vai alla risposta',
+  'workspace.task.conversation-question': 'Rileva domanda',
   ExportOmitImage: 'Le immagini non sono state incluse in questa esportazione.',
   ExportOmitLink: 'I collegamenti non supportati sono stati omessi.',
   ExportOmitMath: 'La notazione matematica è inclusa come testo, senza rendering.',

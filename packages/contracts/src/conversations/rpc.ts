@@ -27,6 +27,8 @@ import { sessionDeletionSchema } from './deletion.ts';
 import { sessionSummariesSchema } from './schemas.ts';
 import { captureKeySchema } from './schemas.ts';
 import {
+  questionVersionInputSchema,
+  setMessageKindInputSchema,
   messageDescriptionSchema,
   messageFormatSchema,
   replySnapshotInputSchema,
@@ -155,6 +157,16 @@ export const renameSessionInputSchema = Schema.Struct({
 });
 
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('setMessageKind', {
+    payload: setMessageKindInputSchema,
+    success: chatMessageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('answerQuestion', {
+    payload: questionVersionInputSchema,
+    success: replyRequestSchema,
+    error: failureSchema
+  }),
   Rpc.make('setSessionSettled', {
     payload: setSessionSettledInputSchema,
     success: Schema.Struct({}),

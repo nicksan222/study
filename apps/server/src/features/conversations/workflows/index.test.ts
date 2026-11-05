@@ -732,7 +732,15 @@ testStable(
         })
       );
       const selectedEvent = decodeEvent(
-        context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
+        context.db.orm
+          .select()
+          .from(s.workflowEvents)
+          .all()
+          .find(
+            (event) =>
+              event.type === 'ConversationGenerationRequested' &&
+              event.correlationId === selected.requestId
+          )!.payload
       );
 
       assertEventType(selectedEvent, 'ConversationGenerationRequested', 'wrong selected event');

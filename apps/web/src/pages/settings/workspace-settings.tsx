@@ -76,6 +76,7 @@ type BooleanField =
   | 'spellcheck'
   | 'submitOnEnter'
   | 'autoTitleSessions'
+  | 'autoAnswerQuestions'
   | 'sidebarShowDocumentCounts'
   | 'expandDocuments';
 
@@ -288,6 +289,11 @@ export function AiWritingSettings() {
           { value: 'balanced', label: 'SessionDetailBalanced' },
           { value: 'detailed', label: 'SessionDetailDetailed' }
         ]}
+      />
+      <PreferenceToggle
+        field="autoAnswerQuestions"
+        title="WorkspaceAutoAnswerQuestions"
+        description="WorkspaceAutoAnswerQuestionsHelp"
       />
       <PreferenceToggle
         field="autoTitleSessions"

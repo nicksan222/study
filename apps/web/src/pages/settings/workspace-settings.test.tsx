@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { WritingSettings } from './workspace-settings';
+import { AiWritingSettings, WritingSettings } from './workspace-settings';
 
 const api = vi.hoisted(() => ({
   read: vi.fn<() => Promise<WorkspacePreferences>>(),
@@ -38,7 +38,7 @@ afterEach(() => {
   caches.length = 0;
 });
 
-function mount() {
+function mount(ai = false) {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
@@ -46,7 +46,7 @@ function mount() {
   caches.push(cache);
   render(
     <QueryClientProvider client={cache}>
-      <WritingSettings />
+      {ai ? <AiWritingSettings /> : <WritingSettings />}
     </QueryClientProvider>
   );
 }
@@ -102,4 +102,22 @@ testStable('saves a switch and reflects the confirmed persisted value', async ()
   );
   await waitFor(() => expect(toggle).not.toBeChecked());
   expect(await screen.findByText('WorkspaceSettingsSaved')).toBeInTheDocument();
+});
+
+testStable('keeps automatic answers opt-in and persists the confirmed preference', async () => {
+  api.save.mockImplementation(async (value) => {
+    api.read.mockResolvedValue(value);
+    return value;
+  });
+  mount(true);
+  const toggle = await screen.findByRole('switch', { name: 'WorkspaceAutoAnswerQuestions' });
+  expect(toggle).not.toBeChecked();
+  fireEvent.click(toggle);
+  await waitFor(() =>
+    expect(api.save).toHaveBeenCalledWith({
+      ...defaultWorkspacePreferences,
+      autoAnswerQuestions: true
+    })
+  );
+  await waitFor(() => expect(toggle).toBeChecked());
 });

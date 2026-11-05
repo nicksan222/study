@@ -138,7 +138,7 @@ testStable(
             const result = duplicates[0]!;
 
             expect(duplicates[1]).toStrictEqual(result);
-            expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 1]);
+            expect(counts().map((n, i) => n - empty[i]!)).toStrictEqual([2, 2, 1, 1, 2]);
             const captured = yield* rpc('conversations.inspectSessionContext', {
               requestId: result.requestId
             });
