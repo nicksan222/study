@@ -76,7 +76,40 @@ testStable(
                   inlines: [{ type: 'text', text: '<script>alert(1)</script>', marks: ['strong'] }]
                 }),
                 createBlock({ type: 'code', code: '```\n<script>x</script>', language: 'html' }),
-                createBlock({ type: 'math', expression: '<img src=x onerror=x>' })
+                createBlock({ type: 'math', expression: '<img src=x onerror=x>' }),
+                createBlock({
+                  type: 'paragraph',
+                  inlines: [
+                    {
+                      type: 'link',
+                      text: 'Reference',
+                      href: 'https://example.com',
+                      marks: ['strong']
+                    }
+                  ]
+                }),
+                createBlock({
+                  type: 'table',
+                  rows: [
+                    {
+                      cells: [
+                        {
+                          header: true,
+                          colspan: 2,
+                          rowspan: 2,
+                          colwidth: [120, 120],
+                          paragraphs: [[{ type: 'text', text: 'Merged', marks: [] }]]
+                        },
+                        { header: true, paragraphs: [[{ type: 'text', text: 'B', marks: [] }]] }
+                      ]
+                    },
+                    {
+                      cells: [
+                        { header: false, paragraphs: [[{ type: 'text', text: 'C', marks: [] }]] }
+                      ]
+                    }
+                  ]
+                })
               ]
             };
             const material = yield* rpc('documents.create', {
@@ -91,6 +124,10 @@ testStable(
 
             expect(first).toStrictEqual(yield* rpc('documents.exportFile', key));
             const text = new TextDecoder().decode(first.bytes);
+            assert.ok(text.includes('<th colspan="2" rowspan="2">'));
+            assert.ok(
+              text.includes('<a href="https://example.com"><strong>Reference</strong></a>')
+            );
 
             assert.ok(!text.includes('<script>'));
             assert.ok(text.includes('&lt;script&gt;'));
