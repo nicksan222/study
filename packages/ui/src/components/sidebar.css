@@ -600,6 +600,16 @@
   font-size: 0.8125rem;
   font-weight: 400;
 }
+.study-sidebar-navigation-count {
+  margin-inline-start: auto;
+  flex: none;
+  color: var(--sidebar-supporting);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+.study-sidebar-navigation-count[data-unresolved] {
+  color: var(--contrast-sidebar-foreground);
+}
 .study-sidebar-navigation-item svg {
   width: 1rem;
   height: 1rem;
@@ -612,7 +622,8 @@
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
-.study-shell[data-sidebar-collapsed='true'] .study-sidebar-navigation-label {
+.study-shell[data-sidebar-collapsed='true']
+  :is(.study-sidebar-navigation-label, .study-sidebar-navigation-count) {
   display: none;
 }
 .study-shell[data-sidebar-collapsed='true'] .study-sidebar-navigation-item {

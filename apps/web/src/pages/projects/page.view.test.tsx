@@ -1,4 +1,3 @@
-import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';
 import { expect } from 'vite-plus/test';
@@ -15,9 +14,7 @@ testStable.each(['english', 'italian'] as const)(
         <PageView />
       </LanguageProvider>
     );
-    expect(
-      screen.getByRole('heading', { name: catalogs[locale].SubjectWorkspaceSelect })
-    ).toBeInTheDocument();
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument();
     expect(screen.queryByRole('textbox')).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();

@@ -236,10 +236,14 @@ function Navigation({ className, ...props }: ComponentProps<'nav'>) {
 
 function NavigationItem({
   label,
+  count,
+  unresolved = false,
   children,
   ...props
 }: Omit<ComponentProps<typeof Button>, 'children'> & {
   label: string;
+  count?: number;
+  unresolved?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -253,6 +257,11 @@ function NavigationItem({
     >
       {children}
       <span className="study-sidebar-navigation-label">{label}</span>
+      {count !== undefined && (
+        <span className="study-sidebar-navigation-count" data-unresolved={unresolved || undefined}>
+          {count}
+        </span>
+      )}
     </Button>
   );
 }

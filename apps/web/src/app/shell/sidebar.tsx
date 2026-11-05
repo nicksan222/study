@@ -6,6 +6,7 @@ import { LibraryList } from '#web/features/library/index.ts';
 import type { SidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 
+import { useSidebarCounts } from './sidebar-counts.queries';
 import { SidebarView } from './sidebar.view';
 import { useSidebar } from './use-sidebar';
 import type { SidebarProps, SidebarModel } from './use-sidebar';
@@ -36,8 +37,17 @@ export function Sidebar(props: SidebarProps) {
     model.subjectState === 'ready' &&
     (!model.requestedProject || model.project !== undefined);
 
+  const counts = useSidebarCounts({
+    project: model.project,
+    subjects: model.subjects,
+    sessions: model.sessions,
+    sessionsReady: model.sessionState === 'ready',
+    ready
+  });
+
   return (
     <SidebarView
+      counts={counts}
       {...model}
       selectedSession={sessionId ? String(sessionId) : null}
       collection={Panel ? <Panel model={model} ready={ready} /> : null}

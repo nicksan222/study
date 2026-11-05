@@ -29,10 +29,15 @@ import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { Page as SettingsPage } from '#web/pages/settings/page.tsx';
 
 import { RichSidebarSessions } from './rich-sidebar';
+import type { useSidebarCounts } from './sidebar-counts.queries';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import type { SidebarModel } from './use-sidebar';
 
-type SidebarViewModel = SidebarModel & { collection: ReactNode; selectedSession?: string | null };
+type SidebarViewModel = SidebarModel & {
+  collection: ReactNode;
+  selectedSession?: string | null;
+  counts?: ReturnType<typeof useSidebarCounts>;
+};
 
 export function SidebarView(model: SidebarViewModel) {
   const { t } = useI18n();
@@ -43,6 +48,7 @@ export function SidebarView(model: SidebarViewModel) {
       <SidebarToolbar {...model} />
       <SidebarContent {...model} />
       <SidebarNavigation
+        counts={model.counts}
         section={model.section}
         settings={model.metadata.title === 'Settings'}
         project={model.requestedProject}
