@@ -461,7 +461,7 @@ function SidebarToolbar({
       >
         <FolderPlus aria-hidden="true" />
       </Button>
-      {(metadata.section === 'documents' || metadata.section === 'library') && (
+      {metadata.section === 'documents' && (
         <NewBlankDocument
           key={String(project)}
           project={project}

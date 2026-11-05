@@ -5,36 +5,31 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
-import { FileText, Network, Layers, GraduationCap } from 'lucide-react';
+import { Layers, GraduationCap } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import type { AppSearch } from '#web/lib/navigation/route-contract.ts';
 import type { Subjects } from '#web/lib/study-client/operations.ts';
 
-import type { LibrarySelection } from './library.locations';
 import { itemLocation } from './library.locations';
 import type { LibraryItem } from './library.logic';
 
 export function LibraryListView({
   state,
-  section,
   subjects,
   blocked,
   query,
   search,
-  selected,
   reload
 }: {
   state:
     | { status: 'pending' }
     | { status: 'error'; error?: unknown }
     | { status: 'success'; data: LibraryItem[] };
-  section: 'library' | 'practice';
   subjects: Subjects;
   blocked: boolean;
   query: string;
   search: AppSearch;
-  selected?: LibrarySelection;
   reload: () => void;
 }) {
   const { t, locale, date } = useI18n();
@@ -58,22 +53,20 @@ export function LibraryListView({
   if (state.status === 'pending') return <Loading layout="sidebar" label={t('LoadingStudy')} />;
 
   const items = state.data.filter((item) =>
-    (item.type === 'source' ? item.value.name : item.value.title)
-      .toLocaleLowerCase()
-      .includes(query.trim().toLocaleLowerCase())
+    item.value.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
   );
 
   return (
-    <Sidebar.Items aria-label={t(section === 'library' ? 'SidebarLibrary' : 'Practice')}>
+    <Sidebar.Items aria-label={t('Practice')}>
       {items.map((item) => {
-        const kind = item.type === 'material' ? item.value.kind : item.type;
+        const kind = item.value.kind;
         const { Icon, labelKey } = libraryItemPresentation(kind);
         const label = t(labelKey);
-        const title = item.type === 'source' ? item.value.name : item.value.title;
+        const title = item.value.title;
         const projectId = itemProjectId(item);
         const updated = itemTimestamp(item);
         const owner = subjects.find((subject) => subject.id === projectId);
-        const active = itemIsActive(item, search, selected);
+        const active = search.material === String(item.value.id);
 
         return (
           <Sidebar.Item
@@ -96,13 +89,7 @@ export function LibraryListView({
       })}
       {items.length === 0 && (
         <Sidebar.Message>
-          {t(
-            query.trim()
-              ? 'SearchNoResults'
-              : section === 'library'
-                ? 'SidebarLibraryEmpty'
-                : 'SidebarPracticeEmpty'
-          )}
+          {t(query.trim() ? 'SearchNoResults' : 'SidebarPracticeEmpty')}
         </Sidebar.Message>
       )}
     </Sidebar.Items>
@@ -111,12 +98,6 @@ export function LibraryListView({
 
 function libraryItemPresentation(kind: string) {
   switch (kind) {
-    case 'document':
-      return { Icon: FileText, labelKey: 'SourceDocument' as const };
-    case 'source':
-      return { Icon: FileText, labelKey: 'SearchKindFile' as const };
-    case 'diagram':
-      return { Icon: Network, labelKey: 'Diagrams' as const };
     case 'flashcards':
       return { Icon: Layers, labelKey: 'Flashcards' as const };
     default:
@@ -125,25 +106,9 @@ function libraryItemPresentation(kind: string) {
 }
 
 function itemProjectId(item: LibraryItem) {
-  if (item.type === 'source') return item.value.projectId;
-
   return item.value.projectIds.length === 1 ? item.value.projectIds[0] : undefined;
 }
 
 function itemTimestamp(item: LibraryItem) {
-  if (item.type === 'source') return item.value.createdAt;
-
-  return item.type === 'document' ? item.value.updatedAt : item.value.updated_at;
-}
-
-function itemIsActive(item: LibraryItem, search: AppSearch, selected?: LibrarySelection) {
-  if (item.type === 'source')
-    return (
-      selected?.source === String(item.value.id) ||
-      (search.id === String(item.value.id) && !search.material)
-    );
-
-  if (item.type === 'document') return selected?.document === String(item.value.id);
-
-  return search.material === String(item.value.id);
+  return item.value.updated_at;
 }

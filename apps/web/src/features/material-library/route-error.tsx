@@ -14,7 +14,7 @@ export function MaterialRouteError() {
       description={
         <>
           <p>{t('ReaderUnavailable')}</p>
-          <Button render={<Link to="/library" search={{}} />}>{t('ReaderBack')}</Button>
+          <Button render={<Link to="/practice" search={{}} />}>{t('Practice')}</Button>
         </>
       }
     />

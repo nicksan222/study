@@ -16,11 +16,9 @@ const url = (path: string) => new URL(path, 'http://localhost');
 testStable.each([
   'sessions',
   'documents',
-  'library',
   'practice',
   'pipelines',
   'flashcards',
-  'diagrams',
   'sources/3',
   'materials/4',
   'documents/5',

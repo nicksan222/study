@@ -1,4 +1,4 @@
-import { materialIdSchema, materialVersionIdSchema, projectIdSchema } from '@study/contracts/ids';
+import { materialIdSchema, materialVersionIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { Schema } from 'effect';
 
@@ -12,10 +12,6 @@ export function versionId(value: string) {
   if (!/^[1-9][0-9]{0,18}$/.test(value)) throw new Error('Invalid version identity');
 
   return Schema.decodeUnknownSync(materialVersionIdSchema)(BigInt(value));
-}
-
-export function collectionId(value?: string) {
-  return value ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(value)) : undefined;
 }
 
 export function belongsToMaterial(

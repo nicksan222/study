@@ -114,8 +114,8 @@ testStable(
     await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
     expect(await within(dialog).findByText(t.SourceHistoryFailed)).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: t.Cancel }));
-    await act(() => router.navigate({ to: '/library' }));
-    await locationIs(router, '/library');
+    await act(() => router.navigate({ to: '/sessions' }));
+    await locationIs(router, '/sessions');
     await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
     await locationIs(router, '/sources/7');
     await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
@@ -190,8 +190,8 @@ testStable.each([false, true])(
       expect(screen.queryByText('Old source body')).toBeNull();
     }
 
-    await act(() => router.navigate({ to: '/library' }));
-    await locationIs(router, '/library');
+    await act(() => router.navigate({ to: '/sessions' }));
+    await locationIs(router, '/sessions');
     await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
     expect(await screen.findByText('Current source body')).toBeVisible();
     expect(screen.queryByText('Old source body')).toBeNull();

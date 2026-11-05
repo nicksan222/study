@@ -7,7 +7,7 @@ import {
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sourceSchema } from '@study/contracts/sources/schemas';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { render, waitFor } from '@testing-library/react';
 import { Effect, Schema } from 'effect';
 import { vi } from 'vite-plus/test';
 
@@ -19,8 +19,6 @@ import { createStudyQueryClient } from '#web/lib/query-client.ts';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
-
-import { importReturn, libraryEntries, libraryReturn, librarySearches } from '../browse-state';
 
 export function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -209,11 +207,7 @@ export function materialRpc() {
   };
 }
 
-export function mountLibraryRoute(initial = '/library', rpc = materialRpc()) {
-  libraryEntries.clear();
-  librarySearches.clear();
-  Object.assign(libraryReturn, { scroll: 0, row: '', fromReader: false });
-  importReturn.previous = null;
+export function mountLibraryRoute(initial = '/documents', rpc = materialRpc()) {
   // Substitute the RPC transport only: production options, query cache, routes and components run.
   vi.mocked(request).mockImplementation((invoke, signal) =>
     runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
@@ -228,21 +222,6 @@ export function mountLibraryRoute(initial = '/library', rpc = materialRpc()) {
   );
 
   return { ...view, rpc, queryClient, history, router };
-}
-
-export async function settle() {
-  // Query/mutation notifications are scheduled; flush them before asserting no late publication.
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
-}
-
-export async function scrollMain(scroll: number) {
-  const main = await screen.findByRole('main');
-
-  main.scrollTop = scroll;
-
-  return main;
 }
 
 export async function locationIs(router: ReturnType<typeof createAppRouter>, pathname: string) {

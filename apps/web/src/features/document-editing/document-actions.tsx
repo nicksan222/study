@@ -1,10 +1,7 @@
 import type { comparisonSchema, restoreSchema } from '@study/contracts/documents/editing';
 import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
-import { Input } from '@study/ui/input';
-import { Textarea } from '@study/ui/textarea';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -13,12 +10,9 @@ import { request } from '#web/lib/study-client/request.ts';
 
 import { DocumentReader } from '../document-presentation';
 import { BlockEditor, authoredCopy } from './block-editor';
-import { CreationLibraryReview } from './creation-library-review';
-import { useDocumentCreation, useDocumentEditor } from './document-editing.queries';
+import { useDocumentEditor } from './document-editing.queries';
 
 type Comparison = typeof comparisonSchema.Type;
-
-type Creation = ReturnType<typeof useDocumentCreation>['initial'];
 
 export function ComparisonView({ value }: { value: Comparison }) {
   const { t } = useI18n();
@@ -41,55 +35,6 @@ export function ComparisonView({ value }: { value: Comparison }) {
         </details>
       ))}
     </DocumentEditing.Comparison>
-  );
-}
-
-export function NewDocument() {
-  const view = useDocumentCreation();
-  const { t, open, setOpen, title, text, busy, error, createdId, setTitle, setText, submit } = view;
-
-  return (
-    <>
-      <Button variant="ghost" onClick={() => setOpen((value) => busy || !value)}>
-        {t('DocumentNew')}
-      </Button>
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          if (next || !busy) setOpen(next);
-        }}
-      >
-        <DialogPopup closeLabel={t('Close')}>
-          <DialogHeader>
-            <DialogTitle>{t('DocumentNew')}</DialogTitle>
-          </DialogHeader>
-          <DocumentEditing.CreationForm onSubmit={submit}>
-            <label>
-              {t('DocumentTitle')}
-              <Input value={title} onValueChange={setTitle} maxLength={200} disabled={busy} />
-            </label>
-            <label>
-              {t('DocumentInitialText')}
-              <Textarea
-                rows={8}
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                disabled={busy}
-              />
-            </label>
-            <Button
-              type="submit"
-              disabled={
-                busy || error === 'uncertain' || !!createdId || !title.trim() || !text.trim()
-              }
-            >
-              {t('DocumentCreate')}
-            </Button>
-            <CreationReceipt view={view} />
-          </DocumentEditing.CreationForm>
-        </DialogPopup>
-      </Dialog>
-    </>
   );
 }
 
@@ -303,60 +248,6 @@ function DocumentCopyStatus({ view }: { view: DocumentEditor }) {
       )}
       {error && (
         <ErrorState title={t('ErrorStateTitle')} description={<> {t('DocumentActionFailed')} </>} />
-      )}
-    </>
-  );
-}
-
-function CreationReceipt({ view }: { view: ReturnType<typeof useDocumentCreation> }) {
-  const { t, client, creationKey, initial, submitted, error, createdId, busy } = view;
-
-  return (
-    <>
-      {submitted && (error === 'uncertain' || createdId) && (
-        <DocumentEditing.Submitted aria-label={t('DocumentCreationSubmitted')}>
-          <DocumentEditing.SubmittedHeading>
-            {t('DocumentCreationSubmitted')}
-          </DocumentEditing.SubmittedHeading>
-          <DocumentEditing.SubmittedTitle>{submitted.title}</DocumentEditing.SubmittedTitle>
-          <DocumentReader document={submitted.document} />
-        </DocumentEditing.Submitted>
-      )}
-      {createdId ? (
-        <DocumentEditing.Actions>
-          <Link to="/documents/$documentId" params={{ documentId: createdId }} search={{}}>
-            {t('DocumentOpenCopy')}
-          </Link>
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={busy}
-            onClick={() => client.setQueryData(creationKey, initial)}
-          >
-            {t('LibraryStartAnother')}
-          </Button>
-        </DocumentEditing.Actions>
-      ) : (
-        error && (
-          <ErrorState
-            title={t('ErrorStateTitle')}
-            description={
-              <>{t(error === 'rejected' ? 'DocumentCreateRejected' : 'DocumentCreateUncertain')}</>
-            }
-          />
-        )
-      )}
-      {error === 'uncertain' && !createdId && (
-        <CreationLibraryReview
-          busy={busy}
-          onResolve={() => {
-            client.setQueryData<Creation>(creationKey, (old) =>
-              old && !old.busy && !old.createdId && old.error === 'uncertain'
-                ? { ...old, error: undefined, submitted: undefined }
-                : old
-            );
-          }}
-        />
       )}
     </>
   );

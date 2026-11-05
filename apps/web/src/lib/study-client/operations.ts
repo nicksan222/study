@@ -1,10 +1,9 @@
 import type { createUntitledSessionInputSchema } from '@study/contracts/conversations/rpc';
 import type { SessionDto } from '@study/contracts/conversations/schemas';
-import type { ProjectId, SourceId, MaterialId } from '@study/contracts/ids';
+import type { ProjectId, MaterialId } from '@study/contracts/ids';
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
 import type { Project } from '@study/contracts/projects/schemas';
 import type { AppSettings } from '@study/contracts/settings/types';
-import type { Source } from '@study/contracts/sources/schemas';
 import type { searchInputSchema } from '@study/contracts/system/rpc';
 import type { searchResultSchema } from '@study/contracts/system/schemas';
 import { Effect } from 'effect';
@@ -16,8 +15,6 @@ import { request } from './request';
 export type Subjects = Project[];
 
 export type Sessions = readonly SessionDto[];
-
-export type Sources = readonly Source[];
 
 export type Materials = MaterialSummaryDto[];
 
@@ -39,15 +36,6 @@ export const listSessions = (signal?: AbortSignal) =>
     (client) =>
       collectPages((before: Parameters<StudyClient['conversations.sessions']>[0]['before']) =>
         client['conversations.sessions']({ limit: 100, before })
-      ),
-    signal
-  );
-
-export const listSources = (signal?: AbortSignal) =>
-  request(
-    (client) =>
-      collectPages((before: SourceId | undefined) =>
-        client['sources.sources']({ limit: 100, before })
       ),
     signal
   );

@@ -10,17 +10,21 @@ export function loadSidebar({ context }: { context: AppRouterContext }) {
   void context.queryClient.prefetchQuery(sessionsQueryOptions());
 }
 
-export const libraryLoaderDeps = ({ search }: { search: AppSearch }) => ({
+export const practiceLoaderDeps = ({ search }: { search: AppSearch }) => ({
   project: search.project
 });
 
-export const loadLibrarySidebar =
-  (section: 'library' | 'practice') =>
-  async ({ context, deps }: { context: AppRouterContext; deps: { project?: string } }) => {
-    const subjects = await context.queryClient.ensureQueryData(projectsQueryOptions());
-    const project = subjects.find((subject) => String(subject.id) === deps.project);
+export const loadPracticeSidebar = async ({
+  context,
+  deps
+}: {
+  context: AppRouterContext;
+  deps: { project?: string };
+}) => {
+  const subjects = await context.queryClient.ensureQueryData(projectsQueryOptions());
+  const project = subjects.find((subject) => String(subject.id) === deps.project);
 
-    if (deps.project && !project) return;
+  if (deps.project && !project) return;
 
-    await context.queryClient.ensureQueryData(libraryQueryOptions(section, subjects, project?.id));
-  };
+  await context.queryClient.ensureQueryData(libraryQueryOptions(subjects, project?.id));
+};

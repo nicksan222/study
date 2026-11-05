@@ -5,7 +5,7 @@ import { Schema } from 'effect';
 import { SourcePage, sourceOptions } from '../features/source-library';
 
 export const Route = createFileRoute('/sources/$sourceId')({
-  staticData: { title: 'AnswerSources', section: 'library', scope: 'global' },
+  staticData: { title: 'AnswerSources', section: 'sessions', scope: 'global' },
   beforeLoad: ({ params }) => {
     Schema.decodeUnknownSync(sourceIdSchema)(BigInt(params.sourceId));
   },
