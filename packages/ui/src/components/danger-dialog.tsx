@@ -166,3 +166,23 @@ function useConfirmation(
 export function DangerDialogContext({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn('ui-danger-context', className)} {...props} />;
 }
+
+/** Presents the reviewed impact of a destructive action as aligned label-value rows. */
+export function DangerDialogSummary({
+  items
+}: {
+  items: readonly { label: string; value: ReactNode }[];
+}) {
+  return (
+    <div className="ui-danger-summary">
+      <dl>
+        {items.map((item) => (
+          <div key={item.label}>
+            <dt>{item.label}</dt>
+            <dd>{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
