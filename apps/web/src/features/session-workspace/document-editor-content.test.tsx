@@ -2,8 +2,8 @@ import { sourceIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import type { BlockContent } from '@study/contracts/sources/schemas';
 import { testStable } from '@study/testing/vitest';
-import { StructuredEditor } from '@study/ui/structured-editor';
 import type { StructuredEditorInstance } from '@study/ui/structured-editor';
+import { StructuredEditor } from '@study/ui/structured-editor';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';
@@ -455,6 +455,8 @@ testStable(
 
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Image description' }));
     const dialog = await screen.findByRole('dialog', { name: 'Image description' });
+
+    expect(within(dialog).getByLabelText('Image description')).toHaveValue('Original');
 
     fireEvent.change(within(dialog).getByLabelText('Image description'), {
       target: { value: 'New description' }
