@@ -105,3 +105,16 @@ testStable(
     expect(within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
   }
 );
+
+testStable('keeps composed workspace sections available when sessions fail to load', async () => {
+  renderSidebar(
+    <SidebarView
+      {...sidebarModel()}
+      sessionState="error"
+      library={null}
+      workspaceSections={<p>Shelf section</p>}
+    />
+  );
+  expect(await screen.findByText('Shelf section')).toBeVisible();
+  expect(screen.getByRole('button', { name: catalogs.english.SessionsLoadError })).toBeVisible();
+});

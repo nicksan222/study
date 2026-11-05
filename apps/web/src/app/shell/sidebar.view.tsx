@@ -5,7 +5,7 @@ import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
-import { Link } from '@tanstack/react-router';
+import { Link, useParams } from '@tanstack/react-router';
 import {
   Home,
   FileText,
@@ -24,13 +24,16 @@ import type { ReactNode } from 'react';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#web/lib/navigation/search-results.ts';
+import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { Page as SettingsPage } from '#web/pages/settings/page.tsx';
 
 import { RichSidebarSessions } from './rich-sidebar';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import type { SidebarModel } from './use-sidebar';
 
-export function SidebarView(model: SidebarModel & { library: ReactNode }) {
+type SidebarViewModel = SidebarModel & { library: ReactNode; workspaceSections?: ReactNode };
+
+export function SidebarView(model: SidebarViewModel) {
   const { t } = useI18n();
 
   return (
@@ -125,7 +128,6 @@ function SidebarSearchResults({
 
 function SidebarSessions({
   project,
-  selectedSession,
   subjects,
   invalidSubject,
   sessions,
@@ -133,15 +135,10 @@ function SidebarSessions({
   reloadSessions
 }: Pick<
   SidebarModel,
-  | 'project'
-  | 'selectedSession'
-  | 'subjects'
-  | 'invalidSubject'
-  | 'sessions'
-  | 'sessionState'
-  | 'reloadSessions'
+  'project' | 'subjects' | 'invalidSubject' | 'sessions' | 'sessionState' | 'reloadSessions'
 >) {
   const { t } = useI18n();
+  const { sessionId } = useParams({ strict: false });
 
   return (
     <SidebarUI.Items id="study-sidebar-sessions" aria-label={t('Sessions')}>
@@ -160,7 +157,7 @@ function SidebarSessions({
       {sessionState === 'ready' && !invalidSubject && (
         <RichSidebarSessions
           project={project}
-          selectedSession={selectedSession}
+          selectedSession={sessionId ? String(sessionId) : null}
           subjects={subjects}
           sessions={sessions}
         />
@@ -471,7 +468,7 @@ function SidebarToolbar({
   );
 }
 
-function SidebarContent(model: SidebarModel & { library: ReactNode }) {
+function SidebarContent(model: SidebarViewModel) {
   const { invalidSubject, subjectState, pickerOpen, reloadSubjects, actionError, newSubjectOpen } =
     model;
   const { t } = useI18n();
@@ -609,12 +606,17 @@ function projectPickerEmpty(
   return t(count === 0 ? 'NoProjectsYet' : 'SearchNoResults');
 }
 
-function SidebarContentBody(model: SidebarModel & { library: ReactNode }) {
-  if (model.section === 'library' || model.section === 'practice') return model.library;
+function SidebarContentBody(model: SidebarViewModel) {
+  if (sidebarContent(model.metadata) !== 'workspace') return model.library;
 
   if (model.query.trim()) return <SidebarSearchResults {...model} />;
 
-  return <SidebarSessions {...model} />;
+  return (
+    <>
+      <SidebarSessions {...model} />
+      {model.workspaceSections}
+    </>
+  );
 }
 
 function keywordOnly(result: SidebarModel['result']) {

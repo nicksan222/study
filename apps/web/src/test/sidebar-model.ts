@@ -12,7 +12,6 @@ export function sidebarModel(): SidebarModel {
     collapsed: false,
     onToggle: noop,
     requestedProject: null,
-    selectedSession: null,
     global: false,
     section: 'sessions',
     subjects: [],

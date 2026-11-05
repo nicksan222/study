@@ -22,7 +22,9 @@ import { SidebarSessionActions } from './sidebar-session-actions';
 import { SidebarSessionDrafts } from './sidebar-session-drafts';
 import type { SidebarModel } from './use-sidebar';
 
-type Props = Pick<SidebarModel, 'project' | 'selectedSession' | 'subjects' | 'sessions'>;
+type Props = Pick<SidebarModel, 'project' | 'subjects' | 'sessions'> & {
+  selectedSession: string | null;
+};
 
 type Progress = NonNullable<
   ReturnType<typeof useSidebarProgress>['progress']['data']

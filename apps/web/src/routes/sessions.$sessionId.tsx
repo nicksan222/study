@@ -2,10 +2,19 @@ import { sessionIdSchema } from '@study/contracts/ids';
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
+import { sessionOptions } from '../features/session-workspace';
+import { sidebarOwner } from '../lib/navigation/sidebar-config';
 import { Page } from '../pages/sessions/page';
 
 export const Route = createFileRoute('/sessions/$sessionId')({
-  staticData: { title: 'Sessions', section: 'sessions', scope: 'project' },
+  staticData: {
+    title: 'Sessions',
+    section: 'sessions',
+    scope: 'project',
+    sidebar: {
+      owner: sidebarOwner(sessionIdSchema, ({ sessionId }) => sessionId, sessionOptions)
+    }
+  },
   params: {
     parse: ({ sessionId }) => {
       if (!/^[1-9][0-9]{0,18}$/.test(sessionId)) throw notFound();

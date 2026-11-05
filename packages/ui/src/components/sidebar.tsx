@@ -530,10 +530,10 @@ function SessionGroups({ className, ...props }: ComponentProps<'div'>) {
 
 type SessionGroupProps = {
   title: string;
-  count: number;
+  count: number | string;
   children: ReactNode;
   defaultOpen?: boolean;
-  variant?: 'settled';
+  variant?: 'settled' | 'collection';
 };
 
 function SessionGroup(props: SessionGroupProps) {

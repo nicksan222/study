@@ -37,6 +37,7 @@ vi.mock('../lib/study-client/client', async () => {
       'conversations.sessions': page,
       'sources.sources': page,
       'materials.materials': page,
+      'documents.documents': page,
       ...workflows
     })
   };

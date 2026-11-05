@@ -7,12 +7,15 @@ import {
 import type { StaticMessageKey } from '@study/localization';
 import { Schema } from 'effect';
 
+import type { SidebarRouteConfig } from './sidebar-config';
+
 export type Section = 'sessions' | 'library' | 'practice' | 'pipelines';
 
 export type PageMetadata = {
   title: StaticMessageKey;
   section: Section;
   scope: 'global' | 'project';
+  sidebar?: SidebarRouteConfig;
 };
 
 declare module '@tanstack/react-router' {
@@ -20,6 +23,7 @@ declare module '@tanstack/react-router' {
     title?: StaticMessageKey;
     section?: Section;
     scope?: 'global' | 'project';
+    sidebar?: SidebarRouteConfig;
   }
 }
 

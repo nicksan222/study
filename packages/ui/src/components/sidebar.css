@@ -1063,7 +1063,7 @@
 }
 
 /* Keep completed work anchored below the independently scrolling active list. */
-.study-sidebar-scroll:has(.study-session-groups) {
+.study-sidebar-scroll:has(.study-session-group) {
   container-type: size;
   display: flex;
   flex-direction: column;

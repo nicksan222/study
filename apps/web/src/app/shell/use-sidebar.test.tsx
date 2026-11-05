@@ -12,6 +12,8 @@ vi.mock('#web/features/session-workspace/workspace.tsx', () => ({
   SessionWorkspace: ({ id }: { id?: bigint }) => (id ? null : <SessionStart />)
 }));
 
+vi.mock('#web/features/authored-documents/reader-page.tsx', () => ({ DocumentPage: () => null }));
+
 const api = vi.hoisted(() => ({
   projects: vi.fn(),
   sessions: vi.fn(),
@@ -19,6 +21,7 @@ const api = vi.hoisted(() => ({
   sources: vi.fn(),
   materials: vi.fn(),
   documents: vi.fn(),
+  document: vi.fn(),
   search: vi.fn(),
   createProject: vi.fn(),
   createSession: vi.fn()
@@ -63,6 +66,7 @@ vi.mock('#web/lib/study-client/client.ts', async () => {
     'projects.createProject': call(api.createProject),
     'sources.sources': call(api.sources),
     'documents.documents': call(api.documents),
+    'documents.document': call(api.document),
     'materials.materials': (input: unknown) =>
       Effect.tryPromise(async () => {
         const page = await api.materials(input);
@@ -103,6 +107,7 @@ beforeEach(() => {
   api.sources.mockReset().mockResolvedValue({ items: [] });
   api.materials.mockReset().mockResolvedValue({ items: [], nextCursor: null });
   api.documents.mockReset().mockResolvedValue({ items: [], nextCursor: null });
+  api.document.mockReset().mockResolvedValue({ id: 10n, projectIds: [1n] });
   api.sessions.mockResolvedValue({
     items: [
       {
@@ -742,3 +747,36 @@ testStable('retries a failed session owner read from the subject picker error', 
   await userEvent.setup().click(retry);
   expect(await screen.findByLabelText('Biology')).toBeVisible();
 });
+
+testStable.each(['/documents/10', '/documents/10?project=2'])(
+  'uses route-owned document context and keeps Shelf visible: %s',
+  async (url) => {
+    history.replaceState(null, '', url);
+    api.documents.mockResolvedValue({
+      items: [
+        {
+          id: 10n,
+          title: 'Cell notes',
+          projectIds: [1n],
+          description: 'Cell study notes',
+          createdAt: 0n,
+          updatedAt: 0n,
+          archivedAt: null,
+          headVersionId: 101n
+        }
+      ],
+      nextCursor: null
+    });
+    const user = userEvent.setup();
+    await renderWithNavigation();
+    expect(await screen.findByLabelText('Biology')).toBeVisible();
+    expect(await screen.findByRole('link', { name: 'Cell division' })).toBeVisible();
+    const document = await screen.findByRole('link', { name: 'Cell notes' });
+    expect(document).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByText(en.SidebarShelf)).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Biology'));
+    await user.click(await screen.findByRole('option', { name: 'History' }));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
+  }
+);

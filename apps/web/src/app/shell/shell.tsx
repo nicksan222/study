@@ -99,7 +99,8 @@ export function Shell() {
           metadata={{
             title,
             section: metadata.section ?? 'sessions',
-            scope: metadata.scope ?? 'project'
+            scope: metadata.scope ?? 'project',
+            sidebar: metadata.sidebar
           }}
           collapsed={navigation.collapsed}
           onToggle={navigation.toggle}

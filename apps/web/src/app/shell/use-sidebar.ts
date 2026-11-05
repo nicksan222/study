@@ -1,17 +1,15 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearch, useParams } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 
-import { sessionOptions } from '#web/features/session-workspace/index.ts';
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
+import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
-import {
-  createProjectMutationOptions,
-  projectsQueryOptions,
-  sessionsQueryOptions,
-  searchQueryOptions
-} from '#web/lib/study-client/study.queries.ts';
+import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+
+import { useSidebarActions } from './use-sidebar-actions';
+import { useSidebarContext } from './use-sidebar-context';
+import { useSidebarSearch, useSidebarSearchInput } from './use-sidebar-search';
 
 const noSubjects: Subjects = [];
 
@@ -23,19 +21,17 @@ export type SidebarProps = {
   onToggle: () => void;
 };
 
-/** Combines resolved session ownership, subject lists, search and sidebar actions. */
+/** Composes route context, scoped lists, search, and navigation without feature-specific branches. */
 export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
-  const { selectedSession, requestedProject, sessionReady, ownershipStatus, reloadOwner } =
-    useSidebarOwnership(metadata);
+  const context = useSidebarContext(metadata);
+  const { requestedProject, ready } = context;
   const global = metadata.scope === 'global';
   const section = metadata.section;
   const projects = useQuery(projectsQueryOptions());
   const sessionList = useQuery(sessionsQueryOptions());
   const subjects = projects.data ?? noSubjects;
   const sessions = sessionList.data ?? noSessions;
-  const subjectState = loadingState(
-    selectedSession && !sessionReady ? ownershipStatus : projects.status
-  );
+  const subjectState = loadingState(!ready ? context.status : projects.status);
   const sessionState = loadingState(sessionList.status);
   const [settingsProject, setSettingsProject] = useState<ProjectId>();
   const [query, setQuery] = useState('');
@@ -45,9 +41,15 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     invalidSubject,
     canSearch: scopeCanSearch
   } = sidebarScope(subjects, requestedProject, global, subjectState);
-  const canSearch = sessionReady && scopeCanSearch;
-  const { result, hits } = useSidebarSearch({ query, global, project, canSearch, section });
-  const visibleSessions = sessionReady
+  const canSearch = ready && scopeCanSearch;
+  const { result, hits } = useSidebarSearch({
+    query,
+    global,
+    project,
+    canSearch,
+    content: sidebarContent(metadata)
+  });
+  const visibleSessions = ready
     ? sidebarSessions(sessions, invalidSubject, requestedProject, project)
     : noSessions;
 
@@ -69,7 +71,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     selectSubject,
     createSession,
     createSubject
-  } = useSidebarActions(project, global, clearSearch);
+  } = useSidebarActions(project, global, context.owned, clearSearch);
 
   return {
     settingsProject,
@@ -78,7 +80,6 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     collapsed,
     onToggle,
     requestedProject,
-    selectedSession,
     global,
     section,
     subjects,
@@ -109,7 +110,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     createSession,
     createSubject,
     reloadSubjects: () => {
-      reloadOwner();
+      context.reload();
       void projects.refetch();
     },
     reloadSessions: () => {
@@ -118,106 +119,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   };
 }
 
-/** Uses session membership as the authority, preferring the requested subject only when it belongs to that session. */
-function useSidebarOwnership(metadata: PageMetadata) {
-  const search = useSearch({ from: '__root__' });
-  const params = useParams({ strict: false });
-  const selectedSession =
-    metadata.title === 'Sessions' && params.sessionId ? String(params.sessionId) : null;
-  const selectedDetail = useQuery({
-    ...sessionOptions(params.sessionId!),
-    enabled: selectedSession !== null
-  });
-  const sessionReady = !selectedSession || selectedDetail.isSuccess;
-  const requestedProject = selectedSession
-    ? String(
-        selectedDetail.data?.projectIds.find((id) => String(id) === search.project) ??
-          selectedDetail.data?.projectIds[0] ??
-          ''
-      ) || null
-    : (search.project ?? null);
-
-  return {
-    selectedSession,
-    requestedProject,
-    sessionReady,
-    ownershipStatus: selectedDetail.status,
-    reloadOwner: () => {
-      if (selectedSession) void selectedDetail.refetch();
-    }
-  };
-}
-
 export type SidebarModel = ReturnType<typeof useSidebar>;
-
-function useSidebarSearch({
-  query,
-  global,
-  project,
-  canSearch,
-  section
-}: {
-  query: string;
-  global: boolean;
-  project: ProjectId | undefined;
-  canSearch: boolean;
-  section: PageMetadata['section'];
-}) {
-  const [debouncedQuery, setDebouncedQuery] = useState('');
-
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query.trim()), 200);
-
-    return () => clearTimeout(timer);
-  }, [query]);
-  const searchEnabled =
-    Boolean(query.trim()) &&
-    query.trim() === debouncedQuery &&
-    canSearch &&
-    (section === 'sessions' || section === 'pipelines');
-  const searchResult = useQuery(
-    searchQueryOptions(
-      {
-        query: query.trim(),
-        project: global ? undefined : project,
-        limit: 30,
-        ...(global ? {} : { kinds: ['session', 'message'] })
-      },
-      searchEnabled
-    )
-  );
-  const result = searchResultState(searchEnabled, searchResult);
-  const hits = result?.result?.hits ?? [];
-
-  return { result, hits };
-}
-
-function useSidebarSearchInput(collapsed: boolean, onToggle: () => void) {
-  const searchRef = useRef<HTMLInputElement>(null);
-  const openSearch = () => {
-    if (collapsed) onToggle();
-
-    requestAnimationFrame(() => searchRef.current?.focus());
-  };
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-
-        if (collapsed) onToggle();
-
-        requestAnimationFrame(() => searchRef.current?.focus());
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [collapsed, onToggle]);
-
-  return { searchRef, openSearch };
-}
 
 function loadingState(status: 'success' | 'pending' | 'error') {
   if (status === 'success') return 'ready' as const;
@@ -253,88 +155,4 @@ function sidebarSessions(
   return requested
     ? sessions.filter((session) => project !== undefined && session.projectIds.includes(project))
     : sessions;
-}
-
-function searchResultState<T>(
-  enabled: boolean,
-  state: { isSuccess: boolean; isError: boolean; data: T }
-) {
-  if (!enabled) return undefined;
-
-  if (state.isSuccess) return { result: state.data!, error: false };
-
-  if (state.isError) return { result: undefined, error: true };
-
-  return undefined;
-}
-
-function useSidebarActions(
-  project: ProjectId | undefined,
-  global: boolean,
-  clearSearch: () => void
-) {
-  const navigate = useNavigate();
-  const params = useParams({ strict: false });
-  const queryClient = useQueryClient();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [newSubjectOpen, setNewSubjectOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [actionError, setActionError] = useState(false);
-  const subjectMutation = useMutation(createProjectMutationOptions(queryClient));
-  const creating = subjectMutation.isPending;
-  const selectSubject = (id: ProjectId) => {
-    setPickerOpen(false);
-    clearSearch();
-
-    if (global) {
-      void navigate({ to: '/library', search: { project: String(id) } });
-    } else if (params.sessionId) {
-      void navigate({ to: '/sessions', search: { project: String(id) } });
-    } else {
-      void navigate({ to: '.', search: { project: String(id) } });
-    }
-  };
-  const createSession = async () => {
-    if (creating) return;
-
-    setActionError(false);
-    clearSearch();
-
-    try {
-      await navigate({
-        to: '/sessions',
-        search: project ? { project: String(project) } : {}
-      });
-    } catch {
-      setActionError(true);
-    }
-  };
-  const createSubject = () => {
-    if (!name.trim() || creating) return;
-
-    setActionError(false);
-    subjectMutation.mutate(name.trim(), {
-      onError: () => setActionError(true),
-      onSuccess: (created) => {
-        setNewSubjectOpen(false);
-        setName('');
-        selectSubject(created.id);
-      }
-    });
-  };
-
-  return {
-    pickerOpen,
-    setPickerOpen,
-    newSubjectOpen,
-    setNewSubjectOpen,
-    name,
-    setName,
-    actionError,
-    setActionError,
-    creating,
-    selectSubject,
-    createSession,
-    createSubject
-  };
 }

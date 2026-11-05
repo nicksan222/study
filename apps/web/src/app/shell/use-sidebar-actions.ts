@@ -1,0 +1,77 @@
+import type { ProjectId } from '@study/contracts/ids';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
+
+import { createProjectMutationOptions } from '#web/lib/study-client/study.queries.ts';
+
+export function useSidebarActions(
+  project: ProjectId | undefined,
+  global: boolean,
+  owned: boolean,
+  clearSearch: () => void
+) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [newSubjectOpen, setNewSubjectOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [actionError, setActionError] = useState(false);
+  const subjectMutation = useMutation(createProjectMutationOptions(queryClient));
+  const creating = subjectMutation.isPending;
+  const selectSubject = (id: ProjectId) => {
+    setPickerOpen(false);
+    clearSearch();
+
+    if (global) {
+      void navigate({ to: '/library', search: { project: String(id) } });
+    } else if (owned) {
+      void navigate({ to: '/sessions', search: { project: String(id) } });
+    } else {
+      void navigate({ to: '.', search: { project: String(id) } });
+    }
+  };
+  const createSession = async () => {
+    if (creating) return;
+
+    setActionError(false);
+    clearSearch();
+
+    try {
+      await navigate({
+        to: '/sessions',
+        search: project ? { project: String(project) } : {}
+      });
+    } catch {
+      setActionError(true);
+    }
+  };
+  const createSubject = () => {
+    if (!name.trim() || creating) return;
+
+    setActionError(false);
+    subjectMutation.mutate(name.trim(), {
+      onError: () => setActionError(true),
+      onSuccess: (created) => {
+        setNewSubjectOpen(false);
+        setName('');
+        selectSubject(created.id);
+      }
+    });
+  };
+
+  return {
+    pickerOpen,
+    setPickerOpen,
+    newSubjectOpen,
+    setNewSubjectOpen,
+    name,
+    setName,
+    actionError,
+    setActionError,
+    creating,
+    selectSubject,
+    createSession,
+    createSubject
+  };
+}
