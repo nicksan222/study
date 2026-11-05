@@ -162,3 +162,32 @@ testStable(
     expect(screen.getByLabelText('SessionOutputTitle')).toHaveValue('');
   }
 );
+
+testStable('disables suggestions above twenty sessions without truncating the selection', () => {
+  render(
+    <QueryClientProvider client={cache}>
+      <Transformation
+        id={id}
+        sessions={Array.from({ length: 21 }, (_, index) => ({
+          id: sessionIdSchema.make(BigInt(index + 1)),
+          title: `Session ${index + 1}`
+        }))}
+      />
+    </QueryClientProvider>
+  );
+  expect(screen.getByRole('button', { name: 'SessionGenerateTitle' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'SessionGenerateInstructions' })).toBeDisabled();
+  expect(screen.getAllByText('SessionSuggestionLimit')).toHaveLength(2);
+  expect(api.suggest).not.toHaveBeenCalled();
+});
+
+testStable('offers retry guidance for invalid model output', async () => {
+  api.suggest.mockRejectedValue(new StudyError('transient', 'Invalid transform suggestion'));
+  mount();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'SessionGenerateTitle' })).toBeEnabled()
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'SessionGenerateTitle' }));
+  expect(await screen.findByText('SessionSuggestionError')).toBeVisible();
+  expect(screen.queryByText('SessionSuggestionContextError')).toBeNull();
+});

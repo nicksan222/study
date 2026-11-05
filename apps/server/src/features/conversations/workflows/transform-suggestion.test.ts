@@ -223,7 +223,7 @@ testStable(
       };
       await expect(execute('title', 'stale')).rejects.toMatchObject({ kind: 'invalid_input' });
       output = '🌱'.repeat(101);
-      await expect(execute('title', 'too-long')).rejects.toMatchObject({ kind: 'invalid_input' });
+      await expect(execute('title', 'too-long')).rejects.toMatchObject({ kind: 'transient' });
       const owned = context.db.orm.all<{ execution_id: string }>(sql`
         SELECT execution_id FROM workflow_executions WHERE workflow_tag = 'transform-suggestion/v1'
           AND json_extract(payload, '$.event.sessionId') = ${String(first.id)}

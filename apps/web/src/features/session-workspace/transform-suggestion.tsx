@@ -46,6 +46,7 @@ export function TransformSuggestion({
 }) {
   const { id, t, locale, additionalSessionIds, cache, key, setDraft, active, draft } = model;
   const { label, action, revisionKey, errorTitle } = suggestionFields[field];
+  const exceedsSessionLimit = additionalSessionIds.length > 19;
   const mutation = useMutation(
     transformSuggestionMutationOptions({
       sessionId: id,
@@ -63,9 +64,10 @@ export function TransformSuggestion({
           size="icon-sm"
           variant="ghost"
           aria-label={t(action)}
-          title={t(action)}
+          title={t(exceedsSessionLimit ? 'SessionSuggestionLimit' : action)}
           aria-busy={mutation.isPending}
           disabled={
+            exceedsSessionLimit ||
             !active ||
             mutation.isPending ||
             !!draft.attempt ||
@@ -95,6 +97,7 @@ export function TransformSuggestion({
           <Sparkles aria-hidden="true" />
         </Button>
       </Notebook.FieldHeading>
+      {exceedsSessionLimit && <Notebook.Muted>{t('SessionSuggestionLimit')}</Notebook.Muted>}
       {mutation.isPending && <Loading label={t('SessionGeneratingSuggestion')} />}
       {mutation.error && (
         <ErrorState title={t(errorTitle)} description={t(suggestionErrorMessage(mutation.error))} />

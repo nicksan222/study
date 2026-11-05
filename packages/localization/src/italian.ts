@@ -885,6 +885,8 @@ export const italian = Object.freeze({
   SessionInstructionsSuggestionError: 'Impossibile generare le istruzioni',
   SessionSuggestionContextError:
     'Salva del contenuto nelle sessioni selezionate, poi riprova. Se il materiale salvato è cambiato, controllalo prima.',
+  SessionSuggestionLimit:
+    'I suggerimenti supportano fino a 20 sessioni. Seleziona meno sessioni per generare un suggerimento.',
   SessionSuggestionError:
     'Prova a generare di nuovo oppure scrivi il testo. La bozza viene conservata.',
   SessionGenerateTitle: 'Genera il titolo del documento',
