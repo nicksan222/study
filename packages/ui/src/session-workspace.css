@@ -563,13 +563,14 @@
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  padding: 0.75rem 0.875rem 0.375rem;
+  padding: 0.875rem 0.875rem 0.5rem;
   color: var(--workspace-supporting, var(--muted-foreground));
 }
 .session-workspace .session-page-index-heading h2 {
   margin: 0;
+  color: var(--foreground);
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.5;
 }
 .session-page-index-empty {
@@ -580,9 +581,12 @@
   line-height: 1.5;
 }
 .session-page-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
   min-height: 0;
   max-height: min(14rem, 34dvh);
-  padding: 0 0.375rem 0.5rem;
+  padding: 0 0.625rem 0.75rem;
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
@@ -601,25 +605,64 @@
 }
 .session-attachment-rows {
   display: grid;
+  gap: 0.375rem;
+}
+.session-attachment-rows:empty {
+  display: none;
 }
 .session-attachment-item {
-  width: 100%;
-  justify-content: flex-start;
-  min-height: 1.625rem;
-  height: auto;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-}
-.session-attachment-item > svg {
-  width: 0.75rem;
-  height: 0.75rem;
   flex: none;
-}
-.session-attachment-item > span {
+  width: 100%;
   min-width: 0;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.625rem;
+  min-height: 3.75rem;
+  height: auto;
+  padding: 0.625rem;
+  border-radius: 0.5rem;
+  color: var(--foreground);
+  text-align: start;
+}
+.session-attachment-copy {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.1875rem;
+}
+.session-attachment-name {
+  display: -webkit-box;
   overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.session-attachment-meta {
+  overflow: hidden;
+  color: var(--workspace-supporting, var(--muted-foreground));
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.5;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.session-attachment-item > .session-attachment-open {
+  flex: none;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+}
+.session-attachment-item:is(:hover, :focus-visible) > .session-attachment-open {
+  color: var(--foreground);
+  opacity: 1;
+}
+.session-attachment-item:is(:disabled, [aria-disabled='true']) > .session-attachment-open {
+  visibility: hidden;
 }
 .session-index-target:focus-visible {
   outline: 2px solid var(--ring);

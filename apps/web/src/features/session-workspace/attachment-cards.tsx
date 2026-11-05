@@ -90,10 +90,14 @@ function AttachmentCard({
     <SourcePreview part={part} />
   ) : undefined;
   const card = compact ? (
-    <WorkspaceAttachments.Item render={target} title={part.sourceName}>
-      <Icon aria-hidden="true" />
-      <span>{part.sourceName}</span>
-    </WorkspaceAttachments.Item>
+    <WorkspaceAttachments.Item
+      render={target}
+      title={part.sourceName}
+      label={part.sourceName}
+      meta={<AttachmentMeta part={part} source={source.data} failed={source.isError} />}
+      icon={<Icon aria-hidden="true" />}
+      tone={tone}
+    />
   ) : (
     <Notebook.IndexTarget {...anchor}>
       <Desk.AttachmentCard

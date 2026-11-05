@@ -8,6 +8,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { ContentReadError } from '../document-presentation';
 import type { useLibraryPage } from '../material-library';
+import { DocumentContextMenu } from './document-context-menu';
 
 type State = ReturnType<typeof useLibraryPage>['documents'];
 
@@ -30,18 +31,20 @@ export function AuthoredLibrary({
       <MaterialLibrary.Rows>
         {items.map((item) => (
           <li key={String(item.id)}>
-            <Link
-              id={`document-${item.id}`}
-              to="/documents/$documentId"
-              params={{ documentId: String(item.id) }}
-              search={project ? { project: String(project) } : {}}
-              onClick={() => rememberRow?.(`document-${item.id}`)}
-            >
-              <MaterialLibrary.RowTitle>{item.title}</MaterialLibrary.RowTitle>
-              <MaterialLibrary.RowMeta>
-                {item.description ?? t('SourceDocument')}
-              </MaterialLibrary.RowMeta>
-            </Link>
+            <DocumentContextMenu document={item} project={project}>
+              <Link
+                id={`document-${item.id}`}
+                to="/documents/$documentId"
+                params={{ documentId: String(item.id) }}
+                search={project ? { project: String(project) } : {}}
+                onClick={() => rememberRow?.(`document-${item.id}`)}
+              >
+                <MaterialLibrary.RowTitle>{item.title}</MaterialLibrary.RowTitle>
+                <MaterialLibrary.RowMeta>
+                  {item.description ?? t('SourceDocument')}
+                </MaterialLibrary.RowMeta>
+              </Link>
+            </DocumentContextMenu>
           </li>
         ))}
       </MaterialLibrary.Rows>

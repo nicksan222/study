@@ -31,7 +31,8 @@ testStable(
     const main = within(await screen.findByRole('main'));
 
     expect(await main.findByText('Current authored body')).toBeVisible();
-    await userEvent.setup().click(main.getByText(t.ReaderHistory, { selector: 'summary' }));
+    await userEvent.setup().click(await main.findByRole('link', { name: t.ReaderHistory }));
+    await userEvent.setup().click(await main.findByText(t.ReaderHistory, { selector: 'summary' }));
     await userEvent
       .setup()
       .click(await main.findByRole('button', { name: `${t.ReaderVersion} 91` }));
@@ -40,7 +41,7 @@ testStable(
     await waitFor(() => expect(rpc['documents.version']).toHaveBeenCalledWith({ id: old.id }));
     expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
     expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
-    await userEvent.setup().click(main.getByRole('button', { name: t.ReaderCurrent }));
+    await userEvent.setup().click(main.getByRole('link', { name: t.ReaderCurrent }));
     expect(await main.findByText('Current authored body')).toBeVisible();
   }
 );

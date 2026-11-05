@@ -31,7 +31,7 @@ function LoadingSkeleton({
   ...props
 }: Omit<ComponentPropsWithRef<'div'>, 'children' | 'role'> & {
   label: string;
-  layout?: 'panel' | 'sidebar' | 'response';
+  layout?: 'panel' | 'sidebar';
   action?: ReactNode;
 }) {
   return (
@@ -44,9 +44,7 @@ function LoadingSkeleton({
       className={cn('study-loading-skeleton', className)}
     >
       <div className="study-loading-skeleton-heading">
-        <span className={layout === 'response' ? 'study-loading-response-label' : 'sr-only'}>
-          {label}
-        </span>
+        <span className="sr-only">{label}</span>
         {action}
       </div>
       <div aria-hidden="true" data-slot="loading-placeholder" className="study-loading-placeholder">
@@ -58,5 +56,17 @@ function LoadingSkeleton({
   );
 }
 
-export { Loading, LoadingSkeleton };
+function Thinking({ label, action }: { label: string; action?: ReactNode }) {
+  return (
+    <div className="study-thinking">
+      <span role="status" aria-atomic="true" className="study-thinking-label">
+        <span className="study-thinking-dot" aria-hidden="true" />
+        {label}
+      </span>
+      {action}
+    </div>
+  );
+}
+
+export { Loading, LoadingSkeleton, Thinking };
 export type { LoadingProps };

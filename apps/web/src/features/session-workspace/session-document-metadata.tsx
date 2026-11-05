@@ -13,6 +13,7 @@ import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { Text } from 'lucide-react';
 import { useState } from 'react';
+import type { ReactElement } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -26,20 +27,46 @@ export function DocumentMetadata({ document }: { document: StudyDocument }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button variant="ghost-muted" size="icon-sm" />}
-        aria-label={t('DocumentEditing')}
-        title={t('DocumentEditing')}
-      >
-        <Text size={15} aria-hidden="true" />
-      </DialogTrigger>
+    <DocumentMetadataDialog
+      document={document}
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          variant="ghost-muted"
+          size="icon-sm"
+          aria-label={t('DocumentEditing')}
+          title={t('DocumentEditing')}
+        >
+          <Text size={15} aria-hidden="true" />
+        </Button>
+      }
+    />
+  );
+}
+
+export function DocumentMetadataDialog({
+  document,
+  open,
+  onOpenChange,
+  trigger
+}: {
+  document: StudyDocument;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trigger?: ReactElement;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogPopup closeLabel={t('Close')}>
         <DialogHeader>
           <DialogTitle>{t('DocumentEditing')}</DialogTitle>
           <DialogDescription>{t('SessionDescriptionHelp')}</DialogDescription>
         </DialogHeader>
-        {open && <MetadataForm document={document} onSaved={() => setOpen(false)} />}
+        {open && <MetadataForm document={document} onSaved={() => onOpenChange(false)} />}
       </DialogPopup>
     </Dialog>
   );

@@ -2,7 +2,7 @@ import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId, VersionId, SourceId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import { ChatConversation, ChatMessage, ChatMessageText } from '@study/ui/chat';
+import { ChatConversation, ChatMessage, ChatMessageHeading, ChatMessageText } from '@study/ui/chat';
 import {
   Dialog,
   DialogTrigger,
@@ -17,7 +17,7 @@ import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { History as HistoryIcon } from 'lucide-react';
+import { History as HistoryIcon, MessagesSquare, UserRound } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -217,6 +217,11 @@ function DocumentEntry({
   );
 }
 
+const messageAuthors = {
+  user: { label: 'SessionContextYou', icon: UserRound },
+  assistant: { label: 'AnswerAuthor', icon: MessagesSquare }
+} as const;
+
 function MessageEntry({
   message,
   onOpenSource,
@@ -231,9 +236,12 @@ function MessageEntry({
   const version =
     message.versions.find((item) => item.id === selected) ??
     message.versions.find((item) => item.id === message.activeVersionId);
+  const author = messageAuthors[message.role];
+  const AuthorIcon = author.icon;
 
   return (
-    <ChatMessage>
+    <ChatMessage data-role={message.role}>
+      <ChatMessageHeading label={t(author.label)} icon={<AuthorIcon aria-hidden="true" />} />
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
         <>

@@ -27,7 +27,19 @@ export function DocumentRetirement({ document }: { document: StudyDocument }) {
   );
 }
 
-function RetirementDialog({ view }: { view: View }) {
+export function DocumentDeletionDialog({
+  document,
+  onClose
+}: {
+  document: StudyDocument;
+  onClose: () => void;
+}) {
+  const view = useDocumentRetirement(document, 'deletion', onClose);
+
+  return <RetirementDialog view={view} onClose={onClose} />;
+}
+
+function RetirementDialog({ view, onClose }: { view: View; onClose?: () => void }) {
   const { t } = useI18n();
   const { document, mode, setMode, preview, retire, validKeep } = view;
   const blocked = !preview || preview.blockedVersionIds.length > 0;
@@ -36,7 +48,10 @@ function RetirementDialog({ view }: { view: View }) {
     <DangerDialog
       open={mode !== undefined}
       onOpenChange={(open) => {
-        if (!open) setMode(undefined);
+        if (!open) {
+          setMode(undefined);
+          onClose?.();
+        }
       }}
       title={t(mode === 'history' ? 'DocumentPrune' : 'AuthoredDocumentDelete')}
       description={t('AuthoredDocumentRetirementHelp')}

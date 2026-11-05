@@ -264,6 +264,30 @@ function DocumentCard({
   );
 }
 
+type AttachmentTone = 'neutral' | 'blue' | 'violet' | 'amber' | 'teal' | 'red';
+
+/** The same file identity is used on the notebook and in its attachment panel. */
+export function AttachmentIcon({
+  children,
+  tone = 'neutral',
+  size = 'default'
+}: {
+  children: ReactNode;
+  tone?: AttachmentTone;
+  size?: 'default' | 'compact';
+}) {
+  return (
+    <span
+      className="session-desk-attachment-icon"
+      data-tone={tone}
+      data-size={size}
+      aria-hidden="true"
+    >
+      {children}
+    </span>
+  );
+}
+
 function AttachmentCard({
   name,
   meta,
@@ -277,7 +301,7 @@ function AttachmentCard({
   meta: ReactNode;
   icon: ReactNode;
   preview?: ReactNode;
-  tone?: 'neutral' | 'blue' | 'violet' | 'amber' | 'teal' | 'red';
+  tone?: AttachmentTone;
 }) {
   const link = useRender({
     defaultTagName: 'a',
@@ -288,9 +312,7 @@ function AttachmentCard({
         title: name,
         children: (
           <>
-            <span className="session-desk-attachment-icon" data-tone={tone} aria-hidden="true">
-              {icon}
-            </span>
+            <AttachmentIcon tone={tone}>{icon}</AttachmentIcon>
             <span className="session-desk-attachment-copy">
               <span className="session-desk-attachment-name">{name}</span>
               <span className="session-desk-attachment-meta">{meta}</span>
@@ -330,6 +352,7 @@ export const SessionDeskSurface = {
   Header: part('header', 'session-desk-header'),
   HeaderTitle: part('span', 'session-desk-header-title'),
   Editor: part('section', 'session-desk-editor'),
+  DocumentPage: part('div', 'document-editor-page'),
   SaveStatus: part('span', 'session-desk-save-status'),
   Recovery: part('section', 'session-desk-recovery')
 };

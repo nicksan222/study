@@ -5,6 +5,7 @@ import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { Link, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { useState } from 'react';
 
@@ -48,6 +49,7 @@ export function AuthoredDocumentReader({
 
 function useAuthoredReader(id: StudyDocumentId, initialVersion?: string) {
   const document = useQuery(sessionDocumentOptions(id));
+  const search = useSearch({ from: '__root__' });
   const [selected, setSelected] = useState<StudyDocumentVersionId | undefined>(() =>
     initialVersion
       ? Schema.decodeUnknownSync(studyDocumentVersionIdSchema)(BigInt(initialVersion))
@@ -61,7 +63,7 @@ function useAuthoredReader(id: StudyDocumentId, initialVersion?: string) {
   const version =
     selected === undefined ? document.data?.version : exact.isError ? undefined : exact.data;
 
-  return { document, history, exact, selected, setSelected, version, id };
+  return { document, history, exact, selected, setSelected, version, id, project: search.project };
 }
 
 function AuthoredReaderContent({
@@ -109,7 +111,16 @@ function AuthoredHistory({ model }: { model: ReturnType<typeof useAuthoredReader
       {history.error && (
         <ContentReadError error={history.error} retry={() => void history.refetch()} />
       )}
-      <Button variant="ghost" onClick={() => setSelected(undefined)}>
+      <Button
+        variant="ghost"
+        render={
+          <Link
+            to="/documents/$documentId"
+            params={{ documentId: String(model.id) }}
+            search={model.project ? { project: model.project } : {}}
+          />
+        }
+      >
         {t('ReaderCurrent')}
       </Button>
       <MaterialLibrary.Rows>

@@ -4,6 +4,7 @@ import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Cloud, CloudOff } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -13,7 +14,12 @@ import { DocumentMetadata } from './session-document-metadata';
 import { sessionDocumentOptions, useSessionDocumentAutosave } from './session-document.queries';
 import { SessionReadError } from './status';
 
-export function SessionDocumentPanel({ documentId }: { documentId: StudyDocumentId }) {
+type EditorActions = { actions?: (document: StudyDocument) => ReactNode };
+
+export function SessionDocumentPanel({
+  documentId,
+  actions
+}: { documentId: StudyDocumentId } & EditorActions) {
   const { t } = useI18n();
   const state = useQuery(sessionDocumentOptions(documentId));
 
@@ -25,7 +31,7 @@ export function SessionDocumentPanel({ documentId }: { documentId: StudyDocument
   if (!state.data) return null;
 
   return state.data.version ? (
-    <DocumentEditor document={state.data} />
+    <DocumentEditor document={state.data} actions={actions} />
   ) : (
     <Desk.Recovery>
       <p>{t('SessionReadUnavailable')}</p>
@@ -33,7 +39,7 @@ export function SessionDocumentPanel({ documentId }: { documentId: StudyDocument
   );
 }
 
-function DocumentEditor({ document }: { document: StudyDocument }) {
+function DocumentEditor({ document, actions }: { document: StudyDocument } & EditorActions) {
   const { t } = useI18n();
   const model = useSessionDocumentAutosave(document);
   const Icon = model.error ? CloudOff : model.dirty ? Cloud : Check;
@@ -65,6 +71,7 @@ function DocumentEditor({ document }: { document: StudyDocument }) {
                 {t(label)}
               </Desk.SaveStatus>
               <DocumentMetadata document={document} />
+              {actions?.(document)}
             </>
           }
         />

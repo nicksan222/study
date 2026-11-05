@@ -1,7 +1,12 @@
 import type { createSchema, saveSchema } from '@study/contracts/documents/editing';
 import type { StudyDocument, StudyDocumentSummary } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
-import type { StudyDocumentId, StudyDocumentVersionId, SessionId } from '@study/contracts/ids';
+import type {
+  StudyDocumentId,
+  StudyDocumentVersionId,
+  ProjectId,
+  SessionId
+} from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,9 +59,20 @@ export const sessionDocumentOptions = (id: StudyDocumentId) =>
 type Creation = { pending: boolean; input?: CreationInput; error?: unknown };
 
 /** An uncertain creation retains its exact key and payload until the receipt is recovered. */
+type DocumentOwner =
+  | { kind: 'session'; sessionId: SessionId }
+  | { kind: 'project'; projectId?: ProjectId };
+
 export function useSessionDocumentCreation(sessionId: SessionId) {
+  return useBlankDocumentCreation({ kind: 'session', sessionId });
+}
+
+export function useBlankDocumentCreation(owner: DocumentOwner) {
   const cache = useQueryClient();
-  const key = ['session-drafts', String(sessionId), 'document-creation'];
+  const key =
+    owner.kind === 'session'
+      ? ['session-drafts', String(owner.sessionId), 'document-creation']
+      : ['document-drafts', owner.projectId?.toString() ?? 'global', 'creation'];
   const initial: Creation = { pending: false };
   const state = useQuery({
     queryKey: key,
@@ -77,13 +93,20 @@ export function useSessionDocumentCreation(sessionId: SessionId) {
       const document = await request((rpc) => rpc['documents.create'](input));
 
       cache.setQueryData(key, initial);
-      const listKey = sessionDocumentsOptions(sessionId).queryKey;
 
-      await cache.cancelQueries({ queryKey: listKey, exact: true });
-      cache.setQueryData<{ items: StudyDocumentSummary[]; nextCursor: null }>(listKey, (page) => ({
-        items: [document, ...(page?.items ?? []).filter((item) => item.id !== document.id)],
-        nextCursor: null
-      }));
+      if (owner.kind === 'session') {
+        const listKey = sessionDocumentsOptions(owner.sessionId).queryKey;
+
+        await cache.cancelQueries({ queryKey: listKey, exact: true });
+        cache.setQueryData<{ items: StudyDocumentSummary[]; nextCursor: null }>(
+          listKey,
+          (page) => ({
+            items: [document, ...(page?.items ?? []).filter((item) => item.id !== document.id)],
+            nextCursor: null
+          })
+        );
+      }
+
       cache.setQueryData(sessionDocumentOptions(document.id).queryKey, document);
       void invalidateDocuments(cache);
 
@@ -103,7 +126,9 @@ export function useSessionDocumentCreation(sessionId: SessionId) {
 
       return submit(
         pending?.input ?? {
-          sessionId,
+          ...(owner.kind === 'session'
+            ? { sessionId: owner.sessionId }
+            : { projectId: owner.projectId }),
           title,
           createKey: crypto.randomUUID(),
           document: {

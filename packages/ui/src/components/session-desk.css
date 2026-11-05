@@ -478,6 +478,15 @@
   width: 1.25rem;
   height: 1.25rem;
 }
+.session-desk-attachment-icon[data-size='compact'] {
+  width: 2rem;
+  height: 2.375rem;
+  border-radius: 0.375rem;
+}
+.session-desk-attachment-icon[data-size='compact'] > svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
 .session-desk-attachment-icon[data-tone='blue'] {
   --attachment-tone: var(--identity-blue);
 }
@@ -801,4 +810,22 @@
     max-height: none;
     overflow: visible;
   }
+}
+
+.document-editor-page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: calc(100dvh - var(--workspace-topbar-height));
+  min-height: 20rem;
+}
+
+.document-editor-page .rich-note-content {
+  padding: 0;
+  background: var(--background);
+}
+.document-editor-page .rich-note-content .tiptap {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
 }

@@ -12,10 +12,14 @@ import { releaseBodyPreviews } from '../document-presentation';
 
 type Preview = typeof retirementPreviewSchema.Type;
 
-export function useDocumentRetirement(document: StudyDocument) {
+export function useDocumentRetirement(
+  document: StudyDocument,
+  initialMode?: 'history' | 'deletion',
+  onClosed?: () => void
+) {
   const cache = useQueryClient();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<'history' | 'deletion'>();
+  const [mode, setMode] = useState<'history' | 'deletion' | undefined>(initialMode);
   const [keepLatest, setKeepLatest] = useState('10');
   const [preview, setPreview] = useState<Preview>();
   const inspect = useMutation({
@@ -51,13 +55,17 @@ export function useDocumentRetirement(document: StudyDocument) {
 
       if (mode === 'deletion') {
         releaseDocumentBodies(cache, document.id);
-        await navigate({ to: '/library', search: {} });
+        await navigate({
+          to: '/documents',
+          search: document.projectIds[0] ? { project: String(document.projectIds[0]) } : {}
+        });
       }
 
       void cache.invalidateQueries({ queryKey: ['documents'] });
       void cache.invalidateQueries({ queryKey: ['library'] });
       setMode(undefined);
       setPreview(undefined);
+      onClosed?.();
     },
     onError: async () => {
       if (preview)

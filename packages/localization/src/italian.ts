@@ -111,6 +111,25 @@ export const italian = Object.freeze({
   SidebarSelectedCount: '{count} selezionate',
   SidebarDeleteSelected: 'Elimina selezionate',
   SidebarShowMore: 'Mostra altre {count}',
+  DocumentsOverviewTitle: 'I tuoi documenti',
+  DocumentsOverviewDescription:
+    'Appunti, esercizi svolti e guide allo studio. Riprendi da dove eri rimasto o inizia una nuova pagina.',
+  DocumentsSaved: 'Documenti salvati',
+  DocumentsEmptyTitle: 'Spazio alla tua prossima idea',
+  DocumentsOverviewEmpty:
+    'Crea un documento o trasformaci una sessione. Ritroverai qui i tuoi testi, pronti da leggere e perfezionare.',
+  DocumentsFromSessions: 'Da sessioni',
+  DocumentsSelectSessionsHelp:
+    'Scegli una o più sessioni da trasformare in un documento. Potrai impostare istruzioni e opzioni nel prossimo passaggio.',
+  DocumentsFindSessions: 'Cerca sessioni',
+  DocumentsNoSessions: 'Nessuna sessione trovata.',
+  DocumentOpen: 'Apri documento',
+  DocumentRename: 'Rinomina e descrizione…',
+  DocumentAskAI: 'Chiedi all’IA…',
+  DocumentAskAIHelp:
+    'Scegli una sessione per domande, riassunti o riscritture. Questa versione del documento verrà aggiunta al contesto, mantenendo le altre selezioni.',
+  DocumentOpenAI: 'Apri sessione',
+  DocumentDeleteAction: 'Elimina documento…',
   DocumentsEmpty: 'I tuoi documenti completati appariranno qui.',
   DocumentsLoadError: 'Impossibile caricare i documenti.',
   SidebarSettled: 'Completate',
@@ -845,6 +864,7 @@ export const italian = Object.freeze({
     'La richiesta non corrisponde più allo stato salvato. Le modifiche sono conservate; controlla la selezione prima di inviare di nuovo.',
   SessionRequestError:
     'Non è stato possibile confermare la richiesta. La bozza è conservata. Ritenta solo la stessa richiesta inviata o aggiornane lo stato.',
+  SessionThinking: 'Sto pensando…',
   SessionPending: 'Richiesta accettata; in attesa del risultato.',
   SessionWaiting:
     'Il lavoro è in attesa. Se non prosegue, controlla l’accesso a ChatGPT nelle impostazioni.',

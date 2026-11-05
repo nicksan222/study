@@ -1,6 +1,6 @@
 import { Shell as PageShell } from '@study/ui/shell';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
-import { Outlet, useMatches } from '@tanstack/react-router';
+import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -73,6 +73,14 @@ function ShellHeader({
   );
 }
 
+function usePageLayout(sessions: boolean, documents: boolean) {
+  const search = useSearch({ from: '__root__' });
+  const params = useParams({ strict: false });
+  const editingDocument = documents && params.documentId !== undefined && !search.documentVersion;
+
+  return sessions || editingDocument ? 'bleed' : 'padded';
+}
+
 /** Selects the session layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
@@ -80,6 +88,7 @@ export function Shell() {
   const metadata = matches.at(-1)?.staticData ?? {};
   const title = metadata.title ?? 'Home';
   const sessions = title === 'Sessions';
+  const layout = usePageLayout(sessions, metadata.section === 'documents');
   const navigation = useShellNavigation(sessions);
 
   return (
@@ -113,7 +122,7 @@ export function Shell() {
           title={t(title)}
           onToggle={navigation.toggle}
         />
-        <PageShell.PageBody layout={sessions ? 'bleed' : 'padded'}>
+        <PageShell.PageBody layout={layout}>
           <Outlet />
         </PageShell.PageBody>
       </SidebarUI.Main>

@@ -105,6 +105,25 @@ export const english = Object.freeze({
   SidebarSelectedCount: '{count} selected',
   SidebarDeleteSelected: 'Delete selected',
   SidebarShowMore: 'Show {count} more',
+  DocumentsOverviewTitle: 'Your documents',
+  DocumentsOverviewDescription:
+    'A place for your finished notes, worked examples and study guides. Pick up where you left off, or start a new page.',
+  DocumentsSaved: 'Saved documents',
+  DocumentsEmptyTitle: 'Make room for your next idea',
+  DocumentsOverviewEmpty:
+    'Create a document or turn a session into one. Your writing will be collected here, ready to read and refine.',
+  DocumentsFromSessions: 'From sessions',
+  DocumentsSelectSessionsHelp:
+    'Choose one or more sessions to turn into a document. You can set instructions and options next.',
+  DocumentsFindSessions: 'Find sessions',
+  DocumentsNoSessions: 'No sessions found.',
+  DocumentOpen: 'Open document',
+  DocumentRename: 'Rename and description…',
+  DocumentAskAI: 'Ask AI…',
+  DocumentAskAIHelp:
+    'Choose a session for questions, summaries or rewrites. This document version will be added to its context; your other selected context stays in place.',
+  DocumentOpenAI: 'Open session',
+  DocumentDeleteAction: 'Delete document…',
   DocumentsEmpty: 'Your finished documents will appear here.',
   DocumentsLoadError: 'Could not load your documents.',
   SidebarSettled: 'Settled',
@@ -820,6 +839,7 @@ export const english = Object.freeze({
     'The request no longer matches the saved state. Your changes are kept; review the selection before submitting again.',
   SessionRequestError:
     'The request could not be confirmed. Your draft is kept. Retry only the same submitted request, or refresh its status.',
+  SessionThinking: 'Thinking…',
   SessionPending: 'Request accepted; waiting for a result.',
   SessionWaiting: 'Work is waiting. Check ChatGPT access in Settings if it does not continue.',
   SessionCompleted: 'Work completed',

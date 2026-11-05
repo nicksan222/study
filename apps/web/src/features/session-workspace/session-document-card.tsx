@@ -61,10 +61,12 @@ export function SessionDocumentCard({
                   onClick={() => onOpen(document)}
                 />
               }
-            >
-              <FileText aria-hidden="true" />
-              <span>{document.title}</span>
-            </WorkspaceAttachments.Item>
+              title={document.title}
+              label={document.title}
+              meta={document.description ?? t('SourceDocument')}
+              icon={<FileText aria-hidden="true" />}
+              tone="blue"
+            />
           ) : (
             <Desk.DocumentCard
               title={document.title}

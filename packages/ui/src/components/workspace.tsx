@@ -1,7 +1,7 @@
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { cn } from '@study/ui/utils';
-import { SquareMenu } from 'lucide-react';
+import { ArrowUpRight, SquareMenu } from 'lucide-react';
 import {
   createContext,
   useContext,
@@ -14,6 +14,7 @@ import {
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
 import { semanticPart as part } from './semantic-part';
+import { AttachmentIcon } from './session-desk';
 
 const CardContext = createContext<{
   id: string;
@@ -187,8 +188,36 @@ export const WorkspaceChanges = {
   Actions: part('div', 'session-context-actions')
 };
 
-function AttachmentItem(props: ComponentProps<typeof Button>) {
-  return <Button {...props} size="sm" variant="ghost-muted" className="session-attachment-item" />;
+function AttachmentItem({
+  label,
+  meta,
+  icon,
+  tone,
+  className,
+  ...props
+}: Omit<ComponentProps<typeof Button>, 'children'> & {
+  label: string;
+  meta: ReactNode;
+  icon: ReactNode;
+  tone?: ComponentProps<typeof AttachmentIcon>['tone'];
+}) {
+  return (
+    <Button
+      {...props}
+      size="sm"
+      variant="ghost"
+      className={cn('session-attachment-item', className)}
+    >
+      <AttachmentIcon tone={tone} size="compact">
+        {icon}
+      </AttachmentIcon>
+      <span className="session-attachment-copy">
+        <span className="session-attachment-name">{label}</span>
+        <span className="session-attachment-meta">{meta}</span>
+      </span>
+      <ArrowUpRight className="session-attachment-open" aria-hidden="true" />
+    </Button>
+  );
 }
 
 export const WorkspaceAttachments = {
@@ -206,6 +235,7 @@ function Primary(props: ComponentProps<typeof Button>) {
 export const WorkspaceCard = { Provider, Toggle, Root: Card, Group, Item, Primary };
 
 export const WorkspaceWork = {
+  Icon: AttachmentIcon,
   Root: part('section', 'ui-workspace-work'),
   Heading: part('header', 'ui-workspace-work-heading'),
   List: part('ul', 'ui-workspace-work-list'),

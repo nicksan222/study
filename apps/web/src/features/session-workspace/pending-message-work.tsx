@@ -1,7 +1,8 @@
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
-import { LoadingSkeleton } from '@study/ui/loading';
+import { Thinking } from '@study/ui/loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { X } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -23,7 +24,7 @@ export function PendingMessageWork(target: MessageWorkTarget) {
 
   return (
     <>
-      <LoadingSkeleton layout="response" label={t('SessionPending')} />
+      <Thinking label={t('SessionThinking')} />
       {provenance.error && (
         <SessionReadError error={provenance.error} retry={() => void provenance.refetch()} />
       )}
@@ -46,19 +47,20 @@ function PendingRequestWork({
 
   return (
     <>
-      <LoadingSkeleton
-        layout="response"
-        label={t(stopping ? 'SessionWorkStopping' : 'SessionPending')}
+      <Thinking
+        label={t(stopping ? 'SessionWorkStopping' : 'SessionThinking')}
         action={
           execution &&
           showCancel && (
             <Button
-              size="sm"
+              size="icon-sm"
               variant="ghost-muted"
+              aria-label={t('SessionCancel')}
+              title={t('SessionCancel')}
               disabled={stopping || cancel.isError || !execution.canCancel}
               onClick={() => cancel.mutate({ kind: 'reply', title: null, requestId, execution })}
             >
-              {t(stopping ? 'SessionWorkStopping' : 'SessionCancel')}
+              <X aria-hidden="true" />
             </Button>
           )
         }

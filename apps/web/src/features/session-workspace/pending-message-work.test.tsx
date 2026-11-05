@@ -70,13 +70,16 @@ testStable('cancels the exact pending version and waits for committed stopping s
   mount();
   const button = await screen.findByRole('button', { name: 'SessionCancel' });
 
+  expect(screen.getByRole('status')).toHaveTextContent('SessionThinking');
+  expect(document.querySelector('[data-slot="loading-placeholder"]')).toBeNull();
+
   fireEvent.click(button);
   await waitFor(() =>
     expect(api.cancel).toHaveBeenCalledExactlyOnceWith({ id: 'exact-run', mode: 'safe' })
   );
   await waitFor(() => expect(button).toBeDisabled());
   expect(api.provenance).toHaveBeenCalledWith(target);
-  await waitFor(() => expect(button).toHaveTextContent('SessionWorkStopping'));
+  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('SessionWorkStopping'));
 });
 
 testStable(

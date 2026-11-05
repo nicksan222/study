@@ -1,3 +1,4 @@
+import { ChatMessageContent } from '@study/ui/chat';
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -41,7 +42,7 @@ export function MessageContextMenu({ model, children }: { model: Model; children
           <ContextMenu>
             <ContextMenuTrigger
               ref={trigger}
-              render={<div />}
+              render={<ChatMessageContent />}
               tabIndex={0}
               aria-label={model.t('SessionItemActions')}
             >

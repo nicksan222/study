@@ -1,5 +1,9 @@
 import { StudyError } from '@study/contracts/errors';
-import { sessionIdSchema, studyDocumentVersionIdSchema } from '@study/contracts/ids';
+import {
+  sessionIdSchema,
+  projectIdSchema,
+  studyDocumentVersionIdSchema
+} from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -11,6 +15,7 @@ import { blankDocument } from '../document-editing';
 import { authoredDocument } from '../document-editing/test-support';
 import {
   useSessionDocumentCreation,
+  useBlankDocumentCreation,
   useSessionDocumentAutosave,
   sessionDocumentsOptions
 } from './session-document.queries';
@@ -207,5 +212,35 @@ testStable(
 
     expect(result.items).toHaveLength(2);
     expect(api.list.mock.calls[1]![0]).toMatchObject({ cursor: item.id });
+  }
+);
+
+testStable(
+  'creates a subject-owned blank document and retries the same receipt without attaching a session',
+  async () => {
+    const projectId = projectIdSchema.make(7n);
+
+    api.create
+      .mockRejectedValueOnce(new StudyError('transient', 'offline'))
+      .mockResolvedValueOnce(material());
+    const view = mount(() => useBlankDocumentCreation({ kind: 'project', projectId }));
+
+    await act(async () => {
+      await view.result.current.create('Blank page');
+    });
+    const input = api.create.mock.calls[0]![0];
+
+    expect(input).toMatchObject({
+      projectId,
+      title: 'Blank page',
+      document: { blocks: [{ text: '' }] }
+    });
+    expect(input).not.toHaveProperty('sessionId');
+    await act(async () => {
+      await view.result.current.create('A changed title');
+    });
+    expect(api.create.mock.calls[1]![0]).toEqual(input);
+    await settle();
+    expect(view.result.current.error).toBeUndefined();
   }
 );

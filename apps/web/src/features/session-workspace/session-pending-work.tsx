@@ -5,7 +5,7 @@ import { Loading } from '@study/ui/loading';
 import { Spinner } from '@study/ui/spinner';
 import { WorkspaceWork } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, X } from 'lucide-react';
+import { Activity, FileText, MessagesSquare, Paperclip, PenLine, X } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -17,11 +17,11 @@ import {
 import type { SessionWorkItem } from './session-pending-work.queries';
 import { SessionReadError } from './status';
 
-const kindLabels = {
-  transform: 'SessionWorkTransform',
-  reply: 'SessionWorkReply',
-  attachment: 'SessionWorkAttachment',
-  title: 'SessionWorkTitle'
+const kinds = {
+  transform: { label: 'SessionWorkTransform', icon: FileText },
+  reply: { label: 'SessionWorkReply', icon: MessagesSquare },
+  attachment: { label: 'SessionWorkAttachment', icon: Paperclip },
+  title: { label: 'SessionWorkTitle', icon: PenLine }
 } as const;
 
 /** Shows committed work for this notebook independently of the selected dialog. */
@@ -92,10 +92,14 @@ function WorkRow({
   const status = item.execution.status;
   const stopping = cancel.isPending || status === 'cancelling';
   const stateLabel = workStateLabel(item, stopping);
-  const title = item.title || t(kindLabels[item.kind]);
+  const { label, icon: Icon } = kinds[item.kind];
+  const title = item.title || t(label);
 
   return (
     <WorkspaceWork.Row>
+      <WorkspaceWork.Icon tone="blue" size="compact">
+        <Icon aria-hidden="true" />
+      </WorkspaceWork.Icon>
       <WorkspaceWork.Copy>
         <strong title={title}>{title}</strong>
         <WorkspaceWork.Status>
