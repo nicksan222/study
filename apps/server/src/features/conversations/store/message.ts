@@ -54,6 +54,7 @@ import { activeMessageCondition } from './archive.ts';
 import { makePersistence } from './persistence.ts';
 import { makeThread } from './thread.ts';
 
+/** Carries manual corrections across versions while invalidating automatic results for changed content. */
 function questionSelection(message: typeof chatMessageSchema.Type, versionId: VersionId) {
   return {
     active_version_id: versionId,
@@ -126,6 +127,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       }));
   }
 
+  /** Reads classification, answer linkage and immutable versions from the same database state. */
   function read(id: MessageId) {
     const m = db.orm.select().from(messages).where(eq(messages.id, id)).get();
 

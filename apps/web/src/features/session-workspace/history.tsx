@@ -223,6 +223,7 @@ const messageAuthors = {
   assistant: { label: 'AnswerAuthor', icon: MessagesSquare }
 } as const;
 
+/** Renders the selected note version while preserving attachments, citations and pending work. */
 function MessageEntry({
   message,
   onOpenSource,

@@ -189,6 +189,7 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
+      /** Commits manual corrections with durable optional answer work, before capturing reply context. */
       setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
         Effect.gen(function* () {
           const preferences = yield* readWorkspacePreferences();
@@ -208,6 +209,7 @@ export const Conversations = defineService(
         transaction((tx) => answerQuestion(tx, input)),
       questionSnapshot: (input: typeof questionVersionInputSchema.Type) =>
         transaction((tx) => tx.store(QuestionStore).questionSnapshot(input)),
+      /** Commits detection independently so rejected automatic answers cannot erase the saved kind. */
       publishQuestion: (
         input: typeof questionVersionInputSchema.Type & typeof questionClassificationSchema.Type
       ) =>
@@ -747,6 +749,7 @@ export const Conversations = defineService(
 
           return resolveMessageCitations(tx, message);
         }),
+      /** Preserves classification on no-op selections and requeues changed content versions. */
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>
         transaction((tx) => {
           const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
@@ -756,6 +759,7 @@ export const Conversations = defineService(
 
           return resolveMessageCitations(tx, message);
         }),
+      /** Reclassifies only when version deletion selects different active content. */
       deleteMessageVersion: (input: typeof setActiveVersionInputSchema.Type) =>
         transaction((tx) => {
           const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
