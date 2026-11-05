@@ -1,7 +1,6 @@
 import { projectIdSchema } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { DocumentOverview } from '@study/ui/document-overview';
-import { Loading } from '@study/ui/loading';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
@@ -59,7 +58,6 @@ export function DocumentsPage() {
           </Button>
         </DocumentOverview.Actions>
       </DocumentOverview.Heading>
-      {state.isPending && <Loading label={t('LoadingStudy')} />}
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
       {items.length > 0 && (
         <DocumentOverview.Section aria-label={t('DocumentsSaved')}>
