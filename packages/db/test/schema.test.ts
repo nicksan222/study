@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { projectIdSchema } from '@study/contracts/ids';
-import { testMigration, testStable } from '@study/testing/vitest';
+import { testStable } from '@study/testing/vitest';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
@@ -203,41 +203,39 @@ testStable('retired projection tables and message job ownership are absent', () 
   })
 );
 
-testMigration({ migration: 'ask_migration', retention: 'permanent' })(
-  'Ask migration retains exact retirement and reply publication guards after table rebuilds',
-  () =>
-    fixture((path) => {
-      const connection = Db.open(path);
+testStable('current schema enforces Ask retirement and reply publication guards', () =>
+  fixture((path) => {
+    const connection = Db.open(path);
 
-      try {
-        const names = new Set(
-          connection.orm
-            .all(sql`SELECT name FROM sqlite_schema WHERE type='trigger'`)
-            .map((row) => row.name)
-        );
+    try {
+      const names = new Set(
+        connection.orm
+          .all(sql`SELECT name FROM sqlite_schema WHERE type='trigger'`)
+          .map((row) => row.name)
+      );
 
-        for (const name of [
-          'message_fts_ai',
-          'message_fts_ad',
-          'message_fts_finish',
-          'conversation_recording_posts_validate_insert',
-          'session_retired_intents_owner',
-          'session_retired_intents_update',
-          'session_retired_intents_delete',
-          'session_retired_intent_recapture',
-          'conversation_reply_sources_capture',
-          'conversation_reply_sources_immutable',
-          'conversation_reply_sources_retained'
-        ])
-          assert.ok(names.has(name), name);
+      for (const name of [
+        'message_fts_ai',
+        'message_fts_ad',
+        'message_fts_finish',
+        'conversation_recording_posts_validate_insert',
+        'session_retired_intents_owner',
+        'session_retired_intents_update',
+        'session_retired_intents_delete',
+        'session_retired_intent_recapture',
+        'conversation_reply_sources_capture',
+        'conversation_reply_sources_immutable',
+        'conversation_reply_sources_retained'
+      ])
+        assert.ok(names.has(name), name);
 
-        assert.throws(() =>
-          connection.orm.run(sql`INSERT INTO session_retired_intents
+      assert.throws(() =>
+        connection.orm.run(sql`INSERT INTO session_retired_intents
         (session_id,intent_key,request_id,reason) VALUES (1,'forged','missing','input_retired')`)
-        );
-        expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-      } finally {
-        connection.close();
-      }
-    })
+      );
+      expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    } finally {
+      connection.close();
+    }
+  })
 );

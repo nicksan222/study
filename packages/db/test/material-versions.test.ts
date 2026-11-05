@@ -8,7 +8,7 @@ import { material_quiz_choices } from '../src/schema.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 function fixture(t: TestContext) {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   const db = location.open();
 
   t.onTestFinished(() => {

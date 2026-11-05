@@ -64,7 +64,7 @@ const creation = (createKey: string, text = 'Original') => ({
 });
 
 function fixture() {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Documents.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -476,9 +476,7 @@ testStable(
       await f.context.db.snapshot(path);
       const { Db } = await import('@study/db');
 
-      if (process.env.STUDY_FINAL_MIGRATIONS)
-        assert.throws(() => Db.validateSnapshot(path), TypeError);
-      else assert.strictEqual(Db.validateSnapshot(path), f.context.db.schemaIdentity());
+      assert.strictEqual(Db.validateSnapshot(path), f.context.db.schemaIdentity());
     } finally {
       f.close();
     }

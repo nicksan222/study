@@ -47,7 +47,7 @@ const document = (text: string) => ({
 });
 
 function fixture() {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const handlers = Layer.mergeAll(DocumentsRpcLive, SourcesRpcLive).pipe(
     Layer.provideMerge(Layer.mergeAll(Documents.layer, Sources.layer)),

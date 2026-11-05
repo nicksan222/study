@@ -44,7 +44,7 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 import { serializeMaterialVersion } from './export-serializer.ts';
 
 function fixture() {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
   const services = Layer.mergeAll(Materials.layer, Sources.layer, Documents.layer).pipe(

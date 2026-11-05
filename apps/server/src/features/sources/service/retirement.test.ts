@@ -33,7 +33,7 @@ import { Sources } from './index.ts';
 testStable(
   'source deletion scrubs native captures before interrupting a retired provider execution',
   async () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
     const context = new ServerContext(location.open());
     const cancelled: string[] = [];
     const layer = Sources.layer.pipe(
@@ -113,7 +113,7 @@ testStable(
 testStable(
   'raw reply captures pin pending and ready source revisions until their session is deleted',
   async () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
     const context = new ServerContext(location.open());
     const layer = Layer.merge(Sources.layer, Conversations.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

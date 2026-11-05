@@ -112,7 +112,7 @@ export async function documentTransformFixture() {
   }
 
   try {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
 
     cleanups.push(() => location.cleanup());
     const openContext = () => {

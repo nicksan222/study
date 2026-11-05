@@ -58,7 +58,7 @@ const meta = {
 testStable(
   'source correction and replacement retain exact citations, independent authored copies and user judgments',
   async () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
     const context = new ServerContext(location.open());
     const handlers = Layer.mergeAll(DocumentsRpcLive, ConversationsRpcLive).pipe(
       Layer.provideMerge(

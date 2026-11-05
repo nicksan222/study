@@ -5,7 +5,7 @@ import { assert, expect } from 'vite-plus/test';
 import { createTestDatabase } from '../src/testing.ts';
 
 function fixture(patch: Record<string, unknown> = {}, generationSession: number | null = null) {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   const db = location.open();
 
   db.exec(`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1);

@@ -1,11 +1,8 @@
-import { readFileSync } from 'node:fs';
-
 import { testStable } from '@study/testing/vitest';
 import { parseTheme, themeColorKeys } from '@study/theme';
-import { and, eq } from 'drizzle-orm';
 import { assert, expect } from 'vite-plus/test';
 
-import { themes, preferences } from '../src/schema.ts';
+import { themes } from '../src/schema.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 function luminance(hex: string) {
@@ -57,79 +54,6 @@ testStable(
     }
   }
 );
-
-testStable('upgrading retires T3 Chat while preserving custom themes and their identities', () => {
-  const location = createTestDatabase();
-  const before = location.open();
-  const original = before.orm
-    .select()
-    .from(themes)
-    .where(eq(themes.id, 't3-code'))
-    .get()!.definition;
-
-  try {
-    // Replay the data-only migration over the previous catalog and a user-owned name collision.
-    before.orm
-      .insert(themes)
-      .values({
-        id: 't3-chat',
-        definition: { ...original, id: 't3-chat', name: 'T3 Chat' },
-        builtin: true
-      })
-      .run();
-    before.orm
-      .insert(preferences)
-      .values({ scope: 'theme', key: 'selected', value: JSON.stringify('t3-chat') })
-      .run();
-    before.orm.delete(themes).where(eq(themes.id, 'catppuccin')).run();
-    before.orm
-      .insert(themes)
-      .values({
-        id: 'catppuccin',
-        builtin: false,
-        definition: {
-          version: 1,
-          id: 'catppuccin',
-          name: 'My custom palette',
-          dark: { primary: '#abcdef' }
-        }
-      })
-      .run();
-    before.exec(
-      readFileSync(
-        new URL('../drizzle/20261101115116_curated-theme-palettes/migration.sql', import.meta.url),
-        'utf8'
-      )
-    );
-  } finally {
-    before.close();
-  }
-
-  const db = location.open();
-
-  try {
-    const selected = db.orm
-      .select()
-      .from(preferences)
-      .where(and(eq(preferences.scope, 'theme'), eq(preferences.key, 'selected')))
-      .get();
-    const custom = db.orm.select().from(themes).where(eq(themes.id, 'catppuccin')).get();
-
-    assert.strictEqual(selected?.value, JSON.stringify('tokyo-night'));
-    assert.strictEqual(custom?.definition.name, 'My custom palette');
-    assert.strictEqual(custom?.builtin, false);
-    assert.ok(
-      !db.orm
-        .select()
-        .from(themes)
-        .all()
-        .some((theme) => theme.id === 't3-chat')
-    );
-  } finally {
-    db.close();
-    location.cleanup();
-  }
-});
 
 function verifyContrast(
   colors: NonNullable<ReturnType<typeof parseTheme>['light']>,
