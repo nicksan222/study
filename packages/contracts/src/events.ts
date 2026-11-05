@@ -1,7 +1,10 @@
 import { Schema } from 'effect';
 
-import { transformSuggestionInputSchema } from './conversations/rpc.ts';
-import { titleSnapshotSchema } from './conversations/schemas.ts';
+import {
+  titleSnapshotSchema,
+  transformSuggestionFieldSchema,
+  transformSuggestionLanguageSchema
+} from './conversations/schemas.ts';
 import { errorKindSchema } from './errors.ts';
 import {
   contentSnapshotIdSchema,
@@ -192,8 +195,8 @@ export const transformSuggestionRequestedSchema = Schema.Struct({
   type: Schema.Literal('TransformSuggestionRequested'),
   sessionId: sessionIdSchema,
   contextRequestId: Schema.String,
-  field: transformSuggestionInputSchema.fields.field,
-  language: transformSuggestionInputSchema.fields.language
+  field: transformSuggestionFieldSchema,
+  language: transformSuggestionLanguageSchema
 });
 
 export const practiceSlotRequestedSchema = Schema.Struct({

@@ -25,7 +25,11 @@ import {
 } from './context.ts';
 import { sessionDeletionSchema } from './deletion.ts';
 import { sessionSummariesSchema } from './schemas.ts';
-import { captureKeySchema } from './schemas.ts';
+import {
+  captureKeySchema,
+  transformSuggestionFieldSchema,
+  transformSuggestionLanguageSchema
+} from './schemas.ts';
 import {
   questionVersionInputSchema,
   setMessageKindInputSchema,
@@ -162,8 +166,8 @@ export const transformSuggestionInputSchema = Schema.Struct({
     Schema.Array(sessionIdSchema).check(Schema.isMaxLength(19))
   ),
   intentKey: Schema.String.check(Schema.isBetweenLength(1, 160)),
-  field: Schema.Literals(['title', 'instruction']),
-  language: Schema.Literals(['english', 'italian'])
+  field: transformSuggestionFieldSchema,
+  language: transformSuggestionLanguageSchema
 });
 
 export const ConversationsRpc = RpcGroup.make(
