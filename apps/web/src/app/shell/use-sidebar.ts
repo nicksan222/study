@@ -9,7 +9,7 @@ import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-clien
 
 import { useSidebarActions } from './sidebar-actions.queries';
 import { useSidebarContext } from './sidebar-context.queries';
-import { useSidebarSearch, useSidebarSearchInput } from './sidebar-search.queries';
+import { useSidebarSearch, useSidebarSearchInput } from './use-sidebar-search.queries';
 
 const noSubjects: Subjects = [];
 
