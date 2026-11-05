@@ -196,10 +196,12 @@ export const Conversations = defineService(
           return yield* transaction((tx) => {
             tx.store(QuestionStore).setQuestionKind(input);
 
-            if (input.kind === 'question' && preferences.autoAnswerQuestions)
-              answerQuestion(tx, input);
+            const message = tx.store(MessageStore).message(input.messageId);
 
-            return tx.store(MessageStore).message(input.messageId);
+            if (input.kind === 'question' && preferences.autoAnswerQuestions)
+              emitQuestionRequest(tx, message, input.expectedActiveVersionId, randomUUID());
+
+            return message;
           });
         }),
       answerQuestion: (input: typeof questionVersionInputSchema.Type) =>
@@ -210,14 +212,18 @@ export const Conversations = defineService(
         input: typeof questionVersionInputSchema.Type & typeof questionClassificationSchema.Type
       ) =>
         Effect.gen(function* () {
+          yield* publicationTransaction((tx) => {
+            tx.store(QuestionStore).publishQuestion(input);
+          });
+
+          if (input.kind !== 'question') return;
+
           const preferences = yield* readWorkspacePreferences();
 
-          return yield* publicationTransaction((tx) => {
-            const accepted = tx.store(QuestionStore).publishQuestion(input);
-
-            if (accepted && input.kind === 'question' && preferences.autoAnswerQuestions)
+          if (preferences.autoAnswerQuestions)
+            yield* publicationTransaction((tx) => {
               answerQuestion(tx, input);
-          });
+            });
         }),
       applyDocumentProposal: (value: typeof editing.applyProposalSchema.Type) =>
         transaction((tx) => {
@@ -1159,9 +1165,24 @@ function scheduleQuestion(tx: Transaction, message: ChatMessage, reclassify = fa
   )
     return;
 
+  emitQuestionRequest(
+    tx,
+    message,
+    versionId,
+    reclassify ? randomUUID() : `question/${message.id}/${versionId}`
+  );
+}
+
+/** Persists question follow-up work atomically with the classification or capture it belongs to. */
+function emitQuestionRequest(
+  tx: Transaction,
+  message: ChatMessage,
+  versionId: NonNullable<ChatMessage['activeVersionId']>,
+  eventId: string
+) {
   tx.emit({
     type: 'ConversationQuestionRequested',
-    eventId: reclassify ? randomUUID() : `question/${message.id}/${versionId}`,
+    eventId,
     causationId: null,
     correlationId: `question/${message.id}/${versionId}`,
     inputVersion: 1,

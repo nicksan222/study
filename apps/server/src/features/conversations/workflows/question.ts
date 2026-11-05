@@ -52,10 +52,7 @@ export const conversationQuestionHandler = ({
         execute: Effect.gen(function* () {
           const snapshot = yield* c.questionSnapshot(input);
 
-          if (snapshot.manual)
-            return yield* Effect.fail(
-              new StudyError('invalid_input', 'Question classification is manual')
-            );
+          if (snapshot.manual) return { kind: snapshot.kind ?? 'undetermined' };
 
           return yield* generateAgent(
             questionAgent,

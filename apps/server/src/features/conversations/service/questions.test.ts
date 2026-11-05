@@ -449,3 +449,62 @@ testStable(
     }
   }
 );
+
+testStable(
+  'automatic answer rejection cannot roll back detected or manually marked question kinds',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const sources = yield* Sources;
+          const settings = yield* Settings;
+
+          yield* settings.saveWorkspacePreferences({
+            ...(yield* settings.workspacePreferences()),
+            autoAnswerQuestions: true
+          });
+          const session = yield* c.createSession({ title: 'Unavailable context' });
+
+          for (const manual of [false, true]) {
+            const source = yield* sources.createSource({
+              name: 'Evidence.txt',
+              bytes: new TextEncoder().encode('Evidence'),
+              projectId: null
+            });
+            const note = yield* c.postMessage({
+              sessionId: session.id,
+              text: 'What does the evidence show?',
+              sourceIds: [source.id],
+              requestReply: false
+            });
+            const input = { messageId: note.id, expectedActiveVersionId: note.activeVersionId! };
+
+            yield* sources.deleteSource({ id: source.id });
+
+            if (manual) yield* c.setMessageKind({ ...input, kind: 'question' });
+
+            const attempted = yield* Effect.result(
+              withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }))
+            );
+
+            expect(attempted._tag).toBe('Failure');
+            expect((yield* c.message(note.id)).question?.kind).toBe('question');
+            expect((yield* c.message(note.id)).question?.origin).toBe(
+              manual ? 'manual' : 'automatic'
+            );
+          }
+        }).pipe(
+          Effect.provide(Layer.mergeAll(Conversations.layer, Sources.layer, Settings.layer)),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

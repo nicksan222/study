@@ -18,6 +18,7 @@ import { expect } from 'vite-plus/test';
 import { questionAgent } from './question.ts';
 
 testStable('question classifier uses tiny structured bilingual instructions', () => {
+  expect(questionAgent.id).toBe('question');
   expect(questionAgent.model).toBe('tiny');
   expect(questionAgent.mode).toBe('object');
   expect(Schema.is(questionAgent.output)({ kind: 'undetermined' })).toBe(true);

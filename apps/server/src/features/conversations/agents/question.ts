@@ -19,7 +19,7 @@ import {
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const questionAgent = defineAgent({
-  id: 'question-classifier',
+  id: 'question',
   input: questionInputSchema,
   output: questionClassificationSchema,
   model: 'tiny',

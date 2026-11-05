@@ -47,6 +47,7 @@ export const QuestionStore = defineStore({
           output: Schema.Struct({
             text: Schema.String,
             manual: Schema.Boolean,
+            kind: Schema.NullOr(questionClassificationSchema.fields.kind),
             scheduled: Schema.Boolean
           }),
           run: (input) => {
@@ -55,6 +56,7 @@ export const QuestionStore = defineStore({
             return {
               text: version.text,
               manual: row.question_origin === 'manual',
+              kind: row.question_kind,
               scheduled: !!db.orm
                 .select()
                 .from(workflowEvents)

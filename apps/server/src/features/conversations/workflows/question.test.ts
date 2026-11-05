@@ -195,6 +195,46 @@ testStable(
 
       await execute(eventFor(stale.id), 'question-stale');
       expect(calls).toBe(before);
+      await run(
+        Effect.flatMap(Settings, (s) =>
+          Effect.flatMap(s.workspacePreferences(), (p) =>
+            s.saveWorkspacePreferences({ ...p, autoAnswerQuestions: true })
+          )
+        )
+      );
+      const manual = await make();
+
+      await run(
+        Effect.flatMap(Conversations, (c) =>
+          c.setMessageKind({
+            messageId: manual.id,
+            expectedActiveVersionId: manual.activeVersionId!,
+            kind: 'question'
+          })
+        )
+      );
+      const followup = context.db.orm
+        .select()
+        .from(workflowEvents)
+        .all()
+        .map((e) => decodeEvent(e.payload))
+        .findLast((e) => e.type === 'ConversationQuestionRequested' && e.messageId === manual.id);
+
+      assert.ok(followup);
+      context.close();
+      context = new ServerContext(location.open());
+      const beforeManual = calls;
+
+      await execute(followup, 'manual-question-recovered');
+      expect(calls).toBe(beforeManual);
+      const answered = await run(Effect.flatMap(Conversations, (c) => c.message(manual.id)));
+
+      expect(answered.question?.answerMessageId).toBeDefined();
+      await execute(followup, 'manual-question-recovered');
+      expect(
+        (await run(Effect.flatMap(Conversations, (c) => c.message(manual.id)))).question
+          ?.answerMessageId
+      ).toBe(answered.question?.answerMessageId);
     } finally {
       await auth.dispose();
       await new Promise<void>((resolve) => peer.close(() => resolve()));
