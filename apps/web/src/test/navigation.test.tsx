@@ -13,8 +13,7 @@ vi.mock('../lib/study-client/client', async () => {
     'projects.projects': page,
     'conversations.sessions': page,
     'sources.sources': page,
-    'materials.materials': page,
-    'workflows.executions': page
+    'materials.materials': page
   };
 
   return {
@@ -22,7 +21,7 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice', 'Pipelines', 'Help'] as const;
+const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice', 'Help'] as const;
 
 beforeEach(() => {
   history.replaceState(null, '', '/');
@@ -51,7 +50,7 @@ testStable(
   async () => {
     const user = userEvent.setup();
 
-    history.replaceState(null, '', '/projects/1/sessions/42');
+    history.replaceState(null, '', '/projects/1/session/42');
     render(<App />);
     expect(
       await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
@@ -62,7 +61,7 @@ testStable(
     expect(
       await screen.findByRole('dialog', { name: catalogs.english.Settings })
     ).toBeInTheDocument();
-    expect(location.pathname + location.search).toBe('/projects/1/sessions/42');
+    expect(location.pathname + location.search).toBe('/projects/1/session/42');
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());

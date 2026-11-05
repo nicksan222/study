@@ -69,7 +69,7 @@ function mount() {
   });
   const saved = createRoute({
     getParentRoute: () => root,
-    path: '/sessions/$sessionId',
+    path: '/session/$sessionId',
     component: () => <p>Saved session</p>
   });
   const documents = createRoute({

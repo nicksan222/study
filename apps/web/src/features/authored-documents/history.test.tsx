@@ -31,17 +31,15 @@ testStable(
     const main = within(await screen.findByRole('main'));
 
     expect(await main.findByText('Current authored body')).toBeVisible();
-    await userEvent.setup().click(await main.findByRole('link', { name: t.ReaderHistory }));
-    await userEvent.setup().click(await main.findByText(t.ReaderHistory, { selector: 'summary' }));
     await userEvent
       .setup()
-      .click(await main.findByRole('button', { name: `${t.ReaderVersion} 91` }));
+      .click(await main.findByRole('button', { name: t.SessionPreviousVersion }));
     expect(await main.findByText('Historical authored body')).toBeVisible();
     expect(main.queryByText('Current authored body')).toBeNull();
     await waitFor(() => expect(rpc['documents.version']).toHaveBeenCalledWith({ id: old.id }));
     expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
     expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
-    await userEvent.setup().click(main.getByRole('link', { name: t.ReaderCurrent }));
+    await userEvent.setup().click(main.getByRole('button', { name: t.SessionNextVersion }));
     expect(await main.findByText('Current authored body')).toBeVisible();
   }
 );
@@ -166,7 +164,7 @@ testStable(
     await go('91');
     expect(await screen.findByText('URL exact A')).toBeVisible();
     await go('999');
-    expect(await screen.findByText(t.ReaderUnavailable)).toBeVisible();
+    expect(await screen.findByText(t.SessionReadUnavailable)).toBeVisible();
     expect(screen.queryByText('URL current body')).toBeNull();
     expect(screen.queryByText('URL exact A')).toBeNull();
     expect(view.queryClient.getQueryData(draftKey)).toEqual({ text: 'Unrelated unsaved draft' });

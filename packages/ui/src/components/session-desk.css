@@ -829,3 +829,24 @@
   min-height: 100%;
   margin: 0;
 }
+
+/* History uses the same document editor; only editing is locked. */
+.document-editor-page .rich-note-editor[data-disabled] .tiptap {
+  color: var(--foreground);
+}
+@media (max-width: 700px) {
+  .document-editor-page .rich-note-ribbon {
+    flex-wrap: wrap;
+  }
+  .document-editor-page .rich-note-ribbon > .rich-note-toolbar {
+    flex-basis: 100%;
+  }
+  .document-editor-page .rich-note-toolbar-end {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 4px 8px;
+    min-width: 0;
+  }
+}

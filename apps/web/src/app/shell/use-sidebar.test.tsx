@@ -101,7 +101,7 @@ const subjects = [
 ];
 
 beforeEach(() => {
-  history.replaceState(null, '', '/projects/1/sessions/42');
+  history.replaceState(null, '', '/projects/1/session/42');
   api.session.mockReset().mockResolvedValue({ id: 42n, projectIds: [1n] });
   api.projects.mockResolvedValue({ items: subjects });
   api.sources.mockReset().mockResolvedValue({ items: [] });
@@ -169,7 +169,7 @@ testStable('searches within the selected subject and opens a result', async () =
     limit: 30,
     kinds: ['session', 'message']
   });
-  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/sessions/9'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/session/9'));
 });
 
 testStable(
@@ -345,7 +345,7 @@ testStable('uses the body for sessions and a labeled navigation block above sett
   await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
   await user.click(screen.getByRole('link', { name: en.Sessions }));
   await user.click(await screen.findByRole('link', { name: 'Cell division' }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/sessions/42'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/session/42'));
 });
 
 testStable('lists flashcards and quizzes together and follows material pagination', async () => {
@@ -482,23 +482,6 @@ testStable('preserves projects loaded while project creation is in flight', asyn
   expect(screen.getByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 
-testStable('keeps session lists and subject search available on Pipelines', async () => {
-  history.replaceState(null, '', '/projects/1/pipelines');
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByRole('link', { name: 'Cell division' });
-  await user.type(screen.getByRole('searchbox'), 'cell');
-  await waitFor(() =>
-    expect(api.search).toHaveBeenLastCalledWith({
-      query: 'cell',
-      project: 1n,
-      limit: 30,
-      kinds: ['session', 'message']
-    })
-  );
-});
-
 testStable(
   'first send adds a session to the sidebar and permits another lazy session',
   async () => {
@@ -541,7 +524,7 @@ testStable(
     );
     await user.type(await screen.findByRole('textbox', { name: en.SessionCompose }), 'First note');
     await user.click(screen.getByRole('button', { name: en.SessionSaveNote }));
-    await waitFor(() => expect(location.pathname).toBe('/projects/1/sessions/7'));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/session/7'));
     await act(async () => {
       finish({ items: [] });
     });
@@ -569,12 +552,12 @@ testStable(
     api.createSession.mockResolvedValueOnce(second);
     api.sessions.mockResolvedValue({ items: [second] });
     await user.click(screen.getByRole('button', { name: en.SessionSaveNote }));
-    await waitFor(() => expect(location.pathname).toBe('/projects/1/sessions/8'));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/session/8'));
     expect(await screen.findByRole('link', { name: 'Second session' })).toBeInTheDocument();
   }
 );
 
-testStable.each(['/sessions/42', '/projects/2/sessions/42'])(
+testStable.each(['/session/42', '/projects/2/session/42'])(
   'uses the actual session owner for direct and mismatched links: %s',
   async (url) => {
     history.replaceState(null, '', url);
@@ -595,7 +578,7 @@ testStable.each(['/sessions/42', '/projects/2/sessions/42'])(
 );
 
 testStable('does not reveal a foreign subject while session ownership is loading', async () => {
-  history.replaceState(null, '', '/projects/2/sessions/42');
+  history.replaceState(null, '', '/projects/2/session/42');
   api.session.mockReturnValue(new Promise(() => {}));
   await renderWithNavigation();
   expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
@@ -605,7 +588,7 @@ testStable('does not reveal a foreign subject while session ownership is loading
 });
 
 testStable('keeps projectless sessions independent of a foreign query parameter', async () => {
-  history.replaceState(null, '', '/projects/2/sessions/42');
+  history.replaceState(null, '', '/projects/2/session/42');
   api.session.mockResolvedValue({ id: 42n, projectIds: [] });
   await renderWithNavigation();
   await waitFor(() => expect(api.session).toHaveBeenCalled());

@@ -90,6 +90,11 @@ export function serializeDocumentVersion(
         let text = esc(item.text);
 
         if (item.type === 'link') {
+          text = markedText(
+            { type: 'text', text: item.text, marks: item.marks ?? [] },
+            text,
+            asHtml
+          );
           if (!safeExportLink(item.href)) {
             omissions.push({ code: 'unsafe_link' });
 
@@ -248,6 +253,8 @@ export function serializeDocumentVersion(
                       return (
                         '<' +
                         tag +
+                        (cell.colspan ? ` colspan="${cell.colspan}"` : '') +
+                        (cell.rowspan ? ` rowspan="${cell.rowspan}"` : '') +
                         '>' +
                         cell.paragraphs.map(tableParagraph).join('') +
                         '</' +

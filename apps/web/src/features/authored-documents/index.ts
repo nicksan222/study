@@ -5,4 +5,4 @@ export { DocumentsPage } from './documents-page';
 
 export { documentsRouteDeps, documentsRouteLoader } from './documents-route.queries';
 
-export { NewBlankDocument } from './creation-actions';
+export { NewBlankDocument, useNewBlankDocument } from './creation-actions';

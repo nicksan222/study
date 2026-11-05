@@ -1,9 +1,12 @@
 import type { SessionId } from '@study/contracts/ids';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toastManager } from '@study/ui/toast';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
+import { useI18n } from '#web/lib/i18n.tsx';
 import { request } from '#web/lib/study-client/request.ts';
 
-import { sessionOptions } from './session-workspace.queries';
+import { executionOptions, sessionKey, sessionOptions } from './session-workspace.queries';
 
 export function useSessionTitle(id: SessionId) {
   const cache = useQueryClient();
@@ -18,4 +21,63 @@ export function useSessionTitle(id: SessionId) {
       void cache.invalidateQueries({ queryKey: ['search'] });
     }
   });
+}
+
+/** Tracks an explicit title request through durable completion before refreshing navigation. */
+export function useRegenerateSessionTitle(id: SessionId) {
+  const cache = useQueryClient();
+  const { t } = useI18n();
+  const [requestId, setRequestId] = useState<string>();
+  const mutationKey = [...sessionKey(id), 'regenerate-title'];
+  const submitting = useIsMutating({ mutationKey, exact: true }) > 0;
+  const execution = useQuery({
+    ...executionOptions(requestId ?? ''),
+    enabled: requestId !== undefined
+  });
+  const completed = execution.data?.items.find(
+    (item) => item.status === 'completed' || item.status === 'cancelled'
+  );
+
+  useEffect(() => {
+    if (!requestId || !completed) return;
+
+    setRequestId(undefined);
+    void cache.invalidateQueries({ queryKey: sessionKey(id) });
+    void cache.invalidateQueries({ queryKey: ['sessions'] });
+    void cache.invalidateQueries({ queryKey: ['search'] });
+    if (completed.outcome === 'failure') {
+      toastManager.add({
+        title: t('SessionActionErrorTitle'),
+        description: t('TitleGenerationError'),
+        type: 'error'
+      });
+    }
+  }, [cache, completed, id, requestId, t]);
+
+  const mutation = useMutation({
+    mutationKey,
+    retry: false,
+    mutationFn: () => request((client) => client['conversations.requestTitle']({ sessionId: id })),
+    onSuccess: (result) => {
+      setRequestId(result.requestId);
+      toastManager.add({ title: t('RegeneratingTitle'), type: 'info' });
+    },
+    onError: () => {
+      toastManager.add({
+        title: t('SessionActionErrorTitle'),
+        description: t('TitleGenerationError'),
+        type: 'error'
+      });
+    }
+  });
+  const pending = submitting || requestId !== undefined;
+
+  return {
+    pending,
+    regenerate: () => {
+      if (pending || cache.isMutating({ mutationKey, exact: true })) return;
+
+      mutation.mutate();
+    }
+  };
 }

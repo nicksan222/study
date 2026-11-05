@@ -77,5 +77,5 @@ function RetainedImage({
       />
     );
 
-  return <img ref={ref} alt={image.alt} />;
+  return <img ref={ref} alt={image.alt} width={image.width} height={image.height} />;
 }

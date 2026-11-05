@@ -167,3 +167,97 @@
 .rich-note-content [data-document-math] {
   font-family: var(--font-mono, monospace);
 }
+
+.structured-editor-insert-dialog {
+  max-width: 24rem;
+}
+.structured-editor-insert-fields {
+  display: grid;
+  gap: 1rem;
+  padding: 0.25rem 1.5rem 1.25rem;
+  font-size: 0.8125rem;
+}
+.structured-editor-insert-fields label {
+  display: grid;
+  gap: 0.5rem;
+}
+.structured-editor-table-size {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.structured-editor-insert-fields .structured-editor-header-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.structured-editor-header-option input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--primary);
+}
+.structured-editor-notice {
+  padding: 0.5rem 0.75rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
+}
+.rich-note-content .tableWrapper {
+  overflow-x: auto;
+}
+.rich-note-content :is(td, th) {
+  position: relative;
+  min-width: 2rem;
+  box-sizing: border-box;
+}
+.rich-note-content .selectedCell::after {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: '';
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.rich-note-content .column-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -2px;
+  width: 4px;
+  pointer-events: none;
+  background: var(--primary);
+}
+.rich-note-content .resize-cursor {
+  cursor: col-resize;
+}
+.rich-note-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.375rem;
+}
+.rich-note-content img.ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.rich-note-content [data-resize-container] {
+  margin-block: 1rem;
+  max-width: 100%;
+}
+.rich-note-content [data-resize-wrapper] {
+  max-width: 100%;
+}
+.rich-note-content [data-resize-handle] {
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid var(--popover);
+  border-radius: 0.125rem;
+  background: var(--primary);
+  opacity: 0;
+  pointer-events: none;
+}
+.rich-note-content
+  [data-resize-container]:is(:hover, .ProseMirror-selectednode)
+  [data-resize-handle],
+.rich-note-content [data-resize-state='true'] [data-resize-handle] {
+  opacity: 1;
+  pointer-events: auto;
+}

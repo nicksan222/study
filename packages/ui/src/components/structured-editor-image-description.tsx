@@ -1,0 +1,61 @@
+import type { Editor } from '@tiptap/core';
+import { useEffect, useState } from 'react';
+
+import { Button } from './button';
+import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from './dialog';
+import { Input } from './input';
+import type { StructuredEditorLabels } from './structured-editor-types';
+
+export function StructuredImageDescription({
+  editor,
+  position,
+  labels,
+  open,
+  onOpenChange
+}: {
+  editor: Editor;
+  position: number;
+  labels: StructuredEditorLabels;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [alt, setAlt] = useState('');
+  useEffect(() => {
+    if (open) setAlt(String(editor.state.doc.nodeAt(position)?.attrs.alt ?? ''));
+  }, [open, editor, position]);
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogPopup closeLabel={labels.cancel} className="structured-editor-insert-dialog">
+        <DialogHeader>
+          <DialogTitle>{labels.imageDescription}</DialogTitle>
+        </DialogHeader>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (editor.state.doc.nodeAt(position)?.type.name === 'image')
+              editor
+                .chain()
+                .focus()
+                .setNodeSelection(position)
+                .updateAttributes('image', { alt })
+                .run();
+            onOpenChange(false);
+          }}
+        >
+          <div className="structured-editor-insert-fields">
+            <label>
+              {labels.imageDescription}
+              <Input value={alt} onChange={(event) => setAlt(event.target.value)} />
+            </label>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+              {labels.cancel}
+            </Button>
+            <Button type="submit">{labels.saveDescription}</Button>
+          </DialogFooter>
+        </form>
+      </DialogPopup>
+    </Dialog>
+  );
+}

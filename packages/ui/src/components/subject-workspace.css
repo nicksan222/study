@@ -1,0 +1,112 @@
+.study-shell:has(:is(.ui-subject-empty, .ui-subject-workspace)) {
+  height: 100dvh;
+}
+.study-content:has(:is(.ui-subject-empty, .ui-subject-workspace)) {
+  min-height: 0;
+}
+.groam-shell-page-body:has(.ui-subject-empty) {
+  min-height: calc(100dvh - 3.25rem);
+  padding: 0;
+}
+.ui-subject-empty {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  place-items: center;
+  padding: 2rem;
+}
+.ui-subject-empty-content {
+  max-width: 25rem;
+  margin-bottom: 4rem;
+  text-align: center;
+}
+.ui-subject-empty-icon {
+  display: inline-flex;
+  margin-bottom: 1.25rem;
+  color: var(--muted-foreground);
+}
+.ui-subject-empty-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1.3;
+}
+.ui-subject-empty-description {
+  margin-top: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  text-wrap: balance;
+}
+.ui-subject-workspace {
+  width: 100%;
+  min-width: 0;
+  padding-block: 1rem 3rem;
+}
+.ui-subject-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+}
+.ui-subject-heading {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 1rem;
+}
+.ui-subject-title {
+  min-width: 0;
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.ui-subject-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ui-subject-content {
+  display: grid;
+  min-width: 0;
+  gap: 2.5rem;
+}
+@media (min-width: 1200px) {
+  .ui-subject-content {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 3rem;
+    align-items: start;
+  }
+  .ui-subject-section:first-child {
+    grid-row: span 3;
+  }
+}
+.ui-subject-section {
+  min-width: 0;
+}
+.ui-subject-section-title {
+  margin: 0 0 0.875rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.ui-subject-empty-list {
+  margin: 0;
+  padding-block: 1.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+@media (max-width: 640px) {
+  .ui-subject-header {
+    margin-bottom: 2rem;
+  }
+  .ui-subject-title {
+    font-size: 1.5rem;
+  }
+}
