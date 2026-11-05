@@ -67,21 +67,7 @@ export function useSidebarShortcuts() {
     function navigate(event: KeyboardEvent) {
       syncModifier(event);
 
-      if (
-        event.defaultPrevented ||
-        event.repeat ||
-        event.isComposing ||
-        !(event.metaKey || event.ctrlKey) ||
-        event.altKey ||
-        event.shiftKey
-      )
-        return;
-
-      const digit = /^[1-9]$/.test(event.key)
-        ? Number(event.key)
-        : /^Digit[1-9]$/.test(event.code)
-          ? Number(event.code.slice(-1))
-          : undefined;
+      const digit = shortcutDigit(event);
 
       if (digit === undefined) return;
 
@@ -127,4 +113,19 @@ function available(element: HTMLElement) {
 
 function modalTask() {
   return document.querySelector('[aria-modal="true"], [role="menu"], [role="listbox"]') !== null;
+}
+
+function shortcutDigit(event: KeyboardEvent) {
+  if (
+    event.defaultPrevented ||
+    event.repeat ||
+    event.isComposing ||
+    !(event.metaKey || event.ctrlKey) ||
+    event.altKey ||
+    event.shiftKey
+  )
+    return undefined;
+  if (/^[1-9]$/.test(event.key)) return Number(event.key);
+  if (/^Digit[1-9]$/.test(event.code)) return Number(event.code.slice(-1));
+  return undefined;
 }

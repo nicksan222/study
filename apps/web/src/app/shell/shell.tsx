@@ -100,16 +100,7 @@ export function Shell() {
     scope: metadata.scope ?? 'project',
     sidebar: metadata.sidebar
   });
-  const subjects = useQuery(projectsQueryOptions());
-  const project =
-    metadata.scope === 'global'
-      ? undefined
-      : subjects.data?.find((subject) => String(subject.id) === context.requestedProject)?.id;
-  const shortcutsDisabled =
-    !context.ready ||
-    (metadata.scope !== 'global' &&
-      Boolean(context.requestedProject) &&
-      (!subjects.isSuccess || project === undefined));
+  const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
 
   return (
     <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
@@ -150,4 +141,22 @@ export function Shell() {
       </SidebarUI.Frame>
     </DefaultContextMenu>
   );
+}
+
+function useContextMenuScope(
+  scope: 'global' | 'project' | undefined,
+  context: ReturnType<typeof useSidebarContext>
+) {
+  const subjects = useQuery(projectsQueryOptions());
+  const project =
+    scope === 'global'
+      ? undefined
+      : subjects.data?.find((subject) => String(subject.id) === context.requestedProject)?.id;
+  const shortcutsDisabled =
+    !context.ready ||
+    (scope !== 'global' &&
+      Boolean(context.requestedProject) &&
+      (!subjects.isSuccess || project === undefined));
+
+  return { project, shortcutsDisabled };
 }
