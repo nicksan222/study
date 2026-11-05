@@ -6,3 +6,5 @@ export { HistoryDisclosure } from './history';
 export { ContentReadError } from './read-error';
 
 export { releaseBodyPreviews } from './body-cache';
+
+export { retainedImageOptions } from './retained-document.queries';

@@ -1,5 +1,4 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
-import { Button } from '@study/ui/button';
 import { DangerDialog, DangerDialogSummary } from '@study/ui/danger-dialog';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
@@ -10,23 +9,6 @@ import { ContentReadError } from '../document-presentation';
 import { useDocumentRetirement } from './retirement.queries';
 
 type View = ReturnType<typeof useDocumentRetirement>;
-
-export function DocumentRetirement({ document }: { document: StudyDocument }) {
-  const { t } = useI18n();
-  const view = useDocumentRetirement(document);
-
-  return (
-    <>
-      <Button variant="ghost" onClick={() => view.open('history')}>
-        {t('DocumentPrune')}
-      </Button>
-      <Button variant="destructive-outline" onClick={() => view.open('deletion')}>
-        {t('AuthoredDocumentDelete')}
-      </Button>
-      <RetirementDialog view={view} />
-    </>
-  );
-}
 
 export function DocumentDeletionDialog({
   document,

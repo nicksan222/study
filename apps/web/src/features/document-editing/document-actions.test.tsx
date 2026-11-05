@@ -9,8 +9,11 @@ import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
+import { runRequest } from '#web/lib/effect/runtime.ts';
 import { createStudyQueryClient } from '#web/lib/query-client.ts';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
+import { toStudyError } from '#web/lib/study-client/errors.ts';
+import { request } from '#web/lib/study-client/request.ts';
 
 import { authoredDocument } from './test-support';
 
@@ -21,7 +24,7 @@ const material = (id = 41n) => ({
 
 const versionId = (id: string) => studyDocumentVersionIdSchema.make(BigInt(id));
 
-import { materialRpc, mountLibraryRoute } from '../material-library/test/support';
+import { materialRpc } from '../material-library/test/support';
 import { DocumentActions } from './document-actions';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
@@ -114,20 +117,22 @@ testStable(
     rpc['documents.restore']
       .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
       .mockReturnValueOnce(Effect.succeed({ ...receipt(104n, 103n), replayed: true }));
-    const { router } = mountLibraryRoute('/documents/41?documentVersion=101', rpc);
+    vi.mocked(request).mockImplementation((invoke, signal) =>
+      runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
+    );
+    const client = createStudyQueryClient();
+    const mount = () =>
+      render(
+        <QueryClientProvider client={client}>
+          <DocumentActions version={material().version!} current={versionId('101')} />
+        </QueryClientProvider>
+      );
+    let view = mount();
     const user = userEvent.setup();
 
     async function remount() {
-      await act(async () => {
-        await router.navigate({ to: '/settings', search: {} });
-      });
-      await act(async () => {
-        await router.navigate({
-          to: '/documents/$documentId',
-          params: { documentId: '41' },
-          search: { documentVersion: '101' }
-        });
-      });
+      view.unmount();
+      view = mount();
     }
 
     await startDraft(user);
