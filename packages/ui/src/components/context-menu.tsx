@@ -10,7 +10,14 @@ export function ContextMenuTrigger({
   className,
   ...props
 }: Primitive.Trigger.Props & { fill?: boolean }) {
-  return <Primitive.Trigger className={cn(fill && 'h-full', className)} {...props} />;
+  return (
+    <Primitive.Trigger
+      className={(state) =>
+        cn(fill && 'h-full', typeof className === 'function' ? className(state) : className)
+      }
+      {...props}
+    />
+  );
 }
 
 export const ContextMenuItem = MenuItem;
