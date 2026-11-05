@@ -124,6 +124,7 @@ testStable(
 
             expect(first).toStrictEqual(yield* rpc('documents.exportFile', key));
             const text = new TextDecoder().decode(first.bytes);
+
             assert.ok(text.includes('<th colspan="2" rowspan="2">'));
             assert.ok(
               text.includes('<a href="https://example.com"><strong>Reference</strong></a>')

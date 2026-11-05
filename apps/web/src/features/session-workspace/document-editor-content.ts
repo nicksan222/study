@@ -202,6 +202,7 @@ function canonicalInlines(nodes: readonly Node[] = []): Inline[] {
 function canonicalTextInline(node: Node): Extract<Inline, { type: 'text' | 'link' }> {
   const formatting = canonicalMarks(node);
   const link = node.marks?.find((mark) => mark.type === 'link');
+
   if (link) {
     const linked: Extract<Inline, { type: 'link' }> = {
       type: 'link',
@@ -209,8 +210,10 @@ function canonicalTextInline(node: Node): Extract<Inline, { type: 'text' | 'link
       href: String(link.attrs?.href ?? ''),
       ...(formatting.length ? { marks: formatting } : {})
     };
+
     if (Schema.is(blockContentSchema)({ type: 'paragraph', inlines: [linked] })) return linked;
   }
+
   return { type: 'text', text: node.text ?? '', marks: formatting };
 }
 
@@ -264,9 +267,13 @@ type TableContent = Extract<BlockContent, { type: 'table' }>;
 
 function cellDimensions(attributes: NonNullable<Node['attrs']>) {
   const result: { colspan?: number; rowspan?: number; colwidth?: number[] } = {};
+
   if (Number(attributes.colspan) > 1) result.colspan = Number(attributes.colspan);
+
   if (Number(attributes.rowspan) > 1) result.rowspan = Number(attributes.rowspan);
+
   if (attributes.colwidth) result.colwidth = attributes.colwidth;
+
   return result;
 }
 
@@ -287,13 +294,17 @@ function readTable(node: Node): BlockContent {
 
 function imageDimensions(attributes: NonNullable<Node['attrs']>) {
   const result: { width?: number; height?: number } = {};
+
   if (Number(attributes.width) > 0) result.width = Math.round(Number(attributes.width));
+
   if (Number(attributes.height) > 0) result.height = Math.round(Number(attributes.height));
+
   return result;
 }
 
 function readImage(node: Node): BlockContent {
   const attributes = node.attrs ?? {};
+
   return {
     type: 'image',
     sourceId: Schema.decodeUnknownSync(sourceIdSchema)(BigInt(attributes.sourceId)),

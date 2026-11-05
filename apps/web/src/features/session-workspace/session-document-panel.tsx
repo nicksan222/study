@@ -92,6 +92,7 @@ function useViewedDocument(document: StudyDocument, versionId?: StudyDocumentVer
   const exact = useQuery({ ...documentVersionOptions(versionId!), enabled: historical });
   const candidate = historical ? exact.data : document.version;
   const version = candidate?.documentId === document.id ? candidate : undefined;
+
   return { historical, exact, version, unavailable: historical && exact.isSuccess && !version };
 }
 
@@ -103,6 +104,7 @@ function DocumentSaveStatus({ model }: { model: ReturnType<typeof useSessionDocu
     : model.dirty
       ? 'SessionAutosavePending'
       : 'SessionAutosaved';
+
   return (
     <Desk.SaveStatus role="status">
       <Icon size={14} />
@@ -120,6 +122,7 @@ function DocumentRecovery({
   model: ReturnType<typeof useSessionDocumentAutosave>;
 } & Omit<ReturnType<typeof useViewedDocument>, 'version'>) {
   const { t } = useI18n();
+
   return (
     <>
       {model.error !== undefined && (

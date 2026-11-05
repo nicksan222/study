@@ -111,6 +111,7 @@ export function SubjectManagement({
 }) {
   const editor = useCollectionState();
   const iconPending = useIsMutating({ mutationKey: ['subject-icon'] }) > 0;
+
   return (
     <ProjectDetails
       project={project}

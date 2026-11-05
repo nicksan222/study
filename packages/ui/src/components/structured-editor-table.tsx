@@ -122,7 +122,9 @@ function TableForm({
     <form
       onSubmit={(event) => {
         event.preventDefault();
+
         if (!valid) return;
+
         editor
           .chain()
           .focus()

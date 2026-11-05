@@ -9,6 +9,7 @@ export async function copyEditorSelection(editor: Editor, cut: boolean) {
   const map = ({ transaction }: { transaction: Transaction }) => {
     bookmark = bookmark.map(transaction.mapping);
   };
+
   editor.on('transaction', map);
 
   try {
@@ -23,7 +24,9 @@ export async function copyEditorSelection(editor: Editor, cut: boolean) {
 
     if (cut && !editor.isDestroyed && editor.isEditable) {
       const selection = bookmark.resolve(editor.state.doc);
+
       if (!selection.content().eq(slice)) throw new Error('The selected content changed');
+
       editor.view.dispatch(
         editor.state.tr.setSelection(selection).deleteSelection().scrollIntoView()
       );
@@ -41,6 +44,7 @@ export async function pasteIntoEditor(editor: Editor, upload?: (files: File[]) =
     }
   } else {
     const text = await navigator.clipboard.readText();
+
     if (!editor.isDestroyed && editor.isEditable) {
       editor.commands.focus();
       editor.view.pasteText(text);
@@ -50,18 +54,28 @@ export async function pasteIntoEditor(editor: Editor, upload?: (files: File[]) =
 
 async function pasteItem(editor: Editor, item: ClipboardItem, upload?: (files: File[]) => void) {
   const image = item.types.find((type) => type.startsWith('image/'));
+
   if (image && upload) {
     const blob = await item.getType(image);
+
     if (!editor.isDestroyed && editor.isEditable)
       upload([new File([blob], 'clipboard-image', { type: image })]);
+
     return true;
   }
+
   const format = ['text/html', 'text/plain'].find((type) => item.types.includes(type));
+
   if (!format) return false;
+
   const text = await (await item.getType(format)).text();
+
   if (editor.isDestroyed || !editor.isEditable) return true;
+
   editor.commands.focus();
+
   if (format === 'text/html') editor.view.pasteHTML(text);
   else editor.view.pasteText(text);
+
   return true;
 }

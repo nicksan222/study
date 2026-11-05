@@ -72,8 +72,10 @@ export function StructuredEditorContextMenu({
     ['strike', Strikethrough, () => editor.chain().focus().toggleStrike().run()],
     ['clear', RemoveFormatting, () => editor.chain().focus().unsetAllMarks().run()]
   ] as const;
+
   async function clipboard(action: () => Promise<void>) {
     setFailed(false);
+
     try {
       await action();
     } catch {

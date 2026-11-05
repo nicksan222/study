@@ -5,7 +5,7 @@ import { ErrorState } from '@study/ui/error-state';
 import { List } from '@study/ui/list';
 import { Loading } from '@study/ui/loading';
 import { SubjectWorkspace } from '@study/ui/subject-workspace';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowUpRight,
@@ -21,31 +21,17 @@ import type { ComponentProps, ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
-import { request } from '#web/lib/study-client/request.ts';
 
 import { materialsOptions } from '../material-library';
 import { sessionPagesOptions } from '../session-workspace';
 import { subjectSourcesOptions } from '../source-library';
 import { SubjectIdentity } from '../subjects';
+import { subjectProjectOptions } from './collections.queries';
 import { SubjectManagement } from './project-settings';
 
 /** Reads only the explicitly selected subject; a failed identity never exposes global content. */
 export function SubjectPage({ project }: { project: ProjectId }) {
-  const { t } = useI18n();
-  const state = useQuery({
-    queryKey: ['projects', 'collection', String(project)],
-    queryFn: ({ signal }) =>
-      request((client) => client['projects.project']({ id: project }), signal)
-  });
-
-  if (state.isPending) return <Loading label={t('LoadingSubjects')} />;
-  if (state.isError)
-    return (
-      <ErrorState
-        title={t('SubjectsLoadError')}
-        action={<Button onClick={() => void state.refetch()}>{t('Retry')}</Button>}
-      />
-    );
+  const state = useSuspenseQuery(subjectProjectOptions(project));
 
   return <SubjectContents project={state.data} />;
 }
@@ -171,6 +157,7 @@ function SubjectSessions({ project }: { project: ProjectId }) {
   const { t, date } = useI18n();
   const state = useInfiniteQuery(sessionPagesOptions(project));
   const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+
   return (
     <ContentSection title={t('Sessions')} state={state} empty={!items.length}>
       {items.map((item) => (
@@ -196,6 +183,7 @@ function SubjectDocuments({ project }: { project: ProjectId }) {
   const { t, date } = useI18n();
   const state = useInfiniteQuery(documentsOptions(project));
   const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+
   return (
     <ContentSection title={t('SourceDocument')} state={state} empty={!items.length}>
       {items.map((item) => (
@@ -221,6 +209,7 @@ function SubjectSources({ project }: { project: ProjectId }) {
   const { t, date } = useI18n();
   const state = useQuery(subjectSourcesOptions(project));
   const items = state.data ?? [];
+
   return (
     <ContentSection title={t('MediaList')} state={state} empty={!items.length}>
       {items.map((item) => (
@@ -246,6 +235,7 @@ function SubjectMaterials({ project }: { project: ProjectId }) {
   const { t, date } = useI18n();
   const state = useInfiniteQuery(materialsOptions(project));
   const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+
   return (
     <ContentSection title={t('SubjectWorkspaceMaterial')} state={state} empty={!items.length}>
       {items.map((item) => (

@@ -258,6 +258,7 @@ testStable('refreshes titles when background generation completes', async () => 
   titles.request.mockResolvedValue({ sessionId: id, requestId: 'completed-title' });
   mount();
   const client = clients.at(-1)!;
+
   client.setQueryData(['sessions'], []);
   client.setQueryData(['search', 'cells'], []);
   titles.executions.mockResolvedValue({
