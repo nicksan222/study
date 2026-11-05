@@ -31,7 +31,7 @@ import { RichSidebarSessions } from './rich-sidebar';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import type { SidebarModel } from './use-sidebar';
 
-type SidebarViewModel = SidebarModel & { library: ReactNode; workspaceSections?: ReactNode };
+type SidebarViewModel = SidebarModel & { collection: ReactNode };
 
 export function SidebarView(model: SidebarViewModel) {
   const { t } = useI18n();
@@ -607,16 +607,11 @@ function projectPickerEmpty(
 }
 
 function SidebarContentBody(model: SidebarViewModel) {
-  if (sidebarContent(model.metadata) !== 'workspace') return model.library;
+  if (sidebarContent(model.metadata) !== 'workspace') return model.collection;
 
   if (model.query.trim()) return <SidebarSearchResults {...model} />;
 
-  return (
-    <>
-      <SidebarSessions {...model} />
-      {model.workspaceSections}
-    </>
-  );
+  return <SidebarSessions {...model} />;
 }
 
 function keywordOnly(result: SidebarModel['result']) {

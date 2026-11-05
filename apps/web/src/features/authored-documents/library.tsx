@@ -1,3 +1,4 @@
+import type { ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
@@ -12,10 +13,12 @@ type State = ReturnType<typeof useLibraryPage>['documents'];
 
 export function AuthoredLibrary({
   state,
-  rememberRow
+  rememberRow,
+  project
 }: {
   state: State;
-  rememberRow: (row: string) => void;
+  rememberRow?: (row: string) => void;
+  project?: ProjectId;
 }) {
   const { t } = useI18n();
   const items = state.isError ? [] : (state.data?.pages.flatMap((page) => page.items) ?? []);
@@ -31,7 +34,8 @@ export function AuthoredLibrary({
               id={`document-${item.id}`}
               to="/documents/$documentId"
               params={{ documentId: String(item.id) }}
-              onClick={() => rememberRow(`document-${item.id}`)}
+              search={project ? { project: String(project) } : {}}
+              onClick={() => rememberRow?.(`document-${item.id}`)}
             >
               <MaterialLibrary.RowTitle>{item.title}</MaterialLibrary.RowTitle>
               <MaterialLibrary.RowMeta>

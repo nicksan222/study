@@ -2,4 +2,5 @@ export { AuthoredLibrary } from './library';
 
 export { DocumentPage } from './reader-page';
 
-export { SidebarShelf } from './sidebar-shelf';
+export { DocumentsSidebar } from './documents-sidebar';
+export { DocumentsPage } from './documents-page';

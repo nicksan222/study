@@ -15,7 +15,15 @@ import type { Subjects } from '#web/lib/study-client/operations.ts';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 /** Lists published documents using the same scoped cache and rows as the library. */
-export function SidebarShelf({ project, subjects }: { project?: ProjectId; subjects: Subjects }) {
+export function DocumentsSidebar({
+  project,
+  subjects,
+  query = ''
+}: {
+  project?: ProjectId;
+  subjects: Subjects;
+  query?: string;
+}) {
   const { t, locale, date } = useI18n();
   const now = useNowMinute();
   const preferences = useWorkspacePreferences();
@@ -30,24 +38,20 @@ export function SidebarShelf({ project, subjects }: { project?: ProjectId; subje
       (item) =>
         item.headVersionId !== null &&
         item.archivedAt === null &&
-        (!project || item.projectIds.includes(project))
+        (!project || item.projectIds.includes(project)) &&
+        item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
     )
     .toSorted((a, b) =>
       a.updatedAt === b.updatedAt ? (a.id > b.id ? -1 : 1) : a.updatedAt > b.updatedAt ? -1 : 1
     );
 
   return (
-    <Sidebar.SessionGroup
-      title={t('SidebarShelf')}
-      count={state.hasNextPage ? `${items.length}+` : items.length}
-      variant="collection"
-      defaultOpen
-    >
+    <Sidebar.Items aria-label={t('SourceDocument')}>
       {state.isPending && <Loading layout="sidebar" label={t('LoadingStudy')} />}
       {state.isError && (
         <ErrorState
           layout="sidebar"
-          title={t('SidebarShelfLoadError')}
+          title={t('DocumentsLoadError')}
           action={
             <Button variant="ghost-muted" onClick={() => void state.refetch()}>
               {t('Retry')}
@@ -93,7 +97,7 @@ export function SidebarShelf({ project, subjects }: { project?: ProjectId; subje
         );
       })}
       {state.isSuccess && items.length === 0 && (
-        <Sidebar.Message>{t('SidebarShelfEmpty')}</Sidebar.Message>
+        <Sidebar.Message>{t(query.trim() ? 'SearchNoResults' : 'DocumentsEmpty')}</Sidebar.Message>
       )}
       {state.hasNextPage && (
         <Sidebar.SessionMore
@@ -103,6 +107,6 @@ export function SidebarShelf({ project, subjects }: { project?: ProjectId; subje
           {state.isFetchingNextPage ? t('LoadingStudy') : t('LibraryMore')}
         </Sidebar.SessionMore>
       )}
-    </Sidebar.SessionGroup>
+    </Sidebar.Items>
   );
 }

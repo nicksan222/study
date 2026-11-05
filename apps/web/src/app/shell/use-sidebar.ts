@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
-import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
+import { sidebarContent, sidebarIndex } from '#web/lib/navigation/sidebar-config.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
 import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
@@ -71,7 +71,11 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     selectSubject,
     createSession,
     createSubject
-  } = useSidebarActions(project, global, context.owned, clearSearch);
+  } = useSidebarActions(
+    project,
+    context.owned ? sidebarIndex(metadata) : global ? '/library' : '.',
+    clearSearch
+  );
 
   return {
     settingsProject,

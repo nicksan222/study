@@ -11,10 +11,9 @@ import { documentVersionOptions } from '../lib/study-client/documents.queries';
 export const Route = createFileRoute('/documents/$documentId')({
   staticData: {
     title: 'SourceDocument',
-    section: 'library',
+    section: 'documents',
     scope: 'project',
     sidebar: {
-      content: 'workspace',
       owner: sidebarOwner(
         studyDocumentIdSchema,
         ({ documentId }) => documentId,

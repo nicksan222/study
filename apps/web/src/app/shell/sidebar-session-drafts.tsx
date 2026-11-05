@@ -20,19 +20,12 @@ type Props = Pick<SidebarModel, 'project' | 'subjects'>;
 
 /** Unsent work stays above saved sessions, scoped like the rest of the sidebar. */
 export function SidebarSessionDrafts({ project, subjects }: Props) {
-  const { t } = useI18n();
   const drafts = useQuery(startDraftsOptions());
   const scopes = drafts.data.filter((scope) => !project || scope === String(project));
 
   if (!scopes.length) return null;
 
-  return (
-    <Sidebar.SessionGroup title={t('SidebarDrafts')} count={scopes.length} defaultOpen>
-      {scopes.map((scope) => (
-        <DraftRow key={scope} scope={scope} subjects={subjects} />
-      ))}
-    </Sidebar.SessionGroup>
-  );
+  return scopes.map((scope) => <DraftRow key={scope} scope={scope} subjects={subjects} />);
 }
 
 function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subjects'] }) {

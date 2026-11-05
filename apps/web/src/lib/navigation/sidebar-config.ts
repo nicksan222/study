@@ -4,7 +4,7 @@ import { Option, Schema } from 'effect';
 
 import type { PageMetadata } from './route-contract';
 
-export type SidebarContent = 'workspace' | 'library' | 'practice';
+export type SidebarContent = 'workspace' | 'documents' | 'library' | 'practice';
 export type SidebarRouteParams = Record<string, string | bigint | undefined>;
 type OwnedItem = { projectIds: readonly ProjectId[] };
 
@@ -18,6 +18,7 @@ export type SidebarRouteConfig = {
 
 const sectionContent: Record<PageMetadata['section'], SidebarContent> = {
   sessions: 'workspace',
+  documents: 'documents',
   pipelines: 'workspace',
   library: 'library',
   practice: 'practice'
@@ -59,4 +60,15 @@ export function sidebarOwner<
     );
     return Option.isSome(id) ? ownerQuery(options(id.value)) : undefined;
   };
+}
+
+const contentRoutes = {
+  workspace: '/sessions',
+  documents: '/documents',
+  library: '/library',
+  practice: '/practice'
+} as const;
+
+export function sidebarIndex(metadata: PageMetadata) {
+  return contentRoutes[sidebarContent(metadata)];
 }

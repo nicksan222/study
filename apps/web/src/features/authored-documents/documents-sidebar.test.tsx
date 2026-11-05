@@ -21,7 +21,7 @@ import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
 
-import { SidebarShelf } from './sidebar-shelf';
+import { DocumentsSidebar } from './documents-sidebar';
 
 const api = vi.hoisted(() => ({ documents: vi.fn() }));
 vi.mock('#web/lib/study-client/request.ts', () => ({
@@ -62,7 +62,7 @@ function show() {
   const root = createRootRoute({
     component: () => (
       <>
-        <SidebarShelf project={project} subjects={[]} />
+        <DocumentsSidebar project={project} subjects={[]} />
         <Outlet />
       </>
     )
@@ -121,7 +121,7 @@ testStable(
       'aria-current',
       'page'
     );
-    expect(screen.getByText(en.SidebarShelf)).toBeVisible();
+    expect(screen.getByRole('navigation', { name: en.SourceDocument })).toBeVisible();
     await act(async () => {
       cache.setQueryData(['workspace-preferences'], {
         ...defaultWorkspacePreferences,
@@ -138,16 +138,16 @@ testStable(
 );
 
 testStable(
-  'shows an empty Shelf and picks up a newly published document on cache refresh',
+  'shows an empty document list and picks up a newly published document on cache refresh',
   async () => {
     const { cache } = show();
-    expect(await screen.findByText(en.SidebarShelfEmpty)).toBeInTheDocument();
+    expect(await screen.findByText(en.DocumentsEmpty)).toBeInTheDocument();
     api.documents.mockResolvedValue({ items: [document(7n)], nextCursor: null });
     await act(async () => {
       await cache.invalidateQueries({ queryKey: documentsOptions(project).queryKey });
     });
     expect(await screen.findByRole('link', { name: 'Document 7' })).toBeInTheDocument();
-    expect(screen.queryByText(en.SidebarShelfEmpty)).not.toBeInTheDocument();
+    expect(screen.queryByText(en.DocumentsEmpty)).not.toBeInTheDocument();
   }
 );
 
@@ -162,7 +162,6 @@ testStable('loads additional document pages without dropping the current rows', 
   const user = userEvent.setup();
   show();
   await screen.findByRole('link', { name: 'Document 2' });
-  expect(screen.getByText('1+')).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: en.LibraryMore }));
   expect(await screen.findByRole('link', { name: 'Document 1' })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Document 2' })).toBeInTheDocument();
@@ -173,8 +172,8 @@ testStable('keeps failed reads recoverable through retry', async () => {
   api.documents.mockRejectedValueOnce(new Error('offline'));
   const user = userEvent.setup();
   show();
-  expect(await screen.findByText(en.SidebarShelfLoadError)).toBeInTheDocument();
+  expect(await screen.findByText(en.DocumentsLoadError)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: en.Retry }));
-  expect(await screen.findByText(en.SidebarShelfEmpty)).toBeInTheDocument();
-  expect(screen.queryByText(en.SidebarShelfLoadError)).not.toBeInTheDocument();
+  expect(await screen.findByText(en.DocumentsEmpty)).toBeInTheDocument();
+  expect(screen.queryByText(en.DocumentsLoadError)).not.toBeInTheDocument();
 });

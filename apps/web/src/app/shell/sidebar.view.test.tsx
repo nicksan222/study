@@ -46,7 +46,7 @@ testStable(
         invalidSubject
         subjectState="error"
         reloadSubjects={reloadSubjects}
-        library={null}
+        collection={null}
       />
     );
     expect(await screen.findByText(catalogs.english.SubjectNotFound)).toBeInTheDocument();
@@ -60,7 +60,9 @@ testStable('allows creating an unfiled session from an empty session list', asyn
   const user = userEvent.setup();
   const createSession = vi.fn();
 
-  renderSidebar(<SidebarView {...sidebarModel()} createSession={createSession} library={null} />);
+  renderSidebar(
+    <SidebarView {...sidebarModel()} createSession={createSession} collection={null} />
+  );
   expect(await screen.findByText(catalogs.english.DashboardNoSessions)).toBeInTheDocument();
   const create = screen.getByRole('button', { name: catalogs.english.NewSession });
 
@@ -70,14 +72,14 @@ testStable('allows creating an unfiled session from an empty session list', asyn
 });
 
 testStable('announces session loading once through the shared indicator', async () => {
-  renderSidebar(<SidebarView {...sidebarModel()} sessionState="loading" library={null} />);
+  renderSidebar(<SidebarView {...sidebarModel()} sessionState="loading" collection={null} />);
 
   expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingSessions);
   expect(screen.getAllByRole('status')).toHaveLength(1);
 });
 
 testStable('shows the shared search indicator while search results are pending', async () => {
-  renderSidebar(<SidebarView {...sidebarModel()} query="biology" library={null} />);
+  renderSidebar(<SidebarView {...sidebarModel()} query="biology" collection={null} />);
 
   expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.Searching);
   expect(screen.getAllByRole('status')).toHaveLength(1);
@@ -85,7 +87,7 @@ testStable('shows the shared search indicator while search results are pending',
 
 testStable('shows localized loading in the subject picker', async () => {
   renderSidebar(
-    <SidebarView {...sidebarModel()} pickerOpen subjectState="loading" library={null} />
+    <SidebarView {...sidebarModel()} pickerOpen subjectState="loading" collection={null} />
   );
 
   expect(await screen.findByText(catalogs.english.LoadingSubjects)).toBeInTheDocument();
@@ -95,7 +97,7 @@ testStable(
   'keeps a saving subject disabled with one loading announcement in the dialog',
   async () => {
     renderSidebar(
-      <SidebarView {...sidebarModel()} newSubjectOpen creating name="Biology" library={null} />
+      <SidebarView {...sidebarModel()} newSubjectOpen creating name="Biology" collection={null} />
     );
     const dialog = await screen.findByRole('dialog');
     const saving = within(dialog).getByRole('button', { name: catalogs.english.Saving });
@@ -105,16 +107,3 @@ testStable(
     expect(within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
   }
 );
-
-testStable('keeps composed workspace sections available when sessions fail to load', async () => {
-  renderSidebar(
-    <SidebarView
-      {...sidebarModel()}
-      sessionState="error"
-      library={null}
-      workspaceSections={<p>Shelf section</p>}
-    />
-  );
-  expect(await screen.findByText('Shelf section')).toBeVisible();
-  expect(screen.getByRole('button', { name: catalogs.english.SessionsLoadError })).toBeVisible();
-});

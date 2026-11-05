@@ -189,6 +189,16 @@ testStable(
     expect(api.createSession).not.toHaveBeenCalled();
     expect(await screen.findByRole('textbox', { name: en.SessionCompose })).toHaveValue('');
     expect(screen.getByRole('button', { name: en.SessionSaveNote })).toBeDisabled();
+    await user.type(
+      screen.getByRole('textbox', { name: en.SessionCompose }),
+      'Unsent biology notes'
+    );
+    const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
+    const draft = await sidebar.findByRole('link', { name: 'Unsent biology notes' });
+    expect(draft.closest('details')).toBeNull();
+    expect(draft.closest('.study-session-entry')).toBe(
+      draft.closest('.study-session-groups')?.firstElementChild
+    );
   }
 );
 
@@ -749,7 +759,7 @@ testStable('retries a failed session owner read from the subject picker error', 
 });
 
 testStable.each(['/documents/10', '/documents/10?project=2'])(
-  'uses route-owned document context and keeps Shelf visible: %s',
+  'uses route-owned document context and shows only documents in the sidebar: %s',
   async (url) => {
     history.replaceState(null, '', url);
     api.documents.mockResolvedValue({
@@ -770,13 +780,65 @@ testStable.each(['/documents/10', '/documents/10?project=2'])(
     const user = userEvent.setup();
     await renderWithNavigation();
     expect(await screen.findByLabelText('Biology')).toBeVisible();
-    expect(await screen.findByRole('link', { name: 'Cell division' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
     const document = await screen.findByRole('link', { name: 'Cell notes' });
     expect(document).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByText(en.SidebarShelf)).toBeVisible();
+    expect(screen.getByRole('link', { name: en.SourceDocument })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('Biology'));
     await user.click(await screen.findByRole('option', { name: 'History' }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/documents?project=2'));
+  }
+);
+
+testStable(
+  'opens Documents between Sessions and Library with a documents-only sidebar',
+  async () => {
+    api.documents.mockResolvedValue({
+      items: [
+        {
+          id: 10n,
+          title: 'Cell notes',
+          projectIds: [1n],
+          description: 'Cell study notes',
+          createdAt: 0n,
+          updatedAt: 0n,
+          archivedAt: null,
+          headVersionId: 101n
+        }
+      ],
+      nextCursor: null
+    });
+    const user = userEvent.setup();
+    await renderWithNavigation();
+    const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
+    expect(await sidebar.findByRole('link', { name: 'Cell division' })).toBeVisible();
+    expect(sidebar.queryByRole('link', { name: 'Cell notes' })).not.toBeInTheDocument();
+    const navigation = within(sidebar.getByRole('navigation', { name: en.SidebarNavigation }));
+    expect(
+      navigation
+        .getAllByRole('link')
+        .slice(0, 3)
+        .map((link) => link.getAttribute('aria-label'))
+    ).toEqual([en.Sessions, en.SourceDocument, en.SidebarLibrary]);
+    await user.click(navigation.getByRole('link', { name: en.SourceDocument }));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/documents?project=1'));
+    await sidebar.findByRole('link', { name: 'Cell notes' });
+    expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
+    expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: en.SourceDocument, level: 2 })).toBeVisible();
+    await user.type(sidebar.getByRole('searchbox'), 'missing');
+    expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
+    await user.clear(sidebar.getByRole('searchbox'));
+    await user.click(await sidebar.findByRole('link', { name: 'Cell notes' }));
+    await waitFor(() => expect(location.pathname).toBe('/documents/10'));
+    expect(await sidebar.findByRole('link', { name: 'Cell notes' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
   }
 );

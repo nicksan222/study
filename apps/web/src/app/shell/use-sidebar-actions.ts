@@ -7,8 +7,7 @@ import { createProjectMutationOptions } from '#web/lib/study-client/study.querie
 
 export function useSidebarActions(
   project: ProjectId | undefined,
-  global: boolean,
-  owned: boolean,
+  subjectDestination: '/sessions' | '/documents' | '/library' | '/practice' | '.',
   clearSearch: () => void
 ) {
   const navigate = useNavigate();
@@ -23,13 +22,7 @@ export function useSidebarActions(
     setPickerOpen(false);
     clearSearch();
 
-    if (global) {
-      void navigate({ to: '/library', search: { project: String(id) } });
-    } else if (owned) {
-      void navigate({ to: '/sessions', search: { project: String(id) } });
-    } else {
-      void navigate({ to: '.', search: { project: String(id) } });
-    }
+    void navigate({ to: subjectDestination, search: { project: String(id) } });
   };
   const createSession = async () => {
     if (creating) return;

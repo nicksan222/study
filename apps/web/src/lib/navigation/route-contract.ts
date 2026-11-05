@@ -9,7 +9,7 @@ import { Schema } from 'effect';
 
 import type { SidebarRouteConfig } from './sidebar-config';
 
-export type Section = 'sessions' | 'library' | 'practice' | 'pipelines';
+export type Section = 'sessions' | 'documents' | 'library' | 'practice' | 'pipelines';
 
 export type PageMetadata = {
   title: StaticMessageKey;
