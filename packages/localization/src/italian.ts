@@ -1285,6 +1285,7 @@ export const italian = Object.freeze({
   OpenProjectCards: 'Ripassa le flashcard',
   ProjectMaterial: 'Materiale di studio',
   OpenProjectQuiz: 'Fai il quiz',
+  WorkspaceShortcuts: 'Scorciatoie dello spazio di lavoro',
   NewSession: 'Nuova sessione',
   LoadingSessions: 'Caricamento sessioni…',
   SessionsLoadError: 'Impossibile caricare le sessioni. Riprova.',

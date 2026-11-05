@@ -1244,6 +1244,7 @@ export const english = Object.freeze({
   OpenProjectCards: 'Review flashcards',
   ProjectMaterial: 'Study material',
   OpenProjectQuiz: 'Take the quiz',
+  WorkspaceShortcuts: 'Workspace shortcuts',
   NewSession: 'New session',
   LoadingSessions: 'Loading sessions…',
   SessionsLoadError: 'Could not load sessions. Try again.',
