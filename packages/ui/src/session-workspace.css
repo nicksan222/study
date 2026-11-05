@@ -181,6 +181,16 @@
   border-bottom: 0;
 }
 
+.session-entry:hover {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .session-entry {
+    transition: background-color 120ms ease-out;
+  }
+}
+
 .session-entry + .session-entry {
   border-top: 1px solid var(--border);
 }
