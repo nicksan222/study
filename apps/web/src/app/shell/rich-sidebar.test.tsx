@@ -418,7 +418,7 @@ testStable(
   }
 );
 
-testStable('offers more when seven settled rows exceed the bottom-half preview', async () => {
+testStable('keeps loaded settled rows available regardless of the sidebar height', async () => {
   const many = Array.from({ length: 7 }, (_, index) => ({
     ...sessions[0]!,
     id: BigInt(index + 1) as (typeof sessions)[number]['id'],
@@ -502,9 +502,10 @@ testStable('offers more when seven settled rows exceed the bottom-half preview',
     );
     const group = screen.getByRole('link', { name: 'Recent 1' }).closest('details')!;
 
-    await waitFor(() => expect(within(group).getAllByRole('link')).toHaveLength(3));
-    fireEvent.click(within(group).getByRole('button', { name: 'SidebarShowMore' }));
     expect(within(group).getAllByRole('link')).toHaveLength(7);
+    expect(
+      within(group).queryByRole('button', { name: 'SidebarShowMore' })
+    ).not.toBeInTheDocument();
   } finally {
     geometry.mockRestore();
     vi.unstubAllGlobals();

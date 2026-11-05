@@ -189,10 +189,7 @@ function SettledSessions(
   props: Props & { summaries: Map<string, Progress>; selection: SelectionControls }
 ) {
   const { t } = useI18n();
-  const rows = useRef<HTMLDivElement>(null);
-  const [extra, setExtra] = useState(0);
-  const preview = useSettledPreview(rows, props.sessions.length);
-  const visible = preview + extra;
+  const [visible, setVisible] = useState(10);
   const sessions = props.sessions.toSorted((a, b) =>
     a.updatedAt === b.updatedAt ? 0 : a.updatedAt > b.updatedAt ? -1 : 1
   );
@@ -200,7 +197,7 @@ function SettledSessions(
 
   return (
     <SidebarUI.SessionGroup title={t('SidebarSettled')} count={sessions.length} variant="settled">
-      <SidebarUI.SettledRows ref={rows}>
+      <SidebarUI.SettledRows>
         {sessions.slice(0, visible).map((session) => (
           <RichSession
             key={String(session.id)}
@@ -212,7 +209,7 @@ function SettledSessions(
         ))}
       </SidebarUI.SettledRows>
       {more > 0 && (
-        <SidebarUI.SessionMore onClick={() => setExtra((count) => count + 25)}>
+        <SidebarUI.SessionMore onClick={() => setVisible((count) => count + 25)}>
           <ChevronDown aria-hidden="true" />
           {t('SidebarShowMore', { count: more })}
         </SidebarUI.SessionMore>
@@ -233,43 +230,6 @@ type RowProps = Props & {
   settled: boolean;
   selection: SelectionControls;
 };
-
-/** Fit the initial preview to the bottom half before offering older completed work. */
-
-function useSettledPreview(rows: { current: HTMLDivElement | null }, count: number) {
-  const [limit, setLimit] = useState(10);
-
-  useEffect(() => {
-    const list = rows.current;
-    const available = list?.closest('.study-sidebar-scroll');
-    const summary = list?.closest('details')?.querySelector('summary');
-
-    if (!list || !available || !summary || typeof ResizeObserver === 'undefined') return;
-
-    const measure = () => {
-      const row = list.firstElementChild?.getBoundingClientRect().height ?? 0;
-      const height = available.getBoundingClientRect().height;
-
-      if (!row || !height) return;
-
-      const gap = Number.parseFloat(getComputedStyle(list).rowGap) || 0;
-      const summaryHeight = summary.getBoundingClientRect().height;
-      const capacity = Math.floor((height / 2 - summaryHeight) / (row + gap));
-      const withMore = Math.floor((height / 2 - summaryHeight - row) / (row + gap));
-
-      setLimit(Math.max(1, Math.min(10, count <= capacity ? capacity : withMore)));
-    };
-    const observer = new ResizeObserver(measure);
-
-    observer.observe(available);
-    observer.observe(list);
-    measure();
-
-    return () => observer.disconnect();
-  }, [rows, count]);
-
-  return limit;
-}
 
 /** Keeps settlement actions separate from navigation and disabled during active work. */
 

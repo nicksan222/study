@@ -320,3 +320,54 @@ testStable('closes settled content immediately when reduced motion is enabled', 
     media.mockRestore();
   }
 });
+
+testStable(
+  'caps populated sections without reserving a share for empty sections or draft cards',
+  async () => {
+    const geometry = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(function (this: HTMLElement) {
+        return new DOMRect(0, 0, 280, this.tagName === 'SUMMARY' ? 38 : 64);
+      });
+    const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      }
+    );
+    const layout = (count: number) => (
+      <Sidebar.Content style={{ rowGap: 12 }}>
+        <Sidebar.SessionGroups>
+          <Sidebar.SessionEntry>Draft card</Sidebar.SessionEntry>
+          <Sidebar.SessionGroup title="Open" count={10} defaultOpen>
+            <p>Open sessions</p>
+          </Sidebar.SessionGroup>
+          <Sidebar.SessionGroup title="Settled" count={count} defaultOpen variant="settled">
+            <Sidebar.SettledRows>{count > 0 && <p>Settled session</p>}</Sidebar.SettledRows>
+          </Sidebar.SessionGroup>
+        </Sidebar.SessionGroups>
+      </Sidebar.Content>
+    );
+    const view = render(layout(0));
+    try {
+      const open = screen.getByText('Open').closest('details')!;
+      const settled = screen.getByText('Settled').closest('details')!;
+      expect(settled).toHaveAttribute('data-empty');
+      expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('0px');
+      expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('236px');
+      view.rerender(layout(1));
+      await waitFor(() => expect(settled).not.toHaveAttribute('data-empty'));
+      await waitFor(() =>
+        expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('118px')
+      );
+      expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('118px');
+    } finally {
+      view.unmount();
+      geometry.mockRestore();
+      height.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  }
+);
