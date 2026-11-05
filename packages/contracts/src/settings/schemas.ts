@@ -52,6 +52,7 @@ export const workspacePreferencesSchema = Schema.Struct({
   defaultExportFormat: exportFormatSchema,
   defaultAiDetail: Schema.Literals(['brief', 'balanced', 'detailed']),
   autoTitleSessions: Schema.Boolean,
+  autoAnswerQuestions: Schema.Boolean,
   sidebarDensity: Schema.Literals(['comfortable', 'compact']),
   sidebarShowDocumentCounts: Schema.Boolean,
   sidebarTimeFormat: Schema.Literals(['relative', 'absolute']),

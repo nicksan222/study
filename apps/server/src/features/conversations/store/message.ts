@@ -27,7 +27,7 @@ import {
 } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { messageIdSchema } from '@study/contracts/ids';
-import type { MessageId, SessionId } from '@study/contracts/ids';
+import type { MessageId, SessionId, VersionId } from '@study/contracts/ids';
 import {
   citedMarkers,
   renumberCitations,
@@ -35,6 +35,7 @@ import {
 } from '@study/contracts/sources/citations';
 import { and, asc, desc, eq, isNull, lt, sql } from '@study/db';
 import {
+  conversation_question_answers,
   citations,
   message_parts,
   message_versions,
@@ -52,6 +53,16 @@ import { unixSeconds } from '#server/platform/time/index';
 import { activeMessageCondition } from './archive.ts';
 import { makePersistence } from './persistence.ts';
 import { makeThread } from './thread.ts';
+
+/** Carries manual corrections across versions while invalidating automatic results for changed content. */
+function questionSelection(message: typeof chatMessageSchema.Type, versionId: VersionId) {
+  return {
+    active_version_id: versionId,
+    question_kind: message.question?.origin === 'manual' ? message.question.kind : null,
+    question_origin: message.question?.origin === 'manual' ? ('manual' as const) : null,
+    question_version_id: message.question?.origin === 'manual' ? versionId : null
+  };
+}
 
 function textOf(value: string, allowEmpty = false) {
   const text = value.trim();
@@ -116,12 +127,37 @@ function makeHelpers({ db, clock }: StoreResources) {
       }));
   }
 
+  /** Reads classification, answer linkage and immutable versions from the same database state. */
   function read(id: MessageId) {
     const m = db.orm.select().from(messages).where(eq(messages.id, id)).get();
 
     if (!m) return null;
 
+    const answer = m.question_version_id
+      ? db.orm
+          .select({
+            messageId: conversation_question_answers.answer_message_id,
+            requestId: conversation_question_answers.request_id,
+            archivedAt: messages.archived_at
+          })
+          .from(conversation_question_answers)
+          .leftJoin(messages, eq(messages.id, conversation_question_answers.answer_message_id))
+          .where(eq(conversation_question_answers.version_id, m.question_version_id))
+          .get()
+      : undefined;
+
     return {
+      question:
+        m.question_kind && m.question_origin && m.question_version_id
+          ? {
+              kind: m.question_kind,
+              origin: m.question_origin,
+              versionId: m.question_version_id,
+              answerMessageId: answer?.messageId,
+              answerRequestId: answer?.requestId,
+              answerArchived: answer?.archivedAt != null
+            }
+          : undefined,
       id: m.id,
       sessionId: m.session_id,
       role: m.role,
@@ -446,7 +482,7 @@ export const MessageStore = defineStore({
 
             db.orm
               .update(messages)
-              .set({ active_version_id: version.id })
+              .set(questionSelection(message, version.id))
               .where(eq(messages.id, message.id))
               .run();
             touch(message.sessionId);
@@ -463,9 +499,11 @@ export const MessageStore = defineStore({
             if (!message.versions.some((v) => v.id === input.versionId && v.status === 'complete'))
               throw new StudyError('invalid_input', 'invalid message version');
 
+            if (message.activeVersionId === input.versionId) return message;
+
             db.orm
               .update(messages)
-              .set({ active_version_id: input.versionId })
+              .set(questionSelection(message, input.versionId))
               .where(eq(messages.id, message.id))
               .run();
             touch(message.sessionId);
@@ -493,7 +531,7 @@ export const MessageStore = defineStore({
             if (message.activeVersionId === input.versionId)
               db.orm
                 .update(messages)
-                .set({ active_version_id: remaining.at(-1)!.id })
+                .set(questionSelection(message, remaining.at(-1)!.id))
                 .where(eq(messages.id, message.id))
                 .run();
 

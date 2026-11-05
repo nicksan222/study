@@ -171,7 +171,14 @@ testStable(
             targets: []
           });
           const event = decodeEvent(
-            fixture.context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
+            fixture.context.db.orm
+              .select()
+              .from(s.workflowEvents)
+              .all()
+              .find(
+                (event) =>
+                  event.type === 'DocumentGenerationRequested' && event.correlationId === request.id
+              )!.payload
           );
 
           assert.ok(event.type === 'DocumentGenerationRequested');

@@ -80,6 +80,7 @@ export function useDocumentRetirement(
       void cache.invalidateQueries({ queryKey: ['documents'] });
     }
   });
+
   function open(next: 'history' | 'deletion') {
     retire.reset();
     setMode(next);

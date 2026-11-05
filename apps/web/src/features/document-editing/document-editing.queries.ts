@@ -5,13 +5,10 @@ import type {
 } from '@study/contracts/documents/editing';
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import type { documentSchema } from '@study/contracts/sources/schemas';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState, useRef } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
-import { toStudyError } from '#web/lib/study-client/errors.ts';
-import { request } from '#web/lib/study-client/request.ts';
 
 type Comparison = typeof comparisonSchema.Type;
 

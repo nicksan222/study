@@ -8,7 +8,9 @@ import { libraryItems } from './library.logic';
 
 export function libraryQueryOptions(subjects: Subjects, project?: ProjectId, enabled = true) {
   const projectIds = project ? [project] : subjects.map((subject) => subject.id);
+
   projectIds.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
   return queryOptions({
     queryKey: ['library', 'practice', projectIds.map(String), project?.toString()],
     queryFn: async ({ signal }) =>

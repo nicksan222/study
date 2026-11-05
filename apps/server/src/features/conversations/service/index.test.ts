@@ -432,7 +432,11 @@ testStable('reply request persists its context and rejects another pending reque
         const { decodeEvent } = yield* Effect.promise(
           () => import('#server/platform/workflows/events')
         );
-        const events = context.db.orm.select().from(workflowEvents).all();
+        const events = context.db.orm
+          .select()
+          .from(workflowEvents)
+          .all()
+          .filter((event) => event.type === 'ConversationGenerationRequested');
 
         assert.strictEqual(events.length, 1);
         expect(decodeEvent(events[0]!.payload)).toStrictEqual({
@@ -649,7 +653,13 @@ testStable('outbox failure rolls back reply request and pending message', async 
           context.db.orm.select().from(conversation_reply_requests).all().length,
           0
         );
-        assert.strictEqual(context.db.orm.select().from(workflowEvents).all().length, 0);
+        expect(
+          context.db.orm
+            .select()
+            .from(workflowEvents)
+            .all()
+            .map((event) => event.type)
+        ).toStrictEqual(['ConversationQuestionRequested']);
       }).pipe(Effect.provide(layer))
     );
   } finally {

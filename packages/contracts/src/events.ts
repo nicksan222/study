@@ -172,6 +172,14 @@ export const sessionDeletionRequestedSchema = Schema.Struct({
   attempt: Schema.Int
 });
 
+export const conversationQuestionRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('ConversationQuestionRequested'),
+  sessionId: sessionIdSchema,
+  messageId: messageIdSchema,
+  versionId: versionIdSchema
+});
+
 export const conversationTitleRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('ConversationTitleRequested'),
@@ -227,6 +235,7 @@ export const workflowEventSchema = Schema.Union([
   materialGenerationFailedSchema,
   conversationGenerationRequestedSchema,
   conversationTitleRequestedSchema,
+  conversationQuestionRequestedSchema,
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema
 ]);

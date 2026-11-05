@@ -298,7 +298,8 @@ export const SessionContextStore = defineStore({
         input.sessionId,
         input.throughMessageId,
         input.threadRoot,
-        true
+        true,
+        input.throughMessageId === undefined ? {} : { pendingAssistant: 'omit' }
       );
 
       if (input.threadRoot !== undefined) {

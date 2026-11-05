@@ -88,6 +88,7 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   defaultExportFormat: 'markdown',
   defaultAiDetail: 'balanced',
   autoTitleSessions: false,
+  autoAnswerQuestions: false,
   sidebarDensity: 'comfortable',
   sidebarShowDocumentCounts: true,
   sidebarTimeFormat: 'relative',

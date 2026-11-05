@@ -29,6 +29,7 @@ import type {
   updateSessionSelectionSchema
 } from '@study/contracts/conversations/context';
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
+import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type {
   createSessionInputSchema,
   createUntitledSessionInputSchema,
@@ -43,6 +44,9 @@ import type {
   sessionGenerationPageInputSchema
 } from '@study/contracts/conversations/rpc';
 import type {
+  questionVersionInputSchema,
+  setMessageKindInputSchema,
+  questionClassificationSchema,
   askInputSchema,
   replyVersionInputSchema,
   publishReplyInputSchema,
@@ -84,6 +88,7 @@ import {
   MessageStore,
   MessageVersionCitationsStore
 } from '#server/features/conversations/store/message';
+import { QuestionStore, QuestionAnswerStore } from '#server/features/conversations/store/questions';
 import { RecordingPostStore } from '#server/features/conversations/store/recording';
 import {
   ReplyStore,
@@ -184,6 +189,44 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
+      /** Commits manual corrections with durable optional answer work, before capturing reply context. */
+      setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
+
+          return yield* transaction((tx) => {
+            tx.store(QuestionStore).setQuestionKind(input);
+
+            const message = tx.store(MessageStore).message(input.messageId);
+
+            if (input.kind === 'question' && preferences.autoAnswerQuestions)
+              emitQuestionRequest(tx, message, input.expectedActiveVersionId, randomUUID());
+
+            return message;
+          });
+        }),
+      answerQuestion: (input: typeof questionVersionInputSchema.Type) =>
+        transaction((tx) => answerQuestion(tx, input)),
+      questionSnapshot: (input: typeof questionVersionInputSchema.Type) =>
+        transaction((tx) => tx.store(QuestionStore).questionSnapshot(input)),
+      /** Commits detection independently so rejected automatic answers cannot erase the saved kind. */
+      publishQuestion: (
+        input: typeof questionVersionInputSchema.Type & typeof questionClassificationSchema.Type
+      ) =>
+        Effect.gen(function* () {
+          yield* publicationTransaction((tx) => {
+            tx.store(QuestionStore).publishQuestion(input);
+          });
+
+          if (input.kind !== 'question') return;
+
+          const preferences = yield* readWorkspacePreferences();
+
+          if (preferences.autoAnswerQuestions)
+            yield* publicationTransaction((tx) => {
+              answerQuestion(tx, input);
+            });
+        }),
       applyDocumentProposal: (value: typeof editing.applyProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Documents.findProposalReceiptInTransaction(tx, {
@@ -355,6 +398,7 @@ export const Conversations = defineService(
         }),
       replySnapshot: (input: { requestId: string }) =>
         transaction((tx) => {
+          tx.store(QuestionStore).assertQuestionAnswer(input);
           const snapshot = tx.store(ReplyStore).replySnapshot(input);
 
           if (snapshot.context) {
@@ -389,6 +433,7 @@ export const Conversations = defineService(
             if (Option.isSome(context))
               for (const target of context.value.inputs) assertCapturedTarget(tx, target);
 
+            tx.store(QuestionStore).assertQuestionAnswer(input);
             const versionId = tx.store(ReplyStore).publishReply(input);
 
             if (preferences.autoTitleSessions) {
@@ -532,6 +577,8 @@ export const Conversations = defineService(
 
           emitReplyRequest(tx, result, 'reply');
 
+          retainExplicitQuestionAnswer(tx, note, result);
+
           return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
@@ -571,6 +618,15 @@ export const Conversations = defineService(
           if (Option.isSome(previous)) return previous.value;
 
           const result = tx.store(ReplyStore).requestReply({ ...input, requestId, context });
+
+          const target = context.messages.at(-1);
+
+          if (target?.role === 'user')
+            retainExplicitQuestionAnswer(
+              tx,
+              tx.store(MessageStore).message(target.messageId),
+              result
+            );
 
           emitReplyRequest(tx, result, 'reply');
 
@@ -663,6 +719,7 @@ export const Conversations = defineService(
                 context
               });
 
+              retainExplicitQuestionAnswer(tx, message, result);
               tx.emit({
                 type: 'ConversationGenerationRequested',
                 eventId: randomUUID(),
@@ -685,15 +742,33 @@ export const Conversations = defineService(
           resolveMessageCitations(tx, tx.store(MessageStore).updateMessageDescription(input))
         ),
       editMessage: (input: typeof editMessageInputSchema.Type) =>
-        transaction((tx) => resolveMessageCitations(tx, tx.store(MessageStore).editMessage(input))),
+        transaction((tx) => {
+          const message = tx.store(MessageStore).editMessage(input);
+
+          scheduleQuestion(tx, message);
+
+          return resolveMessageCitations(tx, message);
+        }),
+      /** Preserves classification on no-op selections and requeues changed content versions. */
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>
-        transaction((tx) =>
-          resolveMessageCitations(tx, tx.store(MessageStore).setActiveVersion(input))
-        ),
+        transaction((tx) => {
+          const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
+          const message = tx.store(MessageStore).setActiveVersion(input);
+
+          if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
+
+          return resolveMessageCitations(tx, message);
+        }),
+      /** Reclassifies only when version deletion selects different active content. */
       deleteMessageVersion: (input: typeof setActiveVersionInputSchema.Type) =>
-        transaction((tx) =>
-          resolveMessageCitations(tx, tx.store(MessageStore).deleteMessageVersion(input))
-        ),
+        transaction((tx) => {
+          const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
+          const message = tx.store(MessageStore).deleteMessageVersion(input);
+
+          if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
+
+          return resolveMessageCitations(tx, message);
+        }),
       deleteMessage: (id: MessageId) =>
         transaction((tx) => tx.store(MessageStore).deleteMessage(id)),
       renameSession: (input: typeof renameSessionInputSchema.Type) =>
@@ -831,6 +906,8 @@ export const Conversations = defineService(
 /** Source membership is independent of the raw message that introduced it. */
 function postMessage(tx: Transaction, input: typeof postMessageInputSchema.Type) {
   const message = tx.store(MessageStore).postMessage(input);
+
+  scheduleQuestion(tx, message);
 
   for (const sourceId of input.sourceIds ?? [])
     Sources.attachInTransaction(tx, { sessionId: input.sessionId, sourceId });
@@ -1072,7 +1149,141 @@ const deletionEventTypes = [
   'DocumentPublished',
   'ConversationGenerationRequested',
   'ConversationTitleRequested',
+  'ConversationQuestionRequested',
   'RecordingPostRequested',
   'MaterialGenerationRequested',
   'MaterialGenerationFailed'
 ] as const;
+
+/** Schedules replay-safe detection only when the saved note is eligible. */
+function scheduleQuestion(tx: Transaction, message: ChatMessage, reclassify = false) {
+  const versionId = message.activeVersionId;
+
+  if (!versionId || !questionEligible(message)) return;
+
+  if (
+    !reclassify &&
+    tx
+      .store(QuestionStore)
+      .questionSnapshot({ messageId: message.id, expectedActiveVersionId: versionId }).scheduled
+  )
+    return;
+
+  emitQuestionRequest(
+    tx,
+    message,
+    versionId,
+    reclassify ? randomUUID() : `question/${message.id}/${versionId}`
+  );
+}
+
+/** Persists question follow-up work atomically with the classification or capture it belongs to. */
+function emitQuestionRequest(
+  tx: Transaction,
+  message: ChatMessage,
+  versionId: NonNullable<ChatMessage['activeVersionId']>,
+  eventId: string
+) {
+  tx.emit({
+    type: 'ConversationQuestionRequested',
+    eventId,
+    causationId: null,
+    correlationId: `question/${message.id}/${versionId}`,
+    inputVersion: 1,
+    depth: 0,
+    sessionId: message.sessionId,
+    messageId: message.id,
+    versionId
+  });
+}
+
+/** Reuses an existing answer or captures the exact question version for generation. */
+function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchema.Type) {
+  const existing = tx.store(QuestionAnswerStore).findQuestionAnswer(input);
+
+  if (Option.isSome(existing)) {
+    if (!questionAnswerRetryable(tx, existing.value)) return existing.value;
+
+    tx.store(QuestionStore).retireQuestionAnswer(input);
+  }
+
+  const message = tx.store(MessageStore).message(input.messageId);
+  const intentKey = `question/${message.id}/${input.expectedActiveVersionId}/${randomUUID()}`;
+  const context = captureContext(
+    tx,
+    {
+      sessionId: message.sessionId,
+      threadRoot: message.threadRoot ?? undefined,
+      throughMessageId: message.id,
+      intentKey,
+      instruction: '',
+      preferences: {}
+    },
+    randomUUID(),
+    true
+  );
+
+  if (
+    context.messages.at(-1)?.messageId !== message.id ||
+    context.messages.at(-1)?.versionId !== input.expectedActiveVersionId
+  )
+    throw new StudyError('invalid_input', 'Question context changed');
+
+  const result = tx.store(ReplyStore).requestQuestionReply({
+    sessionId: message.sessionId,
+    threadRoot: message.threadRoot ?? undefined,
+    requestId: context.requestId,
+    context
+  });
+
+  tx.store(QuestionStore).retainQuestionAnswer({ ...input, answer: result });
+  emitReplyRequest(tx, result, 'reply');
+
+  return result;
+}
+
+/** Keeps explicit reply requests reusable without imposing automatic-question publication rules. */
+function retainExplicitQuestionAnswer(
+  tx: Transaction,
+  message: ChatMessage,
+  answer: typeof replyRequestSchema.Type
+) {
+  if (message.role === 'user' && message.format !== 'document' && message.activeVersionId)
+    tx.store(QuestionStore).retainQuestionAnswer({
+      messageId: message.id,
+      expectedActiveVersionId: message.activeVersionId,
+      answer,
+      guard: false
+    });
+}
+
+/** Allows a new request only after unfinished answer work has settled unsuccessfully. */
+function questionAnswerRetryable(tx: Transaction, receipt: typeof replyRequestSchema.Type) {
+  const answer = tx.store(MessageStore).message(receipt.messageId);
+  const version = answer.versions.find((v) => v.id === receipt.versionId);
+
+  if (version?.status === 'complete') return false;
+
+  const runs = Workflows.correlatedExecutions(tx, receipt.requestId);
+
+  return (
+    runs.length > 0 &&
+    runs.every(
+      (run) =>
+        (run.status === 'completed' && run.outcome === 'failure') || run.status === 'cancelled'
+    )
+  );
+}
+
+/** Attachment-only and manually classified notes never consume background detection work. */
+function questionEligible(message: ChatMessage) {
+  const text =
+    message.versions.find((version) => version.id === message.activeVersionId)?.text ?? '';
+
+  return (
+    message.role === 'user' &&
+    message.format !== 'document' &&
+    message.question?.origin !== 'manual' &&
+    !!text.trim()
+  );
+}
