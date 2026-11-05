@@ -28,6 +28,7 @@ export function DocumentsPage() {
       }))
     })
   });
+
   return (
     <MaterialLibrary.Root>
       <MaterialLibrary.Heading>

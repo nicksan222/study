@@ -24,6 +24,7 @@ import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
 import { DocumentsSidebar } from './documents-sidebar';
 
 const api = vi.hoisted(() => ({ documents: vi.fn() }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({
@@ -33,8 +34,11 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
 }));
 
 const en = catalogs.english;
+
 const project = Schema.decodeUnknownSync(projectIdSchema)(1n);
+
 const caches: QueryClient[] = [];
+
 const document = (id: bigint, overrides: Record<string, unknown> = {}) =>
   Schema.decodeUnknownSync(summarySchema)({
     id,
@@ -58,6 +62,7 @@ afterEach(() => {
 
 function show() {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   caches.push(cache);
   const root = createRootRoute({
     component: () => (
@@ -78,11 +83,13 @@ function show() {
     routeTree: root.addChildren([index, reader]),
     history: createMemoryHistory({ initialEntries: ['/'] })
   });
+
   render(
     <QueryClientProvider client={cache}>
       <RouterProvider router={router} />
     </QueryClientProvider>
   );
+
   return { cache, router };
 }
 
@@ -102,6 +109,7 @@ testStable(
     const user = userEvent.setup();
     const { router, cache } = show();
     const newest = await screen.findByRole('link', { name: 'Document 2' });
+
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       expect.stringContaining('Document 2'),
       expect.stringContaining('Document 1')
@@ -141,6 +149,7 @@ testStable(
   'shows an empty document list and picks up a newly published document on cache refresh',
   async () => {
     const { cache } = show();
+
     expect(await screen.findByText(en.DocumentsEmpty)).toBeInTheDocument();
     api.documents.mockResolvedValue({ items: [document(7n)], nextCursor: null });
     await act(async () => {
@@ -160,6 +169,7 @@ testStable('loads additional document pages without dropping the current rows', 
     )
   );
   const user = userEvent.setup();
+
   show();
   await screen.findByRole('link', { name: 'Document 2' });
   await user.click(screen.getByRole('button', { name: en.LibraryMore }));
@@ -171,6 +181,7 @@ testStable('loads additional document pages without dropping the current rows', 
 testStable('keeps failed reads recoverable through retry', async () => {
   api.documents.mockRejectedValueOnce(new Error('offline'));
   const user = userEvent.setup();
+
   show();
   expect(await screen.findByText(en.DocumentsLoadError)).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: en.Retry }));

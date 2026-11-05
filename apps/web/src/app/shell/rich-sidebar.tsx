@@ -7,6 +7,7 @@ import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
 import { FileText, MessagesSquare, SquareDashed, ChevronDown, Trash2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 import {
   SessionDocumentDialog,
@@ -234,39 +235,47 @@ type RowProps = Props & {
 /** Keeps settlement actions separate from navigation and disabled during active work. */
 
 function RichSession(props: RowProps) {
-  const { t } = useI18n();
-  const settlement = useSessionSettlement(props.session.id);
-  const preferences = useWorkspacePreferences();
-  const compact = preferences.sidebarDensity === 'compact';
-  const [documentOpen, setDocumentOpen] = useState(false);
-  const blocked = settlement.isPending || !!props.progress?.running;
-  const documentAction = !props.settled && props.progress?.activity !== 'generating' && (
-    <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
-      {t('SidebarTurnIntoDoc')}
-    </SidebarUI.SettleAction>
-  );
-
   return (
     <SidebarUI.SessionEntry
       data-settled={props.settled || undefined}
       data-selecting={props.selection.items !== null || undefined}
     >
       <SessionLink {...props} />
+      <SessionControls {...props} />
+    </SidebarUI.SessionEntry>
+  );
+}
+
+function canConvertSession({ settled, progress }: RowProps) {
+  return !settled && progress?.activity !== 'generating';
+}
+
+function SessionControls(props: RowProps) {
+  const { t } = useI18n();
+  const settlement = useSessionSettlement(props.session.id);
+  const preferences = useWorkspacePreferences();
+  const [documentOpen, setDocumentOpen] = useState(false);
+  const blocked = settlement.isPending || !!props.progress?.running;
+  const documentAction = canConvertSession(props) ? (
+    <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
+      {t('SidebarTurnIntoDoc')}
+    </SidebarUI.SettleAction>
+  ) : null;
+
+  return (
+    <>
       {!props.selection.items && (
-        <>
-          {!compact && documentAction && (
-            <SidebarUI.SessionRowActions>{documentAction}</SidebarUI.SessionRowActions>
-          )}
-          <SidebarUI.SessionRowActions placement="top">
-            {compact && documentAction}
-            <SidebarUI.SettleAction
-              disabled={blocked}
-              onClick={() => settlement.mutate(!props.settled)}
-            >
-              {t(props.settled ? 'SidebarReopen' : 'SidebarSettle')}
-            </SidebarUI.SettleAction>
-          </SidebarUI.SessionRowActions>
-        </>
+        <SessionActionLayout
+          compact={preferences.sidebarDensity === 'compact'}
+          documentAction={documentAction}
+        >
+          <SidebarUI.SettleAction
+            disabled={blocked}
+            onClick={() => settlement.mutate(!props.settled)}
+          >
+            {t(props.settled ? 'SidebarReopen' : 'SidebarSettle')}
+          </SidebarUI.SettleAction>
+        </SessionActionLayout>
       )}
       {documentOpen && (
         <SessionDocumentDialog
@@ -279,7 +288,29 @@ function RichSession(props: RowProps) {
       {settlement.error && (
         <SidebarUI.Message role="alert">{t('SidebarSettlementError')}</SidebarUI.Message>
       )}
-    </SidebarUI.SessionEntry>
+    </>
+  );
+}
+
+function SessionActionLayout({
+  compact,
+  documentAction,
+  children
+}: {
+  compact: boolean;
+  documentAction: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      {!compact && documentAction && (
+        <SidebarUI.SessionRowActions>{documentAction}</SidebarUI.SessionRowActions>
+      )}
+      <SidebarUI.SessionRowActions placement="top">
+        {compact && documentAction}
+        {children}
+      </SidebarUI.SessionRowActions>
+    </>
   );
 }
 

@@ -5,7 +5,7 @@ import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import {
   Home,
   FileText,
@@ -31,7 +31,7 @@ import { RichSidebarSessions } from './rich-sidebar';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import type { SidebarModel } from './use-sidebar';
 
-type SidebarViewModel = SidebarModel & { collection: ReactNode };
+type SidebarViewModel = SidebarModel & { collection: ReactNode; selectedSession?: string | null };
 
 export function SidebarView(model: SidebarViewModel) {
   const { t } = useI18n();
@@ -127,6 +127,7 @@ function SidebarSearchResults({
 /** Lists scoped sessions with an independent deletion action for each row. */
 
 function SidebarSessions({
+  selectedSession,
   project,
   subjects,
   invalidSubject,
@@ -136,9 +137,8 @@ function SidebarSessions({
 }: Pick<
   SidebarModel,
   'project' | 'subjects' | 'invalidSubject' | 'sessions' | 'sessionState' | 'reloadSessions'
->) {
+> & { selectedSession?: string | null }) {
   const { t } = useI18n();
-  const { sessionId } = useParams({ strict: false });
 
   return (
     <SidebarUI.Items id="study-sidebar-sessions" aria-label={t('Sessions')}>
@@ -157,7 +157,7 @@ function SidebarSessions({
       {sessionState === 'ready' && !invalidSubject && (
         <RichSidebarSessions
           project={project}
-          selectedSession={sessionId ? String(sessionId) : null}
+          selectedSession={selectedSession ?? null}
           subjects={subjects}
           sessions={sessions}
         />

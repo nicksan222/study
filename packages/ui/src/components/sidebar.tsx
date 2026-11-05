@@ -527,42 +527,39 @@ function SessionEntry({ className, ...props }: ComponentProps<'div'>) {
 /** Cap expanded sections equally while letting short sections keep their natural height. */
 function SessionGroups({ className, ref, ...props }: ComponentProps<'div'>) {
   const root = useRef<HTMLDivElement>(null);
+
   useImperativeHandle(ref, () => root.current!);
   useLayoutEffect(() => {
     const element = root.current;
     const boundary = element?.closest<HTMLElement>('.study-sidebar-scroll');
+
     if (!element || !boundary || typeof ResizeObserver === 'undefined') return;
 
     const resize = new ResizeObserver(measure);
+
     function measure() {
       if (!element || !boundary) return;
+
       const children = Array.from(element.children) as HTMLElement[];
       const groups = children.filter((child) => child.classList.contains('study-session-group'));
       const expanded = groups.filter(
         (group) => group.hasAttribute('open') && !group.hasAttribute('data-empty')
       );
-      const style = getComputedStyle(boundary);
-      const gap = Number.parseFloat(style.rowGap) || 0;
-      let fixed =
-        (Number.parseFloat(style.paddingTop) || 0) +
-        (Number.parseFloat(style.paddingBottom) || 0) +
-        gap * Math.max(0, children.length - 1);
-      for (const child of children) {
-        const summary = child.querySelector<HTMLElement>(':scope > summary');
-        const fixedElement = summary ?? child;
-        resize.observe(fixedElement);
-        if (!expanded.includes(child)) fixed += fixedElement.getBoundingClientRect().height;
-      }
+      const fixed = reservedSectionSpace(boundary, children, expanded, resize);
       const share = Math.max(0, boundary.clientHeight - fixed) / Math.max(1, expanded.length);
+
       for (const group of groups) {
         const summary = group.querySelector<HTMLElement>(':scope > summary');
         const maximum = expanded.includes(group)
           ? Math.max(0, share - (summary?.getBoundingClientRect().height ?? 0))
           : 0;
+
         group.style.setProperty('--sidebar-group-content-max', `${maximum}px`);
       }
     }
+
     const mutations = new MutationObserver(measure);
+
     resize.observe(boundary);
     mutations.observe(element, {
       childList: true,
@@ -571,12 +568,39 @@ function SessionGroups({ className, ref, ...props }: ComponentProps<'div'>) {
       attributeFilter: ['open', 'data-empty']
     });
     measure();
+
     return () => {
       resize.disconnect();
       mutations.disconnect();
     };
   }, []);
+
   return <div {...props} ref={root} className={cn('study-session-groups', className)} />;
+}
+
+function reservedSectionSpace(
+  boundary: HTMLElement,
+  children: HTMLElement[],
+  expanded: HTMLElement[],
+  resize: ResizeObserver
+) {
+  const style = getComputedStyle(boundary);
+  const gap = Number.parseFloat(style.rowGap) || 0;
+  let fixed =
+    (Number.parseFloat(style.paddingTop) || 0) +
+    (Number.parseFloat(style.paddingBottom) || 0) +
+    gap * Math.max(0, children.length - 1);
+
+  for (const child of children) {
+    const summary = child.querySelector<HTMLElement>(':scope > summary');
+    const fixedElement = summary ?? child;
+
+    resize.observe(fixedElement);
+
+    if (!expanded.includes(child)) fixed += fixedElement.getBoundingClientRect().height;
+  }
+
+  return fixed;
 }
 
 type SessionGroupProps = {

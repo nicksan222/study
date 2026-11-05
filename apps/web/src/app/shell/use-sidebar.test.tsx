@@ -195,6 +195,7 @@ testStable(
     );
     const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
     const draft = await sidebar.findByRole('link', { name: 'Unsent biology notes' });
+
     expect(draft.closest('details')).toBeNull();
     expect(draft.closest('.study-session-entry')).toBe(
       draft.closest('.study-session-groups')?.firstElementChild
@@ -778,10 +779,12 @@ testStable.each(['/documents/10', '/documents/10?project=2'])(
       nextCursor: null
     });
     const user = userEvent.setup();
+
     await renderWithNavigation();
     expect(await screen.findByLabelText('Biology')).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
     const document = await screen.findByRole('link', { name: 'Cell notes' });
+
     expect(document).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: en.SourceDocument })).toHaveAttribute(
       'aria-current',
@@ -813,11 +816,14 @@ testStable(
       nextCursor: null
     });
     const user = userEvent.setup();
+
     await renderWithNavigation();
     const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
+
     expect(await sidebar.findByRole('link', { name: 'Cell division' })).toBeVisible();
     expect(sidebar.queryByRole('link', { name: 'Cell notes' })).not.toBeInTheDocument();
     const navigation = within(sidebar.getByRole('navigation', { name: en.SidebarNavigation }));
+
     expect(
       navigation
         .getAllByRole('link')

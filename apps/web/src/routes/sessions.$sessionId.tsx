@@ -3,7 +3,7 @@ import { createFileRoute, notFound } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
 import { sessionOptions } from '../features/session-workspace';
-import { sidebarOwner } from '../lib/navigation/sidebar-config';
+import { sidebarOwner } from '../lib/study-client/sidebar-owner.queries';
 import { Page } from '../pages/sessions/page';
 
 export const Route = createFileRoute('/sessions/$sessionId')({

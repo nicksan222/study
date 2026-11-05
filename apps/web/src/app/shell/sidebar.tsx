@@ -1,3 +1,4 @@
+import { useParams } from '@tanstack/react-router';
 import type { ComponentType } from 'react';
 
 import { DocumentsSidebar } from '#web/features/authored-documents/index.ts';
@@ -29,13 +30,19 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
 
 export function Sidebar(props: SidebarProps) {
   const model = useSidebar(props);
+  const { sessionId } = useParams({ strict: false });
   const Panel = panels[sidebarContent(model.metadata)];
   const ready =
     model.canSearch &&
     model.subjectState === 'ready' &&
     (!model.requestedProject || model.project !== undefined);
+
   return (
-    <SidebarView {...model} collection={Panel ? <Panel model={model} ready={ready} /> : null} />
+    <SidebarView
+      {...model}
+      selectedSession={sessionId ? String(sessionId) : null}
+      collection={Panel ? <Panel model={model} ready={ready} /> : null}
+    />
   );
 }
 

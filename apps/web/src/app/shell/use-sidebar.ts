@@ -3,13 +3,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
-import { sidebarContent, sidebarIndex } from '#web/lib/navigation/sidebar-config.ts';
+import { sidebarContent, sidebarSubjectDestination } from '#web/lib/navigation/sidebar-config.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
 import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
-import { useSidebarActions } from './use-sidebar-actions';
-import { useSidebarContext } from './use-sidebar-context';
-import { useSidebarSearch, useSidebarSearchInput } from './use-sidebar-search';
+import { useSidebarActions } from './sidebar-actions.queries';
+import { useSidebarContext } from './sidebar-context.queries';
+import { useSidebarSearch, useSidebarSearchInput } from './sidebar-search.queries';
 
 const noSubjects: Subjects = [];
 
@@ -71,11 +71,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     selectSubject,
     createSession,
     createSubject
-  } = useSidebarActions(
-    project,
-    context.owned ? sidebarIndex(metadata) : global ? '/library' : '.',
-    clearSearch
-  );
+  } = useSidebarActions(project, sidebarSubjectDestination(metadata, context.owned), clearSearch);
 
   return {
     settingsProject,

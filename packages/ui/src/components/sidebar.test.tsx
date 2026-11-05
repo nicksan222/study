@@ -330,10 +330,12 @@ testStable(
         return new DOMRect(0, 0, 280, this.tagName === 'SUMMARY' ? 38 : 64);
       });
     const height = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(400);
+
     vi.stubGlobal(
       'ResizeObserver',
       class {
         observe() {}
+
         disconnect() {}
       }
     );
@@ -351,9 +353,11 @@ testStable(
       </Sidebar.Content>
     );
     const view = render(layout(0));
+
     try {
       const open = screen.getByText('Open').closest('details')!;
       const settled = screen.getByText('Settled').closest('details')!;
+
       expect(settled).toHaveAttribute('data-empty');
       expect(settled.style.getPropertyValue('--sidebar-group-content-max')).toBe('0px');
       expect(open.style.getPropertyValue('--sidebar-group-content-max')).toBe('236px');

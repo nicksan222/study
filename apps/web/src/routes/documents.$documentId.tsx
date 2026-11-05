@@ -5,8 +5,8 @@ import { Schema } from 'effect';
 
 import { DocumentPage } from '../features/authored-documents';
 import { sessionDocumentOptions } from '../features/session-workspace';
-import { sidebarOwner } from '../lib/navigation/sidebar-config';
 import { documentVersionOptions } from '../lib/study-client/documents.queries';
+import { sidebarOwner } from '../lib/study-client/sidebar-owner.queries';
 
 export const Route = createFileRoute('/documents/$documentId')({
   staticData: {

@@ -65,6 +65,7 @@ export function DocumentsSidebar({
             item.projectIds.includes(subject.id) &&
             (subject.id === project || subject.id === item.projectIds[0])
         );
+
         return (
           <Sidebar.Item
             key={String(item.id)}
