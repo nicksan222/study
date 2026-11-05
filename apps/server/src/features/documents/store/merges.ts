@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reads pending document merges and recent completed publication history.            │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Read bounded pages without losing pending merge requests.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous queries stay within Documents persistence and caller owned scope.    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as t from '@study/contracts/documents/transform';
 import { projectIdSchema } from '@study/contracts/ids';
 import { and, desc, eq, isNull, sql } from '@study/db';
@@ -16,9 +28,14 @@ export const DocumentMergesStore = defineStore({
     queries: {
       merges: storeQuery({
         role: 'collection',
-        input: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+        input: Schema.Struct({
+          projectId: Schema.optional(projectIdSchema),
+          pending: Schema.Boolean,
+          offset: Schema.Int,
+          limit: Schema.Int
+        }),
         output: Schema.Array(t.transformSnapshotSchema),
-        run: ({ projectId }) => {
+        run: ({ projectId, pending, offset, limit }) => {
           const scope = and(
             isNull(requests.session_id),
             eq(requests.cancelled, false),
@@ -27,20 +44,23 @@ export const DocumentMergesStore = defineStore({
               ? undefined
               : sql`json_extract(${requests.request}, '$.merge.projectId') = ${String(projectId)}`
           );
-          const pending = db.orm
+
+          return db.orm
             .select()
             .from(requests)
-            .where(and(scope, isNull(requests.result_version_id)))
+            .where(
+              and(
+                scope,
+                pending
+                  ? isNull(requests.result_version_id)
+                  : sql`${requests.result_version_id} IS NOT NULL`
+              )
+            )
             .orderBy(desc(requests.created_at), desc(requests.id))
-            .all();
-          const completed = db.orm
-            .select()
-            .from(requests)
-            .where(and(scope, sql`${requests.result_version_id} IS NOT NULL`))
-            .orderBy(desc(requests.created_at), desc(requests.id))
-            .limit(3)
-            .all();
-          return [...pending, ...completed].map(decodeTransformRequest);
+            .offset(offset)
+            .limit(limit)
+            .all()
+            .map(decodeTransformRequest);
         }
       })
     },

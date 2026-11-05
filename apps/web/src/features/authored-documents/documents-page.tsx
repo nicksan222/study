@@ -24,6 +24,7 @@ export function DocumentsPage() {
   const project = search.project
     ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
     : undefined;
+
   return <DocumentsOverviewPage key={String(project)} project={project} />;
 }
 
@@ -44,16 +45,10 @@ function DocumentsOverviewPage({ project }: { project?: ProjectId }) {
     })
   });
 
-  const items = state.isError ? [] : (state.data?.pages.flatMap((page) => page.items) ?? []);
+  const items = displayedDocuments(state.isError, state.data?.pages);
 
   const chosen = items.filter((item) => selected.has(String(item.id)));
-  const toggle = (id: string) =>
-    setSelected((previous) => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < 20) next.add(id);
-      return next;
-    });
+  const toggle = (id: string) => setSelected((previous) => toggleSelection(previous, id));
 
   return (
     <DocumentOverview.Root>
@@ -104,27 +99,11 @@ function DocumentsOverviewPage({ project }: { project?: ProjectId }) {
       </DocumentOverview.Heading>
       <DocumentMerges project={project} />
       {selecting && (
-        <DocumentOverview.Picker>
-          <p>
-            {t('DocumentsSelectionHelp')} {t('DocumentsSelected', { count: chosen.length })}
-          </p>
-          <DocumentOverview.Actions>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setSelected(new Set(items.slice(0, 20).map((item) => String(item.id))))
-              }
-            >
-              {t('DocumentsSelectAll')}
-            </Button>
-            <Button
-              disabled={chosen.length < 2 || chosen.length > 20}
-              onClick={() => setMerging(true)}
-            >
-              {t('DocumentsMerge')}
-            </Button>
-          </DocumentOverview.Actions>
-        </DocumentOverview.Picker>
+        <MergeSelection
+          chosenCount={chosen.length}
+          selectAll={() => setSelected(new Set(items.slice(0, 20).map((item) => String(item.id))))}
+          onMerge={() => setMerging(true)}
+        />
       )}
       {merging && (
         <MergeDocumentsDialog
@@ -138,45 +117,14 @@ function DocumentsOverviewPage({ project }: { project?: ProjectId }) {
         />
       )}
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
-      {items.length > 0 && (
-        <DocumentOverview.Section aria-label={t('DocumentsSaved')}>
-          <DocumentOverview.SectionHeading>
-            {t(archived ? 'DocumentsArchived' : 'DocumentsSaved')}
-          </DocumentOverview.SectionHeading>
-          <DocumentOverview.Rows>
-            {items.map((item) => (
-              <li key={String(item.id)}>
-                {selecting ? (
-                  <DocumentOverview.SelectionRow
-                    variant="ghost"
-                    aria-pressed={selected.has(String(item.id))}
-                    disabled={!selected.has(String(item.id)) && selected.size >= 20}
-                    onClick={() => toggle(String(item.id))}
-                  >
-                    <DocumentRowContent item={item} />
-                    {selected.has(String(item.id)) ? (
-                      <Check aria-hidden="true" />
-                    ) : (
-                      <Circle aria-hidden="true" />
-                    )}
-                  </DocumentOverview.SelectionRow>
-                ) : (
-                  <DocumentContextMenu document={item} project={project}>
-                    <Link
-                      to="/documents/$documentId"
-                      params={{ documentId: String(item.id) }}
-                      search={project ? { project: String(project) } : {}}
-                    >
-                      <DocumentRowContent item={item} />
-                      <ArrowUpRight aria-hidden="true" />
-                    </Link>
-                  </DocumentContextMenu>
-                )}
-              </li>
-            ))}
-          </DocumentOverview.Rows>
-        </DocumentOverview.Section>
-      )}
+      <SavedDocuments
+        items={items}
+        project={project}
+        selecting={selecting}
+        selected={selected}
+        toggle={toggle}
+        archived={archived}
+      />
       {state.hasNextPage && (
         <DocumentOverview.Footer>
           <Button
@@ -188,19 +136,14 @@ function DocumentsOverviewPage({ project }: { project?: ProjectId }) {
           </Button>
         </DocumentOverview.Footer>
       )}
-      {state.isSuccess && !items.length && (
-        <DocumentOverview.Empty>
-          <FileText aria-hidden="true" />
-          <h3>{t('DocumentsEmptyTitle')}</h3>
-          <p>{t(archived ? 'DocumentsArchivedEmpty' : 'DocumentsOverviewEmpty')}</p>
-        </DocumentOverview.Empty>
-      )}
+      <DocumentsEmpty ready={state.isSuccess} empty={!items.length} archived={archived} />
     </DocumentOverview.Root>
   );
 }
 
 function DocumentRowContent({ item }: { item: StudyDocumentSummary }) {
   const { t, date } = useI18n();
+
   return (
     <>
       <DocumentOverview.Icon aria-hidden="true">
@@ -219,6 +162,158 @@ function DocumentRowContent({ item }: { item: StudyDocumentSummary }) {
           })}
         </time>
       </DocumentOverview.Updated>
+    </>
+  );
+}
+
+function DocumentRow({
+  item,
+  project,
+  selecting,
+  selected,
+  toggle
+}: {
+  item: StudyDocumentSummary;
+  project?: ProjectId;
+  selecting: boolean;
+  selected: Set<string>;
+  toggle: (id: string) => void;
+}) {
+  return (
+    <li>
+      {selecting ? (
+        <DocumentOverview.SelectionRow
+          variant="ghost"
+          aria-pressed={selected.has(String(item.id))}
+          disabled={!selected.has(String(item.id)) && selected.size >= 20}
+          onClick={() => toggle(String(item.id))}
+        >
+          <DocumentRowContent item={item} />
+          {selected.has(String(item.id)) ? (
+            <Check aria-hidden="true" />
+          ) : (
+            <Circle aria-hidden="true" />
+          )}
+        </DocumentOverview.SelectionRow>
+      ) : (
+        <DocumentContextMenu document={item} project={project}>
+          <Link
+            to="/documents/$documentId"
+            params={{ documentId: String(item.id) }}
+            search={project ? { project: String(project) } : {}}
+          >
+            <DocumentRowContent item={item} />
+            <ArrowUpRight aria-hidden="true" />
+          </Link>
+        </DocumentContextMenu>
+      )}
+    </li>
+  );
+}
+
+function displayedDocuments(failed: boolean, pages?: { items: StudyDocumentSummary[] }[]) {
+  return failed ? [] : (pages?.flatMap((page) => page.items) ?? []);
+}
+
+function toggleSelection(previous: Set<string>, id: string) {
+  const next = new Set(previous);
+
+  if (next.has(id)) next.delete(id);
+  else if (next.size < 20) next.add(id);
+
+  return next;
+}
+
+function MergeSelection({
+  chosenCount,
+  selectAll,
+  onMerge
+}: {
+  chosenCount: number;
+  selectAll: () => void;
+  onMerge: () => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <DocumentOverview.Picker>
+      <p>
+        {t('DocumentsSelectionHelp')} {t('DocumentsSelected', { count: chosenCount })}
+      </p>
+      <DocumentOverview.Actions>
+        <Button variant="outline" onClick={() => selectAll()}>
+          {t('DocumentsSelectAll')}
+        </Button>
+        <Button disabled={chosenCount < 2 || chosenCount > 20} onClick={onMerge}>
+          {t('DocumentsMerge')}
+        </Button>
+      </DocumentOverview.Actions>
+    </DocumentOverview.Picker>
+  );
+}
+
+function SavedDocuments({
+  items,
+  project,
+  selecting,
+  selected,
+  toggle,
+  archived
+}: {
+  items: StudyDocumentSummary[];
+  project?: ProjectId;
+  selecting: boolean;
+  selected: Set<string>;
+  toggle: (id: string) => void;
+  archived: boolean;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {items.length > 0 && (
+        <DocumentOverview.Section aria-label={t('DocumentsSaved')}>
+          <DocumentOverview.SectionHeading>
+            {t(archived ? 'DocumentsArchived' : 'DocumentsSaved')}
+          </DocumentOverview.SectionHeading>
+          <DocumentOverview.Rows>
+            {items.map((item) => (
+              <DocumentRow
+                key={String(item.id)}
+                item={item}
+                project={project}
+                selecting={selecting}
+                selected={selected}
+                toggle={toggle}
+              />
+            ))}
+          </DocumentOverview.Rows>
+        </DocumentOverview.Section>
+      )}
+    </>
+  );
+}
+
+function DocumentsEmpty({
+  ready,
+  empty,
+  archived
+}: {
+  ready: boolean;
+  empty: boolean;
+  archived: boolean;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {ready && empty && (
+        <DocumentOverview.Empty>
+          <FileText aria-hidden="true" />
+          <h3>{t('DocumentsEmptyTitle')}</h3>
+          <p>{t(archived ? 'DocumentsArchivedEmpty' : 'DocumentsOverviewEmpty')}</p>
+        </DocumentOverview.Empty>
+      )}
     </>
   );
 }

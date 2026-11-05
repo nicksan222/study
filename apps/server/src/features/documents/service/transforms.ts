@@ -108,14 +108,8 @@ export function publishTransform(
   )
     throw new StudyError('not_found', 'Captured document inputs are unavailable');
 
-  if (request.merge) {
-    for (const id of request.merge.versions) {
-      const version = tx.store(DocumentVersionsStore).version({ id });
-      const document = tx.store(DocumentsStore).document({ id: version.documentId });
-      if (document.headVersionId !== id || document.archivedAt !== null)
-        throw new StudyError('invalid_input', 'A selected document changed during the merge');
-    }
-  }
+  validateMergeInputs(tx, request);
+
   validateDocumentTransform(context, value, request.editTargetVersionId);
   const common = publicationContent(request, context, value);
   let versionId;
@@ -141,11 +135,7 @@ export function publishTransform(
     versionId = result.version.id;
   }
 
-  if (request.merge)
-    for (const id of request.merge.versions) {
-      const version = tx.store(DocumentVersionsStore).version({ id });
-      tx.store(DocumentsStore).archive({ id: version.documentId, archived: true });
-    }
+  archiveMergeInputs(tx, request);
 
   store.finishTransform({ ...value, versionId });
   tx.emit({
@@ -191,4 +181,25 @@ function emitRequested(tx: Transaction, request: typeof t.transformSnapshotSchem
     depth: 0,
     requestId: request.id
   });
+}
+
+function validateMergeInputs(tx: Transaction, request: typeof t.transformSnapshotSchema.Type) {
+  if (request.merge) {
+    for (const id of request.merge.versions) {
+      const version = tx.store(DocumentVersionsStore).version({ id });
+      const document = tx.store(DocumentsStore).document({ id: version.documentId });
+
+      if (document.headVersionId !== id || document.archivedAt !== null)
+        throw new StudyError('invalid_input', 'A selected document changed during the merge');
+    }
+  }
+}
+
+function archiveMergeInputs(tx: Transaction, request: typeof t.transformSnapshotSchema.Type) {
+  if (request.merge)
+    for (const id of request.merge.versions) {
+      const version = tx.store(DocumentVersionsStore).version({ id });
+
+      tx.store(DocumentsStore).archive({ id: version.documentId, archived: true });
+    }
 }

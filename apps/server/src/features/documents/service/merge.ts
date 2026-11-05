@@ -1,3 +1,15 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Validates exact authored inputs and captures durable document merge requests.      │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Validate immutable versions and publish durable generation requests.                   │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Merge policy stays within Documents services and caller owned transactions.              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import * as t from '@study/contracts/documents/transform';
 import { StudyError } from '@study/contracts/errors';
 import { Schema, Option } from 'effect';
@@ -12,12 +24,16 @@ export function mergeContext(
   v: typeof t.transformKeySchema.Type
 ): typeof t.documentTransformContextSchema.Type {
   const request = tx.store(DocumentTransformsStore).transform(v);
+
   if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+
   const inputs = request.merge.versions.map((id) => {
     const version = tx.store(DocumentVersionsStore).version({ id });
     const doc = tx.store(DocumentsStore).document({ id: version.documentId });
+
     if (version.status !== 'published')
       throw new StudyError('invalid_input', 'Merge requires published documents');
+
     const excerpts = version.document.blocks.flatMap((block, blockOrdinal) =>
       block.text.trim()
         ? [
@@ -33,7 +49,9 @@ export function mergeContext(
           ]
         : []
     );
+
     if (!excerpts.length) throw new StudyError('invalid_input', 'Merge input has no text');
+
     return {
       input: { kind: 'document' as const, versionId: id },
       scope: { kind: 'document' as const },
@@ -44,8 +62,10 @@ export function mergeContext(
       excerpts
     };
   });
+
   if (new Set(inputs.map((input) => input.documentId)).size !== inputs.length)
     throw new StudyError('invalid_input', 'Select distinct documents');
+
   if (
     inputs.reduce(
       (size, input) =>
@@ -57,6 +77,7 @@ export function mergeContext(
     ) > 200000
   )
     throw new StudyError('invalid_input', 'Selected documents exceed merge limits');
+
   return {
     requestId: request.contextRequestId,
     sessionId: null,
@@ -83,16 +104,21 @@ export function requestMerge(tx: Transaction, input: typeof t.mergeRequestSchema
     instruction: value.instruction,
     merge: value
   });
+
   if (Option.isSome(old)) return result.request;
+
   const context = mergeContext(tx, { requestId: result.request.id });
+
   for (const input of context.inputs) {
     const document = tx.store(DocumentsStore).document({ id: input.documentId! });
+
     if (
       document.headVersionId !== (input.input.kind === 'document' ? input.input.versionId : null) ||
       document.archivedAt !== null
     )
       throw new StudyError('invalid_input', 'Select current, active document versions');
   }
+
   tx.emit({
     type: 'DocumentGenerationRequested',
     eventId: result.request.eventId,
@@ -102,5 +128,6 @@ export function requestMerge(tx: Transaction, input: typeof t.mergeRequestSchema
     depth: 0,
     requestId: result.request.id
   });
+
   return result.request;
 }

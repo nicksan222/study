@@ -38,7 +38,9 @@ export const DocumentsRpcLive = defineRpc(
       'documents.retryTransform': (v) =>
         Effect.gen(function* () {
           const request = yield* documents.transform(v);
+
           if (request.merge) return yield* documents.retryMerge(v);
+
           return yield* Option.isSome(conversations)
             ? conversations.value.retryDocumentTransform(v)
             : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'));

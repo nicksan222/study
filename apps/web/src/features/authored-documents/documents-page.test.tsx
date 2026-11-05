@@ -9,6 +9,7 @@ import { afterEach, expect, vi } from 'vite-plus/test';
 import { DocumentsPage } from './documents-page';
 
 const api = vi.hoisted(() => ({ documents: vi.fn() }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: () => 'today' })
 }));
@@ -51,11 +52,13 @@ testStable('documents support multiple selection and keep archive browsing separ
     archivedAt: null,
     projectIds: []
   }));
+
   api.documents.mockImplementation((archived: boolean) =>
     Promise.resolve({ items: archived ? [] : documents, nextCursor: null })
   );
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const user = userEvent.setup();
+
   render(
     <QueryClientProvider client={cache}>
       <DocumentsPage />
@@ -78,6 +81,7 @@ testStable(
     api.documents.mockResolvedValue({ items: [], nextCursor: null });
     const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const user = userEvent.setup();
+
     render(
       <QueryClientProvider client={cache}>
         <DocumentsPage />

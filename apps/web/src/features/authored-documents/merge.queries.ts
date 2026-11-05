@@ -22,3 +22,13 @@ export const documentMergesOptions = (projectId?: ProjectId) =>
         ? 2000
         : false
   });
+
+export const mergeActionOptions = (requestId: string) =>
+  mutationOptions({
+    mutationFn: (action: 'cancel' | 'retry') =>
+      request((rpc) =>
+        action === 'cancel'
+          ? rpc['documents.cancelTransform']({ requestId })
+          : rpc['documents.retryTransform']({ requestId, retryId: crypto.randomUUID() })
+      )
+  });

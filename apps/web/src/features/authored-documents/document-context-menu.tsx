@@ -25,11 +25,11 @@ import type { ReactElement } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
-import { request } from '#web/lib/study-client/request.ts';
 
 import { ContentReadError } from '../document-presentation';
 import { DocumentMetadataDialog, sessionDocumentOptions } from '../session-workspace';
 import { DocumentAiDialog } from './document-ai-dialog';
+import { archiveDocumentOptions } from './document-context.queries';
 import { DocumentDeletionDialog } from './retirement';
 
 type Action = 'metadata' | 'ai' | 'delete';
@@ -48,10 +48,7 @@ export function DocumentContextMenu({
   const [action, setAction] = useState<Action>();
   const cache = useQueryClient();
   const archive = useMutation({
-    mutationFn: () =>
-      request((rpc) =>
-        rpc['documents.archive']({ id: document.id, archived: document.archivedAt === null })
-      ),
+    ...archiveDocumentOptions(document),
     onSuccess: () => invalidateDocuments(cache)
   });
   const search = project ? { project: String(project) } : {};

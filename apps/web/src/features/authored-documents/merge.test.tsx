@@ -8,6 +8,7 @@ import { afterEach, expect, vi } from 'vite-plus/test';
 import { MergeDocumentsDialog } from './merge';
 
 const api = vi.hoisted(() => ({ merge: vi.fn() }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'italian' })
 }));
@@ -23,6 +24,7 @@ testStable(
     const user = userEvent.setup();
     const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const close = vi.fn();
+
     api.merge.mockResolvedValue({ id: 'document/merge/test' });
     const documents = [1n, 2n].map((id) => ({
       id: studyDocumentIdSchema.make(id),
@@ -34,6 +36,7 @@ testStable(
       archivedAt: null,
       projectIds: []
     }));
+
     render(
       <QueryClientProvider client={cache}>
         <MergeDocumentsDialog documents={documents} onClose={close} />

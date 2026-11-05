@@ -21,6 +21,7 @@ import type * as r from '@study/contracts/documents/rpc';
 import type * as t from '@study/contracts/documents/transform';
 import type { StudyDocument } from '@study/contracts/documents/types';
 import { StudyError } from '@study/contracts/errors';
+import type { ProjectId } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
 import { Effect, Option } from 'effect';
@@ -134,14 +135,34 @@ export const Documents = defineService(
         transaction((tx) => assessCitation(tx, v)),
       assessments: (v: typeof evidence.assessmentsInputSchema.Type) =>
         transaction((tx) => citationAssessments(tx, v)),
-      merges: merges.merges,
+      merges: (v: { projectId?: ProjectId }) =>
+        Effect.gen(function* () {
+          const pending: (typeof t.transformSnapshotSchema.Type)[] = [];
+          let page;
+
+          do {
+            page = yield* merges.merges({
+              ...v,
+              pending: true,
+              offset: pending.length,
+              limit: 1000
+            });
+            pending.push(...page);
+          } while (page.length === 1000);
+
+          const completed = yield* merges.merges({ ...v, pending: false, offset: 0, limit: 3 });
+
+          return [...pending, ...completed];
+        }),
       merge: (v: typeof t.mergeRequestSchema.Type) => transaction((tx) => requestMerge(tx, v)),
       mergeContext: (v: typeof t.transformKeySchema.Type) =>
         transaction((tx) => mergeContext(tx, v)),
       publishMerge: (v: typeof t.transformPublicationSchema.Type) =>
         publicationTransaction((tx) => {
           const request = tx.store(DocumentTransformsStore).transform(v);
+
           if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+
           return publishTransform(
             tx,
             request.resultVersionId === null ? mergeContext(tx, v) : undefined,
@@ -151,7 +172,9 @@ export const Documents = defineService(
       retryMerge: (v: { requestId: string; retryId: string }) =>
         transaction((tx) => {
           const request = tx.store(DocumentTransformsStore).transform(v);
+
           if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+
           return retryTransform(tx, v);
         }),
       transform: transforms.transform,
