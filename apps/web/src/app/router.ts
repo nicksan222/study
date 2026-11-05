@@ -1,5 +1,6 @@
 import { createBrowserHistory, createRouter, stringifySearchWith } from '@tanstack/react-router';
 
+import { canonicalProjectHref, projectUrlRewrite } from '../lib/navigation/project-urls';
 import { createStudyQueryClient } from '../lib/query-client';
 import { routeTree } from '../routeTree.gen';
 import { RouteError, RoutePending } from './shell/route-feedback';
@@ -8,8 +9,13 @@ export function createAppRouter(
   history = createBrowserHistory(),
   queryClient = createStudyQueryClient()
 ) {
+  const href = canonicalProjectHref(history.location.href);
+
+  if (href !== history.location.href) history.replace(href, history.location.state);
+
   return createRouter({
     routeTree,
+    rewrite: projectUrlRewrite,
     history,
     context: { queryClient },
     defaultViewTransition: true,

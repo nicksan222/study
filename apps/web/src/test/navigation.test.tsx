@@ -62,7 +62,7 @@ testStable(
   async () => {
     const user = userEvent.setup();
 
-    history.replaceState(null, '', '/sessions/42?project=1');
+    history.replaceState(null, '', '/projects/1/sessions/42');
     render(<App />);
     expect(
       await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
@@ -73,7 +73,7 @@ testStable(
     expect(
       await screen.findByRole('dialog', { name: catalogs.english.Settings })
     ).toBeInTheDocument();
-    expect(location.pathname + location.search).toBe('/sessions/42?project=1');
+    expect(location.pathname + location.search).toBe('/projects/1/sessions/42');
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());

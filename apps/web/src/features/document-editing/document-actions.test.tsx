@@ -114,7 +114,7 @@ testStable(
     rpc['documents.restore']
       .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
       .mockReturnValueOnce(Effect.succeed({ ...receipt(104n, 103n), replayed: true }));
-    const { router } = mountLibraryRoute('/documents/41', rpc);
+    const { router } = mountLibraryRoute('/documents/41?documentVersion=101', rpc);
     const user = userEvent.setup();
 
     async function remount() {
@@ -125,7 +125,7 @@ testStable(
         await router.navigate({
           to: '/documents/$documentId',
           params: { documentId: '41' },
-          search: {}
+          search: { documentVersion: '101' }
         });
       });
     }
@@ -186,7 +186,7 @@ testStable('permits correction after a known creation rejection', async () => {
   await user.clear(title);
   await user.type(title, 'Corrected title');
   await user.click(screen.getByRole('button', { name: catalogs.english.DocumentCreate }));
-  await screen.findByRole('heading', { name: 'Material 41' });
+  await screen.findByRole('textbox', { name: catalogs.english.SessionPageEditor });
   expect(rpc['documents.create']).toHaveBeenCalledTimes(2);
   expect(rpc['documents.create'].mock.calls[1]![0]).toMatchObject({
     title: 'Corrected title',
@@ -306,7 +306,7 @@ testStable(
       expect(recovered).toHaveAttribute('href', '/documents/41');
       expect(screen.getByRole('button', { name: catalogs.english.DocumentCreate })).toBeDisabled();
       await user.click(recovered);
-      await screen.findByRole('heading', { name: 'Material 41' });
+      await screen.findByRole('textbox', { name: catalogs.english.SessionPageEditor });
       await reopenCreation(router);
       await user.click(screen.getByRole('button', { name: catalogs.english.LibraryStartAnother }));
       expect(
@@ -411,7 +411,7 @@ testStable('retains the in-flight creation fence and known receipt across remoun
     response.resolve(material());
     await response.promise;
   });
-  await screen.findByRole('heading', { name: 'Material 41' });
+  await screen.findByRole('textbox', { name: catalogs.english.SessionPageEditor });
   await act(async () => {
     await router.navigate({ to: '/library', search: {} });
   });

@@ -101,7 +101,7 @@ const subjects = [
 ];
 
 beforeEach(() => {
-  history.replaceState(null, '', '/sessions/42?project=1');
+  history.replaceState(null, '', '/projects/1/sessions/42');
   api.session.mockReset().mockResolvedValue({ id: 42n, projectIds: [1n] });
   api.projects.mockResolvedValue({ items: subjects });
   api.sources.mockReset().mockResolvedValue({ items: [] });
@@ -140,7 +140,7 @@ testStable(
     await renderWithNavigation();
     await user.click(await screen.findByLabelText('Biology'));
     await user.click(await screen.findByRole('option', { name: 'History' }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/sessions'));
     expect(await screen.findByLabelText('History')).toBeInTheDocument();
   }
 );
@@ -169,7 +169,7 @@ testStable('searches within the selected subject and opens a result', async () =
     limit: 30,
     kinds: ['session', 'message']
   });
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/9?project=1'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/sessions/9'));
 });
 
 testStable(
@@ -185,7 +185,7 @@ testStable(
         { name: en.NewSession }
       )
     );
-    await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=1'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/sessions'));
     expect(api.createSession).not.toHaveBeenCalled();
     expect(await screen.findByRole('textbox', { name: en.SessionCompose })).toHaveValue('');
     expect(screen.getByRole('button', { name: en.SessionSaveNote })).toBeDisabled();
@@ -204,7 +204,7 @@ testStable(
 );
 
 testStable('does not search another subject when the URL subject is missing', async () => {
-  history.replaceState(null, '', '/sessions?project=99');
+  history.replaceState(null, '', '/projects/99/sessions');
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -240,11 +240,11 @@ testStable('creates a subject from the toolbar and selects it', async () => {
   await user.type(screen.getByRole('textbox', { name: en.ProjectName }), 'Physics');
   await user.click(screen.getByRole('button', { name: en.CreateProject }));
   expect(api.createProject).toHaveBeenCalledWith({ name: 'Physics' });
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=3'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/3/sessions'));
 });
 
 testStable('searches globally on Help while retaining the subject for navigation', async () => {
-  history.replaceState(null, '', '/help?project=1');
+  history.replaceState(null, '', '/projects/1/help');
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -267,7 +267,7 @@ testStable('lets the keyboard search and dismiss the subject picker', async () =
   await user.clear(screen.getByLabelText(en.FindSubject));
   await user.type(screen.getByLabelText(en.FindSubject), 'Hist');
   await user.keyboard('{ArrowDown}{Enter}');
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions?project=2'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/sessions'));
   screen.getByLabelText('History').focus();
   await user.keyboard('{Enter}{Escape}');
   await waitFor(() => expect(screen.queryByLabelText(en.FindSubject)).not.toBeInTheDocument());
@@ -342,10 +342,10 @@ testStable('uses the body for sessions and a labeled navigation block above sett
     'study-sidebar-footer'
   );
   await user.click(flashcards);
-  await waitFor(() => expect(location.pathname + location.search).toBe('/practice?project=1'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
   await user.click(screen.getByRole('link', { name: en.Sessions }));
   await user.click(await screen.findByRole('link', { name: 'Cell division' }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/sessions/42?project=1'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/sessions/42'));
 });
 
 testStable('mixes sources and diagrams in Library while keeping Sessions separate', async () => {
@@ -388,18 +388,18 @@ testStable('mixes sources and diagrams in Library while keeping Sessions separat
   expect(sidebar.getByRole('link', { name: 'Cell map' })).toBeInTheDocument();
   expect(sidebar.getByRole('link', { name: 'Authored cell notes' })).toHaveAttribute(
     'href',
-    '/documents/10?project=1'
+    '/projects/1/documents/10'
   );
   expect(sidebar.getByRole('link', { name: 'Cell slides.pdf' })).toHaveAttribute(
     'href',
-    '/sources/10?project=1'
+    '/projects/1/sources/10'
   );
   expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
   expect(sidebar.queryByRole('link', { name: 'History slides.pdf' })).not.toBeInTheDocument();
   expect(sidebar.queryByRole('link', { name: 'Cell cards' })).not.toBeInTheDocument();
   await user.click(sidebar.getByRole('link', { name: 'Cell map' }));
   await waitFor(() =>
-    expect(location.pathname + location.search).toBe('/diagrams?project=1&material=10')
+    expect(location.pathname + location.search).toBe('/projects/1/diagrams?material=10')
   );
   expect(sidebar.getByRole('link', { name: 'Cell map' })).toHaveAttribute('aria-current', 'page');
   expect(sidebar.getByRole('link', { name: 'Cell slides.pdf' })).not.toHaveAttribute(
@@ -447,7 +447,7 @@ testStable('lists flashcards and quizzes together and follows material paginatio
   });
   await user.click(screen.getByRole('link', { name: 'Cell cards' }));
   await waitFor(() =>
-    expect(location.pathname + location.search).toBe('/flashcards?project=1&material=21')
+    expect(location.pathname + location.search).toBe('/projects/1/flashcards?material=21')
   );
 });
 
@@ -508,7 +508,7 @@ testStable('loads later source pages in the library', async () => {
 testStable.each([['diagram'], ['flashcards'], ['quiz']])(
   'opens a %s search result on its own page',
   async (materialKind) => {
-    history.replaceState(null, '', '/help?project=1');
+    history.replaceState(null, '', '/projects/1/help');
     api.search.mockResolvedValue({
       semantic: false,
       hits: [
@@ -563,7 +563,7 @@ testStable('preserves projects loaded while project creation is in flight', asyn
 });
 
 testStable('keeps session lists and subject search available on Pipelines', async () => {
-  history.replaceState(null, '', '/pipelines?project=1');
+  history.replaceState(null, '', '/projects/1/pipelines');
   const user = userEvent.setup();
 
   await renderWithNavigation();
@@ -587,9 +587,9 @@ testStable('reuses library data when navigating between material pages', async (
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
   await waitFor(() => expect(api.sources).toHaveBeenCalledOnce());
   await user.click(screen.getByRole('link', { name: en.Practice }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/practice?project=1'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
   await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/library?project=1'));
+  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/library'));
   expect(api.sources).toHaveBeenCalledOnce();
 });
 
@@ -678,7 +678,7 @@ testStable(
     );
     await user.type(await screen.findByRole('textbox', { name: en.SessionCompose }), 'First note');
     await user.click(screen.getByRole('button', { name: en.SessionSaveNote }));
-    await waitFor(() => expect(location.pathname).toBe('/sessions/7'));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/sessions/7'));
     await act(async () => {
       finish({ items: [] });
     });
@@ -706,12 +706,12 @@ testStable(
     api.createSession.mockResolvedValueOnce(second);
     api.sessions.mockResolvedValue({ items: [second] });
     await user.click(screen.getByRole('button', { name: en.SessionSaveNote }));
-    await waitFor(() => expect(location.pathname).toBe('/sessions/8'));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/sessions/8'));
     expect(await screen.findByRole('link', { name: 'Second session' })).toBeInTheDocument();
   }
 );
 
-testStable.each(['/sessions/42', '/sessions/42?project=2'])(
+testStable.each(['/sessions/42', '/projects/2/sessions/42'])(
   'uses the actual session owner for direct and mismatched links: %s',
   async (url) => {
     history.replaceState(null, '', url);
@@ -732,7 +732,7 @@ testStable.each(['/sessions/42', '/sessions/42?project=2'])(
 );
 
 testStable('does not reveal a foreign subject while session ownership is loading', async () => {
-  history.replaceState(null, '', '/sessions/42?project=2');
+  history.replaceState(null, '', '/projects/2/sessions/42');
   api.session.mockReturnValue(new Promise(() => {}));
   await renderWithNavigation();
   expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
@@ -742,7 +742,7 @@ testStable('does not reveal a foreign subject while session ownership is loading
 });
 
 testStable('keeps projectless sessions independent of a foreign query parameter', async () => {
-  history.replaceState(null, '', '/sessions/42?project=2');
+  history.replaceState(null, '', '/projects/2/sessions/42');
   api.session.mockResolvedValue({ id: 42n, projectIds: [] });
   await renderWithNavigation();
   await waitFor(() => expect(api.session).toHaveBeenCalled());
@@ -759,7 +759,7 @@ testStable('retries a failed session owner read from the subject picker error', 
   expect(await screen.findByLabelText('Biology')).toBeVisible();
 });
 
-testStable.each(['/documents/10', '/documents/10?project=2'])(
+testStable.each(['/documents/10', '/projects/2/documents/10'])(
   'uses route-owned document context and shows only documents in the sidebar: %s',
   async (url) => {
     history.replaceState(null, '', url);
@@ -793,7 +793,7 @@ testStable.each(['/documents/10', '/documents/10?project=2'])(
     expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('Biology'));
     await user.click(await screen.findByRole('option', { name: 'History' }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/documents?project=2'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/documents'));
   }
 );
 
@@ -831,16 +831,18 @@ testStable(
         .map((link) => link.getAttribute('aria-label'))
     ).toEqual([en.Sessions, en.SourceDocument, en.SidebarLibrary]);
     await user.click(navigation.getByRole('link', { name: en.SourceDocument }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/documents?project=1'));
+    await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/documents'));
     await sidebar.findByRole('link', { name: 'Cell notes' });
     expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
     expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: en.SourceDocument, level: 2 })).toBeVisible();
+    expect(
+      screen.getByRole('heading', { name: en.DocumentsOverviewTitle, level: 2 })
+    ).toBeVisible();
     await user.type(sidebar.getByRole('searchbox'), 'missing');
     expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
     await user.clear(sidebar.getByRole('searchbox'));
     await user.click(await sidebar.findByRole('link', { name: 'Cell notes' }));
-    await waitFor(() => expect(location.pathname).toBe('/documents/10'));
+    await waitFor(() => expect(location.pathname).toBe('/projects/1/documents/10'));
     expect(await sidebar.findByRole('link', { name: 'Cell notes' })).toHaveAttribute(
       'aria-current',
       'page'

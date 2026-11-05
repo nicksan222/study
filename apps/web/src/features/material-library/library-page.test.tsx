@@ -51,7 +51,7 @@ testStable(
           : { items: [summary(61n)], nextCursor: materialId('61') }
       )
     );
-    const { history, router, queryClient } = mountLibraryRoute('/library?project=3', rpc);
+    const { history, router, queryClient } = mountLibraryRoute('/projects/3/library', rpc);
     const user = userEvent.setup();
 
     await screen.findByRole('link', { name: /Material 61/ });
@@ -329,7 +329,7 @@ testStable(
         ]
       })
     );
-    const { history, router } = mountLibraryRoute('/library?project=3', rpc);
+    const { history, router } = mountLibraryRoute('/projects/3/library', rpc);
     const user = userEvent.setup();
     const search = await screen.findByRole('textbox', {
       name: catalogs.english.LibraryGlobalSearch
@@ -411,7 +411,7 @@ testStable(
         ]
       })
     );
-    mountLibraryRoute('/library?project=3', rpc);
+    mountLibraryRoute('/projects/3/library', rpc);
     const user = userEvent.setup();
 
     await user.type(
@@ -421,15 +421,15 @@ testStable(
     await user.click(screen.getByRole('button', { name: catalogs.english.LibrarySearchAction }));
     expect(await screen.findByRole('link', { name: 'Authored output' })).toHaveAttribute(
       'href',
-      '/documents/41?project=3'
+      '/projects/3/documents/41'
     );
     expect(screen.getByRole('link', { name: 'Original upload' })).toHaveAttribute(
       'href',
-      '/sources/41?project=3'
+      '/projects/3/sources/41'
     );
     expect(screen.getByRole('link', { name: 'Raw conversation' })).toHaveAttribute(
       'href',
-      '/sessions/41?project=3'
+      '/projects/3/sessions/41'
     );
   }
 );

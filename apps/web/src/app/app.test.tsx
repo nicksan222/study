@@ -32,7 +32,7 @@ testStable('opens a lowercase deep link without hash routing', async () => {
   history.replaceState(null, '', '/sessions?project=9007199254740993');
   render(<App />);
   await screen.findByRole('heading', { name: catalogs.english.Sessions });
-  expect(location.pathname).toBe('/sessions');
-  expect(location.search).toBe('?project=9007199254740993');
+  expect(location.pathname).toBe('/projects/9007199254740993/sessions');
+  expect(location.search).toBe('');
   expect(location.hash).toBe('');
 });
