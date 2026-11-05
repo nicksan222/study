@@ -72,15 +72,15 @@ function mount() {
     path: '/sessions/$sessionId',
     component: () => <p>Saved session</p>
   });
-  const library = createRoute({
+  const documents = createRoute({
     getParentRoute: () => root,
-    path: '/library',
-    component: () => <p>Library</p>
+    path: '/documents',
+    component: () => <p>Documents</p>
   });
   const router = createRouter({
     parseSearch: (value) => Object.fromEntries(new URLSearchParams(value)),
     stringifySearch: stringifySearchWith(String),
-    routeTree: root.addChildren([start, saved, library]),
+    routeTree: root.addChildren([start, saved, documents]),
     history: createMemoryHistory({ initialEntries: ['/sessions?project=1'] })
   });
   const view = render(
@@ -121,7 +121,9 @@ testStable(
     expect(cache.getQueryData(startDraftsOptions().queryKey)).toEqual(['2', '1']);
     expect(api.create).not.toHaveBeenCalled();
     fireEvent.click(screen.getAllByRole('button', { name: 'SidebarDismissDraft' })[1]!);
-    await screen.findByText('Library');
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'SessionCompose' })).toHaveValue('')
+    );
     expect(cache.getQueryData(startDraftKey('1'))).toBe('');
     expect(cache.getQueryData(startDraftKey('2'))).toBe('History draft');
   }
@@ -182,7 +184,7 @@ testStable(
     fireEvent.click(screen.getByRole('button', { name: 'SessionSaveNote' }));
     await screen.findByText('SessionCreationUncertain');
     await act(async () => {
-      await router.navigate({ to: '/library', search: { project: '1' } });
+      await router.navigate({ to: '/documents', search: { project: '1' } });
     });
     await act(async () => {
       await router.navigate({ to: '/sessions', search: { project: '1' } });

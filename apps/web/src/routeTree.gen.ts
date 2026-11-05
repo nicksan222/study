@@ -10,12 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DiagramsRouteImport } from './routes/diagrams'
 import { Route as FlashcardsRouteImport } from './routes/flashcards'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as HomeRouteImport } from './routes/home'
-import { Route as LibraryRouteImport } from './routes/library'
-import { Route as MediaListRouteImport } from './routes/media-list'
 import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ProjectsRouteImport } from './routes/projects'
@@ -33,11 +30,6 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DiagramsRoute = DiagramsRouteImport.update({
-  id: '/diagrams',
-  path: '/diagrams',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const FlashcardsRoute = FlashcardsRouteImport.update({
   id: '/flashcards',
   path: '/flashcards',
@@ -51,16 +43,6 @@ const HelpRoute = HelpRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LibraryRoute = LibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MediaListRoute = MediaListRouteImport.update({
-  id: '/media-list',
-  path: '/media-list',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PipelinesRoute = PipelinesRouteImport.update({
@@ -121,12 +103,9 @@ const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/diagrams': typeof DiagramsRoute
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
-  '/library': typeof LibraryRoute
-  '/media-list': typeof MediaListRoute
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
@@ -141,12 +120,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/diagrams': typeof DiagramsRoute
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
-  '/library': typeof LibraryRoute
-  '/media-list': typeof MediaListRoute
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
@@ -161,12 +137,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/diagrams': typeof DiagramsRoute
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
-  '/library': typeof LibraryRoute
-  '/media-list': typeof MediaListRoute
   '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
@@ -183,12 +156,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/diagrams'
     | '/flashcards'
     | '/help'
     | '/home'
-    | '/library'
-    | '/media-list'
     | '/pipelines'
     | '/practice'
     | '/projects'
@@ -203,12 +173,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/diagrams'
     | '/flashcards'
     | '/help'
     | '/home'
-    | '/library'
-    | '/media-list'
     | '/pipelines'
     | '/practice'
     | '/projects'
@@ -222,12 +189,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/diagrams'
     | '/flashcards'
     | '/help'
     | '/home'
-    | '/library'
-    | '/media-list'
     | '/pipelines'
     | '/practice'
     | '/projects'
@@ -243,12 +207,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DiagramsRoute: typeof DiagramsRoute
   FlashcardsRoute: typeof FlashcardsRoute
   HelpRoute: typeof HelpRoute
   HomeRoute: typeof HomeRoute
-  LibraryRoute: typeof LibraryRoute
-  MediaListRoute: typeof MediaListRoute
   PipelinesRoute: typeof PipelinesRoute
   PracticeRoute: typeof PracticeRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -267,13 +228,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/diagrams': {
-      id: '/diagrams'
-      path: '/diagrams'
-      fullPath: '/diagrams'
-      preLoaderRoute: typeof DiagramsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flashcards': {
@@ -295,20 +249,6 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/library': {
-      id: '/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof LibraryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/media-list': {
-      id: '/media-list'
-      path: '/media-list'
-      fullPath: '/media-list'
-      preLoaderRoute: typeof MediaListRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pipelines': {
@@ -407,12 +347,9 @@ const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DiagramsRoute: DiagramsRoute,
   FlashcardsRoute: FlashcardsRoute,
   HelpRoute: HelpRoute,
   HomeRoute: HomeRoute,
-  LibraryRoute: LibraryRoute,
-  MediaListRoute: MediaListRoute,
   PipelinesRoute: PipelinesRoute,
   PracticeRoute: PracticeRoute,
   ProjectsRoute: ProjectsRoute,

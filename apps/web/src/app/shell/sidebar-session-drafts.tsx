@@ -69,7 +69,7 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
           onClick={() => {
             dismissStartDraft(cache, project);
 
-            if (active) void navigate({ to: '/library', search: project ? { project } : {} });
+            if (active) void navigate({ to: '/sessions', search: project ? { project } : {} });
           }}
         >
           <X aria-hidden="true" />

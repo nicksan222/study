@@ -7,7 +7,7 @@ import { createProjectMutationOptions } from '#web/lib/study-client/study.querie
 
 export function useSidebarActions(
   project: ProjectId | undefined,
-  subjectDestination: '/sessions' | '/documents' | '/library' | '/practice' | '.',
+  subjectDestination: '/sessions' | '/documents' | '/practice' | '.',
   clearSearch: () => void
 ) {
   const navigate = useNavigate();

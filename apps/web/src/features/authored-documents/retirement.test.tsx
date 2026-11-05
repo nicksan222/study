@@ -1,7 +1,7 @@
 import { comparisonSchema } from '@study/contracts/documents/editing';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, renderHook } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, expect, vi } from 'vite-plus/test';
@@ -72,9 +72,7 @@ for (const uncertain of [false, true])
       });
 
       act(() => view.result.current.open('deletion'));
-      await act(async () => {
-        await view.result.current.inspect.mutateAsync();
-      });
+      await waitFor(() => expect(view.result.current.preview?.token).toBe('exact-preview'));
       await act(async () => {
         await view.result.current.retire.mutateAsync().catch(() => undefined);
       });

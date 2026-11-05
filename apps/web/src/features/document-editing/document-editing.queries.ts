@@ -1,122 +1,18 @@
 import type {
-  createSchema,
   comparisonSchema,
   editOutcomeSchema,
   saveSchema
 } from '@study/contracts/documents/editing';
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
-import { plainBlock } from '@study/contracts/sources/document';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { useState, useRef } from 'react';
-import type { FormEvent } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-
-import { blankDocument } from './block-editor';
 
 type Comparison = typeof comparisonSchema.Type;
 
 type Outcome = typeof editOutcomeSchema.Type;
-
-export function useDocumentCreation() {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const navigate = useNavigate();
-  const client = useQueryClient();
-
-  type Creation = {
-    title: string;
-    text: string;
-    busy: boolean;
-    error?: 'rejected' | 'uncertain';
-    createdId?: string;
-    submitted?: typeof createSchema.Type;
-  };
-
-  const creationKey = ['document-creation'];
-  const initial: Creation = { title: '', text: '', busy: false };
-  const creation = useQuery<Creation>({
-    queryKey: creationKey,
-    initialData: initial,
-    queryFn: () => initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const { title, text, busy, error, createdId, submitted } = creation.data;
-
-  function change(next: Partial<Creation>) {
-    client.setQueryData<Creation>(creationKey, (old) => ({ ...old!, ...next }));
-  }
-
-  const setTitle = (title: string) => change({ title });
-  const setText = (text: string) => change({ text });
-  const setBusy = (busy: boolean) => change({ busy });
-  const setError = (error: Creation['error']) => change({ error });
-  const setCreatedId = (createdId: string) => change({ createdId });
-
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    const latest = client.getQueryData<Creation>(creationKey);
-
-    if (
-      creationLocked(latest) ||
-      error === 'uncertain' ||
-      createdId ||
-      !title.trim() ||
-      !text.trim()
-    )
-      return;
-
-    const input: typeof createSchema.Type = {
-      title,
-      createKey: crypto.randomUUID(),
-      inputs: [],
-      citations: [],
-      document: {
-        ...blankDocument(),
-        blocks: [plainBlock('paragraph', text, { type: 'authored' })]
-      }
-    };
-
-    change({ busy: true, error: undefined, submitted: input });
-
-    try {
-      const material = await request((rpc) => rpc['documents.create'](input));
-
-      setCreatedId(String(material.id));
-      await invalidateDocuments(client);
-      await navigate({
-        to: '/documents/$documentId',
-        params: { documentId: String(material.id) },
-        search: {}
-      });
-    } catch (cause) {
-      setError(toStudyError(cause).kind === 'invalid_input' ? 'rejected' : 'uncertain');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return {
-    t,
-    open,
-    setOpen,
-    client,
-    creationKey,
-    initial,
-    title,
-    text,
-    busy,
-    error,
-    createdId,
-    submitted,
-    setTitle,
-    setText,
-    submit
-  };
-}
 
 export function useDocumentEditor({
   version,
@@ -226,8 +122,4 @@ export function useDocumentEditor({
     change,
     run
   };
-}
-
-function creationLocked(value: { busy: boolean; createdId?: string; error?: string } | undefined) {
-  return value?.busy || value?.createdId || value?.error === 'uncertain';
 }

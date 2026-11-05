@@ -7,14 +7,12 @@ import { expect, vi } from 'vite-plus/test';
 
 import { renderInRouter } from '#web/test/render-in-router.tsx';
 
-import { authoredDocument } from '../document-editing/test-support';
 import { LibraryListView } from './library-list.view';
 
 testStable('renders loading and empty states from props', async () => {
   renderInRouter(
     <LibraryListView
       state={{ status: 'pending' }}
-      section="library"
       subjects={[]}
       blocked={false}
       query=""
@@ -34,7 +32,6 @@ testStable(
     renderInRouter(
       <LibraryListView
         state={{ status: 'error', error: new StudyError('transient', 'offline') }}
-        section="library"
         subjects={[]}
         blocked={false}
         query=""
@@ -48,10 +45,9 @@ testStable(
 );
 
 testStable(
-  'replaces its loading announcement with the empty library after a completed load',
+  'replaces its loading announcement with the empty practice list after a completed load',
   () => {
     const props = {
-      section: 'library' as const,
       subjects: [],
       blocked: false,
       query: '',
@@ -63,28 +59,6 @@ testStable(
     expect(screen.getByRole('status')).toHaveTextContent(catalogs.english.LoadingStudy);
     rerender(<LibraryListView {...props} state={{ status: 'success', data: [] }} />);
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.getByText(catalogs.english.SidebarLibraryEmpty)).toBeInTheDocument();
-  }
-);
-
-testStable(
-  'marks the authored document route active independently of an identically numbered source',
-  async () => {
-    renderInRouter(
-      <LibraryListView
-        state={{ status: 'success', data: [{ type: 'document', value: authoredDocument(10n) }] }}
-        section="library"
-        subjects={[]}
-        blocked={false}
-        query=""
-        search={{}}
-        selected={{ document: '10' }}
-        reload={() => {}}
-      />
-    );
-    expect(await screen.findByRole('link', { name: 'New document' })).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
+    expect(screen.getByText(catalogs.english.SidebarPracticeEmpty)).toBeInTheDocument();
   }
 );

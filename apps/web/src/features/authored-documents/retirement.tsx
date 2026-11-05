@@ -1,7 +1,8 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
 import { Button } from '@study/ui/button';
-import { DangerDialog } from '@study/ui/danger-dialog';
+import { DangerDialog, DangerDialogSummary } from '@study/ui/danger-dialog';
 import { Input } from '@study/ui/input';
+import { Loading } from '@study/ui/loading';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -58,11 +59,11 @@ function RetirementDialog({ view, onClose }: { view: View; onClose?: () => void 
       confirmLabel={t('AuthoredDocumentRetirementConfirm')}
       cancelLabel={t('Cancel')}
       pending={retire.isPending}
-      disabled={blocked || (mode === 'history' && !validKeep)}
+      disabled={blocked || retire.isError || (mode === 'history' && !validKeep)}
       confirmation={{
         identity: document.id + ':' + mode + ':' + (preview?.token ?? ''),
         value: document.title,
-        label: t('DocumentTitle')
+        label: t('DeleteConfirmationInstruction', { word: document.title })
       }}
       onConfirm={() => retire.mutate()}
     >
@@ -85,10 +86,9 @@ function HistorySettings({ view }: { view: View }) {
         min={1}
         max={1000}
         value={view.keepLatest}
-        disabled={view.retire.isPending || view.inspect.isPending}
+        disabled={view.retire.isPending || view.inspect.isFetching}
         onChange={(event) => {
           view.setKeepLatest(event.target.value);
-          view.setPreview(undefined);
         }}
       />
     </label>
@@ -97,29 +97,31 @@ function HistorySettings({ view }: { view: View }) {
 
 function RetirementFeedback({ view }: { view: View }) {
   const { t } = useI18n();
-  const { preview, inspect, retire, mode, validKeep } = view;
+  const { preview, inspect, retire } = view;
 
   return (
     <>
-      <Button
-        variant="outline"
-        disabled={inspect.isPending || retire.isPending || (mode === 'history' && !validKeep)}
-        onClick={() => inspect.mutate()}
-      >
-        {t('DocumentPreview')}
-      </Button>
+      {inspect.isFetching && <Loading label={t('LoadingStudy')} />}
       {preview && (
-        <>
-          <p>
-            {t('ReaderHistory')}: {preview.versionIds.length}
-          </p>
-          <p>
-            {t('DocumentProtectedVersions')} {preview.blockedVersionIds.length}
-          </p>
-        </>
+        <DangerDialogSummary
+          items={[
+            { label: t('AuthoredDocumentVersionsToRemove'), value: preview.versionIds.length },
+            { label: t('DocumentProtectedVersions'), value: preview.blockedVersionIds.length }
+          ]}
+        />
       )}
-      {inspect.error && <ContentReadError error={inspect.error} retry={() => inspect.mutate()} />}
-      {retire.error && <ContentReadError error={retire.error} retry={() => inspect.mutate()} />}
+      {inspect.error && (
+        <ContentReadError error={inspect.error} retry={() => void inspect.refetch()} />
+      )}
+      {retire.error && (
+        <ContentReadError
+          error={retire.error}
+          retry={() => {
+            retire.reset();
+            void inspect.refetch();
+          }}
+        />
+      )}
     </>
   );
 }

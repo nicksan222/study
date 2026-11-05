@@ -28,7 +28,7 @@ export function SourcePage() {
         }
         onDeleted={() => {
           void navigate({
-            to: '/library',
+            to: '/sessions',
             search: search.project ? { project: search.project } : {}
           });
         }}

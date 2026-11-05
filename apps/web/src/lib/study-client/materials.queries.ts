@@ -3,7 +3,7 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
 import { request } from './request';
 
-export const materialPage = (projectId?: ProjectId, cursor?: MaterialId, signal?: AbortSignal) =>
+const materialPage = (projectId?: ProjectId, cursor?: MaterialId, signal?: AbortSignal) =>
   request(
     (client) => client['materials.materials']({ limit: 30, archived: false, projectId, cursor }),
     signal

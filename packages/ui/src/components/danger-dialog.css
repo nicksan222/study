@@ -98,3 +98,29 @@
 .ui-danger-confirmation > [data-slot='input-control'] {
   width: 100%;
 }
+
+.ui-danger-summary {
+  display: grid;
+  gap: 0.5rem;
+  padding-block: 0.75rem;
+  border-block: 1px solid var(--ui-divider-border);
+}
+.ui-danger-summary > dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+}
+.ui-danger-summary > dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.ui-danger-summary dt {
+  color: var(--contrast-muted-foreground);
+}
+.ui-danger-summary dd {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

@@ -296,7 +296,7 @@
     border-color 120ms ease-out;
 }
 .session-desk-document:hover {
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
   border-color: var(--muted-foreground);
 }
 .session-desk-document[data-active] {

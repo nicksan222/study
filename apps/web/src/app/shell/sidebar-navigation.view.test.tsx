@@ -16,17 +16,20 @@ testStable(
 
     renderInRouter(
       <SidebarNavigation
-        section="library"
+        section="documents"
         settings={false}
         project="9007199254740993"
         onNavigate={onNavigate}
       />
     );
-    const library = await screen.findByRole('link', { name: catalogs.english.SidebarLibrary });
+    const documents = await screen.findByRole('link', { name: catalogs.english.SourceDocument });
 
-    expect(library).toHaveAttribute('href', '/library?project=9007199254740993');
-    expect(library).toHaveAttribute('aria-current', 'page');
-    await user.click(library);
+    expect(documents).toHaveAttribute('href', '/documents?project=9007199254740993');
+    expect(documents).toHaveAttribute('aria-current', 'page');
+    expect(
+      screen.queryByRole('link', { name: catalogs.english.SidebarLibrary })
+    ).not.toBeInTheDocument();
+    await user.click(documents);
     expect(onNavigate).toHaveBeenCalledOnce();
   }
 );

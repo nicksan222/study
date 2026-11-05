@@ -10,7 +10,15 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { useBlankDocumentCreation } from '../session-workspace';
 
 /** Creates the same blank document used in a session, then opens the shared editor. */
-export function NewBlankDocument({ project }: { project?: ProjectId }) {
+export function NewBlankDocument({
+  project,
+  compact = false,
+  disabled = false
+}: {
+  project?: ProjectId;
+  compact?: boolean;
+  disabled?: boolean;
+}) {
   const { t } = useI18n();
   const creation = useBlankDocumentCreation({ kind: 'project', projectId: project });
   const navigate = useNavigate();
@@ -44,9 +52,16 @@ export function NewBlankDocument({ project }: { project?: ProjectId }) {
 
   return (
     <>
-      <Button disabled={opening || creation.pending} onClick={() => void create()}>
+      <Button
+        size={compact ? 'icon' : 'default'}
+        variant={compact ? 'ghost-muted' : 'default'}
+        aria-label={t(compact ? 'SessionCreateDocument' : 'DocumentNew')}
+        title={t(compact ? 'SessionCreateDocument' : 'DocumentNew')}
+        disabled={disabled || opening || creation.pending}
+        onClick={() => void create()}
+      >
         <FilePlus2 aria-hidden="true" />
-        {t('DocumentNew')}
+        {!compact && t('DocumentNew')}
       </Button>
       {(creation.error !== undefined || failed) && (
         <ErrorState

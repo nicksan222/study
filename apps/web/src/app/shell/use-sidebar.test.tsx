@@ -348,65 +348,6 @@ testStable('uses the body for sessions and a labeled navigation block above sett
   await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/sessions/42'));
 });
 
-testStable('mixes sources and diagrams in Library while keeping Sessions separate', async () => {
-  api.sources.mockResolvedValue({
-    items: [
-      { id: 10n, name: 'Cell slides.pdf', projectId: 1n, createdAt: 0n },
-      { id: 11n, name: 'History slides.pdf', projectId: 2n, createdAt: 0n }
-    ]
-  });
-  api.materials.mockResolvedValue({
-    items: [
-      { id: 10n, title: 'Cell map', projectIds: [1n], kind: 'diagram', updated_at: 0n },
-      { id: 20n, title: 'Cell cards', projectIds: [1n], kind: 'flashcards', updated_at: 0n }
-    ],
-    nextCursor: null
-  });
-  api.documents.mockResolvedValue({
-    items: [
-      {
-        id: 10n,
-        title: 'Authored cell notes',
-        projectIds: [1n],
-        description: null,
-        createdAt: 0n,
-        updatedAt: 0n,
-        archivedAt: null,
-        headVersionId: 101n
-      }
-    ],
-    nextCursor: null
-  });
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
-
-  await sidebar.findByRole('link', { name: 'Cell slides.pdf' });
-  expect(sidebar.getByRole('link', { name: 'Cell map' })).toBeInTheDocument();
-  expect(sidebar.getByRole('link', { name: 'Authored cell notes' })).toHaveAttribute(
-    'href',
-    '/projects/1/documents/10'
-  );
-  expect(sidebar.getByRole('link', { name: 'Cell slides.pdf' })).toHaveAttribute(
-    'href',
-    '/projects/1/sources/10'
-  );
-  expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
-  expect(sidebar.queryByRole('link', { name: 'History slides.pdf' })).not.toBeInTheDocument();
-  expect(sidebar.queryByRole('link', { name: 'Cell cards' })).not.toBeInTheDocument();
-  await user.click(sidebar.getByRole('link', { name: 'Cell map' }));
-  await waitFor(() =>
-    expect(location.pathname + location.search).toBe('/projects/1/diagrams?material=10')
-  );
-  expect(sidebar.getByRole('link', { name: 'Cell map' })).toHaveAttribute('aria-current', 'page');
-  expect(sidebar.getByRole('link', { name: 'Cell slides.pdf' })).not.toHaveAttribute(
-    'aria-current'
-  );
-});
-
 testStable('lists flashcards and quizzes together and follows material pagination', async () => {
   api.materials.mockImplementation(({ cursor }) =>
     Promise.resolve(
@@ -484,27 +425,6 @@ testStable('loads later project and session pages', async () => {
   expect(await screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 
-testStable('loads later source pages in the library', async () => {
-  api.sources.mockImplementation(({ before }) =>
-    Promise.resolve(
-      before
-        ? { items: [{ id: 11n, name: 'Later file', projectId: 1n, createdAt: 0n }], next: null }
-        : { items: [], next: 10n }
-    )
-  );
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  expect(
-    await within(screen.getByRole('complementary', { name: en.SidebarNavigation })).findByRole(
-      'link',
-      { name: 'Later file' }
-    )
-  ).toBeInTheDocument();
-});
-
 testStable.each([['diagram'], ['flashcards'], ['quiz']])(
   'opens a %s search result on its own page',
   async (materialKind) => {
@@ -577,63 +497,6 @@ testStable('keeps session lists and subject search available on Pipelines', asyn
       kinds: ['session', 'message']
     })
   );
-});
-
-testStable('reuses library data when navigating between material pages', async () => {
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  await waitFor(() => expect(api.sources).toHaveBeenCalledOnce());
-  await user.click(screen.getByRole('link', { name: en.Practice }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
-  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/library'));
-  expect(api.sources).toHaveBeenCalledOnce();
-});
-
-testStable('retries route loading after a library request fails', async () => {
-  api.materials.mockRejectedValue(new Error('offline'));
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  const main = screen.getByRole('main');
-  const alert = await within(main).findByRole('alert');
-  const retry = within(alert).getByRole('button', { name: en.LibraryRefresh });
-
-  api.materials.mockResolvedValue({ items: [], nextCursor: null });
-  await user.click(retry);
-  await waitFor(() => expect(within(main).queryByRole('alert')).not.toBeInTheDocument());
-});
-
-testStable('reloads library data from the selected project search dependency', async () => {
-  api.materials.mockImplementation(({ projectId }) =>
-    Promise.resolve({
-      items: [
-        {
-          id: projectId,
-          projectIds: [projectId],
-          kind: 'diagram',
-          title: projectId === 1n ? 'Biology map' : 'History map',
-          updated_at: 0n
-        }
-      ],
-      nextCursor: null
-    })
-  );
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('link', { name: en.SidebarLibrary }));
-  await screen.findByRole('link', { name: 'Biology map' });
-  await user.click(screen.getByLabelText('Biology'));
-  await user.click(await screen.findByRole('option', { name: 'History' }));
-  await screen.findByRole('link', { name: 'History map' });
-  expect(screen.queryByRole('link', { name: 'Biology map' })).not.toBeInTheDocument();
 });
 
 testStable(
@@ -798,7 +661,7 @@ testStable.each(['/documents/10', '/projects/2/documents/10'])(
 );
 
 testStable(
-  'opens Documents between Sessions and Library with a documents-only sidebar',
+  'opens Documents between Sessions and Practice with a documents-only sidebar',
   async () => {
     api.documents.mockResolvedValue({
       items: [
@@ -829,7 +692,7 @@ testStable(
         .getAllByRole('link')
         .slice(0, 3)
         .map((link) => link.getAttribute('aria-label'))
-    ).toEqual([en.Sessions, en.SourceDocument, en.SidebarLibrary]);
+    ).toEqual([en.Sessions, en.SourceDocument, en.Practice]);
     await user.click(navigation.getByRole('link', { name: en.SourceDocument }));
     await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/documents'));
     await sidebar.findByRole('link', { name: 'Cell notes' });

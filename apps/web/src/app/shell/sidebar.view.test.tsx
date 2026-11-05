@@ -107,3 +107,36 @@ testStable(
     expect(within(dialog).getByRole('status')).toHaveTextContent(catalogs.english.Saving);
   }
 );
+
+testStable('offers document creation instead of session creation in Documents', async () => {
+  renderSidebar(
+    <SidebarView
+      {...sidebarModel()}
+      metadata={{ title: 'SourceDocument', section: 'documents', scope: 'project' }}
+      section="documents"
+      collection={null}
+    />
+  );
+
+  expect(
+    await screen.findByRole('button', { name: catalogs.english.SessionCreateDocument })
+  ).toBeEnabled();
+  expect(
+    screen.queryByRole('button', { name: catalogs.english.NewSession })
+  ).not.toBeInTheDocument();
+});
+
+testStable('does not offer session creation on unrelated pages', async () => {
+  renderSidebar(
+    <SidebarView
+      {...sidebarModel()}
+      metadata={{ title: 'Help', section: 'sessions', scope: 'global' }}
+      collection={null}
+    />
+  );
+
+  await screen.findByRole('button', { name: catalogs.english.NewProject });
+  expect(
+    screen.queryByRole('button', { name: catalogs.english.NewSession })
+  ).not.toBeInTheDocument();
+});

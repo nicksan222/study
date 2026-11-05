@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { NewBlankDocument } from '#web/features/authored-documents/index.ts';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#web/lib/navigation/search-results.ts';
@@ -401,6 +402,9 @@ function SidebarPickerShortcuts({
 }
 
 function SidebarToolbar({
+  metadata,
+  invalidSubject,
+  subjectState,
   collapsed,
   global,
   project,
@@ -415,6 +419,9 @@ function SidebarToolbar({
   createSession
 }: Pick<
   SidebarModel,
+  | 'metadata'
+  | 'invalidSubject'
+  | 'subjectState'
   | 'collapsed'
   | 'global'
   | 'project'
@@ -454,16 +461,26 @@ function SidebarToolbar({
       >
         <FolderPlus aria-hidden="true" />
       </Button>
-      <Button
-        size="icon"
-        variant="ghost-muted"
-        aria-label={t('NewSession')}
-        title={t('NewSession')}
-        disabled={creating}
-        onClick={() => void createSession()}
-      >
-        <SidebarCreateSessionIcon creating={creating} />
-      </Button>
+      {metadata.section === 'documents' && (
+        <NewBlankDocument
+          key={String(project)}
+          project={project}
+          compact
+          disabled={invalidSubject || subjectState !== 'ready'}
+        />
+      )}
+      {metadata.title === 'Sessions' && (
+        <Button
+          size="icon"
+          variant="ghost-muted"
+          aria-label={t('NewSession')}
+          title={t('NewSession')}
+          disabled={creating}
+          onClick={() => void createSession()}
+        >
+          <SidebarCreateSessionIcon creating={creating} />
+        </Button>
+      )}
     </SidebarUI.Toolbar>
   );
 }

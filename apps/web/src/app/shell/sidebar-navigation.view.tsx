@@ -1,7 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
-import { MessagesSquare, FileText, Library, GraduationCap, Activity } from 'lucide-react';
+import { MessagesSquare, FileText, GraduationCap, Activity } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import type { Section } from '#web/lib/navigation/route-contract.ts';
@@ -10,7 +10,6 @@ import { SettingsMenu } from '#web/pages/settings/menu.tsx';
 const sections = [
   ['/sessions', 'sessions', MessagesSquare, 'Sessions'],
   ['/documents', 'documents', FileText, 'SourceDocument'],
-  ['/library', 'library', Library, 'SidebarLibrary'],
   ['/practice', 'practice', GraduationCap, 'Practice'],
   ['/pipelines', 'pipelines', Activity, 'Pipelines']
 ] as const;

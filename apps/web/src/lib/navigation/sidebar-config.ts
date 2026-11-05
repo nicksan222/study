@@ -1,7 +1,7 @@
 import type { SidebarOwnerResolver } from '../study-client/sidebar-owner.queries';
 import type { PageMetadata } from './route-contract';
 
-export type SidebarContent = 'workspace' | 'documents' | 'library' | 'practice';
+export type SidebarContent = 'workspace' | 'documents' | 'practice';
 
 /** Routes provide their canonical owner query; the shell only consumes membership. */
 export type SidebarRouteConfig = {
@@ -13,7 +13,6 @@ const sectionContent: Record<PageMetadata['section'], SidebarContent> = {
   sessions: 'workspace',
   documents: 'documents',
   pipelines: 'workspace',
-  library: 'library',
   practice: 'practice'
 };
 
@@ -24,7 +23,6 @@ export function sidebarContent(metadata: PageMetadata): SidebarContent {
 const contentRoutes = {
   workspace: '/sessions',
   documents: '/documents',
-  library: '/library',
   practice: '/practice'
 } as const;
 
@@ -36,5 +34,5 @@ function sidebarIndex(metadata: PageMetadata) {
 export function sidebarSubjectDestination(metadata: PageMetadata, owned: boolean) {
   if (owned) return sidebarIndex(metadata);
 
-  return metadata.scope === 'global' ? '/library' : '.';
+  return metadata.scope === 'global' ? '/sessions' : '.';
 }

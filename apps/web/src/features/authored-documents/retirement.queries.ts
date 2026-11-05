@@ -1,16 +1,13 @@
-import type { retirementPreviewSchema } from '@study/contracts/documents/rpc';
 import type { StudyDocument } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
 import type { QueryClient } from '@tanstack/react-query';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { request } from '#web/lib/study-client/request.ts';
 
 import { releaseBodyPreviews } from '../document-presentation';
-
-type Preview = typeof retirementPreviewSchema.Type;
 
 export function useDocumentRetirement(
   document: StudyDocument,
@@ -21,9 +18,13 @@ export function useDocumentRetirement(
   const navigate = useNavigate();
   const [mode, setMode] = useState<'history' | 'deletion' | undefined>(initialMode);
   const [keepLatest, setKeepLatest] = useState('10');
-  const [preview, setPreview] = useState<Preview>();
-  const inspect = useMutation({
-    mutationFn: () =>
+  const validKeep = validHistoryCount(keepLatest);
+  const inspect = useQuery({
+    queryKey: ['documents', 'retirement-preview', String(document.id), mode, keepLatest],
+    enabled: mode !== undefined && (mode === 'deletion' || validKeep),
+    gcTime: 0,
+    retry: false,
+    queryFn: () =>
       request((rpc) =>
         mode === 'deletion'
           ? rpc['documents.previewDeletion']({ id: document.id })
@@ -31,9 +32,9 @@ export function useDocumentRetirement(
               documentId: document.id,
               keepLatest: Number(keepLatest)
             })
-      ),
-    onSuccess: setPreview
+      )
   });
+  const preview = inspect.isSuccess && !inspect.isFetching ? inspect.data : undefined;
   const retire = useMutation({
     mutationFn: async () => {
       if (!preview) return;
@@ -64,7 +65,6 @@ export function useDocumentRetirement(
       void cache.invalidateQueries({ queryKey: ['documents'] });
       void cache.invalidateQueries({ queryKey: ['library'] });
       setMode(undefined);
-      setPreview(undefined);
       onClosed?.();
     },
     onError: async () => {
@@ -80,11 +80,7 @@ export function useDocumentRetirement(
       void cache.invalidateQueries({ queryKey: ['documents'] });
     }
   });
-  const validKeep = validHistoryCount(keepLatest);
-
   function open(next: 'history' | 'deletion') {
-    setPreview(undefined);
-    inspect.reset();
     retire.reset();
     setMode(next);
   }
@@ -96,7 +92,6 @@ export function useDocumentRetirement(
     keepLatest,
     setKeepLatest,
     preview,
-    setPreview,
     inspect,
     retire,
     validKeep,

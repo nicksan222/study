@@ -8,7 +8,7 @@ import {
 } from '../features/material-library';
 
 export const Route = createFileRoute('/materials/$materialId')({
-  staticData: { title: 'SidebarLibrary', section: 'library', scope: 'global' },
+  staticData: { title: 'Practice', section: 'practice', scope: 'global' },
   beforeLoad: ({ params }) => {
     materialId(params.materialId);
   },
