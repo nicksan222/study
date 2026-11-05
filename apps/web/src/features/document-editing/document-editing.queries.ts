@@ -7,15 +7,12 @@ import type {
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import type { documentSchema } from '@study/contracts/sources/schemas';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
-import { toStudyError } from '#web/lib/study-client/errors.ts';
-import { request } from '#web/lib/study-client/request.ts';
 
 import { blankDocument } from './block-editor';
 

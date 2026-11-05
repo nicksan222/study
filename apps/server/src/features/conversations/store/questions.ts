@@ -1,4 +1,16 @@
-/** Version-fenced note classification and unique answer receipts. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists version bound classifications and unique question answer receipts.        │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Fences classifications against edits and explicit manual corrections.                  │
+ * │ - Retains answer identities for deduplication and terminal recovery.                     │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private stores own SQLite access while conversation services coordinate domain behavior. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import {
   questionVersionInputSchema,
   setMessageKindInputSchema,
@@ -26,6 +38,7 @@ export const QuestionStore = defineStore({
   entity: { singular: 'questionSnapshot', plural: 'questionSnapshots' },
   make: ({ db }) => {
     const current = makeCurrent({ db });
+
     return {
       queries: {
         questionSnapshot: storeQuery({
@@ -38,6 +51,7 @@ export const QuestionStore = defineStore({
           }),
           run: (input) => {
             const { row, version } = current(input);
+
             return {
               text: version.text,
               manual: row.question_origin === 'manual',
@@ -66,6 +80,7 @@ export const QuestionStore = defineStore({
               .from(conversation_question_answers)
               .where(eq(conversation_question_answers.version_id, input.expectedActiveVersionId))
               .get();
+
             if (receipt)
               db.orm.delete(messages).where(eq(messages.id, receipt.answer_message_id)).run();
           }
@@ -95,7 +110,9 @@ export const QuestionStore = defineStore({
           output: Schema.Boolean,
           run: (input) => {
             const { row } = current(input);
+
             if (row.question_origin === 'manual') return false;
+
             db.orm
               .update(messages)
               .set({
@@ -105,6 +122,7 @@ export const QuestionStore = defineStore({
               })
               .where(eq(messages.id, input.messageId))
               .run();
+
             return true;
           }
         }),
@@ -124,6 +142,7 @@ export const QuestionStore = defineStore({
               answer_version_id: input.answer.versionId,
               question_guard: input.guard ?? true
             });
+
             if (input.guard === false)
               insert
                 .onConflictDoNothing({ target: conversation_question_answers.version_id })
@@ -140,17 +159,22 @@ export const QuestionStore = defineStore({
               .from(conversation_question_answers)
               .where(eq(conversation_question_answers.request_id, input.requestId))
               .get();
+
             if (!receipt || !receipt.question_guard) return;
+
             const version = db.orm
               .select()
               .from(message_versions)
               .where(eq(message_versions.id, receipt.version_id))
               .get();
+
             if (!version) throw new StudyError('invalid_input', 'Question is unavailable');
+
             const { row } = current({
               messageId: version.message_id,
               expectedActiveVersionId: version.id
             });
+
             if (row.question_kind !== 'question')
               throw new StudyError('invalid_input', 'Question classification changed');
           }
@@ -167,6 +191,7 @@ function makeCurrent({ db }: Pick<StoreResources, 'db'>) {
       .from(messages)
       .where(and(eq(messages.id, input.messageId), activeMessageCondition()))
       .get();
+
     if (
       !row ||
       row.role !== 'user' ||
@@ -179,15 +204,19 @@ function makeCurrent({ db }: Pick<StoreResources, 'db'>) {
         .get()
     )
       throw new StudyError('invalid_input', 'Question version is unavailable');
+
     const version = db.orm
       .select()
       .from(message_versions)
       .where(eq(message_versions.id, input.expectedActiveVersionId))
       .get();
+
     if (!version || version.status !== 'complete')
       throw new StudyError('invalid_input', 'Question version is unavailable');
+
     return { row, version };
   };
+
   return current;
 }
 
@@ -196,6 +225,7 @@ export const QuestionAnswerStore = defineStore({
   entity: { singular: 'questionAnswer', plural: 'questionAnswers' },
   make: ({ db }) => {
     const current = makeCurrent({ db });
+
     return {
       queries: {
         findQuestionAnswer: storeQuery({
@@ -204,22 +234,27 @@ export const QuestionAnswerStore = defineStore({
           output: Schema.Option(replyRequestSchema),
           run: (input) => {
             const { row } = current(input);
+
             if (
               row.question_kind !== 'question' ||
               row.question_version_id !== input.expectedActiveVersionId
             )
               throw new StudyError('invalid_input', 'Message is not a question');
+
             const receipt = db.orm
               .select()
               .from(conversation_question_answers)
               .where(eq(conversation_question_answers.version_id, input.expectedActiveVersionId))
               .get();
+
             if (!receipt) return Option.none();
+
             const answer = db.orm
               .select()
               .from(messages)
               .where(eq(messages.id, receipt.answer_message_id))
               .get();
+
             return answer?.active_version_id
               ? Option.some({
                   requestId: receipt.request_id,

@@ -272,6 +272,7 @@ function messageAuthor(message: Message, versionId?: VersionId) {
     message.question.versionId === versionId
   )
     return { label: 'SessionQuestion' as const, icon: CircleHelp };
+
   return messageAuthors[message.role];
 }
 

@@ -107,10 +107,12 @@ testStable('saves a switch and reflects the confirmed persisted value', async ()
 testStable('keeps automatic answers opt-in and persists the confirmed preference', async () => {
   api.save.mockImplementation(async (value) => {
     api.read.mockResolvedValue(value);
+
     return value;
   });
   mount(true);
   const toggle = await screen.findByRole('switch', { name: 'WorkspaceAutoAnswerQuestions' });
+
   expect(toggle).not.toBeChecked();
   fireEvent.click(toggle);
   await waitFor(() =>

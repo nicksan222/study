@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises persisted question classification and targeted answer request behavior.  │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks stale versions, manual overrides and concurrent answer deduplication.           │
+ * │ - Checks explicit requests, version restoration and terminal retry recovery.             │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Tests use migrated temporary SQLite databases and public conversation service            │
+ * │ operations.                                                                              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { workflowEvents, workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -14,6 +28,7 @@ import { withTestPublication } from '#testing/publication';
 testStable('question answers capture their exact target and deduplicate per version', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -28,6 +43,7 @@ testStable('question answers capture their exact target and deduplicate per vers
           messageId: question.id,
           expectedActiveVersionId: question.activeVersionId!
         };
+
         yield* c.setMessageKind({ ...input, kind: 'question' });
         const later = yield* c.postMessage({
           sessionId: session.id,
@@ -35,9 +51,11 @@ testStable('question answers capture their exact target and deduplicate per vers
           requestReply: false
         });
         const answer = yield* c.answerQuestion(input);
+
         expect(yield* c.answerQuestion(input)).toEqual(answer);
         expect((yield* c.message(answer.messageId)).replyTo).toBe(question.id);
         const snapshot = yield* c.replySnapshot({ requestId: answer.requestId });
+
         expect(snapshot.messages.at(-1)?.messageId).toBe(question.id);
         expect(snapshot.messages.some((m) => m.messageId === later.id)).toBe(false);
 
@@ -54,11 +72,13 @@ testStable('question answers capture their exact target and deduplicate per vers
           })
           .run();
         const retried = yield* c.answerQuestion(input);
+
         expect(retried.requestId).not.toBe(answer.requestId);
         expect((yield* c.message(retried.messageId)).replyTo).toBe(question.id);
         expect((yield* c.message(question.id)).question?.answerRequestId).toBe(retried.requestId);
         expect(yield* c.answerQuestion(input)).toEqual(retried);
         const edited = yield* c.editMessage({ ...input, text: 'Why does wood float?' });
+
         expect(edited.question?.origin).toBe('manual');
         expect(edited.question?.versionId).toBe(edited.activeVersionId);
         expect((yield* Effect.result(c.answerQuestion(input)))._tag).toBe('Failure');
@@ -78,15 +98,16 @@ testStable(
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
-    const run = <A, E>(
-      effect: Effect.Effect<A, E, import('#server/platform/database/database').Database>
-    ) =>
+
+    const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
       Effect.runPromise(effect.pipe(Effect.provide(Layer.succeed(Database, { store: context }))));
+
     try {
       const saved = await run(
         Effect.gen(function* () {
           const c = yield* Conversations;
           const settings = yield* Settings;
+
           expect((yield* settings.workspacePreferences()).autoAnswerQuestions).toBe(false);
           const session = yield* c.createSession({ title: 'Classification' });
           const note = yield* c.postMessage({
@@ -95,6 +116,7 @@ testStable(
             requestReply: false
           });
           const input = { messageId: note.id, expectedActiveVersionId: note.activeVersionId! };
+
           yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
           expect((yield* c.message(note.id)).question).toEqual({
             kind: 'question',
@@ -107,10 +129,13 @@ testStable(
             messageId: note.id,
             versionId: note.activeVersionId!
           });
+
           expect(selectedAgain.question?.kind).toBe('question');
           const edited = yield* c.editMessage({ ...input, text: 'A statement' });
+
           expect(edited.question).toBeUndefined();
           const beforeRestore = context.db.orm.select().from(workflowEvents).all().length;
+
           yield* c.setActiveVersion({ messageId: note.id, versionId: note.activeVersionId! });
           expect(context.db.orm.select().from(workflowEvents).all().length).toBe(beforeRestore + 1);
           yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
@@ -123,6 +148,7 @@ testStable(
             ))._tag
           ).toBe('Failure');
           const next = { messageId: note.id, expectedActiveVersionId: edited.activeVersionId! };
+
           yield* c.setMessageKind({ ...next, kind: 'note' });
           yield* withTestPublication(context, c.publishQuestion({ ...next, kind: 'question' }));
           expect((yield* c.message(note.id)).question?.kind).toBe('note');
@@ -133,9 +159,11 @@ testStable(
           });
           expect((yield* Effect.result(c.answerQuestion(next)))._tag).toBe('Failure');
           expect((yield* Effect.result(c.questionSnapshot(next)))._tag).toBe('Failure');
+
           return { id: note.id };
         }).pipe(Effect.provide(Layer.merge(Conversations.layer, Settings.layer)))
       );
+
       context.close();
       context = new ServerContext(location.open());
       const read = await run(
@@ -143,6 +171,7 @@ testStable(
           Effect.provide(Conversations.layer)
         )
       );
+
       expect(read.question?.origin).toBe('manual');
     } finally {
       context.close();
@@ -156,12 +185,14 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
+
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Conversations;
           const settings = yield* Settings;
           const defaults = yield* settings.workspacePreferences();
+
           yield* settings.saveWorkspacePreferences({ ...defaults, autoAnswerQuestions: true });
           const session = yield* c.createSession({ title: 'Automatic' });
           const note = yield* c.postMessage({
@@ -170,10 +201,12 @@ testStable(
             requestReply: false
           });
           const input = { messageId: note.id, expectedActiveVersionId: note.activeVersionId! };
+
           yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
           const answers = yield* Effect.all([c.answerQuestion(input), c.answerQuestion(input)], {
             concurrency: 'unbounded'
           });
+
           expect(answers[0]).toEqual(answers[1]);
           expect((yield* c.message(note.id)).question?.answerMessageId).toBe(answers[0]!.messageId);
 
@@ -182,6 +215,7 @@ testStable(
             text: 'Why do boats float?',
             requestReply: false
           });
+
           yield* withTestPublication(
             context,
             c.publishQuestion({
@@ -202,6 +236,7 @@ testStable(
             format: 'document',
             requestReply: false
           });
+
           expect(
             (yield* Effect.result(
               c.questionSnapshot({
@@ -227,11 +262,13 @@ testStable(
 testStable('explicit Ask and requested replies are reused by automatic answering', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
+
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         const c = yield* Conversations;
         const settings = yield* Settings;
+
         yield* settings.saveWorkspacePreferences({
           ...(yield* settings.workspacePreferences()),
           autoAnswerQuestions: true
@@ -243,11 +280,13 @@ testStable('explicit Ask and requested replies are reused by automatic answering
           expectedSelectionRevision: 0n,
           text: 'Why does ice float?'
         });
+
         yield* c.replySnapshot({ requestId: asked.requestId });
         const input = {
           messageId: asked.userMessageId,
           expectedActiveVersionId: asked.userVersionId
         };
+
         yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
         expect((yield* c.answerQuestion(input)).requestId).toBe(asked.requestId);
         const secondSession = yield* c.createSession({ title: 'Requested' });
@@ -263,12 +302,15 @@ testStable('explicit Ask and requested replies are reused by automatic answering
           .map((e) => decodeEvent(e.payload))
           .filter((e) => e.type === 'ConversationGenerationRequested')
           .at(-1)!;
+
         if (latest.type !== 'ConversationGenerationRequested') throw Error('missing generation');
+
         yield* c.replySnapshot({ requestId: latest.requestId });
         const next = {
           messageId: requested.id,
           expectedActiveVersionId: requested.activeVersionId!
         };
+
         yield* withTestPublication(context, c.publishQuestion({ ...next, kind: 'question' }));
         expect((yield* c.answerQuestion(next)).requestId).toBe(latest.requestId);
         const thirdSession = yield* c.createSession({ title: 'Separate request' });
@@ -279,6 +321,7 @@ testStable('explicit Ask and requested replies are reused by automatic answering
         });
         const direct = yield* c.requestReply({ sessionId: thirdSession.id });
         const savedInput = { messageId: saved.id, expectedActiveVersionId: saved.activeVersionId! };
+
         yield* withTestPublication(context, c.publishQuestion({ ...savedInput, kind: 'question' }));
         expect((yield* c.answerQuestion(savedInput)).requestId).toBe(direct.requestId);
       }).pipe(

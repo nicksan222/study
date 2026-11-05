@@ -59,8 +59,11 @@ export function QuestionActions({
 
 function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage }) {
   const { t } = useI18n();
+
   if (!model.isQuestion) return null;
+
   const answerId = model.question?.answerMessageId;
+
   if (answerId)
     return (
       <Button
@@ -76,6 +79,7 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
         {t(model.question?.answerArchived ? 'SessionRestoreAnswer' : 'SessionViewAnswer')}
       </Button>
     );
+
   return (
     <Button size="sm" variant="outline" disabled={model.blocked} onClick={model.submitAnswer}>
       <MessageSquare size={15} aria-hidden="true" />

@@ -24,6 +24,7 @@ const groups: Record<string, string[]> = {
     'message_parts',
     'citations',
     'conversation_recording_posts',
+    'conversation_question_answers',
     'conversation_reply_requests',
     'conversation_reply_sources',
     'session_context_documents',

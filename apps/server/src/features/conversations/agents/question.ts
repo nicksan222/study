@@ -1,11 +1,26 @@
-/** Classifies a saved note without treating its content as instructions. */
-import { questionClassificationSchema } from '@study/contracts/conversations/schemas';
-import { Schema } from 'effect';
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Defines structured question detection for saved student notes.                     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Supplies canonical schemas and bilingual classification instructions.                  │
+ * │ - Selects the tiny model through the shared agent platform.                              │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ The agent classifies content only; conversation services own persistence and answering.  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
+import {
+  questionClassificationSchema,
+  questionInputSchema
+} from '@study/contracts/conversations/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
+
 export const questionAgent = defineAgent({
   id: 'question-classifier',
-  input: Schema.Struct({ text: Schema.String }),
+  input: questionInputSchema,
   output: questionClassificationSchema,
   model: 'tiny',
   mode: 'object',

@@ -16,9 +16,13 @@ vi.mock('#web/lib/i18n.tsx', () => ({
 }));
 
 const caches: QueryClient[] = [];
+
 const answer = vi.fn();
+
 const mark = vi.fn();
+
 const executions = vi.fn();
+
 const restore = vi.fn();
 
 beforeEach(() => {
@@ -83,12 +87,14 @@ function mount(message = note(), versionId = message.activeVersionId!) {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
+
   caches.push(cache);
   const view = render(
     <QueryClientProvider client={cache}>
       <QuestionActions message={message} versionId={versionId} />
     </QueryClientProvider>
   );
+
   return {
     ...view,
     update: (next: typeof message) =>
@@ -102,6 +108,7 @@ function mount(message = note(), versionId = message.activeVersionId!) {
 
 testStable('answers the displayed question once while its request is pending', async () => {
   let resolve!: (value: unknown) => void;
+
   answer.mockImplementationOnce(
     () =>
       new Promise((done) => {
@@ -110,6 +117,7 @@ testStable('answers the displayed question once while its request is pending', a
   );
   mount();
   const button = screen.getByRole('button', { name: 'SessionAnswerQuestion' });
+
   fireEvent.click(button);
   await waitFor(() => expect(button).toBeDisabled());
   fireEvent.click(button);
@@ -150,6 +158,7 @@ testStable('lets users mark an ordinary note as a question', async () => {
 
 testStable('disables question mutations while browsing historical content', () => {
   const message = note();
+
   mount(message, Schema.decodeUnknownSync(chatMessageSchema.fields.activeVersionId)(9n)!);
   expect(screen.getByRole('button', { name: 'SessionMarkAsQuestion' })).toBeDisabled();
   expect(screen.queryByRole('button', { name: 'SessionAnswerQuestion' })).toBeNull();
@@ -157,6 +166,7 @@ testStable('disables question mutations while browsing historical content', () =
 
 testStable('links to an existing answer instead of creating another', () => {
   const target = document.createElement('div');
+
   target.id = 'notebook-1-message-8';
   target.tabIndex = -1;
   target.scrollIntoView = vi.fn();
@@ -183,6 +193,7 @@ testStable('offers a safe retry after an answer request fails', async () => {
 testStable('does not classify assistant messages or document pages', () => {
   const message = note();
   const view = mount({ ...message, role: 'assistant' });
+
   expect(screen.queryByRole('button')).toBeNull();
   view.unmount();
   mount({ ...message, format: 'document' });
@@ -230,6 +241,7 @@ testStable('restores an archived answer through its session membership', async (
 testStable('uses the authoritative receipt after a linked answer is deleted', async () => {
   answer.mockResolvedValueOnce({ messageId: 8n, requestId: 'old-request' });
   const view = mount();
+
   fireEvent.click(screen.getByRole('button', { name: 'SessionAnswerQuestion' }));
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'SessionMarkAsNote' })).toBeEnabled()

@@ -57,6 +57,7 @@ export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
   const retry = questionErrorRetryable(state.blocked, error)
     ? () => retryQuestionAction({ answer, mark, restore })
     : undefined;
+
   return {
     answer,
     mark,
@@ -83,6 +84,7 @@ function retryQuestionAction({
 function questionActionState(message: ChatMessage, versionId: VersionId, pending: boolean) {
   const question = message.question?.versionId === versionId ? message.question : undefined;
   const version = message.versions.find((item) => item.id === versionId);
+
   return {
     question,
     isQuestion: question?.kind === 'question',

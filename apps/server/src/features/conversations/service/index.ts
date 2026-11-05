@@ -29,6 +29,7 @@ import type {
   updateSessionSelectionSchema
 } from '@study/contracts/conversations/context';
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
+import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type {
   createSessionInputSchema,
   createUntitledSessionInputSchema,
@@ -191,10 +192,13 @@ export const Conversations = defineService(
       setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
         Effect.gen(function* () {
           const preferences = yield* readWorkspacePreferences();
+
           return yield* transaction((tx) => {
             tx.store(QuestionStore).setQuestionKind(input);
+
             if (input.kind === 'question' && preferences.autoAnswerQuestions)
               answerQuestion(tx, input);
+
             return tx.store(MessageStore).message(input.messageId);
           });
         }),
@@ -207,8 +211,10 @@ export const Conversations = defineService(
       ) =>
         Effect.gen(function* () {
           const preferences = yield* readWorkspacePreferences();
+
           return yield* publicationTransaction((tx) => {
             const accepted = tx.store(QuestionStore).publishQuestion(input);
+
             if (accepted && input.kind === 'question' && preferences.autoAnswerQuestions)
               answerQuestion(tx, input);
           });
@@ -564,6 +570,7 @@ export const Conversations = defineService(
           emitReplyRequest(tx, result, 'reply');
 
           retainExplicitQuestionAnswer(tx, note, result);
+
           return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
@@ -605,6 +612,7 @@ export const Conversations = defineService(
           const result = tx.store(ReplyStore).requestReply({ ...input, requestId, context });
 
           const target = context.messages.at(-1);
+
           if (target?.role === 'user')
             retainExplicitQuestionAnswer(
               tx,
@@ -728,20 +736,26 @@ export const Conversations = defineService(
       editMessage: (input: typeof editMessageInputSchema.Type) =>
         transaction((tx) => {
           const message = tx.store(MessageStore).editMessage(input);
+
           scheduleQuestion(tx, message);
+
           return resolveMessageCitations(tx, message);
         }),
       setActiveVersion: (input: typeof setActiveVersionInputSchema.Type) =>
         transaction((tx) => {
           const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
           const message = tx.store(MessageStore).setActiveVersion(input);
+
           if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
+
           return resolveMessageCitations(tx, message);
         }),
       deleteMessageVersion: (input: typeof setActiveVersionInputSchema.Type) =>
         transaction((tx) => {
           const message = tx.store(MessageStore).deleteMessageVersion(input);
+
           scheduleQuestion(tx, message, true);
+
           return resolveMessageCitations(tx, message);
         }),
       deleteMessage: (id: MessageId) =>
@@ -1130,11 +1144,7 @@ const deletionEventTypes = [
   'MaterialGenerationFailed'
 ] as const;
 
-function scheduleQuestion(
-  tx: Transaction,
-  message: typeof import('@study/contracts/conversations/schemas').chatMessageSchema.Type,
-  reclassify = false
-) {
+function scheduleQuestion(tx: Transaction, message: ChatMessage, reclassify = false) {
   if (
     message.role !== 'user' ||
     message.format === 'document' ||
@@ -1142,6 +1152,7 @@ function scheduleQuestion(
     message.question?.origin === 'manual'
   )
     return;
+
   if (
     !reclassify &&
     tx
@@ -1150,6 +1161,7 @@ function scheduleQuestion(
       .scheduled
   )
     return;
+
   tx.emit({
     type: 'ConversationQuestionRequested',
     eventId: reclassify ? randomUUID() : `question/${message.id}/${message.activeVersionId}`,
@@ -1162,12 +1174,16 @@ function scheduleQuestion(
     versionId: message.activeVersionId
   });
 }
+
 function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchema.Type) {
   const existing = tx.store(QuestionAnswerStore).findQuestionAnswer(input);
+
   if (Option.isSome(existing)) {
     if (!questionAnswerRetryable(tx, existing.value)) return existing.value;
+
     tx.store(QuestionStore).retireQuestionAnswer(input);
   }
+
   const message = tx.store(MessageStore).message(input.messageId);
   const intentKey = `question/${message.id}/${input.expectedActiveVersionId}/${randomUUID()}`;
   const context = captureContext(
@@ -1183,25 +1199,29 @@ function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchem
     randomUUID(),
     true
   );
+
   if (
     context.messages.at(-1)?.messageId !== message.id ||
     context.messages.at(-1)?.versionId !== input.expectedActiveVersionId
   )
     throw new StudyError('invalid_input', 'Question context changed');
+
   const result = tx.store(ReplyStore).requestQuestionReply({
     sessionId: message.sessionId,
     threadRoot: message.threadRoot ?? undefined,
     requestId: context.requestId,
     context
   });
+
   tx.store(QuestionStore).retainQuestionAnswer({ ...input, answer: result });
   emitReplyRequest(tx, result, 'reply');
+
   return result;
 }
 
 function retainExplicitQuestionAnswer(
   tx: Transaction,
-  message: typeof import('@study/contracts/conversations/schemas').chatMessageSchema.Type,
+  message: ChatMessage,
   answer: typeof replyRequestSchema.Type
 ) {
   if (message.role === 'user' && message.format !== 'document' && message.activeVersionId)
@@ -1216,8 +1236,11 @@ function retainExplicitQuestionAnswer(
 function questionAnswerRetryable(tx: Transaction, receipt: typeof replyRequestSchema.Type) {
   const answer = tx.store(MessageStore).message(receipt.messageId);
   const version = answer.versions.find((v) => v.id === receipt.versionId);
+
   if (version?.status === 'complete') return false;
+
   const runs = Workflows.correlatedExecutions(tx, receipt.requestId);
+
   return (
     runs.length > 0 &&
     runs.every(

@@ -1,4 +1,17 @@
-/** Exercises durable classifier recovery against SQLite and the real provider adapter. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Exercises durable question classifier recovery and publication ownership fences.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Checks persisted event recovery and generation checkpoint replay.                      │
+ * │ - Checks automatic answer opt out and obsolete version retirement.                       │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Tests use migrated SQLite and the real provider adapter against a local fixture          │
+ * │ endpoint.                                                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createServer } from 'node:http';
 
 import { conversationQuestionRequestedSchema } from '@study/contracts/events';
@@ -6,6 +19,7 @@ import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
+import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
@@ -33,23 +47,29 @@ testStable(
     const peer = createServer(async (req, res) => {
       for await (const _ of req) {
       }
+
       calls++;
       await during?.();
       during = undefined;
       res.writeHead(200, { 'content-type': 'text/event-stream' });
+
       for (const event of [
         { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
         { type: 'response.output_text.delta', item_id: 'm', delta: '{"kind":"question"}' },
         { type: 'response.completed', response: {} }
       ])
         res.write(`data: ${JSON.stringify(event)}\n\n`);
+
       res.end();
     });
+
     await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
     const address = peer.address();
+
     assert.ok(address && typeof address !== 'string');
     const base = `http://127.0.0.1:${address.port}`;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
+
     await auth.replace(
       { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
       { accessToken: 'a', expiresIn: 3600 }
@@ -65,6 +85,7 @@ testStable(
         agentsLayer({
           model: (tier) => {
             expect(tier).toBe('tiny');
+
             return Effect.succeed(model);
           },
           language: 'english',
@@ -77,8 +98,8 @@ testStable(
       effect: Effect.Effect<
         A,
         E,
-        | import('effect').Context.Service.Identifier<typeof Conversations>
-        | import('effect').Context.Service.Identifier<typeof Settings>
+        | Context.Service.Identifier<typeof Conversations>
+        | Context.Service.Identifier<typeof Settings>
         | Database
       >
     ) => Effect.runPromise(effect.pipe(Effect.provide(domain())));
@@ -87,6 +108,7 @@ testStable(
         Effect.gen(function* () {
           const c = yield* Conversations;
           const session = yield* c.createSession({ title: 'Question' });
+
           return yield* c.postMessage({
             sessionId: session.id,
             text: 'Why do stars shine?',
@@ -107,6 +129,7 @@ testStable(
           Effect.gen(function* () {
             const event = Schema.decodeUnknownSync(conversationQuestionRequestedSchema)(raw);
             const engine = yield* WorkflowEngine.WorkflowEngine;
+
             yield* engine.register(conversationQuestionWorkflow, conversationQuestionHandler);
             yield* engine.execute(conversationQuestionWorkflow, {
               executionId: id,
@@ -115,6 +138,7 @@ testStable(
           }).pipe(Effect.provide(services()))
         )
       );
+
     try {
       expect(workflowDefinitions.some((d) => d.name === conversationQuestionWorkflow.name)).toBe(
         true
@@ -122,6 +146,7 @@ testStable(
       expect(workflowTriggers.some((t) => t.event === 'ConversationQuestionRequested')).toBe(true);
       const note = await make();
       const persisted = eventFor(note.id);
+
       assert.ok(persisted);
       context.close();
       context = new ServerContext(location.open());
@@ -130,6 +155,7 @@ testStable(
       await execute(eventFor(note.id), 'question-recovered');
       expect(calls).toBe(1);
       const read = await run(Effect.flatMap(Conversations, (c) => c.message(note.id)));
+
       expect(read.question?.kind).toBe('question');
       expect(read.question?.answerMessageId).toBeUndefined();
       await run(
@@ -140,6 +166,7 @@ testStable(
         )
       );
       const optout = await make();
+
       during = () =>
         run(
           Effect.flatMap(Settings, (s) =>
@@ -154,6 +181,7 @@ testStable(
           ?.answerMessageId
       ).toBeUndefined();
       const stale = await make();
+
       await run(
         Effect.flatMap(Conversations, (c) =>
           c.editMessage({
@@ -164,6 +192,7 @@ testStable(
         )
       );
       const before = calls;
+
       await execute(eventFor(stale.id), 'question-stale');
       expect(calls).toBe(before);
     } finally {

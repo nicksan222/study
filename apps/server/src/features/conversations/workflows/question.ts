@@ -1,4 +1,16 @@
-/** Durable classification, fenced against edits and explicit corrections. */
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Runs question detection through durable generation and publication activities.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Uses the tiny classifier with resumable activity checkpoints.                          │
+ * │ - Publishes guarded classifications and schedules opted in answers.                      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Native Effect Workflow owns execution while the conversation service owns domain writes. │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { questionClassificationSchema } from '@study/contracts/conversations/schemas';
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import { conversationQuestionRequestedSchema } from '@study/contracts/events';
@@ -13,6 +25,7 @@ import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
+
 export const conversationQuestionWorkflow = defineWorkflow({
   name: 'conversation-question',
   version: 1,
@@ -21,6 +34,7 @@ export const conversationQuestionWorkflow = defineWorkflow({
   error: failureSchema,
   idempotencyKey: ({ event }) => event.eventId
 });
+
 export const conversationQuestionHandler = ({
   event
 }: typeof conversationQuestionWorkflow.payloadSchema.Type) =>
@@ -36,10 +50,12 @@ export const conversationQuestionHandler = ({
         error: failureSchema,
         execute: Effect.gen(function* () {
           const snapshot = yield* c.questionSnapshot(input);
+
           if (snapshot.manual)
             return yield* Effect.fail(
               new StudyError('invalid_input', 'Question classification is manual')
             );
+
           return yield* generateAgent(
             questionAgent,
             { text: snapshot.text },
@@ -60,6 +76,7 @@ export const conversationQuestionHandler = ({
         })
       })
     );
+
     yield* Activity.make({
       name: 'publish-question',
       success: Schema.Void,
@@ -73,6 +90,7 @@ export const conversationQuestionHandler = ({
         : Effect.fail(error)
     )
   );
+
 export const conversationQuestionRegistration = defineWorkflowHandler(
   conversationQuestionWorkflow,
   {
