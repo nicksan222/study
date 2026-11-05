@@ -9,6 +9,7 @@ const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard'
 
 afterEach(() => {
   vi.unstubAllGlobals();
+
   if (originalClipboard) Object.defineProperty(navigator, 'clipboard', originalClipboard);
   else Reflect.deleteProperty(navigator, 'clipboard');
 });
@@ -22,6 +23,7 @@ testStable(
   'cuts only after the clipboard accepts the selected content and keeps native undo',
   async () => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Selected neighbor</p>' });
+
     clipboard(async () => undefined);
 
     try {
@@ -38,6 +40,7 @@ testStable(
 
 testStable('retains selected content when clipboard permission is denied', async () => {
   const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
+
   clipboard(async () => {
     throw new Error('Permission denied');
   });
@@ -56,15 +59,18 @@ testStable(
   async () => {
     const editor = new Editor({ extensions: [StarterKit], content: '<p>Keep this text</p>' });
     let accept: () => void = () => undefined;
+
     clipboard(
       () =>
         new Promise<void>((resolve) => {
           accept = resolve;
         })
     );
+
     try {
       editor.commands.selectAll();
       const cutting = copyEditorSelection(editor, true);
+
       editor.setEditable(false);
       accept();
       await cutting;

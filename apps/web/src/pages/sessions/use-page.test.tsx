@@ -8,7 +8,15 @@ import { usePage } from './use-page';
 
 const route = vi.hoisted(() => ({ sessionId: undefined as bigint | undefined }));
 
-vi.mock('@tanstack/react-router', () => ({ useParams: () => route }));
+vi.mock('@tanstack/react-router', () => ({
+  useParams: () => route,
+  useSearch: () => ({}),
+  useNavigate: () => vi.fn()
+}));
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: undefined }),
+  queryOptions: (options: unknown) => options
+}));
 
 testStable(
   'preserves validated identity beyond JavaScript number precision and clears it on index',

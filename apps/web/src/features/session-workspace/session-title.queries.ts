@@ -1,7 +1,7 @@
 import type { SessionId } from '@study/contracts/ids';
 import { toastManager } from '@study/ui/toast';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { request } from '#web/lib/study-client/request.ts';
@@ -28,23 +28,31 @@ export function useRegenerateSessionTitle(id: SessionId) {
   const cache = useQueryClient();
   const { t } = useI18n();
   const [requestId, setRequestId] = useState<string>();
+  const handled = useRef<string | undefined>(undefined);
   const mutationKey = [...sessionKey(id), 'regenerate-title'];
   const submitting = useIsMutating({ mutationKey, exact: true }) > 0;
   const execution = useQuery({
     ...executionOptions(requestId ?? ''),
-    enabled: requestId !== undefined
+    enabled: requestId !== undefined,
+    refetchInterval: (query) =>
+      query.state.data?.items.some(
+        (item) => item.status === 'completed' || item.status === 'cancelled'
+      )
+        ? false
+        : 3000
   });
   const completed = execution.data?.items.find(
     (item) => item.status === 'completed' || item.status === 'cancelled'
   );
 
   useEffect(() => {
-    if (!requestId || !completed) return;
+    if (!requestId || !completed || handled.current === requestId) return;
 
-    setRequestId(undefined);
+    handled.current = requestId;
     void cache.invalidateQueries({ queryKey: sessionKey(id) });
     void cache.invalidateQueries({ queryKey: ['sessions'] });
     void cache.invalidateQueries({ queryKey: ['search'] });
+
     if (completed.outcome === 'failure') {
       toastManager.add({
         title: t('SessionActionErrorTitle'),
@@ -70,7 +78,7 @@ export function useRegenerateSessionTitle(id: SessionId) {
       });
     }
   });
-  const pending = submitting || requestId !== undefined;
+  const pending = submitting || (requestId !== undefined && !completed);
 
   return {
     pending,

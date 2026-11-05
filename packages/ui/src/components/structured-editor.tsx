@@ -149,7 +149,6 @@ export function StructuredEditor({
   fontSize?: number;
 }) {
   const images = useEditorImageInsertion(uploadImage);
-  const file = useRef<HTMLInputElement>(null);
   const imagePosition = useRef(0);
   const [dialog, setDialog] = useState<'table' | 'link' | 'image'>();
   const extensions = useMemo(
@@ -178,15 +177,10 @@ export function StructuredEditor({
 
   useEditorValue(editor, value);
 
-  const chooseImage = uploadImage ? () => file.current?.click() : undefined;
+  const { file, chooseImage, upload } = useEditorFileInput(editor, uploadImage, images.insert);
   const closeDialog = (open: boolean) => {
     if (!open) setDialog(undefined);
   };
-  const upload = uploadImage
-    ? (files: File[]) => {
-        void images.insert(editor, files);
-      }
-    : undefined;
 
   return (
     <>
@@ -258,6 +252,22 @@ export function StructuredEditor({
   );
 }
 
+function useEditorFileInput(
+  editor: Editor,
+  uploadImage: ((file: File) => Promise<EditorImageReference>) | undefined,
+  insert: ReturnType<typeof useEditorImageInsertion>['insert']
+) {
+  const file = useRef<HTMLInputElement>(null);
+  const chooseImage = uploadImage ? () => file.current?.click() : undefined;
+  const upload = uploadImage
+    ? (files: File[]) => {
+        void insert(editor, files);
+      }
+    : undefined;
+
+  return { file, chooseImage, upload };
+}
+
 function useEditorValue(editor: Editor, value: StructuredEditorValue) {
   useEffect(() => {
     const normalized = editor.schema.nodeFromJSON(value).toJSON();
@@ -315,12 +325,14 @@ function ImageInsertionNotice({
         {labels.imageError}
       </p>
     );
+
   if (pending)
     return (
       <p className="structured-editor-notice" role="status">
         {labels.imageUploading}
       </p>
     );
+
   return null;
 }
 
@@ -336,6 +348,7 @@ function ImageFileInput({
   upload?: (files: File[]) => void;
 }) {
   if (!upload) return null;
+
   return (
     <input
       className="sr-only"
@@ -347,6 +360,7 @@ function ImageFileInput({
       disabled={disabled}
       onChange={(event) => {
         const files = Array.from(event.target.files ?? []);
+
         event.target.value = '';
         upload(files);
       }}
@@ -359,6 +373,7 @@ function editorExtensions(
   insert: ReturnType<typeof useEditorImageInsertion>['insert']
 ) {
   if (!upload) return structuredEditorExtensions;
+
   return [
     ...structuredEditorExtensions,
     FileHandler.configure({

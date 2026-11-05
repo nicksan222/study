@@ -2,6 +2,7 @@ import type { StudyDocument } from '@study/contracts/documents/types';
 import { testStable } from '@study/testing/vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { createStudyQueryClient } from '#web/lib/query-client.ts';
@@ -24,7 +25,7 @@ vi.mock('../session-workspace/canonical-document-editor', () => ({
   }: {
     document: { blocks: { text: string }[] };
     disabled?: boolean;
-    toolbarEnd: import('react').ReactNode;
+    toolbarEnd: ReactNode;
     snapshotId: bigint;
   }) => (
     <section aria-label="editor" data-snapshot={String(snapshotId)}>
@@ -43,6 +44,7 @@ vi.mock('../session-workspace/session-document-metadata', () => ({
 }));
 
 const clients: ReturnType<typeof createStudyQueryClient>[] = [];
+
 afterEach(() => {
   cleanup();
   clients.splice(0).forEach((client) => client.clear());
@@ -55,6 +57,7 @@ function mount(initialVersion?: string) {
   let value: StudyDocument = current;
   const restore = vi.fn(async () => {
     value = authoredDocument(2n, 'Old text', 31n);
+
     return {
       outcome: 'saved',
       submittedVersionId: 31n,
@@ -71,14 +74,17 @@ function mount(initialVersion?: string) {
     ),
     'documents.restore': restore
   };
+
   vi.mocked(request).mockImplementation((invoke) => invoke(rpc as never) as never);
   const client = createStudyQueryClient();
+
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
       <AuthoredDocumentReader id={current.id} initialVersion={initialVersion} />
     </QueryClientProvider>
   );
+
   return { rpc, current, old };
 }
 
@@ -110,6 +116,7 @@ testStable(
   'an old-version deep link uses the editor and can make that content current',
   async () => {
     const { rpc, old } = mount('20');
+
     await screen.findByDisplayValue('Old text');
     fireEvent.click(screen.getByRole('button', { name: 'DocumentMakeCurrent' }));
     await waitFor(() => expect(rpc['documents.restore']).toHaveBeenCalledTimes(1));
