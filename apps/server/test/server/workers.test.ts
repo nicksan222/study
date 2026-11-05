@@ -153,7 +153,9 @@ testStable(
       app = await App.open({ path: location.path });
       server = await serve(app);
       assert.strictEqual(
-        app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length,
+        app.store.db.orm.all(
+          sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
+        ).length,
         1
       );
       await Effect.runPromise(

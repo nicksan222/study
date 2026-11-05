@@ -21,6 +21,7 @@ import {
   conversationReplyRegistration,
   conversationAttachmentWakeRegistration
 } from '#server/features/conversations/workflows/index';
+import { conversationQuestionRegistration } from '#server/features/conversations/workflows/question';
 import { conversationTitleRegistration } from '#server/features/conversations/workflows/title';
 import { transformSuggestionRegistration } from '#server/features/conversations/workflows/transform-suggestion';
 import { documentTransformRegistration } from '#server/features/documents/workflows/transform';
@@ -49,6 +50,7 @@ const entries = [
   recordingPostRegistration,
   materialGenerationRegistration,
   conversationTitleRegistration,
+  conversationQuestionRegistration,
   conversationReplyRegistration,
   sourceIngestionRegistration,
   sourceCorrectionRegistration,

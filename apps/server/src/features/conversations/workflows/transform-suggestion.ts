@@ -76,9 +76,7 @@ export const transformSuggestionHandler = ({
         )).trim();
 
         if (!output || output.length > (input.field === 'title' ? 200 : 1000))
-          return yield* Effect.fail(
-            new StudyError('transient', 'Invalid transform suggestion')
-          );
+          return yield* Effect.fail(new StudyError('transient', 'Invalid transform suggestion'));
 
         return output;
       })

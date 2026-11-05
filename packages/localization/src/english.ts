@@ -1,5 +1,18 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  WorkspaceAutoAnswerQuestions: 'Automatically answer questions',
+  WorkspaceAutoAnswerQuestionsHelp:
+    'Answer newly detected questions with your medium model. Leave this off to answer each question manually.',
+  SessionRestoreAnswer: 'Restore answer',
+  SessionRetryAnswer: 'Retry answer',
+  SessionQuestion: 'Question',
+  SessionQuestionActions: 'Question actions',
+  SessionAnswerQuestion: 'Answer',
+  SessionRequestingAnswer: 'Requesting answer…',
+  SessionMarkAsQuestion: 'Mark as question',
+  SessionMarkAsNote: 'Mark as note',
+  SessionViewAnswer: 'View answer',
+  'workspace.task.conversation-question': 'Detect question',
   ExportOmitImage: 'Images were not embedded in this export.',
   ExportOmitLink: 'Unsupported links were omitted.',
   ExportOmitMath: 'Mathematical notation is included as text, without rendering.',

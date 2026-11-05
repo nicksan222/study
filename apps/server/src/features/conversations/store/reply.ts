@@ -1276,6 +1276,16 @@ export const ReplyStore = defineStore({
             );
           }
         }),
+        requestQuestionReply: storeMutation({
+          input: requestInput,
+          output: replyRequestSchema,
+          run: (input) => {
+            if (!input.context || input.context.messages.at(-1)?.role !== 'user')
+              throw new StudyError('invalid_input', 'Question requires a captured user target');
+
+            return snapshot(input);
+          }
+        }),
         requestReply: storeMutation({
           input: requestInput,
           output: replyRequestSchema,

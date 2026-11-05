@@ -71,7 +71,7 @@ activity. Sessions are the note dump, not a generic assistant chat. Each entry k
 attachments, current text, earlier versions, transformation origin and parent version.
 Improve, Summarize and custom transformations use the existing version model. Original
 uploaded bytes stay accessible; a file's extraction is not presented as a fictitious note
-version. Only notes mentioning `@study` receive an answer.
+version. Text notes are classified as questions in the background. Questions expose an explicit Answer action; automatic answers use the medium model and require the workspace preference to be enabled. Manual question/note corrections take precedence over detection.
 
 ## Interaction and verification
 

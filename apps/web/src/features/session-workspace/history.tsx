@@ -17,7 +17,7 @@ import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { History as HistoryIcon, MessagesSquare, UserRound } from 'lucide-react';
+import { History as HistoryIcon, MessagesSquare, UserRound, CircleHelp } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -33,6 +33,7 @@ import { NoteContent, NoteSummary } from './note-editor';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
 import { PendingMessageWork } from './pending-message-work';
+import { QuestionActions } from './question-actions';
 import { SessionDocumentCard } from './session-document-card';
 import { citationsOptions, threadOptions } from './session-workspace.queries';
 import { SessionReadError } from './status';
@@ -222,6 +223,7 @@ const messageAuthors = {
   assistant: { label: 'AnswerAuthor', icon: MessagesSquare }
 } as const;
 
+/** Renders the selected note version while preserving attachments, citations and pending work. */
 function MessageEntry({
   message,
   onOpenSource,
@@ -236,7 +238,7 @@ function MessageEntry({
   const version =
     message.versions.find((item) => item.id === selected) ??
     message.versions.find((item) => item.id === message.activeVersionId);
-  const author = messageAuthors[message.role];
+  const author = messageAuthor(message, version?.id);
   const AuthorIcon = author.icon;
 
   return (
@@ -244,27 +246,12 @@ function MessageEntry({
       <ChatMessageHeading label={t(author.label)} icon={<AuthorIcon aria-hidden="true" />} />
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
-        <>
-          <MessageActions
-            message={message}
-            versionId={version.id}
-            onActive={() => setSelected(undefined)}
-            onVersionChange={setSelected}
-          >
-            {message.format === 'document' || message.role === 'assistant' ? (
-              <NoteContent value={version.text} />
-            ) : (
-              <ChatMessageText text={version.text} />
-            )}
-          </MessageActions>
-          {version.status !== 'complete' && (
-            <PendingMessageWork
-              sessionId={message.sessionId}
-              messageId={message.id}
-              versionId={version.id}
-            />
-          )}
-        </>
+        <MessageVersionBody
+          message={message}
+          version={version}
+          onActive={() => setSelected(undefined)}
+          onVersionChange={setSelected}
+        />
       )}
       {message.parts.length > 0 && (
         <AttachmentCards
@@ -276,6 +263,56 @@ function MessageEntry({
       )}
       <MessageCitations message={message} versionId={version?.id} />
     </ChatMessage>
+  );
+}
+
+/** Names question entries without changing the authorship of ordinary notes or replies. */
+function messageAuthor(message: Message, versionId?: VersionId) {
+  if (
+    message.role === 'user' &&
+    message.question?.kind === 'question' &&
+    message.question.versionId === versionId
+  )
+    return { label: 'SessionQuestion' as const, icon: CircleHelp };
+
+  return messageAuthors[message.role];
+}
+
+/** Keeps content, question controls and pending work attached to the displayed version. */
+function MessageVersionBody({
+  message,
+  version,
+  onActive,
+  onVersionChange
+}: {
+  message: Message;
+  version: Message['versions'][number];
+  onActive: () => void;
+  onVersionChange: (id: VersionId) => void;
+}) {
+  return (
+    <>
+      <MessageActions
+        message={message}
+        versionId={version.id}
+        onActive={onActive}
+        onVersionChange={onVersionChange}
+      >
+        {message.format === 'document' || message.role === 'assistant' ? (
+          <NoteContent value={version.text} />
+        ) : (
+          <ChatMessageText text={version.text} />
+        )}
+      </MessageActions>
+      <QuestionActions key={String(version.id)} message={message} versionId={version.id} />
+      {version.status !== 'complete' && (
+        <PendingMessageWork
+          sessionId={message.sessionId}
+          messageId={message.id}
+          versionId={version.id}
+        />
+      )}
+    </>
   );
 }
 

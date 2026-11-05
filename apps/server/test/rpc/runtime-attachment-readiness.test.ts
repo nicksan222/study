@@ -97,7 +97,9 @@ testStable(
 
       assert.ok(waiting === true);
       assert.strictEqual(
-        fixture.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length,
+        fixture.store.db.orm.all(
+          sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
+        ).length,
         0
       );
       const before = yield* Effect.promise(() =>
@@ -113,7 +115,11 @@ testStable(
       let authentication = false;
 
       for (let i = 0; i < 150; i++) {
-        if (fixture.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length > 0) {
+        if (
+          fixture.store.db.orm.all(
+            sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
+          ).length > 0
+        ) {
           authentication = true;
           break;
         }

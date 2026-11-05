@@ -37,6 +37,10 @@ function suggestionErrorMessage(error: unknown) {
   return 'SessionSuggestionError';
 }
 
+function suggestionUnavailable(model: TransformationModel) {
+  return !model.active || !!model.draft.attempt || model.pending || !model.suggestionReady;
+}
+
 export function TransformSuggestion({
   model,
   field
@@ -44,7 +48,7 @@ export function TransformSuggestion({
   model: TransformationModel;
   field: typeof transformSuggestionInputSchema.Type.field;
 }) {
-  const { id, t, locale, additionalSessionIds, cache, key, setDraft, active, draft } = model;
+  const { id, t, locale, additionalSessionIds, cache, key, setDraft } = model;
   const { label, action, revisionKey, errorTitle } = suggestionFields[field];
   const exceedsSessionLimit = additionalSessionIds.length > 19;
   const mutation = useMutation(
@@ -66,14 +70,7 @@ export function TransformSuggestion({
           aria-label={t(action)}
           title={t(exceedsSessionLimit ? 'SessionSuggestionLimit' : action)}
           aria-busy={mutation.isPending}
-          disabled={
-            exceedsSessionLimit ||
-            !active ||
-            mutation.isPending ||
-            !!draft.attempt ||
-            model.pending ||
-            !model.suggestionReady
-          }
+          disabled={exceedsSessionLimit || mutation.isPending || suggestionUnavailable(model)}
           onClick={() => {
             const context = model.suggestionContext();
             const revision = cache.getQueryData<TransformDraft>(key)?.[revisionKey] ?? 0;

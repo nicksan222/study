@@ -113,6 +113,9 @@ export const messages = sqliteTable(
     capture_key: text(),
     format: text({ enum: messageFormats }).notNull().default('text'),
     description: text(),
+    question_kind: text({ enum: ['note', 'question', 'undetermined'] }),
+    question_origin: text({ enum: ['automatic', 'manual'] }),
+    question_version_id: integer().$type<VersionId>(),
     role: text({ enum: codes_message_role.code.enumValues })
       .notNull()
       .references((): AnySQLiteColumn => codes_message_role.code, {
@@ -303,3 +306,21 @@ export const session_sidebar_preferences = sqliteTable(
   },
   (t) => [check('session_sidebar_preferences_settled_check', sql`${t.settled} IN (0, 1)`)]
 );
+
+/** One answer receipt per immutable question version. */
+export const conversation_question_answers = sqliteTable('conversation_question_answers', {
+  version_id: integer()
+    .$type<VersionId>()
+    .primaryKey()
+    .references(() => message_versions.id, { onDelete: 'cascade' }),
+  request_id: text().notNull().unique(),
+  question_guard: integer({ mode: 'boolean' }).notNull().default(true),
+  answer_version_id: integer()
+    .$type<VersionId>()
+    .notNull()
+    .references(() => message_versions.id, { onDelete: 'cascade' }),
+  answer_message_id: integer()
+    .$type<MessageId>()
+    .notNull()
+    .references(() => messages.id, { onDelete: 'cascade' })
+});
