@@ -56,8 +56,7 @@ reviewed and practised their own material, without managing a pile of separate t
 
 ## Capabilities and Constraints
 
-- Pages today: Home, Projects, Sessions, Study (flashcards, diagrams), Practice, media lists, Pipelines
-  (processing), Settings, Help, and the onboarding tour.
+- Pages today: Home, Projects, Sessions, Study (flashcards, diagrams), Practice, media lists, Settings, Help, and the onboarding tour.
 - Model work (reading pages and PDFs, answers, titles, material, quiz questions and grades)
   runs only on the learner's ChatGPT plan. Speech-to-text and embeddings run locally, and
   their models download only on an explicit install.

@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as FlashcardsRouteImport } from './routes/flashcards'
 import { Route as HelpRouteImport } from './routes/help'
 import { Route as HomeRouteImport } from './routes/home'
-import { Route as PipelinesRouteImport } from './routes/pipelines'
 import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SessionsRouteImport } from './routes/sessions'
@@ -43,11 +42,6 @@ const HelpRoute = HelpRouteImport.update({
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PipelinesRoute = PipelinesRouteImport.update({
-  id: '/pipelines',
-  path: '/pipelines',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PracticeRoute = PracticeRouteImport.update({
@@ -106,7 +100,6 @@ export interface FileRoutesByFullPath {
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
-  '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRouteWithChildren
@@ -123,7 +116,6 @@ export interface FileRoutesByTo {
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
-  '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
@@ -140,7 +132,6 @@ export interface FileRoutesById {
   '/flashcards': typeof FlashcardsRoute
   '/help': typeof HelpRoute
   '/home': typeof HomeRoute
-  '/pipelines': typeof PipelinesRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRouteWithChildren
@@ -159,7 +150,6 @@ export interface FileRouteTypes {
     | '/flashcards'
     | '/help'
     | '/home'
-    | '/pipelines'
     | '/practice'
     | '/projects'
     | '/sessions'
@@ -176,7 +166,6 @@ export interface FileRouteTypes {
     | '/flashcards'
     | '/help'
     | '/home'
-    | '/pipelines'
     | '/practice'
     | '/projects'
     | '/settings'
@@ -192,7 +181,6 @@ export interface FileRouteTypes {
     | '/flashcards'
     | '/help'
     | '/home'
-    | '/pipelines'
     | '/practice'
     | '/projects'
     | '/sessions'
@@ -210,7 +198,6 @@ export interface RootRouteChildren {
   FlashcardsRoute: typeof FlashcardsRoute
   HelpRoute: typeof HelpRoute
   HomeRoute: typeof HomeRoute
-  PipelinesRoute: typeof PipelinesRoute
   PracticeRoute: typeof PracticeRoute
   ProjectsRoute: typeof ProjectsRoute
   SessionsRoute: typeof SessionsRouteWithChildren
@@ -249,13 +236,6 @@ declare module '@tanstack/react-router' {
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pipelines': {
-      id: '/pipelines'
-      path: '/pipelines'
-      fullPath: '/pipelines'
-      preLoaderRoute: typeof PipelinesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/practice': {
@@ -350,7 +330,6 @@ const rootRouteChildren: RootRouteChildren = {
   FlashcardsRoute: FlashcardsRoute,
   HelpRoute: HelpRoute,
   HomeRoute: HomeRoute,
-  PipelinesRoute: PipelinesRoute,
   PracticeRoute: PracticeRoute,
   ProjectsRoute: ProjectsRoute,
   SessionsRoute: SessionsRouteWithChildren,

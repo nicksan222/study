@@ -482,23 +482,6 @@ testStable('preserves projects loaded while project creation is in flight', asyn
   expect(screen.getByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 
-testStable('keeps session lists and subject search available on Pipelines', async () => {
-  history.replaceState(null, '', '/projects/1/pipelines');
-  const user = userEvent.setup();
-
-  await renderWithNavigation();
-  await screen.findByRole('link', { name: 'Cell division' });
-  await user.type(screen.getByRole('searchbox'), 'cell');
-  await waitFor(() =>
-    expect(api.search).toHaveBeenLastCalledWith({
-      query: 'cell',
-      project: 1n,
-      limit: 30,
-      kinds: ['session', 'message']
-    })
-  );
-});
-
 testStable(
   'first send adds a session to the sidebar and permits another lazy session',
   async () => {

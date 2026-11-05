@@ -13,8 +13,7 @@ vi.mock('../lib/study-client/client', async () => {
     'projects.projects': page,
     'conversations.sessions': page,
     'sources.sources': page,
-    'materials.materials': page,
-    'workflows.executions': page
+    'materials.materials': page
   };
 
   return {
@@ -22,7 +21,7 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice', 'Pipelines', 'Help'] as const;
+const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice', 'Help'] as const;
 
 beforeEach(() => {
   history.replaceState(null, '', '/');

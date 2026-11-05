@@ -224,28 +224,6 @@ export const english = Object.freeze({
     'The snapshot list could not be refreshed. Known snapshots can still be downloaded, and recovery controls remain available when restore status permits.',
   SessionRunProposal: 'Proposal ready for review',
   SessionRunAwaitingOutput: 'No published output yet',
-  'workspace.failure.auth':
-    'Check your account connection in Settings, then return to the original session or material to try again.',
-  'workspace.failure.cancelled':
-    'This task was cancelled. Return to the original session or material if you want to start again.',
-  'workspace.failure.config':
-    'Check the required setup in Settings, then return to the original session or material.',
-  'workspace.failure.internal':
-    'This task could not finish. Review the original session or material before starting another attempt.',
-  'workspace.failure.invalid_input':
-    'Review the submitted content and options in the original session or material before trying again.',
-  'workspace.failure.model_unavailable':
-    'The requested model is unavailable. Check the available model options in Settings before trying again.',
-  'workspace.failure.not_enough':
-    'There was not enough usable content. Add or select more material in the original session before trying again.',
-  'workspace.failure.not_found':
-    'Required content is no longer available. Review the original session or material and choose available inputs.',
-  'workspace.failure.rate_limited':
-    'The service limited this request. Wait before trying again from the original session or material.',
-  'workspace.failure.transient':
-    'A temporary problem interrupted this task. Review its status before trying again from the original session or material.',
-  'workspace.failure.unsupported':
-    'This operation or content format is not supported. Choose a supported input or action in the original session or material.',
   SessionActionErrorTitle: 'Your work is still here.',
   SessionReadErrorTitle: 'We couldn’t open your notebook.',
   ErrorStateTitle: 'Something went wrong.',
@@ -432,7 +410,6 @@ export const english = Object.freeze({
     'Nothing to add yet. Import material in Library or start a session first.',
   'collections.emptyMembers':
     'This collection is empty. Choose items to add from your library or sessions.',
-  'workspace.workflow': 'Task type',
   'workspace.task.other': 'Background task',
   'workspace.task.source-ingestion': 'Import material',
   'workspace.task.source-correction': 'Correct imported content',
@@ -457,22 +434,7 @@ export const english = Object.freeze({
   'workspace.sessionsHelp': 'Write notes and work with your files.',
   'workspace.libraryHelp': 'Read and edit your saved material.',
   'workspace.collectionsHelp': 'Organize sessions and material by topic.',
-  'workspace.activityHelp': 'Background work · updates every 5 seconds',
   'workspace.dateUnavailable': 'Date unavailable',
-  'workspace.activityImport': 'Bring your files',
-  'workspace.activityImportHelp': 'Documents, recordings and links',
-  'workspace.activityProcess': 'Study reads them',
-  'workspace.activityProcessHelp': 'Content is processed in the background',
-  'workspace.activityReady': 'Make it yours',
-  'workspace.activityReadyHelp': 'Notes, answers and study material',
-  'workspace.activityOpenSessions': 'Open sessions',
-  'workspace.activityTitle': 'Background work',
-  'workspace.activityEmptyTitle': 'No activity yet',
-  'workspace.activityEmpty': 'Activity appears here when you import or transform content.',
-  'workspace.details': 'Details',
-  'workspace.execution': 'Execution',
-  'workspace.context': 'Related context',
-  'workspace.cancelError': 'Cancellation could not be confirmed. Refresh to see the current state.',
   'workspace.state.running': 'Working',
   'workspace.state.suspended': 'Waiting',
   'workspace.state.completed': 'Completed',
@@ -1075,7 +1037,6 @@ export const english = Object.freeze({
   Flashcards: 'Flashcards',
   Diagrams: 'Diagram',
   Practice: 'Practice',
-  Pipelines: 'Activity',
   Settings: 'Settings',
   Help: 'Help',
   OpenSubject: 'Open subject',
@@ -1208,7 +1169,6 @@ export const english = Object.freeze({
   ContinueTitle: 'Pick up where you left off',
   DashboardNoSessions: 'No sessions yet. Start one to study your files.',
   AllCaughtUp: 'All caught up. Nothing is running, and nothing needs you.',
-  OpenPipelines: 'Open activity',
   RecentFiles: 'Recent sources',
   NoFilesYet: 'No files yet. Add lecture recordings, slides, or notes to get started.',
   OpenLibrary: 'Open sources',
@@ -1510,11 +1470,6 @@ export const english = Object.freeze({
   PracticeNoResults: 'Answered questions show up here, with what was right and why.',
   PracticeNothingToAsk:
     "There's nothing to ask about yet: this subject has no notes, and none of its files has been read. Add some, then try again.",
-  PipelinesDescription:
-    'Everything Study does in the background: transcribing recordings, reading files, naming sessions, answering, writing study material and practice questions, and grading answers. Stop anything that is running, or start it again.',
-  LoadingPipelines: 'Loading activity…',
-  PipelinesLoadError: 'Could not load the activity. Try again.',
-  PipelinesEmpty: 'Nothing here yet.',
   FilterAll: 'All',
   GroupWorking: 'Working now',
   GroupUpNext: 'Up next',

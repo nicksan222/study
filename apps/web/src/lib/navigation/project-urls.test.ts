@@ -17,7 +17,6 @@ testStable.each([
   'sessions',
   'documents',
   'practice',
-  'pipelines',
   'flashcards',
   'sources/3',
   'materials/4',

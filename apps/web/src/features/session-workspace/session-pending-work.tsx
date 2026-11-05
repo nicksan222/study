@@ -84,7 +84,6 @@ function WorkRow({
         cache.invalidateQueries({ queryKey: ['session-workspace', String(id), 'generations'] }),
         cache.invalidateQueries({ queryKey: ['session-generation', item.requestId] }),
         cache.invalidateQueries({ queryKey: ['session-execution', item.requestId] }),
-        cache.invalidateQueries({ queryKey: ['activity'] }),
         cache.invalidateQueries({ queryKey: ['sessions', 'sidebar-progress'] })
       ]);
     }

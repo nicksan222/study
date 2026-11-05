@@ -5,11 +5,11 @@ import { Notebook } from '@study/ui/session-workspace';
 import { useQuery } from '@tanstack/react-query';
 import { Brain, Check, CircleAlert, CircleSlash, Clock, ChevronRight } from 'lucide-react';
 
-import { workflowLabel } from '#web/features/activity/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { executionOptions } from './session-workspace.queries';
+import { workflowLabel } from './workflow-label';
 
 export function SessionError({ error, retry }: { error: unknown; retry?: () => void }) {
   const { t } = useI18n();

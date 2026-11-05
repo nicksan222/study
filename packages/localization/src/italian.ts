@@ -230,28 +230,6 @@ export const italian = Object.freeze({
     'Non è stato possibile aggiornare l’elenco delle copie. Puoi comunque scaricare le copie già note e usare i controlli di recupero quando lo stato del ripristino lo consente.',
   SessionRunProposal: 'Proposta pronta per la revisione',
   SessionRunAwaitingOutput: 'Nessun risultato pubblicato per ora',
-  'workspace.failure.auth':
-    'Controlla il collegamento al tuo account nelle Impostazioni, poi torna alla sessione o al materiale di origine per riprovare.',
-  'workspace.failure.cancelled':
-    'Questa attività è stata annullata. Torna alla sessione o al materiale di origine se vuoi ricominciare.',
-  'workspace.failure.config':
-    'Controlla la configurazione richiesta nelle Impostazioni, poi torna alla sessione o al materiale di origine.',
-  'workspace.failure.internal':
-    'Non è stato possibile completare questa attività. Controlla la sessione o il materiale di origine prima di avviare un altro tentativo.',
-  'workspace.failure.invalid_input':
-    'Controlla il contenuto e le opzioni inviati nella sessione o nel materiale di origine prima di riprovare.',
-  'workspace.failure.model_unavailable':
-    'Il modello richiesto non è disponibile. Controlla le opzioni dei modelli nelle Impostazioni prima di riprovare.',
-  'workspace.failure.not_enough':
-    'Il contenuto utilizzabile non era sufficiente. Aggiungi o seleziona altro materiale nella sessione di origine prima di riprovare.',
-  'workspace.failure.not_found':
-    'Il contenuto necessario non è più disponibile. Controlla la sessione o il materiale di origine e scegli contenuti disponibili.',
-  'workspace.failure.rate_limited':
-    'Il servizio ha limitato questa richiesta. Attendi prima di riprovare dalla sessione o dal materiale di origine.',
-  'workspace.failure.transient':
-    'Un problema temporaneo ha interrotto questa attività. Controllane lo stato prima di riprovare dalla sessione o dal materiale di origine.',
-  'workspace.failure.unsupported':
-    'Questa operazione o questo formato non è supportato. Scegli un contenuto o un’azione supportati nella sessione o nel materiale di origine.',
   SessionActionErrorTitle: 'Il tuo lavoro è ancora qui.',
   SessionReadErrorTitle: 'Non è stato possibile aprire il quaderno.',
   ErrorStateTitle: 'Qualcosa non ha funzionato.',
@@ -444,7 +422,6 @@ export const italian = Object.freeze({
     'Non c’è ancora nulla da aggiungere. Importa materiale nella Libreria o avvia una sessione.',
   'collections.emptyMembers':
     'Questa raccolta è vuota. Scegli gli elementi da aggiungere dalla libreria o dalle sessioni.',
-  'workspace.workflow': 'Tipo di attività',
   'workspace.task.other': 'Attività in background',
   'workspace.task.source-ingestion': 'Importa materiale',
   'workspace.task.source-correction': 'Correggi contenuto importato',
@@ -469,23 +446,7 @@ export const italian = Object.freeze({
   'workspace.sessionsHelp': 'Scrivi appunti e lavora con i tuoi file.',
   'workspace.libraryHelp': 'Leggi e modifica il materiale salvato.',
   'workspace.collectionsHelp': 'Organizza sessioni e materiali per argomento.',
-  'workspace.activityHelp': 'Attività in background · aggiornamenti ogni 5 secondi',
   'workspace.dateUnavailable': 'Data non disponibile',
-  'workspace.activityImport': 'Aggiungi i tuoi file',
-  'workspace.activityImportHelp': 'Documenti, registrazioni e link',
-  'workspace.activityProcess': 'Study li legge',
-  'workspace.activityProcessHelp': 'I contenuti vengono elaborati in background',
-  'workspace.activityReady': 'Studia a modo tuo',
-  'workspace.activityReadyHelp': 'Appunti, risposte e materiale di studio',
-  'workspace.activityOpenSessions': 'Apri sessioni',
-  'workspace.activityTitle': 'Attività in background',
-  'workspace.activityEmptyTitle': 'Nessuna attività per ora',
-  'workspace.activityEmpty': 'Le importazioni e le trasformazioni compariranno qui.',
-  'workspace.details': 'Dettagli',
-  'workspace.execution': 'Esecuzione',
-  'workspace.context': 'Contesto correlato',
-  'workspace.cancelError':
-    'Impossibile confermare l’annullamento. Aggiorna per vedere lo stato attuale.',
   'workspace.state.running': 'In corso',
   'workspace.state.suspended': 'In attesa',
   'workspace.state.completed': 'Completata',
@@ -1110,7 +1071,6 @@ export const italian = Object.freeze({
   Flashcards: 'Flashcard',
   Diagrams: 'Schemi',
   Practice: 'Esercitazioni',
-  Pipelines: 'Attività',
   Settings: 'Impostazioni',
   Help: 'Aiuto',
   OpenSubject: 'Apri materia',
@@ -1246,7 +1206,6 @@ export const italian = Object.freeze({
   ContinueTitle: 'Riprendi da dove eri rimasto',
   DashboardNoSessions: 'Ancora nessuna sessione. Iniziane una per studiare i tuoi file.',
   AllCaughtUp: 'Tutto in ordine. Niente è in corso e niente richiede attenzione.',
-  OpenPipelines: 'Apri attività',
   RecentFiles: 'File recenti',
   NoFilesYet: 'Ancora nessun file. Aggiungi registrazioni, slide o appunti per iniziare.',
   OpenLibrary: 'Apri fonti',
@@ -1555,11 +1514,6 @@ export const italian = Object.freeze({
   PracticeNoResults: 'Qui trovi le domande a cui hai risposto, con cosa era giusto e perché.',
   PracticeNothingToAsk:
     "Non c'è ancora niente su cui fare domande: questa materia non ha appunti e nessuno dei suoi file è stato letto. Aggiungine, poi riprova.",
-  PipelinesDescription:
-    'Tutto ciò che Study fa in background: trascrive le registrazioni, legge i file, dà un nome alle sessioni, risponde, scrive il materiale di studio e le domande di esercitazione e corregge le risposte. Ferma ciò che è in corso o riavvialo.',
-  LoadingPipelines: 'Caricamento delle attività…',
-  PipelinesLoadError: 'Impossibile caricare le attività. Riprova.',
-  PipelinesEmpty: 'Ancora niente qui.',
   FilterAll: 'Tutte',
   GroupWorking: 'In corso',
   GroupUpNext: 'In coda',
