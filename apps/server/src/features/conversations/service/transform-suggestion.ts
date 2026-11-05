@@ -1,3 +1,16 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Coordinates saved session evidence and durable transformation field suggestions.   │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Captures suggestion requests and waits for their checkpointed results.                 │
+ * │ - Rejects results when saved session evidence changes during generation.                 │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Conversation services own evidence capture; the workflow engine owns durable execution.  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
 import { StudyError } from '@study/contracts/errors';
@@ -7,8 +20,8 @@ import { WorkflowEngine } from 'effect/workflow';
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { triggeredExecutionId } from '#server/platform/workflows/triggers';
 
-import { transformSuggestionWorkflow } from '../workflows/transform-suggestion-definition.ts';
 import { Conversations } from './index.ts';
+import { transformSuggestionWorkflow } from './transform-suggestion-definition.ts';
 
 /** Compare saved evidence, excluding the identity of the capture itself. */
 function evidence(context: typeof runSelectionContextSchema.Type) {

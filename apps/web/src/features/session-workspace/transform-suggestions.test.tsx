@@ -8,6 +8,7 @@ import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 import { Transformation } from './transformation';
 
 const api = vi.hoisted(() => ({ suggest: vi.fn() }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
@@ -23,7 +24,9 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
 vi.mock('./history', () => ({ CapturedContext: () => null }));
 
 const id = sessionIdSchema.make(1n);
+
 let cache: QueryClient;
+
 beforeEach(() => {
   vi.resetAllMocks();
   cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -40,16 +43,19 @@ function mount(active = true) {
     </QueryClientProvider>
   );
 }
+
 function deferred() {
   let resolve!: (value: string) => void;
   const promise = new Promise<string>((accept) => {
     resolve = accept;
   });
+
   return { promise, resolve };
 }
 
 testStable('generates each field independently and preserves edits during generation', async () => {
   const title = deferred();
+
   api.suggest.mockImplementation(({ field }: { field: string }) =>
     field === 'title' ? title.promise : Promise.resolve('Explain cell division')
   );
@@ -75,8 +81,10 @@ testStable('generates each field independently and preserves edits during genera
 
 testStable('ignores old results after dismiss and reopen even when kept mounted', async () => {
   const title = deferred();
+
   api.suggest.mockReturnValue(title.promise);
   const view = mount();
+
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'SessionGenerateTitle' })).toBeEnabled()
   );
@@ -117,8 +125,10 @@ testStable(
   'ignores results after saved context changes or the selected sessions change',
   async () => {
     const title = deferred();
+
     api.suggest.mockReturnValue(title.promise);
     const view = mount();
+
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'SessionGenerateTitle' })).toBeEnabled()
     );
@@ -133,6 +143,7 @@ testStable(
     await act(async () => title.resolve('Stale title'));
     expect(screen.getByLabelText('SessionOutputTitle')).toHaveValue('');
     const next = deferred();
+
     api.suggest.mockReturnValue(next.promise);
     fireEvent.click(screen.getByRole('button', { name: 'SessionGenerateTitle' }));
     await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(2));

@@ -319,7 +319,9 @@ export const Conversations = defineService(
             field: input.field,
             language: input.language
           };
+
           if (Option.isNone(existing)) tx.emit(event);
+
           return event;
         }),
       captureSessionContext: (input: typeof captureSessionContextSchema.Type) =>

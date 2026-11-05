@@ -58,7 +58,7 @@ testStable(
     await waitFor(() => expect(name).toBeEnabled());
     await user.type(name, importedSource.name);
     await user.click(confirm);
-    await locationIs(router, '/library');
+    await locationIs(router, '/sessions');
     expect(rpc['sources.deleteSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.findSource']).not.toHaveBeenCalled();
     expect(queryClient.getQueryData(['documents', 'detail', '41'])).toBe(independent);
@@ -102,7 +102,7 @@ testStable(
 );
 
 testStable(
-  'recovers a lost deletion response through durable source absence and returns to the Library',
+  'recovers a lost deletion response through durable source absence and returns to Sessions',
   async () => {
     const rpc = materialRpc();
 
@@ -126,7 +126,7 @@ testStable(
     await user.click(
       within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
     );
-    await locationIs(router, '/library');
+    await locationIs(router, '/sessions');
     expect(rpc['sources.findSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.deleteSource']).toHaveBeenCalledTimes(1);
   }

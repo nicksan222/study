@@ -22,16 +22,7 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-const pages = [
-  'Sessions',
-  'MediaList',
-  'Projects',
-  'Flashcards',
-  'Diagrams',
-  'Practice',
-  'Pipelines',
-  'Help'
-] as const;
+const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice', 'Pipelines', 'Help'] as const;
 
 beforeEach(() => {
   history.replaceState(null, '', '/');
@@ -40,18 +31,16 @@ beforeEach(() => {
 testStable.each(pages)(
   'renders the %s route with a localized heading without network access',
   async (page) => {
-    history.replaceState(null, '', `/${page === 'MediaList' ? 'media-list' : page.toLowerCase()}`);
+    history.replaceState(null, '', `/${page.toLowerCase()}`);
     const fetch = vi.spyOn(globalThis, 'fetch');
 
     render(<App />);
-    const title = page === 'MediaList' ? catalogs.english.SidebarLibrary : catalogs.english[page];
+    const title = catalogs.english[page];
 
     expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveTextContent(
       page === 'Sessions' ? catalogs.english.SessionStartHelp : catalogs.english.AppName
     );
-
-    if (page === 'MediaList') expect(location.pathname).toBe('/media-list');
 
     expect(fetch).not.toHaveBeenCalled();
   }

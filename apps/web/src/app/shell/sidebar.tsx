@@ -24,8 +24,7 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
         query={model.query}
       />
     ) : null,
-  library: ({ model, ready }) => <LibraryPanel model={model} ready={ready} section="library" />,
-  practice: ({ model, ready }) => <LibraryPanel model={model} ready={ready} section="practice" />
+  practice: ({ model, ready }) => <PracticePanel model={model} ready={ready} />
 };
 
 export function Sidebar(props: SidebarProps) {
@@ -46,10 +45,9 @@ export function Sidebar(props: SidebarProps) {
   );
 }
 
-function LibraryPanel({ model, ready, section }: PanelProps & { section: 'library' | 'practice' }) {
+function PracticePanel({ model, ready }: PanelProps) {
   return (
     <LibraryList
-      section={section}
       subjects={model.subjects}
       project={model.project}
       blocked={Boolean(model.requestedProject) && !ready}

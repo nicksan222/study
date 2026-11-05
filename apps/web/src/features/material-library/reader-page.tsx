@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { libraryReturn } from './browse-state';
 import { belongsToMaterial, materialId, versionId } from './identity';
 import { historyOptions, materialOptions, versionOptions } from './material-library.queries';
 import { MaterialLifecycle, DeletionRecovery } from './material-lifecycle';
@@ -23,7 +22,6 @@ export function ReaderPage() {
   const { t } = useI18n();
 
   useEffect(() => {
-    libraryReturn.fromReader = true;
     const main = document.querySelector<HTMLElement>('[data-library-scroll], main.study-content');
 
     if (main) main.scrollTop = 0;
@@ -37,16 +35,10 @@ export function ReaderPage() {
         <Button
           variant="ghost"
           render={
-            <Link
-              to="/library"
-              search={search.project ? { project: search.project } : {}}
-              onClick={() => {
-                libraryReturn.fromReader = true;
-              }}
-            />
+            <Link to="/practice" search={search.project ? { project: search.project } : {}} />
           }
         >
-          {t('ReaderBack')}
+          {t('Practice')}
         </Button>
       </MaterialLibrary.ReaderToolbar>
       {state.isError && (

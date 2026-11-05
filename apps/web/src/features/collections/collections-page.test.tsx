@@ -275,10 +275,6 @@ testStable(
       within(screen.getByRole('region', { name: 'Canonical name' })).getByRole('textbox')
     ).toHaveValue('Canonical name');
     expect(rpc['projects.project']).toHaveBeenLastCalledWith({ id: project.id });
-    expect(screen.getByRole('link', { name: t['collections.library'] })).toHaveAttribute(
-      'href',
-      `/library?project=${project.id}`
-    );
   }
 );
 

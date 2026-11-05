@@ -101,9 +101,6 @@ function Collection({
         <SubjectIconEditor project={project} disabled={busy} />
       </CollectionPanel.IdentityHeader>
       <CollectionPanel.Navigation>
-        <Link to="/library" search={{ project: String(project.id) }}>
-          <CollectionPanel.LinkText>{t('collections.library')}</CollectionPanel.LinkText>
-        </Link>
         <Link to="/sessions" search={{ project: String(project.id) }}>
           <CollectionPanel.LinkText>{t('collections.sessions')}</CollectionPanel.LinkText>
         </Link>

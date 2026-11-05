@@ -1,4 +1,3 @@
-import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId, ProjectId } from '@study/contracts/ids';
 import type { QueryClient } from '@tanstack/react-query';
 import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
@@ -28,23 +27,6 @@ export const documentVersionOptions = (id: StudyDocumentVersionId) =>
     queryKey: ['documents', 'version', String(id)],
     queryFn: ({ signal }) => request((rpc) => rpc['documents.version']({ id }), signal)
   });
-
-export async function listDocuments(projectId?: ProjectId, signal?: AbortSignal) {
-  const items: StudyDocumentSummary[] = [];
-  let cursor: StudyDocumentId | undefined;
-
-  do {
-    const page = await request(
-      (rpc) => rpc['documents.documents']({ limit: 100, archived: false, projectId, cursor }),
-      signal
-    );
-
-    items.push(...page.items);
-    cursor = page.nextCursor ?? undefined;
-  } while (cursor !== undefined);
-
-  return items;
-}
 
 /** Authored mutations refresh exact readers and every library/search summary of them. */
 

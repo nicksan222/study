@@ -1,14 +1,42 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Generates bounded transformation suggestions from saved conversation evidence.     │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Builds bounded prompts and selects instructions for each suggestion field.             │
+ * │ - Runs model generation inside a durable activity with evidence preflight checks.        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Conversation services supply saved evidence; this handler returns text without renaming  │
+ * │ sessions.                                                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
+import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
 import { titleAgent } from '#server/features/conversations/agents/title';
 import { Conversations } from '#server/features/conversations/service/index';
+import { transformSuggestionWorkflow } from '#server/features/conversations/service/transform-suggestion-definition';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
-import { transformSuggestionWorkflow } from './transform-suggestion-definition.ts';
+/** Bound both evidence channels so conversations cannot crowd out source passages. */
+function suggestionPrompt(context: typeof runSelectionContextSchema.Type) {
+  return JSON.stringify({
+    sessions: context.includedSessions?.map(({ title }) => title?.slice(0, 200)),
+    messages: context.messages
+      .slice(-20)
+      .map(({ role, text }) => ({ role, text: text.slice(0, 500) })),
+    sources: context.inputs.slice(0, 20).map((target) => ({
+      name: target.name.slice(0, 200),
+      passages: target.excerpts.slice(0, 3).map(({ text }) => text.slice(0, 300))
+    }))
+  });
+}
 
 export const transformSuggestionHandler = ({
   event: input
@@ -32,17 +60,7 @@ export const transformSuggestionHandler = ({
             new StudyError('not_enough', 'No saved context for suggestion')
           );
 
-        // Bound text from both channels so a long conversation cannot crowd out sources.
-        const prompt = JSON.stringify({
-          sessions: context.includedSessions?.map(({ title }) => title?.slice(0, 200)),
-          messages: context.messages
-            .slice(-20)
-            .map(({ role, text }) => ({ role, text: text.slice(0, 500) })),
-          sources: context.inputs.slice(0, 20).map((target) => ({
-            name: target.name.slice(0, 200),
-            passages: target.excerpts.slice(0, 3).map(({ text }) => text.slice(0, 300))
-          }))
-        });
+        const prompt = suggestionPrompt(context);
         const language = input.language === 'italian' ? 'Italian' : 'English';
         const instructions =
           input.field === 'title'

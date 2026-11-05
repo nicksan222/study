@@ -1,4 +1,5 @@
 import type { captureSessionContextSchema } from '@study/contracts/conversations/context';
+import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
 import type {
   editMessageInputSchema,
   setActiveVersionInputSchema
@@ -234,3 +235,14 @@ export const deleteSessionMutationOptions = (id: SessionId) =>
 
 export const retrySessionDeletionMutationOptions = (id: SessionId) =>
   mutationOptions({ mutationFn: () => retryDeletion(id), retry: false });
+
+export const transformSuggestionMutationOptions = (
+  input: Omit<typeof transformSuggestionInputSchema.Type, 'intentKey'>
+) =>
+  mutationOptions({
+    retry: false,
+    mutationFn: () =>
+      request((client) =>
+        client['conversations.suggestTransformField']({ ...input, intentKey: crypto.randomUUID() })
+      )
+  });

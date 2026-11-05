@@ -146,6 +146,7 @@ export class Workers {
       Effect.sync(() => {
         if (this.state.tag !== 'running')
           throw new StudyError('cancelled', 'Workflow worker is closing');
+
         return this.state.consumer.runtime;
       })
     );

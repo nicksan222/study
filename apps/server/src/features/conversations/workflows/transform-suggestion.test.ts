@@ -1,3 +1,17 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Verifies durable suggestions against real persistence and native RPC.              │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Exercises combined evidence, checkpoint reuse, model selection and stale results.      │
+ * │ - Checks session deletion scrubbing and authentication failures through live RPC.        │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Tests use temporary SQLite databases and a local provider fixture; no external model is  │
+ * │ called.                                                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { createServer } from 'node:http';
 
 import { StudyRpc } from '@study/contracts/rpc';
@@ -11,6 +25,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Conversations } from '#server/features/conversations/service/index';
+import { suggestTransformField } from '#server/features/conversations/service/transform-suggestion';
+import { transformSuggestionWorkflow } from '#server/features/conversations/service/transform-suggestion-definition';
 import { Documents } from '#server/features/documents/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
@@ -25,8 +41,6 @@ import { App, serve } from '#server/runtime/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 
-import { suggestTransformField } from '../service/transform-suggestion.ts';
-import { transformSuggestionWorkflow } from './transform-suggestion-definition.ts';
 import {
   transformSuggestionHandler,
   transformSuggestionRegistration
@@ -96,6 +110,7 @@ testStable(
         agentsLayer({
           model: (tier) => {
             tiers.push(tier);
+
             return Effect.succeed(model);
           },
           language: Effect.succeed('en'),
@@ -132,6 +147,7 @@ testStable(
           })
         )
       );
+
       await run(
         Effect.flatMap(Documents, (docs) =>
           docs.attach({ sessionId: second.id, documentId: source.id })
@@ -142,6 +158,7 @@ testStable(
           c.postMessage({ sessionId: first.id, text: 'Mitosis produces two daughter cells.' })
         )
       );
+
       await run(
         Effect.flatMap(Conversations, (c) =>
           c.postMessage({ sessionId: second.id, text: 'Chloroplasts capture light.' })
@@ -157,7 +174,9 @@ testStable(
           Effect.scoped(
             Effect.gen(function* () {
               const engine = yield* WorkflowEngine.WorkflowEngine;
+
               yield* engine.register(transformSuggestionWorkflow, transformSuggestionHandler);
+
               return yield* suggestTransformField({
                 sessionId,
                 additionalSessionIds,
@@ -171,6 +190,7 @@ testStable(
       const empty = await run(
         Effect.flatMap(Conversations, (c) => c.createSession({ title: 'Empty' }))
       );
+
       await expect(execute('title', 'empty', empty.id, [])).rejects.toMatchObject({
         kind: 'invalid_input'
       });
@@ -208,8 +228,10 @@ testStable(
         SELECT execution_id FROM workflow_executions WHERE workflow_tag = 'transform-suggestion/v1'
           AND json_extract(payload, '$.event.sessionId') = ${String(first.id)}
       `);
+
       assert.strictEqual(owned.length, 4);
       const deletion = await run(Effect.flatMap(Conversations, (c) => c.deleteSession(second.id)));
+
       await run(
         Effect.flatMap(Conversations, (c) =>
           withTestPublication(
@@ -218,10 +240,12 @@ testStable(
           )
         )
       );
+
       for (const row of owned) {
         const retained = context.db.orm.get<{ result: string | null }>(sql`
           SELECT result FROM workflow_executions WHERE execution_id = ${row.execution_id}
         `);
+
         assert.ok(retained);
         assert.strictEqual(retained.result, null);
       }
@@ -242,12 +266,14 @@ testStable(
     const location = createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
+
     try {
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const session = yield* client['conversations.createSession']({ title: 'Biology' });
+
             yield* client['conversations.postMessage']({
               sessionId: session.id,
               text: 'Cells divide.'
@@ -260,6 +286,7 @@ testStable(
                 language: 'english'
               })
             );
+
             assert.ok('kind' in error);
             assert.strictEqual(error.kind, 'auth');
           })

@@ -342,9 +342,7 @@ testStable.each([false, true])(
     });
 
     act(() => retirement.result.current.open('deletion'));
-    await act(async () => {
-      await retirement.result.current.inspect.mutateAsync();
-    });
+    await waitFor(() => expect(retirement.result.current.preview?.token).toBe('delete-exact'));
     await act(async () => {
       await retirement.result.current.retire.mutateAsync();
     });

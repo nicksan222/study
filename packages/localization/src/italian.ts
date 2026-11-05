@@ -391,10 +391,11 @@ export const italian = Object.freeze({
   SessionEditHelp: 'Modifica questo appunto, poi salva quando sei pronto.',
   SessionActivateHelp:
     'Rendi attuale questa versione salvata. Le altre versioni restano disponibili.',
-  AuthoredDocumentDelete: 'Rimuovi i contenuti del documento',
+  AuthoredDocumentDelete: 'Rimuovi il contenuto del documento',
   AuthoredDocumentRetirementHelp:
-    'Rimuove i contenuti selezionati del documento. Le identità delle versioni, le note delle annotazioni e i metadati di generazione sono conservati.',
-  AuthoredDocumentRetirementConfirm: 'Rimuovi questi contenuti',
+    'Rimuove definitivamente il testo dalle versioni selezionate. La cronologia, le annotazioni e i dettagli di generazione vengono conservati.',
+  AuthoredDocumentRetirementConfirm: 'Rimuovi contenuto',
+  AuthoredDocumentVersionsToRemove: 'Versioni da rimuovere',
   SessionEditNote: 'Modifica nota',
   SessionReanswer: 'Rispondi di nuovo',
   SessionImprove: 'Migliora',
