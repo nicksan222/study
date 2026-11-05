@@ -1,7 +1,7 @@
 import { projectIdSchema } from '@study/contracts/ids';
+import type { QueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
 
-import type { AppRouterContext } from '#web/app/router-context.ts';
 import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
 
 export function documentsRouteDeps({ search }: { search: { project?: string } }) {
@@ -13,7 +13,7 @@ export async function documentsRouteLoader({
   context,
   deps
 }: {
-  context: AppRouterContext;
+  context: { queryClient: QueryClient };
   deps: ReturnType<typeof documentsRouteDeps>;
 }) {
   const project = deps.project
