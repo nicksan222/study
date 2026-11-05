@@ -1,6 +1,6 @@
 import type { createUntitledSessionInputSchema } from '@study/contracts/conversations/rpc';
 import type { SessionDto } from '@study/contracts/conversations/schemas';
-import type { ProjectId, MaterialId } from '@study/contracts/ids';
+import type { ProjectId, MaterialId, SourceId, StudyDocumentId } from '@study/contracts/ids';
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
 import type { Project } from '@study/contracts/projects/schemas';
 import type { AppSettings } from '@study/contracts/settings/types';
@@ -119,3 +119,23 @@ export const deleteTheme = (id: string) =>
 export const saveAppearancePreferences = (
   preferences: Parameters<StudyClient['settings.saveAppearancePreferences']>[0]
 ) => request((client) => client['settings.saveAppearancePreferences'](preferences));
+
+export const listSubjectSources = (project: ProjectId, signal?: AbortSignal) =>
+  request(
+    (client) =>
+      collectPages((before: SourceId | undefined) =>
+        client['sources.sources']({ limit: 100, before })
+      ).pipe(Effect.map((sources) => sources.filter((source) => source.projectId === project))),
+    signal
+  );
+
+export const countDocuments = (projectId: ProjectId | undefined, signal?: AbortSignal) =>
+  request(
+    (client) =>
+      collectPages((cursor: StudyDocumentId | undefined) =>
+        client['documents.documents']({ projectId, cursor, limit: 100, archived: false }).pipe(
+          Effect.map((page) => ({ items: page.items, next: page.nextCursor }))
+        )
+      ).pipe(Effect.map((items) => items.filter((item) => item.headVersionId !== null).length)),
+    signal
+  );

@@ -59,8 +59,7 @@ metrics, remote fonts or saturated alternative palettes.
 ## Subject workspace
 
 The current subject picker owns the top of the sidebar, with search directly below it. Subject identities use one quiet letter badge throughout the picker, lists and notebook breadcrumb. Automatic initials follow the title; a saved custom one-to-three-letter monogram can replace them. The icon editor previews both modes and confirms successful saves with a toast.
-Overview, Sessions, Sources, Flashcards, Diagram, Practice and Activity all belong to that
-subject. Changing subjects keeps the section and clears the old selected item. An item's
+Overview, Sessions, Sources, Flashcards, Diagram and Practice all belong to that subject. Changing subjects keeps the section and clears the old selected item. An item's
 own subject is authoritative for deep links; unresolved or missing subjects never expose
 another subject's content. The saved current-subject hint is validated against the database.
 All subjects, Settings and Help stay global in the footer. Search is subject scoped inside

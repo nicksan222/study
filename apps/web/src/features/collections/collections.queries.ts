@@ -1,5 +1,5 @@
 import type { ProjectId, MaterialId, SessionId } from '@study/contracts/ids';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -51,3 +51,9 @@ export function sessionMembership(projectId: ProjectId, sessionId: SessionId, ad
       : client['projects.removeSession']({ projectId, sessionId })
   );
 }
+
+export const subjectProjectOptions = (id: ProjectId) =>
+  queryOptions({
+    queryKey: ['projects', 'collection', String(id)],
+    queryFn: ({ signal }) => request((client) => client['projects.project']({ id }), signal)
+  });

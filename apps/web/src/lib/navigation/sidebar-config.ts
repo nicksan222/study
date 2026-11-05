@@ -12,7 +12,6 @@ export type SidebarRouteConfig = {
 const sectionContent: Record<PageMetadata['section'], SidebarContent> = {
   sessions: 'workspace',
   documents: 'documents',
-  pipelines: 'workspace',
   practice: 'practice'
 };
 

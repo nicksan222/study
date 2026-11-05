@@ -1,5 +1,7 @@
-import { CollectionsPage } from '#web/features/collections/index.ts';
+import type { ProjectId } from '@study/contracts/ids';
 
-export function PageView() {
-  return <CollectionsPage />;
+import { SubjectPage } from '#web/features/collections/index.ts';
+
+export function PageView({ project }: { project?: ProjectId }) {
+  return project ? <SubjectPage key={String(project)} project={project} /> : null;
 }

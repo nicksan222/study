@@ -11,32 +11,39 @@ function Inlines({ items }: { items: readonly Inline[] }) {
     let child: ReactNode;
 
     if (item.type === 'break') child = <br />;
-    else if (item.type === 'link')
-      child = (
-        <a href={item.href} target="_blank" rel="noreferrer">
-          {item.text}
-        </a>
-      );
     else if (item.type === 'math') child = <code>{item.text}</code>;
     else {
-      child = item.text;
+      child = markedInline(item.text, item.marks ?? []);
 
-      for (const mark of item.marks) {
-        const tag = {
-          strong: 'strong',
-          emphasis: 'em',
-          code: 'code',
-          strike: 's',
-          subscript: 'sub',
-          superscript: 'sup'
-        }[mark];
-
-        child = createElement(tag, null, child);
-      }
+      if (item.type === 'link')
+        child = (
+          <a href={item.href} target="_blank" rel="noreferrer">
+            {child}
+          </a>
+        );
     }
 
     return <Fragment key={key}>{child}</Fragment>;
   });
+}
+
+function markedInline(
+  text: string,
+  marks: readonly Extract<Inline, { type: 'text' }>['marks'][number][]
+) {
+  let child: ReactNode = text;
+  const tags = {
+    strong: 'strong',
+    emphasis: 'em',
+    code: 'code',
+    strike: 's',
+    subscript: 'sub',
+    superscript: 'sup'
+  };
+
+  for (const mark of marks) child = createElement(tags[mark], null, child);
+
+  return child;
 }
 
 // List preorder is reconstructed into nested semantic lists, retaining explicit numbering.
@@ -236,7 +243,11 @@ function ImageContent({
 
   return (
     <figure>
-      {image ? <img src={image} alt={content.alt} /> : <p>{t('ReaderImageUnavailable')}</p>}
+      {image ? (
+        <img src={image} alt={content.alt} width={content.width} height={content.height} />
+      ) : (
+        <p>{t('ReaderImageUnavailable')}</p>
+      )}
       <figcaption>{content.alt}</figcaption>
     </figure>
   );
@@ -273,7 +284,7 @@ function DocumentRow({ row }: { row: TableRow }) {
 function DocumentCell({ cell }: { cell: TableRow['cells'][number] }) {
   return createElement(
     cell.header ? 'th' : 'td',
-    null,
+    { colSpan: cell.colspan, rowSpan: cell.rowspan },
     keyed(cell.paragraphs).map(({ value: paragraph, key }) => (
       <p key={key}>
         <Inlines items={paragraph} />

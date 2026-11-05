@@ -133,6 +133,9 @@ export function RichNoteEditorSurface({
   disabled,
   toolbarEnd,
   structured = false,
+  controls,
+  notice,
+  children,
   spellcheck = true,
   fontSize = 16
 }: {
@@ -141,6 +144,9 @@ export function RichNoteEditorSurface({
   disabled: boolean;
   toolbarEnd?: ReactNode;
   structured?: boolean;
+  controls?: ReactNode;
+  notice?: ReactNode;
+  children?: ReactNode;
   spellcheck?: boolean;
   fontSize?: number;
 }) {
@@ -168,10 +174,12 @@ export function RichNoteEditorSurface({
           labels={labels}
           disabled={disabled}
           structured={structured}
+          controls={controls}
         />
         {toolbarEnd && <div className="rich-note-toolbar-end">{toolbarEnd}</div>}
       </div>
-      <EditorContent editor={editor} className="rich-note-content" />
+      {notice}
+      {children ?? <EditorContent editor={editor} className="rich-note-content" />}
     </div>
   );
 }
@@ -190,12 +198,14 @@ function RichNoteFormatting({
   editor,
   labels,
   disabled,
-  structured = false
+  structured = false,
+  controls
 }: {
   editor: Editor;
   labels: RichNoteLabels;
   disabled: boolean;
   structured?: boolean;
+  controls?: ReactNode;
 }) {
   const state = useEditorState({
     editor,
@@ -286,6 +296,7 @@ function RichNoteFormatting({
       >
         <RemoveFormatting size={16} aria-hidden="true" />
       </Button>
+      {controls}
       <span className="rich-note-toolbar-divider" aria-hidden="true" />
       <Button
         size="icon-sm"

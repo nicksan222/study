@@ -9,6 +9,53 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { useBlankDocumentCreation } from '../session-workspace';
 
+/** Keeps document creation receipts and navigation retries shared across entry points. */
+export function useNewBlankDocument(project?: ProjectId) {
+  const { t } = useI18n();
+  const creation = useBlankDocumentCreation({ kind: 'project', projectId: project });
+  const navigate = useNavigate();
+  const [created, setCreated] = useState<{ id: StudyDocumentId; project?: ProjectId }>();
+  const [opening, setOpening] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function create() {
+    if (opening || creation.pending) return false;
+
+    setOpening(true);
+    setFailed(false);
+
+    try {
+      const retained = created?.project === project ? created?.id : undefined;
+      const id = retained ?? (await creation.create(t('SessionNewPage')))?.id;
+
+      if (id === undefined) return false;
+
+      setCreated({ id, project });
+      await navigate({
+        to: '/documents/$documentId',
+        params: { documentId: String(id) },
+        search: { project: project?.toString() }
+      });
+
+      setCreated(undefined);
+
+      return true;
+    } catch {
+      setFailed(true);
+
+      return false;
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  return {
+    create,
+    pending: opening || creation.pending,
+    error: creation.error !== undefined || failed
+  };
+}
+
 /** Creates the same blank document used in a session, then opens the shared editor. */
 export function NewBlankDocument({
   project,
@@ -20,35 +67,7 @@ export function NewBlankDocument({
   disabled?: boolean;
 }) {
   const { t } = useI18n();
-  const creation = useBlankDocumentCreation({ kind: 'project', projectId: project });
-  const navigate = useNavigate();
-  const [created, setCreated] = useState<StudyDocumentId>();
-  const [opening, setOpening] = useState(false);
-  const [failed, setFailed] = useState(false);
-
-  async function create() {
-    if (opening) return;
-
-    setOpening(true);
-    setFailed(false);
-
-    try {
-      const id = created ?? (await creation.create(t('SessionNewPage')))?.id;
-
-      if (id === undefined) return;
-
-      setCreated(id);
-      await navigate({
-        to: '/documents/$documentId',
-        params: { documentId: String(id) },
-        search: { project: project?.toString() }
-      });
-    } catch {
-      setFailed(true);
-    } finally {
-      setOpening(false);
-    }
-  }
+  const creation = useNewBlankDocument(project);
 
   return (
     <>
@@ -57,17 +76,17 @@ export function NewBlankDocument({
         variant={compact ? 'ghost-muted' : 'default'}
         aria-label={t(compact ? 'SessionCreateDocument' : 'DocumentNew')}
         title={t(compact ? 'SessionCreateDocument' : 'DocumentNew')}
-        disabled={disabled || opening || creation.pending}
-        onClick={() => void create()}
+        disabled={disabled || creation.pending}
+        onClick={() => void creation.create()}
       >
         <FilePlus2 aria-hidden="true" />
         {!compact && t('DocumentNew')}
       </Button>
-      {(creation.error !== undefined || failed) && (
+      {creation.error && (
         <ErrorState
           title={t('SessionActionErrorTitle')}
           action={
-            <Button variant="ghost" onClick={() => void create()}>
+            <Button variant="ghost" onClick={() => void creation.create()}>
               {t('Retry')}
             </Button>
           }

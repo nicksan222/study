@@ -1,17 +1,18 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
-import { MessagesSquare, FileText, GraduationCap, Activity } from 'lucide-react';
+import { MessagesSquare, FileText, GraduationCap } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import type { Section } from '#web/lib/navigation/route-contract.ts';
 import { SettingsMenu } from '#web/pages/settings/menu.tsx';
 
+import type { useSidebarCounts } from './sidebar-counts.queries';
+
 const sections = [
   ['/sessions', 'sessions', MessagesSquare, 'Sessions'],
   ['/documents', 'documents', FileText, 'SourceDocument'],
-  ['/practice', 'practice', GraduationCap, 'Practice'],
-  ['/pipelines', 'pipelines', Activity, 'Pipelines']
+  ['/practice', 'practice', GraduationCap, 'Practice']
 ] as const;
 
 /** Preserves subject scope in section links and passes resolved workspace ownership into settings. */
@@ -20,8 +21,10 @@ export function SidebarNavigation({
   settings,
   project,
   workspaceProject,
-  onNavigate
+  onNavigate,
+  counts
 }: {
+  counts?: ReturnType<typeof useSidebarCounts>;
   section: Section;
   settings: boolean;
   project: string | null;
@@ -37,6 +40,8 @@ export function SidebarNavigation({
           <Sidebar.NavigationItem
             key={to}
             label={t(label)}
+            count={counts?.[currentSection].count}
+            unresolved={currentSection === 'sessions' && counts?.sessions.unresolved}
             render={
               <Link
                 to={to}

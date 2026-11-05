@@ -214,7 +214,12 @@ export const SessionStore = defineStore({
 
             const updated = db.orm
               .update(sessions)
-              .set({ title, title_source: 'user', updated_at: unixSeconds(clock) })
+              .set({
+                title,
+                title_source: 'user',
+                context_revision: sql`${sessions.context_revision} + 1`,
+                updated_at: unixSeconds(clock)
+              })
               .where(eq(sessions.id, input.id))
               .returning()
               .get();

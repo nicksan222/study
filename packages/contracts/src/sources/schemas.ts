@@ -73,19 +73,22 @@ export const blockKinds = [
   'reference'
 ] as const;
 
+const inlineMarks = Schema.Array(
+  Schema.Literals(['strong', 'emphasis', 'code', 'strike', 'subscript', 'superscript'])
+);
+
 const inlines = Schema.Array(
   Schema.Union([
     Schema.Struct({
       type: Schema.Literal('text'),
       text: Schema.String,
-      marks: Schema.Array(
-        Schema.Literals(['strong', 'emphasis', 'code', 'strike', 'subscript', 'superscript'])
-      )
+      marks: inlineMarks
     }),
     Schema.Struct({
       type: Schema.Literal('link'),
       text: Schema.String,
-      href: Schema.String.check(Schema.makeFilter(validUrl))
+      href: Schema.String.check(Schema.makeFilter(validUrl)),
+      marks: Schema.optional(inlineMarks)
     }),
     Schema.Struct({ type: Schema.Literal('math'), text: Schema.String }),
     Schema.Struct({ type: Schema.Literal('break') })
@@ -122,7 +125,13 @@ export const blockContentSchema = Schema.Union([
     rows: Schema.Array(
       Schema.Struct({
         cells: Schema.Array(
-          Schema.Struct({ header: Schema.Boolean, paragraphs: Schema.Array(inlines) })
+          Schema.Struct({
+            header: Schema.Boolean,
+            paragraphs: Schema.Array(inlines),
+            colspan: Schema.optional(positive),
+            rowspan: Schema.optional(positive),
+            colwidth: Schema.optional(Schema.Array(natural))
+          })
         )
       })
     )
@@ -137,7 +146,9 @@ export const blockContentSchema = Schema.Union([
     type: Schema.Literal('image'),
     sourceId: sourceIdSchema,
     revision: positive,
-    alt: Schema.String
+    alt: Schema.String,
+    width: Schema.optional(positive),
+    height: Schema.optional(positive)
   }),
   Schema.Struct({
     type: Schema.Literal('reference'),

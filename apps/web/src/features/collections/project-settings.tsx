@@ -102,6 +102,26 @@ export function ProjectSettings({
   );
 }
 
+export function SubjectManagement({
+  project,
+  onDeleted
+}: {
+  project: Project;
+  onDeleted: () => void;
+}) {
+  const editor = useCollectionState();
+  const iconPending = useIsMutating({ mutationKey: ['subject-icon'] }) > 0;
+
+  return (
+    <ProjectDetails
+      project={project}
+      editor={editor}
+      busy={editor.state.pending || iconPending}
+      onDeleted={onDeleted}
+    />
+  );
+}
+
 /** Keeps rename drafts bound to their subject and acknowledges only the submitted revision. */
 function ProjectDetails({
   project,

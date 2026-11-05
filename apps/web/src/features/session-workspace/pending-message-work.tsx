@@ -99,7 +99,6 @@ function usePendingRequestWork(requestId: string, target: MessageWorkTarget) {
         cache.invalidateQueries({ queryKey: sessionKey(target.sessionId) }),
         cache.invalidateQueries({ queryKey: sessionWorkKey(target.sessionId) }),
         cache.invalidateQueries({ queryKey: ['session-execution', requestId] }),
-        cache.invalidateQueries({ queryKey: ['activity'] }),
         cache.invalidateQueries({ queryKey: ['sessions', 'sidebar-progress'] })
       ]);
     }

@@ -84,12 +84,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       );
     }
 
-    if (
-      !session ||
-      !matchesTitleRequest() ||
-      session.context_revision !== event.contextRevision ||
-      session.title_source === 'user'
-    )
+    if (!session || !matchesTitleRequest() || session.context_revision !== event.contextRevision)
       return stale();
 
     const replay = isTitleReplay(session, replayTitle);
@@ -185,9 +180,6 @@ export const TitleStore = defineStore({
           output: titleSnapshotSchema,
           run: (input) => {
             const session = requiredSession(input.sessionId);
-
-            if (session.title_source !== 'provisional')
-              throw new StudyError('invalid_input', 'user title cannot be generated');
 
             return {
               ...input,

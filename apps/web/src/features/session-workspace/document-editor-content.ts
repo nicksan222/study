@@ -40,7 +40,10 @@ function editorInlines(inlines: readonly Inline[]): Node[] {
         text: inline.text,
         marks:
           inline.type === 'link'
-            ? [{ type: 'link', attrs: { href: inline.href } }]
+            ? [
+                { type: 'link', attrs: { href: inline.href } },
+                ...(inline.marks ?? []).map((mark) => ({ type: marks[mark] }))
+              ]
             : inline.marks.map((mark) => ({ type: marks[mark] }))
       }
     ];
@@ -48,12 +51,15 @@ function editorInlines(inlines: readonly Inline[]): Node[] {
 }
 
 /** Retains source block identity separately from the editor's transient node positions. */
-export function documentToEditor(document: EditableDocument): Node {
+export function documentToEditor(
+  document: EditableDocument,
+  images: Record<string, string> = {}
+): Node {
   return {
     type: 'doc',
     content: document.blocks.length
       ? document.blocks.map((block) => {
-          const node = contentToEditor(block.content);
+          const node = contentToEditor(block.content, images);
 
           return { ...node, attrs: { ...node.attrs, blockId: block.id } };
         })
@@ -61,7 +67,7 @@ export function documentToEditor(document: EditableDocument): Node {
   };
 }
 
-function contentToEditor(content: BlockContent): Node {
+function contentToEditor(content: BlockContent, images: Record<string, string>): Node {
   switch (content.type) {
     case 'paragraph':
     case 'segment':
@@ -82,18 +88,19 @@ function contentToEditor(content: BlockContent): Node {
     case 'math':
       return { type: 'documentMath', content: textNode(content.expression) };
     case 'image':
-      return {
-        type: 'documentImage',
-        attrs: { sourceId: String(content.sourceId), revision: content.revision, alt: content.alt }
-      };
+      return editorImage(content, images);
     case 'table':
       return {
-        type: 'documentTable',
+        type: 'table',
         content: content.rows.map((row) => ({
-          type: 'documentRow',
+          type: 'tableRow',
           content: row.cells.map((cell) => ({
-            type: 'documentCell',
-            attrs: { header: cell.header },
+            type: cell.header ? 'tableHeader' : 'tableCell',
+            attrs: {
+              colspan: cell.colspan ?? 1,
+              rowspan: cell.rowspan ?? 1,
+              colwidth: cell.colwidth ?? null
+            },
             content: cell.paragraphs.map((paragraph) => ({
               type: 'paragraph',
               content: editorInlines(paragraph)
@@ -104,6 +111,23 @@ function contentToEditor(content: BlockContent): Node {
     case 'list_item':
       return editorListBlock(content.items);
   }
+}
+
+function editorImage(
+  content: Extract<BlockContent, { type: 'image' }>,
+  images: Record<string, string>
+): Node {
+  return {
+    type: 'image',
+    attrs: {
+      sourceId: String(content.sourceId),
+      revision: content.revision,
+      alt: content.alt,
+      src: images[`${content.sourceId}:${content.revision}`] ?? null,
+      width: content.width ?? null,
+      height: content.height ?? null
+    }
+  };
 }
 
 function editorParagraph(
@@ -171,27 +195,32 @@ function canonicalInlines(nodes: readonly Node[] = []): Inline[] {
 
     if (node.type !== 'text') return canonicalInlines(node.content);
 
-    const link = node.marks?.find((mark) => mark.type === 'link');
-
-    if (link) {
-      const linked: BlockContent = {
-        type: 'paragraph',
-        inlines: [{ type: 'link', text: node.text ?? '', href: String(link.attrs?.href ?? '') }]
-      };
-
-      if (Schema.is(blockContentSchema)(linked)) return [...linked.inlines];
-    }
-
-    return [
-      {
-        type: 'text',
-        text: node.text ?? '',
-        marks: Object.entries(marks)
-          .filter(([, name]) => node.marks?.some((mark) => mark.type === name))
-          .map(([name]) => name as TextMark)
-      }
-    ];
+    return [canonicalTextInline(node)];
   });
+}
+
+function canonicalTextInline(node: Node): Extract<Inline, { type: 'text' | 'link' }> {
+  const formatting = canonicalMarks(node);
+  const link = node.marks?.find((mark) => mark.type === 'link');
+
+  if (link) {
+    const linked: Extract<Inline, { type: 'link' }> = {
+      type: 'link',
+      text: node.text ?? '',
+      href: String(link.attrs?.href ?? ''),
+      ...(formatting.length ? { marks: formatting } : {})
+    };
+
+    if (Schema.is(blockContentSchema)({ type: 'paragraph', inlines: [linked] })) return linked;
+  }
+
+  return { type: 'text', text: node.text ?? '', marks: formatting };
+}
+
+function canonicalMarks(node: Node): TextMark[] {
+  return Object.entries(marks)
+    .filter(([, name]) => node.marks?.some((mark) => mark.type === name))
+    .map(([name]) => name as TextMark);
 }
 
 const nodeText = (node: Node): string => node.text ?? (node.content ?? []).map(nodeText).join('');
@@ -234,15 +263,54 @@ function readParagraph(node: Node): BlockContent {
   return { type: node.attrs?.sourceKind === 'segment' ? 'segment' : 'paragraph', inlines };
 }
 
+type TableContent = Extract<BlockContent, { type: 'table' }>;
+
+function cellDimensions(attributes: NonNullable<Node['attrs']>) {
+  const result: { colspan?: number; rowspan?: number; colwidth?: number[] } = {};
+
+  if (Number(attributes.colspan) > 1) result.colspan = Number(attributes.colspan);
+
+  if (Number(attributes.rowspan) > 1) result.rowspan = Number(attributes.rowspan);
+
+  if (attributes.colwidth) result.colwidth = attributes.colwidth;
+
+  return result;
+}
+
+function readCell(cell: Node): TableContent['rows'][number]['cells'][number] {
+  return {
+    header: cell.type === 'tableHeader',
+    ...cellDimensions(cell.attrs ?? {}),
+    paragraphs: (cell.content ?? []).map((paragraph) => canonicalInlines(paragraph.content))
+  };
+}
+
 function readTable(node: Node): BlockContent {
   return {
     type: 'table',
-    rows: (node.content ?? []).map((row) => ({
-      cells: (row.content ?? []).map((cell) => ({
-        header: !!cell.attrs?.header,
-        paragraphs: (cell.content ?? []).map((paragraph) => canonicalInlines(paragraph.content))
-      }))
-    }))
+    rows: (node.content ?? []).map((row) => ({ cells: (row.content ?? []).map(readCell) }))
+  };
+}
+
+function imageDimensions(attributes: NonNullable<Node['attrs']>) {
+  const result: { width?: number; height?: number } = {};
+
+  if (Number(attributes.width) > 0) result.width = Math.round(Number(attributes.width));
+
+  if (Number(attributes.height) > 0) result.height = Math.round(Number(attributes.height));
+
+  return result;
+}
+
+function readImage(node: Node): BlockContent {
+  const attributes = node.attrs ?? {};
+
+  return {
+    type: 'image',
+    sourceId: Schema.decodeUnknownSync(sourceIdSchema)(BigInt(attributes.sourceId)),
+    revision: attributes.revision,
+    alt: attributes.alt ?? '',
+    ...imageDimensions(attributes)
   };
 }
 
@@ -259,13 +327,8 @@ const contentReaders: Record<string, ContentReader> = {
     language: node.attrs?.language ?? null
   }),
   documentMath: (node) => ({ type: 'math', expression: nodeText(node) }),
-  documentImage: (node) => ({
-    type: 'image',
-    sourceId: Schema.decodeUnknownSync(sourceIdSchema)(BigInt(node.attrs?.sourceId)),
-    revision: node.attrs?.revision,
-    alt: node.attrs?.alt ?? ''
-  }),
-  documentTable: readTable,
+  image: readImage,
+  table: readTable,
   documentList: (node) => ({
     type: 'list_item',
     items: (node.content ?? []).flatMap((list) => canonicalList(list))

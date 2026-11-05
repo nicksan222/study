@@ -1,11 +1,15 @@
 import { Shell as PageShell } from '@study/ui/shell';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
+import { useQuery } from '@tanstack/react-query';
 import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
+import { DefaultContextMenu } from './default-context-menu';
 import { Sidebar } from './sidebar';
+import { useSidebarContext } from './sidebar-context.queries';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
 function useShellNavigation(sessions: boolean) {
@@ -90,42 +94,69 @@ export function Shell() {
   const sessions = title === 'Sessions';
   const layout = usePageLayout(sessions, metadata.section === 'documents');
   const navigation = useShellNavigation(sessions);
+  const context = useSidebarContext({
+    title,
+    section: metadata.section ?? 'sessions',
+    scope: metadata.scope ?? 'project',
+    sidebar: metadata.sidebar
+  });
+  const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
 
   return (
-    <SidebarUI.Frame
-      variant={sessions ? 'session-entry' : 'default'}
-      data-entry-navigation={navigation.open}
-      collapsed={navigation.collapsed}
-      defaultWidth={288}
-      minWidth={224}
-      minContentWidth={360}
-      storageKey="study-sidebar-width"
-      resizeLabel={t('ResizeSidebar')}
-      resizeHint={t('ResizeSidebarHint')}
-    >
-      {navigation.visible && (
-        <Sidebar
-          metadata={{
-            title,
-            section: metadata.section ?? 'sessions',
-            scope: metadata.scope ?? 'project',
-            sidebar: metadata.sidebar
-          }}
-          collapsed={navigation.collapsed}
-          onToggle={navigation.toggle}
-        />
-      )}
-      <SidebarUI.Main>
-        <ShellHeader
-          sessions={sessions}
-          visible={navigation.visible}
-          title={t(title)}
-          onToggle={navigation.toggle}
-        />
-        <PageShell.PageBody layout={layout}>
-          <Outlet />
-        </PageShell.PageBody>
-      </SidebarUI.Main>
-    </SidebarUI.Frame>
+    <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
+      <SidebarUI.Frame
+        variant={sessions ? 'session-entry' : 'default'}
+        data-entry-navigation={navigation.open}
+        collapsed={navigation.collapsed}
+        defaultWidth={288}
+        minWidth={224}
+        minContentWidth={360}
+        storageKey="study-sidebar-width"
+        resizeLabel={t('ResizeSidebar')}
+        resizeHint={t('ResizeSidebarHint')}
+      >
+        {navigation.visible && (
+          <Sidebar
+            metadata={{
+              title,
+              section: metadata.section ?? 'sessions',
+              scope: metadata.scope ?? 'project',
+              sidebar: metadata.sidebar
+            }}
+            collapsed={navigation.collapsed}
+            onToggle={navigation.toggle}
+          />
+        )}
+        <SidebarUI.Main>
+          <ShellHeader
+            sessions={sessions}
+            visible={navigation.visible}
+            title={t(title)}
+            onToggle={navigation.toggle}
+          />
+          <PageShell.PageBody layout={layout}>
+            <Outlet />
+          </PageShell.PageBody>
+        </SidebarUI.Main>
+      </SidebarUI.Frame>
+    </DefaultContextMenu>
   );
+}
+
+function useContextMenuScope(
+  scope: 'global' | 'project' | undefined,
+  context: ReturnType<typeof useSidebarContext>
+) {
+  const subjects = useQuery(projectsQueryOptions());
+  const project =
+    scope === 'global'
+      ? undefined
+      : subjects.data?.find((subject) => String(subject.id) === context.requestedProject)?.id;
+  const shortcutsDisabled =
+    !context.ready ||
+    (scope !== 'global' &&
+      Boolean(context.requestedProject) &&
+      (!subjects.isSuccess || project === undefined));
+
+  return { project, shortcutsDisabled };
 }

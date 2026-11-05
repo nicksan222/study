@@ -6,7 +6,7 @@ import { sessionOptions } from '../features/session-workspace';
 import { sidebarOwner } from '../lib/study-client/sidebar-owner.queries';
 import { Page } from '../pages/sessions/page';
 
-export const Route = createFileRoute('/sessions/$sessionId')({
+export const Route = createFileRoute('/session/$sessionId')({
   staticData: {
     title: 'Sessions',
     section: 'sessions',
