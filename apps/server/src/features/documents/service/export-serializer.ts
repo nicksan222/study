@@ -95,6 +95,7 @@ export function serializeDocumentVersion(
             text,
             asHtml
           );
+
           if (!safeExportLink(item.href)) {
             omissions.push({ code: 'unsafe_link' });
 

@@ -2,7 +2,7 @@ import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/i
 import { studyDocumentVersionIdSchema } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
 import { Schema } from 'effect';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { sessionDocumentOptions, SessionDocumentPanel } from '../session-workspace';
 import { DocumentVersionStepper } from './document-version-stepper';
@@ -21,25 +21,30 @@ export function AuthoredDocumentReader({
       : undefined
   );
 
-  useEffect(() => {
+  const [previousVersion, setPreviousVersion] = useState(initialVersion);
+
+  if (previousVersion !== initialVersion) {
+    setPreviousVersion(initialVersion);
     setSelected(
       initialVersion
         ? Schema.decodeUnknownSync(studyDocumentVersionIdSchema)(BigInt(initialVersion))
         : undefined
     );
-  }, [initialVersion]);
+  }
+
   const current = useQuery(sessionDocumentOptions(id));
-  useEffect(() => {
-    if (selected !== undefined && selected === current.data?.headVersionId) setSelected(undefined);
-  }, [selected, current.data?.headVersionId]);
+
+  if (selected !== undefined && selected === current.data?.headVersionId) setSelected(undefined);
+
+  const versionId = selected === current.data?.headVersionId ? undefined : selected;
 
   const [restoring, setRestoring] = useState(false);
 
   return (
     <SessionDocumentPanel
       documentId={id}
-      versionId={selected}
-      actions={(document, version, disabled) => (
+      versionId={versionId}
+      renderActions={(document, version, disabled) => (
         <>
           <DocumentVersionStepper
             documentId={id}

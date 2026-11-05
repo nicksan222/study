@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { Button } from './button';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from './dialog';
@@ -17,16 +17,16 @@ export function StructuredLinkDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [url, setUrl] = useState('');
-  useEffect(() => {
-    if (open) setUrl(String(editor.getAttributes('link').href ?? ''));
-  }, [open, editor]);
+  const [url, setUrl] = useState(() => String(editor.getAttributes('link').href ?? ''));
+
   let valid = false;
+
   try {
     valid = ['http:', 'https:', 'mailto:'].includes(new URL(url).protocol);
   } catch {
     /* An incomplete URL keeps the form disabled. */
   }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup closeLabel={labels.cancel} className="structured-editor-insert-dialog">
@@ -36,8 +36,11 @@ export function StructuredLinkDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault();
+
             if (!valid) return;
+
             const chain = editor.chain().focus().extendMarkRange('link');
+
             if (editor.state.selection.empty && !editor.isActive('link'))
               chain
                 .insertContent({
@@ -47,6 +50,7 @@ export function StructuredLinkDialog({
                 })
                 .run();
             else chain.setLink({ href: url }).run();
+
             onOpenChange(false);
           }}
         >

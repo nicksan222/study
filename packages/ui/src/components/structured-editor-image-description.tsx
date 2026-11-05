@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import { Button } from './button';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from './dialog';
@@ -19,10 +19,8 @@ export function StructuredImageDescription({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [alt, setAlt] = useState('');
-  useEffect(() => {
-    if (open) setAlt(String(editor.state.doc.nodeAt(position)?.attrs.alt ?? ''));
-  }, [open, editor, position]);
+  const [alt, setAlt] = useState(() => String(editor.state.doc.nodeAt(position)?.attrs.alt ?? ''));
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup closeLabel={labels.cancel} className="structured-editor-insert-dialog">
@@ -32,6 +30,7 @@ export function StructuredImageDescription({
         <form
           onSubmit={(event) => {
             event.preventDefault();
+
             if (editor.state.doc.nodeAt(position)?.type.name === 'image')
               editor
                 .chain()
@@ -39,6 +38,7 @@ export function StructuredImageDescription({
                 .setNodeSelection(position)
                 .updateAttributes('image', { alt })
                 .run();
+
             onOpenChange(false);
           }}
         >

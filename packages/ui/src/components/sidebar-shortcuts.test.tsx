@@ -24,6 +24,7 @@ function Destinations({ names, before }: { names: string[]; before?: ReactNode }
               icon={null}
               render={
                 <a
+                  aria-label={name}
                   href={'#' + name}
                   onClick={(event) => {
                     event.preventDefault();
@@ -88,17 +89,25 @@ testStable(
         before={
           <>
             <div hidden>
-              <Sidebar.Item label="Hidden" icon={null} render={<a href="#hidden" />} />
+              <Sidebar.Item
+                label="Hidden"
+                icon={null}
+                render={<a aria-label="Hidden" href="#hidden" />}
+              />
             </div>
             <details>
               <summary>Closed group</summary>
-              <Sidebar.Item label="Collapsed" icon={null} render={<a href="#collapsed" />} />
+              <Sidebar.Item
+                label="Collapsed"
+                icon={null}
+                render={<a aria-label="Collapsed" href="#collapsed" />}
+              />
             </details>
             <Sidebar.Item
               label="Disabled"
               icon={null}
               aria-disabled="true"
-              render={<a href="#disabled" />}
+              render={<a aria-label="Disabled" href="#disabled" />}
             />
           </>
         }
@@ -125,6 +134,7 @@ testStable('does not intercept modified shortcuts, composition, repeats or modal
     { key: '1', metaKey: true, isComposing: true }
   ])
     fireEvent.keyDown(window, options);
+
   expect(screen.getByLabelText('Selected item')).toHaveTextContent('none');
 
   view.rerender(

@@ -19,16 +19,20 @@ export function useEditorImageInsertion(upload?: UploadImage) {
 
   const insert = useCallback(async (editor: Editor, files: File[], position?: number) => {
     const retain = currentUpload.current;
+
     if (!retain || !canInsert(editor, files, busy.current)) return;
+
     busy.current = true;
     setPending(true);
     setFailed(false);
+
     try {
       await insertImages(editor, files, retain, position);
     } catch {
       if (!editor.isDestroyed) setFailed(true);
     } finally {
       busy.current = false;
+
       if (!editor.isDestroyed) setPending(false);
     }
   }, []);
@@ -43,17 +47,23 @@ async function insertImages(editor: Editor, files: File[], retain: UploadImage, 
     from = transaction.mapping.map(from);
     to = transaction.mapping.map(to);
   };
+
   editor.on('transaction', map);
+
   try {
     for (const file of files) {
       const image = await retain(file);
+
       if (editor.isDestroyed || !editor.isEditable) return;
+
       const inserted = editor
         .chain()
         .focus()
         .insertContentAt({ from, to }, { type: 'image', attrs: { ...image, src: null } })
         .run();
+
       if (!inserted) throw new Error('Image insertion failed');
+
       from = editor.state.selection.to;
       to = from;
     }

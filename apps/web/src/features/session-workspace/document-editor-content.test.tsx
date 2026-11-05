@@ -2,6 +2,7 @@ import { sourceIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import type { BlockContent } from '@study/contracts/sources/schemas';
 import { testStable } from '@study/testing/vitest';
+import type { StructuredEditorInstance } from '@study/ui/structured-editor';
 import { StructuredEditor } from '@study/ui/structured-editor';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -359,7 +360,7 @@ testStable(
     );
     const editor = (
       screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
-        editor: import('@study/ui/structured-editor').StructuredEditorInstance;
+        editor: StructuredEditorInstance;
       }
     ).editor;
 
@@ -397,7 +398,7 @@ testStable(
       />
     );
     const element = screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
-      editor: import('@study/ui/structured-editor').StructuredEditorInstance;
+      editor: StructuredEditorInstance;
     };
 
     act(() => {
@@ -455,6 +456,8 @@ testStable(
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Image description' }));
     const dialog = await screen.findByRole('dialog', { name: 'Image description' });
 
+    expect(within(dialog).getByLabelText('Image description')).toHaveValue('Original');
+
     fireEvent.change(within(dialog).getByLabelText('Image description'), {
       target: { value: 'New description' }
     });
@@ -491,7 +494,7 @@ testStable(
       />
     );
     const element = screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
-      editor: import('@study/ui/structured-editor').StructuredEditorInstance;
+      editor: StructuredEditorInstance;
     };
 
     act(() => {

@@ -266,6 +266,7 @@ testStable(
 
           yield* conversations.postMessage({ sessionId: session.id, text: 'Cells and tissues' });
           const first = yield* conversations.requestTitle({ sessionId: session.id });
+
           yield* withTestPublication(
             context,
             conversations
@@ -274,6 +275,7 @@ testStable(
           );
           assert.strictEqual((yield* conversations.session(session.id)).title, 'Cell biology');
           const second = yield* conversations.requestTitle({ sessionId: session.id });
+
           yield* withTestPublication(
             context,
             conversations
@@ -283,6 +285,7 @@ testStable(
           assert.strictEqual((yield* conversations.session(session.id)).title, 'Tissues');
           yield* conversations.renameSession({ id: session.id, title: 'Personal' });
           const pending = yield* conversations.requestTitle({ sessionId: session.id });
+
           yield* conversations.renameSession({ id: session.id, title: 'Personal' });
           assert.strictEqual(
             (yield* Effect.flip(conversations.titleSnapshot({ requestId: pending.requestId })))

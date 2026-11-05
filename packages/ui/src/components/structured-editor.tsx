@@ -150,8 +150,6 @@ export function StructuredEditor({
 }) {
   const images = useEditorImageInsertion(uploadImage);
   const file = useRef<HTMLInputElement>(null);
-  const imagePosition = useRef(0);
-  const [dialog, setDialog] = useState<'table' | 'link' | 'image'>();
   const extensions = useMemo(
     () => editorExtensions(Boolean(uploadImage), images.insert),
     [images.insert, uploadImage]
@@ -178,10 +176,9 @@ export function StructuredEditor({
 
   useEditorValue(editor, value);
 
+  const dialogs = useEditorDialog(editor);
+
   const chooseImage = uploadImage ? () => file.current?.click() : undefined;
-  const closeDialog = (open: boolean) => {
-    if (!open) setDialog(undefined);
-  };
   const upload = uploadImage
     ? (files: File[]) => {
         void images.insert(editor, files);
@@ -205,8 +202,8 @@ export function StructuredEditor({
             disabled={disabled}
             uploading={images.pending}
             onInsertImage={chooseImage}
-            onInsertTable={() => setDialog('table')}
-            onEditLink={() => setDialog('link')}
+            onInsertTable={dialogs.openTable}
+            onEditLink={dialogs.openLink}
           />
         }
         notice={
@@ -217,13 +214,10 @@ export function StructuredEditor({
           editor={editor}
           labels={labels}
           disabled={disabled}
-          onInsertTable={() => setDialog('table')}
-          onEditLink={() => setDialog('link')}
+          onInsertTable={dialogs.openTable}
+          onEditLink={dialogs.openLink}
           onInsertImage={chooseImage}
-          onEditImage={() => {
-            imagePosition.current = editor.state.selection.from;
-            setDialog('image');
-          }}
+          onEditImage={dialogs.openImage}
           upload={upload}
         >
           <EditorContent editor={editor} className="rich-note-content" />
@@ -235,24 +229,11 @@ export function StructuredEditor({
         disabled={disabled || images.pending}
         upload={upload}
       />
-      <StructuredTableDialog
+      <StructuredEditorDialogs
         editor={editor}
         labels={labels}
-        open={dialog === 'table'}
-        onOpenChange={closeDialog}
-      />
-      <StructuredLinkDialog
-        editor={editor}
-        labels={labels}
-        open={dialog === 'link'}
-        onOpenChange={closeDialog}
-      />
-      <StructuredImageDescription
-        editor={editor}
-        position={imagePosition.current}
-        labels={labels}
-        open={dialog === 'image'}
-        onOpenChange={closeDialog}
+        dialog={dialogs.dialog}
+        onOpenChange={dialogs.close}
       />
     </>
   );
@@ -315,12 +296,14 @@ function ImageInsertionNotice({
         {labels.imageError}
       </p>
     );
+
   if (pending)
     return (
       <p className="structured-editor-notice" role="status">
         {labels.imageUploading}
       </p>
     );
+
   return null;
 }
 
@@ -336,6 +319,7 @@ function ImageFileInput({
   upload?: (files: File[]) => void;
 }) {
   if (!upload) return null;
+
   return (
     <input
       className="sr-only"
@@ -347,6 +331,7 @@ function ImageFileInput({
       disabled={disabled}
       onChange={(event) => {
         const files = Array.from(event.target.files ?? []);
+
         event.target.value = '';
         upload(files);
       }}
@@ -359,6 +344,7 @@ function editorExtensions(
   insert: ReturnType<typeof useEditorImageInsertion>['insert']
 ) {
   if (!upload) return structuredEditorExtensions;
+
   return [
     ...structuredEditorExtensions,
     FileHandler.configure({
@@ -371,4 +357,55 @@ function editorExtensions(
       }
     })
   ];
+}
+
+function StructuredEditorDialogs({
+  editor,
+  labels,
+  dialog,
+  onOpenChange
+}: {
+  editor: Editor;
+  labels: StructuredEditorLabels;
+  dialog: EditorDialog | undefined;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <>
+      <StructuredTableDialog
+        editor={editor}
+        labels={labels}
+        open={dialog?.type === 'table'}
+        onOpenChange={onOpenChange}
+      />
+      {dialog?.type === 'link' && (
+        <StructuredLinkDialog editor={editor} labels={labels} open onOpenChange={onOpenChange} />
+      )}
+      {dialog?.type === 'image' && (
+        <StructuredImageDescription
+          editor={editor}
+          position={dialog.position}
+          labels={labels}
+          open
+          onOpenChange={onOpenChange}
+        />
+      )}
+    </>
+  );
+}
+
+type EditorDialog = { type: 'table' | 'link' } | { type: 'image'; position: number };
+
+function useEditorDialog(editor: Editor) {
+  const [dialog, setDialog] = useState<EditorDialog>();
+
+  return {
+    dialog,
+    openTable: () => setDialog({ type: 'table' }),
+    openLink: () => setDialog({ type: 'link' }),
+    openImage: () => setDialog({ type: 'image', position: editor.state.selection.from }),
+    close: (open: boolean) => {
+      if (!open) setDialog(undefined);
+    }
+  };
 }

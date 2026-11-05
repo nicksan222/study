@@ -10,6 +10,7 @@ import { blankDocument } from '../document-editing/block-editor';
 import { useDocumentEditorImages } from './editor-images.queries';
 
 const rpc = vi.hoisted(() => ({ create: vi.fn(), export: vi.fn() }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
     invoke({
@@ -17,13 +18,17 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
       'sources.exportRevision': rpc.export
     })
 }));
+
 const caches: QueryClient[] = [];
+
 const createUrl = vi.fn(() => 'blob:exact-image');
+
 const revokeUrl = vi.fn();
 
 beforeEach(() => {
   vi.resetAllMocks();
   const NativeURL = URL;
+
   vi.stubGlobal(
     'URL',
     class extends NativeURL {
@@ -41,6 +46,7 @@ afterEach(() => {
 
 function mount(document = blankDocument()) {
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
   caches.push(cache);
   const view = renderHook(
     () =>
@@ -51,12 +57,15 @@ function mount(document = blankDocument()) {
       )
     }
   );
+
   return { ...view, cache };
 }
 
 function file(name: string, type: string, bytes: Uint8Array) {
   const value = new File([new Uint8Array(bytes)], name, { type });
+
   Object.defineProperty(value, 'arrayBuffer', { value: async () => bytes.buffer });
+
   return value;
 }
 
@@ -85,6 +94,7 @@ testStable(
 
 testStable('rejects non-image files before creating a source', async () => {
   const view = mount();
+
   await expect(
     view.result.current.upload(
       file('note.txt', 'text/plain', new TextEncoder().encode('Not an image'))
@@ -97,6 +107,7 @@ testStable(
   'resolves the exact revision and revokes its preview after availability fails',
   async () => {
     const sourceId = sourceIdSchema.make(17n);
+
     rpc.export.mockResolvedValue({
       sourceId,
       revision: 1n,

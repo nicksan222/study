@@ -73,6 +73,7 @@ function useDocumentVersionNavigation(
   const previous = index >= 0 ? versions[index + 1] : undefined;
   const next = index > 0 ? versions[index - 1] : undefined;
   const { hasNextPage, isFetching, isError, fetchNextPage } = query;
+
   useEffect(() => {
     if (version && index < 0 && hasNextPage && !isFetching && !isError) void fetchNextPage();
   }, [version, index, hasNextPage, isFetching, isError, fetchNextPage]);
@@ -80,12 +81,15 @@ function useDocumentVersionNavigation(
   async function older() {
     if (previous) {
       onChange(previous.id);
+
       return;
     }
+
     const result = await fetchNextPage();
     const items = result.data?.pages.flatMap((page) => page.items) ?? [];
     const position = items.findIndex((item) => item.id === version?.id);
     const older = position >= 0 ? items[position + 1] : undefined;
+
     if (older) onChange(older.id);
   }
 
@@ -108,6 +112,7 @@ function DocumentVersionLabel({
   const { t } = useI18n();
   const latest = version?.id === headVersionId;
   const number = String(version?.number ?? '');
+
   return (
     <Notebook.VersionLabel
       role="status"

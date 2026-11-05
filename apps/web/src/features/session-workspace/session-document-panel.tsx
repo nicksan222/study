@@ -16,7 +16,7 @@ import { sessionDocumentOptions, useSessionDocumentAutosave } from './session-do
 import { SessionReadError } from './status';
 
 type EditorActions = {
-  actions?: (
+  renderActions?: (
     document: StudyDocument,
     version: StudyDocumentVersion,
     disabled: boolean
@@ -26,7 +26,7 @@ type EditorActions = {
 
 export function SessionDocumentPanel({
   documentId,
-  actions,
+  renderActions,
   versionId
 }: { documentId: StudyDocumentId } & EditorActions) {
   const { t } = useI18n();
@@ -40,7 +40,7 @@ export function SessionDocumentPanel({
   if (!state.data) return null;
 
   return state.data.version ? (
-    <DocumentEditor document={state.data} actions={actions} versionId={versionId} />
+    <DocumentEditor document={state.data} renderActions={renderActions} versionId={versionId} />
   ) : (
     <Desk.Recovery>
       <p>{t('SessionReadUnavailable')}</p>
@@ -50,7 +50,7 @@ export function SessionDocumentPanel({
 
 function DocumentEditor({
   document,
-  actions,
+  renderActions,
   versionId
 }: { document: StudyDocument } & EditorActions) {
   const model = useSessionDocumentAutosave(document);
@@ -77,7 +77,7 @@ function DocumentEditor({
               <>
                 <DocumentSaveStatus model={model} />
                 <DocumentMetadata document={document} />
-                {actions?.(document, version, blocked || exact.isFetching)}
+                {renderActions?.(document, version, blocked || exact.isFetching)}
               </>
             }
           />
@@ -92,6 +92,7 @@ function useViewedDocument(document: StudyDocument, versionId?: StudyDocumentVer
   const exact = useQuery({ ...documentVersionOptions(versionId!), enabled: historical });
   const candidate = historical ? exact.data : document.version;
   const version = candidate?.documentId === document.id ? candidate : undefined;
+
   return { historical, exact, version, unavailable: historical && exact.isSuccess && !version };
 }
 
@@ -103,6 +104,7 @@ function DocumentSaveStatus({ model }: { model: ReturnType<typeof useSessionDocu
     : model.dirty
       ? 'SessionAutosavePending'
       : 'SessionAutosaved';
+
   return (
     <Desk.SaveStatus role="status">
       <Icon size={14} />
@@ -120,6 +122,7 @@ function DocumentRecovery({
   model: ReturnType<typeof useSessionDocumentAutosave>;
 } & Omit<ReturnType<typeof useViewedDocument>, 'version'>) {
   const { t } = useI18n();
+
   return (
     <>
       {model.error !== undefined && (
