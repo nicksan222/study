@@ -48,7 +48,7 @@ const paragraph = (text: string) =>
 testStable(
   'user judgments pin both rich ranges; claim edits, citation copies and restoration never inherit verification',
   async () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
     const context = new ServerContext(location.open());
     const handlers = DocumentsRpcLive.pipe(
       Layer.provideMerge(Documents.layer),

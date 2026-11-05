@@ -45,7 +45,7 @@ const meta = {
 testStable(
   'native saves race on one expected revision, retain both rich alternatives and replay after reopen',
   async () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
 
     let context = new ServerContext(location.open());
 

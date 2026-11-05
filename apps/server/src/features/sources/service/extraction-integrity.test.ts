@@ -29,7 +29,7 @@ import { transaction } from '#server/platform/definitions/define-store';
 testStable(
   'an unpinned published source extraction is immutable until its retained identity is released',
   async () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
     const context = new ServerContext(location.open());
 
     try {

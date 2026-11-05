@@ -7,7 +7,7 @@ import { createTestDatabase } from '../src/testing.ts';
 testStable(
   'raw reply retirement fences publication and capture resurrection independently of learning cleanup',
   () => {
-    const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+    const location = createTestDatabase();
     const db = location.open();
 
     try {

@@ -32,7 +32,7 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 testStable('guarded generation publishes once and replays its receipt', async () => {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -389,7 +389,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
 });
 
 testStable('receipt persists across reopen and a new workflow execution', async () => {
-  const location = createTestDatabase(process.env.STUDY_FINAL_MIGRATIONS);
+  const location = createTestDatabase();
   let context = new ServerContext(location.open());
   let requestId = '';
   let versionId: StudyDocumentVersionId;
