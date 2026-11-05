@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import type { exactInputSchema } from '@study/contracts/documents/schemas';
+import type { documentTransformContextSchema } from '@study/contracts/documents/transform';
 import * as t from '@study/contracts/documents/transform';
 import { StudyError } from '@study/contracts/errors';
 
@@ -26,7 +26,7 @@ import {
 import { DocumentTransformsStore } from '#server/features/documents/store/transforms';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
-type Context = typeof runSelectionContextSchema.Type;
+type Context = typeof documentTransformContextSchema.Type;
 
 export function requestTransform(
   tx: Transaction,
@@ -108,6 +108,14 @@ export function publishTransform(
   )
     throw new StudyError('not_found', 'Captured document inputs are unavailable');
 
+  if (request.merge) {
+    for (const id of request.merge.versions) {
+      const version = tx.store(DocumentVersionsStore).version({ id });
+      const document = tx.store(DocumentsStore).document({ id: version.documentId });
+      if (document.headVersionId !== id || document.archivedAt !== null)
+        throw new StudyError('invalid_input', 'A selected document changed during the merge');
+    }
+  }
   validateDocumentTransform(context, value, request.editTargetVersionId);
   const common = publicationContent(request, context, value);
   let versionId;
@@ -123,12 +131,21 @@ export function publishTransform(
 
     versionId = result.proposedVersionId;
   } else {
-    const result = tx
-      .store(DocumentsStore)
-      .createGenerated({ ...common, title: request.title, sessionId: context.sessionId });
+    const result = tx.store(DocumentsStore).createGenerated({
+      ...common,
+      title: request.title,
+      sessionId: context.sessionId ?? undefined,
+      projectId: request.merge?.projectId
+    });
 
     versionId = result.version.id;
   }
+
+  if (request.merge)
+    for (const id of request.merge.versions) {
+      const version = tx.store(DocumentVersionsStore).version({ id });
+      tx.store(DocumentsStore).archive({ id: version.documentId, archived: true });
+    }
 
   store.finishTransform({ ...value, versionId });
   tx.emit({

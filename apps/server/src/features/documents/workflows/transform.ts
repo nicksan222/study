@@ -13,8 +13,8 @@
  */
 
 import { selectionReferenceKey } from '@study/contracts/conversations/context';
-import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import type { citationSchema } from '@study/contracts/documents/schemas';
+import type { documentTransformContextSchema } from '@study/contracts/documents/transform';
 import { transformPublicationSchema } from '@study/contracts/documents/transform';
 import type { transformSnapshotSchema } from '@study/contracts/documents/transform';
 import { failureSchema, StudyError } from '@study/contracts/errors';
@@ -79,7 +79,9 @@ export const documentTransformHandler = ({
           new StudyError('cancelled', 'Document generation is no longer active')
         );
 
-      return yield* conversations.documentTransformContext({ requestId: request.id });
+      return yield* request.merge
+        ? docs.mergeContext({ requestId: request.id })
+        : conversations.documentTransformContext({ requestId: request.id });
     });
 
     return yield* Effect.gen(function* () {
@@ -97,7 +99,7 @@ export const documentTransformHandler = ({
         error: failureSchema,
         execute: withPublicationGuard(
           database.store,
-          conversations.publishDocumentTransform(output)
+          request.merge ? docs.publishMerge(output) : conversations.publishDocumentTransform(output)
         )
       });
     }).pipe(
@@ -132,7 +134,7 @@ export const documentTransformRegistration = defineWorkflowHandler(documentTrans
 function generateTransform(
   request: typeof transformSnapshotSchema.Type,
   eventId: string,
-  preflight: Effect.Effect<typeof runSelectionContextSchema.Type, StudyError>
+  preflight: Effect.Effect<typeof documentTransformContextSchema.Type, StudyError>
 ) {
   return Activity.make({
     name: 'generate-authored-document',

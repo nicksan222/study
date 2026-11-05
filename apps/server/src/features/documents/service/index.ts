@@ -41,6 +41,7 @@ import {
   DocumentHistoryStore,
   DocumentDeletionStore
 } from '#server/features/documents/store/index';
+import { DocumentMergesStore } from '#server/features/documents/store/merges';
 import { DocumentTransformsStore } from '#server/features/documents/store/transforms';
 import { Sources } from '#server/features/sources/index';
 import { Workflows } from '#server/features/workflows/index';
@@ -54,6 +55,7 @@ import type { Transaction } from '#server/platform/definitions/define-store';
 
 import { assessCitation, citationAssessments } from './assessments.ts';
 import { serializeDocumentVersion } from './export-serializer.ts';
+import { requestMerge, mergeContext } from './merge.ts';
 import { requestTransform, publishTransform, retryTransform } from './transforms.ts';
 
 function documentPublished(tx: Transaction, versionId: StudyDocumentVersionId) {
@@ -116,6 +118,7 @@ export const Documents = defineService(
   Effect.gen(function* () {
     const docs = yield* useStore(DocumentsStore);
     const transforms = yield* useStore(DocumentTransformsStore);
+    const merges = yield* useStore(DocumentMergesStore);
     const proposals = yield* useStore(DocumentProposalsStore);
     const annotations = yield* useStore(DocumentAnnotationsStore);
     const annotationHistory = yield* useStore(DocumentAnnotationHistoryStore);
@@ -131,6 +134,26 @@ export const Documents = defineService(
         transaction((tx) => assessCitation(tx, v)),
       assessments: (v: typeof evidence.assessmentsInputSchema.Type) =>
         transaction((tx) => citationAssessments(tx, v)),
+      merges: merges.merges,
+      merge: (v: typeof t.mergeRequestSchema.Type) => transaction((tx) => requestMerge(tx, v)),
+      mergeContext: (v: typeof t.transformKeySchema.Type) =>
+        transaction((tx) => mergeContext(tx, v)),
+      publishMerge: (v: typeof t.transformPublicationSchema.Type) =>
+        publicationTransaction((tx) => {
+          const request = tx.store(DocumentTransformsStore).transform(v);
+          if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+          return publishTransform(
+            tx,
+            request.resultVersionId === null ? mergeContext(tx, v) : undefined,
+            v
+          );
+        }),
+      retryMerge: (v: { requestId: string; retryId: string }) =>
+        transaction((tx) => {
+          const request = tx.store(DocumentTransformsStore).transform(v);
+          if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+          return retryTransform(tx, v);
+        }),
       transform: transforms.transform,
       cancelTransform: (v: typeof t.transformKeySchema.Type) =>
         Effect.gen(function* () {

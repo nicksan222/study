@@ -135,8 +135,8 @@ export const DocumentTransformsStore = defineStore({
         }),
         requestTransform: storeMutation({
           input: Schema.Struct({
-            ...t.transformRequestSchema.fields,
-            sessionId: sessionIdSchema,
+            ...t.storedTransformRequestSchema.fields,
+            sessionId: Schema.NullOr(sessionIdSchema),
             instruction: Schema.String
           }),
           output: Schema.Struct({ created: Schema.Boolean, request: t.transformSnapshotSchema }),
@@ -144,8 +144,8 @@ export const DocumentTransformsStore = defineStore({
             const requestId = `document/${value.contextRequestId}`;
             const hash = intentHash(
               Schema.Struct({
-                ...t.transformRequestSchema.fields,
-                sessionId: sessionIdSchema,
+                ...t.storedTransformRequestSchema.fields,
+                sessionId: Schema.NullOr(sessionIdSchema),
                 instruction: Schema.String
               }),
               value

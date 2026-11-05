@@ -54,7 +54,8 @@
 .document-overview-rows > li {
   border-block-end: 1px solid var(--border);
 }
-.document-overview-rows > li > a {
+.document-overview-rows > li > a,
+.document-overview-rows > li > .document-selection-row {
   display: grid;
   grid-template-columns: 2.5rem minmax(0, 1fr) auto 1rem;
   align-items: center;
@@ -63,6 +64,16 @@
   border-radius: 0.5rem;
   color: inherit;
   text-decoration: none;
+}
+.document-overview-rows > li > .document-selection-row {
+  width: 100%;
+  height: auto;
+  text-align: start;
+  white-space: normal;
+  justify-content: stretch;
+}
+.document-selection-row[aria-pressed='true'] {
+  background: var(--accent);
 }
 .document-overview-rows > li > a:hover {
   background: var(--accent);
@@ -113,7 +124,8 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.document-overview-rows > li > a > svg {
+.document-overview-rows > li > a > svg,
+.document-overview-rows > li > .document-selection-row > svg {
   width: 1rem;
   height: 1rem;
   color: var(--muted-foreground);
@@ -157,7 +169,8 @@
     gap: 1rem;
     margin-block-end: 2rem;
   }
-  .document-overview-rows > li > a {
+  .document-overview-rows > li > a,
+  .document-overview-rows > li > .document-selection-row {
     grid-template-columns: 2rem minmax(0, 1fr) 1rem;
     gap: 0.5rem 0.75rem;
     padding: 1rem 0.25rem;
@@ -175,7 +188,8 @@
     grid-column: 2;
     grid-row: 2;
   }
-  .document-overview-rows > li > a > svg {
+  .document-overview-rows > li > a > svg,
+  .document-overview-rows > li > .document-selection-row > svg {
     grid-column: 3;
     grid-row: 1 / 3;
   }

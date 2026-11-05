@@ -9,13 +9,23 @@ import {
 } from '@study/ui/context-menu';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
 import { Loading } from '@study/ui/loading';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { ArrowUpRight, History, Sparkles, Text, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  ArrowUpRight,
+  History,
+  Sparkles,
+  Text,
+  Trash2
+} from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
+import { request } from '#web/lib/study-client/request.ts';
 
 import { ContentReadError } from '../document-presentation';
 import { DocumentMetadataDialog, sessionDocumentOptions } from '../session-workspace';
@@ -36,6 +46,14 @@ export function DocumentContextMenu({
 }) {
   const { t } = useI18n();
   const [action, setAction] = useState<Action>();
+  const cache = useQueryClient();
+  const archive = useMutation({
+    mutationFn: () =>
+      request((rpc) =>
+        rpc['documents.archive']({ id: document.id, archived: document.archivedAt === null })
+      ),
+    onSuccess: () => invalidateDocuments(cache)
+  });
   const search = project ? { project: String(project) } : {};
 
   return (
@@ -76,6 +94,14 @@ export function DocumentContextMenu({
             <History aria-hidden="true" />
             {t('ReaderHistory')}
           </ContextMenuItem>
+          <ContextMenuItem disabled={archive.isPending} onClick={() => archive.mutate()}>
+            {document.archivedAt === null ? (
+              <Archive aria-hidden="true" />
+            ) : (
+              <ArchiveRestore aria-hidden="true" />
+            )}
+            {t(document.archivedAt === null ? 'DocumentsArchive' : 'DocumentsUnarchive')}
+          </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" onClick={() => setAction('delete')}>
             <Trash2 aria-hidden="true" />
@@ -83,6 +109,7 @@ export function DocumentContextMenu({
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
+      {archive.error && <ContentReadError error={archive.error} />}
       {action && (
         <DocumentActionDialog
           id={document.id}
