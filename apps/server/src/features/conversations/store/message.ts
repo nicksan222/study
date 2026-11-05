@@ -131,6 +131,19 @@ function makeHelpers({ db, clock }: StoreResources) {
 
     if (!m) return null;
 
+    const answer = m.question_version_id
+      ? db.orm
+          .select({
+            messageId: conversation_question_answers.answer_message_id,
+            requestId: conversation_question_answers.request_id,
+            archivedAt: messages.archived_at
+          })
+          .from(conversation_question_answers)
+          .leftJoin(messages, eq(messages.id, conversation_question_answers.answer_message_id))
+          .where(eq(conversation_question_answers.version_id, m.question_version_id))
+          .get()
+      : undefined;
+
     return {
       question:
         m.question_kind && m.question_origin && m.question_version_id
@@ -138,26 +151,9 @@ function makeHelpers({ db, clock }: StoreResources) {
               kind: m.question_kind,
               origin: m.question_origin,
               versionId: m.question_version_id,
-              answerMessageId: db.orm
-                .select()
-                .from(conversation_question_answers)
-                .where(eq(conversation_question_answers.version_id, m.question_version_id))
-                .get()?.answer_message_id,
-              answerRequestId: db.orm
-                .select()
-                .from(conversation_question_answers)
-                .where(eq(conversation_question_answers.version_id, m.question_version_id))
-                .get()?.request_id,
-              answerArchived:
-                db.orm
-                  .select({ archivedAt: messages.archived_at })
-                  .from(conversation_question_answers)
-                  .innerJoin(
-                    messages,
-                    eq(messages.id, conversation_question_answers.answer_message_id)
-                  )
-                  .where(eq(conversation_question_answers.version_id, m.question_version_id))
-                  .get()?.archivedAt != null
+              answerMessageId: answer?.messageId,
+              answerRequestId: answer?.requestId,
+              answerArchived: answer?.archivedAt != null
             }
           : undefined,
       id: m.id,

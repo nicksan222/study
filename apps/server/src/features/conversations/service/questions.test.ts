@@ -20,6 +20,7 @@ import { expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Settings } from '#server/features/settings/index';
+import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -334,3 +335,117 @@ testStable('explicit Ask and requested replies are reused by automatic answering
     location.cleanup();
   }
 });
+
+testStable(
+  'empty attachment captures and inactive-version deletion do not schedule classification',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const sources = yield* Sources;
+          const session = yield* c.createSession({ title: 'Scheduling' });
+          const source = yield* sources.createSource({
+            name: 'Notes.txt',
+            bytes: new TextEncoder().encode('Material'),
+            projectId: null
+          });
+
+          yield* c.postMessage({
+            sessionId: session.id,
+            text: '  ',
+            sourceIds: [source.id],
+            requestReply: false
+          });
+          expect(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .filter((e) => e.type === 'ConversationQuestionRequested')
+          ).toHaveLength(0);
+          const first = yield* c.postMessage({
+            sessionId: session.id,
+            text: 'First note',
+            requestReply: false
+          });
+          const edited = yield* c.editMessage({
+            messageId: first.id,
+            text: 'Why does this happen?'
+          });
+          const input = { messageId: first.id, expectedActiveVersionId: edited.activeVersionId! };
+
+          yield* withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }));
+          const before = context.db.orm.select().from(workflowEvents).all().length;
+          const remaining = yield* c.deleteMessageVersion({
+            messageId: first.id,
+            versionId: first.activeVersionId!
+          });
+
+          expect(remaining.question?.kind).toBe('question');
+          expect(context.db.orm.select().from(workflowEvents).all()).toHaveLength(before);
+        }).pipe(
+          Effect.provide(Layer.merge(Conversations.layer, Sources.layer)),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'deleting a question cascades its pending answer and fences late publication',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const session = yield* c.createSession({ title: 'Deletion' });
+          const question = yield* c.postMessage({
+            sessionId: session.id,
+            text: 'Why does ice float?',
+            requestReply: false
+          });
+          const input = {
+            messageId: question.id,
+            expectedActiveVersionId: question.activeVersionId!
+          };
+
+          yield* c.setMessageKind({ ...input, kind: 'question' });
+          const answer = yield* c.answerQuestion(input);
+
+          yield* c.replySnapshot({ requestId: answer.requestId });
+          yield* c.deleteMessage(question.id);
+          expect((yield* Effect.result(c.message(answer.messageId)))._tag).toBe('Failure');
+          expect(
+            (yield* Effect.result(c.replySnapshot({ requestId: answer.requestId })))._tag
+          ).toBe('Failure');
+          expect(
+            (yield* Effect.result(
+              withTestPublication(
+                context,
+                c.publishReply({ requestId: answer.requestId, text: 'Late answer', citations: [] })
+              )
+            ))._tag
+          ).toBe('Failure');
+          expect((yield* c.thread({ sessionId: session.id, limit: 30 })).items).toHaveLength(0);
+        }).pipe(
+          Effect.provide(Conversations.layer),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

@@ -2,7 +2,7 @@ import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
@@ -38,6 +38,8 @@ beforeEach(() => {
   );
 });
 afterEach(() => {
+  vi.useRealTimers();
+
   for (const cache of caches.splice(0)) cache.clear();
 });
 
@@ -250,3 +252,24 @@ testStable('uses the authoritative receipt after a linked answer is deleted', as
   expect(screen.getByRole('button', { name: 'SessionAnswerQuestion' })).toBeEnabled();
   expect(screen.queryByRole('button', { name: 'SessionViewAnswer' })).toBeNull();
 });
+
+testStable.each(['completed', 'cancelled', 'running'])(
+  'polls only while the answer is active: %s',
+  async (status) => {
+    vi.useFakeTimers();
+    executions.mockResolvedValue({
+      items: [{ id: 'execution', status, outcome: status === 'completed' ? 'success' : null }]
+    });
+    mount(note('question', 8n, 'request-1'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(executions).toHaveBeenCalledOnce();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9000);
+    });
+
+    if (status === 'running') expect(executions.mock.calls.length).toBeGreaterThan(1);
+    else expect(executions).toHaveBeenCalledOnce();
+  }
+);

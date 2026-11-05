@@ -752,9 +752,10 @@ export const Conversations = defineService(
         }),
       deleteMessageVersion: (input: typeof setActiveVersionInputSchema.Type) =>
         transaction((tx) => {
+          const previous = tx.store(MessageStore).message(input.messageId).activeVersionId;
           const message = tx.store(MessageStore).deleteMessageVersion(input);
 
-          scheduleQuestion(tx, message, true);
+          if (previous !== message.activeVersionId) scheduleQuestion(tx, message, true);
 
           return resolveMessageCitations(tx, message);
         }),
@@ -1144,37 +1145,34 @@ const deletionEventTypes = [
   'MaterialGenerationFailed'
 ] as const;
 
+/** Schedules replay-safe detection only when the saved note is eligible. */
 function scheduleQuestion(tx: Transaction, message: ChatMessage, reclassify = false) {
-  if (
-    message.role !== 'user' ||
-    message.format === 'document' ||
-    !message.activeVersionId ||
-    message.question?.origin === 'manual'
-  )
-    return;
+  const versionId = message.activeVersionId;
+
+  if (!versionId || !questionEligible(message)) return;
 
   if (
     !reclassify &&
     tx
       .store(QuestionStore)
-      .questionSnapshot({ messageId: message.id, expectedActiveVersionId: message.activeVersionId })
-      .scheduled
+      .questionSnapshot({ messageId: message.id, expectedActiveVersionId: versionId }).scheduled
   )
     return;
 
   tx.emit({
     type: 'ConversationQuestionRequested',
-    eventId: reclassify ? randomUUID() : `question/${message.id}/${message.activeVersionId}`,
+    eventId: reclassify ? randomUUID() : `question/${message.id}/${versionId}`,
     causationId: null,
-    correlationId: `question/${message.id}/${message.activeVersionId}`,
+    correlationId: `question/${message.id}/${versionId}`,
     inputVersion: 1,
     depth: 0,
     sessionId: message.sessionId,
     messageId: message.id,
-    versionId: message.activeVersionId
+    versionId
   });
 }
 
+/** Reuses an existing answer or captures the exact question version for generation. */
 function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchema.Type) {
   const existing = tx.store(QuestionAnswerStore).findQuestionAnswer(input);
 
@@ -1219,6 +1217,7 @@ function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchem
   return result;
 }
 
+/** Keeps explicit reply requests reusable without imposing automatic-question publication rules. */
 function retainExplicitQuestionAnswer(
   tx: Transaction,
   message: ChatMessage,
@@ -1233,6 +1232,7 @@ function retainExplicitQuestionAnswer(
     });
 }
 
+/** Allows a new request only after unfinished answer work has settled unsuccessfully. */
 function questionAnswerRetryable(tx: Transaction, receipt: typeof replyRequestSchema.Type) {
   const answer = tx.store(MessageStore).message(receipt.messageId);
   const version = answer.versions.find((v) => v.id === receipt.versionId);
@@ -1247,5 +1247,18 @@ function questionAnswerRetryable(tx: Transaction, receipt: typeof replyRequestSc
       (run) =>
         (run.status === 'completed' && run.outcome === 'failure') || run.status === 'cancelled'
     )
+  );
+}
+
+/** Attachment-only and manually classified notes never consume background detection work. */
+function questionEligible(message: ChatMessage) {
+  const text =
+    message.versions.find((version) => version.id === message.activeVersionId)?.text ?? '';
+
+  return (
+    message.role === 'user' &&
+    message.format !== 'document' &&
+    message.question?.origin !== 'manual' &&
+    !!text.trim()
   );
 }

@@ -184,6 +184,7 @@ export const QuestionStore = defineStore({
   }
 });
 
+/** Resolves an available user note while fencing stale or deleting session identities. */
 function makeCurrent({ db }: Pick<StoreResources, 'db'>) {
   const current = (input: typeof questionVersionInputSchema.Type) => {
     const row = db.orm

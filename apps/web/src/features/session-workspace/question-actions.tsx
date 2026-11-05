@@ -57,6 +57,7 @@ export function QuestionActions({
   );
 }
 
+/** Restores archived answers or navigates to their authoritative persisted identity. */
 function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage }) {
   const { t } = useI18n();
 
@@ -88,6 +89,7 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
   );
 }
 
+/** Keeps read failures and retriable mutations beside the question they affect. */
 function QuestionFeedback({ model }: { model: Model }) {
   return (
     <>

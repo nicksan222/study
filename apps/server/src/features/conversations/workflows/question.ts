@@ -35,6 +35,7 @@ export const conversationQuestionWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
+/** Checkpoints generation and publishes only while the question version remains current. */
 export const conversationQuestionHandler = ({
   event
 }: typeof conversationQuestionWorkflow.payloadSchema.Type) =>

@@ -265,6 +265,7 @@ function MessageEntry({
   );
 }
 
+/** Names question entries without changing the authorship of ordinary notes or replies. */
 function messageAuthor(message: Message, versionId?: VersionId) {
   if (
     message.role === 'user' &&
@@ -276,6 +277,7 @@ function messageAuthor(message: Message, versionId?: VersionId) {
   return messageAuthors[message.role];
 }
 
+/** Keeps content, question controls and pending work attached to the displayed version. */
 function MessageVersionBody({
   message,
   version,

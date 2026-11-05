@@ -8,6 +8,7 @@ import { request } from '#web/lib/study-client/request.ts';
 
 import { executionOptions, sessionKey } from './session-workspace.queries';
 
+/** Shares version-bound question mutations and polls only active answer executions. */
 export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
   const cache = useQueryClient();
   const target = { messageId: message.id, expectedActiveVersionId: versionId };
@@ -45,6 +46,11 @@ export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
   const execution = useQuery({
     ...executionOptions(requestId ?? ''),
     enabled: !!requestId,
+    refetchInterval: (query) => {
+      const run = query.state.data?.items[0];
+
+      return run && (run.status === 'completed' || run.status === 'cancelled') ? false : 3000;
+    },
     select: (page) => page.items[0]
   });
   const canRetry = execution.data?.outcome === 'failure' || execution.data?.status === 'cancelled';
@@ -71,6 +77,7 @@ export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
   };
 }
 
+/** Retries the failed operation with its original version and classification intent. */
 function retryQuestionAction({
   answer,
   mark,
@@ -81,6 +88,7 @@ function retryQuestionAction({
   else if (restore.error) restore.mutate();
 }
 
+/** Limits question controls to complete current content while a mutation owns submission. */
 function questionActionState(message: ChatMessage, versionId: VersionId, pending: boolean) {
   const question = message.question?.versionId === versionId ? message.question : undefined;
   const version = message.versions.find((item) => item.id === versionId);
@@ -92,6 +100,7 @@ function questionActionState(message: ChatMessage, versionId: VersionId, pending
   };
 }
 
+/** Exposes retry only for transient failures on an available question version. */
 function questionErrorRetryable(blocked: boolean, error: unknown) {
   return !blocked && !!error && isRetryable(toStudyError(error).kind);
 }
