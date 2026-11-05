@@ -59,6 +59,7 @@ export function DefaultContextMenu({
   return (
     <ContextMenu>
       <ContextMenuTrigger
+        className="h-full"
         tabIndex={-1}
         onContextMenu={(event) => {
           if (event.defaultPrevented) event.preventBaseUIHandler();
