@@ -274,8 +274,15 @@ function useSettledPreview(rows: { current: HTMLDivElement | null }, count: numb
 function RichSession(props: RowProps) {
   const { t } = useI18n();
   const settlement = useSessionSettlement(props.session.id);
+  const preferences = useWorkspacePreferences();
+  const compact = preferences.sidebarDensity === 'compact';
   const [documentOpen, setDocumentOpen] = useState(false);
   const blocked = settlement.isPending || !!props.progress?.running;
+  const documentAction = !props.settled && props.progress?.activity !== 'generating' && (
+    <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
+      {t('SidebarTurnIntoDoc')}
+    </SidebarUI.SettleAction>
+  );
 
   return (
     <SidebarUI.SessionEntry
@@ -284,19 +291,20 @@ function RichSession(props: RowProps) {
     >
       <SessionLink {...props} />
       {!props.selection.items && (
-        <SidebarUI.SessionRowActions>
-          {!props.settled && (
-            <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
-              {t('SidebarTurnIntoDoc')}
-            </SidebarUI.SettleAction>
+        <>
+          {!compact && documentAction && (
+            <SidebarUI.SessionRowActions>{documentAction}</SidebarUI.SessionRowActions>
           )}
-          <SidebarUI.SettleAction
-            disabled={blocked}
-            onClick={() => settlement.mutate(!props.settled)}
-          >
-            {t(props.settled ? 'SidebarReopen' : 'SidebarSettle')}
-          </SidebarUI.SettleAction>
-        </SidebarUI.SessionRowActions>
+          <SidebarUI.SessionRowActions placement="top">
+            {compact && documentAction}
+            <SidebarUI.SettleAction
+              disabled={blocked}
+              onClick={() => settlement.mutate(!props.settled)}
+            >
+              {t(props.settled ? 'SidebarReopen' : 'SidebarSettle')}
+            </SidebarUI.SettleAction>
+          </SidebarUI.SessionRowActions>
+        </>
       )}
       {documentOpen && (
         <SessionDocumentDialog

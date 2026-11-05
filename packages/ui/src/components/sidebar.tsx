@@ -427,8 +427,18 @@ function SessionCount(props: ComponentProps<'span'>) {
   return <span {...props} className="study-session-document-count" />;
 }
 
-function SessionRowActions({ className, ...props }: ComponentProps<'div'>) {
-  return <div {...props} className={cn('study-session-row-actions', className)} />;
+function SessionRowActions({
+  className,
+  placement = 'bottom',
+  ...props
+}: ComponentProps<'div'> & { placement?: 'top' | 'bottom' }) {
+  return (
+    <div
+      {...props}
+      data-placement={placement}
+      className={cn('study-session-row-actions', className)}
+    />
+  );
 }
 
 function SettleAction(props: ComponentProps<typeof Button>) {

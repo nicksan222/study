@@ -83,6 +83,24 @@ testStable(
     );
 
     await screen.findByText('SidebarGenerating');
+    const generatingRow = screen
+      .getByRole('link', { name: 'Session 3' })
+      .closest('.study-session-entry') as HTMLElement;
+    const idleRow = screen
+      .getByRole('link', { name: 'Session 1' })
+      .closest('.study-session-entry') as HTMLElement;
+
+    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoDoc' })).toBeNull();
+    const generatingSettle = within(generatingRow).getByRole('button', { name: 'SidebarSettle' });
+
+    expect(generatingSettle).toBeDisabled();
+    expect(generatingSettle.parentElement).toHaveAttribute('data-placement', 'top');
+    expect(
+      within(idleRow).getByRole('button', { name: 'SidebarTurnIntoDoc' }).parentElement
+    ).toHaveAttribute('data-placement', 'bottom');
+    expect(
+      within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
+    ).toHaveAttribute('data-placement', 'top');
     const groups = view.container.querySelectorAll('details');
 
     expect(groups[0]).toHaveAttribute('open');
@@ -106,6 +124,10 @@ testStable(
     await waitFor(() => expect(compact).toHaveAttribute('data-layout', 'compact'));
     expect(within(compact).getByTitle('SidebarGeneratedDocuments')).toHaveTextContent('1');
     expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
+    expect(within(idleRow).getByRole('button', { name: 'SidebarTurnIntoDoc' }).parentElement).toBe(
+      within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
+    );
+    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoDoc' })).toBeNull();
     expect(
       within(screen.getByRole('link', { name: 'Session 3' })).getByText('SidebarGenerating')
     ).toBeInTheDocument();
