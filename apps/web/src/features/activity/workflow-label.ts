@@ -7,6 +7,7 @@ const workflowLabels: Readonly<Partial<Record<string, StaticMessageKey>>> = {
   'document-transform': 'workspace.task.document-transform',
   'material-generation': 'workspace.task.material-generation',
   'conversation-reply': 'workspace.task.conversation-reply',
+  'transform-suggestion': 'workspace.task.transform-suggestion',
   'conversation-title': 'workspace.task.conversation-title',
   'conversation-attachment-wake': 'workspace.task.conversation-attachment-wake',
   'recording-post': 'workspace.task.recording-post',

@@ -13,6 +13,7 @@ function TransformOperation(props: Omit<ComponentPropsWithRef<typeof Button>, 'c
 }
 
 export const Notebook = {
+  FieldHeading: part('div', 'session-field-heading'),
   TransformOperations: part('div', 'session-transform-operations'),
   TransformOperation,
   Attachments: part('div', 'session-attachments'),

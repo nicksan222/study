@@ -154,7 +154,22 @@ export const renameSessionInputSchema = Schema.Struct({
   title: Schema.String
 });
 
+export const transformSuggestionInputSchema = Schema.Struct({
+  sessionId: sessionIdSchema,
+  additionalSessionIds: Schema.optional(
+    Schema.Array(sessionIdSchema).check(Schema.isMaxLength(19))
+  ),
+  intentKey: Schema.String.check(Schema.isBetweenLength(1, 160)),
+  field: Schema.Literals(['title', 'instruction']),
+  language: Schema.Literals(['english', 'italian'])
+});
+
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('suggestTransformField', {
+    payload: transformSuggestionInputSchema,
+    success: Schema.String,
+    error: failureSchema
+  }),
   Rpc.make('setSessionSettled', {
     payload: setSessionSettledInputSchema,
     success: Schema.Struct({}),

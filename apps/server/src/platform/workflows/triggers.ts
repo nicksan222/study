@@ -41,6 +41,23 @@ const workflowPayloadSchema = Schema.Struct({ event: workflowEventSchema });
 
 const payloadCodec = Schema.toCodecJson(workflowPayloadSchema);
 
+/** Dispatch and callers awaiting a committed request share one execution. */
+export function triggeredExecutionId(
+  event: Pick<WorkflowEvent, 'eventId' | 'inputVersion'>,
+  trigger: Pick<Trigger, 'subscription' | 'workflowVersion'>
+) {
+  return createHash('sha256')
+    .update(
+      JSON.stringify([
+        event.eventId,
+        trigger.subscription,
+        trigger.workflowVersion,
+        event.inputVersion
+      ])
+    )
+    .digest('hex');
+}
+
 export function validateTriggerGraph(
   edges: readonly { event: EventType; emits: readonly EventType[] }[],
   maxFanout = 16,
@@ -129,18 +146,10 @@ export function dispatchPending(
 
       for (const row of rows) {
         const event = decodeEvent(row.payload);
-        const executionId = createHash('sha256')
-          .update(
-            JSON.stringify([
-              event.eventId,
-              trigger.subscription,
-              trigger.workflowVersion,
-              event.inputVersion
-            ])
-          )
-          .digest('hex');
+        const executionId = triggeredExecutionId(event, trigger);
         const payload = JSON.stringify(Schema.encodeSync(payloadCodec)({ event }));
 
+        // A caller may have started the committed request before the consumer tick.
         db.insert(workflow_executions)
           .values({
             execution_id: executionId,
@@ -152,6 +161,7 @@ export function dispatchPending(
             created_at: BigInt(now),
             updated_at: BigInt(now)
           })
+          .onConflictDoNothing()
           .run();
         db.insert(workflowReceipts)
           .values({

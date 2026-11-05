@@ -23,6 +23,8 @@ export type Attempt = {
 export type TransformDraft = {
   title: string;
   instruction: string;
+  titleRevision?: number;
+  instructionRevision?: number;
   operations: TransformInput['operations'];
   attempt?: Attempt;
   pending?: boolean;

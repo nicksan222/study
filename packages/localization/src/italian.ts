@@ -438,6 +438,7 @@ export const italian = Object.freeze({
   'workspace.task.document-transform': 'Riscrivi documento',
   'workspace.task.material-generation': 'Crea materiale di studio',
   'workspace.task.conversation-reply': 'Genera risposta',
+  'workspace.task.transform-suggestion': 'Suggerisci i dettagli del documento',
   'workspace.task.conversation-title': 'Assegna un nome alla sessione',
   'workspace.task.conversation-attachment-wake': 'Prepara allegati',
   'workspace.task.recording-post': 'Salva registrazione',
@@ -879,6 +880,15 @@ export const italian = Object.freeze({
     'Usa le ultime 50 voci salvate nel quaderno principale di ogni sessione e le fonti selezionate, entro il limite del contesto.',
   DocumentCurrentSession: 'Questa sessione',
   DocumentAdvancedOptions: 'Opzioni avanzate',
+  SessionTitleSuggestionError: 'Impossibile generare un titolo',
+  SessionInstructionsSuggestionError: 'Impossibile generare le istruzioni',
+  SessionSuggestionContextError:
+    'Salva del contenuto nelle sessioni selezionate, poi riprova. Se il materiale salvato è cambiato, controllalo prima.',
+  SessionSuggestionError:
+    'Prova a generare di nuovo oppure scrivi il testo. La bozza viene conservata.',
+  SessionGenerateTitle: 'Genera il titolo del documento',
+  SessionGenerateInstructions: 'Genera le istruzioni',
+  SessionGeneratingSuggestion: 'Generazione dalle sessioni e dalle fonti salvate…',
   SessionOutputTitle: 'Titolo del documento',
   SessionOutputTitleHelp: 'Scegli il titolo che apparirà nel nuovo documento.',
   SessionInstructions: 'Istruzioni (facoltative)',

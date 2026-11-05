@@ -138,6 +138,21 @@ export class Workers {
     return { runtime, fiber, unsubscribe };
   }
 
+  async runWorkflow<A>(
+    effect: Effect.Effect<A, StudyError, WorkflowEngine.WorkflowEngine>
+  ): Promise<A> {
+    await this.start();
+    const runtime = await this.transition(
+      Effect.sync(() => {
+        if (this.state.tag !== 'running')
+          throw new StudyError('cancelled', 'Workflow worker is closing');
+        return this.state.consumer.runtime;
+      })
+    );
+
+    return runtime.runPromise(effect);
+  }
+
   cancelExecution(input: typeof cancelExecutionInputSchema.Type): Promise<void> {
     return this.transition(
       Effect.gen({ self: this }, function* () {

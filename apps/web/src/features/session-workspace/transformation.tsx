@@ -7,7 +7,13 @@ import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient
+} from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
@@ -26,9 +32,11 @@ import {
   generationOptions,
   selectionOptions,
   sessionGenerationsOptions,
-  sessionKey
+  sessionKey,
+  sessionOptions
 } from './session-workspace.queries';
 import { ExecutionStatus, SessionError, SessionReadError } from './status';
+import { TransformSuggestion } from './transform-suggestion';
 import {
   transformDraftOptions,
   transformAttemptOptions,
@@ -55,7 +63,8 @@ const operations = [
 function useTransformation(
   id: SessionId,
   sessions?: readonly SelectedSession[],
-  onStarted?: () => void
+  onStarted?: () => void,
+  active = true
 ) {
   const { t, locale } = useI18n();
   const cache = useQueryClient();
@@ -68,8 +77,24 @@ function useTransformation(
   const state = useQuery(options);
   const draft = state.data;
   const setDraft = (patch: Partial<TransformDraft>) =>
-    cache.setQueryData<TransformDraft>(key, (previous) => ({ ...(previous ?? initial), ...patch }));
+    cache.setQueryData<TransformDraft>(key, (previous) => ({
+      ...(previous ?? initial),
+      ...patch,
+      titleRevision: (previous?.titleRevision ?? 0) + (patch.title !== undefined ? 1 : 0),
+      instructionRevision:
+        (previous?.instructionRevision ?? 0) + (patch.instruction !== undefined ? 1 : 0)
+    }));
   const selection = useQuery(selectionOptions(id));
+  const contextIds = [id, ...additionalSessionIds];
+  const contextSessions = useQueries({ queries: contextIds.map(sessionOptions) });
+  const contextSelections = useQueries({ queries: contextIds.map(selectionOptions) });
+  const suggestionIdentity = JSON.stringify([
+    key,
+    locale,
+    active,
+    contextSessions.map((query) => query.data?.updatedAt?.toString()),
+    contextSelections.map((query) => query.data?.revision.toString())
+  ]);
   const submit = useMutation({
     retry: false,
     onError: (error) => setDraft({ unavailable: toStudyError(error).kind === 'not_found' }),
@@ -104,6 +129,14 @@ function useTransformation(
 
   return {
     id,
+    active,
+    suggestionIdentity,
+    suggestionReady: [...contextSessions, ...contextSelections].every((query) => query.isSuccess),
+    suggestionContext: () =>
+      JSON.stringify(
+        contextIds.map((sessionId) => cache.getQueriesData({ queryKey: sessionKey(sessionId) })),
+        (_, value: unknown) => (typeof value === 'bigint' ? String(value) : value)
+      ),
     sessions,
     additionalSessionIds,
     t,
@@ -119,18 +152,20 @@ function useTransformation(
   };
 }
 
-type TransformationModel = ReturnType<typeof useTransformation>;
+export type TransformationModel = ReturnType<typeof useTransformation>;
 
 export function Transformation({
   id,
   sessions,
-  onStarted
+  onStarted,
+  active = true
 }: {
   id: SessionId;
   sessions?: readonly SelectedSession[];
   onStarted?: () => void;
+  active?: boolean;
 }) {
-  const model = useTransformation(id, sessions, onStarted);
+  const model = useTransformation(id, sessions, onStarted, active);
 
   return (
     <>
@@ -165,7 +200,7 @@ function TransformFields({ model }: { model: TransformationModel }) {
 
   return (
     <>
-      <label htmlFor={`transform-title-${id}`}>{t('SessionOutputTitle')}</label>
+      <TransformSuggestion key={`title/${model.suggestionIdentity}`} model={model} field="title" />
       <Notebook.Muted>{t('SessionOutputTitleHelp')}</Notebook.Muted>
       <Input
         id={`transform-title-${id}`}
@@ -173,7 +208,11 @@ function TransformFields({ model }: { model: TransformationModel }) {
         value={draft.title}
         onChange={(event) => setDraft({ title: event.target.value })}
       />
-      <label htmlFor={`transform-instruction-${id}`}>{t('SessionInstructions')}</label>
+      <TransformSuggestion
+        key={`instruction/${model.suggestionIdentity}`}
+        model={model}
+        field="instruction"
+      />
       <Notebook.Muted>{t('SessionInstructionsHelp')}</Notebook.Muted>
       <Textarea
         id={`transform-instruction-${id}`}

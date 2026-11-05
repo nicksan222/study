@@ -1597,3 +1597,9 @@ summary.session-work-row:focus-visible {
 .ui-archive-context > :last-child {
   mask-image: linear-gradient(to bottom, var(--theme-black), transparent);
 }
+
+.session-field-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}

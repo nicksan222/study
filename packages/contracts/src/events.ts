@@ -1,5 +1,6 @@
 import { Schema } from 'effect';
 
+import { transformSuggestionInputSchema } from './conversations/rpc.ts';
 import { titleSnapshotSchema } from './conversations/schemas.ts';
 import { errorKindSchema } from './errors.ts';
 import {
@@ -178,6 +179,15 @@ export const conversationTitleRequestedSchema = Schema.Struct({
   ...titleSnapshotSchema.fields
 });
 
+export const transformSuggestionRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('TransformSuggestionRequested'),
+  sessionId: sessionIdSchema,
+  contextRequestId: Schema.String,
+  field: transformSuggestionInputSchema.fields.field,
+  language: transformSuggestionInputSchema.fields.language
+});
+
 export const practiceSlotRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('PracticeSlotRequested'),
@@ -227,6 +237,7 @@ export const workflowEventSchema = Schema.Union([
   materialGenerationFailedSchema,
   conversationGenerationRequestedSchema,
   conversationTitleRequestedSchema,
+  transformSuggestionRequestedSchema,
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema
 ]);
