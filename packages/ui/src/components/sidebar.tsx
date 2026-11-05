@@ -18,6 +18,8 @@ import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } fro
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useSidebarShortcuts } from './sidebar-shortcuts';
+
 const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
 
 /** Owns persisted sidebar resizing within the content and sidebar width constraints. */
@@ -192,8 +194,12 @@ function Frame({
   );
 }
 
-function Root({ className, ...props }: ComponentProps<'aside'>) {
-  return <aside {...props} className={cn('study-sidebar', className)} />;
+function Root({ className, ref, ...props }: ComponentProps<'aside'>) {
+  const root = useSidebarShortcuts();
+
+  useImperativeHandle(ref, () => root.current!);
+
+  return <aside {...props} ref={root} className={cn('study-sidebar', className)} />;
 }
 
 function Header({ className, ...props }: ComponentProps<'div'>) {
