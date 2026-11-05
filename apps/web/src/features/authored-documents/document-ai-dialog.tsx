@@ -42,7 +42,7 @@ export function DocumentAiDialog({
         cache.invalidateQueries({ queryKey: ['documents'] })
       ]);
       await navigate({
-        to: '/sessions/$sessionId',
+        to: '/session/$sessionId',
         params: { sessionId: input.sessionId },
         search: project ? { project: String(project) } : {}
       });

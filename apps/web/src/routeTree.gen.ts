@@ -20,8 +20,8 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as DocumentsIndexRouteImport } from './routes/documents.index'
 import { Route as DocumentsDocumentIdRouteImport } from './routes/documents.$documentId'
 import { Route as MaterialsMaterialIdRouteImport } from './routes/materials.$materialId'
+import { Route as SessionSessionIdRouteImport } from './routes/session.$sessionId'
 import { Route as SessionsIndexRouteImport } from './routes/sessions.index'
-import { Route as SessionsSessionIdRouteImport } from './routes/sessions.$sessionId'
 import { Route as SourcesSourceIdRouteImport } from './routes/sources.$sourceId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -79,14 +79,14 @@ const MaterialsMaterialIdRoute = MaterialsMaterialIdRouteImport.update({
   path: '/materials/$materialId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionSessionIdRoute = SessionSessionIdRouteImport.update({
+  id: '/session/$sessionId',
+  path: '/session/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SessionsIndexRoute = SessionsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => SessionsRoute,
-} as any)
-const SessionsSessionIdRoute = SessionsSessionIdRouteImport.update({
-  id: '/$sessionId',
-  path: '/$sessionId',
   getParentRoute: () => SessionsRoute,
 } as any)
 const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
@@ -106,7 +106,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/documents/': typeof DocumentsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
@@ -121,7 +121,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/documents': typeof DocumentsIndexRoute
   '/sessions': typeof SessionsIndexRoute
@@ -138,7 +138,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
-  '/sessions/$sessionId': typeof SessionsSessionIdRoute
+  '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/documents/': typeof DocumentsIndexRoute
   '/sessions/': typeof SessionsIndexRoute
@@ -156,7 +156,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/documents/$documentId'
     | '/materials/$materialId'
-    | '/sessions/$sessionId'
+    | '/session/$sessionId'
     | '/sources/$sourceId'
     | '/documents/'
     | '/sessions/'
@@ -171,7 +171,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/documents/$documentId'
     | '/materials/$materialId'
-    | '/sessions/$sessionId'
+    | '/session/$sessionId'
     | '/sources/$sourceId'
     | '/documents'
     | '/sessions'
@@ -187,7 +187,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/documents/$documentId'
     | '/materials/$materialId'
-    | '/sessions/$sessionId'
+    | '/session/$sessionId'
     | '/sources/$sourceId'
     | '/documents/'
     | '/sessions/'
@@ -204,6 +204,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   DocumentsDocumentIdRoute: typeof DocumentsDocumentIdRoute
   MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
+  SessionSessionIdRoute: typeof SessionSessionIdRoute
   SourcesSourceIdRoute: typeof SourcesSourceIdRoute
   DocumentsIndexRoute: typeof DocumentsIndexRoute
 }
@@ -287,18 +288,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaterialsMaterialIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/session/$sessionId': {
+      id: '/session/$sessionId'
+      path: '/session/$sessionId'
+      fullPath: '/session/$sessionId'
+      preLoaderRoute: typeof SessionSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sessions/': {
       id: '/sessions/'
       path: '/'
       fullPath: '/sessions/'
       preLoaderRoute: typeof SessionsIndexRouteImport
-      parentRoute: typeof SessionsRoute
-    }
-    '/sessions/$sessionId': {
-      id: '/sessions/$sessionId'
-      path: '/$sessionId'
-      fullPath: '/sessions/$sessionId'
-      preLoaderRoute: typeof SessionsSessionIdRouteImport
       parentRoute: typeof SessionsRoute
     }
     '/sources/$sourceId': {
@@ -312,12 +313,10 @@ declare module '@tanstack/react-router' {
 }
 
 interface SessionsRouteChildren {
-  SessionsSessionIdRoute: typeof SessionsSessionIdRoute
   SessionsIndexRoute: typeof SessionsIndexRoute
 }
 
 const SessionsRouteChildren: SessionsRouteChildren = {
-  SessionsSessionIdRoute: SessionsSessionIdRoute,
   SessionsIndexRoute: SessionsIndexRoute,
 }
 
@@ -336,6 +335,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   DocumentsDocumentIdRoute: DocumentsDocumentIdRoute,
   MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
+  SessionSessionIdRoute: SessionSessionIdRoute,
   SourcesSourceIdRoute: SourcesSourceIdRoute,
   DocumentsIndexRoute: DocumentsIndexRoute,
 }

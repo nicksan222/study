@@ -14,7 +14,7 @@ function projectPath(pathname: string) {
   const match = /^\/projects\/([^/]+)(\/.*)?$/.exec(pathname);
   const project = projectIdentity(match?.[1]);
 
-  return project ? { project, pathname: match?.[2] ?? '/' } : undefined;
+  return project ? { project, pathname: match?.[2] ?? '/projects' } : undefined;
 }
 
 /** One public project prefix for every scoped link, redirect and history entry. */
@@ -37,7 +37,7 @@ export const projectUrlRewrite = {
 
     const pathname = path?.pathname ?? url.pathname;
 
-    url.pathname = `/projects/${project}${pathname === '/' ? '' : pathname}`;
+    url.pathname = `/projects/${project}${pathname === '/' || pathname === '/projects' ? '' : pathname}`;
     url.searchParams.delete('project');
 
     return url;

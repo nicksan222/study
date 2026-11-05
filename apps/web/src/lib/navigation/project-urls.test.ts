@@ -21,7 +21,7 @@ testStable.each([
   'sources/3',
   'materials/4',
   'documents/5',
-  'sessions/6'
+  'session/6'
 ])('puts project scope in the path for %s while retaining other URL state', (path) => {
   expect(canonicalProjectHref(`/${path}?project=9007199254740993&documentVersion=8#heading`)).toBe(
     `/projects/9007199254740993/${path}?documentVersion=8#heading`
@@ -64,7 +64,7 @@ testStable('leaves global destinations alone and supports project-root links', (
   );
   expect(canonicalProjectHref('/projects')).toBe('/projects');
   expect(canonicalProjectHref('/?project=2')).toBe('/projects/2');
-  expect(projectUrlRewrite.input({ url: url('/projects/2') })?.pathname).toBe('/');
+  expect(projectUrlRewrite.input({ url: url('/projects/2') })?.pathname).toBe('/projects');
 });
 
 testStable(

@@ -475,6 +475,12 @@ export const english = Object.freeze({
   'collections.invalidName': 'Use 1–100 characters for the collection name.',
   'collections.missing': 'This collection no longer exists.',
   'collections.nameLimit': 'Names may contain up to 100 characters.',
+  SubjectWorkspaceSelect: 'Select to start',
+  SubjectWorkspaceSelectHelp: 'Choose a subject or session from the sidebar.',
+  SubjectWorkspaceManage: 'Manage subject',
+  SubjectWorkspaceContents: 'Back to contents',
+  SubjectWorkspaceEmpty: 'Nothing here yet.',
+  SubjectWorkspaceMaterial: 'Study material',
   'collections.name': 'Collection name',
   'collections.create': 'Create collection',
   'collections.uncertain':

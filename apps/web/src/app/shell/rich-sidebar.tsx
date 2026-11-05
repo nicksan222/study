@@ -383,9 +383,13 @@ function sessionDestination(
 
   return (
     <Link
-      to="/sessions/$sessionId"
+      to="/session/$sessionId"
       params={{ sessionId: session.id }}
-      search={project ? { project: String(project) } : {}}
+      search={
+        (project ?? session.projectIds[0])
+          ? { project: String(project ?? session.projectIds[0]) }
+          : {}
+      }
     />
   );
 }

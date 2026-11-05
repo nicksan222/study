@@ -42,7 +42,7 @@ export function SidebarSessionActions({
           <ContextMenuItem
             onClick={() => {
               void navigate({
-                to: '/sessions/$sessionId',
+                to: '/session/$sessionId',
                 params: { sessionId: id },
                 search: project ? { project } : {}
               });

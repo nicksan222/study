@@ -67,7 +67,7 @@ function useSessionStart() {
   async function select(id: SessionId, scope: string | null = search.project ?? null) {
     try {
       await navigate({
-        to: '/sessions/$sessionId',
+        to: '/session/$sessionId',
         params: { sessionId: id },
         search: scope ? { project: scope } : {}
       });
@@ -414,7 +414,7 @@ function CreationRecovery({ view }: { view: StartView }) {
             {items.map((item) => (
               <li key={String(item.id)}>
                 <Link
-                  to="/sessions/$sessionId"
+                  to="/session/$sessionId"
                   params={{ sessionId: item.id }}
                   search={search.project ? { project: search.project } : {}}
                 >

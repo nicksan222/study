@@ -13,7 +13,7 @@ export function searchResultLocation(hit: Hit, project?: string) {
       return { to: '/home', search: { project: String(target.id) } } as const;
     case 'session':
       return {
-        to: '/sessions/$sessionId',
+        to: '/session/$sessionId',
         params: { sessionId: target.sessionId },
         search
       } as const;

@@ -59,7 +59,7 @@ function mount() {
     component: () => (
       <QueryClientProvider client={client}>
         <SidebarSessionActions id={id} project="9007199254740995">
-          <a href="/sessions/9007199254740993">Cell division</a>
+          <a href="/session/9007199254740993">Cell division</a>
         </SidebarSessionActions>
       </QueryClientProvider>
     )
@@ -114,7 +114,7 @@ testStable(
     });
     expect(screen.queryByRole('button', { name: en.SessionActions })).not.toBeInTheDocument();
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.OpenSession }));
-    await waitFor(() => expect(router.state.location.pathname).toBe('/sessions/9007199254740993'));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/session/9007199254740993'));
     expect(router.state.location.search).toEqual({ project: '9007199254740995' });
   }
 );

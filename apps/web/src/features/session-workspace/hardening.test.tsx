@@ -1100,7 +1100,7 @@ testStable.each(['', '?project=9007199254740997'])(
       updatedAt: 1n
     });
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
-    const view = mount(<SessionWorkspace id={id} />, cache(), search, `/sessions/${id}`);
+    const view = mount(<SessionWorkspace id={id} />, cache(), search, `/session/${id}`);
 
     await screen.findByRole('heading', { name: 'Cell division' });
     const header = view.container.querySelector('.study-workspace-header')!;
