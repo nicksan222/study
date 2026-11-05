@@ -1314,7 +1314,7 @@ export const english = Object.freeze({
   RewriteBusy: 'A version is still being written. Wait for it or stop it first.',
   RewriteUnavailable: 'This cannot be rewritten right now.',
   EditUnchanged: 'Nothing changed, so there is no new version.',
-  RegenerateTitle: 'Regenerate title from the notes',
+  RegenerateTitle: 'Regenerate title with AI',
   RegeneratingTitle: 'Generating a new title…',
   TitleGenerationError:
     'Could not generate a title. Check the language model settings and try again.',

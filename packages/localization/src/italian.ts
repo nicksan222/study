@@ -1356,7 +1356,7 @@ export const italian = Object.freeze({
   RewriteBusy: 'Una versione è ancora in scrittura. Aspetta o fermala prima.',
   RewriteUnavailable: 'Al momento non si può riscrivere.',
   EditUnchanged: "Nulla è cambiato, quindi non c'è una nuova versione.",
-  RegenerateTitle: 'Rigenera il titolo dagli appunti',
+  RegenerateTitle: 'Rigenera il titolo con l’IA',
   RegeneratingTitle: 'Generazione del nuovo titolo…',
   TitleGenerationError:
     'Impossibile generare il titolo. Controlla le impostazioni del modello linguistico e riprova.',

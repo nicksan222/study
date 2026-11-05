@@ -250,6 +250,55 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
 });
 
 testStable(
+  'explicit title requests replace existing titles and fence subsequent manual edits',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Conversations.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const conversations = yield* Conversations;
+          const session = yield* conversations.createSession({ title: 'My biology notes' });
+
+          yield* conversations.postMessage({ sessionId: session.id, text: 'Cells and tissues' });
+          const first = yield* conversations.requestTitle({ sessionId: session.id });
+          yield* withTestPublication(
+            context,
+            conversations
+              .publishTitle({ requestId: first.requestId, title: 'Cell biology' })
+              .pipe(Effect.asVoid)
+          );
+          assert.strictEqual((yield* conversations.session(session.id)).title, 'Cell biology');
+          const second = yield* conversations.requestTitle({ sessionId: session.id });
+          yield* withTestPublication(
+            context,
+            conversations
+              .publishTitle({ requestId: second.requestId, title: 'Tissues' })
+              .pipe(Effect.asVoid)
+          );
+          assert.strictEqual((yield* conversations.session(session.id)).title, 'Tissues');
+          yield* conversations.renameSession({ id: session.id, title: 'Personal' });
+          const pending = yield* conversations.requestTitle({ sessionId: session.id });
+          yield* conversations.renameSession({ id: session.id, title: 'Personal' });
+          assert.strictEqual(
+            (yield* Effect.flip(conversations.titleSnapshot({ requestId: pending.requestId })))
+              .kind,
+            'invalid_input'
+          );
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
   'automatic session titles are opt-in, durable, replay-safe and respect user titles',
   async () => {
     const location = createTestDatabase();

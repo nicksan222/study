@@ -14,3 +14,5 @@ export { SessionDocumentPanel } from './session-document-panel';
 
 export { startDraftsOptions, startDraftKey, dismissStartDraft } from './start-drafts.queries';
 export { startDraftOptions, startFilesOptions, creationFlowOptions } from './start.queries';
+
+export { useRegenerateSessionTitle } from './session-title.queries';

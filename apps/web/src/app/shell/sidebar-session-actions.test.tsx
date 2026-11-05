@@ -18,6 +18,13 @@ import type * as WorkspaceQueries from '#web/features/session-workspace/session-
 
 import { SidebarSessionActions } from './sidebar-session-actions';
 
+const titles = vi.hoisted(() => ({ request: vi.fn(), executions: vi.fn() }));
+
+vi.mock('#web/lib/study-client/request.ts', () => ({
+  request: (fn: (client: unknown) => unknown) =>
+    fn({ 'conversations.requestTitle': titles.request, 'workflows.executions': titles.executions })
+}));
+
 const notices = vi.hoisted(() => ({ add: vi.fn() }));
 
 vi.mock('@study/ui/toast', () => ({ toastManager: notices }));
@@ -52,6 +59,7 @@ const clients: QueryClient[] = [];
 
 function mount() {
   deletion.read.mockResolvedValue(null);
+  titles.executions.mockResolvedValue({ items: [], next: null });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   clients.push(client);
@@ -208,4 +216,56 @@ testStable('offers document creation in the session context menu', async () => {
     clientY: 80
   });
   expect(await screen.findByRole('menuitem', { name: en.SessionTransform })).toBeVisible();
+});
+
+testStable('regenerates the selected session title without navigating', async () => {
+  titles.request.mockResolvedValue({ sessionId: id, requestId: 'title-request' });
+  const router = mount();
+
+  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
+  await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+  await waitFor(() => expect(titles.request).toHaveBeenCalledExactlyOnceWith({ sessionId: id }));
+  expect(router.state.location.pathname).toBe('/');
+  expect(notices.add).toHaveBeenCalledWith({ title: en.RegeneratingTitle, type: 'info' });
+});
+
+testStable('reports title request failures and allows another attempt', async () => {
+  titles.request.mockRejectedValue(new Error('Offline'));
+  mount();
+  const user = userEvent.setup();
+
+  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
+  await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+  await waitFor(() =>
+    expect(notices.add).toHaveBeenCalledWith({
+      title: en.SessionActionErrorTitle,
+      description: en.TitleGenerationError,
+      type: 'error'
+    })
+  );
+  titles.request.mockReturnValue(new Promise(() => {}));
+  fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
+  await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+  await waitFor(() => expect(titles.request).toHaveBeenCalledTimes(2));
+  fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
+  expect(await screen.findByRole('menuitem', { name: en.RegeneratingTitle })).toHaveAttribute(
+    'aria-disabled',
+    'true'
+  );
+});
+
+testStable('refreshes titles when background generation completes', async () => {
+  titles.request.mockResolvedValue({ sessionId: id, requestId: 'completed-title' });
+  mount();
+  const client = clients.at(-1)!;
+  client.setQueryData(['sessions'], []);
+  client.setQueryData(['search', 'cells'], []);
+  titles.executions.mockResolvedValue({
+    items: [{ status: 'completed', outcome: 'success' }],
+    next: null
+  });
+  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
+  await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
+  await waitFor(() => expect(client.getQueryState(['sessions'])?.isInvalidated).toBe(true));
+  expect(client.getQueryState(['search', 'cells'])?.isInvalidated).toBe(true);
 });

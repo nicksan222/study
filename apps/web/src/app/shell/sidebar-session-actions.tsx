@@ -7,17 +7,18 @@ import {
   ContextMenuSeparator
 } from '@study/ui/context-menu';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowUpRight, FileText, ListChecks, Trash2 } from 'lucide-react';
+import { ArrowUpRight, FileText, ListChecks, RefreshCw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
 import {
   SessionDeleteDialog,
-  SessionDocumentDialog
+  SessionDocumentDialog,
+  useRegenerateSessionTitle
 } from '#web/features/session-workspace/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
-/** Opens deletion for the selected session without activating its navigation link. */
+/** Offers session actions without activating the row's navigation link. */
 export function SidebarSessionActions({
   id,
   project,
@@ -31,6 +32,7 @@ export function SidebarSessionActions({
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const title = useRegenerateSessionTitle(id);
   const [deleting, setDeleting] = useState(false);
   const [creating, setCreating] = useState<boolean>();
 
@@ -54,6 +56,10 @@ export function SidebarSessionActions({
           <ContextMenuItem onClick={() => setCreating(true)}>
             <FileText aria-hidden="true" />
             {t('SessionTransform')}
+          </ContextMenuItem>
+          <ContextMenuItem disabled={title.pending} onClick={title.regenerate}>
+            <RefreshCw aria-hidden="true" />
+            {t(title.pending ? 'RegeneratingTitle' : 'RegenerateTitle')}
           </ContextMenuItem>
           {onSelect && (
             <ContextMenuItem onClick={onSelect}>
