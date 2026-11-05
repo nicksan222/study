@@ -1,20 +1,11 @@
-import type { ProjectId, SourceId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts/ids';
 import { queryOptions } from '@tanstack/react-query';
-import { Effect } from 'effect';
 
-import { collectPages } from '#web/lib/study-client/pagination.ts';
-import { request } from '#web/lib/study-client/request.ts';
+import { listSubjectSources } from '#web/lib/study-client/operations.ts';
 
 /** The source catalog has a global cursor; filter canonical ownership after all pages resolve. */
 export const subjectSourcesOptions = (project: ProjectId) =>
   queryOptions({
     queryKey: ['sources', 'subject', String(project)],
-    queryFn: ({ signal }) =>
-      request(
-        (client) =>
-          collectPages((before: SourceId | undefined) =>
-            client['sources.sources']({ limit: 100, before })
-          ).pipe(Effect.map((sources) => sources.filter((source) => source.projectId === project))),
-        signal
-      )
+    queryFn: ({ signal }) => listSubjectSources(project, signal)
   });

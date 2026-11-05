@@ -42,10 +42,14 @@ export function useDocumentEditorImages(
 
     for (const image of assets.data) {
       if (!image) continue;
+
       next[`${image.sourceId}:${image.revision}`] = URL.createObjectURL(
         new Blob([new Uint8Array(image.bytes)], { type: image.mime })
       );
     }
+
+    // Blob URLs are external resources created and revoked with this effect's lifetime.
+    // oxlint-disable-next-line react/set-state-in-effect
     setUrls(next);
 
     return () => {
@@ -56,14 +60,19 @@ export function useDocumentEditorImages(
   const upload = useCallback(
     async (file: File) => {
       const bytes = new Uint8Array(await file.arrayBuffer());
+
       if (sniff(file.name, bytes).kind !== 'image')
         throw new StudyError('invalid_input', 'The selected file is not an image');
+
       const source = await request((rpc) =>
         rpc['sources.createSource']({ name: file.name, bytes, projectId: projectId ?? null })
       );
+
       if (source.kind !== 'image')
         throw new StudyError('invalid_input', 'The retained source is not an image');
+
       void cache.invalidateQueries({ queryKey: ['sources'] });
+
       return { sourceId: String(source.id), revision: 1, alt: source.name };
     },
     [cache, projectId]

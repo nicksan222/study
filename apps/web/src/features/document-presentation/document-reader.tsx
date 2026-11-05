@@ -9,10 +9,12 @@ import { useWorkspacePreferences } from '#web/lib/study-client/workspace-prefere
 function Inlines({ items }: { items: readonly Inline[] }) {
   return keyed(items).map(({ value: item, key }) => {
     let child: ReactNode;
+
     if (item.type === 'break') child = <br />;
     else if (item.type === 'math') child = <code>{item.text}</code>;
     else {
       child = markedInline(item.text, item.marks ?? []);
+
       if (item.type === 'link')
         child = (
           <a href={item.href} target="_blank" rel="noreferrer">
@@ -20,6 +22,7 @@ function Inlines({ items }: { items: readonly Inline[] }) {
           </a>
         );
     }
+
     return <Fragment key={key}>{child}</Fragment>;
   });
 }
@@ -37,7 +40,9 @@ function markedInline(
     subscript: 'sub',
     superscript: 'sup'
   };
+
   for (const mark of marks) child = createElement(tags[mark], null, child);
+
   return child;
 }
 

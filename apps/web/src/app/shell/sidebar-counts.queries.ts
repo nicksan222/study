@@ -1,11 +1,9 @@
-import type { ProjectId, StudyDocumentId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
-import { Effect } from 'effect';
 
 import { libraryQueryOptions } from '#web/features/library/index.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
-import { collectPages } from '#web/lib/study-client/pagination.ts';
-import { request } from '#web/lib/study-client/request.ts';
+import { countDocuments } from '#web/lib/study-client/operations.ts';
 
 import { useSidebarProgress } from './rich-sidebar.queries';
 
@@ -26,19 +24,7 @@ export function useSidebarCounts({
   const { settings, progress } = useSidebarProgress();
   const documents = useQuery({
     queryKey: ['documents', 'navigation-count', project?.toString()],
-    queryFn: ({ signal }) =>
-      request(
-        (client) =>
-          collectPages((cursor: StudyDocumentId | undefined) =>
-            client['documents.documents']({
-              projectId: project,
-              cursor,
-              limit: 100,
-              archived: false
-            }).pipe(Effect.map((page) => ({ items: page.items, next: page.nextCursor })))
-          ).pipe(Effect.map((items) => items.filter((item) => item.headVersionId !== null).length)),
-        signal
-      ),
+    queryFn: ({ signal }) => countDocuments(project, signal),
     enabled: ready,
     refetchInterval: 15_000
   });
@@ -47,6 +33,7 @@ export function useSidebarCounts({
   const summaries = new Map(progress.data?.items.map((item) => [item.id, item]));
   const unresolved = sessions.some((session) => {
     const summary = summaries.get(session.id);
+
     return (
       !summary ||
       summary.running ||

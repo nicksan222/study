@@ -5,7 +5,20 @@ import { MenuItem, MenuSeparator } from './menu';
 
 export const ContextMenu: typeof Primitive.Root = Primitive.Root;
 
-export const ContextMenuTrigger: typeof Primitive.Trigger = Primitive.Trigger;
+export function ContextMenuTrigger({
+  fill = false,
+  className,
+  ...props
+}: Primitive.Trigger.Props & { fill?: boolean }) {
+  return (
+    <Primitive.Trigger
+      className={(state) =>
+        cn(fill && 'h-full', typeof className === 'function' ? className(state) : className)
+      }
+      {...props}
+    />
+  );
+}
 
 export const ContextMenuItem = MenuItem;
 

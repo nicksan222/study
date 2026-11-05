@@ -21,6 +21,7 @@ export function useSidebarShortcuts() {
 
     function clearHints() {
       for (const element of hinted) element.removeAttribute('data-sidebar-shortcut');
+
       hinted = [];
       root.current?.removeAttribute('data-shortcuts-visible');
     }
@@ -51,6 +52,7 @@ export function useSidebarShortcuts() {
         event.isComposing
       ) {
         hideHints();
+
         return;
       }
 
@@ -125,7 +127,10 @@ function shortcutDigit(event: KeyboardEvent) {
     event.shiftKey
   )
     return undefined;
+
   if (/^[1-9]$/.test(event.key)) return Number(event.key);
+
   if (/^Digit[1-9]$/.test(event.code)) return Number(event.code.slice(-1));
+
   return undefined;
 }
