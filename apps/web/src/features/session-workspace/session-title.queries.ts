@@ -28,6 +28,7 @@ export function useRegenerateSessionTitle(id: SessionId) {
   const cache = useQueryClient();
   const { t } = useI18n();
   const [requestId, setRequestId] = useState<string>();
+  const handled = useRef<string | undefined>(undefined);
   const mutationKey = [...sessionKey(id), 'regenerate-title'];
   const submitting = useIsMutating({ mutationKey, exact: true }) > 0;
   const execution = useQuery({
@@ -43,8 +44,6 @@ export function useRegenerateSessionTitle(id: SessionId) {
   const completed = execution.data?.items.find(
     (item) => item.status === 'completed' || item.status === 'cancelled'
   );
-
-  const handled = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!requestId || !completed || handled.current === requestId) return;
@@ -79,7 +78,7 @@ export function useRegenerateSessionTitle(id: SessionId) {
       });
     }
   });
-  const pending = submitting || (requestId !== undefined && completed === undefined);
+  const pending = submitting || (requestId !== undefined && !completed);
 
   return {
     pending,

@@ -12,7 +12,7 @@ const route = vi.hoisted(() => ({ sessionId: undefined as bigint | undefined }))
 
 vi.mock('@tanstack/react-router', () => ({
   useParams: () => route,
-  useSearch: () => undefined,
+  useSearch: () => ({}),
   useNavigate: () => vi.fn()
 }));
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: () => new Promise(() => {}) }));

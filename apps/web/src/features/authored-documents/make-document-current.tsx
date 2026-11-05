@@ -1,10 +1,13 @@
 import type { StudyDocument, StudyDocumentVersion } from '@study/contracts/documents/types';
 import { Button } from '@study/ui/button';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
 
 import { ContentReadError } from '../document-presentation';
-import { useMakeDocumentCurrent } from './make-document-current.queries';
+import { restoreDocumentOptions } from './restore.queries';
 
 export function MakeDocumentCurrent({
   document,
@@ -20,7 +23,24 @@ export function MakeDocumentCurrent({
   onBusy: (busy: boolean) => void;
 }) {
   const { t } = useI18n();
-  const mutation = useMakeDocumentCurrent({ document, version, onRestored, onBusy });
+  const cache = useQueryClient();
+  const attemptKey = ['document-restore-attempt', String(document.id), String(version.id)];
+
+  const mutation = useMutation({
+    ...restoreDocumentOptions(cache, document, version),
+    onSuccess: async (outcome) => {
+      cache.removeQueries({ queryKey: attemptKey, exact: true });
+      await invalidateDocuments(cache);
+
+      if (outcome.outcome === 'saved') onRestored();
+    }
+  });
+
+  useEffect(() => {
+    onBusy(mutation.isPending || mutation.isError);
+
+    return () => onBusy(false);
+  }, [onBusy, mutation.isPending, mutation.isError]);
 
   return (
     <>

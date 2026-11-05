@@ -16,7 +16,7 @@ import { sessionDocumentOptions, useSessionDocumentAutosave } from './session-do
 import { SessionReadError } from './status';
 
 type EditorActions = {
-  renderActions?: (
+  actions?: (
     document: StudyDocument,
     version: StudyDocumentVersion,
     disabled: boolean
@@ -26,7 +26,7 @@ type EditorActions = {
 
 export function SessionDocumentPanel({
   documentId,
-  renderActions,
+  actions,
   versionId
 }: { documentId: StudyDocumentId } & EditorActions) {
   const { t } = useI18n();
@@ -40,7 +40,7 @@ export function SessionDocumentPanel({
   if (!state.data) return null;
 
   return state.data.version ? (
-    <DocumentEditor document={state.data} renderActions={renderActions} versionId={versionId} />
+    <DocumentEditor document={state.data} actions={actions} versionId={versionId} />
   ) : (
     <Desk.Recovery>
       <p>{t('SessionReadUnavailable')}</p>
@@ -50,7 +50,7 @@ export function SessionDocumentPanel({
 
 function DocumentEditor({
   document,
-  renderActions,
+  actions,
   versionId
 }: { document: StudyDocument } & EditorActions) {
   const model = useSessionDocumentAutosave(document);
@@ -77,7 +77,7 @@ function DocumentEditor({
               <>
                 <DocumentSaveStatus model={model} />
                 <DocumentMetadata document={document} />
-                {renderActions?.(document, version, blocked || exact.isFetching)}
+                {actions?.(document, version, blocked || exact.isFetching)}
               </>
             }
           />

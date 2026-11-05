@@ -24,8 +24,8 @@ function Destinations({ names, before }: { names: string[]; before?: ReactNode }
               icon={null}
               render={
                 <a
-                  aria-label={name}
                   href={'#' + name}
+                  aria-label={name}
                   onClick={(event) => {
                     event.preventDefault();
                     setSelected(name);
@@ -92,7 +92,7 @@ testStable(
               <Sidebar.Item
                 label="Hidden"
                 icon={null}
-                render={<a aria-label="Hidden" href="#hidden" />}
+                render={<a href="#hidden" aria-label="Hidden" />}
               />
             </div>
             <details>
@@ -100,14 +100,14 @@ testStable(
               <Sidebar.Item
                 label="Collapsed"
                 icon={null}
-                render={<a aria-label="Collapsed" href="#collapsed" />}
+                render={<a href="#collapsed" aria-label="Collapsed" />}
               />
             </details>
             <Sidebar.Item
               label="Disabled"
               icon={null}
               aria-disabled="true"
-              render={<a aria-label="Disabled" href="#disabled" />}
+              render={<a href="#disabled" aria-label="Disabled" />}
             />
           </>
         }

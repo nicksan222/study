@@ -8,7 +8,7 @@ const search = vi.hoisted(() => ({ project: undefined as string | undefined }));
 
 vi.mock('@tanstack/react-router', () => ({ useSearch: () => search }));
 
-testStable('preserves a selected subject identity and clears it outside subject scope', () => {
+testStable('preserves subject precision and clears the unselected workspace', () => {
   search.project = '9007199254740993';
   const { result, rerender } = renderHook(usePage);
 

@@ -2,9 +2,8 @@ import type { ProjectId } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
 
 import { libraryQueryOptions } from '#web/features/library/index.ts';
-import { countNavigationDocuments } from '#web/lib/study-client/navigation.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
-import { request } from '#web/lib/study-client/request.ts';
+import { countDocuments } from '#web/lib/study-client/operations.ts';
 
 import { useSidebarProgress } from './rich-sidebar.queries';
 
@@ -25,7 +24,7 @@ export function useSidebarCounts({
   const { settings, progress } = useSidebarProgress();
   const documents = useQuery({
     queryKey: ['documents', 'navigation-count', project?.toString()],
-    queryFn: ({ signal }) => request((client) => countNavigationDocuments(client, project), signal),
+    queryFn: ({ signal }) => countDocuments(project, signal),
     enabled: ready,
     refetchInterval: 15_000
   });

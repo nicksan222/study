@@ -26,12 +26,12 @@ import { materialsOptions } from '../material-library';
 import { sessionPagesOptions } from '../session-workspace';
 import { subjectSourcesOptions } from '../source-library';
 import { SubjectIdentity } from '../subjects';
+import { subjectProjectOptions } from './collections.queries';
 import { SubjectManagement } from './project-settings';
-import { subjectOptions } from './subject.queries';
 
 /** Reads only the explicitly selected subject; a failed identity never exposes global content. */
 export function SubjectPage({ project }: { project: ProjectId }) {
-  const state = useSuspenseQuery(subjectOptions(project));
+  const state = useSuspenseQuery(subjectProjectOptions(project));
 
   return <SubjectContents project={state.data} />;
 }

@@ -1,6 +1,6 @@
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor } from '@testing-library/react';
-import type { Effect } from 'effect';
+import type { Effect as EffectType } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
 import { renderPage } from '#web/test/render-page.tsx';
@@ -10,7 +10,7 @@ vi.mock('#web/lib/study-client/request.ts', async () => {
   const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
 
   return {
-    request: (invoke: (client: Record<string, unknown>) => Effect.Effect<unknown, unknown>) =>
+    request: (invoke: (client: Record<string, unknown>) => EffectType.Effect<unknown, unknown>) =>
       Effect.runPromise(
         invoke({
           'projects.projects': page,
