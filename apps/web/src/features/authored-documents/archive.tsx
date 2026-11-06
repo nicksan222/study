@@ -57,14 +57,13 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
             .map((item) => (
               <li key={String(item.id)}>
                 <DocumentContextMenu document={item} project={project}>
-                  <Surface.Material
+                  <Surface.Item
                     type="button"
                     aria-current={item === active ? 'page' : undefined}
                     onClick={() => setSelected(String(item.id))}
-                  >
-                    <FileText aria-hidden="true" />
-                    <span>{item.title}</span>
-                  </Surface.Material>
+                    label={item.title}
+                    icon={<FileText aria-hidden="true" />}
+                  />
                 </DocumentContextMenu>
               </li>
             ))}

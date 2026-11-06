@@ -47,6 +47,17 @@ export default defineRule({
           tag.type === 'JSXMemberExpression' &&
           tag.object.type === 'JSXIdentifier' &&
           selections.has(tag.object.name) &&
+          tag.property.name === 'Material'
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use SelectionSurface.Item to share item labels, icons and descriptions.'
+          });
+
+        if (
+          tag.type === 'JSXMemberExpression' &&
+          tag.object.type === 'JSXIdentifier' &&
+          selections.has(tag.object.name) &&
           tag.property.name === 'Search'
         )
           context.report({

@@ -98,3 +98,16 @@ testStable('standardizes search scaffolding only on selection surfaces', () => {
     0
   );
 });
+
+testStable('requires shared selectable rows rather than assembling labels and icons', () => {
+  expect(
+    lint(
+      `import { SelectionSurface as S } from '@study/ui/selection'; const view = <S.Material><FileText /><span>Title</span></S.Material>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { SelectionSurface as S } from '@study/ui/selection'; const view = <S.Item label="Title" icon={<FileText />} />;`
+    )
+  ).toHaveLength(0);
+});

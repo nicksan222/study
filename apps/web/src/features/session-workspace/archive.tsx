@@ -134,19 +134,19 @@ function ArchiveNavigation({
       <Surface.Materials>
         {filtered.map((item) => (
           <li key={itemKey(item.target)}>
-            <Surface.Material
+            <Surface.Item
               type="button"
-              title={item.name}
+              label={item.name}
               aria-current={itemKey(item.target) === selected ? 'page' : undefined}
               onClick={() => onSelect(itemKey(item.target))}
-            >
-              {item.target.kind === 'source' ? (
-                <FileInput aria-hidden="true" />
-              ) : (
-                <FileText aria-hidden="true" />
-              )}
-              <span>{item.name}</span>
-            </Surface.Material>
+              icon={
+                item.target.kind === 'source' ? (
+                  <FileInput aria-hidden="true" />
+                ) : (
+                  <FileText aria-hidden="true" />
+                )
+              }
+            />
           </li>
         ))}
       </Surface.Materials>

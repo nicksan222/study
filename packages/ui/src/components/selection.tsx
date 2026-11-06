@@ -50,7 +50,6 @@ export const SelectionSurface = {
   ArchiveActions: part('div', 'ui-archive-actions'),
   DocumentActions: part('div', 'ui-selection-document-actions'),
   History: part('div', 'ui-selection-history'),
-  Material: part('button', 'settings-navigation-item ui-selection-material'),
   Heading: part('div', 'ui-selection-heading'),
   Empty: part('div', 'ui-selection-empty'),
   Materials: part('ul', 'ui-selection-materials'),
@@ -99,6 +98,7 @@ function Item({
 }) {
   return (
     <button
+      type="button"
       {...props}
       title={label}
       className="settings-navigation-item ui-selection-material ui-selection-item"
