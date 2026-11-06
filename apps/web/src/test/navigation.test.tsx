@@ -27,23 +27,27 @@ beforeEach(() => {
   history.replaceState(null, '', '/');
 });
 
-testStable.each(pages)(
-  'renders the %s route with a localized heading without network access',
-  async (page) => {
-    history.replaceState(null, '', `/${page.toLowerCase()}`);
-    const fetch = vi.spyOn(globalThis, 'fetch');
+testStable.each(pages)('renders the %s route without network access', async (page) => {
+  history.replaceState(null, '', `/${page.toLowerCase()}`);
+  const fetch = vi.spyOn(globalThis, 'fetch');
 
-    render(<App />);
-    const title = catalogs.english[page];
+  render(<App />);
+  const title = catalogs.english[page];
 
+  if (page === 'Practice' || page === 'Flashcards') {
+    expect(await screen.findByRole('main')).toHaveTextContent(/^$/);
+    expect(
+      screen.getByRole('button', { name: catalogs.english.PracticeGenerate })
+    ).toBeInTheDocument();
+  } else {
     expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveTextContent(
       page === 'Sessions' ? catalogs.english.SessionStartHelp : catalogs.english.AppName
     );
-
-    expect(fetch).not.toHaveBeenCalled();
   }
-);
+
+  expect(fetch).not.toHaveBeenCalled();
+});
 
 testStable(
   'opens settings over the current page and restores focus without changing the URL',

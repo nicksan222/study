@@ -387,11 +387,11 @@ testStable(
     await user.click(screen.getByRole('button', { name: en.PracticeAttempts }));
     const dialog = await screen.findByRole('dialog', { name: en.PracticeAttempts });
 
-    await user.click(
-      await within(dialog).findByRole('button', { name: new RegExp(en.PracticeResume) })
-    );
     expect(await within(dialog).findByText(en.PracticeResumeHelp)).toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: en.Close }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: en.PracticeAttempts })).not.toBeInTheDocument()
+    );
     expect(screen.getByRole('radio', { name: /Two/ })).toBeChecked();
     await waitFor(() =>
       expect(screen.getByRole('button', { name: en.PracticeAttempts })).toHaveFocus()
@@ -474,8 +474,29 @@ testStable(
       'href',
       '/documents/41?documentVersion=8'
     );
-    expect(screen.queryByRole('button', { name: en.PracticeArchived })).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('complementary', { name: en.PracticeActions })).queryByRole(
+        'button',
+        { name: en.PracticeArchived }
+      )
+    ).not.toBeInTheDocument();
     expect(rpc['documents.version']).toHaveBeenCalledWith({ id: 8n });
     expect(rpc['sources.source']).not.toHaveBeenCalled();
+  }
+);
+
+testStable(
+  'explicitly replays the full flashcard deck when no scheduled review is due',
+  async () => {
+    const rpc = practiceRpc('flashcards', true);
+    const user = userEvent.setup();
+
+    mountLibraryRoute('/flashcards/41', rpc);
+    await screen.findByText(en.PracticeNothingDue);
+    await user.click(screen.getByRole('button', { name: en.PracticeReplayFlashcards }));
+    expect(await screen.findByText('What is a prime number?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: new RegExp(en.ShowAnswer) }));
+    expect(screen.getByText('A whole number with exactly two divisors.')).toBeInTheDocument();
+    expect(rpc['learning.reviewCard']).not.toHaveBeenCalled();
   }
 );

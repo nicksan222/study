@@ -6,13 +6,17 @@ import { DialogPopup, DialogTitle } from './dialog';
 import { Input } from './input';
 import { semanticPart as part } from './semantic-part';
 
-function SelectionDialogPopup(
-  props: Omit<ComponentProps<typeof DialogPopup>, 'className' | 'viewportClassName'>
-) {
+function SelectionDialogPopup({
+  contentLayout = 'reading',
+  ...props
+}: Omit<ComponentProps<typeof DialogPopup>, 'className' | 'viewportClassName'> & {
+  contentLayout?: 'reading' | 'fill';
+}) {
   return (
     <DialogPopup
       {...props}
       className="settings-popup ui-selection-dialog"
+      data-content={contentLayout}
       viewportClassName="settings-viewport"
     />
   );
@@ -31,6 +35,7 @@ export const SelectionSurface = {
   Navigation: part('aside', 'settings-navigation ui-selection-navigation'),
   Main: part('div', 'settings-main'),
   Header: part('header', 'settings-header'),
+  DetailHeading: part('div', 'ui-selection-detail-heading'),
   Scroll: part('div', 'settings-scroll'),
   Body: part('div', 'settings-body'),
   ArchiveFrame: part('div', 'ui-archive-frame'),

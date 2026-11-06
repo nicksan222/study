@@ -25,14 +25,29 @@ const ratings = [
 ] as const;
 
 export function FlashcardReview({ version, project }: { version: Deck; project?: ProjectId }) {
-  return project ? (
-    <ScheduledReview version={version} project={project} />
+  const [replay, setReplay] = useState(false);
+  const [round, setRound] = useState(0);
+  const replayDeck = () => {
+    setReplay(true);
+    setRound((value) => value + 1);
+  };
+
+  return project && !replay ? (
+    <ScheduledReview version={version} project={project} replay={replayDeck} />
   ) : (
-    <ReviewCards version={version} cards={version.content.cards} />
+    <ReviewCards key={round} version={version} cards={version.content.cards} restart={replayDeck} />
   );
 }
 
-function ScheduledReview({ version, project }: { version: Deck; project: ProjectId }) {
+function ScheduledReview({
+  version,
+  project,
+  replay
+}: {
+  version: Deck;
+  project: ProjectId;
+  replay: () => void;
+}) {
   const { t } = useI18n();
   const state = useQuery(dueCardsOptions(project));
   const [round, setRound] = useState(0);
@@ -66,13 +81,14 @@ function ScheduledReview({ version, project }: { version: Deck; project: Project
         <Check aria-hidden="true" />
         <h2>{t('PracticeNothingDue')}</h2>
         <p>{t('PracticeNothingDueHint')}</p>
-        <Button variant="outline" disabled={state.isFetching} onClick={refresh}>
-          {t('LibraryRefresh')}
+        <Button variant="outline" onClick={replay}>
+          <RotateCcw aria-hidden="true" />
+          {t('PracticeReplayFlashcards')}
         </Button>
       </Practice.Complete>
     );
 
-  return <ReviewCards key={round} version={version} cards={cards} restart={refresh} />;
+  return <ReviewCards key={round} version={version} cards={cards} restart={replay} />;
 }
 
 function ReviewCards({

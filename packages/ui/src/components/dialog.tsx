@@ -83,7 +83,8 @@ const popupClasses = {
   default: '',
   media: '',
   identity: 'ui-identity-dialog',
-  'workspace-context': 'session-context-dialog'
+  'workspace-context': 'session-context-dialog',
+  'practice-generation': 'study-generation-dialog'
 } as const;
 
 /** Composes the portal surface with the chosen size, backdrop and dismissal control. */
@@ -103,7 +104,7 @@ function DialogPopup({
   keepMounted?: boolean;
   closeLabel: string;
   bottomStickOnMobile?: boolean;
-  variant?: 'default' | 'media' | 'identity' | 'workspace-context';
+  variant?: 'default' | 'media' | 'identity' | 'workspace-context' | 'practice-generation';
 }) {
   return (
     <DialogPortal keepMounted={keepMounted}>

@@ -80,6 +80,19 @@ export const dueCardsOptions = (projectId: ProjectId) =>
     queryFn: ({ signal }) => listDueCards(projectId, signal)
   });
 
+export const archivedMaterialsOptions = (projectId?: ProjectId) =>
+  infiniteQueryOptions({
+    queryKey: ['materials', 'archived', projectId?.toString()],
+    initialPageParam: undefined as MaterialId | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      request(
+        (rpc) =>
+          rpc['materials.materials']({ projectId, archived: true, cursor: pageParam, limit: 30 }),
+        signal
+      ),
+    getNextPageParam: (page) => page.nextCursor ?? undefined
+  });
+
 export function useMaterialArchive(id: MaterialId, archived: boolean) {
   const cache = useQueryClient();
 

@@ -1,9 +1,12 @@
 import type { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
-import { questionNumber } from '@study/localization';
+import { questionNumber, reviewProgress, questionCount } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { Practice } from '@study/ui/practice';
+import { SelectionSurface as Surface } from '@study/ui/selection';
+import { Textarea } from '@study/ui/textarea';
 import { Link, useSearch } from '@tanstack/react-router';
-import { Check, ChevronDown, Minus, RotateCcw, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import { useState, useId } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -20,139 +23,228 @@ export function QuizResults({
 }) {
   const { t, locale } = useI18n();
   const search = useSearch({ from: '__root__' });
+  const [index, setIndex] = useState(0);
+  const question = attempt.questions[index];
+  const headingId = useId();
 
-  return (
-    <Practice.Results aria-labelledby="practice-results" data-presentation={presentation}>
-      <Practice.StageBody>
+  const body = (
+    <Practice.StageBody>
+      {presentation === 'page' && (
         <Practice.ResultsHeading>
           <div>
-            <h2 id="practice-results">{t('PracticeResults')}</h2>
+            <h2 id={headingId}>{t('PracticeResults')}</h2>
             <Practice.Muted role="status">
-              {t(
-                attempt.questions.some((question) => question.grading === 'ungraded')
-                  ? 'PracticeGradingPending'
-                  : 'PracticeResultsReady'
-              )}
+              {t(attempt.scoring.complete ? 'PracticeResultsReady' : 'PracticeGradingPending')}
             </Practice.Muted>
           </div>
+          <OverallScore attempt={attempt} />
         </Practice.ResultsHeading>
-        {attempt.scoring.score !== null && (
-          <Practice.Score>
-            {new Intl.NumberFormat(locale === 'italian' ? 'it' : 'en', {
-              style: 'percent',
-              maximumFractionDigits: 0
-            }).format(attempt.scoring.score)}
-            <span>{t('PracticeScore')}</span>
-          </Practice.Score>
-        )}
-        <Practice.ResultList>
-          {attempt.questions.map((question, index) => (
-            <ResultRow
-              key={String(question.id)}
-              question={question}
-              index={index}
-              only={attempt.questions.length === 1}
-            />
-          ))}
-        </Practice.ResultList>
-      </Practice.StageBody>
-      {presentation === 'page' && (
-        <Practice.StageFooter>
-          <Practice.FooterContext>
-            <Practice.MutedText>{t('PracticeQuizSaveHint')}</Practice.MutedText>
-          </Practice.FooterContext>
-          <Button
-            render={
-              <Link
-                to="/practice/$materialId"
-                params={{ materialId: String(attempt.materialId) }}
-                search={{ project: search.project }}
-              />
-            }
-          >
-            <RotateCcw aria-hidden="true" />
-            {t('PracticeTryAgain')}
-          </Button>
-        </Practice.StageFooter>
       )}
+      {question && (
+        <ResultQuestion
+          key={String(question.id)}
+          question={question}
+          index={index}
+          total={attempt.questions.length}
+          showHeading
+        />
+      )}
+    </Practice.StageBody>
+  );
+  const controls = (
+    <>
+      <Practice.FooterContext>
+        <Button
+          variant="ghost"
+          disabled={index === 0}
+          onClick={() => setIndex((value) => value - 1)}
+        >
+          <ArrowLeft aria-hidden="true" />
+          {t('QuizPrevious')}
+        </Button>
+        {presentation === 'page' && (
+          <Button
+            variant="ghost"
+            disabled={index >= attempt.questions.length - 1}
+            onClick={() => setIndex((value) => value + 1)}
+          >
+            {t('PracticeNextQuestion')}
+            <ArrowRight aria-hidden="true" />
+          </Button>
+        )}
+      </Practice.FooterContext>
+      {presentation === 'preview' ? (
+        <Button
+          variant="outline"
+          disabled={index >= attempt.questions.length - 1}
+          onClick={() => setIndex((value) => value + 1)}
+        >
+          {t('PracticeNextQuestion')}
+          <ArrowRight aria-hidden="true" />
+        </Button>
+      ) : (
+        <Button
+          render={
+            <Link
+              to="/practice/$materialId"
+              params={{ materialId: String(attempt.materialId) }}
+              search={{ project: search.project }}
+            />
+          }
+        >
+          <RotateCcw aria-hidden="true" />
+          {t('PracticeTryAgain')}
+        </Button>
+      )}
+    </>
+  );
+
+  if (presentation === 'preview')
+    return (
+      <>
+        <Surface.Header>
+          <Surface.DetailHeading>
+            <h2 id={headingId}>{t('PracticeOverallResults')}</h2>
+            <Practice.MutedText>
+              {questionCount(locale, attempt.questions.length)} ·{' '}
+              {t(attempt.scoring.complete ? 'PracticeAttemptCompleted' : 'PracticeGradingPending')}
+            </Practice.MutedText>
+          </Surface.DetailHeading>
+          <OverallScore attempt={attempt} />
+        </Surface.Header>
+        <Surface.ArchiveFrame>
+          <Surface.Scroll>
+            <Surface.Body>
+              <Practice.Results aria-labelledby={headingId} data-presentation={presentation}>
+                {body}
+              </Practice.Results>
+            </Surface.Body>
+          </Surface.Scroll>
+          <Surface.ArchiveFooter>
+            <Surface.ArchiveActions>{controls}</Surface.ArchiveActions>
+          </Surface.ArchiveFooter>
+        </Surface.ArchiveFrame>
+      </>
+    );
+
+  return (
+    <Practice.Results aria-labelledby={headingId} data-presentation={presentation}>
+      {body}
+      <Practice.StageFooter>{controls}</Practice.StageFooter>
     </Practice.Results>
   );
 }
 
-function verdictOf(question: Question) {
-  if (question.score === null)
-    return {
-      kind: 'pending',
-      label: question.answer ? 'PracticeUngraded' : 'PracticeUnanswered',
-      Icon: Minus
-    } as const;
-
-  if (question.score === 1)
-    return { kind: 'correct', label: 'VerdictCorrect', Icon: Check } as const;
-
-  if (question.score === 0)
-    return { kind: 'incorrect', label: 'VerdictIncorrect', Icon: X } as const;
-
-  return { kind: 'partly', label: 'VerdictPartly', Icon: Minus } as const;
-}
-
-function ResultRow({
+function ResultQuestion({
   question,
   index,
-  only
+  total,
+  showHeading
 }: {
   question: Question;
   index: number;
-  only: boolean;
+  total: number;
+  showHeading: boolean;
 }) {
   const { t, locale } = useI18n();
-  const verdict = verdictOf(question);
+  const selected = question.answer?.type === 'choice' ? question.answer.choiceIds : [];
 
   return (
-    <Practice.Result open={only || undefined}>
-      <summary>
-        <Practice.VerdictText data-verdict={verdict.kind}>
-          <verdict.Icon aria-hidden="true" />
-        </Practice.VerdictText>
-        <span>
-          <small>{questionNumber(locale, index + 1)}</small>
-          {question.prompt}
-        </span>
-        <Practice.ResultLabelText>{t(verdict.label)}</Practice.ResultLabelText>
-        <ChevronDown aria-hidden="true" />
-      </summary>
-      <Practice.ResultBody>
-        <h3>{t('YourAnswer')}</h3>
-        <p>{learnerAnswer(question) ?? t('PracticeUnanswered')}</p>
-        <h3>{t('RightAnswer')}</h3>
-        <p>{referenceAnswer(question)}</p>
-        {question.feedback && <p>{question.feedback}</p>}
-        <Practice.Muted>{question.explanation}</Practice.Muted>
-      </Practice.ResultBody>
-    </Practice.Result>
+    <Practice.Preview>
+      {showHeading && (
+        <>
+          <Practice.ProgressHeading>
+            <span>
+              {questionNumber(locale, index + 1)} · {reviewProgress(locale, index + 1, total)}
+            </span>
+            <span>{t(verdict(question))}</span>
+          </Practice.ProgressHeading>
+          <Practice.Prompt>{question.prompt}</Practice.Prompt>
+        </>
+      )}
+      {question.kind === 'open' ? (
+        <Practice.OpenAnswers>
+          <div>
+            <Practice.Muted>{t('YourAnswer')}</Practice.Muted>
+            <Textarea
+              readOnly
+              aria-label={t('YourAnswer')}
+              value={
+                question.answer?.type === 'open'
+                  ? (question.answer.answer ?? t('PracticeUnanswered'))
+                  : t('PracticeUnanswered')
+              }
+            />
+          </div>
+          <div>
+            <Practice.Muted>{t('RightAnswer')}</Practice.Muted>
+            <Textarea
+              readOnly
+              aria-label={t('RightAnswer')}
+              value={question.referenceAnswer ?? t('PracticeUngraded')}
+            />
+          </div>
+        </Practice.OpenAnswers>
+      ) : (
+        <Practice.Answers aria-label={t('YourAnswer')}>
+          {question.choices.map((choice, position) => (
+            <Practice.ChoiceOption
+              key={String(choice.id)}
+              type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
+              name={'result-' + String(question.id)}
+              text={choice.text}
+              number={position + 1}
+              selected={selected.includes(choice.id)}
+              disabled
+              readOnly
+              tone={
+                choice.isCorrect
+                  ? 'correct'
+                  : selected.includes(choice.id)
+                    ? 'incorrect'
+                    : undefined
+              }
+              status={
+                choice.isCorrect
+                  ? t('ReaderCorrectAnswer')
+                  : selected.includes(choice.id)
+                    ? t('YourAnswer')
+                    : undefined
+              }
+            />
+          ))}
+        </Practice.Answers>
+      )}
+      {question.feedback && <Practice.Muted>{question.feedback}</Practice.Muted>}
+      <Practice.Explanation>
+        <Practice.MutedText>{t('PracticeArchiveExplanation')}</Practice.MutedText>
+        <p>{question.explanation}</p>
+      </Practice.Explanation>
+    </Practice.Preview>
   );
 }
 
-function learnerAnswer(question: Question) {
-  if (!question.answer) return null;
+function verdict(question: Question) {
+  if (question.score === null) return question.answer ? 'PracticeUngraded' : 'PracticeUnanswered';
 
-  if (question.answer.type === 'open') return question.answer.answer;
+  if (question.score === 1) return 'VerdictCorrect';
 
-  if (question.kind === 'open') return null;
-
-  const ids = question.answer.choiceIds;
-
-  return question.choices
-    .filter((choice) => ids.includes(choice.id))
-    .map((choice) => choice.text)
-    .join(', ');
+  return question.score === 0 ? 'VerdictIncorrect' : 'VerdictPartly';
 }
 
-function referenceAnswer(question: Question) {
-  if (question.kind === 'open') return question.referenceAnswer;
+function OverallScore({ attempt }: { attempt: Completed }) {
+  const { t, locale } = useI18n();
 
-  return question.choices
-    .filter((choice) => choice.isCorrect)
-    .map((choice) => choice.text)
-    .join(', ');
+  if (attempt.scoring.score === null)
+    return <Practice.MutedText>{t('PracticeGradingPending')}</Practice.MutedText>;
+
+  return (
+    <Practice.Score>
+      {new Intl.NumberFormat(locale === 'italian' ? 'it' : 'en', {
+        style: 'percent',
+        maximumFractionDigits: 0
+      }).format(attempt.scoring.score)}
+      <span>{t('PracticeScore')}</span>
+    </Practice.Score>
+  );
 }

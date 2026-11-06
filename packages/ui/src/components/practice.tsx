@@ -1,9 +1,24 @@
-import type { ReactNode } from 'react';
+import { Check, X } from 'lucide-react';
+import type { ReactNode, ComponentProps } from 'react';
 
 import { semanticPart } from './semantic-part';
 
 export const Practice = {
   OutlineItems,
+  ChoiceOption,
+  OpenAnswers: semanticPart('div', 'study-practice-open-answers'),
+  Preview: semanticPart('section', 'study-practice-preview'),
+  PreviewItems: semanticPart('ol', 'study-practice-preview-items'),
+  PreviewItem: semanticPart('li', 'study-practice-preview-item'),
+  Explanation: semanticPart('div', 'study-practice-explanation'),
+  Customize: semanticPart('details', 'study-generation-customize'),
+  CustomizeSummary: semanticPart('summary', 'study-generation-customize-summary'),
+  CustomizeBody: semanticPart('div', 'study-generation-customize-body'),
+  DocumentChoices: semanticPart('div', 'study-generation-document-choices'),
+  GenerationLayout: semanticPart('div', 'study-generation-layout'),
+  GenerationBrief: semanticPart('div', 'study-generation-brief'),
+  GenerationDocuments: semanticPart('div', 'study-generation-documents'),
+  GenerationStatus: semanticPart('div', 'study-generation-status'),
   SourceInputs: semanticPart('div', 'study-practice-source-inputs'),
   Stage: semanticPart('div', 'study-practice-stage'),
   StageBody: semanticPart('div', 'study-practice-stage-body'),
@@ -65,5 +80,30 @@ function OutlineItems({
         </li>
       ))}
     </Practice.OutlineList>
+  );
+}
+
+function ChoiceOption({
+  text,
+  number,
+  selected,
+  status,
+  tone,
+  ...input
+}: Omit<ComponentProps<'input'>, 'children' | 'checked'> & {
+  text: string;
+  number: number;
+  selected: boolean;
+  status?: ReactNode;
+  tone?: 'correct' | 'incorrect';
+}) {
+  return (
+    <Practice.Choice data-selected={selected} data-tone={tone}>
+      <input {...input} checked={selected} />
+      <Practice.ChoiceLetterText aria-hidden="true">{number}</Practice.ChoiceLetterText>
+      <span>{text}</span>
+      {status && <Practice.MutedText>{status}</Practice.MutedText>}
+      {selected && (tone === 'incorrect' ? <X aria-hidden="true" /> : <Check aria-hidden="true" />)}
+    </Practice.Choice>
   );
 }

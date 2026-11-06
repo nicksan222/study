@@ -40,7 +40,7 @@ export const listSessions = (signal?: AbortSignal) =>
     signal
   );
 
-function listAllMaterials(client: StudyClient, projectId: ProjectId) {
+function listAllMaterials(client: StudyClient, projectId?: ProjectId) {
   return collectPages((cursor: MaterialId | undefined) =>
     client['materials.materials']({
       projectId,
@@ -139,3 +139,6 @@ export const countDocuments = (projectId: ProjectId | undefined, signal?: AbortS
       ).pipe(Effect.map((items) => items.filter((item) => item.headVersionId !== null).length)),
     signal
   );
+
+export const listPracticeMaterials = (projectId?: ProjectId, signal?: AbortSignal) =>
+  request((client) => listAllMaterials(client, projectId), signal);

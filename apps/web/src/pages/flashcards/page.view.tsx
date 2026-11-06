@@ -1,5 +1,3 @@
-import { LibraryPage } from '#web/features/practice/index.ts';
-
 export function PageView() {
-  return <LibraryPage kind="flashcards" />;
+  return null;
 }

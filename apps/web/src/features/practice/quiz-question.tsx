@@ -6,7 +6,7 @@ import type {
 import { Button } from '@study/ui/button';
 import { Practice } from '@study/ui/practice';
 import { Textarea } from '@study/ui/textarea';
-import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
@@ -106,24 +106,20 @@ export function QuizQuestion({
             />
           ) : (
             question.choices.map((choice, index) => (
-              <Practice.Choice key={String(choice.id)} data-selected={selected.includes(choice.id)}>
-                <input
-                  type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
-                  name="answer"
-                  value={String(choice.id)}
-                  checked={selected.includes(choice.id)}
-                  onChange={() =>
-                    setSelected((previous) =>
-                      toggleChoice(previous, choice.id, question.kind === 'single_choice')
-                    )
-                  }
-                />
-                <Practice.ChoiceLetterText aria-hidden="true">
-                  {index + 1}
-                </Practice.ChoiceLetterText>
-                <span>{choice.text}</span>
-                {selected.includes(choice.id) && <Check aria-hidden="true" />}
-              </Practice.Choice>
+              <Practice.ChoiceOption
+                key={String(choice.id)}
+                text={choice.text}
+                number={index + 1}
+                selected={selected.includes(choice.id)}
+                type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
+                name="answer"
+                value={String(choice.id)}
+                onChange={() =>
+                  setSelected((previous) =>
+                    toggleChoice(previous, choice.id, question.kind === 'single_choice')
+                  )
+                }
+              />
             ))
           )}
         </Practice.Answers>

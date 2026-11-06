@@ -1,5 +1,4 @@
 import type { summarySchema } from '@study/contracts/documents/schemas';
-import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -7,70 +6,92 @@ import { Loading } from '@study/ui/loading';
 import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
 import { SwitchControl } from '@study/ui/switch-control';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import type { UseQueryResult } from '@tanstack/react-query';
 import type { Dispatch, SetStateAction } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
 
 export function QuizInputPicker({
-  projectId,
+  documents,
   inputs,
   onChange,
   disabled
 }: {
-  projectId: ProjectId;
+  documents: UseQueryResult<(typeof summarySchema.Type)[]>;
   inputs: ContentInput[];
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
 }) {
   const { t } = useI18n();
-  const documents = useInfiniteQuery(documentsOptions(projectId));
-  const rows = documentRows(documents.data);
+  const rows = documents.data ?? [];
 
   return (
     <Practice.SourceInputs>
       <Settings.Section title={t('QuizChooseInputs')}>
         <Settings.Intro>{t('QuizChooseInputsHelp')}</Settings.Intro>
-        {documents.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
-        {documents.isError && (
-          <ErrorState
-            layout="inline"
-            title={t('QuizInputsError')}
-            action={
-              <Button
-                variant="outline"
-                onClick={() => {
-                  void documents.refetch();
-                }}
-              >
-                {t('Retry')}
-              </Button>
-            }
-          />
-        )}
-        <Settings.Group>
-          {rows.map((document) => (
-            <DocumentInput
-              key={String(document.id)}
-              document={document}
-              inputs={inputs}
-              onChange={onChange}
-              disabled={disabled}
+        <Practice.DocumentChoices>
+          {documents.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
+          {documents.isError && (
+            <ErrorState
+              layout="inline"
+              title={t('QuizInputsError')}
+              action={
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    void documents.refetch();
+                  }}
+                >
+                  {t('Retry')}
+                </Button>
+              }
             />
-          ))}
-        </Settings.Group>
-        {documents.hasNextPage && (
-          <Button
-            variant="ghost"
-            disabled={documents.isFetchingNextPage}
-            onClick={() => void documents.fetchNextPage()}
-          >
-            {t('LibraryMore')}
-          </Button>
-        )}
-        {rows.length === 0 && documents.isSuccess && (
-          <Settings.Feedback>{t('QuizNoProjectInputs')}</Settings.Feedback>
+          )}
+          <Settings.Group>
+            {rows.map((document) => (
+              <DocumentInput
+                key={String(document.id)}
+                document={document}
+                inputs={inputs}
+                onChange={onChange}
+                disabled={disabled}
+              />
+            ))}
+          </Settings.Group>
+          {rows.length === 0 && documents.isSuccess && (
+            <Settings.Feedback>{t('QuizNoProjectInputs')}</Settings.Feedback>
+          )}
+        </Practice.DocumentChoices>
+        {documents.isSuccess && rows.length > 0 && (
+          <Practice.SetupActions>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={disabled}
+              onClick={() =>
+                onChange(
+                  rows.flatMap((doc) =>
+                    doc.headVersionId
+                      ? [{ kind: 'document' as const, versionId: doc.headVersionId }]
+                      : []
+                  )
+                )
+              }
+            >
+              {t('SelectAll')}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={disabled || inputs.length === 0}
+              onClick={() => onChange([])}
+            >
+              {t('PracticeClearSelection')}
+            </Button>
+            <Practice.MutedText>
+              {inputs.length} / {rows.length}
+            </Practice.MutedText>
+          </Practice.SetupActions>
         )}
       </Settings.Section>
     </Practice.SourceInputs>
@@ -115,13 +136,5 @@ function DocumentInput({
         }}
       />
     </Settings.Row>
-  );
-}
-
-function documentRows(
-  data: { pages: readonly { items: readonly (typeof summarySchema.Type)[] }[] } | undefined
-) {
-  return (
-    data?.pages.flatMap((page) => page.items).filter((item) => item.headVersionId !== null) ?? []
   );
 }

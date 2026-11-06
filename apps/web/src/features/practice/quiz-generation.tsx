@@ -2,6 +2,7 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
+import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import {
   Dialog,
@@ -14,182 +15,232 @@ import {
   DialogClose
 } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
+import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import { Textarea } from '@study/ui/textarea';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link } from '@tanstack/react-router';
-import { ArrowRight, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { GraduationCap, Layers, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import type { SetStateAction } from 'react';
+import { useState, useCallback } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { versionOptions } from '#web/lib/study-client/materials.queries.ts';
 import { quizSettingsOptions } from '#web/lib/study-client/quiz-settings.queries.ts';
 
+import { GenerationWatcher } from './generation-watcher';
 import {
-  cancelQuizGenerationOptions,
-  quizGenerationOptions,
+  generationDocumentsOptions,
   quizGenerationMutationOptions
 } from './quiz-generation.queries';
 import { QuizInputPicker } from './quiz-input-picker';
 
 export function QuizGenerationAction({
-  version,
-  projectId,
-  title
+  projectId
 }: {
   version: MaterialVersionDetailDto;
   projectId?: ProjectId;
   title?: string;
 }) {
+  return <GenerationDialog projectId={projectId} inline />;
+}
+
+export function PracticeGenerationAction({
+  projectId,
+  disabled
+}: {
+  projectId?: ProjectId;
+  disabled?: boolean;
+}) {
+  return <GenerationDialog key={String(projectId)} projectId={projectId} disabled={disabled} />;
+}
+
+function GenerationDialog({
+  projectId,
+  inline = false,
+  disabled
+}: {
+  projectId?: ProjectId;
+  title?: string;
+  inline?: boolean;
+  disabled?: boolean;
+}) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  const [requests, setRequests] = useState<string[]>([]);
+  const settled = useCallback(
+    (id: string) => setRequests((current) => current.filter((request) => request !== id)),
+    []
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="outline" />}>
-        <Plus aria-hidden="true" />
-        {t('QuizGenerateTitle')}
-      </DialogTrigger>
+      <DialogTrigger
+        render={
+          <AiButton
+            size={inline ? 'default' : 'icon'}
+            variant={inline ? 'outline' : 'ghost-muted'}
+            label={t(inline ? 'PracticeGenerateFromDocuments' : 'PracticeGenerate')}
+            disabled={disabled}
+            pending={requests.length > 0}
+            workingLabel={t('QuizGenerating')}
+          >
+            {inline && t('PracticeGenerateFromDocuments')}
+          </AiButton>
+        }
+      />
       <DialogPopup
         keepMounted
         closeLabel={t('Close')}
-        variant="workspace-context"
+        variant="practice-generation"
         bottomStickOnMobile={false}
       >
         <DialogHeader>
-          <DialogTitle>{t('QuizGenerateTitle')}</DialogTitle>
-          <DialogDescription>{t('QuizGenerateHelp')}</DialogDescription>
+          <DialogTitle>{t('PracticeGenerate')}</DialogTitle>
+          <DialogDescription>{t('PracticeGenerateHelp')}</DialogDescription>
         </DialogHeader>
-        <GenerationPanel
-          version={version}
-          projectId={projectId}
-          title={title}
-          open={open}
-          close={() => setOpen(false)}
-        />
+        {open && (
+          <GenerationPanel
+            projectId={projectId}
+            accepted={(id) => {
+              setRequests((current) => [...current, id]);
+              setOpen(false);
+            }}
+          />
+        )}
       </DialogPopup>
+      {requests.map((id) => (
+        <GenerationWatcher key={id} id={id} settled={settled} />
+      ))}
     </Dialog>
   );
 }
 
-function useGeneration(version: MaterialVersionDetailDto, projectId?: ProjectId, title?: string) {
+function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const [name, setName] = useState(title ?? t('QuizGenerateTitle'));
+  const [kind, setKind] = useState<'quiz' | 'flashcards'>('quiz');
+  const [instruction, setInstruction] = useState('');
+  const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
   const configuration = preferences.data ?? defaultQuizSettings;
-  const [inputs, setInputs] = useState<ContentInput[]>(
-    version.inputs.filter((input) => input.kind === 'document')
-  );
-  const [requestId, setRequestId] = useState<string>();
-  const generation = useQuery({
-    ...quizGenerationOptions(requestId ?? ''),
-    enabled: requestId !== undefined
-  });
   const start = useMutation({
     ...quizGenerationMutationOptions(),
     onSuccess: (result) => {
-      setRequestId(result.id);
+      accepted(result.id);
       void client.invalidateQueries({ queryKey: ['materials', 'library'] });
     }
   });
-  const cancel = useMutation({
-    ...cancelQuizGenerationOptions(),
-    onSuccess: (result) => client.setQueryData(quizGenerationOptions(result.id).queryKey, result)
-  });
-  const completed = generation.data?.resultVersionId;
-  const cancelled = generation.data?.cancelled === true;
-  const failed = generation.data?.errorKind != null;
-  const terminal = isTerminal(completed, cancelled, failed);
-  const busy = start.isPending || (requestId !== undefined && !terminal);
-  const hasSources = projectId !== undefined && inputs.length > 0;
+  const busy = start.isPending;
+  const hasSources = documents.isSuccess && inputs.length > 0 && inputs.length <= 20;
   const create = () => {
-    if (projectId && preferences.isSuccess)
+    if (hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
-        title: name.trim(),
-        kind: 'quiz',
+        title: t(kind === 'quiz' ? 'SidebarQuiz' : 'Flashcards'),
+        autoTitle: true,
+        kind,
+        instruction: instruction.trim() || undefined,
         inputs: inputs.filter((input) => input.kind === 'document'),
-        quizConfig: {
-          questionCount: configuration.questionCount,
-          choiceCount: configuration.choiceCount,
-          questionKind: configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind,
-          difficulty: configuration.difficulty
-        }
+        quizConfig:
+          kind === 'quiz'
+            ? {
+                questionCount: configuration.questionCount,
+                choiceCount: configuration.choiceCount,
+                questionKind:
+                  configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind,
+                difficulty: configuration.difficulty
+              }
+            : undefined
       });
   };
 
   return {
-    name,
-    setName,
+    kind,
+    setKind,
+    instruction,
+    setInstruction,
+    documents,
     inputs,
     setInputs,
     preferences,
-    requestId,
-    generation,
     start,
-    cancel,
-    completed,
-    cancelled,
-    failed,
     busy,
     hasSources,
     create
   };
 }
 
-function isTerminal(completed: bigint | null | undefined, cancelled: boolean, failed: boolean) {
-  return Boolean(completed) || cancelled || failed;
-}
-
 type GenerationModel = ReturnType<typeof useGeneration>;
 
 function GenerationPanel({
-  version,
   projectId,
-  title,
-  close
+  accepted
 }: {
-  version: MaterialVersionDetailDto;
   projectId?: ProjectId;
-  title?: string;
-  open: boolean;
-  close: () => void;
+  accepted: (id: string) => void;
 }) {
   const { t } = useI18n();
-  const model = useGeneration(version, projectId, title);
+  const model = useGeneration(projectId, accepted);
 
   return (
     <>
-      <WorkspaceSurface.ContextDialogBody>
-        <WorkspaceSurface.Container>
-          <Settings.Group>
-            <Settings.Row title={t('QuizGenerateName')}>
-              <Input
-                aria-label={t('QuizGenerateName')}
-                value={model.name}
-                maxLength={200}
+      <Practice.GenerationLayout>
+        <Practice.GenerationBrief>
+          <Settings.Section title={t('PracticeGenerateKind')}>
+            <Settings.ChoiceGroup label={t('PracticeGenerateKind')}>
+              <Settings.Choice
+                label={t('SidebarQuiz')}
+                selected={model.kind === 'quiz'}
                 disabled={model.busy}
-                onValueChange={model.setName}
-              />
-            </Settings.Row>
-          </Settings.Group>
-          {projectId && (
-            <QuizInputPicker
-              projectId={projectId}
-              inputs={model.inputs}
-              onChange={model.setInputs}
-              disabled={model.busy}
-            />
-          )}
-          <GenerationStatus model={model} />
-        </WorkspaceSurface.Container>
-      </WorkspaceSurface.ContextDialogBody>
+                onSelect={() => model.setKind('quiz')}
+              >
+                <GraduationCap aria-hidden="true" />
+              </Settings.Choice>
+              <Settings.Choice
+                label={t('Flashcards')}
+                selected={model.kind === 'flashcards'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('flashcards')}
+              >
+                <Layers aria-hidden="true" />
+              </Settings.Choice>
+            </Settings.ChoiceGroup>
+          </Settings.Section>
+          <Practice.Customize>
+            <Practice.CustomizeSummary>
+              <SlidersHorizontal aria-hidden="true" />
+              <span>{t('PracticeCustomize')}</span>
+              <ChevronDown aria-hidden="true" />
+            </Practice.CustomizeSummary>
+            <Practice.CustomizeBody>
+              <Settings.Section title={t('PracticeGeneratePrompt')}>
+                <Textarea
+                  aria-label={t('PracticeGeneratePrompt')}
+                  placeholder={t('PracticeGeneratePromptHint')}
+                  value={model.instruction}
+                  maxLength={100000}
+                  disabled={model.busy}
+                  onChange={(event) => model.setInstruction(event.target.value)}
+                />
+              </Settings.Section>
+              <Settings.Intro>{t('PracticeGenerateAutomaticTitle')}</Settings.Intro>
+            </Practice.CustomizeBody>
+          </Practice.Customize>
+        </Practice.GenerationBrief>
+        <Practice.GenerationDocuments>
+          <QuizInputPicker
+            documents={model.documents}
+            inputs={model.inputs}
+            onChange={model.setInputs}
+            disabled={model.busy}
+          />
+        </Practice.GenerationDocuments>
+      </Practice.GenerationLayout>
+      <Practice.GenerationStatus>
+        <GenerationStatus model={model} />
+      </Practice.GenerationStatus>
       <DialogFooter>
         <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
-        <GenerationAction model={model} projectId={projectId} close={close} />
+        <GenerationAction model={model} />
       </DialogFooter>
     </>
   );
@@ -200,15 +251,8 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
 
   return (
     <>
-      {!model.hasSources && <Settings.Feedback>{t('QuizGenerateNoSources')}</Settings.Feedback>}
-      {model.busy && (
-        <>
-          <Loading label={t('QuizGenerating')} layout="panel" />
-          <Settings.Feedback>{t('QuizGeneratingHelp')}</Settings.Feedback>
-        </>
-      )}
-      {model.cancelled && (
-        <Settings.Feedback role="status">{t('QuizGenerateCancelled')}</Settings.Feedback>
+      {model.inputs.length > 20 && (
+        <Settings.Feedback role="status">{t('PracticeGenerateLimit')}</Settings.Feedback>
       )}
       {hasGenerationError(model) && (
         <ErrorState
@@ -220,8 +264,7 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
               size="sm"
               onClick={() => {
                 if (model.preferences.isError) void model.preferences.refetch();
-                else if (model.failed || !model.requestId) model.create();
-                else void model.generation.refetch();
+                else model.create();
               }}
             >
               {t('Retry')}
@@ -229,97 +272,48 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
           }
         />
       )}
-      {model.completed && (
-        <Settings.Feedback role="status">{t('QuizGenerateReady')}</Settings.Feedback>
-      )}
     </>
   );
 }
 
 function hasGenerationError(model: GenerationModel) {
-  return (
-    model.preferences.isError ||
-    model.failed ||
-    model.start.isError ||
-    model.generation.isError ||
-    model.cancel.isError
-  );
+  return model.preferences.isError || model.start.isError;
 }
 
-function GenerationAction({
-  model,
-  projectId,
-  close
-}: {
-  model: GenerationModel;
-  projectId?: ProjectId;
-  close: () => void;
-}) {
+function GenerationAction({ model }: { model: GenerationModel }) {
   const { t } = useI18n();
 
-  if (model.requestId && model.busy)
-    return (
-      <Button
-        variant="outline"
-        disabled={model.cancel.isPending}
-        onClick={() => model.requestId && model.cancel.mutate(model.requestId)}
-      >
-        {t('Cancel')}
-      </Button>
-    );
-
-  if (model.completed)
-    return <GeneratedQuizLink id={model.completed} projectId={projectId} close={close} />;
-
   return (
-    <Button
-      disabled={
-        !model.hasSources ||
-        model.name.trim().length === 0 ||
-        model.busy ||
-        !model.preferences.isSuccess
-      }
+    <AiButton
+      label={t('PracticeGenerateStart')}
+      workingLabel={t('QuizGenerating')}
+      pending={model.busy}
+      disabled={!model.hasSources || model.busy || !model.preferences.isSuccess}
       onClick={model.create}
     >
-      {t('QuizGenerateStart')}
-      <ArrowRight aria-hidden="true" />
-    </Button>
+      {t('PracticeGenerateStart')}
+    </AiButton>
   );
 }
 
-function GeneratedQuizLink({
-  id,
-  projectId,
-  close
-}: {
-  id: MaterialVersionDetailDto['id'];
-  projectId?: ProjectId;
-  close: () => void;
-}) {
-  const { t } = useI18n();
-  const version = useQuery(versionOptions(id));
-  const client = useQueryClient();
+function useGenerationDocuments(projectId?: ProjectId) {
+  const documents = useQuery(generationDocumentsOptions(projectId));
+  const [excluded, setExcluded] = useState<bigint[]>([]);
+  const inputs: ContentInput[] = (documents.data ?? [])
+    .filter((doc) => doc.headVersionId !== null && !excluded.includes(doc.headVersionId))
+    .map((doc) => ({ kind: 'document', versionId: doc.headVersionId! }));
+  const setInputs = (update: SetStateAction<ContentInput[]>) => {
+    const next = typeof update === 'function' ? update(inputs) : update;
+    const selected = new Set(
+      next.filter((input) => input.kind === 'document').map((input) => input.versionId)
+    );
 
-  return (
-    <Button
-      disabled={!version.data}
-      render={
-        version.data ? (
-          <Link
-            to="/practice/$materialId"
-            params={{ materialId: String(version.data.material_id) }}
-            search={projectId ? { project: String(projectId) } : {}}
-            onClick={() => {
-              void client.invalidateQueries({ queryKey: ['materials', 'library'] });
-              void client.invalidateQueries({ queryKey: ['library', 'practice'] });
-              close();
-            }}
-          />
-        ) : undefined
-      }
-    >
-      {t('QuizOpenGenerated')}
-      <ArrowRight aria-hidden="true" />
-    </Button>
-  );
+    setExcluded(
+      (documents.data ?? []).flatMap((doc) =>
+        doc.headVersionId !== null && !selected.has(doc.headVersionId) ? [doc.headVersionId] : []
+      )
+    );
+  };
+
+  return { documents, inputs, setInputs };
 }

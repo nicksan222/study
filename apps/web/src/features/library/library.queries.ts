@@ -1,7 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { queryOptions } from '@tanstack/react-query';
 
-import { listMaterialsForProjects } from '#web/lib/study-client/operations.ts';
+import { listPracticeMaterials } from '#web/lib/study-client/operations.ts';
 import type { Subjects } from '#web/lib/study-client/operations.ts';
 
 import { libraryItems } from './library.logic';
@@ -14,7 +14,7 @@ export function libraryQueryOptions(subjects: Subjects, project?: ProjectId, ena
   return queryOptions({
     queryKey: ['library', 'practice', projectIds.map(String), project?.toString()],
     queryFn: async ({ signal }) =>
-      libraryItems(await listMaterialsForProjects(projectIds, signal), project),
+      libraryItems(await listPracticeMaterials(project, signal), project),
     enabled,
     refetchOnWindowFocus: 'always'
   });

@@ -22,6 +22,7 @@ import {
 import type { ReactNode } from 'react';
 
 import { NewBlankDocument } from '#web/features/authored-documents/index.ts';
+import { PracticeGenerationAction, ArchivedPracticeAction } from '#web/features/practice/index.ts';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#web/lib/navigation/search-results.ts';
@@ -464,26 +465,13 @@ function SidebarToolbar({
       >
         <FolderPlus aria-hidden="true" />
       </Button>
-      {metadata.section === 'documents' && (
-        <NewBlankDocument
-          key={String(project)}
-          project={project}
-          compact
-          disabled={invalidSubject || subjectState !== 'ready'}
-        />
-      )}
-      {metadata.title === 'Sessions' && (
-        <Button
-          size="icon"
-          variant="ghost-muted"
-          aria-label={t('NewSession')}
-          title={t('NewSession')}
-          disabled={creating}
-          onClick={() => void createSession()}
-        >
-          <SidebarCreateSessionIcon creating={creating} />
-        </Button>
-      )}
+      <SidebarCreationControl
+        metadata={metadata}
+        project={project}
+        disabled={invalidSubject || subjectState !== 'ready'}
+        creating={creating}
+        createSession={createSession}
+      />
     </SidebarUI.Toolbar>
   );
 }
@@ -722,4 +710,42 @@ function subjectPickerDescription(
       timeZone: 'UTC'
     })
   });
+}
+
+function SidebarCreationControl({
+  metadata,
+  project,
+  disabled,
+  creating,
+  createSession
+}: Pick<SidebarModel, 'metadata' | 'project' | 'creating' | 'createSession'> & {
+  disabled: boolean;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {metadata.section === 'practice' && (
+        <>
+          <ArchivedPracticeAction key={String(project)} projectId={project} disabled={disabled} />
+          <PracticeGenerationAction projectId={project} disabled={disabled} />
+        </>
+      )}
+      {metadata.section === 'documents' && (
+        <NewBlankDocument key={String(project)} project={project} compact disabled={disabled} />
+      )}
+      {metadata.title === 'Sessions' && (
+        <Button
+          size="icon"
+          variant="ghost-muted"
+          aria-label={t('NewSession')}
+          title={t('NewSession')}
+          disabled={creating}
+          onClick={() => void createSession()}
+        >
+          <SidebarCreateSessionIcon creating={creating} />
+        </Button>
+      )}
+    </>
+  );
 }
