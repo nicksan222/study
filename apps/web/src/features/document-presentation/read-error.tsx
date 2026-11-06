@@ -1,4 +1,4 @@
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -16,11 +16,7 @@ export function ContentReadError({ error, retry }: { error: unknown; retry?: () 
         toStudyError(error).kind === 'not_found' ? 'ReaderUnavailable' : 'ReaderReadFailed'
       )}
       action={
-        retry && (
-          <Button size="sm" variant="outline" onClick={retry}>
-            {t('Retry')}
-          </Button>
-        )
+        retry && <RetryButton size="sm" variant="outline" onClick={retry} label={t('Retry')} />
       }
     />
   );

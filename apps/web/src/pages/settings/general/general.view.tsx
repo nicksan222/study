@@ -1,5 +1,5 @@
 import { Language } from '@study/contracts/settings/types';
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
@@ -23,9 +23,7 @@ export function GeneralSettingsView({
       {model.error && (
         <Settings.Status
           action={
-            <Button variant="outline" size="sm" onClick={model.retry}>
-              {t('Retry')}
-            </Button>
+            <RetryButton variant="outline" size="sm" onClick={model.retry} label={t('Retry')} />
           }
         >
           {t('GeneralSettingsError')}

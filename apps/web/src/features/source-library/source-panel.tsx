@@ -1,6 +1,7 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
 import type { SourceId, SessionId, ContentSnapshotId } from '@study/contracts/ids';
 import type { documentSchema, Source } from '@study/contracts/sources/schemas';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
@@ -56,7 +57,7 @@ function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?:
       {download.error && (
         <ErrorState
           title={t('ReaderOriginalUnavailable')}
-          action={<Button onClick={() => download.mutate()}>{t('Retry')}</Button>}
+          action={<RetryButton onClick={() => download.mutate()} label={t('Retry')} />}
         />
       )}
     </>

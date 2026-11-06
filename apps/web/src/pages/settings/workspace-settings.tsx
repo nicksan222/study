@@ -1,6 +1,6 @@
 import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import type { StaticMessageKey } from '@study/localization';
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
 import { NumberControl } from '@study/ui/number-control';
 import { SelectControl } from '@study/ui/select-control';
@@ -44,16 +44,15 @@ function PreferenceSection({
       {(query.error || mutation.error) && (
         <Settings.Status
           action={
-            <Button
+            <RetryButton
               size="sm"
               variant="outline"
               onClick={() => {
                 mutation.reset();
                 void query.refetch();
               }}
-            >
-              {t('Retry')}
-            </Button>
+              label={t('Retry')}
+            />
           }
         >
           {t('WorkspaceSettingsFailed')}

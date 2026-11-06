@@ -1,6 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { age } from '@study/localization';
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { useNowMinute } from '@study/ui/clock';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
@@ -55,9 +55,11 @@ export function DocumentsSidebar({
           layout="sidebar"
           title={t('DocumentsLoadError')}
           action={
-            <Button variant="ghost-muted" onClick={() => void state.refetch()}>
-              {t('Retry')}
-            </Button>
+            <RetryButton
+              variant="ghost-muted"
+              onClick={() => void state.refetch()}
+              label={t('Retry')}
+            />
           }
         />
       )}

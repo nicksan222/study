@@ -1,4 +1,5 @@
 import { LlmModel } from '@study/contracts/settings/types';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
@@ -31,9 +32,12 @@ export function AiAccountSettingsView({
       {model.error && (
         <Settings.Status
           action={
-            <Button variant="outline" onClick={model.retry} disabled={model.pending}>
-              {t('Retry')}
-            </Button>
+            <RetryButton
+              variant="outline"
+              onClick={model.retry}
+              disabled={model.pending}
+              label={t('Retry')}
+            />
           }
         >
           {t(model.signInUnsupported ? 'AiSettingsSignInLocalOnly' : 'AiSettingsFailed')}

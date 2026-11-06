@@ -1,6 +1,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
@@ -74,9 +75,11 @@ export function ProjectSettings({
           layout="inline"
           title={t('SubjectsLoadError')}
           action={
-            <Button variant="outline" onClick={() => void projects.refetch()}>
-              {t('Retry')}
-            </Button>
+            <RetryButton
+              variant="outline"
+              onClick={() => void projects.refetch()}
+              label={t('Retry')}
+            />
           }
         />
       )}

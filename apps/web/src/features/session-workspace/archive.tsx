@@ -3,6 +3,7 @@ import type {
   SessionArchiveTarget
 } from '@study/contracts/conversations/archive';
 import type { MessageId, SessionId, SourceId, StudyDocumentId } from '@study/contracts/ids';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ChatMessage, ChatMessageText } from '@study/ui/chat';
 import { ErrorState } from '@study/ui/error-state';
@@ -90,11 +91,7 @@ function ArchiveOverview({
       <ErrorState
         title={t('SessionArchiveLoadFailed')}
         description={t('SessionArchiveLoadFailedHelp')}
-        action={
-          <Button size="sm" variant="outline" onClick={retry}>
-            {t('Retry')}
-          </Button>
-        }
+        action={<RetryButton size="sm" variant="outline" onClick={retry} label={t('Retry')} />}
       />
     );
 

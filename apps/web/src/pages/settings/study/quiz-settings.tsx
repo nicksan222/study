@@ -1,6 +1,6 @@
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import type { QuizSettings } from '@study/contracts/settings/types';
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
@@ -52,9 +52,7 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
           layout="inline"
           title={t('QuizSettingsError')}
           action={
-            <Button variant="outline" size="sm" onClick={model.retry}>
-              {t('Retry')}
-            </Button>
+            <RetryButton variant="outline" size="sm" onClick={model.retry} label={t('Retry')} />
           }
         />
       )}

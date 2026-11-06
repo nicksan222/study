@@ -1,4 +1,4 @@
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
 import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
@@ -18,16 +18,15 @@ export function SidebarSettings() {
       {(model.query.error || model.mutation.error) && (
         <Settings.Status
           action={
-            <Button
+            <RetryButton
               size="sm"
               variant="outline"
               onClick={() => {
                 model.mutation.reset();
                 void model.query.refetch();
               }}
-            >
-              {t('Retry')}
-            </Button>
+              label={t('Retry')}
+            />
           }
         >
           {t('SidebarSettingsError')}

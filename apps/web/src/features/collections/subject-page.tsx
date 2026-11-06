@@ -1,5 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { List } from '@study/ui/list';
@@ -108,7 +109,7 @@ function ContentSection({
         <ErrorState
           layout="inline"
           title={t('collections.readError')}
-          action={<Button onClick={() => void state.refetch()}>{t('Retry')}</Button>}
+          action={<RetryButton onClick={() => void state.refetch()} label={t('Retry')} />}
         />
       ) : empty ? (
         <SubjectWorkspace.EmptyList>{t('SubjectWorkspaceEmpty')}</SubjectWorkspace.EmptyList>

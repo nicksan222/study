@@ -1,4 +1,4 @@
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
 
@@ -15,11 +15,7 @@ export function AppearanceStatus({ model }: { model: AppearanceModel }) {
       {model.loading && <Loading label={t('LoadingSettings')} />}
       {model.error && (
         <Settings.Status
-          action={
-            <Button variant="outline" onClick={model.retry}>
-              {t('Retry')}
-            </Button>
-          }
+          action={<RetryButton variant="outline" onClick={model.retry} label={t('Retry')} />}
         >
           {t('AppearanceFailed')}
         </Settings.Status>

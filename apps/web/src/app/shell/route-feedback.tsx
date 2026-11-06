@@ -1,4 +1,4 @@
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { useRouter } from '@tanstack/react-router';
 
@@ -18,9 +18,11 @@ export function RouteError() {
       title={t('PageErrorTitle')}
       description={t('StudyLoadError')}
       action={
-        <Button variant="outline" onClick={() => void router.invalidate()}>
-          {t('Retry')}
-        </Button>
+        <RetryButton
+          variant="outline"
+          onClick={() => void router.invalidate()}
+          label={t('Retry')}
+        />
       }
     />
   );

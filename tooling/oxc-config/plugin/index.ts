@@ -39,6 +39,7 @@ import serverNoMocks from './rules/server-no-mocks.ts';
 import serviceDefinition from './rules/service-definition.ts';
 import sharedErrorState from './rules/shared-error-state.ts';
 import sharedLoading from './rules/shared-loading.ts';
+import sharedUiPatterns from './rules/shared-ui-patterns.ts';
 import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import testClassification from './rules/test-classification.ts';
@@ -103,6 +104,7 @@ export default definePlugin({
     'no-deep-relative-imports': noDeepRelativeImports,
     'theme-colors': themeRule,
     'shared-ui-variants': sharedUiVariants,
+    'shared-ui-patterns': sharedUiPatterns,
     'web-boundaries': webBoundaries,
     'web-page-contract': webPageContract,
     'web-presentation-purity': webPresentationPurity,

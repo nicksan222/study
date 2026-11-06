@@ -1,6 +1,7 @@
 import type { sessionGenerationSchema } from '@study/contracts/conversations/rpc';
 import { StudyError } from '@study/contracts/errors';
 import type { SessionId, StudyDocumentVersionId } from '@study/contracts/ids';
+import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
@@ -367,9 +368,7 @@ function TransformRecovery({ model }: { model: TransformationModel }) {
   return (
     <>
       {retryable && !submit.error && (
-        <Button variant="outline" onClick={() => start(draft.attempt!)}>
-          {t('Retry')}
-        </Button>
+        <RetryButton variant="outline" onClick={() => start(draft.attempt!)} label={t('Retry')} />
       )}
       {retryable && <p>{t('SessionTransformRetryHelp')}</p>}
       {draft.attempt && draft.unavailable && !draft.requestId && (
@@ -530,7 +529,7 @@ function TransformControls({ model }: { model: TransformResultModel }) {
         </Button>
       )}
       {active && retryableFailure && (
-        <Button
+        <RetryButton
           variant="outline"
           disabled={retry.isPending}
           onClick={() => {
@@ -539,9 +538,8 @@ function TransformControls({ model }: { model: TransformResultModel }) {
             cache.setQueryData(retryKey, { key, acknowledged: false });
             retry.mutate(key);
           }}
-        >
-          {t('Retry')}
-        </Button>
+          label={t('Retry')}
+        />
       )}
       {state.data?.cancelled && <p role="status">{t('SessionCancelledTransform')}</p>}
       {cancel.error && <SessionError error={cancel.error} retry={() => cancel.mutate()} />}

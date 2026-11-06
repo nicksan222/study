@@ -2,6 +2,7 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
+import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import {
@@ -259,16 +260,15 @@ function GenerationStatus({ model }: { model: GenerationModel }) {
           layout="inline"
           title={t('QuizGenerateError')}
           action={
-            <Button
+            <RetryButton
               variant="outline"
               size="sm"
               onClick={() => {
                 if (model.preferences.isError) void model.preferences.refetch();
                 else model.create();
               }}
-            >
-              {t('Retry')}
-            </Button>
+              label={t('Retry')}
+            />
           }
         />
       )}

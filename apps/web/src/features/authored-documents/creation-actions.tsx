@@ -1,4 +1,5 @@
 import type { ProjectId, StudyDocumentId } from '@study/contracts/ids';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { useNavigate } from '@tanstack/react-router';
@@ -86,9 +87,11 @@ export function NewBlankDocument({
         <ErrorState
           title={t('SessionActionErrorTitle')}
           action={
-            <Button variant="ghost" onClick={() => void creation.create()}>
-              {t('Retry')}
-            </Button>
+            <RetryButton
+              variant="ghost"
+              onClick={() => void creation.create()}
+              label={t('Retry')}
+            />
           }
         />
       )}

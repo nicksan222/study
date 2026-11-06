@@ -1,5 +1,6 @@
 import type { summarySchema } from '@study/contracts/documents/schemas';
 import type { ContentInput } from '@study/contracts/inputs';
+import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
@@ -36,14 +37,13 @@ export function QuizInputPicker({
               layout="inline"
               title={t('QuizInputsError')}
               action={
-                <Button
+                <RetryButton
                   variant="outline"
                   onClick={() => {
                     void documents.refetch();
                   }}
-                >
-                  {t('Retry')}
-                </Button>
+                  label={t('Retry')}
+                />
               }
             />
           )}

@@ -1,5 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
-import { Button } from '@study/ui/button';
+import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/session-workspace';
 import { useQuery } from '@tanstack/react-query';
@@ -25,11 +25,7 @@ export function SessionError({ error, retry }: { error: unknown; retry?: () => v
             : 'SessionRequestError'
       )}
       action={
-        retry && (
-          <Button size="sm" variant="outline" onClick={retry}>
-            {t('Retry')}
-          </Button>
-        )
+        retry && <RetryButton size="sm" variant="outline" onClick={retry} label={t('Retry')} />
       }
     />
   );
@@ -54,11 +50,7 @@ export function SessionReadError({
         toStudyError(error).kind === 'not_found' ? 'SessionReadUnavailable' : 'SessionReadError'
       )}
       action={
-        retry && (
-          <Button size="sm" variant="outline" onClick={retry}>
-            {t('Retry')}
-          </Button>
-        )
+        retry && <RetryButton size="sm" variant="outline" onClick={retry} label={t('Retry')} />
       }
     />
   );
