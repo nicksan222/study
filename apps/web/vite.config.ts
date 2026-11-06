@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
@@ -24,6 +25,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    // Host edits on Docker bind mounts do not reliably emit filesystem events.
+    watch: { usePolling: existsSync('/.dockerenv'), interval: 300 },
     proxy: studyRpcProxy(process.env.STUDY_SERVER_URL ?? 'http://127.0.0.1:5201')
   },
   build: { outDir: 'dist', emptyOutDir: true },
