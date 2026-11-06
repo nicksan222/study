@@ -1,7 +1,8 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 
+import { ReplayContext } from '#web/features/onboarding/index.tsx';
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
 import { sidebarContent, sidebarSubjectDestination } from '#web/lib/navigation/sidebar-config.ts';
 import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
@@ -23,6 +24,7 @@ export type SidebarProps = {
 
 /** Composes route context, scoped lists, search, and navigation without feature-specific branches. */
 export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
+  const replay = useContext(ReplayContext);
   const context = useSidebarContext(metadata);
   const { requestedProject, ready } = context;
   const global = metadata.scope === 'global';
@@ -74,6 +76,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   } = useSidebarActions(project, sidebarSubjectDestination(metadata, context.owned), clearSearch);
 
   return {
+    replay,
     settingsProject,
     setSettingsProject,
     metadata,

@@ -1,3 +1,4 @@
+import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { ProjectId, StudyDocumentId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
@@ -17,6 +18,7 @@ import { DocumentContextMenu } from './document-context-menu';
 
 export function DocumentsArchive({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
+
   return (
     <Dialog>
       <DialogTrigger render={<Button variant="outline" />}>{t('DocumentsArchived')}</DialogTrigger>
@@ -89,10 +91,7 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
         </Surface.Header>
         <Surface.Scroll>
           <Surface.Body>
-            {!active && !state.isPending && items.length === 0 && (
-              <p>{t('DocumentsArchivedEmpty')}</p>
-            )}
-            {active && <ArchivePreview id={active.id} />}
+            <ArchiveBody active={active} empty={!state.isPending && items.length === 0} />
           </Surface.Body>
         </Surface.Scroll>
       </Surface.Main>
@@ -100,12 +99,23 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
   );
 }
 
+function ArchiveBody({ active, empty }: { active?: StudyDocumentSummary; empty: boolean }) {
+  const { t } = useI18n();
+
+  if (active) return <ArchivePreview id={active.id} />;
+
+  return empty ? <p>{t('DocumentsArchivedEmpty')}</p> : null;
+}
+
 function ArchivePreview({ id }: { id: StudyDocumentId }) {
   const { t } = useI18n();
   const document = useQuery(sessionDocumentOptions(id));
+
   if (document.isPending) return <Loading label={t('LoadingStudy')} />;
+
   if (document.error)
     return <ContentReadError error={document.error} retry={() => void document.refetch()} />;
+
   return document.data?.version ? (
     <DocumentReader document={document.data.version.document} />
   ) : null;

@@ -6,6 +6,7 @@ const noop = () => {};
 
 export function sidebarModel(): SidebarModel {
   return {
+    replay: null,
     settingsProject: undefined,
     setSettingsProject: noop,
     metadata: { title: 'Sessions', section: 'sessions', scope: 'project' },

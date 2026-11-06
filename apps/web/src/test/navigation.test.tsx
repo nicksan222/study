@@ -21,7 +21,7 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice', 'Help'] as const;
+const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice'] as const;
 
 beforeEach(() => {
   history.replaceState(null, '', '/');

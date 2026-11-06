@@ -19,10 +19,9 @@ import {
   Settings2,
   SquarePen
 } from 'lucide-react';
-import { useContext, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { NewBlankDocument } from '#web/features/authored-documents/index.ts';
-import { ReplayContext } from '#web/features/onboarding/index.tsx';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#web/lib/navigation/search-results.ts';
@@ -181,43 +180,9 @@ function SidebarSessions({
 
 /** Keeps the subject settings target stable even if that subject is removed from the sidebar. */
 
-function SidebarHeader({
-  collapsed,
-  onToggle,
-  requestedProject,
-  subjects,
-  subject,
-  subjectState,
-  pickerOpen,
-  setPickerOpen,
-  setNewSubjectOpen,
-  setActionError,
-  clearSearch,
-  selectSubject,
-  reloadSubjects,
-  project,
-  settingsProject,
-  setSettingsProject
-}: Pick<
-  SidebarModel,
-  | 'collapsed'
-  | 'onToggle'
-  | 'requestedProject'
-  | 'subjects'
-  | 'subject'
-  | 'subjectState'
-  | 'pickerOpen'
-  | 'setPickerOpen'
-  | 'setNewSubjectOpen'
-  | 'setActionError'
-  | 'clearSearch'
-  | 'selectSubject'
-  | 'reloadSubjects'
-  | 'project'
-  | 'settingsProject'
-  | 'setSettingsProject'
->) {
-  const { t, date } = useI18n();
+function SidebarHeader(model: SidebarModel) {
+  const { collapsed, onToggle, clearSearch, project, settingsProject, setSettingsProject } = model;
+  const { t } = useI18n();
 
   return (
     <SidebarUI.Header>
@@ -230,49 +195,7 @@ function SidebarHeader({
           onToggle();
         }}
       />
-      <SidebarUI.Picker
-        items={subjects}
-        value={subject ?? null}
-        getLabel={(item) => item.name}
-        getValue={(item) => String(item.id)}
-        getIcon={subjectPickerIcon}
-        getDescription={(item) =>
-          item.examOn
-            ? t('SidebarPolishExam', {
-                date: date(new Date(`${item.examOn}T12:00:00Z`).getTime() / 1000, {
-                  dateStyle: 'medium',
-                  timeZone: 'UTC'
-                })
-              })
-            : undefined
-        }
-        listLabel={t('SidebarPolishSubjects')}
-        onValueChange={(item) => selectSubject(item.id)}
-        open={pickerOpen}
-        onOpenChange={(open) => {
-          setPickerOpen(open);
-
-          if (open) reloadSubjects();
-        }}
-        collapsed={collapsed}
-        label={t('ChooseProject')}
-        fallbackIcon={<Folder aria-hidden="true" />}
-        searchLabel={t('FindSubject')}
-        empty={projectPickerEmpty(subjectState, subjects.length, t)}
-        status={
-          <SidebarProjectStatus subjectState={subjectState} reloadSubjects={reloadSubjects} />
-        }
-      >
-        <SidebarPickerActions
-          subject={subject}
-          requestedProject={requestedProject}
-          setPickerOpen={setPickerOpen}
-          setNewSubjectOpen={setNewSubjectOpen}
-          setActionError={setActionError}
-          clearSearch={clearSearch}
-          onEditSubject={() => setSettingsProject(subject?.id)}
-        />
-      </SidebarUI.Picker>
+      <SidebarSubjectPicker {...model} />
       {settingsProject && (
         <SettingsPage
           initialSection="projects"
@@ -285,6 +208,77 @@ function SidebarHeader({
   );
 }
 
+function SidebarSubjectPicker({
+  collapsed,
+  requestedProject,
+  subjects,
+  subject,
+  subjectState,
+  pickerOpen,
+  setPickerOpen,
+  setNewSubjectOpen,
+  setActionError,
+  clearSearch,
+  selectSubject,
+  reloadSubjects,
+  setSettingsProject,
+  replay
+}: Pick<
+  SidebarModel,
+  | 'collapsed'
+  | 'requestedProject'
+  | 'subjects'
+  | 'subject'
+  | 'subjectState'
+  | 'pickerOpen'
+  | 'setPickerOpen'
+  | 'setNewSubjectOpen'
+  | 'setActionError'
+  | 'clearSearch'
+  | 'selectSubject'
+  | 'reloadSubjects'
+  | 'setSettingsProject'
+  | 'replay'
+>) {
+  const { t, date } = useI18n();
+
+  return (
+    <SidebarUI.Picker
+      items={subjects}
+      value={subject ?? null}
+      getLabel={(item) => item.name}
+      getValue={(item) => String(item.id)}
+      getIcon={subjectPickerIcon}
+      getDescription={(item) => subjectPickerDescription(item, t, date)}
+      listLabel={t('SidebarPolishSubjects')}
+      onValueChange={(item) => selectSubject(item.id)}
+      open={pickerOpen}
+      onOpenChange={(open) => {
+        setPickerOpen(open);
+
+        if (open) reloadSubjects();
+      }}
+      collapsed={collapsed}
+      label={t('ChooseProject')}
+      fallbackIcon={<Folder aria-hidden="true" />}
+      searchLabel={t('FindSubject')}
+      empty={projectPickerEmpty(subjectState, subjects.length, t)}
+      status={<SidebarProjectStatus subjectState={subjectState} reloadSubjects={reloadSubjects} />}
+    >
+      <SidebarPickerActions
+        subject={subject}
+        requestedProject={requestedProject}
+        setPickerOpen={setPickerOpen}
+        setNewSubjectOpen={setNewSubjectOpen}
+        setActionError={setActionError}
+        clearSearch={clearSearch}
+        replay={replay}
+        onEditSubject={() => setSettingsProject(subject?.id)}
+      />
+    </SidebarUI.Picker>
+  );
+}
+
 /** Closes the picker before opening subject creation, management, or global navigation. */
 
 function SidebarPickerActions({
@@ -294,6 +288,7 @@ function SidebarPickerActions({
   setNewSubjectOpen,
   setActionError,
   clearSearch,
+  replay,
   onEditSubject
 }: Pick<
   SidebarModel,
@@ -303,6 +298,7 @@ function SidebarPickerActions({
   | 'setNewSubjectOpen'
   | 'setActionError'
   | 'clearSearch'
+  | 'replay'
 > & {
   onEditSubject: () => void;
 }) {
@@ -356,6 +352,7 @@ function SidebarPickerActions({
         requestedProject={requestedProject}
         setPickerOpen={setPickerOpen}
         clearSearch={clearSearch}
+        replay={replay}
       />
     </>
   );
@@ -366,10 +363,10 @@ function SidebarPickerActions({
 function SidebarPickerShortcuts({
   requestedProject,
   setPickerOpen,
-  clearSearch
-}: Pick<SidebarModel, 'requestedProject' | 'setPickerOpen' | 'clearSearch'>) {
+  clearSearch,
+  replay
+}: Pick<SidebarModel, 'requestedProject' | 'setPickerOpen' | 'clearSearch' | 'replay'>) {
   const { t } = useI18n();
-  const replay = useContext(ReplayContext);
 
   return (
     <SidebarUI.PickerShortcuts>
@@ -710,4 +707,19 @@ function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) 
 
 function subjectPickerIcon(item: SidebarModel['subjects'][number]) {
   return <SubjectIdentity name={item.name} icon={item.icon} />;
+}
+
+function subjectPickerDescription(
+  item: SidebarModel['subjects'][number],
+  t: ReturnType<typeof useI18n>['t'],
+  date: ReturnType<typeof useI18n>['date']
+) {
+  if (!item.examOn) return undefined;
+
+  return t('SidebarPolishExam', {
+    date: date(new Date(`${item.examOn}T12:00:00Z`).getTime() / 1000, {
+      dateStyle: 'medium',
+      timeZone: 'UTC'
+    })
+  });
 }

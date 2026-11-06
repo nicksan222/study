@@ -252,21 +252,7 @@ function MessageEntry({
 
   return (
     <ChatMessage data-role={message.role}>
-      <ChatEntryLabel>
-        {t(
-          message.format === 'document'
-            ? 'SessionEntryDocument'
-            : message.question?.kind === 'question' &&
-                (message.question.versionId === version?.id ||
-                  message.question.answerVersionId === version?.id)
-              ? 'SessionQuestion'
-              : message.role === 'assistant' || version?.origin === 'answer'
-                ? 'SessionAnswer'
-                : !version?.text.trim() && message.parts.length > 0
-                  ? 'SessionEntryAttachment'
-                  : 'SessionEntryNote'
-        )}
-      </ChatEntryLabel>
+      <ChatEntryLabel>{t(messageEntryLabel(message, version))}</ChatEntryLabel>
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
         <MessageVersionBody
@@ -290,6 +276,25 @@ function MessageEntry({
         <SessionReadError error={citations.error} retry={() => void citations.refetch()} />
       )}
     </ChatMessage>
+  );
+}
+
+function messageEntryLabel(message: Message, version: Message['versions'][number] | undefined) {
+  if (message.format === 'document') return 'SessionEntryDocument';
+
+  if (isQuestionVersion(message, version?.id)) return 'SessionQuestion';
+
+  if (message.role === 'assistant' || version?.origin === 'answer') return 'SessionAnswer';
+
+  if (!version?.text.trim() && message.parts.length > 0) return 'SessionEntryAttachment';
+
+  return 'SessionEntryNote';
+}
+
+function isQuestionVersion(message: Message, versionId: VersionId | undefined) {
+  return (
+    message.question?.kind === 'question' &&
+    (message.question.versionId === versionId || message.question.answerVersionId === versionId)
   );
 }
 

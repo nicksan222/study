@@ -1,12 +1,9 @@
-import { Button } from '@study/ui/button';
-import { Loading } from '@study/ui/loading';
 import { Onboarding, OnboardingNotebook, OnboardingSetup } from '@study/ui/onboarding';
 import {
   OnboardingSubject,
   OnboardingDocument,
   OnboardingWorkflow
 } from '@study/ui/onboarding-previews';
-import { Settings } from '@study/ui/settings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -15,6 +12,7 @@ import { ReplayContext } from '#web/features/onboarding/index.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { appSettingsQueryOptions } from '#web/lib/study-client/preferences.queries.ts';
 import { AiAccountSettings } from '#web/pages/settings/ai/index.tsx';
+import { AppearanceStatus } from '#web/pages/settings/appearance-status.tsx';
 import { GeneralSettings } from '#web/pages/settings/general/index.tsx';
 import { ColorScheme } from '#web/pages/settings/theme-library.tsx';
 import { useAppearance } from '#web/pages/settings/use-page.ts';
@@ -85,15 +83,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         steps={slides.map((item) => t(item.title))}
         step={step}
         backLabel={t('Back')}
-        nextLabel={t(
-          save.isPending
-            ? 'Saving'
-            : step === 0
-              ? 'OnboardingStart'
-              : step === slides.length - 1
-                ? 'OnboardingFinish'
-                : 'OnboardingNext'
-        )}
+        nextLabel={t(nextLabel(step, save.isPending))}
         skipLabel={t('OnboardingSkip')}
         closeLabel={t('Close')}
         pending={save.isPending}
@@ -169,23 +159,21 @@ function WelcomeVisual({ kind }: { kind: (typeof slides)[number]['id'] }) {
 
 function Personalize() {
   const model = useAppearance();
-  const { t } = useI18n();
 
   return (
     <OnboardingSetup>
-      {model.loading && <Loading label={t('LoadingSettings')} />}
-      {model.error && (
-        <Settings.Status
-          action={
-            <Button variant="outline" onClick={model.retry}>
-              {t('Retry')}
-            </Button>
-          }
-        >
-          {t('AppearanceFailed')}
-        </Settings.Status>
-      )}
+      <AppearanceStatus model={model} />
       {model.data && <ColorScheme model={model} showHeading={false} />}
     </OnboardingSetup>
   );
+}
+
+function nextLabel(step: number, pending: boolean) {
+  if (pending) return 'Saving';
+
+  if (step === 0) return 'OnboardingStart';
+
+  if (step === slides.length - 1) return 'OnboardingFinish';
+
+  return 'OnboardingNext';
 }

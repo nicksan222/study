@@ -1,6 +1,4 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
-import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
 import { Palette, Settings2, Bot, GraduationCap, Database, Folder, PenLine } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -9,6 +7,7 @@ import { ProjectSettings } from '#web/features/collections/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AiSettings } from './ai';
+import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
 import { SidebarSettings } from './general/sidebar-settings';
@@ -280,22 +279,9 @@ function SectionContent({
 }
 
 function AppearanceContent({ model, search }: { model: AppearanceModel; search: string }) {
-  const { t } = useI18n();
-
   return (
     <>
-      {model.loading && <Loading label={t('LoadingSettings')} />}
-      {model.error && (
-        <Settings.Status
-          action={
-            <Button variant="outline" onClick={model.retry}>
-              {t('Retry')}
-            </Button>
-          }
-        >
-          {t('AppearanceFailed')}
-        </Settings.Status>
-      )}
+      <AppearanceStatus model={model} />
       {model.data && (
         <>
           <ColorScheme model={model} />

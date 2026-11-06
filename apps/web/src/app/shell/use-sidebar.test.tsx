@@ -243,15 +243,20 @@ testStable('creates a subject from the toolbar and selects it', async () => {
   await waitFor(() => expect(location.pathname + location.search).toBe('/projects/3/sessions'));
 });
 
-testStable('searches globally on Help while retaining the subject for navigation', async () => {
-  history.replaceState(null, '', '/projects/1/help');
+testStable('searches session content across subjects when no subject is selected', async () => {
+  history.replaceState(null, '', '/sessions');
   const user = userEvent.setup();
 
   await renderWithNavigation();
-  await screen.findByLabelText('Biology');
+  await screen.findByRole('combobox', { name: en.ChooseProject });
   await user.type(screen.getByRole('searchbox'), 'cell');
   await waitFor(() =>
-    expect(api.search).toHaveBeenLastCalledWith({ query: 'cell', project: undefined, limit: 30 })
+    expect(api.search).toHaveBeenLastCalledWith({
+      query: 'cell',
+      project: undefined,
+      limit: 30,
+      kinds: ['session', 'message']
+    })
   );
 });
 
@@ -425,30 +430,32 @@ testStable('loads later project and session pages', async () => {
   expect(await screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 
-testStable.each([['diagram'], ['flashcards'], ['quiz']])(
-  'opens a %s search result on its own page',
-  async (materialKind) => {
-    history.replaceState(null, '', '/projects/1/help');
-    api.search.mockResolvedValue({
-      semantic: false,
-      hits: [
-        {
-          kind: 'material',
-          title: 'Cell study',
-          at: 0n,
-          target: { type: 'material', materialId: 8n, versionId: 9n, materialKind }
-        }
-      ]
-    });
-    const user = userEvent.setup();
+testStable.each([
+  ['flashcards', '/projects/1/flashcards?material=8'],
+  ['quiz', '/projects/1/practice?material=8']
+])('filters the practice list and opens %s in its subject', async (kind, destination) => {
+  history.replaceState(null, '', '/projects/1/practice');
+  api.materials.mockResolvedValue({
+    items: [
+      {
+        id: 8n,
+        kind,
+        title: 'Cell study',
+        projectIds: [1n],
+        updated_at: 0n
+      }
+    ],
+    nextCursor: null
+  });
+  const user = userEvent.setup();
 
-    await renderWithNavigation();
-    await screen.findByLabelText('Biology');
-    await user.type(screen.getByRole('searchbox'), 'cell');
-    await user.click(await screen.findByRole('link', { name: /Cell study/ }));
-    await waitFor(() => expect(location.pathname + location.search).toBe('/materials/8?version=9'));
-  }
-);
+  await renderWithNavigation();
+  await screen.findByLabelText('Biology');
+  await user.type(screen.getByRole('searchbox'), 'cell');
+  await user.click(await screen.findByRole('link', { name: /Cell study/ }));
+  await waitFor(() => expect(location.pathname + location.search).toBe(destination));
+  expect(api.search).not.toHaveBeenCalled();
+});
 
 testStable('preserves projects loaded while project creation is in flight', async () => {
   let finishLoad!: (value: { items: typeof subjects; next: null }) => void;

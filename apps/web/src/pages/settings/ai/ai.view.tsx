@@ -51,31 +51,41 @@ export function AiAccountSettingsView({
                     : t('AiSettingsPlanDescription')
                 }
               >
-                {model.attempt ? (
-                  model.popupBlocked ? (
-                    <SignInActions url={model.attempt.url} linkLabel={t('AiSettingsOpenSignIn')}>
-                      <Button variant="ghost" disabled={model.cancelling} onClick={model.cancel}>
-                        {t('AiSettingsCancelSignIn')}
-                      </Button>
-                    </SignInActions>
-                  ) : (
-                    <Spinner size="md" label={t('AiSettingsWaiting')} />
-                  )
-                ) : model.data.status.signedIn ? (
-                  <Button variant="outline" disabled={model.pending} onClick={model.signOut}>
-                    {t('AiSettingsSignOut')}
-                  </Button>
-                ) : (
-                  <Button variant="outline" disabled={model.pending} onClick={model.start}>
-                    {t('AiSettingsSignIn')}
-                  </Button>
-                )}
+                <AccountActions model={model} />
               </Settings.Row>
             </Settings.Group>
           </Settings.Section>
         </>
       )}
     </>
+  );
+}
+
+function AccountActions({ model }: { model: AiSettingsModel }) {
+  const { t } = useI18n();
+
+  if (model.attempt) {
+    if (!model.popupBlocked) return <Spinner size="md" label={t('AiSettingsWaiting')} />;
+
+    return (
+      <SignInActions url={model.attempt.url} linkLabel={t('AiSettingsOpenSignIn')}>
+        <Button variant="ghost" disabled={model.cancelling} onClick={model.cancel}>
+          {t('AiSettingsCancelSignIn')}
+        </Button>
+      </SignInActions>
+    );
+  }
+
+  const signedIn = model.data?.status.signedIn;
+
+  return (
+    <Button
+      variant="outline"
+      disabled={model.pending}
+      onClick={signedIn ? model.signOut : model.start}
+    >
+      {t(signedIn ? 'AiSettingsSignOut' : 'AiSettingsSignIn')}
+    </Button>
   );
 }
 

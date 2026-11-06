@@ -18,7 +18,8 @@ import {
   Settings,
   SquarePen
 } from 'lucide-react';
-import { useContext, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { useContext } from 'react';
 
 import { useNewBlankDocument } from '#web/features/authored-documents/index.ts';
 import { ReplayContext } from '#web/features/onboarding/index.tsx';
