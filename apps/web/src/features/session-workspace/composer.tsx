@@ -19,6 +19,7 @@ import { UnavailableAttempt } from './unavailable-attempt';
 type ComposerModel = ReturnType<typeof useComposer>;
 
 /** Combines quick capture, attachments and request recovery for the active session. */
+/** Composes notes, questions and attachments while preserving mixed clipboard content. */
 export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () => void }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();

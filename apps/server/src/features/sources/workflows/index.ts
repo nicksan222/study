@@ -52,6 +52,7 @@ export const sourceIngestionWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
+/** Decodes one retained source capture and checkpoints its guarded publication. */
 export const sourceIngestionHandler = ({
   event
 }: typeof sourceIngestionWorkflow.payloadSchema.Type) =>
@@ -96,6 +97,7 @@ export const sourceIngestionHandler = ({
           )
         : null;
 
+    /** Reconciles fetched MIME and sniffed content before choosing a decoder or PDF strategy. */
     function decodingInput() {
       if (!fetched) return snapshot;
 

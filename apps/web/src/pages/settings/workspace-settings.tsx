@@ -272,6 +272,7 @@ export function ReadingSettings() {
   );
 }
 
+/** Groups writing behavior with automatic conversion and provider preferences. */
 export function AiWritingSettings() {
   return (
     <PreferenceSection title="WorkspaceAiTitle" description="WorkspaceAiDescription">

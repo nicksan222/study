@@ -46,6 +46,7 @@ type State = {
   reviewed?: boolean;
 };
 
+/** Coordinates version-scoped edits, generation attempts and conversion controls. */
 export function useMessageActions({
   message,
   versionId,

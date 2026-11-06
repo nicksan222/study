@@ -35,6 +35,7 @@ const actions = [
   { mode: 'activate', label: 'SessionUseVersion', icon: Check }
 ] as const;
 
+/** Exposes selection-aware message actions through the shared context menu. */
 export function MessageContextMenu({ model, children }: { model: Model; children: ReactNode }) {
   const trigger = useRef<HTMLDivElement>(null);
   const [workOpen, setWorkOpen] = useState(false);

@@ -64,6 +64,7 @@ export const conversationReplyWorkflow = defineWorkflow({
 const attachmentGate = (sourceId: SourceId, requestId: string) =>
   DurableDeferred.make(`attachment/${sourceId}/${requestId}`, { error: failureSchema });
 
+/** Runs captured reply or conversion work and settles failures through guarded activities. */
 export const conversationReplyHandler = ({
   event
 }: typeof conversationReplyWorkflow.payloadSchema.Type) =>
@@ -473,6 +474,7 @@ function validateReplyEvent(
   return Effect.void;
 }
 
+/** Classifies conversions with rewrites so their workflow status follows the target note. */
 function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
   return snapshot.generation?.origin === undefined || snapshot.generation.origin === 'answer'
     ? 'reply'

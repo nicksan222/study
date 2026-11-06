@@ -138,6 +138,7 @@ const requestInput = Schema.Struct({
   context: Schema.optional(runSelectionContextSchema)
 });
 
+/** Binds immutable reply captures and publication checks to one database scope. */
 function makeHelpers({ db, clock }: StoreResources) {
   const discardPending = makeDiscardPending({ db, clock });
 
@@ -151,6 +152,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
   const sourceInputs = makeReplySourceInputs({ db, clock });
 
+  /** Captures generation inputs and creates its pending version in the same transaction. */
   function snapshot(
     input: typeof requestInput.Type,
     target?: {
@@ -381,6 +383,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       };
     }
 
+    /** Allocates the next version while preserving selected originals for answers and conversions. */
     function createPendingReply() {
       const now = unixSeconds(clock);
 
@@ -545,6 +548,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     return { row, result, session, target, version };
   }
 
+  /** Rejects stale selections and unavailable evidence before returning an actionable capture. */
   function readReplySnapshot(input: typeof replySnapshotInputSchema.Type) {
     const { row, result, session, target, version } = replyContext(input.requestId);
 
@@ -621,6 +625,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     }
   }
 
+  /** Discards active drafts while retaining failed conversion inputs for explicit recovery. */
   function retirePending(message: typeof messages.$inferSelect) {
     const pending = db.orm
       .select()
@@ -636,6 +641,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     for (const version of pending) discardPending(message, version);
   }
 
+  /** Blocks overlapping active work and ignores failed conversions when preparing a new reply. */
   function prepareReply(input: typeof replyRequestInputSchema.Type) {
     const pending = db.orm
       .select({ message: messages, version: message_versions })
@@ -1069,6 +1075,7 @@ export const ReplyStore = defineStore({
                 invalid();
             }
 
+            /** Bounds output and validates citations while preserving literal numbered text in conversions. */
             function validatePublicationInput() {
               if (!input.text.trim() || [...input.text].length > 100_000) invalid();
 
@@ -1305,6 +1312,7 @@ export const ReplyStore = defineStore({
 
             assertPendingPublication();
 
+            /** Fences publication against unresolved attachments and changes to the captured selection. */
             function assertPendingPublication() {
               if (
                 (snapshot.pendingAttachments?.length ?? 0) > 0 ||
@@ -1330,6 +1338,7 @@ export const ReplyStore = defineStore({
 
             selectCompletedAnswer();
 
+            /** Selects completed answers and conversions only when their selection policy permits it. */
             function selectCompletedAnswer() {
               if (
                 snapshot.generation?.questionVersionId ||
@@ -1739,6 +1748,7 @@ function replyVersionSelection(
   );
 }
 
+/** Requires an active generation version that still belongs to the captured session and selection. */
 function replySelectionMatches(
   target: typeof messages.$inferSelect | undefined,
   version: typeof message_versions.$inferSelect | undefined,

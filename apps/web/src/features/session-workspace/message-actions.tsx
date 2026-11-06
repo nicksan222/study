@@ -34,6 +34,7 @@ import { SessionError } from './status';
 
 type MessageActionsModel = ReturnType<typeof useMessageActions>;
 
+/** Keeps message actions and recoverable conversion work beside the selected version. */
 export function MessageActions({
   children,
   onVersionChange,
@@ -90,6 +91,7 @@ export function MessageActions({
   );
 }
 
+/** Shows the actions available for the current selection and draft state. */
 function MessageToolbar({
   model,
   onVersionChange,

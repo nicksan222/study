@@ -105,6 +105,7 @@ function citationPrecision(row: CitationRow) {
     : ('approximate' as const);
 }
 
+/** Binds message reads and version projections to the current database and clock. */
 function makeHelpers({ db, clock }: StoreResources) {
   const { assertThreadRoot } = makeThread({ db, clock });
 
