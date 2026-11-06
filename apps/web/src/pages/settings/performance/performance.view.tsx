@@ -1,6 +1,5 @@
 import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
-import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -46,20 +45,20 @@ export function PerformanceSettingsView({
             const control = model[row.key];
 
             return (
-              <Settings.Row key={row.key} title={t(row.title)} description={t(row.description)}>
-                <NumberControl
-                  label={t(row.title)}
-                  min={control.min}
-                  max={control.max}
-                  value={control.value}
-                  disabled={model.pending}
-                  submitDisabled={!control.valid || !control.changed}
-                  error={control.valid ? undefined : t(row.validation)}
-                  onValueChange={control.setValue}
-                  onSubmit={control.save}
-                  submitLabel={t(model.pending ? 'Saving' : 'Save')}
-                />
-              </Settings.Row>
+              <Settings.NumberRow
+                key={row.key}
+                title={t(row.title)}
+                description={t(row.description)}
+                min={control.min}
+                max={control.max}
+                value={control.value}
+                disabled={model.pending}
+                submitDisabled={!control.valid || !control.changed}
+                error={control.valid ? undefined : t(row.validation)}
+                onValueChange={control.setValue}
+                onSubmit={control.save}
+                submitLabel={t(model.pending ? 'Saving' : 'Save')}
+              />
             );
           })}
         </Settings.Group>

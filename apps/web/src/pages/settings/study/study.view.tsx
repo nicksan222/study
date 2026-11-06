@@ -1,6 +1,5 @@
 import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
-import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -24,23 +23,19 @@ export function StudySettingsView({ model }: { model: ReturnType<typeof useStudy
       {model.loading && !model.error && <Loading label={t('LoadingSettings')} layout="panel" />}
       {model.data && (
         <Settings.Group>
-          <Settings.Row
+          <Settings.NumberRow
             title={t('StudySettingsNewCards')}
             description={t('StudySettingsNewCardsDescription')}
-          >
-            <NumberControl
-              label={t('StudySettingsNewCards')}
-              min={0}
-              max={10000}
-              value={model.draft}
-              disabled={model.pending}
-              submitDisabled={!model.valid || !model.changed}
-              error={model.valid ? undefined : t('StudySettingsNewCardsValidation')}
-              onValueChange={model.setDraft}
-              onSubmit={model.save}
-              submitLabel={t(model.pending ? 'Saving' : 'Save')}
-            />
-          </Settings.Row>
+            min={0}
+            max={10000}
+            value={model.draft}
+            disabled={model.pending}
+            submitDisabled={!model.valid || !model.changed}
+            error={model.valid ? undefined : t('StudySettingsNewCardsValidation')}
+            onValueChange={model.setDraft}
+            onSubmit={model.save}
+            submitLabel={t(model.pending ? 'Saving' : 'Save')}
+          />
         </Settings.Group>
       )}
     </Settings.Section>

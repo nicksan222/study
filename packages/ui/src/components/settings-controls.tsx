@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 
+import { NumberControl } from './number-control';
 import { SelectControl } from './select-control';
 import { SettingsRow } from './settings-group';
 import { SwitchControl } from './switch-control';
@@ -30,6 +31,20 @@ export function SelectRow({
   return (
     <SettingsRow title={title} description={description}>
       <SelectControl {...control} label={controlLabel} />
+    </SettingsRow>
+  );
+}
+
+/** Numeric preferences keep draft validation, save placement and row copy in one composition. */
+export function NumberRow({
+  title,
+  description,
+  controlLabel = title,
+  ...control
+}: RowCopy & Omit<ComponentProps<typeof NumberControl>, 'label'>) {
+  return (
+    <SettingsRow title={title} description={description}>
+      <NumberControl {...control} label={controlLabel} />
     </SettingsRow>
   );
 }

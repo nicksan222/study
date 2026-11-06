@@ -2,7 +2,6 @@ import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import type { StaticMessageKey } from '@study/localization';
 import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
-import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -125,22 +124,21 @@ function PreferenceNumber({
   const valid = value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
 
   return (
-    <Settings.Row title={t(title)} description={t(description)}>
-      <NumberControl
-        label={t(title)}
-        min={min}
-        max={max}
-        value={value}
-        onValueChange={setDraft}
-        disabled={mutation.isPending}
-        submitDisabled={!valid || number === query.data![field]}
-        error={valid ? undefined : t('WorkspaceNumberValidation')}
-        submitLabel={t(mutation.isPending ? 'Saving' : 'Save')}
-        onSubmit={() => {
-          if (valid) mutation.mutate({ [field]: number }, { onSuccess: () => setDraft(undefined) });
-        }}
-      />
-    </Settings.Row>
+    <Settings.NumberRow
+      title={t(title)}
+      description={t(description)}
+      min={min}
+      max={max}
+      value={value}
+      onValueChange={setDraft}
+      disabled={mutation.isPending}
+      submitDisabled={!valid || number === query.data![field]}
+      error={valid ? undefined : t('WorkspaceNumberValidation')}
+      submitLabel={t(mutation.isPending ? 'Saving' : 'Save')}
+      onSubmit={() => {
+        if (valid) mutation.mutate({ [field]: number }, { onSuccess: () => setDraft(undefined) });
+      }}
+    />
   );
 }
 

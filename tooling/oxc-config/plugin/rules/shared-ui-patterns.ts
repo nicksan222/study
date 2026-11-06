@@ -1,261 +1,184 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 import type { ESTree } from 'vite-plus/lint/plugins';
 
-import { propertyName } from '../effect-bindings.ts';
+import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { webFile } from '../web-files.ts';
 
 const actions: Record<string, string> = { Retry: 'RetryButton', LibraryMore: 'LoadMoreButton' };
 
+const selectionParts: Record<string, string> = {
+  Empty: 'EmptyState for consistent empty-state hierarchy',
+  Search: 'SearchField for labelled selection search',
+  Material: 'Item to share item labels, icons and descriptions'
+};
+
+const settingRows: Record<string, string> = {
+  '@study/ui/switch-control:SwitchControl': 'ToggleRow',
+  '@study/ui/select-control:SelectControl': 'SelectRow',
+  '@study/ui/number-control:NumberControl': 'NumberRow'
+};
+
+const dialogParts: Record<string, string> = {
+  '@study/ui/dialog:DialogClose': 'DialogDismissButton from @study/ui/dialog-form-actions',
+  '@study/ui/dialog:DialogHeader': 'DialogHeading from @study/ui/dialog-heading'
+};
+
+type Name = ESTree.JSXElement['openingElement']['name'];
+
+type Identify = (name: Name) => string;
+
+function content(node: ESTree.JSXElement) {
+  return node.children.filter((child) => child.type !== 'JSXText' || child.value.trim());
+}
+
+function attribute(node: ESTree.JSXElement, name: string) {
+  return node.openingElement.attributes.find(
+    (item): item is ESTree.JSXAttribute => item.type === 'JSXAttribute' && item.name.name === name
+  )?.value;
+}
+
+function literal(node: ESTree.JSXElement, name: string) {
+  const value = attribute(node, name);
+
+  return value?.type === 'Literal' ? value.value : undefined;
+}
+
 function translation(node: ESTree.Node): string | undefined {
   if (node.type !== 'JSXExpressionContainer' || node.expression.type !== 'CallExpression') return;
 
-  const key = node.expression.arguments[0];
+  const { callee, arguments: args } = node.expression;
+  const name =
+    callee.type === 'Identifier'
+      ? callee.name
+      : callee.type === 'MemberExpression'
+        ? propertyName(callee.property)
+        : undefined;
+  const key = args[0];
 
-  return key?.type === 'Literal' && typeof key.value === 'string' ? key.value : undefined;
+  return name === 't' && key?.type === 'Literal' && typeof key.value === 'string'
+    ? key.value
+    : undefined;
 }
 
-/** Narrow syntax checks for recurring UI scaffolding; document content is excluded. */
+function childNames(node: ESTree.JSXElement, identify: Identify) {
+  return content(node).map((child) =>
+    child.type === 'JSXElement' ? identify(child.openingElement.name) : ''
+  );
+}
+
+function nativePattern(
+  node: ESTree.JSXElement,
+  tag: string,
+  identify: Identify
+): string | undefined {
+  if (tag === 'details') return 'Disclosure from @study/ui/disclosure for expandable sections';
+
+  if (tag === 'p' && literal(node, 'role') === 'status')
+    return 'StatusMessage from @study/ui/status-message for operation feedback';
+
+  if (
+    tag === 'label' &&
+    childNames(node, identify).some((name) =>
+      ['@study/ui/input:Input', '@study/ui/textarea:Textarea'].includes(name)
+    )
+  )
+    return 'Field from @study/ui/field for labelled text controls';
+}
+
+function selectionPattern(node: ESTree.JSXElement, tag: string): string | undefined {
+  const prefix = '@study/ui/selection:SelectionSurface.';
+
+  if (!tag.startsWith(prefix)) return;
+
+  const part = tag.slice(prefix.length);
+
+  if (selectionParts[part]) return `SelectionSurface.${selectionParts[part]}`;
+
+  if (
+    part === 'Header' &&
+    childNames(node, (name) => (name.type === 'JSXIdentifier' ? name.name : '')).includes('h2')
+  )
+    return 'SelectionSurface.DetailHeader for selected-item headings';
+}
+
+function settingsPattern(
+  node: ESTree.JSXElement,
+  tag: string,
+  identify: Identify
+): string | undefined {
+  if (tag !== '@study/ui/settings:Settings.Row') return;
+
+  const children = childNames(node, identify);
+  const row = children.length === 1 ? settingRows[children[0]] : undefined;
+
+  return row ? `Settings.${row} for labelled preferences` : undefined;
+}
+
+function buttonPattern(node: ESTree.JSXElement, identify: Identify): string | undefined {
+  const size = literal(node, 'size');
+
+  if (typeof size === 'string' && size.startsWith('icon') && attribute(node, 'aria-label'))
+    return 'IconButton from @study/ui/icon-button for labelled icon actions';
+
+  const children = content(node);
+
+  if (
+    children.length === 2 &&
+    childNames(node, identify).some((name) =>
+      ['lucide-react:ArrowLeft', 'lucide-react:ArrowRight'].includes(name)
+    )
+  )
+    return 'PreviousButton or NextButton from @study/ui/navigation-button for directional actions';
+
+  const key = children.length === 1 ? translation(children[0]) : undefined;
+
+  return key && actions[key]
+    ? `${actions[key]} from @study/ui/action-button for this shared action`
+    : undefined;
+}
+
+/** Binding-aware checks enforce UI scaffolding without constraining document prose or custom controls. */
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
     if (!webFile(context.filename)) return {};
 
-    const buttons = new Set<string>();
-    const selections = new Set<string>();
-    const closes = new Set<string>();
-    const headers = new Set<string>();
-    const settings = new Set<string>();
+    const bindings = effectBindings(context);
+    const imports = new Map<ESTree.Node, string>();
+
+    function identify(name: Name): string {
+      if (name.type === 'JSXIdentifier') return imports.get(bindings.definition(name)) ?? name.name;
+
+      if (name.type !== 'JSXMemberExpression') return '';
+
+      const owner = identify(name.object);
+
+      return owner.endsWith(':*')
+        ? owner.slice(0, -1) + name.property.name
+        : `${owner}.${name.property.name}`;
+    }
 
     return {
       ImportDeclaration(node) {
-        if (node.source.value === '@study/ui/dialog')
-          for (const specifier of node.specifiers) {
-            if (
-              specifier.type === 'ImportSpecifier' &&
-              propertyName(specifier.imported) === 'DialogClose'
-            )
-              closes.add(specifier.local.name);
-          }
+        if (node.importKind === 'type') return;
 
-        if (node.source.value === '@study/ui/selection')
-          for (const specifier of node.specifiers) {
-            if (
-              specifier.type === 'ImportSpecifier' &&
-              propertyName(specifier.imported) === 'SelectionSurface'
-            )
-              selections.add(specifier.local.name);
-          }
+        for (const specifier of node.specifiers) {
+          const name =
+            specifier.type === 'ImportSpecifier' ? propertyName(specifier.imported) : '*';
 
-        if (node.source.value === '@study/ui/dialog')
-          for (const specifier of node.specifiers) {
-            if (
-              specifier.type === 'ImportSpecifier' &&
-              propertyName(specifier.imported) === 'DialogHeader'
-            )
-              headers.add(specifier.local.name);
-          }
-
-        if (node.source.value === '@study/ui/settings')
-          for (const specifier of node.specifiers) {
-            if (
-              specifier.type === 'ImportSpecifier' &&
-              propertyName(specifier.imported) === 'Settings'
-            )
-              settings.add(specifier.local.name);
-          }
-
-        if (node.source.value !== '@study/ui/button') return;
-
-        for (const specifier of node.specifiers)
-          if (specifier.type === 'ImportSpecifier' && propertyName(specifier.imported) === 'Button')
-            buttons.add(specifier.local.name);
+          imports.set(specifier, `${node.source.value}:${name}`);
+        }
       },
       JSXElement(node) {
-        const tag = node.openingElement.name;
+        const tag = identify(node.openingElement.name);
+        const pattern =
+          dialogParts[tag] ??
+          nativePattern(node, tag, identify) ??
+          selectionPattern(node, tag) ??
+          settingsPattern(node, tag, identify) ??
+          (tag === '@study/ui/button:Button' ? buttonPattern(node, identify) : undefined);
 
-        if (
-          tag.type === 'JSXMemberExpression' &&
-          tag.object.type === 'JSXIdentifier' &&
-          settings.has(tag.object.name) &&
-          tag.property.name === 'Row' &&
-          node.children.some(
-            (child) =>
-              child.type === 'JSXElement' &&
-              child.openingElement.name.type === 'JSXIdentifier' &&
-              child.openingElement.name.name === 'SelectControl'
-          )
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use Settings.SelectRow for labelled preference choices.'
-          });
-
-        if (
-          tag.type === 'JSXMemberExpression' &&
-          tag.object.type === 'JSXIdentifier' &&
-          settings.has(tag.object.name) &&
-          tag.property.name === 'Row' &&
-          node.children.some(
-            (child) =>
-              child.type === 'JSXElement' &&
-              child.openingElement.name.type === 'JSXIdentifier' &&
-              child.openingElement.name.name === 'SwitchControl'
-          )
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use Settings.ToggleRow for labelled settings toggles.'
-          });
-
-        if (tag.type === 'JSXIdentifier' && headers.has(tag.name))
-          context.report({
-            node: node.openingElement,
-            message: 'Use DialogHeading from @study/ui/dialog-heading for dialog titles and help.'
-          });
-
-        if (
-          tag.type === 'JSXIdentifier' &&
-          tag.name === 'label' &&
-          node.children.some(
-            (child) =>
-              child.type === 'JSXElement' &&
-              child.openingElement.name.type === 'JSXIdentifier' &&
-              ['Input', 'Textarea'].includes(child.openingElement.name.name)
-          )
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use Field from @study/ui/field for labelled text controls.'
-          });
-
-        if (tag.type === 'JSXIdentifier' && closes.has(tag.name))
-          context.report({
-            node: node.openingElement,
-            message:
-              'Use DialogDismissButton from @study/ui/dialog-form-actions for consistent dialog dismissal.'
-          });
-
-        if (
-          tag.type === 'JSXMemberExpression' &&
-          tag.object.type === 'JSXIdentifier' &&
-          selections.has(tag.object.name) &&
-          tag.property.name === 'Material'
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use SelectionSurface.Item to share item labels, icons and descriptions.'
-          });
-
-        if (
-          tag.type === 'JSXMemberExpression' &&
-          tag.object.type === 'JSXIdentifier' &&
-          selections.has(tag.object.name) &&
-          tag.property.name === 'Search'
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use SelectionSurface.SearchField for labelled selection search.'
-          });
-
-        if (
-          tag.type === 'JSXMemberExpression' &&
-          tag.object.type === 'JSXIdentifier' &&
-          selections.has(tag.object.name) &&
-          tag.property.name === 'Empty'
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use SelectionSurface.EmptyState for consistent empty-state hierarchy.'
-          });
-
-        if (
-          tag.type === 'JSXMemberExpression' &&
-          tag.object.type === 'JSXIdentifier' &&
-          selections.has(tag.object.name) &&
-          tag.property.name === 'Header' &&
-          node.children.some(
-            (child) =>
-              child.type === 'JSXElement' &&
-              child.openingElement.name.type === 'JSXIdentifier' &&
-              child.openingElement.name.name === 'h2'
-          )
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use SelectionSurface.DetailHeader for selected-item headings.'
-          });
-
-        if (tag.type === 'JSXIdentifier' && tag.name === 'details')
-          context.report({
-            node: node.openingElement,
-            message: 'Use Disclosure from @study/ui/disclosure for expandable sections.'
-          });
-
-        if (
-          tag.type === 'JSXIdentifier' &&
-          tag.name === 'p' &&
-          node.openingElement.attributes.some(
-            (attribute) =>
-              attribute.type === 'JSXAttribute' &&
-              attribute.name.name === 'role' &&
-              attribute.value?.type === 'Literal' &&
-              attribute.value.value === 'status'
-          )
-        )
-          context.report({
-            node: node.openingElement,
-            message: 'Use StatusMessage from @study/ui/status-message for operation feedback.'
-          });
-
-        if (tag.type !== 'JSXIdentifier' || !buttons.has(tag.name)) return;
-
-        const attributes = node.openingElement.attributes;
-        const icon = attributes.some(
-          (attribute) =>
-            attribute.type === 'JSXAttribute' &&
-            attribute.name.name === 'size' &&
-            attribute.value?.type === 'Literal' &&
-            String(attribute.value.value).startsWith('icon')
-        );
-        const labelled = attributes.some(
-          (attribute) => attribute.type === 'JSXAttribute' && attribute.name.name === 'aria-label'
-        );
-
-        if (icon && labelled)
-          context.report({
-            node: node.openingElement,
-            message:
-              'Use IconButton from @study/ui/icon-button for labelled icon-only actions and consistent tooltips.'
-          });
-
-        const children = node.children.filter(
-          (child) => child.type !== 'JSXText' || child.value.trim()
-        );
-
-        if (
-          children.length === 2 &&
-          children.some(
-            (child) =>
-              child.type === 'JSXElement' &&
-              child.openingElement.name.type === 'JSXIdentifier' &&
-              ['ArrowLeft', 'ArrowRight'].includes(child.openingElement.name.name)
-          )
-        )
-          context.report({
-            node: node.openingElement,
-            message:
-              'Use PreviousButton or NextButton from @study/ui/navigation-button for directional actions.'
-          });
-
-        if (children.length !== 1) return;
-
-        const key = translation(children[0]);
-
-        if (key && actions[key])
-          context.report({
-            node: node.openingElement,
-            message: `Use ${actions[key]} from @study/ui/action-button for this shared action.`
-          });
+        if (pattern) context.report({ node: node.openingElement, message: `Use ${pattern}.` });
       }
     };
   }

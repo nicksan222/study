@@ -1,6 +1,5 @@
 import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
-import { NumberControl } from '@study/ui/number-control';
 import { Settings } from '@study/ui/settings';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -34,23 +33,19 @@ export function SidebarSettings() {
       )}
       {model.query.data && (
         <Settings.Group>
-          <Settings.Row
+          <Settings.NumberRow
             title={t('SidebarSettledThreshold')}
             description={t('SidebarSettledDescription')}
-          >
-            <NumberControl
-              label={t('SidebarSettledThreshold')}
-              min={1}
-              max={100}
-              value={model.value}
-              disabled={model.mutation.isPending}
-              submitDisabled={!model.valid || !model.changed}
-              onValueChange={model.setDraft}
-              onSubmit={model.save}
-              submitLabel={t(model.mutation.isPending ? 'Saving' : 'Save')}
-              error={model.valid ? undefined : t('SidebarSettledValidation')}
-            />
-          </Settings.Row>
+            min={1}
+            max={100}
+            value={model.value}
+            disabled={model.mutation.isPending}
+            submitDisabled={!model.valid || !model.changed}
+            onValueChange={model.setDraft}
+            onSubmit={model.save}
+            submitLabel={t(model.mutation.isPending ? 'Saving' : 'Save')}
+            error={model.valid ? undefined : t('SidebarSettledValidation')}
+          />
         </Settings.Group>
       )}
     </Settings.Section>

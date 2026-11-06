@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
 import { semanticPart } from './semantic-part';
-import { ToggleRow, SelectRow } from './settings-controls';
+import { ToggleRow, SelectRow, NumberRow } from './settings-controls';
 import { SettingsGroup, SettingsRow } from './settings-group';
 
 function Root({
@@ -400,6 +400,7 @@ export const Settings = {
   Row: SettingsRow,
   ToggleRow,
   SelectRow,
+  NumberRow,
   Root,
   Search,
   Section,

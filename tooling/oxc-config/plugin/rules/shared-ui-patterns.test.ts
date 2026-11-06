@@ -126,14 +126,16 @@ testStable('requires primitive-backed shared dialog dismissal', () => {
 });
 
 testStable('standardizes labelled text controls but permits native document inputs', () => {
-  expect(lint(`const view = <label>Name<Input /></label>;`)).toHaveLength(1);
+  expect(
+    lint(`import { Input } from '@study/ui/input'; const view = <label>Name<Input /></label>;`)
+  ).toHaveLength(1);
   expect(lint(`const view = <label><input type="checkbox" />Choice</label>;`)).toHaveLength(0);
 });
 
 testStable('standardizes directional actions while keeping unrelated icons available', () => {
   expect(
     lint(
-      `import { Button } from '@study/ui/button'; const view = <Button>Next<ArrowRight /></Button>;`
+      `import { Button } from '@study/ui/button'; import { ArrowRight } from 'lucide-react'; const view = <Button>Next<ArrowRight /></Button>;`
     )
   ).toHaveLength(1);
   expect(
@@ -155,7 +157,7 @@ testStable('standardizes dialog heading composition using imported aliases', () 
 testStable('standardizes settings switches without banning custom setting actions', () => {
   expect(
     lint(
-      `import { Settings as S } from '@study/ui/settings'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
+      `import { Settings as S } from '@study/ui/settings'; import { SwitchControl } from '@study/ui/switch-control'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
     )
   ).toHaveLength(1);
   expect(
@@ -168,7 +170,7 @@ testStable('standardizes settings switches without banning custom setting action
 testStable('standardizes settings selects and retains custom compound rows', () => {
   expect(
     lint(
-      `import { Settings } from '@study/ui/settings'; const view = <Settings.Row title="Title"><SelectControl /></Settings.Row>;`
+      `import { Settings } from '@study/ui/settings'; import { SelectControl } from '@study/ui/select-control'; const view = <Settings.Row title="Title"><SelectControl /></Settings.Row>;`
     )
   ).toHaveLength(1);
   expect(
@@ -177,3 +179,42 @@ testStable('standardizes settings selects and retains custom compound rows', () 
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes numeric preferences without moving persistence into UI', () => {
+  expect(
+    lint(
+      `import { Settings } from '@study/ui/settings'; import { NumberControl } from '@study/ui/number-control'; const view = <Settings.Row title="Title"><NumberControl /></Settings.Row>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { Settings } from '@study/ui/settings'; const view = <Settings.NumberRow title="Title" onSubmit={save} />;`
+    )
+  ).toHaveLength(0);
+});
+
+testStable(
+  'resolves aliases and namespaces without flagging shadowed or unrelated controls',
+  () => {
+    expect(
+      lint(
+        `import * as UI from '@study/ui/button'; const view = <UI.Button>{t('Retry')}</UI.Button>;`
+      )
+    ).toHaveLength(1);
+    expect(
+      lint(
+        `import { Button } from '@study/ui/button'; function Custom({ Button }) { return <Button>{t('Retry')}</Button>; }`
+      )
+    ).toHaveLength(0);
+    expect(
+      lint(
+        `import { Button } from '@study/ui/button'; const view = <Button>{format('Retry')}</Button>;`
+      )
+    ).toHaveLength(0);
+    expect(
+      lint(
+        `import { Settings as S } from '@study/ui/settings'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
+      )
+    ).toHaveLength(0);
+  }
+);
