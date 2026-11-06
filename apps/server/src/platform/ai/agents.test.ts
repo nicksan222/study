@@ -19,7 +19,8 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { testStable } from '@study/testing/vitest';
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, Fiber, Schema, Stream } from 'effect';
+import { TestClock } from 'effect/testing';
 import { assert, expect } from 'vite-plus/test';
 
 import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
@@ -184,13 +185,9 @@ testStable(
   async () => {
     let response!: ServerResponse;
     let sawFirst!: () => void;
-    let sawBurst!: () => void;
     let sawDirectBurst!: () => void;
     const first = new Promise<void>((resolve) => {
       sawFirst = resolve;
-    });
-    const burst = new Promise<void>((resolve) => {
-      sawBurst = resolve;
     });
     const directBurst = new Promise<void>((resolve) => {
       sawDirectBurst = resolve;
@@ -217,9 +214,34 @@ testStable(
         previews.push(observation.event.text);
 
         if (previews.join('') === 'First') sawFirst();
-
-        if (previews.join('') === expected) sawBurst();
       });
+    const verify = Effect.gen(function* () {
+      const running = yield* streamAgent(definition, 'x').pipe(
+        Stream.tap(receive),
+        Stream.runLast,
+        Effect.forkChild
+      );
+
+      try {
+        yield* Effect.promise(() => first);
+
+        for (let i = 0; i < 50; i++) delta('x');
+
+        // Synchronize with real SSE delivery before advancing the preview clock.
+        yield* Effect.promise(() => directBurst);
+        expect(previews).toEqual(['First']);
+        expect(direct).toHaveLength(51);
+
+        yield* TestClock.adjust('100 millis');
+        expect(previews).toEqual(['First', 'x'.repeat(50)]);
+      } finally {
+        delta('tail');
+        response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
+        yield* Fiber.join(running);
+      }
+
+      expect(previews.join('')).toBe(`${expected}tail`);
+    });
 
     await peer(
       (_request, res) => {
@@ -230,33 +252,13 @@ testStable(
         );
         delta('First');
       },
-      async (base, auth) => {
-        const running = Effect.runPromise(
-          streamAgent(definition, 'x').pipe(
-            Stream.tap(receive),
-            Stream.runLast,
-            Effect.provide(service(base, auth, observe))
+      (base, auth) =>
+        Effect.runPromise(
+          verify.pipe(
+            Effect.provide(service(base, auth, observe)),
+            Effect.provide(TestClock.layer())
           )
-        );
-
-        try {
-          await first;
-
-          for (let i = 0; i < 50; i++) delta('x');
-
-          await directBurst;
-          await burst;
-          expect(previews.join('')).toBe(expected);
-          expect(previews.length).toBeLessThan(10);
-          expect(direct).toHaveLength(51);
-        } finally {
-          delta('tail');
-          response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
-          await running;
-        }
-
-        expect(previews.join('')).toBe(`${expected}tail`);
-      }
+        )
     );
   }
 );
