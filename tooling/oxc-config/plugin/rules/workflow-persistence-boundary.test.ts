@@ -15,6 +15,20 @@ ${source}`
   return lintRulePaths('workflow-persistence-boundary', sources);
 }
 
+testStable('only progress persistence and retirement cleanup may write generation previews', () => {
+  expect(
+    lint({
+      'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress); db.update(workflow_agent_progress);`,
+      'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.delete(workflow_agent_progress);`,
+      'apps/server/src/features/conversations/store/index.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress);`,
+      'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.update(workflow_agent_progress);`
+    })
+  ).toStrictEqual([
+    'apps/server/src/features/conversations/store/index.ts',
+    'apps/server/src/platform/ai/agents.ts'
+  ]);
+});
+
 testStable('restricts workflow table mutations to their exact owners while allowing reads', () => {
   expect(
     lint({
