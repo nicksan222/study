@@ -13,7 +13,7 @@ export function IconButton({
       <TooltipTrigger
         render={<Button {...props} size={size} variant={variant} aria-label={label} />}
       />
-      <TooltipPopup>{label}</TooltipPopup>
+      <TooltipPopup role="tooltip">{label}</TooltipPopup>
     </Tooltip>
   );
 }

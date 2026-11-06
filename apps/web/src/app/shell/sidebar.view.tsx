@@ -1,6 +1,7 @@
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
+import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
@@ -453,18 +454,18 @@ function SidebarToolbar({
         setQuery={setQuery}
         clearSearch={clearSearch}
       />
-      <Button
+      <IconButton
         size="icon"
         variant="ghost-muted"
-        aria-label={t('NewProject')}
-        title={t('NewProject')}
+        label={t('NewProject')}
+
         onClick={() => {
           setNewSubjectOpen(true);
           setActionError(false);
         }}
       >
         <FolderPlus aria-hidden="true" />
-      </Button>
+      </IconButton>
       <SidebarCreationControl
         metadata={metadata}
         project={project}
@@ -656,15 +657,15 @@ function SidebarSearchControl({
     <>
       {' '}
       {collapsed ? (
-        <Button
+        <IconButton
           size="icon"
           variant="ghost-muted"
-          aria-label={t('Search')}
-          title={t('Search')}
+          label={t('Search')}
+
           onClick={openSearch}
         >
           <Search aria-hidden="true" />
-        </Button>
+        </IconButton>
       ) : (
         <SidebarUI.Search
           ref={searchRef}
@@ -735,16 +736,16 @@ function SidebarCreationControl({
         <NewBlankDocument key={String(project)} project={project} compact disabled={disabled} />
       )}
       {metadata.title === 'Sessions' && (
-        <Button
+        <IconButton
           size="icon"
           variant="ghost-muted"
-          aria-label={t('NewSession')}
-          title={t('NewSession')}
+          label={t('NewSession')}
+
           disabled={creating}
           onClick={() => void createSession()}
         >
           <SidebarCreateSessionIcon creating={creating} />
-        </Button>
+        </IconButton>
       )}
     </>
   );

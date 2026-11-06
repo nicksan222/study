@@ -35,3 +35,16 @@ testStable('enforces shared pagination while allowing owner-specific action labe
     )
   ).toHaveLength(0);
 });
+
+testStable('requires tooltip-backed icon actions without confusing text buttons', () => {
+  expect(
+    lint(
+      `import { Button } from '@study/ui/button'; const view = <Button size="icon-sm" aria-label={t('Close')}><X /></Button>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { Button } from '@study/ui/button'; const view = <Button aria-label={label}>Visible action</Button>;`
+    )
+  ).toHaveLength(0);
+});

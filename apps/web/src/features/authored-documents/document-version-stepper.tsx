@@ -1,6 +1,6 @@
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
+import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/session-workspace';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
@@ -31,29 +31,29 @@ export function DocumentVersionStepper({
   return (
     <>
       <Notebook.VersionStepper role="group" aria-label={t('ReaderHistory')}>
-        <Button
+        <IconButton
           variant="ghost-muted"
           size="icon-sm"
-          aria-label={t('SessionPreviousVersion')}
-          title={t('SessionPreviousVersion')}
+          label={t('SessionPreviousVersion')}
+
           disabled={pending || busy || !previous}
           onClick={older}
         >
           <ChevronLeft size={14} aria-hidden="true" />
-        </Button>
+        </IconButton>
         <DocumentVersionLabel version={version} headVersionId={headVersionId} />
-        <Button
+        <IconButton
           variant="ghost-muted"
           size="icon-sm"
-          aria-label={t('SessionNextVersion')}
-          title={t('SessionNextVersion')}
+          label={t('SessionNextVersion')}
+
           disabled={pending || busy || !next}
           onClick={() => {
             if (next) onChange(next.id);
           }}
         >
           <ChevronRight size={14} aria-hidden="true" />
-        </Button>
+        </IconButton>
       </Notebook.VersionStepper>
       {history.query.error && (
         <ContentReadError error={history.query.error} retry={() => void history.query.refetch()} />

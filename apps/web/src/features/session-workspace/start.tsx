@@ -3,6 +3,7 @@ import type { SessionId } from '@study/contracts/ids';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
+import { IconButton } from '@study/ui/icon-button';
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { SessionStarter } from '@study/ui/session-start';
@@ -269,10 +270,10 @@ function StarterComposer({ view }: { view: StartView }) {
             <li key={key}>
               <Paperclip size={14} aria-hidden="true" />
               <span>{file.name}</span>
-              <Button
+              <IconButton
                 size="icon-sm"
                 variant="ghost-muted"
-                aria-label={t('SessionRemoveAttachment')}
+                label={t('SessionRemoveAttachment')}
                 disabled={blocked}
                 onClick={() =>
                   cache.setQueryData(
@@ -282,7 +283,7 @@ function StarterComposer({ view }: { view: StartView }) {
                 }
               >
                 <X size={14} aria-hidden="true" />
-              </Button>
+              </IconButton>
             </li>
           ))}
         </SessionStarter.Files>

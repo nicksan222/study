@@ -1,5 +1,5 @@
 import type { SessionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
+import { IconButton } from '@study/ui/icon-button';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { PanelBottom, PanelRight } from 'lucide-react';
@@ -20,28 +20,28 @@ export function SessionLayoutControls({ id }: { id: SessionId }) {
         open={model.cardVisible}
         onOpenChange={model.toggleCard}
       />
-      <Button
+      <IconButton
         size="icon-sm"
         variant={model.visible && model.dock === 'bottom' ? 'secondary' : 'ghost-muted'}
-        aria-label={t('SessionDockBelow')}
-        title={t(unavailable ? 'SessionDockUnavailable' : 'SessionDockBelow')}
+        label={t('SessionDockBelow')}
+
         aria-pressed={model.visible && model.dock === 'bottom'}
         disabled={unavailable}
         onClick={() => model.showEditor('bottom')}
       >
         <PanelBottom aria-hidden="true" />
-      </Button>
-      <Button
+      </IconButton>
+      <IconButton
         size="icon-sm"
         variant={model.visible && model.dock === 'side' ? 'secondary' : 'ghost-muted'}
-        aria-label={t('SessionDockBeside')}
-        title={t(unavailable ? 'SessionDockUnavailable' : 'SessionDockBeside')}
+        label={t('SessionDockBeside')}
+
         aria-pressed={model.visible && model.dock === 'side'}
         disabled={unavailable}
         onClick={() => model.showEditor('side')}
       >
         <PanelRight aria-hidden="true" />
-      </Button>
+      </IconButton>
     </Desk.LayoutControls>
   );
 }

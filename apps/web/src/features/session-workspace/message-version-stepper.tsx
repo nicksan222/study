@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
+import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/session-workspace';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -25,18 +25,18 @@ export function MessageVersionStepper({
       role="group"
       aria-label={`${t('SessionVersions')} · ${context || t('SessionNote')}`}
     >
-      <Button
+      <IconButton
         size="icon-sm"
         variant="ghost-muted"
-        aria-label={t('SessionPreviousVersion')}
-        title={t('SessionPreviousVersion')}
+        label={t('SessionPreviousVersion')}
+
         disabled={disabled || !previous}
         onClick={() => {
           if (previous) onChange(previous.id);
         }}
       >
         <ChevronLeft size={14} aria-hidden="true" />
-      </Button>
+      </IconButton>
       <Notebook.VersionLabel
         role="status"
         data-latest={isLatest || undefined}
@@ -46,18 +46,18 @@ export function MessageVersionStepper({
       >
         {isLatest ? t('SessionVersionLatest') : versionNumber}
       </Notebook.VersionLabel>
-      <Button
+      <IconButton
         size="icon-sm"
         variant="ghost-muted"
-        aria-label={t('SessionNextVersion')}
-        title={t('SessionNextVersion')}
+        label={t('SessionNextVersion')}
+
         disabled={disabled || !next}
         onClick={() => {
           if (next) onChange(next.id);
         }}
       >
         <ChevronRight size={14} aria-hidden="true" />
-      </Button>
+      </IconButton>
     </Notebook.VersionStepper>
   );
 }

@@ -3,8 +3,8 @@ import { sniff, detectedMime } from '@study/contracts/sources/sniff';
 import { mediaSize } from '@study/localization';
 import type { StaticMessageKey } from '@study/localization';
 import { AttachmentPreview, useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
-import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
+import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/session-workspace';
 import { Paperclip, RotateCcw, X } from 'lucide-react';
 
@@ -136,28 +136,28 @@ function AttachmentActions({
   return (
     <>
       {entry.state === 'rejected' && (
-        <Button
+        <IconButton
           size="icon-sm"
           variant="ghost-muted"
-          aria-label={t('Retry')}
-          title={t('Retry')}
+          label={t('Retry')}
+
           disabled={blocked}
           onClick={() => files.retry(entry)}
         >
           <RotateCcw size={14} aria-hidden="true" />
-        </Button>
+        </IconButton>
       )}
       {entry.state !== 'uploading' && (
-        <Button
+        <IconButton
           size="icon-sm"
           variant="ghost-muted"
-          aria-label={removeLabel}
-          title={removeLabel}
+          label={removeLabel}
+
           disabled={blocked}
           onClick={() => files.remove(entry)}
         >
           <X size={14} aria-hidden="true" />
-        </Button>
+        </IconButton>
       )}
     </>
   );

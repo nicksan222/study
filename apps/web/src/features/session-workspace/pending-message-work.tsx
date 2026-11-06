@@ -1,5 +1,6 @@
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { IconButton } from '@study/ui/icon-button';
 import { Thinking } from '@study/ui/loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
@@ -52,16 +53,16 @@ function PendingRequestWork({
         action={
           execution &&
           showCancel && (
-            <Button
+            <IconButton
               size="icon-sm"
               variant="ghost-muted"
-              aria-label={t('SessionCancel')}
-              title={t('SessionCancel')}
+              label={t('SessionCancel')}
+
               disabled={stopping || cancel.isError || !execution.canCancel}
               onClick={() => cancel.mutate({ kind: 'reply', title: null, requestId, execution })}
             >
               <X aria-hidden="true" />
-            </Button>
+            </IconButton>
           )
         }
       />

@@ -1,5 +1,4 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
-import { Button } from '@study/ui/button';
 import {
   Dialog,
   DialogTrigger,
@@ -8,6 +7,7 @@ import {
   DialogTitle,
   DialogDescription
 } from '@study/ui/dialog';
+import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -32,14 +32,9 @@ export function DocumentMetadata({ document }: { document: StudyDocument }) {
       open={open}
       onOpenChange={setOpen}
       trigger={
-        <Button
-          variant="ghost-muted"
-          size="icon-sm"
-          aria-label={t('DocumentEditing')}
-          title={t('DocumentEditing')}
-        >
+        <IconButton variant="ghost-muted" size="icon-sm" label={t('DocumentEditing')}>
           <Text size={15} aria-hidden="true" />
-        </Button>
+        </IconButton>
       }
     />
   );

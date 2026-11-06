@@ -1,6 +1,6 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
+import { IconButton } from '@study/ui/icon-button';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { MessageSquare, ArrowDownToLine, StickyNote } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -83,10 +83,10 @@ function QuestionKindAction({ model }: { model: Model }) {
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button
+          <IconButton
             size="icon-sm"
             variant="ghost"
-            aria-label={label}
+            label={label}
             disabled={model.blocked}
             onClick={() => {
               model.answer.reset();
@@ -155,10 +155,10 @@ function QuestionToolbarButton({
     <Tooltip>
       <TooltipTrigger
         render={
-          <Button
+          <IconButton
             size="icon-sm"
             variant="ghost"
-            aria-label={label}
+            label={label}
             disabled={disabled}
             onClick={onClick}
           />

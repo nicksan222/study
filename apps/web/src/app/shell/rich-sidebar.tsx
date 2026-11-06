@@ -2,6 +2,7 @@ import type { SessionDto } from '@study/contracts/conversations/schemas';
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
+import { IconButton } from '@study/ui/icon-button';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
@@ -121,15 +122,15 @@ function SidebarSessionList(props: Props) {
             <Trash2 aria-hidden="true" />
             <span data-selection-action-label>{t('SidebarDeleteSelected')}</span>
           </Button>
-          <Button
+          <IconButton
             size="icon-sm"
             variant="ghost-muted"
-            aria-label={t('Cancel')}
-            title={t('Cancel')}
+            label={t('Cancel')}
+
             onClick={() => setSelected(null)}
           >
             <X aria-hidden="true" />
-          </Button>
+          </IconButton>
         </SidebarUI.SelectionBar>
       )}
       <SidebarUI.SessionGroups ref={sessionRows}>

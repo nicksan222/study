@@ -3,6 +3,7 @@ import { LoadMoreButton } from '@study/ui/action-button';
 import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { IconButton } from '@study/ui/icon-button';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceWork } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -100,17 +101,17 @@ function WorkRow({
       <WorkspaceWork.Copy>
         <strong title={title}>{title}</strong>
       </WorkspaceWork.Copy>
-      <Button
+      <IconButton
         size="icon-sm"
         variant="ghost-muted"
-        aria-label={t('SessionWorkStop', { title })}
-        title={t('SessionWorkStop', { title })}
+        label={t('SessionWorkStop', { title })}
+
         disabled={stopping || !item.execution.canCancel || cancel.isError}
         aria-busy={stopping}
         onClick={() => cancel.mutate(item)}
       >
         <X size={14} aria-hidden="true" />
-      </Button>
+      </IconButton>
       {cancel.isError && (
         <WorkspaceWork.Error>
           <ErrorState

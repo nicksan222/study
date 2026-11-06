@@ -2,6 +2,7 @@ import type { MaterialId, ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
+import { IconButton } from '@study/ui/icon-button';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Archive, GraduationCap, Layers, RotateCcw } from 'lucide-react';
@@ -27,12 +28,11 @@ export function ArchivedPracticeAction({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button
+          <IconButton
             size="icon"
             variant="ghost-muted"
             disabled={disabled}
-            aria-label={t('PracticeArchived')}
-            title={t('PracticeArchived')}
+            label={t('PracticeArchived')}
           />
         }
       >

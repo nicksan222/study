@@ -2,8 +2,8 @@ import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { ProjectId } from '@study/contracts/ids';
 import { projectIdSchema } from '@study/contracts/ids';
 import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
 import { DocumentOverview } from '@study/ui/document-overview';
+import { IconButton } from '@study/ui/icon-button';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
@@ -58,16 +58,16 @@ function DocumentsOverviewPage({ project }: { project?: ProjectId }) {
           <DocumentsArchive project={project} />
           <NewBlankDocument key={String(project)} project={project} />
           <DocumentsFromSessions key={String(project)} project={project} />
-          <Button
+          <IconButton
             variant="ghost-muted"
             size="icon"
-            aria-label={t('LibraryRefresh')}
-            title={t('LibraryRefresh')}
+            label={t('LibraryRefresh')}
+
             disabled={state.isFetching}
             onClick={() => void state.refetch()}
           >
             <RefreshCw aria-hidden="true" />
-          </Button>
+          </IconButton>
         </DocumentOverview.Actions>
       </DocumentOverview.Heading>
       <DocumentMerges project={project} />

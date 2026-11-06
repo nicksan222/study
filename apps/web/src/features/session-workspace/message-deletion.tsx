@@ -1,7 +1,7 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
+import { IconButton } from '@study/ui/icon-button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FileMinus2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -65,26 +65,26 @@ export function MessageDeletion({
         })
       ) : (
         <>
-          <Button
+          <IconButton
             size="icon-sm"
             variant="ghost-destructive"
-            aria-label={t('SessionDeleteItem')}
-            title={t('SessionDeleteItem')}
+            label={t('SessionDeleteItem')}
+
             disabled={disabled || remove.isPending}
             onClick={() => show('item')}
           >
             <Trash2 aria-hidden="true" />
-          </Button>
-          <Button
+          </IconButton>
+          <IconButton
             size="icon-sm"
             variant="ghost-destructive"
-            aria-label={t('SessionDeleteVersion')}
-            title={t(last ? 'SessionDeleteLastVersion' : 'SessionDeleteVersion')}
+            label={t('SessionDeleteVersion')}
+
             disabled={disabled || last || remove.isPending}
             onClick={() => show(versionId)}
           >
             <FileMinus2 aria-hidden="true" />
-          </Button>
+          </IconButton>
         </>
       )}
       <DangerDialog

@@ -35,6 +35,25 @@ export default defineRule({
 
         if (tag.type !== 'JSXIdentifier' || !buttons.has(tag.name)) return;
 
+        const attributes = node.openingElement.attributes;
+        const icon = attributes.some(
+          (attribute) =>
+            attribute.type === 'JSXAttribute' &&
+            attribute.name.name === 'size' &&
+            attribute.value?.type === 'Literal' &&
+            String(attribute.value.value).startsWith('icon')
+        );
+        const labelled = attributes.some(
+          (attribute) => attribute.type === 'JSXAttribute' && attribute.name.name === 'aria-label'
+        );
+
+        if (icon && labelled)
+          context.report({
+            node: node.openingElement,
+            message:
+              'Use IconButton from @study/ui/icon-button for labelled icon-only actions and consistent tooltips.'
+          });
+
         const children = node.children.filter(
           (child) => child.type !== 'JSXText' || child.value.trim()
         );

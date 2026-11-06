@@ -5,6 +5,7 @@ import { Button } from '@study/ui/button';
 import { DangerDialog, DangerDialogContext } from '@study/ui/danger-dialog';
 import { DataManagement } from '@study/ui/data-management';
 import { ErrorState } from '@study/ui/error-state';
+import { IconButton } from '@study/ui/icon-button';
 import { Settings } from '@study/ui/settings';
 import { Schema } from 'effect';
 import { Archive, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
@@ -170,18 +171,18 @@ function SavedBackups({ state, owner, busy, mutable, setDeletion }: DataView & D
               >
                 {t('DataPreview')}
               </Button>
-              <Button
+              <IconButton
                 size="icon-sm"
                 variant="ghost-destructive"
-                aria-label={t('DataDelete')}
-                title={t('DataDelete')}
+                label={t('DataDelete')}
+
                 disabled={!mutable}
                 onClick={() => {
                   setDeletion({ id: backup.id });
                 }}
               >
                 <Trash2 size={14} aria-hidden="true" />
-              </Button>
+              </IconButton>
             </DataManagement.Actions>
           </Settings.Row>
         ))}
