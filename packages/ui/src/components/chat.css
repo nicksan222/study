@@ -244,7 +244,7 @@
 
 /* Writing reads as one notebook; files retain their own preview surfaces. */
 .session-desk-board .session-index-target {
-  padding-block: 0.5rem;
+  padding-block: 0;
   scroll-margin-block: 1.5rem;
 }
 .session-desk-board .session-index-target + .session-index-target {
@@ -253,7 +253,7 @@
 .session-desk-board .session-index-target > .chat-message {
   width: 100%;
   margin: 0;
-  padding: 0.875rem 1rem;
+  padding: 0.5rem 1rem;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -413,7 +413,7 @@
 
 .chat-entry-label {
   display: block;
-  margin-block-end: 0.625rem;
+  margin-block-end: 0.375rem;
   color: var(--contrast-muted-foreground);
   font-size: 0.6875rem;
   font-weight: 500;
