@@ -21,9 +21,19 @@ export default defineRule({
     if (!webFile(context.filename)) return {};
 
     const buttons = new Set<string>();
+    const selections = new Set<string>();
 
     return {
       ImportDeclaration(node) {
+        if (node.source.value === '@study/ui/selection')
+          for (const specifier of node.specifiers) {
+            if (
+              specifier.type === 'ImportSpecifier' &&
+              propertyName(specifier.imported) === 'SelectionSurface'
+            )
+              selections.add(specifier.local.name);
+          }
+
         if (node.source.value !== '@study/ui/button') return;
 
         for (const specifier of node.specifiers)
@@ -32,6 +42,23 @@ export default defineRule({
       },
       JSXElement(node) {
         const tag = node.openingElement.name;
+
+        if (
+          tag.type === 'JSXMemberExpression' &&
+          tag.object.type === 'JSXIdentifier' &&
+          selections.has(tag.object.name) &&
+          tag.property.name === 'Header' &&
+          node.children.some(
+            (child) =>
+              child.type === 'JSXElement' &&
+              child.openingElement.name.type === 'JSXIdentifier' &&
+              child.openingElement.name.name === 'h2'
+          )
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use SelectionSurface.DetailHeader for selected-item headings.'
+          });
 
         if (tag.type === 'JSXIdentifier' && tag.name === 'details')
           context.report({

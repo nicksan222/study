@@ -65,3 +65,12 @@ testStable('standardizes expandable sections and permits the package implementat
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes selected-item headings using imported aliases', () => {
+  expect(
+    lint(
+      `import { SelectionSurface as Surface } from '@study/ui/selection'; const view = <Surface.Header><h2>Archive</h2></Surface.Header>;`
+    )
+  ).toHaveLength(1);
+  expect(lint(`const view = <header><h2>Article heading</h2></header>;`)).toHaveLength(0);
+});

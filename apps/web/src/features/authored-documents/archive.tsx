@@ -86,9 +86,7 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
         )}
       </Surface.Navigation>
       <Surface.Main>
-        <Surface.Header>
-          <h2>{active?.title ?? t('DocumentsArchived')}</h2>
-        </Surface.Header>
+        <Surface.DetailHeader title={<>{active?.title ?? t('DocumentsArchived')}</>} />
         <Surface.Scroll>
           <Surface.Body>
             <ArchiveBody active={active} empty={!state.isPending && items.length === 0} />

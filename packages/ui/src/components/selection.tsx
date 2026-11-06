@@ -25,6 +25,7 @@ function SelectionDialogPopup({
 /** Searchable item navigation, archive previews, and retained content excerpts. */
 export const SelectionSurface = {
   Popup: SelectionDialogPopup,
+  DetailHeader,
   SearchField,
   Item,
   More,
@@ -109,4 +110,27 @@ function Item({
 
 function More({ pending, onLoad, label }: { pending: boolean; onLoad: () => void; label: string }) {
   return <LoadMoreButton pending={pending} onClick={onLoad} label={label} />;
+}
+
+/** Keeps selected-item headings aligned while accepting optional summary and trailing actions. */
+function DetailHeader({
+  title,
+  description,
+  children,
+  headingId
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  children?: ReactNode;
+  headingId?: string;
+}) {
+  return (
+    <SelectionSurface.Header>
+      <SelectionSurface.DetailHeading>
+        <h2 id={headingId}>{title}</h2>
+        {description}
+      </SelectionSurface.DetailHeading>
+      {children}
+    </SelectionSurface.Header>
+  );
 }

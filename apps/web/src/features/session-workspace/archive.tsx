@@ -49,9 +49,7 @@ export function ArchivePanel({ id }: { id: SessionId }) {
         loaded={items.isSuccess}
       />
       <Surface.Main>
-        <Surface.Header>
-          <h2>{active?.name ?? t('SessionArchived')}</h2>
-        </Surface.Header>
+        <Surface.DetailHeader title={<>{active?.name ?? t('SessionArchived')}</>} />
         {active && !items.isError ? (
           <ArchivedPreview key={itemKey(active.target)} sessionId={id} item={active} />
         ) : (

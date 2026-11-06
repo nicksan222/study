@@ -90,11 +90,7 @@ function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; clo
         )}
       </Surface.Navigation>
       <Surface.Main>
-        {!active && (
-          <Surface.Header>
-            <h2>{t('PracticeAttempts')}</h2>
-          </Surface.Header>
-        )}
+        {!active && <Surface.DetailHeader title={<>{t('PracticeAttempts')}</>} />}
         {active && !history.isError ? (
           <AttemptPreview
             key={String(active.attempt.id)}

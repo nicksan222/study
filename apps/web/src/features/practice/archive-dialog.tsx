@@ -96,9 +96,7 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
         )}
       </Surface.Navigation>
       <Surface.Main>
-        <Surface.Header>
-          <h2>{active?.title ?? t('PracticeArchived')}</h2>
-        </Surface.Header>
+        <Surface.DetailHeader title={<>{active?.title ?? t('PracticeArchived')}</>} />
         {active ? (
           <ArchivedPreview key={String(active.id)} id={active.id} open={open} />
         ) : (
