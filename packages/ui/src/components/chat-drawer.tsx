@@ -6,13 +6,19 @@ import { Button } from './button';
 import { Sidebar } from './sidebar';
 
 export const createChatDrawerHandle = Drawer.createHandle;
+
 export type ChatDrawerHandle = ReturnType<typeof createChatDrawerHandle>;
 
 export function ChatDrawerTrigger({ handle, label }: { handle: ChatDrawerHandle; label: string }) {
   return (
-    <Drawer.Trigger handle={handle} render={<Sidebar.NavigationItem label={label} />}>
-      <MessageCircle size={18} aria-hidden="true" />
-    </Drawer.Trigger>
+    <Drawer.Trigger
+      handle={handle}
+      render={(props) => (
+        <Sidebar.NavigationItem {...props} label={label}>
+          <MessageCircle size={18} aria-hidden="true" />
+        </Sidebar.NavigationItem>
+      )}
+    />
   );
 }
 
