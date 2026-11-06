@@ -2,6 +2,8 @@ import { ComposerSurface } from '@study/ui/composer';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import type { ComponentProps } from 'react';
 
+import { ActionGroup } from './action-group';
+
 function Root(props: Omit<ComponentProps<typeof WorkspaceSurface.Root>, 'variant' | 'className'>) {
   return <WorkspaceSurface.Root {...props} variant="welcome" className="session-start" />;
 }
@@ -29,7 +31,7 @@ function Recovery(props: ComponentProps<'section'>) {
 }
 
 function Actions(props: ComponentProps<'div'>) {
-  return <div {...props} className="session-actions" />;
+  return <ActionGroup {...props} className="session-actions" />;
 }
 
 function Sessions(props: ComponentProps<'ul'>) {

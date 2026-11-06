@@ -1,5 +1,6 @@
 import type { ComponentPropsWithRef } from 'react';
 
+import { ActionGroup } from './action-group';
 import { Button } from './button';
 import { semanticPart as part } from './semantic-part';
 import { Textarea } from './textarea';
@@ -28,7 +29,7 @@ export const Notebook = {
   StartKind: part('span', 'session-start-kind'),
   StartRecovery: part('div', 'session-start-recovery'),
   List: part('ul', 'session-list'),
-  Actions: part('div', 'session-actions'),
+  Actions: part(ActionGroup, 'session-actions'),
   Muted: part('p', 'session-muted'),
   MutedLabel: part('span', 'session-muted'),
   Status: part('div', 'session-muted'),

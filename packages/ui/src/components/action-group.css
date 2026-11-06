@@ -1,0 +1,12 @@
+.ui-action-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ui-action-group[data-align='end'] {
+  justify-content: flex-end;
+}
+.ui-action-group[data-align='between'] {
+  justify-content: space-between;
+}

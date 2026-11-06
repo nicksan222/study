@@ -185,12 +185,6 @@
   }
 }
 
-.material-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .document-editor {
   display: grid;
   gap: 20px;
@@ -503,12 +497,6 @@
   }
 }
 
-.reader-export-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
 .reader-export-status {
   flex-basis: 100%;
   margin: 0;

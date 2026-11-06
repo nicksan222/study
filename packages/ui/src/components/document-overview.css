@@ -31,12 +31,8 @@
   line-height: 1.65;
 }
 .document-overview-actions {
-  display: flex;
-  flex-wrap: wrap;
   max-width: 100%;
   flex: none;
-  align-items: center;
-  gap: 0.5rem;
 }
 .document-overview-section-heading {
   margin: 0;

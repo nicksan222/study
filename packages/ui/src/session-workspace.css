@@ -13,7 +13,6 @@
 }
 
 .session-toolbar,
-.session-actions,
 .session-entry header,
 .session-selected li {
   display: flex;

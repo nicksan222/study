@@ -1,3 +1,4 @@
+import { ActionGroup } from './action-group';
 import { Button } from './button';
 import { semanticPart } from './semantic-part';
 
@@ -13,7 +14,7 @@ export const DocumentOverview = {
   Intro: semanticPart('div', 'document-overview-intro'),
   Title: semanticPart('h2', 'document-overview-title'),
   Description: semanticPart('p', 'document-overview-description'),
-  Actions: semanticPart('div', 'document-overview-actions'),
+  Actions: semanticPart(ActionGroup, 'document-overview-actions'),
   Section: semanticPart('section', 'document-overview-section'),
   SectionHeading: semanticPart('h3', 'document-overview-section-heading'),
   Rows: semanticPart('ul', 'document-overview-rows'),

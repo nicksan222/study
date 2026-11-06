@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 
+import { ActionGroup } from './action-group';
 import { semanticPart } from './semantic-part';
 
 import './material-library.css';
@@ -8,8 +9,8 @@ export const MaterialLibrary = {
   HistorySection: semanticPart('section', 'reader-history'),
   History: semanticPart('details', 'reader-history'),
   Notice: semanticPart('section', 'reader-notice'),
-  Actions: semanticPart('div', 'material-actions'),
-  ExportActions: semanticPart('div', 'reader-export-actions'),
+  Actions: semanticPart(ActionGroup, 'material-actions'),
+  ExportActions: semanticPart(ActionGroup, 'reader-export-actions'),
   ExportStatus: semanticPart('p', 'reader-export-status'),
   Import: semanticPart('div', 'library-import'),
   Root: semanticPart('div', 'material-library'),
@@ -36,7 +37,7 @@ export const MaterialLibrary = {
   Table: semanticPart('div', 'reader-table'),
   Prose,
   Search: semanticPart('section', 'library-search'),
-  SearchForm: semanticPart('form', 'material-actions')
+  SearchForm: semanticPart('form', 'ui-action-group')
 };
 
 function Prose({
