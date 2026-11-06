@@ -2,7 +2,7 @@ import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId, VersionId, SourceId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import { ChatConversation, ChatMessage, ChatMessageHeading } from '@study/ui/chat';
+import { ChatConversation, ChatMessage, ChatEntryLabel } from '@study/ui/chat';
 import {
   Dialog,
   DialogTrigger,
@@ -17,7 +17,7 @@ import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { History as HistoryIcon, MessagesSquare, UserRound, CircleHelp } from 'lucide-react';
+import { History as HistoryIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -221,17 +221,17 @@ function DocumentEntry({
     </ItemContextMenu>
   );
 
-  return version ? (
-    <MessageDeletion message={message} versionId={version.id} renderActions={menu} />
-  ) : (
-    menu()
+  return (
+    <>
+      <ChatEntryLabel>{t('SessionEntryDocument')}</ChatEntryLabel>
+      {version ? (
+        <MessageDeletion message={message} versionId={version.id} renderActions={menu} />
+      ) : (
+        menu()
+      )}
+    </>
   );
 }
-
-const messageAuthors = {
-  user: { label: 'SessionContextYou', icon: UserRound },
-  assistant: { label: 'AnswerAuthor', icon: MessagesSquare }
-} as const;
 
 /** Renders the selected note version while preserving attachments, citations and pending work. */
 function MessageEntry({
@@ -248,13 +248,25 @@ function MessageEntry({
   const version =
     message.versions.find((item) => item.id === selected) ??
     message.versions.find((item) => item.id === message.activeVersionId);
-  const author = messageAuthor(message, version?.id);
-  const AuthorIcon = author.icon;
   const citations = useMessageCitations(message, version?.id);
 
   return (
     <ChatMessage data-role={message.role}>
-      <ChatMessageHeading label={t(author.label)} icon={<AuthorIcon aria-hidden="true" />} />
+      <ChatEntryLabel>
+        {t(
+          message.format === 'document'
+            ? 'SessionEntryDocument'
+            : message.question?.kind === 'question' &&
+                (message.question.versionId === version?.id ||
+                  message.question.answerVersionId === version?.id)
+              ? 'SessionQuestion'
+              : message.role === 'assistant' || version?.origin === 'answer'
+                ? 'SessionAnswer'
+                : !version?.text.trim() && message.parts.length > 0
+                  ? 'SessionEntryAttachment'
+                  : 'SessionEntryNote'
+        )}
+      </ChatEntryLabel>
       {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
       {version && (
         <MessageVersionBody
@@ -279,18 +291,6 @@ function MessageEntry({
       )}
     </ChatMessage>
   );
-}
-
-/** Names question entries without changing the authorship of ordinary notes or replies. */
-function messageAuthor(message: Message, versionId?: VersionId) {
-  if (
-    message.role === 'user' &&
-    message.question?.kind === 'question' &&
-    (message.question.versionId === versionId || message.question.answerVersionId === versionId)
-  )
-    return { label: 'SessionQuestion' as const, icon: CircleHelp };
-
-  return messageAuthors[message.role];
 }
 
 /** Keeps content, question controls and pending work attached to the displayed version. */

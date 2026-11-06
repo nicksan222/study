@@ -173,14 +173,9 @@ export function ChatMessage({ className, ...props }: ComponentPropsWithRef<'arti
   );
 }
 
-/** Names the author without coupling the shared message surface to an application role. */
-export function ChatMessageHeading({ label, icon }: { label: string; icon: ReactNode }) {
-  return (
-    <header className="chat-message-heading">
-      <span aria-hidden="true">{icon}</span>
-      <strong>{label}</strong>
-    </header>
-  );
+/** A quiet content-type label keeps notebook entries distinct without sender chrome. */
+export function ChatEntryLabel({ children }: { children: ReactNode }) {
+  return <span className="chat-entry-label">{children}</span>;
 }
 
 export function ChatMessageContent({ className, ...props }: ComponentPropsWithRef<'div'>) {

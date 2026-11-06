@@ -2,7 +2,7 @@ import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
-import { CircleHelp, MessageSquare, ArrowDownToLine, StickyNote } from 'lucide-react';
+import { MessageSquare, ArrowDownToLine, StickyNote } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -99,7 +99,7 @@ function QuestionKindAction({ model }: { model: Model }) {
         {model.isQuestion ? (
           <StickyNote size={15} aria-hidden="true" />
         ) : (
-          <CircleHelp size={15} aria-hidden="true" />
+          <MessageSquare size={15} aria-hidden="true" />
         )}
       </TooltipTrigger>
       <TooltipPopup>{model.isQuestion ? label : t('SessionMarkAsQuestionHelp')}</TooltipPopup>

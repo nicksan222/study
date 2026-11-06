@@ -1,3 +1,4 @@
+import { ChatDrawerTrigger, createChatDrawerHandle } from '@study/ui/chat-drawer';
 import { Shell as PageShell } from '@study/ui/shell';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
@@ -10,6 +11,7 @@ import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 import { DefaultContextMenu } from './default-context-menu';
 import { Sidebar } from './sidebar';
 import { useSidebarContext } from './sidebar-context.queries';
+import { StudyChat } from './study-chat';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
 function useShellNavigation(sessions: boolean) {
@@ -88,6 +90,7 @@ function usePageLayout(sessions: boolean, documents: boolean) {
 /** Selects the session layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
+  const [chatHandle] = useState(createChatDrawerHandle);
   const matches = useMatches();
   const metadata = matches.at(-1)?.staticData ?? {};
   const title = metadata.title ?? 'Home';
@@ -103,43 +106,47 @@ export function Shell() {
   const { project, shortcutsDisabled } = useContextMenuScope(metadata.scope, context);
 
   return (
-    <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
-      <SidebarUI.Frame
-        variant={sessions ? 'session-entry' : 'default'}
-        data-entry-navigation={navigation.open}
-        collapsed={navigation.collapsed}
-        defaultWidth={288}
-        minWidth={224}
-        minContentWidth={360}
-        storageKey="study-sidebar-width"
-        resizeLabel={t('ResizeSidebar')}
-        resizeHint={t('ResizeSidebarHint')}
-      >
-        {navigation.visible && (
-          <Sidebar
-            metadata={{
-              title,
-              section: metadata.section ?? 'sessions',
-              scope: metadata.scope ?? 'project',
-              sidebar: metadata.sidebar
-            }}
-            collapsed={navigation.collapsed}
-            onToggle={navigation.toggle}
-          />
-        )}
-        <SidebarUI.Main>
-          <ShellHeader
-            sessions={sessions}
-            visible={navigation.visible}
-            title={t(title)}
-            onToggle={navigation.toggle}
-          />
-          <PageShell.PageBody layout={layout}>
-            <Outlet />
-          </PageShell.PageBody>
-        </SidebarUI.Main>
-      </SidebarUI.Frame>
-    </DefaultContextMenu>
+    <>
+      <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
+        <SidebarUI.Frame
+          variant={sessions ? 'session-entry' : 'default'}
+          data-entry-navigation={navigation.open}
+          collapsed={navigation.collapsed}
+          defaultWidth={288}
+          minWidth={224}
+          minContentWidth={360}
+          storageKey="study-sidebar-width"
+          resizeLabel={t('ResizeSidebar')}
+          resizeHint={t('ResizeSidebarHint')}
+        >
+          {navigation.visible && (
+            <Sidebar
+              chat={<ChatDrawerTrigger handle={chatHandle} label={t('StudyChatTitle')} />}
+              metadata={{
+                title,
+                section: metadata.section ?? 'sessions',
+                scope: metadata.scope ?? 'project',
+                sidebar: metadata.sidebar
+              }}
+              collapsed={navigation.collapsed}
+              onToggle={navigation.toggle}
+            />
+          )}
+          <SidebarUI.Main>
+            <ShellHeader
+              sessions={sessions}
+              visible={navigation.visible}
+              title={t(title)}
+              onToggle={navigation.toggle}
+            />
+            <PageShell.PageBody layout={layout}>
+              <Outlet />
+            </PageShell.PageBody>
+          </SidebarUI.Main>
+        </SidebarUI.Frame>
+      </DefaultContextMenu>
+      <StudyChat handle={chatHandle} />
+    </>
   );
 }
 

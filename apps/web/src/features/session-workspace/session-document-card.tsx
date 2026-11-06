@@ -1,5 +1,6 @@
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId } from '@study/contracts/ids';
+import { ChatEntryLabel } from '@study/ui/chat';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { WorkspaceAttachments } from '@study/ui/workspace';
 import { FileText } from 'lucide-react';
@@ -68,14 +69,16 @@ export function SessionDocumentCard({
               tone="blue"
             />
           ) : (
-            <Desk.DocumentCard
-              title={document.title}
-              openLabel={t('SessionOpenPage')}
-              preview={document.description}
-              meta={t('SourceDocument')}
-              active={active}
-              onOpen={() => onOpen(document)}
-            />
+            <>
+              <ChatEntryLabel>{t('SessionEntryDocument')}</ChatEntryLabel>
+              <Desk.DocumentCard
+                title={document.title}
+                openLabel={t('SessionOpenPage')}
+                preview={document.description}
+                active={active}
+                onOpen={() => onOpen(document)}
+              />
+            </>
           )}
         </ItemContextMenu>
       )}

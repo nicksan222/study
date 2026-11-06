@@ -1,10 +1,20 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  StudyChatTitle: 'Study chat',
+  StudyChatPreview: 'Preview · AI replies are not enabled. Messages are kept until you reload.',
+  StudyChatMessage: 'Message',
+  StudyChatPlaceholder: 'Write a message…',
+  StudyChatSendHint: 'Enter to send · Shift + Enter for a new line',
+  StudyChatEmptyTitle: 'Start a conversation',
+  StudyChatEmptyDescription: 'Your messages will appear here. Study cannot reply yet.',
   WorkspaceAutoAnswerQuestions: 'Automatically answer questions',
   WorkspaceAutoAnswerQuestionsHelp:
     'Save a new version with the question and its answer when a question is detected. You can also answer manually; marking a question always starts an answer.',
   SessionRestoreAnswer: 'Restore answer',
   SessionRetryAnswer: 'Retry answer',
+  SessionEntryNote: 'Note',
+  SessionEntryDocument: 'Document',
+  SessionEntryAttachment: 'Attachment',
   SessionQuestion: 'Question',
   SessionAnswer: 'Answer',
   SessionQuestionActions: 'Question actions',

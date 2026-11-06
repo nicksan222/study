@@ -35,6 +35,7 @@ import { SidebarNavigation } from './sidebar-navigation.view';
 import type { SidebarModel } from './use-sidebar';
 
 type SidebarViewModel = SidebarModel & {
+  chat?: ReactNode;
   collection: ReactNode;
   selectedSession?: string | null;
   counts?: ReturnType<typeof useSidebarCounts>;
@@ -49,6 +50,7 @@ export function SidebarView(model: SidebarViewModel) {
       <SidebarToolbar {...model} />
       <SidebarContent {...model} />
       <SidebarNavigation
+        chat={model.chat}
         counts={model.counts}
         section={model.section}
         settings={model.metadata.title === 'Settings'}

@@ -1,11 +1,22 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  StudyChatTitle: 'Chat di Study',
+  StudyChatPreview:
+    'Anteprima · Le risposte IA non sono attive. I messaggi restano fino al ricaricamento.',
+  StudyChatMessage: 'Messaggio',
+  StudyChatPlaceholder: 'Scrivi un messaggio…',
+  StudyChatSendHint: 'Invio per inviare · Maiusc + Invio per andare a capo',
+  StudyChatEmptyTitle: 'Inizia una conversazione',
+  StudyChatEmptyDescription: 'I tuoi messaggi appariranno qui. Study non può ancora rispondere.',
   WorkspaceAutoAnswerQuestions: 'Rispondi automaticamente alle domande',
   WorkspaceAutoAnswerQuestionsHelp:
     'Salva una nuova versione con domanda e risposta quando viene rilevata una domanda. Puoi anche rispondere manualmente; segnare una domanda avvia sempre la risposta.',
   SessionRestoreAnswer: 'Ripristina risposta',
   SessionRetryAnswer: 'Riprova la risposta',
+  SessionEntryNote: 'Appunto',
+  SessionEntryDocument: 'Documento',
+  SessionEntryAttachment: 'Allegato',
   SessionQuestion: 'Domanda',
   SessionAnswer: 'Risposta',
   SessionQuestionActions: 'Azioni della domanda',
