@@ -26,12 +26,18 @@ import type { SearchRecord } from './records.ts';
 import type { EmbeddingModel, SearchScope } from './types.ts';
 
 /** Apply the trusted caller scope and requested kinds before any candidate is ranked. */
-function isEligible(row: SearchRecord, input: SemanticSearchInput, scope: SearchScope): boolean {
-  if (input.kinds && !input.kinds.includes(row.kind)) return false;
+function isEligible(
+  row: SearchProjection,
+  input: SemanticSearchInput,
+  scope: SearchScope
+): boolean {
+  const kind = row.target.type === 'registered' ? row.target.entity : row.target.type;
+
+  if (input.kinds && !input.kinds.includes(kind)) return false;
 
   if (scope.type === 'all') return true;
 
-  return row.projection.projectIds.some((id) => scope.projectIds.includes(id));
+  return row.projectIds.some((id) => scope.projectIds.includes(id));
 }
 
 /** Choose each entity’s closest chunk with deterministic ordering before applying the result limit. */
@@ -196,8 +202,14 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
   ) {
     const vector = vectorBuffer(query, model.dimensions);
     const live = new Map(
-      searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row])
+      searchEntities(
+        rows.filter((row) => isEligible(row, input, scope)),
+        model.maxChunkingInputLength
+      ).map((row) => [row.target, row])
     );
+
+    if (!live.size) return [];
+
     const saved = db.orm
       .select({
         key: entries.key,
@@ -206,7 +218,13 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
         text: entries.text
       })
       .from(entries)
-      .where(and(eq(entries.model, model.identity), eq(entries.dimensions, model.dimensions)))
+      .where(
+        and(
+          eq(entries.model, model.identity),
+          eq(entries.dimensions, model.dimensions),
+          input.kinds ? inArray(entries.kind, [...input.kinds]) : undefined
+        )
+      )
       .all();
     const eligible = new Map<string, SearchRecord>();
 
@@ -215,9 +233,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
 
       if (!entity || entity.fingerprint !== row.fingerprint) continue;
 
-      const record = { ...entity, key: row.key, text: row.text };
-
-      if (isEligible(record, input, scope)) eligible.set(row.key, record);
+      eligible.set(row.key, { ...entity, key: row.key, text: row.text });
     }
 
     const candidates = [...eligible.keys()];
