@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 
 import { NumberControl } from './number-control';
+import { RangeControl } from './range-control';
 import { SelectControl } from './select-control';
 import { SettingsRow } from './settings-group';
 import { SwitchControl } from './switch-control';
@@ -45,6 +46,20 @@ export function NumberRow({
   return (
     <SettingsRow title={title} description={description}>
       <NumberControl {...control} label={controlLabel} />
+    </SettingsRow>
+  );
+}
+
+/** Range preferences keep reset, value output and keyboard commit behavior attached to row copy. */
+export function RangeRow({
+  title,
+  description,
+  controlLabel = title,
+  ...control
+}: RowCopy & Omit<ComponentProps<typeof RangeControl>, 'label'>) {
+  return (
+    <SettingsRow title={title} description={description}>
+      <RangeControl {...control} label={controlLabel} />
     </SettingsRow>
   );
 }

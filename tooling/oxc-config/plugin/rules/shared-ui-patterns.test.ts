@@ -218,3 +218,16 @@ testStable(
     ).toHaveLength(0);
   }
 );
+
+testStable('standardizes labelled settings ranges while allowing embedded range editors', () => {
+  expect(
+    lint(
+      `import { Settings } from '@study/ui/settings'; import { RangeControl } from '@study/ui/range-control'; const view = <Settings.Row title="Title"><RangeControl /></Settings.Row>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { RangeControl } from '@study/ui/range-control'; const view = <RangeControl label="Zoom" />;`
+    )
+  ).toHaveLength(0);
+});

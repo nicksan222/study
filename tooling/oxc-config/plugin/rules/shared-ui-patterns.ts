@@ -15,7 +15,8 @@ const selectionParts: Record<string, string> = {
 const settingRows: Record<string, string> = {
   '@study/ui/switch-control:SwitchControl': 'ToggleRow',
   '@study/ui/select-control:SelectControl': 'SelectRow',
-  '@study/ui/number-control:NumberControl': 'NumberRow'
+  '@study/ui/number-control:NumberControl': 'NumberRow',
+  '@study/ui/range-control:RangeControl': 'RangeRow'
 };
 
 const dialogParts: Record<string, string> = {
