@@ -57,10 +57,7 @@ export function MessageActions({
         />
       </MessageContextMenu>
       {model.conversion.mutation.error && (
-        <SessionError
-          error={model.conversion.mutation.error}
-          retry={() => model.conversion.mutation.mutate()}
-        />
+        <SessionError error={model.conversion.mutation.error} retry={model.conversion.retry} />
       )}
       {props.message.versions
         .filter(
@@ -175,7 +172,7 @@ function MessageConversionButton({ model }: { model: MessageActionsModel }) {
         model.conversion.blocked ||
         model.conversion.mutation.isPending
       }
-      onClick={() => model.conversion.mutation.mutate()}
+      onClick={model.conversion.convert}
     >
       <FileText size={15} aria-hidden="true" />
       <Notebook.ActionLabel>{model.t('SessionConvertText')}</Notebook.ActionLabel>

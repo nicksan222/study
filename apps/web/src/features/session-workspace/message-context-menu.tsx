@@ -85,7 +85,7 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                     model.conversion.blocked ||
                     model.conversion.mutation.isPending
                   }
-                  onClick={() => model.conversion.mutation.mutate()}
+                  onClick={model.conversion.convert}
                 >
                   <FileText aria-hidden="true" />
                   {model.t('SessionConvertText')}

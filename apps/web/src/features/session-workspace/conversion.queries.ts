@@ -1,3 +1,4 @@
+import type { convertMessageInputSchema } from '@study/contracts/conversations/conversion';
 import { canConvertMessage } from '@study/contracts/conversations/conversion';
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
@@ -18,14 +19,8 @@ export function useMessageConversion(message: ChatMessage, versionId: VersionId)
   );
   const available = !!strategy && canConvertMessage(message, versionId, strategy.supportedInputs);
   const mutation = useMutation({
-    mutationFn: () =>
-      request((rpc) =>
-        rpc['conversations.convertMessage']({
-          messageId: message.id,
-          expectedActiveVersionId: versionId,
-          strategyId: preferences.textConversionStrategy
-        })
-      ),
+    mutationFn: (input: typeof convertMessageInputSchema.Type) =>
+      request((rpc) => rpc['conversations.convertMessage'](input)),
     onSettled: async () => {
       await Promise.all([
         cache.invalidateQueries({ queryKey: sessionKey(message.sessionId) }),
@@ -37,6 +32,15 @@ export function useMessageConversion(message: ChatMessage, versionId: VersionId)
   return {
     available,
     mutation,
+    convert: () =>
+      mutation.mutate({
+        messageId: message.id,
+        expectedActiveVersionId: versionId,
+        strategyId: preferences.textConversionStrategy
+      }),
+    retry: () => {
+      if (mutation.variables) mutation.mutate(mutation.variables);
+    },
     blocked: message.versions.some((version) => version.status !== 'complete')
   };
 }

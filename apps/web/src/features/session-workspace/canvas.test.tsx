@@ -885,3 +885,26 @@ testStable('converts the selected active message version directly from its toolb
   );
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
+
+testStable('retries the original conversion payload after viewing another version', async () => {
+  rpc.convert
+    .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
+    .mockResolvedValueOnce({
+      requestId: 'converted',
+      sessionId: id,
+      messageId: message.id,
+      versionId: 99n
+    });
+  const view = mount(actions());
+
+  fireEvent.click(await screen.findByRole('button', { name: 'SessionConvertText' }));
+  await screen.findByRole('button', { name: 'Retry' });
+  view.rerender(
+    <QueryClientProvider client={view.client}>
+      {actions(message.versions[0].id)}
+    </QueryClientProvider>
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
+  await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));
+  expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
+});
