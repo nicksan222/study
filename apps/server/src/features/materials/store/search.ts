@@ -51,6 +51,7 @@ const visibleMaterial = sql`m.archived_at IS NULL AND v.status='published'
   AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id)
   AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id)`;
 
+/** Collect ordered child content or memberships without replacing earlier values for the same parent. */
 function append<K, V>(map: Map<K, V[]>, key: K, ...values: V[]) {
   const items = map.get(key) ?? [];
 
@@ -58,6 +59,7 @@ function append<K, V>(map: Map<K, V[]>, key: K, ...values: V[]) {
   map.set(key, items);
 }
 
+/** Preserve the complete material or question version identity for exact publication revalidation. */
 function targetIdentity(target: SearchTarget) {
   if (target.type === 'material') return sql`(${target.materialId},${target.versionId})`;
 
@@ -67,6 +69,7 @@ function targetIdentity(target: SearchTarget) {
   return undefined;
 }
 
+/** Restrict SQL to requested current targets and reject cross-kind identities with an empty predicate. */
 function targetFilter(input: SearchProjectionPageInput) {
   if (input.targets === undefined) return sql`1`;
 
@@ -85,7 +88,9 @@ function targetFilter(input: SearchProjectionPageInput) {
   return sql`${columns} IN (${sql.join(identities, sql`,`)})`;
 }
 
+/** Project only current published materials and questions while keeping hidden answer metadata private. */
 export function makeMaterialSearchProjections({ db }: StoreResources) {
+  /** Fetch project membership once for the distinct material identities in this page. */
   const membershipsFor = (rows: readonly MaterialRow[]) => {
     const memberships = new Map<MaterialId, ProjectId[]>();
     const ids = [...new Set(rows.map((row) => row.id))];
@@ -100,6 +105,7 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
 
     return memberships;
   };
+  /** Collect visible choice text in presentation order without indexing correctness metadata. */
   const choicesFor = (ids: readonly QuizQuestionId[]) => {
     const choices = new Map<QuizQuestionId, string[]>();
 
@@ -115,6 +121,7 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
 
     return choices;
   };
+  /** Collect ordered diagram, flashcard, and quiz content while excluding hidden quiz explanations. */
   const contentFor = (versions: readonly MaterialVersionId[]) => {
     const contents = new Map<MaterialVersionId, string[]>();
 
@@ -146,15 +153,18 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
 
     return contents;
   };
+  /** Apply current publication visibility before paging material versions. */
   const materialsRows = (input: SearchProjectionPageInput) =>
     db.orm.all<MaterialRow>(sql`SELECT m.id,m.title,m.description,m.kind,v.id AS version_id
       FROM materials m JOIN material_versions v ON v.material_id=m.id
       WHERE ${visibleMaterial} AND ${targetFilter(input)} ORDER BY m.id LIMIT ${input.limit} OFFSET ${input.offset}`);
+  /** Apply current material visibility before paging individual question identities. */
   const questionsRows = (input: SearchProjectionPageInput) =>
     db.orm
       .all<QuestionRow>(sql`SELECT m.id,m.title,m.description,m.kind,v.id AS version_id,q.id AS question_id,q.prompt
       FROM material_quiz_questions q JOIN material_versions v ON v.id=q.version_id JOIN materials m ON m.id=v.material_id
       WHERE ${visibleMaterial} AND ${targetFilter(input)} ORDER BY q.id LIMIT ${input.limit} OFFSET ${input.offset}`);
+  /** Combine a material page with batched content and project membership reads. */
   const materialsFor = (input: SearchProjectionPageInput): readonly SearchProjection[] => {
     const rows = materialsRows(input);
 
@@ -173,6 +183,7 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
       revision: row.version_id.toString()
     }));
   };
+  /** Combine visible question prompts and choices with their exact published material versions. */
   const questionsFor = (input: SearchProjectionPageInput): readonly SearchProjection[] => {
     const rows = questionsRows(input);
 

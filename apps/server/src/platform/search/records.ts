@@ -25,6 +25,7 @@ const encodeTarget = Schema.encodeSync(
   Schema.fromJsonString(Schema.toCodecJson(searchTargetSchema))
 );
 
+/** Create stable opaque keys without placing entity text in SQLite primary keys. */
 function hash(text: string) {
   return createHash('sha256').update(text).digest('hex');
 }
@@ -44,6 +45,7 @@ function fingerprint(row: SearchProjection, target: string, maximum: number): st
   );
 }
 
+/** Validate unique targets and derive visibility-sensitive fingerprints before chunking or ranking. */
 export function searchEntities(rows: readonly SearchProjection[], maximum: number) {
   const identities = new Set<string>();
 
@@ -68,12 +70,14 @@ export function searchEntities(rows: readonly SearchProjection[], maximum: numbe
 
 export type SearchEntity = ReturnType<typeof searchEntities>[number];
 
+/** Associate one ordered chunk with its original entity and stable per-entity ordinal. */
 export function searchRecord(entity: SearchEntity, text: string, ordinal: number) {
   return { ...entity, key: hash(entity.target) + ':' + ordinal, text };
 }
 
 export type SearchRecord = ReturnType<typeof searchRecord>;
 
+/** Reject malformed or zero vectors and serialize portable little-endian float components. */
 export function vectorBuffer(vector: Float32Array, dimensions: number): Buffer {
   if (
     vector.length !== dimensions ||

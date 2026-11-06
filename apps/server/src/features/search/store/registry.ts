@@ -43,6 +43,7 @@ const featureKinds = new Set([
   'question'
 ]);
 
+/** Encode only scalar stable identities and reject unsafe numeric or structured values. */
 function identity(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'bigint') return String(value);
 
@@ -51,6 +52,7 @@ function identity(value: unknown): string {
   throw new StudyError('internal', 'Searchable entity identity is invalid');
 }
 
+/** Derive canonical content and project scope from the table’s explicit column policy. */
 function rowProjection(entity: RegisteredEntity, row: Record<string, unknown>): SearchProjection {
   const meta = entity.metadata;
 
@@ -82,6 +84,7 @@ function rowProjection(entity: RegisteredEntity, row: Record<string, unknown>): 
   };
 }
 
+/** Translate declared archive, deletion, and publication rules into SQL predicates. */
 function visibility(entity: RegisteredEntity) {
   const meta = entity.metadata;
 
@@ -97,6 +100,7 @@ function visibility(entity: RegisteredEntity) {
   );
 }
 
+/** Select registered target keys only for the requested entity kind during publication checks. */
 function targetKeys(
   targets: readonly SearchTarget[] | undefined,
   kind: string
@@ -106,6 +110,7 @@ function targetKeys(
   );
 }
 
+/** Read a deterministic SQL page with declared visibility and optional exact target filtering. */
 function makeRegistrySearchProjections({ db }: StoreResources) {
   return (
     entity: RegisteredEntity,
@@ -140,6 +145,7 @@ function makeRegistrySearchProjections({ db }: StoreResources) {
   };
 }
 
+/** Build the agent catalog and automatic projection store from the validated Drizzle registry. */
 export function makeRegistryStore(schema: Readonly<Record<string, unknown>> = databaseSchema) {
   const registry = collectSchemaRegistry(schema);
 

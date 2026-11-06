@@ -25,6 +25,7 @@ import { searchEntities, vectorBuffer } from './records.ts';
 import type { SearchRecord } from './records.ts';
 import type { EmbeddingModel, SearchScope } from './types.ts';
 
+/** Apply the trusted caller scope and requested kinds before any candidate is ranked. */
 function isEligible(row: SearchRecord, input: SemanticSearchInput, scope: SearchScope): boolean {
   if (input.kinds && !input.kinds.includes(row.kind)) return false;
 
@@ -33,6 +34,7 @@ function isEligible(row: SearchRecord, input: SemanticSearchInput, scope: Search
   return row.projection.projectIds.some((id) => scope.projectIds.includes(id));
 }
 
+/** Choose each entity’s closest chunk with deterministic ordering before applying the result limit. */
 function bestHits(
   ranked: readonly { key: string; distance: number }[],
   eligible: Map<string, SearchRecord>,
@@ -62,7 +64,9 @@ function bestHits(
   return hits;
 }
 
+/** Keep cached vectors subordinate to current feature visibility and model identity. */
 export function makeVectorStore(db: Db, model: EmbeddingModel) {
+  /** Read cache metadata without loading embedding blobs during stale-record reconciliation. */
   function persisted() {
     return db.orm
       .select({
@@ -76,6 +80,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
       .all();
   }
 
+  /** Delete removed, superseded, or incompatible excerpts before inference can fail or be interrupted. */
   function purge(rows: readonly SearchProjection[]) {
     const live = new Map(
       searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row.fingerprint])
@@ -101,6 +106,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     return stale.filter((row) => !live.has(row.target)).length;
   }
 
+  /** Compare only this bounded record batch with persisted fingerprints and model settings. */
   function changed(desired: readonly SearchRecord[]) {
     const saved = new Map<string, { fingerprint: string; model: string; dimensions: number }>();
 
@@ -132,6 +138,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     });
   }
 
+  /** Revalidate entity fingerprints inside the caller’s transaction before upserting inferred vectors. */
   function publish(
     batch: readonly SearchRecord[],
     vectors: readonly Float32Array[],
@@ -170,6 +177,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     return count;
   }
 
+  /** Use sqlite-vec cosine distance on bounded eligible key batches without loading vectors into JavaScript. */
   function score(keys: readonly string[], vector: Buffer) {
     return db.orm.all<{ key: string; distance: number }>(
       sql`SELECT key,vec_distance_cosine(embedding,${vector}) AS distance FROM ${entries} WHERE key IN (${sql.join(
@@ -179,6 +187,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     );
   }
 
+  /** Exclude invisible or stale records before ranking, deduplicating entities, and enforcing the limit. */
   function search(
     input: SemanticSearchInput,
     scope: SearchScope,

@@ -24,7 +24,9 @@ import { searchProjectionPageQuery } from '#server/platform/search/projection-pa
 
 const decodeAnchor = Schema.decodeUnknownSync(Schema.fromJsonString(anchorSchema));
 
+/** Page sources or anchored passages while applying source visibility and project memberships. */
 export function makeSourceSearchProjections({ db }: StoreResources) {
+  /** Read visible source identities with exact target filtering and stable SQL pagination. */
   const sourceEntries = (input: SearchProjectionPageInput): SearchProjection[] => {
     const entries: Array<SearchProjection> = [];
     const { offset, limit, targets } = input;
@@ -58,6 +60,7 @@ export function makeSourceSearchProjections({ db }: StoreResources) {
 
     return entries;
   };
+  /** Read anchored passage targets without exposing text from hidden or superseded source content. */
   const passageEntries = (input: SearchProjectionPageInput): SearchProjection[] => {
     const entries: Array<SearchProjection> = [];
     const { offset, limit, targets } = input;

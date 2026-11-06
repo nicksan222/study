@@ -61,6 +61,7 @@ const installationSchema = Schema.fromJsonString(
   Schema.Struct({ identity: Schema.Literal(embeddingModel.identity) })
 );
 
+/** Check pinned file size and SHA-256, treating only absent files as a cache miss. */
 async function matches(
   path: string,
   expected: { bytes: number; sha256: string }
@@ -99,6 +100,7 @@ export const validateEmbeddingModel = (directory: string) =>
       })
   });
 
+/** Stream into an exclusive private temporary file and reject oversized downloads immediately. */
 async function writeDownload(body: ReadableStream<Uint8Array>, path: string, maximumBytes: number) {
   const handle = await open(path, 'wx', 0o600);
 
@@ -118,6 +120,7 @@ async function writeDownload(body: ReadableStream<Uint8Array>, path: string, max
   }
 }
 
+/** Reuse verified assets or atomically publish a bounded, verified download with cancellation cleanup. */
 async function downloadFile(
   directory: string,
   file: (typeof embeddingModel.files)[number],

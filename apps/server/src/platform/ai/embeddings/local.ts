@@ -40,6 +40,7 @@ const vectorMessage = Schema.is(
   })
 );
 
+/** Validate the worker’s response dimensions and finite values before exposing copied vectors. */
 function readVectors(message: unknown, expectedCount: number): readonly Float32Array[] | undefined {
   if (!vectorMessage(message)) return undefined;
 
@@ -82,6 +83,7 @@ function open(directory: string) {
 
     yield* client.ready;
 
+    /** Validate bounded nonempty inputs and apply the model’s distinct query or passage prefix. */
     const embed = (texts: readonly string[], prefix: 'query' | 'passage') => {
       if (
         texts.length > embeddingLimits.batchSize ||
@@ -109,6 +111,7 @@ function open(directory: string) {
       );
     };
 
+    /** Reject oversized worker messages and validate the returned original-text excerpts. */
     const chunkPassages = (text: string) => {
       if (text.length > embeddingModel.maxChunkingInputLength)
         return Effect.fail(

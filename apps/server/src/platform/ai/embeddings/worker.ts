@@ -47,10 +47,12 @@ const embeddingRequest = Schema.is(
   ).check(Schema.isMaxLength(embeddingLimits.batchSize))
 );
 
+/** Measure tokens with the installed model tokenizer rather than approximating from characters. */
 function tokenCount(text: string): number {
   return extractor.tokenizer(text, { truncation: false, return_tensor: false }).input_ids.length;
 }
 
+/** Find the longest surrogate-safe passage whose prefixed tokens fit the model context. */
 function passageEnd(text: string, boundaries: readonly number[], start: number): number {
   let low = start;
   let high = Math.min(boundaries.length - 1, start + 8000);
@@ -68,6 +70,7 @@ function passageEnd(text: string, boundaries: readonly number[], start: number):
   return low;
 }
 
+/** Keep original excerpts with token-aware overlap so embedding never silently truncates content. */
 function chunkPassages(text: string): readonly string[] {
   if (!text.trim()) return [];
 

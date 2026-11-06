@@ -34,6 +34,7 @@ type DocumentRow = {
   content_snapshot_id: ContentSnapshotId;
 };
 
+/** Read current published document versions with ordered blocks, project memberships, and retirement barriers. */
 export function makeDocumentSearchProjections({ db }: StoreResources) {
   return (
     input: SearchProjectionPageInput = { offset: 0, limit: 1000 }

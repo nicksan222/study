@@ -48,6 +48,7 @@ const declarations = new WeakMap<SQLiteTable, TableSearchMetadata>();
 
 type ColumnEntityMetadata = Extract<EntityTableMetadata, { projection: 'columns' }>;
 
+/** Require a publication column and status together so filtering cannot silently broaden visibility. */
 function validatePublicationPolicy(visibility: Exclude<ColumnSearchVisibility, string>): void {
   if (
     (visibility.publishedColumn === undefined) !== (visibility.publishedValue === undefined) ||
@@ -56,6 +57,7 @@ function validatePublicationPolicy(visibility: Exclude<ColumnSearchVisibility, s
     throw new TypeError('Search publication requires a status column and a nonempty status value');
 }
 
+/** Reject empty or unknown visibility rules before any table enters the registry. */
 function validateVisibilityPolicy(visibility: Exclude<ColumnSearchVisibility, string>): void {
   if (
     !visibility ||
@@ -71,6 +73,7 @@ function validateVisibilityPolicy(visibility: Exclude<ColumnSearchVisibility, st
   validatePublicationPolicy(visibility);
 }
 
+/** Require explicit content, scope, and visibility for automatically projected tables. */
 function validateAutomaticPolicy(metadata: ColumnEntityMetadata): void {
   if (!metadata.textColumns?.length || !['global', 'project'].includes(metadata.scope?.type))
     throw new TypeError('Automatic search requires text columns and an explicit scope');
@@ -94,6 +97,7 @@ function validateAutomaticIdentity(table: SQLiteTable, idColumn: string): void {
     throw new TypeError('Automatic search identity must be a text or integer primary key');
 }
 
+/** Validate scope and visibility column types before constructing automatic SQL predicates. */
 function validateAutomaticColumns(table: SQLiteTable, metadata: ColumnEntityMetadata): void {
   validateAutomaticIdentity(table, metadata.idColumn ?? 'id');
   const columns = getTableColumns(table);
@@ -121,6 +125,7 @@ function validateAutomaticColumns(table: SQLiteTable, metadata: ColumnEntityMeta
     throw new TypeError('Search publication status must be a declared text column');
 }
 
+/** Check identities and text columns against the actual Drizzle table, including duplicate fields. */
 function validateEntityColumns(table: SQLiteTable, metadata: EntityTableMetadata): void {
   const columns = getTableColumns(table);
 
@@ -137,6 +142,7 @@ function validateEntityColumns(table: SQLiteTable, metadata: EntityTableMetadata
     throw new TypeError('Search text columns must be unique');
 }
 
+/** Require meaningful, stable metadata for every entity, contributor, or internal table. */
 function validSearchPolicy(metadata: TableSearchMetadata): boolean {
   if (!metadata) return false;
 
@@ -152,6 +158,7 @@ function validSearchPolicy(metadata: TableSearchMetadata): boolean {
   }
 }
 
+/** Copy and freeze nested policies so later caller mutation cannot change search behavior. */
 function freezeDeclaration(metadata: TableSearchMetadata): TableSearchMetadata {
   if (metadata.role !== 'entity') return Object.freeze({ ...metadata });
 
@@ -196,6 +203,7 @@ export function defineTable(metadata: TableSearchMetadata): typeof sqliteTable {
   });
 }
 
+/** Discover each exported table once and reject raw declarations or duplicate SQL names. */
 function declaredTables(exports: Readonly<Record<string, unknown>>): RegisteredTable[] {
   const tables: RegisteredTable[] = [];
   const seen = new Set<SQLiteTable>();
@@ -219,6 +227,7 @@ function declaredTables(exports: Readonly<Record<string, unknown>>): RegisteredT
   return tables.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Build unique entity kinds while preserving the validated declarations of their tables. */
 function declaredEntities(tables: readonly RegisteredTable[]): RegisteredEntity[] {
   const entities: RegisteredEntity[] = [];
   const kinds = new Set<string>();

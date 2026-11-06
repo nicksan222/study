@@ -37,6 +37,7 @@ export const Search = defineService(
     const configuration = yield* SearchConfiguration;
     const registry = makeRegistryStore(configuration.schema);
     const registryStore = registry.store;
+    /** Collect current feature projections in stable SQL pages, narrowing publication checks to their targets. */
     const read = (
       tx: Transaction,
       targets?: readonly SearchTarget[]
@@ -81,6 +82,7 @@ export const Search = defineService(
 
       return rows;
     };
+    /** Read visibility and mutate the index within the same synchronous database transaction. */
     const commit = <A>(
       work: (rows: readonly SearchProjection[]) => A,
       beforePublish?: () => void,
@@ -91,6 +93,7 @@ export const Search = defineService(
 
         return work(read(tx, targets));
       });
+    /** Keep publication fences configurable without registering a runtime worker or agent. */
     const makeIndex = (beforePublish?: () => void) =>
       storage.open({
         model: configuration.model,

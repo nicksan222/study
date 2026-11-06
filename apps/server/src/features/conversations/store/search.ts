@@ -23,8 +23,10 @@ import { searchProjectionPageQuery } from '#server/platform/search/projection-pa
 
 type ConversationEntry = Omit<SearchProjection, 'projectIds'> & { sessionId: SessionId };
 
+/** Project visible sessions and completed active message versions with canonical navigation targets. */
 export function makeConversationSearchProjections({ db }: StoreResources) {
   const visible = sql`NOT EXISTS (SELECT 1 FROM session_deletions d WHERE d.session_id = ${sessions.id})`;
+  /** Page nondeleted session identities and titles without loading conversation contents. */
   const sessionEntries = (input: SearchProjectionPageInput): ConversationEntry[] => {
     const entries: ConversationEntry[] = [];
     const { offset, limit, targets } = input;
@@ -58,6 +60,7 @@ export function makeConversationSearchProjections({ db }: StoreResources) {
 
     return entries;
   };
+  /** Read complete active message versions while excluding archived messages and deleted sessions. */
   const messageEntries = (input: SearchProjectionPageInput): ConversationEntry[] => {
     const entries: ConversationEntry[] = [];
     const { offset, limit, targets } = input;
@@ -106,6 +109,7 @@ export function makeConversationSearchProjections({ db }: StoreResources) {
 
     return entries;
   };
+  /** Attach batched project memberships without changing each message’s session identity. */
   const attachMemberships = (entries: ConversationEntry[]): readonly SearchProjection[] => {
     if (!entries.length) return [];
 

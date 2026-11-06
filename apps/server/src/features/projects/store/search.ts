@@ -19,6 +19,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import { searchProjectionPageQuery } from '#server/platform/search/projection-page';
 
+/** Page visible projects with canonical identities and membership scope for retrieval. */
 export function makeProjectSearchProjections({ db }: StoreResources) {
   return (
     input: SearchProjectionPageInput = { offset: 0, limit: 1000 }
