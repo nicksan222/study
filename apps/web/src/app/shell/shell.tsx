@@ -9,6 +9,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { projectsQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
 import { DefaultContextMenu } from './default-context-menu';
+import { DesktopUpdates } from './desktop-updates';
 import { Sidebar } from './sidebar';
 import { useSidebarContext } from './sidebar-context.queries';
 import { StudyChat } from './study-chat';
@@ -107,6 +108,7 @@ export function Shell() {
 
   return (
     <>
+      <DesktopUpdates />
       <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
         <SidebarUI.Frame
           variant={sessions ? 'session-entry' : 'default'}

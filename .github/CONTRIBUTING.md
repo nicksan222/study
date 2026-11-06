@@ -164,8 +164,14 @@ the image.
 
 ## Releases
 
-Bump the workspace version and Tauri config version together, then push a matching `vX.Y.Z`
-tag. The release checks that tag, builds Tauri packages on Linux x64/ARM64, macOS Apple
+Every push to `main` releases after the required `Test and build` CI job passes. PRs and
+manual CI runs do not publish. The version is the numeric Tauri base plus the CI run
+number in its patch component: base `0.1.1`, run 42 becomes `0.1.43`. This version is
+embedded through the effective Tauri config without a version-bump commit. The workflow
+creates `v0.1.43` on the exact checked commit. Failed runs keep their version on retry.
+Keep workspace and base Tauri versions aligned when changing the release series.
+
+The release builds Tauri packages on Linux x64/ARM64, macOS Apple
 Silicon and Windows x64. Each build retains its signed bundles as an isolated Actions
 artifact. `tooling/release/release.sh` then verifies every updater with Minisign, checks
 all four platform/version/file digests, preserves the website's stable download names,
@@ -178,6 +184,23 @@ to the base64 encoded public key printed by Tauri (not raw Minisign text), secre
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to the private key/password, and allow Actions to
 write release contents. The release preflight merges that same public key and endpoint into
 Tauri's effective bundler configuration; the app reads the embedded configuration.
+The existing `CARGO_PACKAGER_SIGN_PRIVATE_KEY` and its password are accepted as a pair
+when no Tauri-named key is configured: both signers use the same base64 Minisign format.
+This preserves the installed public key without rotating credentials. A Tauri-named key
+takes precedence with its own password (including an empty password). Preserve the key
+pair across releases. GitHub selects Latest using its semantic-version policy so a slower older build does not become the update.
+
+Signed desktop builds check at startup and hourly, and offer a persistent notification
+with an **Install and restart** action. Downloads require that action; Tauri verifies
+the signature before installing. Failures offer retry. The private server shuts down
+before restart (and before the Windows installer exits). Browser, debug and unsigned
+builds skip the updater. Linux in-app updates require the AppImage distribution.
+Tauri’s pre-build hook stages Node, the private server’s source, locked production
+dependencies and Drizzle migrations under `target/desktop-runtime`. The same resources
+ship in both installers and updates. Every platform smoke-tests Tauri’s copied runtime
+from an isolated directory with a fresh database and no dependency on a system Node installation. Run
+`npm run desktop:runtime` to stage it independently.
+
 For local bundles without signing credentials, use `just package linux-x86_64 --unsigned`.
 This explicitly disables updater artifacts and signing for that build.
 

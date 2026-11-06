@@ -10,6 +10,15 @@ if command -v cygpath >/dev/null 2>&1; then
 fi
 fail() { echo "$*" >&2; exit 1; }
 versioned() { [[ $1 =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$ ]] || fail 'invalid release version'; }
+ci_version() {
+  local sequence=$1 major minor patch
+  [[ $sequence =~ ^[1-9][0-9]{0,4}$ ]] || fail 'CI run number must be a positive integer below 65536'
+  IFS=. read -r major minor patch < <(jq -r .version "$repo_root/apps/desktop/src-tauri/tauri.conf.json")
+  [[ $patch =~ ^[0-9]+$ ]] || fail 'CI release base must be a numeric version'
+  patch=$((patch + sequence))
+  [ "$patch" -le 65535 ] || fail 'CI release patch exceeds the Windows version limit'
+  printf '%s.%s.%s\n' "$major" "$minor" "$patch"
+}
 formats() {
   case "$1" in
     linux-x86_64|linux-aarch64) INSTALL=.AppImage; UPDATE=.AppImage; UPDATER=$1; TARGET=${1/linux-/}-unknown-linux-gnu ;;
@@ -57,16 +66,17 @@ configure() {
   local version=$1 output=$2 unsigned=${3:-} key=${STUDY_UPDATE_PUBLIC_KEY:-} endpoint=${STUDY_UPDATE_ENDPOINT:-}
   local base="$repo_root/apps/desktop/src-tauri/tauri.conf.json"
   if [ "$unsigned" = --unsigned ]; then
-    jq --arg endpoint "$endpoint" '.bundle.createUpdaterArtifacts=false | .plugins.updater.pubkey="" | if $endpoint != "" then .plugins.updater.endpoints=[$endpoint] else . end' "$base" > "$release_temp/config"
+    jq --arg endpoint "$endpoint" '.bundle.createUpdaterArtifacts=false | .plugins.updater.pubkey="" | if $endpoint != "" then .plugins.updater.endpoints=[$endpoint] else . end' "$base" > "$release_temp/base-config"
   else
     [[ $key =~ ^[A-Za-z0-9+/]+={0,2}$ ]] || fail 'Tauri base64 encoded public key is required'
     printf '%s' "$key" | decode > "$release_temp/key" || fail 'Tauri base64 encoded public key is required'
     [[ $(head -n 1 "$release_temp/key") == 'untrusted comment:'* ]] || fail 'Tauri base64 encoded public key is required'
     [ -n "$endpoint" ] || endpoint=$(jq -r '.plugins.updater.endpoints[0]' "$base")
     [[ $endpoint =~ ^https://[^/?#[:space:]]+([/?#][^[:space:]]*)?$ ]] || fail 'release updater endpoint must use HTTPS'
-    jq --arg key "$key" --arg endpoint "$endpoint" '.bundle.createUpdaterArtifacts=true | .plugins.updater.pubkey=$key | .plugins.updater.endpoints=[$endpoint]' "$base" > "$release_temp/config"
-    validate_config "$version" "$release_temp/config"
+    jq --arg version "$version" --arg key "$key" --arg endpoint "$endpoint" '.version=$version | .bundle.createUpdaterArtifacts=true | .plugins.updater.pubkey=$key | .plugins.updater.endpoints=[$endpoint]' "$base" > "$release_temp/base-config"
+    validate_config "$version" "$release_temp/base-config"
   fi
+  jq '.bundle.resources={"../../../target/desktop-runtime/":""}' "$release_temp/base-config" > "$release_temp/config"
   mkdir -p "$(dirname "$output")"
   cp "$release_temp/config" "$output"
   native_path "$output"
@@ -136,6 +146,25 @@ assemble() {
   cp "$release_temp/stage/"* "$output/"
 }
 case "${1:-}" in
+  ci-version) ci_version "$2" ;;
+  ensure-tag)
+    repository=$2 tag=$3 commit=$4
+    if ! gh api "repos/$repository/git/ref/tags/$tag" >/dev/null 2>&1; then
+      gh api --method POST "repos/$repository/git/refs" -f "ref=refs/tags/$tag" -f "sha=$commit" >/dev/null
+    fi
+    [ "$(gh api "repos/$repository/commits/$tag" --jq .sha)" = "$commit" ] || fail 'release tag points to another commit' ;;
+  signing-environment)
+    : "${GITHUB_ENV:?GITHUB_ENV is required}"
+    if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+      TAURI_SIGNING_PRIVATE_KEY=${CARGO_PACKAGER_SIGN_PRIVATE_KEY:-}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD:-}
+    fi
+    export TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+    [ -n "$TAURI_SIGNING_PRIVATE_KEY" ] || fail 'Set TAURI_SIGNING_PRIVATE_KEY or CARGO_PACKAGER_SIGN_PRIVATE_KEY'
+    for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD; do
+      value=${!name:-}; delimiter=STUDY_$(printf '%s%s' "$name" "$value" | hash)
+      printf '%s<<%s\n%s\n%s\n' "$name" "$delimiter" "$value" "$delimiter" >> "$GITHUB_ENV"
+    done ;;
   configure) shift; configure "$@" ;;
   check-config) validate_config "$2" "$repo_root/apps/desktop/src-tauri/tauri.conf.json" ;;
   prepare) shift; prepare "$@" ;;
@@ -167,5 +196,5 @@ case "${1:-}" in
     set -- "$repo_root/node_modules/.bin/tauri" build --config "$config" --target "$TARGET"
     if [ "$unsigned" = --unsigned ]; then set -- "$@" --no-sign; fi
     "$@" -- --locked ;;
-  *) fail 'usage: release.sh configure|check-config|prepare|assemble|apple-environment|verify-macos|build' ;;
+  *) fail 'usage: release.sh ci-version|ensure-tag|signing-environment|configure|check-config|prepare|assemble|apple-environment|verify-macos|build' ;;
 esac

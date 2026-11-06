@@ -1,3 +1,7 @@
 [[permission]]
 identifier = "allow-server-connection"
 commands.allow = ["server_connection"]
+
+[[permission]]
+identifier = "allow-desktop-update"
+commands.allow = ["check_for_update", "install_update"]

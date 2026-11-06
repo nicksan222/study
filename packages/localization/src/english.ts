@@ -7,6 +7,12 @@ export const english = Object.freeze({
   StudyChatSendHint: 'Enter to send · Shift + Enter for a new line',
   StudyChatEmptyTitle: 'Start a conversation',
   StudyChatEmptyDescription: 'Your messages will appear here. Study cannot reply yet.',
+  DesktopUpdateAvailable: 'Study {version} is available',
+  DesktopUpdateConsent: 'Finish your current work before installing. Study will restart.',
+  DesktopUpdateInstall: 'Install and restart',
+  DesktopUpdateInstalling: 'Downloading and installing the update…',
+  DesktopUpdateFailed: 'The update could not be installed',
+  DesktopUpdateRetryHelp: 'Check your connection and try again. You can keep using Study.',
   WorkspaceAutoAnswerQuestions: 'Automatically answer questions',
   WorkspaceAutoAnswerQuestionsHelp:
     'Save a new version with the question and its answer when a question is detected. You can also answer manually; marking a question always starts an answer.',

@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -185,3 +185,12 @@ jobs:
                   summary.write(f"| {labels[name]} | {icons[result]} {result} |\n")
           sys.exit(any(job['result'] != 'success' for job in results.values()))
           PYTHON
+
+  release:
+    name: Release desktop app
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
