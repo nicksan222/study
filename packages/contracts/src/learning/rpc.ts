@@ -11,6 +11,7 @@ import {
   quizQuestionIdSchema
 } from '../ids.ts';
 import { contentInputSchema } from '../inputs.ts';
+import { quizSettingsSchema } from '../settings/schemas.ts';
 import {
   cardReviewSchema,
   cardScheduleSchema,
@@ -47,7 +48,10 @@ export const gradeResponseInputSchema = Schema.Struct({
   feedback: Schema.NullOr(Schema.String.check(Schema.isMaxLength(100000)))
 });
 
-export const startQuizInputSchema = Schema.Struct({ versionId: materialVersionIdSchema });
+export const startQuizInputSchema = Schema.Struct({
+  versionId: materialVersionIdSchema,
+  configuration: Schema.optional(quizSettingsSchema)
+});
 
 export const reviewCardInputSchema = Schema.Struct({
   ...cardInputSchema.fields,

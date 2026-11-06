@@ -1,4 +1,4 @@
-import { Schema } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { exportFormatSchema } from '../materials/export.ts';
 
@@ -59,4 +59,17 @@ export const workspacePreferencesSchema = Schema.Struct({
   editorFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
   readerFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
   expandDocuments: Schema.Boolean
+});
+
+export const quizSettingsSchema = Schema.Struct({
+  questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
+  questionOrder: Schema.Literals(['source', 'shuffle']),
+  shuffleChoices: Schema.Boolean,
+  questionKind: Schema.Literals(['all', 'choice', 'open']),
+  choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })).pipe(
+    Schema.withDecodingDefault(Effect.succeed(4))
+  ),
+  difficulty: Schema.Literals(['easy', 'balanced', 'challenging']).pipe(
+    Schema.withDecodingDefault(Effect.succeed('balanced'))
+  )
 });

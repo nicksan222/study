@@ -19,6 +19,7 @@ import { randomUUID } from 'node:crypto';
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { QuizAttemptId, QuizChoiceId } from '@study/contracts/ids';
+import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
@@ -370,6 +371,114 @@ testStable(
               (yield* Effect.flip(learning.gradingSnapshot(foreignEvent))).kind === 'invalid_input'
             );
           }
+
+          const attemptCountBeforeFailure = db.select().from(s.material_quiz_attempts).all().length;
+          const selectionCountBeforeFailure = db
+            .select()
+            .from(s.material_quiz_attempt_questions)
+            .all().length;
+
+          db.run(
+            sql`CREATE TRIGGER reject_attempt_choice BEFORE INSERT ON material_quiz_attempt_choices BEGIN SELECT RAISE(ABORT, 'rejected'); END`
+          );
+          yield* Effect.flip(learning.startQuiz({ versionId: version.id }));
+          db.run(sql`DROP TRIGGER reject_attempt_choice`);
+          assert.strictEqual(
+            db.select().from(s.material_quiz_attempts).all().length,
+            attemptCountBeforeFailure
+          );
+          assert.strictEqual(
+            db.select().from(s.material_quiz_attempt_questions).all().length,
+            selectionCountBeforeFailure
+          );
+          const selected = yield* learning.startQuiz({
+            versionId: version.id,
+            configuration: {
+              ...defaultQuizSettings,
+              questionCount: 1,
+              questionOrder: 'shuffle',
+              shuffleChoices: true,
+              questionKind: 'choice'
+            }
+          });
+
+          assert.strictEqual(selected.questions.length, 1);
+          assert.strictEqual(selected.questions[0]!.id, choiceQuestion.id);
+          assert.deepStrictEqual(
+            (yield* learning.attempt(selected.id)).questions,
+            selected.questions
+          );
+          assert.strictEqual(
+            (yield* Effect.flip(
+              learning.answerQuestion({
+                attemptId: selected.id,
+                questionId: q.id,
+                answer: { type: 'open', answer: 'excluded' }
+              })
+            )).kind,
+            'invalid_input'
+          );
+          yield* learning.answerQuestion({
+            attemptId: selected.id,
+            questionId: choiceQuestion.id,
+            answer: { type: 'choice', choiceIds: [choice.id] }
+          });
+          const selectedResult = yield* learning.finishQuiz({ attemptId: selected.id });
+
+          assert.strictEqual(selectedResult.status, 'completed');
+          assert.strictEqual(selectedResult.scoring.questionCount, 1);
+          assert.strictEqual(selectedResult.scoring.score, 1);
+          assert.deepStrictEqual(yield* learning.attempt(selected.id), selectedResult);
+          const disposable = yield* learning.startQuiz({ versionId: version.id });
+
+          assert.ok(
+            db
+              .select()
+              .from(s.material_quiz_attempt_choices)
+              .where(eq(s.material_quiz_attempt_choices.attempt_id, disposable.id))
+              .all().length > 0
+          );
+          db.delete(s.material_quiz_attempts)
+            .where(eq(s.material_quiz_attempts.id, disposable.id))
+            .run();
+          assert.strictEqual(
+            db
+              .select()
+              .from(s.material_quiz_attempt_questions)
+              .where(eq(s.material_quiz_attempt_questions.attempt_id, disposable.id))
+              .all().length,
+            0
+          );
+          assert.strictEqual(
+            db
+              .select()
+              .from(s.material_quiz_attempt_choices)
+              .where(eq(s.material_quiz_attempt_choices.attempt_id, disposable.id))
+              .all().length,
+            0
+          );
+          const sourceSelection = yield* learning.startQuiz({
+            versionId: version.id,
+            configuration: {
+              ...defaultQuizSettings,
+              questionCount: 1,
+              questionOrder: 'source',
+              shuffleChoices: false,
+              questionKind: 'all'
+            }
+          });
+
+          assert.deepStrictEqual(
+            sourceSelection.questions.map((question) => question.id),
+            [q.id]
+          );
+          const legacy = db
+            .insert(s.material_quiz_attempts)
+            .values({ version_id: version.id, status: 'in_progress', started_at: 1n })
+            .returning()
+            .get();
+
+          assert.strictEqual((yield* learning.attempt(legacy.id)).questions.length, 2);
         }).pipe(
           Effect.provide(
             Learning.layer

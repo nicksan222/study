@@ -15,6 +15,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { JsonValue } from '@study/contracts/json';
 import {
+  quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
@@ -25,6 +26,7 @@ import {
   reviewSettingsSchema
 } from '@study/contracts/settings/schemas';
 import type {
+  QuizSettings,
   WorkspacePreferences,
   AppSettings,
   ConcurrencySettings,
@@ -34,6 +36,7 @@ import type {
   ReviewSettings
 } from '@study/contracts/settings/types';
 import {
+  defaultQuizSettings,
   defaultWorkspacePreferences,
   Appearance,
   Language,
@@ -79,6 +82,22 @@ const make = Effect.gen(function* () {
   const store = yield* useStore(SettingsStore);
 
   return {
+    quizSettings: () =>
+      store.preference('quiz').pipe(
+        Effect.map((v) => {
+          const resolved = { ...defaultQuizSettings, ...v };
+
+          return Schema.is(quizSettingsSchema)(resolved) ? resolved : defaultQuizSettings;
+        })
+      ),
+    saveQuizSettings: (input: QuizSettings) =>
+      !Schema.is(quizSettingsSchema)(input)
+        ? Effect.fail(new StudyError('invalid_input', 'Invalid quiz settings'))
+        : transaction((tx) => {
+            tx.store(SettingsStore).saveQuizSettings(input);
+
+            return {};
+          }),
     workspacePreferences: () =>
       store.preference('workspace').pipe(
         Effect.map((v) => {

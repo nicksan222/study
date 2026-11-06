@@ -25,9 +25,13 @@ type Input = typeof gradeResponseInputSchema.Type;
 
 export function makeGradeResponse(resources: StoreResources) {
   const { db } = resources;
-  const { attemptRow, attemptView } = makeQuiz(resources);
-  const gradeResponse = (input: Input) => {
-    const a = attemptRow(input.attemptId, true);
+  const { attemptRow, attemptView, attemptQuestions } = makeQuiz(resources);
+  const settleGrade = (input: Input) => {
+    const a = attemptRow(input.attemptId);
+
+    if (!attemptQuestions(a.id).some((question) => question.id === input.questionId))
+      invalid('question does not belong to attempt selection');
+
     const where = and(
       eq(s.material_quiz_responses.attempt_id, a.id),
       eq(s.material_quiz_responses.question_id, input.questionId)
@@ -37,6 +41,9 @@ export function makeGradeResponse(resources: StoreResources) {
     if (!response || response.question_kind !== 'open' || !response.answer?.trim())
       invalid('open response required');
 
+    if (a.status === 'completed' && response.score !== null)
+      invalid('completed grade is immutable');
+
     db.orm
       .update(s.material_quiz_responses)
       .set({
@@ -45,7 +52,12 @@ export function makeGradeResponse(resources: StoreResources) {
       })
       .where(where)
       .run();
-    const result = attemptView(a.id);
+
+    return attemptView(a.id);
+  };
+  const gradeResponse = (input: Input) => {
+    attemptRow(input.attemptId, true);
+    const result = settleGrade(input);
 
     if (result.status !== 'in_progress') invalid('quiz attempt completed');
 
@@ -53,6 +65,7 @@ export function makeGradeResponse(resources: StoreResources) {
   };
 
   return {
-    gradeResponse
+    gradeResponse,
+    settleGrade
   };
 }

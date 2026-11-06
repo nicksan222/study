@@ -13,6 +13,7 @@
  */
 
 import {
+  quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
@@ -79,6 +80,11 @@ export const SettingsStore = defineStore({
         })
       },
       mutations: {
+        saveQuizSettings: storeMutation({
+          input: quizSettingsSchema,
+          output: Schema.Void,
+          run: (input) => replace('quiz', { ...input })
+        }),
         saveWorkspacePreferences: storeMutation({
           input: workspacePreferencesSchema,
           output: Schema.Void,

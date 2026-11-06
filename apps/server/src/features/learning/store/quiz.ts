@@ -67,6 +67,27 @@ export function makeQuiz(resources: StoreResources) {
       .all();
   }
 
+  function attemptQuestions(attemptId: QuizAttemptId) {
+    const attempt = attemptRow(attemptId);
+    const selected = db.orm
+      .select({
+        question: s.material_quiz_questions,
+        position: s.material_quiz_attempt_questions.position
+      })
+      .from(s.material_quiz_attempt_questions)
+      .innerJoin(
+        s.material_quiz_questions,
+        eq(s.material_quiz_questions.id, s.material_quiz_attempt_questions.question_id)
+      )
+      .where(eq(s.material_quiz_attempt_questions.attempt_id, attemptId))
+      .orderBy(asc(s.material_quiz_attempt_questions.position))
+      .all();
+
+    return selected.length
+      ? selected.map(({ question, position }) => ({ ...question, position }))
+      : questions(attempt.version_id);
+  }
+
   function choices(questionId: QuizQuestionId) {
     return db.orm
       .select()
@@ -112,7 +133,7 @@ export function makeQuiz(resources: StoreResources) {
       .from(s.material_quiz_selections)
       .where(eq(s.material_quiz_selections.attempt_id, attemptId))
       .all();
-    const snapshot = questions(attempt.version_id);
+    const snapshot = attemptQuestions(attempt.id);
     const questionById = new Map(snapshot.map((q) => [q.id, q]));
     const responseByQuestion = new Map(responses.map((r) => [r.question_id, r]));
     const selectedByQuestion = new Map<QuizQuestionId, QuizChoiceId[]>();
@@ -143,6 +164,27 @@ export function makeQuiz(resources: StoreResources) {
 
       if (options) options.push(choice);
       else choicesByQuestion.set(choice.question_id, [choice]);
+    }
+
+    const orderedChoices = db.orm
+      .select()
+      .from(s.material_quiz_attempt_choices)
+      .where(eq(s.material_quiz_attempt_choices.attempt_id, attemptId))
+      .all();
+    const positionByChoice = new Map(
+      orderedChoices.map((choice) => [choice.choice_id, choice.position])
+    );
+
+    for (const [questionId, options] of choicesByQuestion) {
+      choicesByQuestion.set(
+        questionId,
+        options
+          .map((choice) => ({
+            ...choice,
+            position: positionByChoice.get(choice.id) ?? choice.position
+          }))
+          .sort((a, b) => (a.position < b.position ? -1 : a.position > b.position ? 1 : 0))
+      );
     }
 
     const items = snapshot.map((q) => {
@@ -181,7 +223,13 @@ export function makeQuiz(resources: StoreResources) {
         }))
       };
     });
+    const practice = db.orm
+      .select({ id: s.learning_practice_slots.id })
+      .from(s.learning_practice_slots)
+      .where(eq(s.learning_practice_slots.attempt_id, attempt.id))
+      .get();
     const base = {
+      ...(practice ? { practiceSlotId: practice.id } : {}),
       id: attempt.id,
       versionId: attempt.version_id,
       materialId: version.material_id,
@@ -264,6 +312,7 @@ export function makeQuiz(resources: StoreResources) {
     published,
     attemptRow,
     questions,
+    attemptQuestions,
     choices,
     choiceScore,
     attemptView

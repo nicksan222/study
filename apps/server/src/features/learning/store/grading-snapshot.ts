@@ -26,7 +26,7 @@ import { makeQuiz } from './quiz.ts';
 
 export function makeGradingSnapshot(resources: StoreResources) {
   const { db } = resources;
-  const { attemptRow, published } = makeQuiz(resources);
+  const { attemptRow, published, attemptQuestions } = makeQuiz(resources);
 
   function assertGradingEvent(event: QuizAnswerSubmitted) {
     const stale = () => {
@@ -64,8 +64,12 @@ export function makeGradingSnapshot(resources: StoreResources) {
 
     assertGradingEvent(event);
 
-    const attempt = attemptRow(event.attemptId, true);
+    const attempt = attemptRow(event.attemptId);
     const version = published(attempt.version_id, 'quiz');
+
+    if (!attemptQuestions(attempt.id).some((question) => question.id === event.questionId))
+      return stale();
+
     const row = db.orm
       .select({
         question: s.material_quiz_questions,

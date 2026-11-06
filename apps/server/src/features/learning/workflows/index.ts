@@ -21,7 +21,7 @@ import {
   materialGenerationFailedSchema,
   materialPublishedSchema
 } from '@study/contracts/events';
-import { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
+import { quizAttemptSchema } from '@study/contracts/learning/schemas';
 import { text } from '@study/localization';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
@@ -41,7 +41,7 @@ export const quizGradingWorkflow = defineWorkflow({
   name: 'quiz-grading',
   version: 1,
   payload: Schema.Struct({ event: quizAnswerSubmittedSchema }),
-  success: quizAttemptInProgressSchema,
+  success: quizAttemptSchema,
   error: failureSchema,
   idempotencyKey: ({ event }) => event.eventId
 });
@@ -75,7 +75,7 @@ export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payload
 
     return yield* Activity.make({
       name: 'publish-grade',
-      success: quizAttemptInProgressSchema,
+      success: quizAttemptSchema,
       error: failureSchema,
       execute: withPublicationGuard(
         store,

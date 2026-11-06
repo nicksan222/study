@@ -7,6 +7,7 @@ import type {
   QuizQuestionId
 } from '@study/contracts/ids';
 import { sql } from 'drizzle-orm';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 import {
   sqliteTable,
   integer,
@@ -209,6 +210,87 @@ export const material_quiz_attempts = sqliteTable(
   ]
 );
 
+function attemptVersionReferences(t: {
+  attempt_id: AnySQLiteColumn;
+  version_id: AnySQLiteColumn;
+  question_id: AnySQLiteColumn;
+}) {
+  return [
+    foreignKey({
+      columns: [t.attempt_id, t.version_id],
+      foreignColumns: [material_quiz_attempts.id, material_quiz_attempts.version_id]
+    })
+      .onDelete('cascade')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [t.question_id, t.version_id],
+      foreignColumns: [material_quiz_questions.id, material_quiz_questions.version_id]
+    })
+      .onDelete('cascade')
+      .onUpdate('restrict')
+  ];
+}
+
+function choiceQuestionReference(t: { choice_id: AnySQLiteColumn; question_id: AnySQLiteColumn }) {
+  return foreignKey({
+    columns: [t.choice_id, t.question_id],
+    foreignColumns: [material_quiz_choices.id, material_quiz_choices.question_id]
+  })
+    .onDelete('cascade')
+    .onUpdate('restrict');
+}
+
+export const material_quiz_attempt_questions = sqliteTable(
+  'material_quiz_attempt_questions',
+  {
+    attempt_id: integer().$type<QuizAttemptId>().notNull(),
+    version_id: integer().$type<MaterialVersionId>().notNull(),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
+    position: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.attempt_id, t.question_id] }),
+    uniqueIndex('material_quiz_attempt_questions_position').on(t.attempt_id, t.position),
+    ...attemptVersionReferences(t),
+    check(
+      'material_quiz_attempt_questions_position_check',
+      sql`typeof(position) = 'integer' AND position >= 0`
+    )
+  ]
+);
+
+export const material_quiz_attempt_choices = sqliteTable(
+  'material_quiz_attempt_choices',
+  {
+    attempt_id: integer().$type<QuizAttemptId>().notNull(),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
+    choice_id: integer().$type<QuizChoiceId>().notNull(),
+    position: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.attempt_id, t.choice_id] }),
+    uniqueIndex('material_quiz_attempt_choices_position').on(
+      t.attempt_id,
+      t.question_id,
+      t.position
+    ),
+    foreignKey({
+      columns: [t.attempt_id, t.question_id],
+      foreignColumns: [
+        material_quiz_attempt_questions.attempt_id,
+        material_quiz_attempt_questions.question_id
+      ]
+    })
+      .onDelete('cascade')
+      .onUpdate('restrict'),
+    choiceQuestionReference(t),
+    check(
+      'material_quiz_attempt_choices_position_check',
+      sql`typeof(position) = 'integer' AND position >= 0`
+    )
+  ]
+);
+
 export const material_quiz_responses = sqliteTable(
   'material_quiz_responses',
   {
@@ -222,18 +304,7 @@ export const material_quiz_responses = sqliteTable(
   },
   (t) => [
     primaryKey({ columns: [t.attempt_id, t.question_id] }),
-    foreignKey({
-      columns: [t.attempt_id, t.version_id],
-      foreignColumns: [material_quiz_attempts.id, material_quiz_attempts.version_id]
-    })
-      .onDelete('cascade')
-      .onUpdate('restrict'),
-    foreignKey({
-      columns: [t.question_id, t.version_id],
-      foreignColumns: [material_quiz_questions.id, material_quiz_questions.version_id]
-    })
-      .onDelete('cascade')
-      .onUpdate('restrict'),
+    ...attemptVersionReferences(t),
     foreignKey({
       columns: [t.question_id, t.question_kind],
       foreignColumns: [material_quiz_questions.id, material_quiz_questions.kind]
@@ -264,12 +335,7 @@ export const material_quiz_selections = sqliteTable(
     })
       .onDelete('cascade')
       .onUpdate('restrict'),
-    foreignKey({
-      columns: [t.choice_id, t.question_id],
-      foreignColumns: [material_quiz_choices.id, material_quiz_choices.question_id]
-    })
-      .onDelete('cascade')
-      .onUpdate('restrict'),
+    choiceQuestionReference(t),
     index('material_quiz_selections_choice_fk').on(t.choice_id, t.question_id)
   ]
 );

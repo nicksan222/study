@@ -76,7 +76,7 @@ export const AttemptStore = defineStore({
     const { attemptRow, attemptView } = makeQuiz(resources);
     const { answerQuestion } = makeAnswerQuestion(resources);
     const { finishQuiz } = makeFinishQuiz(resources);
-    const { gradeResponse } = makeGradeResponse(resources);
+    const { gradeResponse, settleGrade } = makeGradeResponse(resources);
     const { startQuiz } = makeStartQuiz(resources);
     const { gradingSnapshot } = makeGradingSnapshot(resources);
     const { listAttempts } = makeListAttempts(resources);
@@ -125,7 +125,7 @@ export const AttemptStore = defineStore({
         }),
         publishGrade: storeMutation({
           input: publishGradeInputSchema,
-          output: quizAttemptInProgressSchema,
+          output: quizAttemptSchema,
           run: (input) => {
             const rows = db.orm
               .select({ payload: s.workflowEvents.payload })
@@ -150,7 +150,7 @@ export const AttemptStore = defineStore({
               throw new StudyError('invalid_input', 'stale quiz grade');
 
             gradingSnapshot(event, true);
-            attemptRow(input.attemptId, true);
+            attemptRow(input.attemptId);
             const response = db.orm
               .select()
               .from(s.material_quiz_responses)
@@ -163,9 +163,9 @@ export const AttemptStore = defineStore({
               .get();
 
             if (response?.score !== null && response?.score !== undefined)
-              return attemptView(input.attemptId) as typeof quizAttemptInProgressSchema.Type;
+              return attemptView(input.attemptId);
 
-            return gradeResponse(input);
+            return settleGrade(input);
           }
         })
       }

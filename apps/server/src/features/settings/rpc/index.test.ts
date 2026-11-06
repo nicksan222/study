@@ -14,7 +14,7 @@
  */
 
 import { SettingsRpc } from '@study/contracts/settings/rpc';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import { defaultWorkspacePreferences, defaultQuizSettings } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -65,6 +65,16 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
             maxConcurrentAi: 4,
             maxQueuedAi: 8
           });
+          const quiz = {
+            ...defaultQuizSettings,
+            questionCount: 4,
+            questionOrder: 'source' as const,
+            shuffleChoices: true,
+            questionKind: 'choice' as const
+          };
+
+          yield* client('settings.saveQuizSettings', quiz);
+          expect(yield* client('settings.quizSettings', {})).toStrictEqual(quiz);
           assert.strictEqual((yield* client('settings.appSettings', {})).zoomPercent, 100);
           yield* client('settings.saveReviewSettings', { newCardsPerDay: 33 });
           assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
@@ -77,6 +87,8 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
           assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
           expect([...SettingsRpc.requests.keys()].sort()).toStrictEqual(
             [
+              'settings.quizSettings',
+              'settings.saveQuizSettings',
               'settings.workspacePreferences',
               'settings.saveWorkspacePreferences',
               'settings.concurrencySettings',

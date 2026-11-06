@@ -3,6 +3,7 @@ import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
+  quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
@@ -16,6 +17,12 @@ import {
 const saved = Schema.Struct({});
 
 export const SettingsRpc = RpcGroup.make(
+  Rpc.make('quizSettings', { payload: {}, success: quizSettingsSchema, error: failureSchema }),
+  Rpc.make('saveQuizSettings', {
+    payload: quizSettingsSchema,
+    success: saved,
+    error: failureSchema
+  }),
   Rpc.make('workspacePreferences', {
     payload: {},
     success: workspacePreferencesSchema,

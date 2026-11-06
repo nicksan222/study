@@ -294,8 +294,55 @@ testStable(
       await run(
         Effect.flatMap(Learning, (learning) => learning.finishQuiz({ attemptId: attempt.id }))
       );
-      await expect(execute(finished, 'finished')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, 3);
+      const completed = await execute(finished, 'finished');
+
+      assert.ok(completed.status === 'completed');
+      assert.strictEqual(completed.scoring.score, 0.5);
+      assert.strictEqual(calls, 4);
+      expect(() =>
+        context.db.orm
+          .update(s.material_quiz_responses)
+          .set({ score: 1 })
+          .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
+          .run()
+      ).toThrow();
+      expect(() =>
+        context.db.orm
+          .update(s.material_quiz_responses)
+          .set({ answer: 'changed' })
+          .where(eq(s.material_quiz_responses.attempt_id, attempt.id))
+          .run()
+      ).toThrow();
+      const beforeGrade = context.db.orm.select().from(s.material_quiz_responses).get()!;
+
+      await execute(finished, 'finished');
+      assert.deepStrictEqual(
+        context.db.orm.select().from(s.material_quiz_responses).get(),
+        beforeGrade
+      );
+      await expect(
+        run(
+          Effect.flatMap(Learning, (learning) =>
+            learning.answerQuestion({
+              attemptId: attempt.id,
+              questionId: question.id,
+              answer: { type: 'open', answer: 'edited after completion' }
+            })
+          )
+        )
+      ).rejects.toSatisfy(() => true);
+      await expect(
+        run(
+          Effect.flatMap(Learning, (learning) =>
+            learning.gradeResponse({
+              attemptId: attempt.id,
+              questionId: question.id,
+              score: 1,
+              feedback: 'manual edit'
+            })
+          )
+        )
+      ).rejects.toSatisfy(() => true);
     } finally {
       await auth.dispose();
       context.close();
@@ -630,6 +677,8 @@ testStable(
 
             assert.strictEqual(ready.versionId, versionId);
             const attempt = yield* learning.attempt(ready.attemptId!);
+
+            assert.strictEqual(attempt.practiceSlotId, ready.slotId);
             const question = attempt.questions[0]!;
 
             assert.ok(!(question.kind === 'open'), 'wrong question kind');

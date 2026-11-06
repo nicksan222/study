@@ -146,6 +146,7 @@ const quizAttemptCompletedQuestionSchema = Schema.Union([
 ]);
 
 export const quizAttemptInProgressSchema = Schema.Struct({
+  practiceSlotId: Schema.optional(Schema.String.check(Schema.isUUID())),
   id: quizAttemptIdSchema,
   versionId: materialVersionIdSchema,
   materialId: materialIdSchema,
@@ -155,6 +156,7 @@ export const quizAttemptInProgressSchema = Schema.Struct({
 });
 
 export const quizAttemptCompletedSchema = Schema.Struct({
+  practiceSlotId: Schema.optional(Schema.String.check(Schema.isUUID())),
   id: quizAttemptIdSchema,
   versionId: materialVersionIdSchema,
   materialId: materialIdSchema,

@@ -39,6 +39,7 @@ export const LlmModel = {
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
 import type {
+  quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
   appSettingsSchema,
@@ -95,4 +96,15 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   editorFontSize: 16,
   readerFontSize: 16,
   expandDocuments: false
+};
+
+export type QuizSettings = typeof quizSettingsSchema.Type;
+
+export const defaultQuizSettings: QuizSettings = {
+  questionCount: 10,
+  questionOrder: 'source',
+  shuffleChoices: true,
+  questionKind: 'all',
+  choiceCount: 4,
+  difficulty: 'balanced'
 };

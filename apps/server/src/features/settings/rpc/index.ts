@@ -26,6 +26,8 @@ export const SettingsRpcLive = defineRpc(
     const admission = yield* AiAdmission;
 
     return {
+      'settings.quizSettings': () => settings.quizSettings(),
+      'settings.saveQuizSettings': (input) => settings.saveQuizSettings(input),
       'settings.workspacePreferences': () => settings.workspacePreferences(),
       'settings.saveWorkspacePreferences': (input) => settings.saveWorkspacePreferences(input),
       'settings.sidebarSettings': () => settings.sidebarSettings(),

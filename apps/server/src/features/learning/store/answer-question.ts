@@ -25,7 +25,7 @@ type Input = typeof answerQuestionInputSchema.Type;
 
 export function makeAnswerQuestion(resources: StoreResources) {
   const { db } = resources;
-  const { attemptRow, attemptView, choiceScore } = makeQuiz(resources);
+  const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
   const answerQuestion = (input: Input, practiceSlotId?: string) => {
     const practice = db.orm
       .select({
@@ -40,18 +40,9 @@ export function makeAnswerQuestion(resources: StoreResources) {
       invalid('practice attempts must be answered through their practice slot');
 
     const a = attemptRow(input.attemptId, true);
-    const q = db.orm
-      .select()
-      .from(s.material_quiz_questions)
-      .where(
-        and(
-          eq(s.material_quiz_questions.id, input.questionId),
-          eq(s.material_quiz_questions.version_id, a.version_id)
-        )
-      )
-      .get();
+    const q = attemptQuestions(a.id).find((question) => question.id === input.questionId);
 
-    if (!q) invalid('question does not belong to attempt version');
+    if (!q) invalid('question does not belong to attempt selection');
 
     if ((q.kind === 'open') !== (input.answer.type === 'open')) invalid('wrong answer kind');
 

@@ -13,7 +13,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { quizSettingsSchema } from '@study/contracts/settings/schemas';
 import {
+  defaultQuizSettings,
   defaultWorkspacePreferences,
   Appearance,
   Language,
@@ -23,7 +25,7 @@ import {
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Effect, Layer } from 'effect';
+import { Effect, Layer, Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
@@ -42,6 +44,23 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
     await Effect.runPromise(
       Effect.gen(function* () {
         const settings = yield* Settings;
+
+        expect(yield* settings.quizSettings()).toStrictEqual(defaultQuizSettings);
+        const quiz = {
+          ...defaultQuizSettings,
+          questionCount: 3,
+          questionOrder: 'shuffle' as const,
+          shuffleChoices: false,
+          questionKind: 'open' as const
+        };
+
+        yield* settings.saveQuizSettings(quiz);
+        expect(yield* settings.quizSettings()).toStrictEqual(quiz);
+        assert.strictEqual(
+          (yield* Effect.flip(settings.saveQuizSettings({ ...quiz, questionCount: 0 }))).kind,
+          'invalid_input'
+        );
+        expect(yield* settings.quizSettings()).toStrictEqual(quiz);
 
         expect(yield* settings.appSettings()).toStrictEqual({
           language: Language.ENGLISH,
@@ -268,3 +287,18 @@ testStable(
     }
   }
 );
+
+testStable('older quiz preferences receive generation defaults during decoding', () => {
+  const previous = {
+    questionCount: 3,
+    questionOrder: 'source',
+    shuffleChoices: true,
+    questionKind: 'choice'
+  };
+
+  expect(Schema.decodeUnknownSync(quizSettingsSchema)(previous)).toEqual({
+    ...previous,
+    choiceCount: 4,
+    difficulty: 'balanced'
+  });
+});

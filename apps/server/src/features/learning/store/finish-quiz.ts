@@ -25,11 +25,11 @@ type Input = typeof attemptInputSchema.Type;
 
 export function makeFinishQuiz(resources: StoreResources) {
   const { db, clock } = resources;
-  const { attemptRow, attemptView, choiceScore, questions } = makeQuiz(resources);
+  const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
   const finishQuiz = (input: Input) => {
     const a = attemptRow(input.attemptId, true);
 
-    for (const q of questions(a.version_id)) {
+    for (const q of attemptQuestions(a.id)) {
       const where = and(
         eq(s.material_quiz_responses.attempt_id, a.id),
         eq(s.material_quiz_responses.question_id, q.id)
