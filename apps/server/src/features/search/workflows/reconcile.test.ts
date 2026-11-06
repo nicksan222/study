@@ -36,6 +36,7 @@ testStable(
     let calls = 0;
     const model = {
       chunkPassages: (text: string) => Effect.succeed([text]),
+      maxChunkingInputLength: 2000000,
       identity: 'workflow-fixture-v1',
       dimensions: 3,
       embedQuery: () => Effect.succeed(new Float32Array([1, 0, 0])),

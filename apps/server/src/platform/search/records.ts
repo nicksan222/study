@@ -27,9 +27,11 @@ function hash(text: string) {
   return createHash('sha256').update(text).digest('hex');
 }
 
+/** Include the indexing policy so a segmentation change invalidates every cached ordinal. */
 function fingerprint(row: SearchProjection, target: string): string {
   return hash(
     JSON.stringify([
+      'bounded-text-windows-v1',
       target,
       row.title,
       row.text,

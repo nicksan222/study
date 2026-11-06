@@ -20,13 +20,14 @@ import type {
 } from '@study/contracts/search/schemas';
 import { semanticSearchInputSchema } from '@study/contracts/search/schemas';
 import type { Db } from '@study/db';
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 
 import { normalizeError } from '#server/platform/errors/classify-error';
 
 import { searchEntities, searchRecord } from './records.ts';
-import type { SearchRecord } from './records.ts';
+import type { SearchRecord, SearchEntity } from './records.ts';
 import { makeVectorStore } from './store.ts';
+import { textWindows } from './text-windows.ts';
 import type { EmbeddingModel, SearchScope } from './types.ts';
 
 type SearchCommit = <A>(
@@ -34,6 +35,7 @@ type SearchCommit = <A>(
   targets?: readonly SearchTarget[]
 ) => Effect.Effect<A, StudyError>;
 
+/** Build an opt-in index whose publication always revalidates current feature visibility. */
 export function makeSemanticIndex(options: {
   db: Db;
   model: EmbeddingModel;
@@ -60,40 +62,60 @@ export function makeSemanticIndex(options: {
   if (!Number.isSafeInteger(model.dimensions) || model.dimensions < 1 || !model.identity.trim())
     throw new StudyError('config', 'Invalid embedding model identity');
 
+  if (!Number.isSafeInteger(model.maxChunkingInputLength) || model.maxChunkingInputLength < 2)
+    throw new StudyError('config', 'Invalid embedding chunking limit');
+
+  /** Keep ordinals continuous across windows while retaining only one window's chunks. */
+  function entityRecords(entity: SearchEntity) {
+    return Stream.fromIterable(textWindows(entity.text, model.maxChunkingInputLength)).pipe(
+      Stream.mapEffect((text) => model.chunkPassages(text)),
+      Stream.flatMap((chunks) => Stream.fromIterable(chunks)),
+      Stream.mapAccum(
+        () => 0,
+        (ordinal, text) => [ordinal + 1, [searchRecord(entity, text, ordinal)]] as const
+      )
+    );
+  }
+
+  /** Run inference outside the transaction and fence each result against current projections. */
+  function publishBatch(batch: readonly SearchRecord[]) {
+    return Effect.gen(function* () {
+      const vectors = yield* model.embedPassages(batch.map((row) => row.text));
+
+      if (vectors.length !== batch.length)
+        return yield* Effect.fail(new StudyError('internal', 'Embedding batch length mismatch'));
+
+      return yield* commit(
+        (rows) => store.publish(batch, vectors, rows),
+        batch.map((row) => row.projection.target)
+      );
+    });
+  }
+
+  /** Purge stale excerpts before inference, then publish bounded, restartable batches. */
   function reconcile() {
     return Effect.gen(function* () {
-      // Scrub removed or superseded excerpts before any model work can fail or be interrupted.
       const removed = yield* commit(store.purge);
       const desired = yield* snapshot();
       const entities = yield* sync(() => searchEntities(desired));
-      const records: SearchRecord[] = [];
-
-      for (const entity of entities) {
-        const chunks = yield* model.chunkPassages(entity.text);
-
-        for (let i = 0; i < chunks.length; i++) records.push(searchRecord(entity, chunks[i]!, i));
-      }
-
-      const changed = yield* sync(() => store.changed(records));
-      let embedded = 0;
-
-      for (let offset = 0; offset < changed.length; offset += 16) {
-        const batch = changed.slice(offset, offset + 16);
-        const vectors = yield* model.embedPassages(batch.map((row) => row.text));
-
-        if (vectors.length !== batch.length)
-          return yield* Effect.fail(new StudyError('internal', 'Embedding batch length mismatch'));
-
-        embedded += yield* commit(
-          (rows) => store.publish(batch, vectors, rows),
-          batch.map((row) => row.projection.target)
-        );
-      }
+      const embedded = yield* Stream.fromIterable(entities).pipe(
+        Stream.flatMap(entityRecords),
+        Stream.grouped(200),
+        Stream.mapEffect((records) => sync(() => store.changed(records))),
+        Stream.flatMap((records) => Stream.fromIterable(records)),
+        Stream.grouped(16),
+        Stream.mapEffect(publishBatch),
+        Stream.runFold(
+          () => 0,
+          (total, count) => total + count
+        )
+      );
 
       return { embedded, removed };
     });
   }
 
+  /** Embed a validated query and restrict ranking to currently visible, authorized entities. */
   function search(input: SemanticSearchInput, scope: SearchScope) {
     return Effect.gen(function* () {
       const request = yield* Effect.try({

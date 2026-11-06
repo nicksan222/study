@@ -19,10 +19,13 @@ import { dirname, join } from 'node:path';
 import { StudyError } from '@study/contracts/errors';
 import { Effect, Schema } from 'effect';
 
+import { embeddingLimits } from './limits.ts';
+
 export const embeddingModel = {
   name: 'Xenova/multilingual-e5-small',
   revision: '761b726dd34fb83930e26aab4e9ac3899aa1fa78',
   dimensions: 384,
+  maxChunkingInputLength: embeddingLimits.chunkingInputLength,
   identity:
     'multilingual-e5-small:761b726dd34fb83930e26aab4e9ac3899aa1fa78:q8:mean:normalized:e5-prefix-v1:token-chunks-v1-512-overlap20',
   files: [

@@ -15,6 +15,8 @@ import { parentPort, workerData } from 'node:worker_threads';
 import { env, pipeline } from '@huggingface/transformers';
 import { Schema } from 'effect';
 
+import { embeddingLimits } from './limits.ts';
+
 const port = parentPort;
 
 if (!port || typeof workerData !== 'string')
@@ -35,12 +37,14 @@ const extractor = await pipeline('feature-extraction', workerData, {
 const chunkRequest = Schema.is(
   Schema.Struct({
     operation: Schema.Literal('chunk'),
-    text: Schema.String.check(Schema.isMaxLength(2000000))
+    text: Schema.String.check(Schema.isMaxLength(embeddingLimits.chunkingInputLength))
   })
 );
 
 const embeddingRequest = Schema.is(
-  Schema.Array(Schema.String.check(Schema.isMaxLength(32009))).check(Schema.isMaxLength(16))
+  Schema.Array(
+    Schema.String.check(Schema.isMaxLength(embeddingLimits.embeddingInputLength + 9))
+  ).check(Schema.isMaxLength(embeddingLimits.batchSize))
 );
 
 function tokenCount(text: string): number {
@@ -55,7 +59,7 @@ function passageEnd(text: string, boundaries: readonly number[], start: number):
     const middle = Math.ceil((low + high) / 2);
     const candidate = text.slice(boundaries[start], boundaries[middle]);
 
-    if (tokenCount(`passage: ${candidate}`) <= 512) low = middle;
+    if (tokenCount(`passage: ${candidate}`) <= embeddingLimits.tokens) low = middle;
     else high = middle - 1;
   }
 
@@ -100,7 +104,11 @@ port.on('message', async (input: unknown) => {
     return;
   }
 
-  if (!embeddingRequest(input) || !input.length || input.some((text) => tokenCount(text) > 512)) {
+  if (
+    !embeddingRequest(input) ||
+    !input.length ||
+    input.some((text) => tokenCount(text) > embeddingLimits.tokens)
+  ) {
     port.postMessage({ error: 'invalid_input' });
 
     return;

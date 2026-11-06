@@ -15,6 +15,7 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { Effect } from 'effect';
 
 export interface EmbeddingModel {
+  readonly maxChunkingInputLength: number;
   readonly chunkPassages: (text: string) => Effect.Effect<readonly string[], StudyError>;
   readonly identity: string;
   readonly dimensions: number;

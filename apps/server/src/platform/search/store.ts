@@ -100,7 +100,23 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
   }
 
   function changed(desired: readonly SearchRecord[]) {
-    const saved = new Map(persisted().map((row) => [row.key, row]));
+    const saved = new Map<string, { fingerprint: string; model: string; dimensions: number }>();
+
+    for (let i = 0; i < desired.length; i += 200) {
+      const keys = desired.slice(i, i + 200).map((row) => row.key);
+      const rows = db.orm
+        .select({
+          key: entries.key,
+          fingerprint: entries.fingerprint,
+          model: entries.model,
+          dimensions: entries.dimensions
+        })
+        .from(entries)
+        .where(inArray(entries.key, keys))
+        .all();
+
+      for (const row of rows) saved.set(row.key, row);
+    }
 
     return desired.filter((row) => {
       const old = saved.get(row.key);

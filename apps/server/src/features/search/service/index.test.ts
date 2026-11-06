@@ -157,6 +157,7 @@ testStable(
     const context = new ServerContext(location.open());
     const model = {
       chunkPassages: (text: string) => Effect.succeed([text]),
+      maxChunkingInputLength: 2000000,
       identity: 'scope-fixture-v1',
       dimensions: 3,
       embedQuery: () => Effect.succeed(new Float32Array([1, 0, 0])),

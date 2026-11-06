@@ -16,9 +16,11 @@ import { Worker } from 'node:worker_threads';
 import { StudyError } from '@study/contracts/errors';
 import { Effect, Option, Schema, Semaphore } from 'effect';
 
+import { embeddingLimits } from './limits.ts';
 import { embeddingModel, validateEmbeddingModel } from './model.ts';
 
 export interface LocalEmbeddingModel {
+  readonly maxChunkingInputLength: number;
   readonly identity: string;
   readonly dimensions: number;
   readonly chunkPassages: (text: string) => Effect.Effect<readonly string[], StudyError>;
@@ -39,7 +41,7 @@ const workerError = Schema.is(
 const vectorMessage = Schema.is(
   Schema.Struct({
     vectors: Schema.instanceOf(Float32Array),
-    count: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 16 }))
+    count: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: embeddingLimits.batchSize }))
   })
 );
 
@@ -83,7 +85,7 @@ function open(directory: string) {
     );
     let closed = false;
     const serial = Semaphore.makeUnsafe(1);
-    const capacity = Semaphore.makeUnsafe(17);
+    const capacity = Semaphore.makeUnsafe(embeddingLimits.queuedRequests + 1);
     let idle = Promise.resolve();
     let releaseIdle: (() => void) | undefined;
     let pending:
@@ -218,7 +220,10 @@ function open(directory: string) {
         );
 
     const embed = (texts: readonly string[], prefix: 'query' | 'passage') => {
-      if (texts.length > 16 || texts.some((text) => !text.trim() || text.length > 32000))
+      if (
+        texts.length > embeddingLimits.batchSize ||
+        texts.some((text) => !text.trim() || text.length > embeddingLimits.embeddingInputLength)
+      )
         return Effect.fail(
           new StudyError(
             'invalid_input',
@@ -242,7 +247,7 @@ function open(directory: string) {
     };
 
     const chunkPassages = (text: string) => {
-      if (text.length > 2000000)
+      if (text.length > embeddingModel.maxChunkingInputLength)
         return Effect.fail(
           new StudyError('invalid_input', 'Passage chunking input exceeds its size bound')
         );
@@ -258,6 +263,7 @@ function open(directory: string) {
     return {
       identity: embeddingModel.identity,
       dimensions: embeddingModel.dimensions,
+      maxChunkingInputLength: embeddingModel.maxChunkingInputLength,
       chunkPassages,
       embedQuery: (text: string) =>
         embed([text], 'query').pipe(Effect.map((vectors) => vectors[0]!)),

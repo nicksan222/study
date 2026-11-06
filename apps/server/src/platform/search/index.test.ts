@@ -32,6 +32,7 @@ const model: EmbeddingModel = {
         text.slice(i * 1000, i * 1000 + 1200)
       )
     ),
+  maxChunkingInputLength: 2000000,
   identity: 'fixture-v1',
   dimensions: 3,
   embedQuery: () => Effect.succeed(new Float32Array([1, 0, 0])),
@@ -180,6 +181,78 @@ testStable(
           )
         ).size
       ).toBe(2);
+    } finally {
+      db.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'oversized entities retain ordered Unicode content and do not block other indexing',
+  async () => {
+    const location = createTestDatabase();
+    const db = location.open();
+    const maximum = 2000000;
+    const body =
+      'x'.repeat(65536 - 'Large\n'.length - 1) + '😀' + 'x'.repeat(maximum) + ' planet tail marker';
+    const rows: SearchProjection[] = [
+      { ...project(1n, body), title: 'Large', revision: '1' },
+      project(2n, 'small planet')
+    ];
+    const windows: string[] = [];
+    const bounded: EmbeddingModel = {
+      ...model,
+      maxChunkingInputLength: maximum,
+      chunkPassages: (text) => {
+        windows.push(text);
+
+        return text.length > maximum
+          ? Effect.fail(new StudyError('invalid_input', 'Chunking request too large'))
+          : Effect.succeed([text]);
+      }
+    };
+
+    try {
+      const index = makeSemanticIndex({ db, model: bounded, read: () => rows });
+      const result = await Effect.runPromise(index.reconcile());
+
+      expect(result.embedded).toBe(windows.length);
+      expect(result.embedded).toBeGreaterThan(2);
+      expect(windows.every((text) => text.length <= maximum)).toBe(true);
+      expect(
+        windows.every(
+          (text) =>
+            !(text.charCodeAt(0) >= 0xdc00 && text.charCodeAt(0) <= 0xdfff) &&
+            !(
+              text.charCodeAt(text.length - 1) >= 0xd800 &&
+              text.charCodeAt(text.length - 1) <= 0xdbff
+            )
+        )
+      ).toBe(true);
+      const indexed = db.orm
+        .select()
+        .from(semantic_search_entries)
+        .all()
+        .filter((row) => JSON.parse(row.target).id === '1')
+        .sort((a, b) => Number(a.key.split(':').at(-1)) - Number(b.key.split(':').at(-1)));
+
+      expect(indexed.map((row) => row.text).join('')).toBe('Large\n' + body);
+      expect(indexed.map((row) => Number(row.key.split(':').at(-1)))).toStrictEqual(
+        Array.from({ length: indexed.length }, (_, ordinal) => ordinal)
+      );
+      expect(await Effect.runPromise(index.reconcile())).toStrictEqual({
+        embedded: 0,
+        removed: 0
+      });
+      const hits = await Effect.runPromise(index.search({ query: 'planet' }, { type: 'all' }));
+
+      expect(hits.some((hit) => hit.target.type === 'project' && hit.target.id === id(2n))).toBe(
+        true
+      );
+      expect(
+        hits.find((hit) => hit.target.type === 'project' && hit.target.id === id(1n))?.text
+      ).toContain('planet tail marker');
     } finally {
       db.close();
       location.cleanup();
