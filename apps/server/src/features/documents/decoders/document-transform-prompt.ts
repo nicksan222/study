@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
+import type { documentTransformContextSchema } from '@study/contracts/documents/transform';
 import type { transformSnapshotSchema } from '@study/contracts/documents/transform';
 import { StudyError } from '@study/contracts/errors';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
@@ -29,7 +29,7 @@ function inputRole(
 
 export function documentTransformPrompt(
   request: typeof transformSnapshotSchema.Type,
-  context: typeof runSelectionContextSchema.Type
+  context: typeof documentTransformContextSchema.Type
 ) {
   const editTargetVersionId = request.editTargetVersionId;
   const editTarget = context.inputs.find(

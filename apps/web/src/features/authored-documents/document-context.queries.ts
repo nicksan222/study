@@ -40,3 +40,14 @@ export const documentConversationOptions = () =>
         );
     }
   });
+
+export const archiveDocumentOptions = (document: {
+  id: StudyDocumentId;
+  archivedAt: bigint | null;
+}) =>
+  mutationOptions({
+    mutationFn: () =>
+      request((rpc) =>
+        rpc['documents.archive']({ id: document.id, archived: document.archivedAt === null })
+      )
+  });

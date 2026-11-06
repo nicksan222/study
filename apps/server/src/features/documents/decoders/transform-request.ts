@@ -14,7 +14,7 @@ import * as t from '@study/contracts/documents/transform';
 import { Schema } from 'effect';
 
 export const transformRequestCodec = Schema.fromJsonString(
-  Schema.toCodecJson(t.transformRequestSchema)
+  Schema.toCodecJson(t.storedTransformRequestSchema)
 );
 
 export const transformReportCodec = Schema.fromJsonString(

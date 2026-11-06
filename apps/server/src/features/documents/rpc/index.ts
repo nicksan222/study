@@ -27,6 +27,8 @@ export const DocumentsRpcLive = defineRpc(
     const conversations = yield* Effect.serviceOption(Conversations);
 
     return {
+      'documents.merges': (v) => documents.merges(v),
+      'documents.merge': (v) => documents.merge(v),
       'documents.requestTransform': (v) =>
         Option.isSome(conversations)
           ? conversations.value.requestDocumentTransform(v)
@@ -34,9 +36,15 @@ export const DocumentsRpcLive = defineRpc(
       'documents.transform': (v) => documents.transform(v),
       'documents.cancelTransform': (v) => documents.cancelTransform(v),
       'documents.retryTransform': (v) =>
-        Option.isSome(conversations)
-          ? conversations.value.retryDocumentTransform(v)
-          : Effect.fail(new StudyError('unsupported', 'Session service is unavailable')),
+        Effect.gen(function* () {
+          const request = yield* documents.transform(v);
+
+          if (request.merge) return yield* documents.retryMerge(v);
+
+          return yield* Option.isSome(conversations)
+            ? conversations.value.retryDocumentTransform(v)
+            : Effect.fail(new StudyError('unsupported', 'Session service is unavailable'));
+        }),
       'documents.updateMetadata': (v) => documents.updateMetadata(v),
       'documents.compareProposal': (v) => documents.compareProposal(v),
       'documents.proposal': (v) => documents.proposal(v),

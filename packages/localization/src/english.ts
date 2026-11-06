@@ -122,6 +122,31 @@ export const english = Object.freeze({
   DocumentsOverviewDescription:
     'A place for your finished notes, worked examples and study guides. Pick up where you left off, or start a new page.',
   DocumentsSaved: 'Saved documents',
+  DocumentsSelect: 'Select documents',
+  DocumentsSelectionHelp: 'Select 2 to 20 documents to merge.',
+  DocumentsSelected: '{count} selected',
+  DocumentsMerge: 'Merge documents',
+  DocumentsMergeHelp:
+    'AI will combine the selected documents into a new document. Originals move to Archived only after the merge succeeds. You can restore them at any time.',
+  DocumentsMergeTitle: 'Title for the merged document',
+  DocumentsMergeInstruction: 'Instructions (optional)',
+  DocumentsMerging: 'Merging documents…',
+  DocumentsMergeSetup:
+    'Sign in to ChatGPT in Settings, then retry the merge. Your originals are still available.',
+  DocumentsMergeInputsChanged:
+    'A selected document changed or is unavailable. Cancel this merge and select the current documents.',
+  DocumentsMergeFailed: 'The merge could not finish. Your originals are still available.',
+  DocumentsMergeDone: 'Merged document ready',
+  DocumentsArchive: 'Archive',
+  DocumentsUnarchive: 'Restore from archive',
+  DocumentsArchived: 'Archived',
+  DocumentsActive: 'Active documents',
+  DocumentsArchivedEmpty: 'No archived documents.',
+  DocumentsMergeWork: 'Document merges',
+  DocumentsMergeRetry: 'Retry merge',
+  DocumentsMergeCancel: 'Cancel merge',
+  DocumentsSelectAll: 'Select loaded documents',
+  DocumentsCancelSelection: 'Cancel selection',
   DocumentsEmptyTitle: 'Make room for your next idea',
   DocumentsOverviewEmpty:
     'Create a document or turn a session into one. Your writing will be collected here, ready to read and refine.',
