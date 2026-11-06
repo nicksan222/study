@@ -24,6 +24,7 @@ export default defineRule({
     const selections = new Set<string>();
     const closes = new Set<string>();
     const headers = new Set<string>();
+    const settings = new Set<string>();
 
     return {
       ImportDeclaration(node) {
@@ -54,6 +55,15 @@ export default defineRule({
               headers.add(specifier.local.name);
           }
 
+        if (node.source.value === '@study/ui/settings')
+          for (const specifier of node.specifiers) {
+            if (
+              specifier.type === 'ImportSpecifier' &&
+              propertyName(specifier.imported) === 'Settings'
+            )
+              settings.add(specifier.local.name);
+          }
+
         if (node.source.value !== '@study/ui/button') return;
 
         for (const specifier of node.specifiers)
@@ -62,6 +72,23 @@ export default defineRule({
       },
       JSXElement(node) {
         const tag = node.openingElement.name;
+
+        if (
+          tag.type === 'JSXMemberExpression' &&
+          tag.object.type === 'JSXIdentifier' &&
+          settings.has(tag.object.name) &&
+          tag.property.name === 'Row' &&
+          node.children.some(
+            (child) =>
+              child.type === 'JSXElement' &&
+              child.openingElement.name.type === 'JSXIdentifier' &&
+              child.openingElement.name.name === 'SwitchControl'
+          )
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use Settings.ToggleRow for labelled settings toggles.'
+          });
 
         if (tag.type === 'JSXIdentifier' && headers.has(tag.name))
           context.report({

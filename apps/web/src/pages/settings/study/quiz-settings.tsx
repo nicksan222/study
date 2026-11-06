@@ -5,7 +5,6 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
-import { SwitchControl } from '@study/ui/switch-control';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -85,24 +84,22 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
             }}
           />
         </Settings.Row>
-        <Settings.Row title={t('QuizShuffleQuestions')} description={t('QuizShuffleQuestionsHelp')}>
-          <SwitchControl
-            label={t('QuizShuffleQuestions')}
-            checked={config.questionOrder === 'shuffle'}
-            disabled={disabled}
-            onCheckedChange={(checked) =>
-              model.update({ questionOrder: checked ? 'shuffle' : 'source' })
-            }
-          />
-        </Settings.Row>
-        <Settings.Row title={t('QuizShuffleChoices')} description={t('QuizShuffleChoicesHelp')}>
-          <SwitchControl
-            label={t('QuizShuffleChoices')}
-            checked={config.shuffleChoices}
-            disabled={disabled}
-            onCheckedChange={(shuffleChoices) => model.update({ shuffleChoices })}
-          />
-        </Settings.Row>
+        <Settings.ToggleRow
+          title={t('QuizShuffleQuestions')}
+          description={t('QuizShuffleQuestionsHelp')}
+          checked={config.questionOrder === 'shuffle'}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            model.update({ questionOrder: checked ? 'shuffle' : 'source' })
+          }
+        />
+        <Settings.ToggleRow
+          title={t('QuizShuffleChoices')}
+          description={t('QuizShuffleChoicesHelp')}
+          checked={config.shuffleChoices}
+          disabled={disabled}
+          onCheckedChange={(shuffleChoices) => model.update({ shuffleChoices })}
+        />
         <Settings.Row title={t('QuizGenerateChoices')} description={t('QuizGenerationChoicesHelp')}>
           <SelectControl
             label={t('QuizGenerateChoices')}

@@ -5,7 +5,6 @@ import { Loading } from '@study/ui/loading';
 import { NumberControl } from '@study/ui/number-control';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
-import { SwitchControl } from '@study/ui/switch-control';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -93,14 +92,13 @@ function PreferenceToggle({
   const { query, mutation } = useControls();
 
   return (
-    <Settings.Row title={t(title)} description={t(description)}>
-      <SwitchControl
-        label={t(title)}
-        checked={query.data![field]}
-        disabled={mutation.isPending}
-        onCheckedChange={(value) => mutation.mutate({ [field]: value })}
-      />
-    </Settings.Row>
+    <Settings.ToggleRow
+      title={t(title)}
+      description={t(description)}
+      checked={query.data![field]}
+      disabled={mutation.isPending}
+      onCheckedChange={(value) => mutation.mutate({ [field]: value })}
+    />
   );
 }
 

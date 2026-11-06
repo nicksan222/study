@@ -151,3 +151,16 @@ testStable('standardizes dialog heading composition using imported aliases', () 
   ).toHaveLength(1);
   expect(lint(`const view = <header><h1>Document content</h1></header>;`)).toHaveLength(0);
 });
+
+testStable('standardizes settings switches without banning custom setting actions', () => {
+  expect(
+    lint(
+      `import { Settings as S } from '@study/ui/settings'; const view = <S.Row title="Title"><SwitchControl /></S.Row>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { Settings as S } from '@study/ui/settings'; const view = <S.Row title="Title"><CustomAction /></S.Row>;`
+    )
+  ).toHaveLength(0);
+});

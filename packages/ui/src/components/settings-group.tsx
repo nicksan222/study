@@ -22,10 +22,11 @@ export function SettingsRow({
       data-has-control={children != null}
       role="group"
       aria-labelledby={id}
+      aria-describedby={description ? `${id}-description` : undefined}
     >
       <div className="settings-row-copy">
         <h4 id={id}>{title}</h4>
-        {description && <p>{description}</p>}
+        {description && <p id={`${id}-description`}>{description}</p>}
       </div>
       {children != null && <div className="settings-row-control">{children}</div>}
     </div>

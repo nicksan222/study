@@ -6,7 +6,6 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
-import { SwitchControl } from '@study/ui/switch-control';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { Dispatch, SetStateAction } from 'react';
 
@@ -115,26 +114,25 @@ function DocumentInput({
   );
 
   return (
-    <Settings.Row title={document.title} description={t('SessionEntryDocument')}>
-      <SwitchControl
-        label={document.title}
-        checked={selected}
-        disabled={disabled || (!selected && inputs.length >= 20)}
-        onCheckedChange={(checked) => {
-          const versionId = document.headVersionId;
+    <Settings.ToggleRow
+      title={document.title}
+      description={t('SessionEntryDocument')}
+      checked={selected}
+      disabled={disabled || (!selected && inputs.length >= 20)}
+      onCheckedChange={(checked) => {
+        const versionId = document.headVersionId;
 
-          if (!versionId) return;
+        if (!versionId) return;
 
-          onChange((current) => {
-            if (!checked)
-              return current.filter(
-                (input) => input.kind !== 'document' || input.versionId !== versionId
-              );
+        onChange((current) => {
+          if (!checked)
+            return current.filter(
+              (input) => input.kind !== 'document' || input.versionId !== versionId
+            );
 
-            return current.length >= 20 ? current : [...current, { kind: 'document', versionId }];
-          });
-        }}
-      />
-    </Settings.Row>
+          return current.length >= 20 ? current : [...current, { kind: 'document', versionId }];
+        });
+      }}
+    />
   );
 }
