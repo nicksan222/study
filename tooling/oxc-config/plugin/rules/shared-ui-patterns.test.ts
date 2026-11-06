@@ -164,3 +164,16 @@ testStable('standardizes settings switches without banning custom setting action
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes settings selects and retains custom compound rows', () => {
+  expect(
+    lint(
+      `import { Settings } from '@study/ui/settings'; const view = <Settings.Row title="Title"><SelectControl /></Settings.Row>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { Settings } from '@study/ui/settings'; const view = <Settings.SelectRow title="Title" value="one" />;`
+    )
+  ).toHaveLength(0);
+});

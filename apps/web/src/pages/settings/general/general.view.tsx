@@ -1,7 +1,6 @@
 import { Language } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
-import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 
 import { ReplayOnboarding } from '#web/features/onboarding/index.tsx';
@@ -32,25 +31,21 @@ export function GeneralSettingsView({
       {model.loading && !model.error && <Loading label={t('LoadingSettings')} layout="panel" />}
       {model.data && (
         <Settings.Group>
-          <Settings.Row
+          <Settings.SelectRow
             title={t('GeneralSettingsLanguage')}
             description={
               showReplay
                 ? `${t('GeneralSettingsLanguageDescription')} ${t('GeneralSettingsLocalPreferences')}`
                 : undefined
             }
-          >
-            <SelectControl
-              label={t('GeneralSettingsLanguage')}
-              value={model.data.language === Language.ITALIAN ? 'italian' : 'english'}
-              options={[
-                { value: 'english', label: t('EnglishOwnName') },
-                { value: 'italian', label: t('ItalianOwnName') }
-              ]}
-              onValueChange={model.setLanguage}
-              disabled={model.pending}
-            />
-          </Settings.Row>
+            value={model.data.language === Language.ITALIAN ? 'italian' : 'english'}
+            options={[
+              { value: 'english', label: t('EnglishOwnName') },
+              { value: 'italian', label: t('ItalianOwnName') }
+            ]}
+            onValueChange={model.setLanguage}
+            disabled={model.pending}
+          />
           {showReplay && <ReplayOnboarding />}
         </Settings.Group>
       )}

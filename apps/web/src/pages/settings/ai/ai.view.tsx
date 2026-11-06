@@ -2,7 +2,6 @@ import { LlmModel } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
-import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { SignInActions } from '@study/ui/sign-in-actions';
 import { Spinner } from '@study/ui/spinner';
@@ -109,21 +108,21 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
         <Settings.Section title={t('AiSettingsModels')}>
           <Settings.Group>
             {tiers.map(({ tier, title, description }) => (
-              <Settings.Row key={tier} title={t(title)} description={t(description)}>
-                <SelectControl
-                  label={t(title)}
-                  value={String(model.data!.settings[tier].model ?? '')}
-                  options={options}
-                  disabled={model.pending}
-                  onValueChange={(value) => {
-                    const selected = Object.values(LlmModel).find(
-                      (modelId) => String(modelId) === value
-                    );
+              <Settings.SelectRow
+                key={tier}
+                title={t(title)}
+                description={t(description)}
+                value={String(model.data!.settings[tier].model ?? '')}
+                options={options}
+                disabled={model.pending}
+                onValueChange={(value) => {
+                  const selected = Object.values(LlmModel).find(
+                    (modelId) => String(modelId) === value
+                  );
 
-                    if (value === '' || selected !== undefined) model.setModel(tier, selected);
-                  }}
-                />
-              </Settings.Row>
+                  if (value === '' || selected !== undefined) model.setModel(tier, selected);
+                }}
+              />
             ))}
           </Settings.Group>
         </Settings.Section>

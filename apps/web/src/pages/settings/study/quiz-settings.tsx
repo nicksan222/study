@@ -3,7 +3,6 @@ import type { QuizSettings } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
-import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -56,34 +55,32 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
         />
       )}
       <Settings.Group>
-        <Settings.Row title={t('QuizQuestionCount')} description={t('QuizQuestionCountHelp')}>
-          <SelectControl
-            label={t('QuizQuestionCount')}
-            value={String(config.questionCount)}
-            disabled={disabled}
-            options={Array.from({ length: 10 }, (_, i) => ({
-              value: String(i + 1),
-              label: String(i + 1)
-            }))}
-            onValueChange={(value) => model.update({ questionCount: Number(value) })}
-          />
-        </Settings.Row>
-        <Settings.Row title={t('QuizQuestionKind')} description={t('QuizQuestionKindHelp')}>
-          <SelectControl
-            label={t('QuizQuestionKind')}
-            value={config.questionKind}
-            disabled={disabled}
-            options={[
-              { value: 'all', label: t('QuizKindAll') },
-              { value: 'choice', label: t('QuestionChoice') },
-              { value: 'open', label: t('QuestionOpen') }
-            ]}
-            onValueChange={(value) => {
-              if (value === 'all' || value === 'choice' || value === 'open')
-                model.update({ questionKind: value });
-            }}
-          />
-        </Settings.Row>
+        <Settings.SelectRow
+          title={t('QuizQuestionCount')}
+          description={t('QuizQuestionCountHelp')}
+          value={String(config.questionCount)}
+          disabled={disabled}
+          options={Array.from({ length: 10 }, (_, i) => ({
+            value: String(i + 1),
+            label: String(i + 1)
+          }))}
+          onValueChange={(value) => model.update({ questionCount: Number(value) })}
+        />
+        <Settings.SelectRow
+          title={t('QuizQuestionKind')}
+          description={t('QuizQuestionKindHelp')}
+          value={config.questionKind}
+          disabled={disabled}
+          options={[
+            { value: 'all', label: t('QuizKindAll') },
+            { value: 'choice', label: t('QuestionChoice') },
+            { value: 'open', label: t('QuestionOpen') }
+          ]}
+          onValueChange={(value) => {
+            if (value === 'all' || value === 'choice' || value === 'open')
+              model.update({ questionKind: value });
+          }}
+        />
         <Settings.ToggleRow
           title={t('QuizShuffleQuestions')}
           description={t('QuizShuffleQuestionsHelp')}
@@ -100,38 +97,32 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
           disabled={disabled}
           onCheckedChange={(shuffleChoices) => model.update({ shuffleChoices })}
         />
-        <Settings.Row title={t('QuizGenerateChoices')} description={t('QuizGenerationChoicesHelp')}>
-          <SelectControl
-            label={t('QuizGenerateChoices')}
-            value={String(config.choiceCount)}
-            disabled={disabled}
-            options={Array.from({ length: 5 }, (_, index) => ({
-              value: String(index + 2),
-              label: String(index + 2)
-            }))}
-            onValueChange={(value) => model.update({ choiceCount: Number(value) })}
-          />
-        </Settings.Row>
-        <Settings.Row title={t('QuizDifficulty')} description={t('QuizGenerationDifficultyHelp')}>
-          <SelectControl
-            label={t('QuizDifficulty')}
-            value={config.difficulty}
-            disabled={disabled}
-            options={[
-              { value: 'easy', label: t('QuizDifficultyEasy') },
-              { value: 'balanced', label: t('QuizDifficultyBalanced') },
-              { value: 'challenging', label: t('QuizDifficultyChallenging') }
-            ]}
-            onValueChange={(difficulty) => {
-              if (
-                difficulty === 'easy' ||
-                difficulty === 'balanced' ||
-                difficulty === 'challenging'
-              )
-                model.update({ difficulty });
-            }}
-          />
-        </Settings.Row>
+        <Settings.SelectRow
+          title={t('QuizGenerateChoices')}
+          description={t('QuizGenerationChoicesHelp')}
+          value={String(config.choiceCount)}
+          disabled={disabled}
+          options={Array.from({ length: 5 }, (_, index) => ({
+            value: String(index + 2),
+            label: String(index + 2)
+          }))}
+          onValueChange={(value) => model.update({ choiceCount: Number(value) })}
+        />
+        <Settings.SelectRow
+          title={t('QuizDifficulty')}
+          description={t('QuizGenerationDifficultyHelp')}
+          value={config.difficulty}
+          disabled={disabled}
+          options={[
+            { value: 'easy', label: t('QuizDifficultyEasy') },
+            { value: 'balanced', label: t('QuizDifficultyBalanced') },
+            { value: 'challenging', label: t('QuizDifficultyChallenging') }
+          ]}
+          onValueChange={(difficulty) => {
+            if (difficulty === 'easy' || difficulty === 'balanced' || difficulty === 'challenging')
+              model.update({ difficulty });
+          }}
+        />
       </Settings.Group>
       {model.pending && <Settings.Feedback role="status">{t('Saving')}</Settings.Feedback>}
     </Settings.Section>

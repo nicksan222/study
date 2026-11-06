@@ -3,7 +3,6 @@ import type { StaticMessageKey } from '@study/localization';
 import { RetryButton } from '@study/ui/action-button';
 import { Loading } from '@study/ui/loading';
 import { NumberControl } from '@study/ui/number-control';
-import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -167,19 +166,18 @@ function PreferenceSelect<K extends SelectField>({
   const { query, mutation } = useControls();
 
   return (
-    <Settings.Row title={t(title)} description={t(description)}>
-      <SelectControl
-        label={t(title)}
-        value={query.data![field]}
-        disabled={mutation.isPending}
-        options={options.map((item) => ({ value: item.value, label: t(item.label) }))}
-        onValueChange={(value) => {
-          const option = options.find((item) => item.value === value);
+    <Settings.SelectRow
+      title={t(title)}
+      description={t(description)}
+      value={query.data![field]}
+      disabled={mutation.isPending}
+      options={options.map((item) => ({ value: item.value, label: t(item.label) }))}
+      onValueChange={(value) => {
+        const option = options.find((item) => item.value === value);
 
-          if (option) mutation.mutate({ [field]: option.value });
-        }}
-      />
-    </Settings.Row>
+        if (option) mutation.mutate({ [field]: option.value });
+      }}
+    />
   );
 }
 

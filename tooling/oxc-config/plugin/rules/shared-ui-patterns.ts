@@ -82,6 +82,23 @@ export default defineRule({
             (child) =>
               child.type === 'JSXElement' &&
               child.openingElement.name.type === 'JSXIdentifier' &&
+              child.openingElement.name.name === 'SelectControl'
+          )
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use Settings.SelectRow for labelled preference choices.'
+          });
+
+        if (
+          tag.type === 'JSXMemberExpression' &&
+          tag.object.type === 'JSXIdentifier' &&
+          settings.has(tag.object.name) &&
+          tag.property.name === 'Row' &&
+          node.children.some(
+            (child) =>
+              child.type === 'JSXElement' &&
+              child.openingElement.name.type === 'JSXIdentifier' &&
               child.openingElement.name.name === 'SwitchControl'
           )
         )

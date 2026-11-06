@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react';
 
+import { SelectControl } from './select-control';
 import { SettingsRow } from './settings-group';
 import { SwitchControl } from './switch-control';
 
@@ -15,6 +16,20 @@ export function ToggleRow({
   return (
     <SettingsRow title={title} description={description}>
       <SwitchControl {...control} label={controlLabel} />
+    </SettingsRow>
+  );
+}
+
+/** Selection preferences use the same row hierarchy as switches and preserve controlled values. */
+export function SelectRow({
+  title,
+  description,
+  controlLabel = title,
+  ...control
+}: RowCopy & Omit<ComponentProps<typeof SelectControl>, 'label'>) {
+  return (
+    <SettingsRow title={title} description={description}>
+      <SelectControl {...control} label={controlLabel} />
     </SettingsRow>
   );
 }
