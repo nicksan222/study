@@ -4,16 +4,16 @@ import { infiniteQueryOptions, queryOptions } from '@tanstack/react-query';
 
 import { request } from './request';
 
-export const documentsOptions = (projectId?: ProjectId) =>
+export const documentsOptions = (projectId?: ProjectId, archived = false) =>
   infiniteQueryOptions({
-    queryKey: ['documents', 'library', projectId?.toString()],
+    queryKey: ['documents', 'library', projectId?.toString(), archived],
     initialPageParam: undefined as StudyDocumentId | undefined,
     queryFn: ({ pageParam, signal }) =>
       request(
         (rpc) =>
           rpc['documents.documents']({
             limit: 30,
-            archived: false,
+            archived,
             projectId,
             cursor: pageParam
           }),

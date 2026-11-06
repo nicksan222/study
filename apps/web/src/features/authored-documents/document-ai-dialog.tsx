@@ -1,14 +1,7 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
 import type { ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@study/ui/dialog';
+import { DialogFooter } from '@study/ui/dialog';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -18,6 +11,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { ContentReadError } from '../document-presentation';
 import { sessionKey } from '../session-workspace';
 import type { SelectedSession } from '../session-workspace';
+import { DocumentActionDialog } from './document-action-dialog';
 import { documentConversationOptions } from './document-context.queries';
 import { SessionPicker } from './session-picker';
 
@@ -51,39 +45,33 @@ export function DocumentAiDialog({
   });
 
   return (
-    <Dialog
-      open
-      onOpenChange={(open) => {
-        if (!open && !mutation.isPending) onClose();
-      }}
+    <DocumentActionDialog
+      pending={mutation.isPending}
+      onClose={onClose}
+      title={t('DocumentAskAI')}
+      description={t('DocumentAskAIHelp')}
     >
-      <DialogPopup closeLabel={t('Close')}>
-        <DialogHeader>
-          <DialogTitle>{t('DocumentAskAI')}</DialogTitle>
-          <DialogDescription>{t('DocumentAskAIHelp')}</DialogDescription>
-        </DialogHeader>
-        <SessionPicker
-          project={project}
-          selected={selected}
-          onChange={(sessions) => setSelected(sessions.slice(-1))}
-        />
-        {mutation.error && <ContentReadError error={mutation.error} />}
-        <DialogFooter>
-          <Button
-            disabled={!selected[0] || !document.headVersionId || mutation.isPending}
-            onClick={() => {
-              if (selected[0] && document.headVersionId)
-                mutation.mutate({
-                  documentId: document.id,
-                  versionId: document.headVersionId,
-                  sessionId: selected[0].id
-                });
-            }}
-          >
-            {t('DocumentOpenAI')}
-          </Button>
-        </DialogFooter>
-      </DialogPopup>
-    </Dialog>
+      <SessionPicker
+        project={project}
+        selected={selected}
+        onChange={(sessions) => setSelected(sessions.slice(-1))}
+      />
+      {mutation.error && <ContentReadError error={mutation.error} />}
+      <DialogFooter>
+        <Button
+          disabled={!selected[0] || !document.headVersionId || mutation.isPending}
+          onClick={() => {
+            if (selected[0] && document.headVersionId)
+              mutation.mutate({
+                documentId: document.id,
+                versionId: document.headVersionId,
+                sessionId: selected[0].id
+              });
+          }}
+        >
+          {t('DocumentOpenAI')}
+        </Button>
+      </DialogFooter>
+    </DocumentActionDialog>
   );
 }

@@ -17,6 +17,7 @@ export const DocumentOverview = {
   Section: semanticPart('section', 'document-overview-section'),
   SectionHeading: semanticPart('h3', 'document-overview-section-heading'),
   Rows: semanticPart('ul', 'document-overview-rows'),
+  SelectionRow: semanticPart(Button, 'document-selection-row'),
   Icon: semanticPart('span', 'document-overview-icon'),
   Copy: semanticPart('span', 'document-overview-copy'),
   Name: semanticPart('span', 'document-overview-name'),

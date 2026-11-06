@@ -12,8 +12,8 @@
  */
 
 import { selectionReferenceKey } from '@study/contracts/conversations/context';
-import type { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { authoredContentSchema } from '@study/contracts/documents/schemas';
+import type { documentTransformContextSchema } from '@study/contracts/documents/transform';
 import type { transformPublicationSchema } from '@study/contracts/documents/transform';
 import { StudyError } from '@study/contracts/errors';
 import type { StudyDocumentVersionId, VersionId } from '@study/contracts/ids';
@@ -24,7 +24,7 @@ import { Schema } from 'effect';
 type Blocks = typeof documentSchema.Type.blocks;
 
 export function validateDocumentTransform(
-  context: typeof runSelectionContextSchema.Type,
+  context: typeof documentTransformContextSchema.Type,
   publication: typeof transformPublicationSchema.Type,
   editTargetVersionId?: StudyDocumentVersionId
 ) {
@@ -48,7 +48,7 @@ export function validateDocumentTransform(
 }
 
 function validateBlockAuthorization(
-  context: typeof runSelectionContextSchema.Type,
+  context: typeof documentTransformContextSchema.Type,
   blocks: Blocks,
   editTargetVersionId?: StudyDocumentVersionId
 ) {
@@ -96,7 +96,7 @@ function validateReportTargets(
 }
 
 function validateCitationScope(
-  context: typeof runSelectionContextSchema.Type,
+  context: typeof documentTransformContextSchema.Type,
   publication: typeof transformPublicationSchema.Type,
   blocks: Blocks
 ) {
@@ -116,7 +116,7 @@ function validateCitationScope(
 }
 
 /** Whole/block captures authorize structured assets; ranges carry text only. */
-export function authorizedTransformAssets(context: typeof runSelectionContextSchema.Type) {
+export function authorizedTransformAssets(context: typeof documentTransformContextSchema.Type) {
   return context.inputs.flatMap((input) =>
     input.scope.kind === 'ranges'
       ? []
@@ -130,7 +130,7 @@ export function authorizedTransformAssets(context: typeof runSelectionContextSch
 type TransformCitation = (typeof transformPublicationSchema.Type.citations)[number];
 
 function assertCapturedMessage(
-  context: typeof runSelectionContextSchema.Type,
+  context: typeof documentTransformContextSchema.Type,
   citation: TransformCitation,
   versionId: VersionId
 ) {
@@ -145,7 +145,7 @@ function assertCapturedMessage(
 }
 
 function capturedExcerptMatches(
-  excerpt: (typeof runSelectionContextSchema.Type.inputs)[number]['excerpts'][number],
+  excerpt: (typeof documentTransformContextSchema.Type.inputs)[number]['excerpts'][number],
   citation: TransformCitation,
   range: NonNullable<TransformCitation['target']>
 ) {
@@ -159,7 +159,7 @@ function capturedExcerptMatches(
 }
 
 function validateCapturedCitation(
-  context: typeof runSelectionContextSchema.Type,
+  context: typeof documentTransformContextSchema.Type,
   citation: (typeof transformPublicationSchema.Type.citations)[number]
 ) {
   const reference = citation.input;

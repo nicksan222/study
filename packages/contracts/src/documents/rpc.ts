@@ -96,6 +96,16 @@ export const deleteSchema = Schema.Struct({
 });
 
 export const DocumentsRpc = RpcGroup.make(
+  Rpc.make('merges', {
+    payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+    success: Schema.Array(t.transformSnapshotSchema),
+    error: failureSchema
+  }),
+  Rpc.make('merge', {
+    payload: t.mergeRequestSchema,
+    success: t.transformSnapshotSchema,
+    error: failureSchema
+  }),
   Rpc.make('requestTransform', {
     payload: t.transformRequestSchema,
     success: t.transformSnapshotSchema,

@@ -1,7 +1,8 @@
 import { Schema } from 'effect';
 
+import { runSelectionContextSchema } from '../conversations/context.ts';
 import { errorKindSchema } from '../errors.ts';
-import { sessionIdSchema, studyDocumentVersionIdSchema } from '../ids.ts';
+import { projectIdSchema, sessionIdSchema, studyDocumentVersionIdSchema } from '../ids.ts';
 import { blockIdSchema } from '../sources/schemas.ts';
 import { authoredContentSchema, citationSchema } from './schemas.ts';
 
@@ -49,9 +50,32 @@ export const transformReportSchema = Schema.Struct({
 
 export const transformKeySchema = Schema.Struct({ requestId: Schema.String });
 
+export const mergeRequestSchema = Schema.Struct({
+  key: Schema.String.check(Schema.isBetweenLength(1, 100)),
+  title: transformRequestSchema.fields.title,
+  versions: Schema.Array(studyDocumentVersionIdSchema).check(
+    Schema.isBetweenLength(2, 20),
+    Schema.makeFilter((versions) => new Set(versions).size === versions.length)
+  ),
+  instruction: Schema.String.check(Schema.isMaxLength(10000)),
+  language: Schema.Literals(['english', 'italian']),
+  projectId: Schema.optional(projectIdSchema)
+});
+
+/** Session captures and standalone document captures share the generation contract. */
+export const documentTransformContextSchema = Schema.Struct({
+  ...runSelectionContextSchema.fields,
+  sessionId: Schema.NullOr(sessionIdSchema)
+});
+
+export const storedTransformRequestSchema = Schema.Struct({
+  ...transformRequestSchema.fields,
+  merge: Schema.optional(mergeRequestSchema)
+});
+
 export const transformSnapshotSchema = Schema.Struct({
   id: Schema.String,
-  ...transformRequestSchema.fields,
+  ...storedTransformRequestSchema.fields,
   sessionId: Schema.NullOr(sessionIdSchema),
   eventId: Schema.String,
   instruction: Schema.String,

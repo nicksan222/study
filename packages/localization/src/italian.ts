@@ -128,6 +128,31 @@ export const italian = Object.freeze({
   DocumentsOverviewDescription:
     'Appunti, esercizi svolti e guide allo studio. Riprendi da dove eri rimasto o inizia una nuova pagina.',
   DocumentsSaved: 'Documenti salvati',
+  DocumentsSelect: 'Seleziona documenti',
+  DocumentsSelectionHelp: 'Seleziona da 2 a 20 documenti da unire.',
+  DocumentsSelected: '{count} selezionati',
+  DocumentsMerge: 'Unisci documenti',
+  DocumentsMergeHelp:
+    'L’IA unirà i documenti selezionati in un nuovo documento. Gli originali verranno archiviati solo al termine dell’unione. Potrai ripristinarli in qualsiasi momento.',
+  DocumentsMergeTitle: 'Titolo del documento unificato',
+  DocumentsMergeInstruction: 'Istruzioni (facoltative)',
+  DocumentsMerging: 'Unione dei documenti…',
+  DocumentsMergeSetup:
+    'Accedi a ChatGPT nelle Impostazioni, poi riprova l’unione. Gli originali sono ancora disponibili.',
+  DocumentsMergeInputsChanged:
+    'Un documento selezionato è cambiato o non è disponibile. Annulla questa unione e seleziona i documenti attuali.',
+  DocumentsMergeFailed: 'Impossibile completare l’unione. Gli originali sono ancora disponibili.',
+  DocumentsMergeDone: 'Documento unificato pronto',
+  DocumentsArchive: 'Archivia',
+  DocumentsUnarchive: 'Ripristina dall’archivio',
+  DocumentsArchived: 'Archiviati',
+  DocumentsActive: 'Documenti attivi',
+  DocumentsArchivedEmpty: 'Nessun documento archiviato.',
+  DocumentsMergeWork: 'Unioni di documenti',
+  DocumentsMergeRetry: 'Riprova unione',
+  DocumentsMergeCancel: 'Annulla unione',
+  DocumentsSelectAll: 'Seleziona documenti caricati',
+  DocumentsCancelSelection: 'Annulla selezione',
   DocumentsEmptyTitle: 'Spazio alla tua prossima idea',
   DocumentsOverviewEmpty:
     'Crea un documento o trasformaci una sessione. Ritroverai qui i tuoi testi, pronti da leggere e perfezionare.',
