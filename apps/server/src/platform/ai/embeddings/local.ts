@@ -18,18 +18,10 @@ import { Effect, Schema } from 'effect';
 
 import { embeddingLimits } from './limits.ts';
 import { embeddingModel, validateEmbeddingModel } from './model.ts';
+import type { EmbeddingModel } from './types.ts';
 import { makeWorkerClient } from './worker-client.ts';
 
-export interface LocalEmbeddingModel {
-  readonly maxChunkingInputLength: number;
-  readonly identity: string;
-  readonly dimensions: number;
-  readonly chunkPassages: (text: string) => Effect.Effect<readonly string[], StudyError>;
-  readonly embedQuery: (text: string) => Effect.Effect<Float32Array, StudyError>;
-  readonly embedPassages: (
-    texts: readonly string[]
-  ) => Effect.Effect<readonly Float32Array[], StudyError>;
-}
+export type LocalEmbeddingModel = EmbeddingModel;
 
 const passageMessage = Schema.is(Schema.Struct({ passages: Schema.Array(Schema.String) }));
 
