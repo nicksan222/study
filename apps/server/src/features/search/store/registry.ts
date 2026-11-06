@@ -19,11 +19,7 @@ import type {
   SearchProjectionPageInput,
   SearchTarget
 } from '@study/contracts/search/schemas';
-import {
-  searchProjectionPageInputSchema,
-  searchProjectionPageSchema,
-  registeredEntityKeySchema
-} from '@study/contracts/search/schemas';
+import { registeredEntityKeySchema } from '@study/contracts/search/schemas';
 import { collectSchemaRegistry, getTableColumns, asc, and, eq, isNull, sql } from '@study/db';
 import type { RegisteredEntity, SchemaExports } from '@study/db';
 import * as databaseSchema from '@study/db/schema';
@@ -31,6 +27,7 @@ import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
+import { searchProjectionPageQuery } from '#server/platform/search/projection-page';
 
 /** Encode only scalar stable identities and reject unsafe numeric or structured values. */
 function identity(value: unknown): string {
@@ -157,26 +154,16 @@ export function makeRegistryStore({
 
       return {
         queries: {
-          searchProjectionPages: storeQuery({
-            role: 'collection',
-            input: searchProjectionPageInputSchema,
-            output: searchProjectionPageSchema,
-            run: (input) => {
+          searchProjectionPages: storeQuery(
+            searchProjectionPageQuery((input) => {
               const entity = registry.entities.find(
                 (entry) =>
                   entry.metadata.kind === input.kind && entry.metadata.projection === 'columns'
               );
 
-              if (!entity) return { items: [], next: null };
-
-              const rows = read(entity, { ...input, limit: input.limit + 1 });
-
-              return {
-                items: rows.slice(0, input.limit),
-                next: rows.length > input.limit ? input.offset + input.limit : null
-              };
-            }
-          })
+              return entity ? read(entity, input) : [];
+            }, true)
+          )
         },
         mutations: {}
       };
