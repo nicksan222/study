@@ -1,0 +1,12 @@
+.ui-disclosure > summary {
+  cursor: pointer;
+  border-radius: var(--control-radius);
+  color: var(--muted-foreground);
+}
+.ui-disclosure > summary:hover {
+  color: var(--foreground);
+}
+.ui-disclosure > summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}

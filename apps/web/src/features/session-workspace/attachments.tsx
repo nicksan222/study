@@ -4,6 +4,7 @@ import { mediaSize } from '@study/localization';
 import type { StaticMessageKey } from '@study/localization';
 import { AttachmentPreview, useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
 import { ComposerSurface } from '@study/ui/composer';
+import { Disclosure } from '@study/ui/disclosure';
 import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/session-workspace';
 import { Paperclip, RotateCcw, X } from 'lucide-react';
@@ -110,10 +111,9 @@ function AttachmentRecovery({ entry }: { entry: Attachment }) {
     <>
       {entry.state === 'uncertain' && <p>{t('SessionUploadUncertain')}</p>}
       {entry.error !== undefined && (
-        <details>
-          <summary>{t('SeeDetails')}</summary>
+        <Disclosure summary={<> {t('SeeDetails')} </>}>
           <SessionError error={entry.error} />
-        </details>
+        </Disclosure>
       )}
     </>
   );

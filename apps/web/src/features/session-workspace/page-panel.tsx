@@ -1,4 +1,5 @@
 import type { SessionId } from '@study/contracts/ids';
+import { Disclosure } from '@study/ui/disclosure';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Check, Cloud, CloudOff } from 'lucide-react';
 
@@ -74,8 +75,7 @@ function SaveRecovery({ model }: { model: Model }) {
         onRetry={() => void model.save()}
       />
       {draft.conflict && (
-        <details>
-          <summary>{t('SessionSavedPage')}</summary>
+        <Disclosure summary={<> {t('SessionSavedPage')} </>}>
           <NoteContent
             value={
               draft.conflict.versions.find(
@@ -83,7 +83,7 @@ function SaveRecovery({ model }: { model: Model }) {
               )?.text ?? ''
             }
           />
-        </details>
+        </Disclosure>
       )}
     </Desk.Recovery>
   );

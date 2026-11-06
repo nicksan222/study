@@ -1,5 +1,6 @@
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
+import { Disclosure } from '@study/ui/disclosure';
 import { SelectionSurface } from '@study/ui/selection';
 import type { ReactNode } from 'react';
 
@@ -47,8 +48,11 @@ export function HistoryDisclosure({
     );
 
   return (
-    <details open={open} onToggle={(event) => onOpenChange(event.currentTarget.open)}>
-      <summary>{t('ReaderHistory')}</summary>
+    <Disclosure
+      open={open}
+      onToggle={(event) => onOpenChange(event.currentTarget.open)}
+      summary={<> {t('ReaderHistory')} </>}
+    >
       <Button variant="ghost" onClick={onCurrent}>
         {t('ReaderCurrent')}
       </Button>
@@ -57,6 +61,6 @@ export function HistoryDisclosure({
       {more && (
         <LoadMoreButton disabled={more.pending} onClick={more.load} label={t('LibraryMore')} />
       )}
-    </details>
+    </Disclosure>
   );
 }

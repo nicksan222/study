@@ -5,6 +5,7 @@ import { LoadMoreButton } from '@study/ui/action-button';
 import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
+import { Disclosure } from '@study/ui/disclosure';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
 import { StatusMessage } from '@study/ui/status-message';
@@ -398,10 +399,9 @@ function TransformReceipt({ model }: { model: TransformationModel }) {
   return (
     <>
       {draft.contextId && (
-        <details>
-          <summary>{t('SessionContextUsed')}</summary>
+        <Disclosure summary={<> {t('SessionContextUsed')} </>}>
           <CapturedContext requestId={draft.contextId} />
-        </details>
+        </Disclosure>
       )}
       {draft.requestId && (
         <Button
@@ -601,13 +601,12 @@ export function SessionRuns({ id }: { id: SessionId }) {
       {[...runs.values()].map((run) => (
         <Notebook.TransformRun key={run.requestId}>
           <RunHeading run={run} />
-          <details>
-            <summary>{t('SessionRunDetails')}</summary>
+          <Disclosure summary={<> {t('SessionRunDetails')} </>}>
             <code>{run.requestId}</code>
             {run.contextRequestId && run.state === 'available' && (
               <CapturedContext requestId={run.contextRequestId} />
             )}
-          </details>
+          </Disclosure>
           {run.state === 'available' ? (
             <>
               <TransformResult requestId={run.requestId} />

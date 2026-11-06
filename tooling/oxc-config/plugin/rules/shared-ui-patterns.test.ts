@@ -53,3 +53,15 @@ testStable('standardizes operation announcements while preserving prose', () => 
   expect(lint(`const view = <p role="status">Saved</p>;`)).toHaveLength(1);
   expect(lint(`const view = <p>Document paragraph</p>;`)).toHaveLength(0);
 });
+
+testStable('standardizes expandable sections and permits the package implementation', () => {
+  expect(lint(`const view = <details><summary>History</summary>Content</details>;`)).toHaveLength(
+    1
+  );
+  expect(
+    lint(
+      `const view = <details><summary>History</summary>Content</details>;`,
+      'packages/ui/src/components/example.tsx'
+    )
+  ).toHaveLength(0);
+});

@@ -1,5 +1,6 @@
 import type { comparisonSchema, restoreSchema } from '@study/contracts/documents/editing';
 import { Button } from '@study/ui/button';
+import { Disclosure } from '@study/ui/disclosure';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
 import { StatusMessage } from '@study/ui/status-message';
@@ -22,18 +23,22 @@ export function ComparisonView({ value }: { value: Comparison }) {
     <DocumentEditing.Comparison>
       <p>{t('DocumentStructuralOnly')}</p>
       {(['before', 'proposed', 'current'] as const).map((kind) => (
-        <details key={kind}>
-          <summary>
-            {t(
-              kind === 'before'
-                ? 'DocumentBefore'
-                : kind === 'proposed'
-                  ? 'DocumentSubmitted'
-                  : 'ReaderCurrent'
-            )}
-          </summary>
+        <Disclosure
+          key={kind}
+          summary={
+            <>
+              {t(
+                kind === 'before'
+                  ? 'DocumentBefore'
+                  : kind === 'proposed'
+                    ? 'DocumentSubmitted'
+                    : 'ReaderCurrent'
+              )}
+            </>
+          }
+        >
           <DocumentReader document={value[kind].document} />
-        </details>
+        </Disclosure>
       ))}
     </DocumentEditing.Comparison>
   );

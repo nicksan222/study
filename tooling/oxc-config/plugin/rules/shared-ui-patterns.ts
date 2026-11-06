@@ -33,6 +33,12 @@ export default defineRule({
       JSXElement(node) {
         const tag = node.openingElement.name;
 
+        if (tag.type === 'JSXIdentifier' && tag.name === 'details')
+          context.report({
+            node: node.openingElement,
+            message: 'Use Disclosure from @study/ui/disclosure for expandable sections.'
+          });
+
         if (
           tag.type === 'JSXIdentifier' &&
           tag.name === 'p' &&

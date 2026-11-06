@@ -3,6 +3,7 @@ import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/i
 import { validBlockTextRange } from '@study/contracts/sources/document';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
+import { Disclosure } from '@study/ui/disclosure';
 import { ErrorState } from '@study/ui/error-state';
 import { EvidenceExcerpt } from '@study/ui/evidence-target';
 import { Loading } from '@study/ui/loading';
@@ -183,8 +184,11 @@ export function EvidenceTarget({
   const range = reference.target.range;
 
   return (
-    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>{t('AnnotationOpenTarget')}</summary>
+    <Disclosure
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      summary={<> {t('AnnotationOpenTarget')} </>}
+    >
       {open && (
         <>
           <p>
@@ -207,6 +211,6 @@ export function EvidenceTarget({
           )}
         </>
       )}
-    </details>
+    </Disclosure>
   );
 }

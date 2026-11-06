@@ -1,6 +1,7 @@
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
+import { Disclosure } from '@study/ui/disclosure';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
@@ -62,8 +63,11 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
       <Button disabled={blocked} onClick={() => void mutate('update')}>
         {t('DocumentSaveAnnotation')}
       </Button>
-      <details open={reanchor} onToggle={(e) => setReanchor(e.currentTarget.open)}>
-        <summary>{t('AnnotationReanchor')}</summary>
+      <Disclosure
+        open={reanchor}
+        onToggle={(e) => setReanchor(e.currentTarget.open)}
+        summary={<> {t('AnnotationReanchor')} </>}
+      >
         {reanchor && (
           <TargetPicker
             documentId={annotation.target.documentId}
@@ -84,7 +88,7 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
             </Button>
           </>
         )}
-      </details>
+      </Disclosure>
       <Button variant="ghost-destructive" disabled={blocked} onClick={() => setDeleting(true)}>
         {t('AnnotationDelete')}
       </Button>
@@ -234,8 +238,11 @@ function AnnotationHistory({ view }: { view: AnnotationView }) {
 
   return (
     <>
-      <details open={historyOpen} onToggle={(e) => setHistoryOpen(e.currentTarget.open)}>
-        <summary>{t('AnnotationHistory')}</summary>
+      <Disclosure
+        open={historyOpen}
+        onToggle={(e) => setHistoryOpen(e.currentTarget.open)}
+        summary={<> {t('AnnotationHistory')} </>}
+      >
         {history.isPending && <Loading label={t('LoadingStudy')} />}
         {history.isError && (
           <ErrorState
@@ -280,7 +287,7 @@ function AnnotationHistory({ view }: { view: AnnotationView }) {
             label={t('LibraryMore')}
           />
         )}
-      </details>
+      </Disclosure>
     </>
   );
 }
