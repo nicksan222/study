@@ -3,6 +3,7 @@ import { createBlock } from '@study/contracts/sources/document';
 import type { BlockContent } from '@study/contracts/sources/schemas';
 import { testStable } from '@study/testing/vitest';
 import { StructuredEditor } from '@study/ui/structured-editor';
+import type { StructuredEditorInstance } from '@study/ui/structured-editor';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';
