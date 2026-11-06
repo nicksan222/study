@@ -1,6 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
-import { useSearch } from '@tanstack/react-router';
+import { useParams, useSearch } from '@tanstack/react-router';
 
 import type { Subjects } from '#web/lib/study-client/operations.ts';
 
@@ -20,12 +20,14 @@ export function LibraryList({
   ready: boolean;
   query: string;
 }) {
+  const params = useParams({ strict: false });
   const search = useSearch({ from: '__root__' });
   const state = useQuery(libraryQueryOptions(subjects, project, !blocked && ready));
 
   return (
     <LibraryListView
       {...{ state, subjects, blocked, query, search }}
+      selectedMaterial={params.materialId}
       reload={() => {
         void state.refetch();
       }}

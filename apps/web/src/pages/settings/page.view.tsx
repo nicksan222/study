@@ -72,6 +72,13 @@ const sections = [
     keywords: [
       'StudySettingsTitle',
       'StudySettingsNewCards',
+      'QuizSettingsTitle',
+      'QuizQuestionCount',
+      'QuizQuestionKind',
+      'QuizShuffleQuestions',
+      'QuizShuffleChoices',
+      'QuizGenerateChoices',
+      'QuizDifficulty',
       'WorkspaceReadingTitle',
       'WorkspaceReaderFont',
       'WorkspaceExportFormat'

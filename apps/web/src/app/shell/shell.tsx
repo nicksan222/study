@@ -15,9 +15,20 @@ import { useSidebarContext } from './sidebar-context.queries';
 import { StudyChat } from './study-chat';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
-function useShellNavigation(sessions: boolean) {
-  const [open, setOpen] = useState(true);
+function useShellNavigation(sessions: boolean, practice: boolean) {
+  const [open, setOpen] = useState(() => !practice || window.innerWidth >= 700);
   const focusSearch = useRef(false);
+
+  useEffect(() => {
+    if (!practice) return;
+
+    const media = window.matchMedia('(min-width: 700px)');
+    const resize = (event: MediaQueryListEvent) => setOpen(event.matches);
+
+    media.addEventListener('change', resize);
+
+    return () => media.removeEventListener('change', resize);
+  }, [practice]);
 
   useEffect(() => {
     if (!sessions || open) return;
@@ -54,14 +65,18 @@ function ShellHeader({
   sessions,
   visible,
   title,
-  onToggle
+  onToggle,
+  header
 }: {
+  header?: 'workspace';
   sessions: boolean;
   visible: boolean;
   title: string;
   onToggle: () => void;
 }) {
   const { t } = useI18n();
+
+  if (header === 'workspace') return null;
 
   if (!sessions) return <SidebarUI.Topbar parent={t('AppName')} title={title} />;
 
@@ -80,12 +95,12 @@ function ShellHeader({
   );
 }
 
-function usePageLayout(sessions: boolean, documents: boolean) {
+function usePageLayout(sessions: boolean, documents: boolean, workspace: boolean) {
   const search = useSearch({ from: '__root__' });
   const params = useParams({ strict: false });
   const editingDocument = documents && params.documentId !== undefined && !search.documentVersion;
 
-  return sessions || editingDocument ? 'bleed' : 'padded';
+  return sessions || editingDocument || workspace ? 'bleed' : 'padded';
 }
 
 /** Selects the session layout from route metadata and composes the shared application shell. */
@@ -96,8 +111,12 @@ export function Shell() {
   const metadata = matches.at(-1)?.staticData ?? {};
   const title = metadata.title ?? 'Home';
   const sessions = title === 'Sessions';
-  const layout = usePageLayout(sessions, metadata.section === 'documents');
-  const navigation = useShellNavigation(sessions);
+  const layout = usePageLayout(
+    sessions,
+    metadata.section === 'documents',
+    metadata.header === 'workspace'
+  );
+  const navigation = useShellNavigation(sessions, metadata.section === 'practice');
   const context = useSidebarContext({
     title,
     section: metadata.section ?? 'sessions',
@@ -136,6 +155,7 @@ export function Shell() {
           )}
           <SidebarUI.Main>
             <ShellHeader
+              header={metadata.header}
               sessions={sessions}
               visible={navigation.visible}
               title={t(title)}

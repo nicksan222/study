@@ -20,7 +20,8 @@ export function LibraryListView({
   blocked,
   query,
   search,
-  reload
+  reload,
+  selectedMaterial
 }: {
   state:
     | { status: 'pending' }
@@ -31,6 +32,7 @@ export function LibraryListView({
   query: string;
   search: AppSearch;
   reload: () => void;
+  selectedMaterial?: string;
 }) {
   const { t, locale, date } = useI18n();
   const now = useNowMinute();
@@ -66,7 +68,7 @@ export function LibraryListView({
         const projectId = itemProjectId(item);
         const updated = itemTimestamp(item);
         const owner = subjects.find((subject) => subject.id === projectId);
-        const active = search.material === String(item.value.id);
+        const active = selectedMaterial === String(item.value.id);
 
         return (
           <Sidebar.Item

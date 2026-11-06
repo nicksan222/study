@@ -1,4 +1,3 @@
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
@@ -13,6 +12,7 @@ import { belongsToMaterial, materialId, versionId } from './identity';
 import { historyOptions, materialOptions, versionOptions } from './material-library.queries';
 import { MaterialLifecycle, DeletionRecovery } from './material-lifecycle';
 import { ReaderExport } from './reader-export';
+import { MaterialVersionContent } from './version-content';
 
 export function ReaderPage() {
   const params = useParams({ from: '/materials/$materialId' });
@@ -131,59 +131,9 @@ function SelectedVersion({
         <ReaderExport key={String(version.id)} version={version} />
       </MaterialLibrary.VersionToolbar>
       <MaterialLibrary.Document>
-        <VersionContent version={version} />
+        <MaterialVersionContent version={version} />
       </MaterialLibrary.Document>
     </>
-  );
-}
-
-function VersionContent({ version }: { version: MaterialVersionDetailDto }) {
-  const { t } = useI18n();
-  const content = version.content;
-
-  if (content.kind === 'diagram')
-    return (
-      <MaterialLibrary.ProseContent>
-        <p>{t('ReaderDiagramSource')}</p>
-        <pre>
-          <code>{content.payload}</code>
-        </pre>
-      </MaterialLibrary.ProseContent>
-    );
-
-  if (content.kind === 'flashcards')
-    return (
-      <MaterialLibrary.ProseDetails>
-        {content.cards.map((card) => (
-          <div key={String(card.cardId)}>
-            <dt>{card.front}</dt>
-            <dd>{card.back}</dd>
-          </div>
-        ))}
-      </MaterialLibrary.ProseDetails>
-    );
-
-  return (
-    <MaterialLibrary.ProseList>
-      {content.questions.map((question) => (
-        <li key={String(question.id)}>
-          <p>{question.prompt}</p>
-          {question.kind === 'open' ? (
-            <p>{question.referenceAnswer}</p>
-          ) : (
-            <ul>
-              {question.choices.map((choice) => (
-                <li key={String(choice.id)}>
-                  {choice.text}
-                  {choice.isCorrect && <span> · {t('ReaderCorrectAnswer')}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-          <p>{question.explanation}</p>
-        </li>
-      ))}
-    </MaterialLibrary.ProseList>
   );
 }
 

@@ -393,7 +393,7 @@ testStable('lists flashcards and quizzes together and follows material paginatio
   });
   await user.click(screen.getByRole('link', { name: 'Cell cards' }));
   await waitFor(() =>
-    expect(location.pathname + location.search).toBe('/projects/1/flashcards?material=21')
+    expect(location.pathname + location.search).toBe('/projects/1/flashcards/21')
   );
 });
 
@@ -431,8 +431,8 @@ testStable('loads later project and session pages', async () => {
 });
 
 testStable.each([
-  ['flashcards', '/projects/1/flashcards?material=8'],
-  ['quiz', '/projects/1/practice?material=8']
+  ['flashcards', '/projects/1/flashcards/8'],
+  ['quiz', '/projects/1/practice/8']
 ])('filters the practice list and opens %s in its subject', async (kind, destination) => {
   history.replaceState(null, '', '/projects/1/practice');
   api.materials.mockResolvedValue({
@@ -452,7 +452,9 @@ testStable.each([
   await renderWithNavigation();
   await screen.findByLabelText('Biology');
   await user.type(screen.getByRole('searchbox'), 'cell');
-  await user.click(await screen.findByRole('link', { name: /Cell study/ }));
+  await user.click(
+    await within(screen.getByRole('complementary')).findByRole('link', { name: /Cell study/ })
+  );
   await waitFor(() => expect(location.pathname + location.search).toBe(destination));
   expect(api.search).not.toHaveBeenCalled();
 });

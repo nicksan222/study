@@ -23,9 +23,15 @@ const CardContext = createContext<{
   trigger: RefObject<HTMLButtonElement | null>;
 } | null>(null);
 
-function Provider({ children }: { children: ReactNode }) {
+function Provider({
+  children,
+  defaultOpen = true
+}: {
+  children: ReactNode;
+  defaultOpen?: boolean;
+}) {
   const id = useId();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   const trigger = useRef<HTMLButtonElement>(null);
 
   return (
@@ -72,7 +78,7 @@ function Root({
   className,
   variant,
   ...props
-}: ComponentProps<'div'> & { variant: 'welcome' | 'session' | 'desk' }) {
+}: ComponentProps<'div'> & { variant: 'welcome' | 'session' | 'desk' | 'practice' }) {
   return (
     <div
       className={cn('ui-workspace', variant !== 'welcome' && 'session-canvas', className)}
@@ -232,7 +238,15 @@ function Primary(props: ComponentProps<typeof Button>) {
   return <Button {...props} size="sm" className="ui-workspace-card-primary" />;
 }
 
-export const WorkspaceCard = { Provider, Toggle, Root: Card, Group, Item, Primary };
+export const WorkspaceCard = {
+  Provider,
+  Toggle,
+  Root: Card,
+  Group,
+  Item,
+  Primary,
+  Caption: part('p', 'ui-workspace-card-caption')
+};
 
 export const WorkspaceWork = {
   Icon: AttachmentIcon,

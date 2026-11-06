@@ -2,6 +2,7 @@ import {
   materialVersionIdSchema,
   contentSnapshotIdSchema,
   studyDocumentVersionIdSchema,
+  quizAttemptIdSchema,
   projectIdSchema
 } from '@study/contracts/ids';
 import type { StaticMessageKey } from '@study/localization';
@@ -20,6 +21,7 @@ export type PageMetadata = {
 
 declare module '@tanstack/react-router' {
   interface StaticDataRouteOption {
+    header?: 'workspace';
     title?: StaticMessageKey;
     section?: Section;
     scope?: 'global' | 'project';
@@ -30,7 +32,7 @@ declare module '@tanstack/react-router' {
 export type AppSearch = {
   project?: string;
   id?: string;
-  material?: string;
+  attempt?: string;
   version?: string;
   documentVersion?: string;
   sourceRevision?: string;
@@ -54,6 +56,7 @@ function versionReference(value: unknown, valid: (id: bigint) => boolean) {
 }
 
 export function validateSearch(search: Record<string, unknown>): AppSearch {
+  const attempt = versionReference(search.attempt, Schema.is(quizAttemptIdSchema));
   const version = versionReference(search.version, Schema.is(materialVersionIdSchema));
   const documentVersion = versionReference(
     search.documentVersion,
@@ -74,6 +77,6 @@ export function validateSearch(search: Record<string, unknown>): AppSearch {
     ...(decimalId(search.project) ? { project: search.project } : {}),
     ...(decimalId(search.id) ? { id: search.id } : {}),
     ...(version ? { version } : {}),
-    ...(decimalId(search.material) ? { material: search.material } : {})
+    ...(attempt ? { attempt } : {})
   };
 }

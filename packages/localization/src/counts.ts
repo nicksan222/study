@@ -115,3 +115,6 @@ export function practiceFigure(l: Locale, f: PracticeFigure, n: number): string 
 
   return `${n} ${w[f]}`;
 }
+
+export const questionCount = (l: Locale, n: number) =>
+  noun(l, n, ['question', 'questions'], ['domanda', 'domande']);

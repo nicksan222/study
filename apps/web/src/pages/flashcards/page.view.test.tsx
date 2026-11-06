@@ -1,13 +1,14 @@
+import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { render } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { screen } from '@testing-library/react';
+import { expect } from 'vite-plus/test';
 
-import { PageView } from './page.view';
+import { renderPage } from '#web/test/render-page.tsx';
 
-testStable('keeps the empty page presentation independent of application services', () => {
-  const fetch = vi.spyOn(globalThis, 'fetch');
-  const { container } = render(<PageView />);
+testStable('explains how to create practice material in an empty library', async () => {
+  renderPage('/flashcards');
+  expect(await screen.findByText(catalogs.english.PracticeLibraryEmptyHint)).toBeInTheDocument();
 
-  expect(container).toBeEmptyDOMElement();
-  expect(fetch).not.toHaveBeenCalled();
+  for (const link of screen.getAllByRole('link', { name: catalogs.english.SourceDocument }))
+    expect(link).toHaveAttribute('href', '/documents');
 });

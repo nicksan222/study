@@ -1,6 +1,9 @@
-import type { ComponentProps } from 'react';
+import { Search } from 'lucide-react';
+import type { ComponentProps, ReactNode } from 'react';
 
+import { Button } from './button';
 import { DialogPopup, DialogTitle } from './dialog';
+import { Input } from './input';
 import { semanticPart as part } from './semantic-part';
 
 function SelectionDialogPopup(
@@ -18,6 +21,10 @@ function SelectionDialogPopup(
 /** Searchable item navigation, archive previews, and retained content excerpts. */
 export const SelectionSurface = {
   Popup: SelectionDialogPopup,
+  SearchField,
+  Item,
+  More,
+  Message: part('p', 'ui-selection-message'),
   Title: part(DialogTitle, 'sr-only'),
   Root: part('div', 'ui-selection'),
   Search: part('label', 'ui-selection-search'),
@@ -46,3 +53,59 @@ export const SelectionSurface = {
   Excerpt: part('div', 'ui-selection-excerpt'),
   FullContent: part('div', 'ui-selection-full-content')
 };
+
+function SearchField({
+  label,
+  value,
+  onValueChange
+}: {
+  label: string;
+  value: string;
+  onValueChange: (value: string) => void;
+}) {
+  return (
+    <SelectionSurface.Search>
+      <Search aria-hidden="true" />
+      <Input
+        unstyled
+        type="search"
+        aria-label={label}
+        value={value}
+        onValueChange={onValueChange}
+      />
+    </SelectionSurface.Search>
+  );
+}
+
+function Item({
+  label,
+  description,
+  icon,
+  ...props
+}: Omit<ComponentProps<'button'>, 'children' | 'className'> & {
+  label: string;
+  description?: ReactNode;
+  icon: ReactNode;
+}) {
+  return (
+    <button
+      {...props}
+      title={label}
+      className="settings-navigation-item ui-selection-material ui-selection-item"
+    >
+      {icon}
+      <span>
+        <span>{label}</span>
+        {description && <small>{description}</small>}
+      </span>
+    </button>
+  );
+}
+
+function More({ pending, onLoad, label }: { pending: boolean; onLoad: () => void; label: string }) {
+  return (
+    <Button variant="ghost" disabled={pending} onClick={onLoad}>
+      {label}
+    </Button>
+  );
+}

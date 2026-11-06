@@ -27,3 +27,10 @@ testStable(
     expect(() => validateSearch({ documentVersion: '9223372036854775808' })).toThrow();
   }
 );
+
+testStable('keeps exact attempt identities and drops material query selection', () => {
+  expect(validateSearch({ attempt: '9007199254740993', material: '41' })).toEqual({
+    attempt: '9007199254740993'
+  });
+  expect(() => validateSearch({ attempt: '9223372036854775808' })).toThrow();
+});

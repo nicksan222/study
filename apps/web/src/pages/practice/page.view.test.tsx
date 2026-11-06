@@ -1,13 +1,11 @@
+import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { render } from '@testing-library/react';
-import { expect, vi } from 'vite-plus/test';
+import { screen } from '@testing-library/react';
+import { expect } from 'vite-plus/test';
 
-import { PageView } from './page.view';
+import { renderPage } from '#web/test/render-page.tsx';
 
-testStable('keeps the empty page presentation independent of application services', () => {
-  const fetch = vi.spyOn(globalThis, 'fetch');
-  const { container } = render(<PageView />);
-
-  expect(container).toBeEmptyDOMElement();
-  expect(fetch).not.toHaveBeenCalled();
+testStable('shows the practice library introduction', async () => {
+  renderPage('/practice');
+  expect(await screen.findByText(catalogs.english.PracticeLibraryIntro)).toBeInTheDocument();
 });

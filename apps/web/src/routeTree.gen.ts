@@ -10,15 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as FlashcardsRouteImport } from './routes/flashcards'
 import { Route as HomeRouteImport } from './routes/home'
-import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as DocumentsIndexRouteImport } from './routes/documents.index'
 import { Route as DocumentsDocumentIdRouteImport } from './routes/documents.$documentId'
+import { Route as FlashcardsIndexRouteImport } from './routes/flashcards.index'
+import { Route as FlashcardsMaterialIdRouteImport } from './routes/flashcards.$materialId'
 import { Route as MaterialsMaterialIdRouteImport } from './routes/materials.$materialId'
+import { Route as PracticeIndexRouteImport } from './routes/practice.index'
+import { Route as PracticeMaterialIdRouteImport } from './routes/practice.$materialId'
 import { Route as SessionSessionIdRouteImport } from './routes/session.$sessionId'
 import { Route as SessionsIndexRouteImport } from './routes/sessions.index'
 import { Route as SourcesSourceIdRouteImport } from './routes/sources.$sourceId'
@@ -28,19 +30,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FlashcardsRoute = FlashcardsRouteImport.update({
-  id: '/flashcards',
-  path: '/flashcards',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HomeRoute = HomeRouteImport.update({
   id: '/home',
   path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PracticeRoute = PracticeRouteImport.update({
-  id: '/practice',
-  path: '/practice',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -68,9 +60,29 @@ const DocumentsDocumentIdRoute = DocumentsDocumentIdRouteImport.update({
   path: '/documents/$documentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FlashcardsIndexRoute = FlashcardsIndexRouteImport.update({
+  id: '/flashcards/',
+  path: '/flashcards/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FlashcardsMaterialIdRoute = FlashcardsMaterialIdRouteImport.update({
+  id: '/flashcards/$materialId',
+  path: '/flashcards/$materialId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MaterialsMaterialIdRoute = MaterialsMaterialIdRouteImport.update({
   id: '/materials/$materialId',
   path: '/materials/$materialId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PracticeIndexRoute = PracticeIndexRouteImport.update({
+  id: '/practice/',
+  path: '/practice/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PracticeMaterialIdRoute = PracticeMaterialIdRouteImport.update({
+  id: '/practice/$materialId',
+  path: '/practice/$materialId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SessionSessionIdRoute = SessionSessionIdRouteImport.update({
@@ -91,109 +103,123 @@ const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/flashcards': typeof FlashcardsRoute
   '/home': typeof HomeRoute
-  '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
+  '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/practice/$materialId': typeof PracticeMaterialIdRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/documents/': typeof DocumentsIndexRoute
+  '/flashcards/': typeof FlashcardsIndexRoute
+  '/practice/': typeof PracticeIndexRoute
   '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/flashcards': typeof FlashcardsRoute
   '/home': typeof HomeRoute
-  '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
+  '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/practice/$materialId': typeof PracticeMaterialIdRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/documents': typeof DocumentsIndexRoute
+  '/flashcards': typeof FlashcardsIndexRoute
+  '/practice': typeof PracticeIndexRoute
   '/sessions': typeof SessionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/flashcards': typeof FlashcardsRoute
   '/home': typeof HomeRoute
-  '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
   '/documents/$documentId': typeof DocumentsDocumentIdRoute
+  '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/practice/$materialId': typeof PracticeMaterialIdRoute
   '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
   '/documents/': typeof DocumentsIndexRoute
+  '/flashcards/': typeof FlashcardsIndexRoute
+  '/practice/': typeof PracticeIndexRoute
   '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/flashcards'
     | '/home'
-    | '/practice'
     | '/projects'
     | '/sessions'
     | '/settings'
     | '/documents/$documentId'
+    | '/flashcards/$materialId'
     | '/materials/$materialId'
+    | '/practice/$materialId'
     | '/session/$sessionId'
     | '/sources/$sourceId'
     | '/documents/'
+    | '/flashcards/'
+    | '/practice/'
     | '/sessions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/flashcards'
     | '/home'
-    | '/practice'
     | '/projects'
     | '/settings'
     | '/documents/$documentId'
+    | '/flashcards/$materialId'
     | '/materials/$materialId'
+    | '/practice/$materialId'
     | '/session/$sessionId'
     | '/sources/$sourceId'
     | '/documents'
+    | '/flashcards'
+    | '/practice'
     | '/sessions'
   id:
     | '__root__'
     | '/'
-    | '/flashcards'
     | '/home'
-    | '/practice'
     | '/projects'
     | '/sessions'
     | '/settings'
     | '/documents/$documentId'
+    | '/flashcards/$materialId'
     | '/materials/$materialId'
+    | '/practice/$materialId'
     | '/session/$sessionId'
     | '/sources/$sourceId'
     | '/documents/'
+    | '/flashcards/'
+    | '/practice/'
     | '/sessions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  FlashcardsRoute: typeof FlashcardsRoute
   HomeRoute: typeof HomeRoute
-  PracticeRoute: typeof PracticeRoute
   ProjectsRoute: typeof ProjectsRoute
   SessionsRoute: typeof SessionsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
   DocumentsDocumentIdRoute: typeof DocumentsDocumentIdRoute
+  FlashcardsMaterialIdRoute: typeof FlashcardsMaterialIdRoute
   MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
+  PracticeMaterialIdRoute: typeof PracticeMaterialIdRoute
   SessionSessionIdRoute: typeof SessionSessionIdRoute
   SourcesSourceIdRoute: typeof SourcesSourceIdRoute
   DocumentsIndexRoute: typeof DocumentsIndexRoute
+  FlashcardsIndexRoute: typeof FlashcardsIndexRoute
+  PracticeIndexRoute: typeof PracticeIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -205,25 +231,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/flashcards': {
-      id: '/flashcards'
-      path: '/flashcards'
-      fullPath: '/flashcards'
-      preLoaderRoute: typeof FlashcardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/home': {
       id: '/home'
       path: '/home'
       fullPath: '/home'
       preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/practice': {
-      id: '/practice'
-      path: '/practice'
-      fullPath: '/practice'
-      preLoaderRoute: typeof PracticeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -261,11 +273,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocumentsDocumentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/flashcards/': {
+      id: '/flashcards/'
+      path: '/flashcards'
+      fullPath: '/flashcards/'
+      preLoaderRoute: typeof FlashcardsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/flashcards/$materialId': {
+      id: '/flashcards/$materialId'
+      path: '/flashcards/$materialId'
+      fullPath: '/flashcards/$materialId'
+      preLoaderRoute: typeof FlashcardsMaterialIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/materials/$materialId': {
       id: '/materials/$materialId'
       path: '/materials/$materialId'
       fullPath: '/materials/$materialId'
       preLoaderRoute: typeof MaterialsMaterialIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/practice/': {
+      id: '/practice/'
+      path: '/practice'
+      fullPath: '/practice/'
+      preLoaderRoute: typeof PracticeIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/practice/$materialId': {
+      id: '/practice/$materialId'
+      path: '/practice/$materialId'
+      fullPath: '/practice/$materialId'
+      preLoaderRoute: typeof PracticeMaterialIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/session/$sessionId': {
@@ -306,17 +346,19 @@ const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  FlashcardsRoute: FlashcardsRoute,
   HomeRoute: HomeRoute,
-  PracticeRoute: PracticeRoute,
   ProjectsRoute: ProjectsRoute,
   SessionsRoute: SessionsRouteWithChildren,
   SettingsRoute: SettingsRoute,
   DocumentsDocumentIdRoute: DocumentsDocumentIdRoute,
+  FlashcardsMaterialIdRoute: FlashcardsMaterialIdRoute,
   MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
+  PracticeMaterialIdRoute: PracticeMaterialIdRoute,
   SessionSessionIdRoute: SessionSessionIdRoute,
   SourcesSourceIdRoute: SourcesSourceIdRoute,
   DocumentsIndexRoute: DocumentsIndexRoute,
+  FlashcardsIndexRoute: FlashcardsIndexRoute,
+  PracticeIndexRoute: PracticeIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
