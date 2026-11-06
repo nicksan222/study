@@ -109,6 +109,78 @@ testStable(
   }
 );
 
+testStable.each(['same-owner', 'released-owner', 'expired-owner'])(
+  'completed previews retain their ownership fence after %s',
+  async (lease) => {
+    const replacement = lease !== 'same-owner';
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const executionId = executionIdSchema.make('completed-stream');
+    const store = workflowStore(context);
+
+    store.start(executionId, 'reply', '{}', undefined);
+    expect(store.claim(executionId, 'original')).toBe(true);
+    const observe = observeAgentProgress(context);
+    const emit = (event: Parameters<typeof observe>[0]['event']) =>
+      Effect.runPromise(
+        observe({
+          runId: agentRunIdSchema.make('completed-agent'),
+          agentId: 'reply',
+          mode: 'text',
+          event
+        }).pipe(
+          Effect.provideService(WorkflowActivityOwner, {
+            executionId,
+            ownerToken: 'original',
+            activityName: 'generate',
+            attempt: 0
+          })
+        )
+      );
+    const read = () => agentProgressSnapshot(context, { executionId });
+
+    try {
+      await emit({ type: 'start' });
+      await emit({ type: 'text-delta', text: 'Saved generation' });
+      await emit({ type: 'complete' });
+      expect(store.claim(executionId, 'replacement')).toBe(false);
+      expect(read()[0]?.text).toBe('Saved generation');
+      expect(store.claim(executionId, 'original')).toBe(true);
+      expect(read()[0]?.text).toBe('Saved generation');
+
+      if (replacement) {
+        if (lease === 'released-owner') store.release(executionId, 'original');
+        else
+          context.db.orm
+            .update(workflow_executions)
+            .set({ updated_at: 0n })
+            .where(eq(workflow_executions.execution_id, executionId))
+            .run();
+
+        expect(store.claim(executionId, 'replacement')).toBe(true);
+        expect(read()).toEqual([]);
+      }
+
+      store.checkpoint(executionId, replacement ? 'replacement' : 'original', '{}', 'completed');
+      expect(store.execution(executionId)?.owner_token).toBeNull();
+
+      if (replacement) {
+        expect(read()).toEqual([]);
+        expect(context.db.orm.select().from(workflow_agent_progress).all()).toEqual([]);
+      } else {
+        expect(read()[0]).toMatchObject({
+          text: 'Saved generation',
+          status: 'completed',
+          executionStatus: 'completed'
+        });
+      }
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
 testStable(
   'interrupting a workflow fences progress and retiring it scrubs captured output',
   async () => {

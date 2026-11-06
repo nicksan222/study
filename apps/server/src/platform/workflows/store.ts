@@ -127,32 +127,46 @@ export function workflowStore(context: ServerContext) {
       return undefined;
     },
     claim(id: string, owner: string) {
-      if (executionRetired(id)) return false;
+      return context.transaction(() => {
+        if (executionRetired(id)) return false;
 
-      const time = now();
+        const time = now();
 
-      return (
-        Number(
-          db
-            .update(workflow_executions)
-            .set({ owner_token: owner, status: 'running', updated_at: time })
-            .where(
-              and(
-                eq(workflow_executions.execution_id, id),
-                or(
-                  eq(workflow_executions.status, 'running'),
-                  eq(workflow_executions.status, 'suspended')
-                ),
-                or(
-                  isNull(workflow_executions.owner_token),
-                  eq(workflow_executions.owner_token, owner),
-                  lte(workflow_executions.updated_at, time - BigInt(leaseMs))
+        const claimed =
+          Number(
+            db
+              .update(workflow_executions)
+              .set({ owner_token: owner, status: 'running', updated_at: time })
+              .where(
+                and(
+                  eq(workflow_executions.execution_id, id),
+                  or(
+                    eq(workflow_executions.status, 'running'),
+                    eq(workflow_executions.status, 'suspended')
+                  ),
+                  or(
+                    isNull(workflow_executions.owner_token),
+                    eq(workflow_executions.owner_token, owner),
+                    lte(workflow_executions.updated_at, time - BigInt(leaseMs))
+                  )
                 )
               )
+              .run().changes
+          ) === 1;
+
+        // Replayed activities must not revive previews from a superseded lease.
+        if (claimed)
+          db.delete(workflow_agent_progress)
+            .where(
+              and(
+                eq(workflow_agent_progress.execution_id, id),
+                sql`${workflow_agent_progress.owner_token} <> ${owner}`
+              )
             )
-            .run().changes
-        ) === 1
-      );
+            .run();
+
+        return claimed;
+      });
     },
     renew(id: string, owner: string) {
       const time = now();
