@@ -19,9 +19,10 @@ import {
   Settings2,
   SquarePen
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 
 import { NewBlankDocument } from '#web/features/authored-documents/index.ts';
+import { ReplayContext } from '#web/features/onboarding/index.tsx';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { searchResultLocation, searchResultKey } from '#web/lib/navigation/search-results.ts';
@@ -358,7 +359,7 @@ function SidebarPickerActions({
   );
 }
 
-/** Closes the picker before navigating to the overview or help destination. */
+/** Closes the picker before navigating home or replaying onboarding. */
 
 function SidebarPickerShortcuts({
   requestedProject,
@@ -366,6 +367,7 @@ function SidebarPickerShortcuts({
   clearSearch
 }: Pick<SidebarModel, 'requestedProject' | 'setPickerOpen' | 'clearSearch'>) {
   const { t } = useI18n();
+  const replay = useContext(ReplayContext);
 
   return (
     <SidebarUI.PickerShortcuts>
@@ -389,16 +391,12 @@ function SidebarPickerShortcuts({
       <Button
         variant="ghost-muted"
         layout="navigation"
-        render={
-          <Link
-            to="/help"
-            search={requestedProject ? { project: requestedProject } : {}}
-            onClick={() => {
-              setPickerOpen(false);
-              clearSearch();
-            }}
-          />
-        }
+        disabled={!replay}
+        onClick={() => {
+          setPickerOpen(false);
+          clearSearch();
+          replay?.();
+        }}
       >
         <CircleHelp aria-hidden="true" />
         {t('Help')}

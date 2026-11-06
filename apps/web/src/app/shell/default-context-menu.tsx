@@ -18,9 +18,10 @@ import {
   Settings,
   SquarePen
 } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
 
 import { useNewBlankDocument } from '#web/features/authored-documents/index.ts';
+import { ReplayContext } from '#web/features/onboarding/index.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 const destinations = [
@@ -31,8 +32,7 @@ const destinations = [
 
 const globalDestinations = [
   ['/projects', 'Projects', FolderOpen],
-  ['/settings', 'Settings', Settings],
-  ['/help', 'Help', HelpCircle]
+  ['/settings', 'Settings', Settings]
 ] as const;
 
 /** Provides workspace shortcuts wherever a descendant has not handled its own context menu. */
@@ -47,6 +47,7 @@ export function DefaultContextMenu({
 }) {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const replay = useContext(ReplayContext);
   const document = useNewBlankDocument(project);
   const search = project ? { project: String(project) } : {};
 
@@ -96,6 +97,10 @@ export function DefaultContextMenu({
             {t(label)}
           </ContextMenuItem>
         ))}
+        <ContextMenuItem disabled={!replay} onClick={() => replay?.()}>
+          <HelpCircle aria-hidden="true" />
+          {t('Help')}
+        </ContextMenuItem>
       </ContextMenuPopup>
     </ContextMenu>
   );

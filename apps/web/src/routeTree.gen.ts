@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FlashcardsRouteImport } from './routes/flashcards'
-import { Route as HelpRouteImport } from './routes/help'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as PracticeRouteImport } from './routes/practice'
 import { Route as ProjectsRouteImport } from './routes/projects'
@@ -32,11 +31,6 @@ const IndexRoute = IndexRouteImport.update({
 const FlashcardsRoute = FlashcardsRouteImport.update({
   id: '/flashcards',
   path: '/flashcards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HelpRoute = HelpRouteImport.update({
-  id: '/help',
-  path: '/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -98,7 +92,6 @@ const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/flashcards': typeof FlashcardsRoute
-  '/help': typeof HelpRoute
   '/home': typeof HomeRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
@@ -114,7 +107,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/flashcards': typeof FlashcardsRoute
-  '/help': typeof HelpRoute
   '/home': typeof HomeRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
@@ -130,7 +122,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/flashcards': typeof FlashcardsRoute
-  '/help': typeof HelpRoute
   '/home': typeof HomeRoute
   '/practice': typeof PracticeRoute
   '/projects': typeof ProjectsRoute
@@ -148,7 +139,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/flashcards'
-    | '/help'
     | '/home'
     | '/practice'
     | '/projects'
@@ -164,7 +154,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/flashcards'
-    | '/help'
     | '/home'
     | '/practice'
     | '/projects'
@@ -179,7 +168,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/flashcards'
-    | '/help'
     | '/home'
     | '/practice'
     | '/projects'
@@ -196,7 +184,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   FlashcardsRoute: typeof FlashcardsRoute
-  HelpRoute: typeof HelpRoute
   HomeRoute: typeof HomeRoute
   PracticeRoute: typeof PracticeRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -223,13 +210,6 @@ declare module '@tanstack/react-router' {
       path: '/flashcards'
       fullPath: '/flashcards'
       preLoaderRoute: typeof FlashcardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/help': {
-      id: '/help'
-      path: '/help'
-      fullPath: '/help'
-      preLoaderRoute: typeof HelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -327,7 +307,6 @@ const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   FlashcardsRoute: FlashcardsRoute,
-  HelpRoute: HelpRoute,
   HomeRoute: HomeRoute,
   PracticeRoute: PracticeRoute,
   ProjectsRoute: ProjectsRoute,
