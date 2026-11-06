@@ -47,7 +47,8 @@ export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () =>
         spellCheck={preferences.spellcheck}
         onPaste={(event) => {
           if (event.clipboardData.files.length && !blocked) {
-            event.preventDefault();
+            if (!event.clipboardData.getData('text/plain')) event.preventDefault();
+
             files.add(Array.from(event.clipboardData.files));
           }
         }}

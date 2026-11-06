@@ -95,15 +95,49 @@ export const sourceIngestionHandler = ({
             })
           )
         : null;
-    const conversionStrategyId = yield* Activity.make({
-      name: 'resolve-source-conversion-strategy',
-      success: conversionStrategyIdSchema,
-      error: failureSchema,
-      execute: Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
-        Effect.map((preferences) => preferences.textConversionStrategy),
-        Effect.provide(Settings.layer)
-      )
-    });
+
+    function decodingInput() {
+      if (!fetched) return snapshot;
+
+      const detected = sniff(fetched.name, fetched.bytes);
+      const declared = detectedMime(fetched.mime);
+
+      return {
+        ...snapshot,
+        bytes: fetched.bytes,
+        uri: fetched.url,
+        ...(detected.kind !== 'other' && (detected.kind !== 'text' || declared.kind === 'other')
+          ? detected
+          : declared),
+        ...(fetched.mime === 'text/html' && ['text', 'code', 'other'].includes(detected.kind)
+          ? { kind: 'web' as const, mime: 'text/html' }
+          : {})
+      };
+    }
+
+    const input = decodingInput();
+    const conversionStrategyId =
+      input.kind === 'pdf'
+        ? yield* Activity.make({
+            name: 'resolve-source-conversion-strategy',
+            success: conversionStrategyIdSchema,
+            error: failureSchema,
+            execute: Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+              Effect.flatMap((preferences) =>
+                Effect.try({
+                  try: () =>
+                    Sources.conversionStrategyForInput(preferences.textConversionStrategy, 'pdf')
+                      .id,
+                  catch: (cause) =>
+                    cause instanceof StudyError
+                      ? cause
+                      : new StudyError('internal', 'Invalid conversion strategy', { cause })
+                })
+              ),
+              Effect.provide(Settings.layer)
+            )
+          })
+        : null;
     const document = yield* retryResumableActivity(
       Activity.make({
         name: 'decode-source',
@@ -111,27 +145,6 @@ export const sourceIngestionHandler = ({
         error: failureSchema,
         execute: Effect.gen(function* () {
           yield* currentRequest;
-          const input = decodingInput();
-
-          function decodingInput() {
-            if (!fetched) return snapshot;
-
-            const detected = sniff(fetched.name, fetched.bytes);
-            const declared = detectedMime(fetched.mime);
-
-            return {
-              ...snapshot,
-              bytes: fetched.bytes,
-              uri: fetched.url,
-              ...(detected.kind !== 'other' &&
-              (detected.kind !== 'text' || declared.kind === 'other')
-                ? detected
-                : declared),
-              ...(fetched.mime === 'text/html' && ['text', 'code', 'other'].includes(detected.kind)
-                ? { kind: 'web' as const, mime: 'text/html' }
-                : {})
-            };
-          }
 
           function isHtml() {
             return decoderPath(input) === 'html';
@@ -197,6 +210,11 @@ export const sourceIngestionHandler = ({
             );
 
           if (input.kind === 'pdf') {
+            if (conversionStrategyId === null)
+              return yield* Effect.fail(
+                new StudyError('config', 'PDF conversion strategy is unavailable')
+              );
+
             return yield* sources.convertDocument(
               conversionStrategyId,
               { kind: 'pdf', bytes: input.bytes },

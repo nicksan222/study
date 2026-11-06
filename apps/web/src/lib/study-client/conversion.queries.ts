@@ -4,6 +4,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { request } from './request';
 
+/** Shares localized conversion capability discovery across settings and chat controls. */
 export function useConversionStrategies() {
   const { locale } = useI18n();
 

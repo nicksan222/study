@@ -309,6 +309,7 @@ export function AiWritingSettings() {
   );
 }
 
+/** Allows replacement of removed methods and recovery of failed capability queries. */
 function ConversionStrategySetting() {
   const { t } = useI18n();
   const { query, mutation } = useControls();

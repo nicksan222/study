@@ -25,7 +25,7 @@ export const titleSourceSchema = Schema.Literals(['generated', 'provisional', 'u
 
 export { messageRoleSchema, conversationMessageSnapshotSchema };
 
-export const versionStatusSchema = Schema.Literals(['complete', 'pending', 'writing']);
+export const versionStatusSchema = Schema.Literals(['complete', 'pending', 'writing', 'failed']);
 
 export const versionOriginSchema = Schema.Literals([
   'answer',
@@ -84,6 +84,7 @@ export const messageVersionSchema = Schema.Struct({
   number: Schema.BigInt,
   origin: versionOriginSchema,
   status: versionStatusSchema,
+  generationRequestId: Schema.optional(Schema.String),
   text: Schema.String,
   basedOn: Schema.NullOr(versionIdSchema),
   instruction: Schema.NullOr(Schema.String),

@@ -191,6 +191,9 @@ function makeHelpers({ db, clock }: StoreResources) {
           number: v.number,
           origin: v.origin,
           status: v.status,
+          ...(v.status === 'failed' && v.generation_request_id !== null
+            ? { generationRequestId: v.generation_request_id }
+            : {}),
           text: v.text,
           basedOn: v.based_on,
           instruction: v.instruction,
@@ -527,7 +530,11 @@ export const MessageStore = defineStore({
             const message = required(input.messageId);
             const version = message.versions.find((item) => item.id === input.versionId);
 
-            if (!version || version.status !== 'complete')
+            if (
+              !version ||
+              (version.status !== 'complete' &&
+                !(version.origin === 'convert' && version.status === 'failed'))
+            )
               throw new StudyError('invalid_input', 'Invalid message version');
 
             const remaining = message.versions.filter(

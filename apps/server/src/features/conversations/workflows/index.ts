@@ -270,7 +270,28 @@ export const conversationReplyHandler = ({
   }).pipe(
     Effect.catch((error) =>
       Effect.gen(function* () {
-        if (['invalid_input', 'not_found', 'unsupported'].includes(error.kind)) {
+        const conversations = yield* Conversations;
+        const conversion = yield* conversations
+          .inspectReplySnapshot({ requestId: event.requestId })
+          .pipe(
+            Effect.match({
+              onFailure: () => false,
+              onSuccess: (snapshot) => snapshot.generation?.conversion !== undefined
+            })
+          );
+
+        if (conversion) {
+          const { store } = yield* Database;
+
+          yield* Activity.make({
+            name: 'fail-conversion',
+            success: Schema.Boolean,
+            error: failureSchema,
+            execute: withPublicationGuard(store, conversations.failConversion(event))
+          });
+        }
+
+        if (!conversion && ['invalid_input', 'not_found', 'unsupported'].includes(error.kind)) {
           const conversations = yield* Conversations;
           const { store } = yield* Database;
 
@@ -458,6 +479,7 @@ function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
     : 'rewrite';
 }
 
+/** Keeps ordinary rewrite inputs separate from answers and registered conversions. */
 function rewriteGeneration(snapshot: typeof replySnapshotSchema.Type) {
   const generation = snapshot.generation;
 

@@ -63,6 +63,27 @@ afterEach(async () => {
   location.cleanup();
 });
 
+function workflowServices(model: ReturnType<typeof createChatGptModel>) {
+  const domain = Layer.mergeAll(Conversations.layer, Sources.layer, Settings.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  return Layer.mergeAll(
+    domain,
+    workflowEngineLayer(context),
+    Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
+    agentsLayer({
+      language: 'english',
+      searchSources: () => Effect.succeed([]),
+      model: (tier) => {
+        expect(tier).toBe('tiny');
+
+        return Effect.succeed(model);
+      }
+    })
+  );
+}
+
 testStable(
   'conversion executes on the small tier, captures only its target and checkpoints publication',
   async () => {
@@ -88,23 +109,6 @@ testStable(
         );
       }
     });
-    const domain = Layer.mergeAll(Conversations.layer, Sources.layer, Settings.layer).pipe(
-      Layer.provideMerge(Layer.succeed(Database, { store: context }))
-    );
-    const services = Layer.mergeAll(
-      domain,
-      workflowEngineLayer(context),
-      Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
-      agentsLayer({
-        language: 'english',
-        searchSources: () => Effect.succeed([]),
-        model: (tier) => {
-          expect(tier).toBe('tiny');
-
-          return Effect.succeed(model);
-        }
-      })
-    );
 
     await Effect.runPromise(
       Effect.scoped(
@@ -276,7 +280,122 @@ testStable(
           expect((yield* c.message(threaded.id)).versions.at(-1)?.text).toBe(
             'First page\n\nSecond page'
           );
-        }).pipe(Effect.provide(services))
+        }).pipe(Effect.provide(workflowServices(model)))
+      )
+    );
+  }
+);
+
+testStable(
+  'exhausted automatic conversions unblock replies and retry their captured input',
+  async () => {
+    let calls = 0;
+    let available = false;
+    const model = createChatGptModel({
+      auth,
+      modelId: 'test',
+      fetch: async () => {
+        calls++;
+
+        if (!available) return new Response('Unavailable', { status: 503 });
+
+        const events = [
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'm' }
+          },
+          { type: 'response.output_text.delta', item_id: 'm', delta: 'Saved text.' },
+          { type: 'response.completed', response: {} }
+        ];
+
+        return new Response(
+          events.map((event) => 'data: ' + JSON.stringify(event) + '\n\n').join(''),
+          {
+            headers: { 'content-type': 'text/event-stream' }
+          }
+        );
+      }
+    });
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const settings = yield* Settings;
+
+          yield* settings.saveWorkspacePreferences({
+            ...(yield* settings.workspacePreferences()),
+            textConversionMode: 'automatic'
+          });
+          const session = yield* c.createSession({ title: 'Failed automatic conversion' });
+          const note = yield* c.postMessage({
+            sessionId: session.id,
+            text: 'Saved\ntext.',
+            requestReply: false
+          });
+          const event = Schema.decodeUnknownSync(conversationGenerationRequestedSchema)(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .map((row) => decodeEvent(row.payload))
+              .find(
+                (event) =>
+                  event.type === 'ConversationGenerationRequested' && event.messageId === note.id
+              )
+          );
+          const engine = yield* WorkflowEngine.WorkflowEngine;
+
+          yield* engine.register(conversationReplyWorkflow, conversationReplyHandler);
+          const result = yield* Effect.result(
+            engine.execute(conversationReplyWorkflow, {
+              executionId: 'failed-conversion-test',
+              payload: { event }
+            })
+          );
+
+          expect(result._tag).toBe('Failure');
+          expect(calls).toBe(4);
+          const failed = yield* c.message(note.id);
+
+          expect(failed.activeVersionId).toBe(note.activeVersionId);
+          expect(failed.versions.at(-1)?.status).toBe('failed');
+          expect(
+            (yield* c.inspectReplySnapshot({ requestId: event.requestId })).messages[0].text
+          ).toBe('Saved\ntext.');
+          expect((yield* c.requestReply({ sessionId: session.id })).requestId).toBeTruthy();
+          available = true;
+          const retry = yield* c.convertMessage({
+            messageId: note.id,
+            expectedActiveVersionId: note.activeVersionId!,
+            strategyId: 'chatgpt'
+          });
+          const retryEvent = Schema.decodeUnknownSync(conversationGenerationRequestedSchema)(
+            context.db.orm
+              .select()
+              .from(workflowEvents)
+              .all()
+              .map((row) => decodeEvent(row.payload))
+              .find(
+                (candidate) =>
+                  candidate.type === 'ConversationGenerationRequested' &&
+                  candidate.requestId === retry.requestId &&
+                  candidate.eventId !== event.eventId
+              )
+          );
+
+          yield* engine.execute(conversationReplyWorkflow, {
+            executionId: 'retried-conversion-test',
+            payload: { event: retryEvent }
+          });
+          expect(calls).toBe(5);
+          expect((yield* c.message(note.id)).versions.at(-1)).toMatchObject({
+            id: event.versionId,
+            status: 'complete',
+            text: 'Saved text.'
+          });
+        }).pipe(Effect.provide(workflowServices(model)))
       )
     );
   }

@@ -21,6 +21,7 @@ import { Sources } from '#server/features/sources/index';
 
 type ConversionContext = Parameters<Context.Service.Shape<typeof Sources>['convertDocument']>[2];
 
+/** Converts one captured note and its exact PDF revisions without reading unrelated chat. */
 export const convertCapturedMessage = (
   snapshot: typeof replySnapshotSchema.Type,
   conversion: typeof messageConversionSchema.Type,

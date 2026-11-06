@@ -37,7 +37,7 @@ export const codes_message_role = sqliteTable('codes_message_role', {
 });
 
 export const codes_message_status = sqliteTable('codes_message_status', {
-  code: text({ enum: ['complete', 'pending', 'writing'] }).primaryKey()
+  code: text({ enum: ['complete', 'pending', 'writing', 'failed'] }).primaryKey()
 });
 
 export const codes_version_origin = sqliteTable('codes_version_origin', {

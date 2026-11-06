@@ -1,5 +1,9 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  SessionConversionFailed: 'Text conversion failed',
+  SessionConversionFailedHelp:
+    'Your original note is kept. Retry the saved conversion or discard the failed attempt.',
+  SessionDiscardConversion: 'Discard conversion',
   ConversionChatGpt: 'ChatGPT',
   SessionConvertText: 'Convert to text',
   WorkspaceConversionMode: 'Text conversion',

@@ -446,6 +446,8 @@ export const Conversations = defineService(
         publicationTransaction((tx) => {
           return tx.store(ReplyStore).sealReplyAttachments(input);
         }),
+      failConversion: (input: typeof replyRequestSchema.Type) =>
+        publicationTransaction((tx) => tx.store(ReplyStore).failConversion(input)),
       abandonReply: (input: typeof replyRequestSchema.Type) =>
         publicationTransaction((tx) => {
           return tx.store(ReplyStore).abandonReply(input);
@@ -1326,6 +1328,7 @@ function questionEligible(message: ChatMessage) {
   );
 }
 
+/** Reuses a conversion receipt or commits one new durable request for the captured version. */
 function requestConversion(tx: Transaction, input: typeof convertMessageInputSchema.Type) {
   const strategy = Sources.conversionStrategy(input.strategyId);
   const message = tx.store(MessageStore).message(input.messageId);
@@ -1341,6 +1344,7 @@ function requestConversion(tx: Transaction, input: typeof convertMessageInputSch
   return result;
 }
 
+/** Schedules eligible saved inputs while retaining their original selected version. */
 function scheduleAutomaticConversion(tx: Transaction, message: ChatMessage, strategyId: string) {
   const version = message.versions.find((version) => version.id === message.activeVersionId);
 

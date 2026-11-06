@@ -23,6 +23,7 @@ import type { ReactNode } from 'react';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { useItemArchive } from './archive.queries';
+import { FailedMessageConversion } from './failed-conversion';
 import { useMessageActions } from './message-actions.queries';
 import { MessageContextMenu } from './message-context-menu';
 import { MessageDeletion } from './message-deletion';
@@ -63,7 +64,7 @@ export function MessageActions({
         .filter(
           (version) =>
             version.origin === 'convert' &&
-            version.status !== 'complete' &&
+            (version.status === 'pending' || version.status === 'writing') &&
             version.id !== props.versionId
         )
         .map((version) => (
@@ -72,6 +73,15 @@ export function MessageActions({
             sessionId={props.message.sessionId}
             messageId={props.message.id}
             versionId={version.id}
+          />
+        ))}
+      {props.message.versions
+        .filter((version) => version.origin === 'convert' && version.status === 'failed')
+        .map((version) => (
+          <FailedMessageConversion
+            key={String(version.id)}
+            message={props.message}
+            version={version}
           />
         ))}
       <MessageEditDialog model={model} />
@@ -158,25 +168,33 @@ function MessageToolbar({
   );
 }
 
+/** Exposes the conversion action with the same pointer and keyboard help as other actions. */
 function MessageConversionButton({ model }: { model: MessageActionsModel }) {
   if (!model.conversion.available) return null;
 
   return (
-    <Button
-      size="sm"
-      variant="ghost"
-      disabled={
-        !model.active ||
-        model.blocked ||
-        !!model.draft.mode ||
-        model.conversion.blocked ||
-        model.conversion.mutation.isPending
-      }
-      onClick={model.conversion.convert}
-    >
-      <FileText size={15} aria-hidden="true" />
-      <Notebook.ActionLabel>{model.t('SessionConvertText')}</Notebook.ActionLabel>
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={
+              !model.active ||
+              model.blocked ||
+              !!model.draft.mode ||
+              model.conversion.blocked ||
+              model.conversion.mutation.isPending
+            }
+            onClick={model.conversion.convert}
+          />
+        }
+      >
+        <FileText size={15} aria-hidden="true" />
+        <Notebook.ActionLabel>{model.t('SessionConvertText')}</Notebook.ActionLabel>
+      </TooltipTrigger>
+      <TooltipPopup role="tooltip">{model.t('SessionConvertText')}</TooltipPopup>
+    </Tooltip>
   );
 }
 

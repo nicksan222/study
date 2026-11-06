@@ -9,6 +9,7 @@ import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
 import { AiWritingSettings, WritingSettings } from './workspace-settings';
 
 const api = vi.hoisted(() => ({
+  strategies: vi.fn<() => Promise<unknown[]>>(),
   read: vi.fn<() => Promise<WorkspacePreferences>>(),
   save: vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
 }));
@@ -17,15 +18,13 @@ vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key 
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (
     invoke: (rpc: {
-      'sources.conversionStrategies': () => Promise<unknown[]>;
+      'sources.conversionStrategies': typeof api.strategies;
       'settings.workspacePreferences': typeof api.read;
       'settings.saveWorkspacePreferences': typeof api.save;
     }) => unknown
   ) =>
     invoke({
-      'sources.conversionStrategies': async () => [
-        { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
-      ],
+      'sources.conversionStrategies': api.strategies,
       'settings.workspacePreferences': api.read,
       'settings.saveWorkspacePreferences': api.save
     })
@@ -36,6 +35,9 @@ const caches: QueryClient[] = [];
 beforeEach(() => {
   vi.clearAllMocks();
   api.read.mockResolvedValue(defaultWorkspacePreferences);
+  api.strategies.mockResolvedValue([
+    { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
+  ]);
 });
 afterEach(() => {
   for (const cache of caches) cache.clear();
@@ -159,4 +161,48 @@ testStable('persists automatic conversion only after an explicit mode selection'
       'WorkspaceConversionAutomatic'
     )
   );
+});
+
+testStable(
+  'replaces an unavailable saved strategy even when only one method is available',
+  async () => {
+    api.read.mockResolvedValue({
+      ...defaultWorkspacePreferences,
+      textConversionStrategy: 'removed'
+    });
+    api.save.mockImplementation(async (value) => {
+      api.read.mockResolvedValue(value);
+
+      return value;
+    });
+    const user = userEvent.setup();
+
+    mount(true);
+    expect(await screen.findByText('WorkspaceConversionUnavailable')).toBeVisible();
+    const select = screen.getByRole('combobox', { name: 'WorkspaceConversionStrategy' });
+
+    expect(select).toBeEnabled();
+    await user.click(select);
+    await user.click(await screen.findByRole('option', { name: 'ChatGPT' }));
+    await waitFor(() =>
+      expect(api.save).toHaveBeenCalledWith({
+        ...defaultWorkspacePreferences,
+        textConversionStrategy: 'chatgpt'
+      })
+    );
+    await waitFor(() =>
+      expect(screen.queryByText('WorkspaceConversionUnavailable')).not.toBeInTheDocument()
+    );
+  }
+);
+
+testStable('recovers strategy discovery through its retry action', async () => {
+  api.strategies.mockRejectedValueOnce(new Error('Disconnected'));
+  const user = userEvent.setup();
+
+  mount(true);
+  expect(await screen.findByText('WorkspaceSettingsFailed')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Retry' }));
+  expect(await screen.findByText('ChatGPT')).toBeVisible();
+  expect(api.strategies).toHaveBeenCalledTimes(2);
 });

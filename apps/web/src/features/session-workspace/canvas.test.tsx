@@ -2,6 +2,7 @@ import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
+import { TooltipProvider } from '@study/ui/tooltip';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -907,4 +908,33 @@ testStable('retries the original conversion payload after viewing another versio
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));
   expect(rpc.convert.mock.calls[1][0]).toEqual(rpc.convert.mock.calls[0][0]);
+});
+
+testStable.each(['Copied text', ''])(
+  'pasting files retains the clipboard text payload %j',
+  async (text) => {
+    const file = new File(['pdf'], 'pasted.pdf', { type: 'application/pdf' });
+
+    vi.mocked(uploadSource).mockResolvedValue({ id: 47n } as Awaited<
+      ReturnType<typeof uploadSource>
+    >);
+    mount(<Composer id={id} />);
+    const accepted = fireEvent.paste(screen.getByRole('textbox'), {
+      clipboardData: {
+        files: [file],
+        getData: (kind: string) => (kind === 'text/plain' ? text : '')
+      }
+    });
+
+    expect(accepted).toBe(!!text);
+    await waitFor(() => expect(uploadSource).toHaveBeenCalledWith(file));
+  }
+);
+
+testStable('identifies the conversion icon on hover', async () => {
+  const user = userEvent.setup();
+
+  mount(<TooltipProvider delay={0}>{actions()}</TooltipProvider>);
+  await user.hover(await screen.findByRole('button', { name: 'SessionConvertText' }));
+  expect(await screen.findByRole('tooltip')).toHaveTextContent('SessionConvertText');
 });

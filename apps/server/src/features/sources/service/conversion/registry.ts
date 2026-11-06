@@ -48,6 +48,7 @@ export interface ConversionStrategy<R = Agents> {
   ) => Effect.Effect<Document, StudyError, R>;
 }
 
+/** Validates registrations and dispatches bounded inputs to canonical Document converters. */
 export function makeConversionRegistry<R>(strategies: readonly ConversionStrategy<R>[]) {
   const entries = new Map(strategies.map((strategy) => [strategy.id, strategy]));
 
@@ -57,6 +58,7 @@ export function makeConversionRegistry<R>(strategies: readonly ConversionStrateg
   )
     throw new RangeError('Invalid or duplicate conversion strategy');
 
+  /** Missing methods fail explicitly so provider changes remain intentional. */
   function requireStrategy(id: string) {
     const strategy = entries.get(id);
 
@@ -65,6 +67,7 @@ export function makeConversionRegistry<R>(strategies: readonly ConversionStrateg
     return strategy;
   }
 
+  /** Returns isolated capability data without exposing strategy execution. */
   function describe(id: string) {
     const strategy = requireStrategy(id);
 
@@ -78,6 +81,7 @@ export function makeConversionRegistry<R>(strategies: readonly ConversionStrateg
   return {
     describe,
     forInput: (preferredId: string, kind: ConversionInput['kind']) => {
+      // Unknown methods are explicit failures; never silently switch a document's provider.
       const preferred = requireStrategy(preferredId);
 
       if (preferred.supportedInputs.includes(kind)) return describe(preferred.id);

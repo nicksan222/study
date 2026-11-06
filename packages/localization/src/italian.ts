@@ -1,6 +1,10 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  SessionConversionFailed: 'Conversione del testo non riuscita',
+  SessionConversionFailedHelp:
+    'La nota originale è conservata. Riprova la conversione salvata o elimina il tentativo non riuscito.',
+  SessionDiscardConversion: 'Elimina conversione',
   ConversionChatGpt: 'ChatGPT',
   SessionConvertText: 'Converti in testo',
   WorkspaceConversionMode: 'Conversione del testo',
