@@ -28,6 +28,8 @@ import type {
   captureSessionContextSchema,
   updateSessionSelectionSchema
 } from '@study/contracts/conversations/context';
+import { canConvertMessage } from '@study/contracts/conversations/conversion';
+import type { convertMessageInputSchema } from '@study/contracts/conversations/conversion';
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
@@ -65,9 +67,8 @@ import type {
 } from '@study/contracts/documents/transform';
 import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
-import type { VersionId, MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
-import type { convertMessageInputSchema } from '@study/contracts/sources/conversion';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
@@ -1329,10 +1330,7 @@ function requestConversion(tx: Transaction, input: typeof convertMessageInputSch
   const strategy = Sources.conversionStrategy(input.strategyId);
   const message = tx.store(MessageStore).message(input.messageId);
 
-  if (
-    !conversionEligible(message, input.expectedActiveVersionId, strategy) ||
-    message.role !== 'user'
-  )
+  if (!canConvertMessage(message, input.expectedActiveVersionId, strategy.supportedInputs))
     throw new StudyError('invalid_input', 'No convertible content');
 
   requireAvailableSession(tx, message.sessionId);
@@ -1356,7 +1354,7 @@ function scheduleAutomaticConversion(tx: Transaction, message: ChatMessage, stra
   try {
     const strategy = Sources.conversionStrategy(strategyId);
 
-    if (!conversionEligible(message, version.id, strategy)) return;
+    if (!canConvertMessage(message, version.id, strategy.supportedInputs)) return;
   } catch (error) {
     if (error instanceof StudyError && error.kind === 'unsupported') return;
 
@@ -1368,18 +1366,4 @@ function scheduleAutomaticConversion(tx: Transaction, message: ChatMessage, stra
     expectedActiveVersionId: version.id,
     strategyId
   });
-}
-
-function conversionEligible(
-  message: ChatMessage,
-  versionId: VersionId,
-  strategy: ReturnType<typeof Sources.conversionStrategy>
-) {
-  const version = message.versions.find((version) => version.id === versionId);
-
-  return (
-    (strategy.supportedInputs.includes('text') && !!version?.text.trim()) ||
-    (strategy.supportedInputs.includes('pdf') &&
-      message.parts.some((part) => part.sourceKind === 'pdf' && part.sourceId !== null))
-  );
 }

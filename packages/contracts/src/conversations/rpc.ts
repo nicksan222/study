@@ -11,7 +11,6 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
-import { convertMessageInputSchema } from '../sources/conversion.ts';
 import {
   sessionArchiveInputSchema,
   setSessionItemArchivedSchema,
@@ -24,6 +23,7 @@ import {
   captureSessionContextSchema,
   runSelectionContextSchema
 } from './context.ts';
+import { convertMessageInputSchema } from './conversion.ts';
 import { sessionDeletionSchema } from './deletion.ts';
 import { sessionSummariesSchema } from './schemas.ts';
 import {

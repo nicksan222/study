@@ -1,3 +1,4 @@
+import { canConvertMessage } from '@study/contracts/conversations/conversion';
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -15,13 +16,7 @@ export function useMessageConversion(message: ChatMessage, versionId: VersionId)
   const strategy = strategies.data?.find(
     (strategy) => strategy.id === preferences.textConversionStrategy
   );
-  const version = message.versions.find((version) => version.id === versionId);
-  const available =
-    message.role === 'user' &&
-    !!strategy &&
-    ((strategy.supportedInputs.includes('text') && !!version?.text.trim()) ||
-      (strategy.supportedInputs.includes('pdf') &&
-        message.parts.some((part) => part.sourceKind === 'pdf' && part.sourceId !== null)));
+  const available = !!strategy && canConvertMessage(message, versionId, strategy.supportedInputs);
   const mutation = useMutation({
     mutationFn: () =>
       request((rpc) =>

@@ -15,6 +15,8 @@
 import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
 import { runPreferencesSchema } from '@study/contracts/conversations/context';
+import type { messageConversionSchema } from '@study/contracts/conversations/conversion';
+import { convertMessageInputSchema } from '@study/contracts/conversations/conversion';
 import {
   anchorSchema,
   reanswerInputSchema,
@@ -32,8 +34,6 @@ import { StudyError } from '@study/contracts/errors';
 import { conversationGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
 import { versionIdSchema } from '@study/contracts/ids';
-import type { messageConversionSchema } from '@study/contracts/sources/conversion';
-import { convertMessageInputSchema } from '@study/contracts/sources/conversion';
 import { isNull, and, asc, desc, eq, sql } from '@study/db';
 import {
   blocks,

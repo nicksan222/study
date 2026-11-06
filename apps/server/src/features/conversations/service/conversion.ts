@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { messageConversionSchema } from '@study/contracts/conversations/conversion';
 import type { replySnapshotSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
-import type { messageConversionSchema } from '@study/contracts/sources/conversion';
 import { Effect } from 'effect';
 import type { Context } from 'effect';
 
