@@ -8,6 +8,13 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { useAgentProgress } from './use-agent-progress';
 
+const progressLabels = {
+  running: 'AgentStreamingPreview',
+  completed: 'workspace.state.completed',
+  failed: 'AgentStreamInterrupted',
+  cancelled: 'AgentStreamInterrupted'
+} as const;
+
 /** Live generation previews shared by notebook, transformation and material surfaces. */
 export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
   const { t } = useI18n();
@@ -67,11 +74,7 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
         return (
           <GenerationPreview
             key={run.runId}
-            label={t(
-              run.status === 'failed' || run.status === 'cancelled'
-                ? 'AgentStreamInterrupted'
-                : 'AgentStreamingPreview'
-            )}
+            label={t(progressLabels[run.status])}
             text={text}
             activity={
               tool

@@ -67,6 +67,8 @@ testStable(
       ])
     );
     await waitFor(() => expect(invalidate).toHaveBeenCalled());
+    expect(screen.getByRole('region', { name: 'workspace.state.completed' })).toBeInTheDocument();
+    expect(screen.queryByText('AgentStreamingPreview')).not.toBeInTheDocument();
     mounted.unmount();
     expect(signal.aborted).toBe(true);
     cache.clear();
