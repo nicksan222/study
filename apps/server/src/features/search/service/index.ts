@@ -14,6 +14,7 @@
 
 import type {
   SearchProjection,
+  SearchProjectionPage,
   SearchProjectionPageInput,
   SearchTarget
 } from '@study/contracts/search/schemas';
@@ -30,31 +31,39 @@ import type { Transaction } from '#server/platform/definitions/define-store';
 import { SearchConfiguration } from '#server/platform/search/configuration';
 import { SearchStorage } from '#server/platform/search/storage';
 
+type ProjectionReader = (tx: Transaction, input: SearchProjectionPageInput) => SearchProjectionPage;
+
+const featureReaders: ReadonlyMap<string, ProjectionReader> = new Map([
+  ['project', Projects.searchProjectionsInTransaction],
+  ['session', Conversations.searchProjectionsInTransaction],
+  ['message', Conversations.searchProjectionsInTransaction],
+  ['source', Sources.searchProjectionsInTransaction],
+  ['passage', Sources.searchProjectionsInTransaction],
+  ['material', Materials.searchProjectionsInTransaction],
+  ['question', Materials.searchProjectionsInTransaction],
+  ['document', Documents.searchProjectionsInTransaction]
+]);
+
 export const Search = defineService(
   'study/Search',
   Effect.gen(function* () {
     const storage = yield* SearchStorage;
     const configuration = yield* SearchConfiguration;
-    const registry = makeRegistryStore(configuration.schema);
+    const registry = makeRegistryStore({
+      schema: configuration.schema,
+      featureKinds: new Set(featureReaders.keys())
+    });
     const registryStore = registry.store;
+    const readColumns: ProjectionReader = (tx, input) =>
+      tx.store(registryStore).searchProjectionPages(input);
     /** Collect current feature projections in stable SQL pages, narrowing publication checks to their targets. */
     const read = (
       tx: Transaction,
       targets?: readonly SearchTarget[]
     ): readonly SearchProjection[] => {
-      const readers = new Map([
-        ['project', Projects.searchProjectionsInTransaction],
-        ['session', Conversations.searchProjectionsInTransaction],
-        ['message', Conversations.searchProjectionsInTransaction],
-        ['source', Sources.searchProjectionsInTransaction],
-        ['passage', Sources.searchProjectionsInTransaction],
-        ['material', Materials.searchProjectionsInTransaction],
-        ['question', Materials.searchProjectionsInTransaction],
-        ['document', Documents.searchProjectionsInTransaction]
-      ]);
       const rows: SearchProjection[] = [];
 
-      for (const entry of registry.catalog) {
+      for (const entry of registry.projections) {
         if (
           targets &&
           !targets.some(
@@ -64,9 +73,7 @@ export const Search = defineService(
           continue;
 
         const reader =
-          readers.get(entry.kind) ??
-          ((tx: Transaction, input: SearchProjectionPageInput) =>
-            tx.store(registryStore).searchProjectionPages(input));
+          entry.projection === 'feature' ? featureReaders.get(entry.kind)! : readColumns;
         let offset = 0;
 
         for (;;) {

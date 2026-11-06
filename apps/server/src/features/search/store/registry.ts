@@ -32,17 +32,6 @@ import { Schema } from 'effect';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-const featureKinds = new Set([
-  'project',
-  'session',
-  'message',
-  'source',
-  'passage',
-  'material',
-  'document',
-  'question'
-]);
-
 /** Encode only scalar stable identities and reject unsafe numeric or structured values. */
 function identity(value: unknown): string {
   if (typeof value === 'string' || typeof value === 'bigint') return String(value);
@@ -146,7 +135,13 @@ function makeRegistrySearchProjections({ db }: StoreResources) {
 }
 
 /** Build the agent catalog and automatic projection store from the validated Drizzle registry. */
-export function makeRegistryStore(schema: SchemaExports = databaseSchema) {
+export function makeRegistryStore({
+  schema = databaseSchema,
+  featureKinds
+}: {
+  schema?: SchemaExports;
+  featureKinds: ReadonlySet<string>;
+}) {
   const registry = collectSchemaRegistry(schema);
 
   for (const { metadata } of registry.entities) {
@@ -197,5 +192,10 @@ export function makeRegistryStore(schema: SchemaExports = databaseSchema) {
     citations: metadata.kind === 'passage' || metadata.kind === 'document'
   }));
 
-  return { store, catalog };
+  const projections = registry.entities.map(({ metadata }) => ({
+    kind: metadata.kind,
+    projection: metadata.projection
+  }));
+
+  return { store, catalog, projections };
 }

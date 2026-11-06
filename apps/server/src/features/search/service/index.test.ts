@@ -150,20 +150,21 @@ const scopedTopics = defineTable({
   status: text().notNull()
 });
 
+const model = {
+  chunkPassages: (text: string) => Effect.succeed([text]),
+  maxChunkingInputLength: 2000000,
+  identity: 'scope-fixture-v1',
+  dimensions: 3,
+  embedQuery: () => Effect.succeed(new Float32Array([1, 0, 0])),
+  embedPassages: (texts: readonly string[]) =>
+    Effect.succeed(texts.map(() => new Float32Array([1, 0, 0])))
+};
+
 testStable(
   'automatic table projections honor declared project scope, publication, archive and deletion',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const model = {
-      chunkPassages: (text: string) => Effect.succeed([text]),
-      maxChunkingInputLength: 2000000,
-      identity: 'scope-fixture-v1',
-      dimensions: 3,
-      embedQuery: () => Effect.succeed(new Float32Array([1, 0, 0])),
-      embedPassages: (texts: readonly string[]) =>
-        Effect.succeed(texts.map(() => new Float32Array([1, 0, 0])))
-    };
 
     try {
       context.db.exec(
@@ -206,6 +207,51 @@ testStable(
             model,
             schema: { ...schema, scopedTopics }
           }),
+          Effect.provideService(Database, { store: context })
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+const registeredProject = defineTable({
+  role: 'entity',
+  projection: 'columns',
+  kind: 'project',
+  description: 'External project headings',
+  scope: { type: 'global' },
+  visibility: 'all',
+  textColumns: ['name']
+})('test_registered_projects', { id: integer().primaryKey(), name: text().notNull() });
+
+testStable(
+  'a column-projected entity never dispatches to a same-named feature participant',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      context.db.exec(
+        'CREATE TABLE test_registered_projects(id INTEGER PRIMARY KEY,name TEXT NOT NULL)'
+      );
+      context.db.orm.insert(registeredProject).values({ id: 1, name: 'planet exploration' }).run();
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* Search;
+
+          expect(yield* service.reconcile()).toMatchObject({ embedded: 1 });
+          const hits = yield* service.search({ query: 'planet' }, { type: 'all' });
+
+          expect(hits.map((hit) => hit.target)).toStrictEqual([
+            { type: 'registered', entity: 'project', key: '1' }
+          ]);
+        }).pipe(
+          Effect.provide(Search.layer),
+          Effect.provide(SearchStorage.layer),
+          Effect.provideService(SearchConfiguration, { model, schema: { registeredProject } }),
           Effect.provideService(Database, { store: context })
         )
       );
