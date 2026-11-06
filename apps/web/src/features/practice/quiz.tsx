@@ -7,11 +7,12 @@ import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { questionNumber, reviewProgress, questionCount } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { NextButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { ArrowRight, Play, CheckCheck } from 'lucide-react';
+import { Play, CheckCheck } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
@@ -333,10 +334,11 @@ function QuizFinish({
         <Practice.FooterContext>
           <Practice.MutedText>{t('PracticeQuizSaveHint')}</Practice.MutedText>
         </Practice.FooterContext>
-        <Button disabled={finishing} onClick={() => finish()}>
-          {t(finishing ? 'PracticeSaving' : 'PracticeFinishQuiz')}
-          <ArrowRight aria-hidden="true" />
-        </Button>
+        <NextButton
+          disabled={finishing}
+          onClick={() => finish()}
+          label={t(finishing ? 'PracticeSaving' : 'PracticeFinishQuiz')}
+        ></NextButton>
       </Practice.StageFooter>
     </Practice.Stage>
   );

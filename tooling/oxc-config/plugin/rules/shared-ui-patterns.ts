@@ -172,6 +172,21 @@ export default defineRule({
           (child) => child.type !== 'JSXText' || child.value.trim()
         );
 
+        if (
+          children.length === 2 &&
+          children.some(
+            (child) =>
+              child.type === 'JSXElement' &&
+              child.openingElement.name.type === 'JSXIdentifier' &&
+              ['ArrowLeft', 'ArrowRight'].includes(child.openingElement.name.name)
+          )
+        )
+          context.report({
+            node: node.openingElement,
+            message:
+              'Use PreviousButton or NextButton from @study/ui/navigation-button for directional actions.'
+          });
+
         if (children.length !== 1) return;
 
         const key = translation(children[0]);

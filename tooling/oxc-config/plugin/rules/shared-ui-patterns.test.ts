@@ -129,3 +129,16 @@ testStable('standardizes labelled text controls but permits native document inpu
   expect(lint(`const view = <label>Name<Input /></label>;`)).toHaveLength(1);
   expect(lint(`const view = <label><input type="checkbox" />Choice</label>;`)).toHaveLength(0);
 });
+
+testStable('standardizes directional actions while keeping unrelated icons available', () => {
+  expect(
+    lint(
+      `import { Button } from '@study/ui/button'; const view = <Button>Next<ArrowRight /></Button>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { Button } from '@study/ui/button'; const view = <Button>Open<ArrowUpRight /></Button>;`
+    )
+  ).toHaveLength(0);
+});

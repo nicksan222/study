@@ -8,11 +8,11 @@ import { ErrorState } from '@study/ui/error-state';
 import { IdentityEditor } from '@study/ui/identity-editor';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
+import { PreviousButton } from '@study/ui/navigation-button';
 import { Settings } from '@study/ui/settings';
 import { SubjectSettings } from '@study/ui/subject-settings';
 import { toastManager } from '@study/ui/toast';
 import { useIsMutating, useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -47,10 +47,12 @@ export function ProjectSettings({
         <Settings.Section
           title={project.name}
           actions={
-            <Button variant="ghost-muted" size="sm" onClick={() => setSelected(undefined)}>
-              <ArrowLeft aria-hidden="true" />
-              {t('Projects')}
-            </Button>
+            <PreviousButton
+              variant="ghost-muted"
+              size="sm"
+              onClick={() => setSelected(undefined)}
+              label={t('Projects')}
+            ></PreviousButton>
           }
         >
           <ProjectDetails

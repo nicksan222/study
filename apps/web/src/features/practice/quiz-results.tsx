@@ -1,11 +1,12 @@
 import type { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
 import { questionNumber, reviewProgress, questionCount } from '@study/localization';
 import { Button } from '@study/ui/button';
+import { NextButton, PreviousButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { Textarea } from '@study/ui/textarea';
 import { Link, useSearch } from '@tanstack/react-router';
-import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useState, useId } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -54,34 +55,28 @@ export function QuizResults({
   const controls = (
     <>
       <Practice.FooterContext>
-        <Button
+        <PreviousButton
           variant="ghost"
           disabled={index === 0}
           onClick={() => setIndex((value) => value - 1)}
-        >
-          <ArrowLeft aria-hidden="true" />
-          {t('QuizPrevious')}
-        </Button>
+          label={t('QuizPrevious')}
+        ></PreviousButton>
         {presentation === 'page' && (
-          <Button
+          <NextButton
             variant="ghost"
             disabled={index >= attempt.questions.length - 1}
             onClick={() => setIndex((value) => value + 1)}
-          >
-            {t('PracticeNextQuestion')}
-            <ArrowRight aria-hidden="true" />
-          </Button>
+            label={t('PracticeNextQuestion')}
+          ></NextButton>
         )}
       </Practice.FooterContext>
       {presentation === 'preview' ? (
-        <Button
+        <NextButton
           variant="outline"
           disabled={index >= attempt.questions.length - 1}
           onClick={() => setIndex((value) => value + 1)}
-        >
-          {t('PracticeNextQuestion')}
-          <ArrowRight aria-hidden="true" />
-        </Button>
+          label={t('PracticeNextQuestion')}
+        ></NextButton>
       ) : (
         <Button
           render={

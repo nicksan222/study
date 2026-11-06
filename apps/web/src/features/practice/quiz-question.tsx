@@ -4,9 +4,9 @@ import type {
   quizAttemptInProgressSchema
 } from '@study/contracts/learning/schemas';
 import { Button } from '@study/ui/button';
+import { NextButton, PreviousButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { Textarea } from '@study/ui/textarea';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
@@ -167,10 +167,13 @@ function QuestionFooter({
     <Practice.StageFooter>
       <Practice.FooterContext>
         {previous && !review && (
-          <Button type="button" variant="ghost" disabled={pending} onClick={previous}>
-            <ArrowLeft aria-hidden="true" />
-            {t('QuizPrevious')}
-          </Button>
+          <PreviousButton
+            type="button"
+            variant="ghost"
+            disabled={pending}
+            onClick={previous}
+            label={t('QuizPrevious')}
+          ></PreviousButton>
         )}
         {review && (
           <Button type="button" variant="ghost" disabled={pending} onClick={review}>
@@ -181,10 +184,11 @@ function QuestionFooter({
           {t(last ? 'PracticeLastQuestion' : 'PracticeAnswerSaved')}
         </Practice.MutedText>
       </Practice.FooterContext>
-      <Button type="submit" disabled={!valid || pending}>
-        {t(pending ? 'PracticeSaving' : 'SubmitAnswer')}
-        <ArrowRight aria-hidden="true" />
-      </Button>
+      <NextButton
+        type="submit"
+        disabled={!valid || pending}
+        label={t(pending ? 'PracticeSaving' : 'SubmitAnswer')}
+      ></NextButton>
     </Practice.StageFooter>
   );
 }

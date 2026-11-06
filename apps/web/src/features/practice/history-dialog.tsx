@@ -4,15 +4,15 @@ import type {
   quizAttemptInProgressSchema
 } from '@study/contracts/learning/schemas';
 import { questionNumber, reviewProgress } from '@study/localization';
-import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
+import { NextButton, PreviousButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { Textarea } from '@study/ui/textarea';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
-import { ArrowLeft, ArrowRight, ArrowUpRight, History } from 'lucide-react';
+import { ArrowUpRight, History } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -189,22 +189,18 @@ function SavedAttempt({ attempt, close }: { attempt: InProgress; close: () => vo
         <Surface.ArchiveFooter>
           <Surface.ArchiveActions>
             <Practice.FooterContext>
-              <Button
+              <PreviousButton
                 variant="outline"
                 disabled={index === 0}
                 onClick={() => setIndex((current) => current - 1)}
-              >
-                <ArrowLeft aria-hidden="true" />
-                {t('QuizPrevious')}
-              </Button>
-              <Button
+                label={t('QuizPrevious')}
+              ></PreviousButton>
+              <NextButton
                 variant="outline"
                 disabled={index >= attempt.questions.length - 1}
                 onClick={() => setIndex((current) => current + 1)}
-              >
-                {t('NextQuestion')}
-                <ArrowRight aria-hidden="true" />
-              </Button>
+                label={t('NextQuestion')}
+              ></NextButton>
             </Practice.FooterContext>
             <ResumeAttempt attempt={attempt} close={close} />
           </Surface.ArchiveActions>
@@ -258,7 +254,7 @@ function ResumeAttempt({ attempt, close }: { attempt: InProgress; close: () => v
   const search = useSearch({ from: '__root__' });
 
   return (
-    <Button
+    <NextButton
       render={
         <Link
           to="/practice/$materialId"
@@ -267,9 +263,7 @@ function ResumeAttempt({ attempt, close }: { attempt: InProgress; close: () => v
         />
       }
       onClick={close}
-    >
-      {t('PracticeResume')}
-      <ArrowRight aria-hidden="true" />
-    </Button>
+      label={t('PracticeResume')}
+    ></NextButton>
   );
 }
