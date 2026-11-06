@@ -1,0 +1,10 @@
+.ui-action-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--control-radius);
+}
+.ui-action-tooltip:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}

@@ -1,13 +1,3 @@
-.ui-ai-trigger {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--control-radius);
-}
-.ui-ai-trigger:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 3px;
-}
 .ui-ai-icon {
   display: inline-flex;
   align-items: center;

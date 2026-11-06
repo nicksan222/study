@@ -668,17 +668,33 @@ testStable(
     vi.mocked(editNote).mockRejectedValue(new StudyError('transient', 'Uncertain edit'));
     mount(<VersionedNote />);
     fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
-    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeDisabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'SessionPreviousVersion', hidden: true })
+      ).toBeDisabled()
+    );
     fireEvent.click(screen.getByRole('button', { name: 'SessionCancel' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeEnabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'SessionPreviousVersion', hidden: true })
+      ).toBeEnabled()
+    );
     fireEvent.click(screen.getByRole('button', { name: 'SessionEditNote' }));
     fireEvent.click(await screen.findByRole('button', { name: 'SessionSaveNote' }));
     await screen.findByRole('alert');
-    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeDisabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'SessionPreviousVersion', hidden: true })
+      ).toBeDisabled()
+    );
     fireEvent.click(screen.getByRole('button', { name: 'LibraryRefresh' }));
     fireEvent.click(await screen.findByRole('button', { name: 'SessionReviewedHistory' }));
-    await waitFor(() => expect(screen.getByLabelText('SessionPreviousVersion')).toBeEnabled());
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'SessionPreviousVersion', hidden: true })
+      ).toBeEnabled()
+    );
   }
 );
 
