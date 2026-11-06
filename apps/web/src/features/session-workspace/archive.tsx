@@ -7,13 +7,12 @@ import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ChatMessage, ChatMessageText } from '@study/ui/chat';
 import { ErrorState } from '@study/ui/error-state';
-import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { Notebook } from '@study/ui/session-workspace';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, FileInput, Search, RotateCcw } from 'lucide-react';
-import { useId, useState } from 'react';
+import { FileText, FileInput, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -119,24 +118,18 @@ function ArchiveNavigation({
   loaded: boolean;
 }) {
   const { t } = useI18n();
-  const searchId = useId();
   const filtered = available.filter((item) =>
     item.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
   );
 
   return (
     <Surface.Navigation aria-label={t('SessionArchived')}>
-      <Surface.Search htmlFor={searchId}>
-        <Search aria-hidden="true" />
-        <Input
-          id={searchId}
-          type="search"
-          aria-label={t('SessionArchiveSearch')}
-          placeholder={t('Search')}
-          value={search}
-          onValueChange={onSearch}
-        />
-      </Surface.Search>
+      <Surface.SearchField
+        label={t('SessionArchiveSearch')}
+        placeholder={t('Search')}
+        value={search}
+        onValueChange={onSearch}
+      />
       {pending && <Loading label={t('LoadingStudy')} />}
       <Surface.Materials>
         {filtered.map((item) => (

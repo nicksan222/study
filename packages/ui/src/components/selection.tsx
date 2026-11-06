@@ -64,10 +64,12 @@ export const SelectionSurface = {
 function SearchField({
   label,
   value,
-  onValueChange
+  onValueChange,
+  placeholder
 }: {
   label: string;
   value: string;
+  placeholder?: string;
   onValueChange: (value: string) => void;
 }) {
   return (
@@ -77,6 +79,7 @@ function SearchField({
         unstyled
         type="search"
         aria-label={label}
+        placeholder={placeholder}
         value={value}
         onValueChange={onValueChange}
       />

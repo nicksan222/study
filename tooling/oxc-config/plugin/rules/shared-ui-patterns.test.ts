@@ -87,3 +87,14 @@ testStable('standardizes selection empty states without banning content containe
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes search scaffolding only on selection surfaces', () => {
+  expect(
+    lint(
+      `import { SelectionSurface as S } from '@study/ui/selection'; const view = <S.Search><input type="search" /></S.Search>;`
+    )
+  ).toHaveLength(1);
+  expect(lint(`const view = <input type="search" aria-label="Find in document" />;`)).toHaveLength(
+    0
+  );
+});

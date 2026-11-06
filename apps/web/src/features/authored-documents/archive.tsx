@@ -3,12 +3,11 @@ import type { ProjectId, StudyDocumentId } from '@study/contracts/ids';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
-import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { FileText, Search } from 'lucide-react';
-import { useId, useState } from 'react';
+import { FileText } from 'lucide-react';
+import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
@@ -33,7 +32,6 @@ export function DocumentsArchive({ project }: { project?: ProjectId }) {
 
 function ArchiveContents({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
-  const searchId = useId();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string>();
   const state = useInfiniteQuery(documentsOptions(project, true));
@@ -43,17 +41,12 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
   return (
     <Surface.Root>
       <Surface.Navigation aria-label={t('DocumentsArchived')}>
-        <Surface.Search htmlFor={searchId}>
-          <Search aria-hidden="true" />
-          <Input
-            id={searchId}
-            type="search"
-            aria-label={t('Search')}
-            placeholder={t('Search')}
-            value={search}
-            onValueChange={setSearch}
-          />
-        </Surface.Search>
+        <Surface.SearchField
+          label={t('Search')}
+          placeholder={t('Search')}
+          value={search}
+          onValueChange={setSearch}
+        />
         {state.isPending && <Loading label={t('LoadingStudy')} />}
         {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
         <Surface.Materials>
