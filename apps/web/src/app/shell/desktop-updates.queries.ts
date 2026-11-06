@@ -14,5 +14,7 @@ export function desktopUpdateQueryOptions() {
 }
 
 export function installDesktopUpdateMutationOptions() {
-  return mutationOptions({ mutationFn: () => invoke<void>('install_update') });
+  return mutationOptions({
+    mutationFn: (expectedVersion: string) => invoke<void>('install_update', { expectedVersion })
+  });
 }

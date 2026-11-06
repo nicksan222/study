@@ -1,6 +1,6 @@
 import { toastManager } from '@study/ui/toast';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -14,6 +14,13 @@ export function DesktopUpdates() {
   const { t } = useI18n();
   const announced = useRef<string | null>(null);
   const progress = useRef<string | null>(null);
+  const notice = useRef<string | null>(null);
+  const closeNotice = useCallback(() => {
+    if (!notice.current) return;
+
+    toastManager.close(notice.current);
+    notice.current = null;
+  }, []);
   const update = useQuery(desktopUpdateQueryOptions());
   const install = useMutation({
     ...installDesktopUpdateMutationOptions(),
@@ -23,8 +30,10 @@ export function DesktopUpdates() {
     onSettled: () => {
       if (progress.current) toastManager.close(progress.current);
     },
-    onError: () => {
-      const notice = toastManager.add({
+    onError: (_error, version) => {
+      if (announced.current !== version) return;
+
+      notice.current = toastManager.add({
         title: t('DesktopUpdateFailed'),
         description: t('DesktopUpdateRetryHelp'),
         type: 'error',
@@ -32,8 +41,10 @@ export function DesktopUpdates() {
         actionProps: {
           children: t('Retry'),
           onClick: () => {
-            toastManager.close(notice);
-            install.mutate();
+            if (announced.current !== version) return;
+
+            closeNotice();
+            install.mutate(version);
           }
         }
       });
@@ -41,22 +52,30 @@ export function DesktopUpdates() {
   });
 
   useEffect(() => {
-    if (!update.data || announced.current === update.data) return;
+    const version = update.data ?? null;
 
-    announced.current = update.data;
-    const notice = toastManager.add({
-      title: t('DesktopUpdateAvailable', { version: update.data }),
+    if (announced.current === version) return;
+
+    closeNotice();
+    announced.current = version;
+
+    if (!version) return;
+
+    notice.current = toastManager.add({
+      title: t('DesktopUpdateAvailable', { version }),
       description: t('DesktopUpdateConsent'),
       timeout: 0,
       actionProps: {
         children: t('DesktopUpdateInstall'),
         onClick: () => {
-          toastManager.close(notice);
-          install.mutate();
+          if (announced.current !== version) return;
+
+          closeNotice();
+          install.mutate(version);
         }
       }
     });
-  }, [update.data, install, t]);
+  }, [update.data, install, t, closeNotice]);
 
   return null;
 }
