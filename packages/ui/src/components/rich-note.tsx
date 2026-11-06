@@ -185,10 +185,31 @@ export function RichNoteEditorSurface({
 }
 
 /** Renders saved notes without creating an editor instance for every history entry. */
-export function RichNoteContent({ value }: { value: string }) {
+export function RichNoteContent({
+  value,
+  renderText
+}: {
+  value: string;
+  renderText?: (value: string) => ReactNode;
+}) {
   const content = useMemo(
-    () => renderToReactElement({ extensions, content: markdown.parse(value) }),
-    [value]
+    () =>
+      renderToReactElement({
+        extensions,
+        content: markdown.parse(value),
+        options: renderText
+          ? {
+              nodeMapping: {
+                text: ({ node, parent }) =>
+                  parent?.type.name === 'codeBlock' ||
+                  node.marks.some((mark) => mark.type.name === 'code' || mark.type.name === 'link')
+                    ? node.text
+                    : renderText(node.text ?? '')
+              }
+            }
+          : undefined
+      }),
+    [value, renderText]
   );
 
   return <div className="rich-note-content">{content}</div>;

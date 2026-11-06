@@ -32,12 +32,14 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 import { activeMessageCondition } from './archive.ts';
+import { makeDiscardPending } from './pending.ts';
 
 export const QuestionStore = defineStore({
   name: 'study/ConversationQuestionStore',
   entity: { singular: 'questionSnapshot', plural: 'questionSnapshots' },
-  make: ({ db }) => {
+  make: ({ db, clock }) => {
     const current = makeCurrent({ db });
+    const discardPending = makeDiscardPending({ db, clock });
 
     return {
       queries: {
@@ -76,15 +78,23 @@ export const QuestionStore = defineStore({
           input: questionVersionInputSchema,
           output: Schema.Void,
           run: (input) => {
-            current(input);
+            const { row } = current(input);
             const receipt = db.orm
               .select()
               .from(conversation_question_answers)
               .where(eq(conversation_question_answers.version_id, input.expectedActiveVersionId))
               .get();
 
-            if (receipt)
-              db.orm.delete(messages).where(eq(messages.id, receipt.answer_message_id)).run();
+            if (receipt) {
+              const answer = db.orm
+                .select()
+                .from(message_versions)
+                .where(eq(message_versions.id, receipt.answer_version_id))
+                .get();
+
+              if (answer && answer.message_id === row.id) discardPending(row, answer);
+              else db.orm.delete(messages).where(eq(messages.id, receipt.answer_message_id)).run();
+            }
           }
         }),
 
@@ -188,6 +198,28 @@ export const QuestionStore = defineStore({
 
 /** Resolves an available user note while fencing stale or deleting session identities. */
 function makeCurrent({ db }: Pick<StoreResources, 'db'>) {
+  const isTextQuestion = (
+    row: typeof messages.$inferSelect | undefined
+  ): row is typeof messages.$inferSelect => !!row && row.role === 'user' && row.format === 'text';
+
+  function isAnswerSelection(
+    row: typeof messages.$inferSelect,
+    version: typeof message_versions.$inferSelect
+  ) {
+    const active = db.orm
+      .select()
+      .from(message_versions)
+      .where(eq(message_versions.id, row.active_version_id!))
+      .get();
+
+    return (
+      row.question_version_id === version.id &&
+      active?.message_id === row.id &&
+      active.origin === 'answer' &&
+      active.based_on === version.id
+    );
+  }
+
   const current = (input: typeof questionVersionInputSchema.Type) => {
     const row = db.orm
       .select()
@@ -196,10 +228,7 @@ function makeCurrent({ db }: Pick<StoreResources, 'db'>) {
       .get();
 
     if (
-      !row ||
-      row.role !== 'user' ||
-      row.format !== 'text' ||
-      row.active_version_id !== input.expectedActiveVersionId ||
+      !isTextQuestion(row) ||
       db.orm
         .select()
         .from(session_deletions)
@@ -214,7 +243,10 @@ function makeCurrent({ db }: Pick<StoreResources, 'db'>) {
       .where(eq(message_versions.id, input.expectedActiveVersionId))
       .get();
 
-    if (!version || version.status !== 'complete')
+    if (!version || version.message_id !== row.id || version.status !== 'complete')
+      throw new StudyError('invalid_input', 'Question version is unavailable');
+
+    if (row.active_version_id !== input.expectedActiveVersionId && !isAnswerSelection(row, version))
       throw new StudyError('invalid_input', 'Question version is unavailable');
 
     return { row, version };

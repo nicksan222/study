@@ -1,12 +1,14 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { VersionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import { Notebook } from '@study/ui/session-workspace';
+import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { CircleHelp, MessageSquare, ArrowDownToLine, StickyNote } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { jumpToNotebookTarget, notebookTargetId } from './notebook-index';
+import { PendingMessageWork } from './pending-message-work';
 import { useQuestionActions } from './question-actions.queries';
 import { SessionReadError, SessionError } from './status';
 
@@ -15,45 +17,93 @@ type Model = ReturnType<typeof useQuestionActions>;
 /** Explicit question controls always target the version the learner is reading. */
 export function QuestionActions({
   message,
-  versionId
+  versionId,
+  children
 }: {
   message: ChatMessage;
   versionId: VersionId;
+  children: (questionActions: ReactNode) => ReactNode;
 }) {
-  const { t } = useI18n();
   const model = useQuestionActions(message, versionId);
 
-  if (message.role !== 'user' || message.format === 'document') return null;
+  if (message.role !== 'user' || message.format === 'document') return children(null);
 
   return (
     <>
-      <Notebook.Actions aria-label={t('SessionQuestionActions')}>
-        <QuestionAnswer model={model} message={message} />
-        {model.isQuestion && model.canRetry && (
-          <Button size="sm" variant="outline" disabled={model.blocked} onClick={model.submitAnswer}>
-            {t('SessionRetryAnswer')}
-          </Button>
-        )}
-        <Button
-          size="sm"
-          variant="ghost-muted"
-          disabled={model.blocked}
-          onClick={() => {
-            model.answer.reset();
-            model.restore.reset();
-            model.mark.mutate(model.isQuestion ? 'note' : 'question');
-          }}
-        >
-          {model.isQuestion ? (
-            <StickyNote size={15} aria-hidden="true" />
-          ) : (
-            <CircleHelp size={15} aria-hidden="true" />
-          )}
-          {t(model.isQuestion ? 'SessionMarkAsNote' : 'SessionMarkAsQuestion')}
-        </Button>
-      </Notebook.Actions>
+      {children(
+        <>
+          <QuestionResponse model={model} message={message} />
+          <QuestionKindAction model={model} />
+        </>
+      )}
+      {model.answering && model.answerVersion && (
+        <PendingMessageWork
+          sessionId={message.sessionId}
+          messageId={message.id}
+          versionId={model.answerVersion.id}
+        />
+      )}
       <QuestionFeedback model={model} />
     </>
+  );
+}
+
+function QuestionResponse({ model, message }: { model: Model; message: ChatMessage }) {
+  const { t } = useI18n();
+
+  if (
+    !model.isQuestion ||
+    model.answering ||
+    (model.inPlaceAnswer && model.answerVersion?.status === 'complete')
+  )
+    return null;
+
+  return (
+    <>
+      {model.canRetry ? (
+        <QuestionToolbarButton
+          label={t('SessionRetryAnswer')}
+          disabled={model.blocked}
+          onClick={model.submitAnswer}
+        >
+          <MessageSquare size={15} aria-hidden="true" />
+        </QuestionToolbarButton>
+      ) : (
+        <QuestionAnswer model={model} message={message} />
+      )}
+    </>
+  );
+}
+
+function QuestionKindAction({ model }: { model: Model }) {
+  const { t } = useI18n();
+  const label = t(model.isQuestion ? 'SessionMarkAsNote' : 'SessionMarkAsQuestion');
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={label}
+            disabled={model.blocked}
+            onClick={() => {
+              model.answer.reset();
+              model.restore.reset();
+              model.mark.mutate(model.isQuestion ? 'note' : 'question');
+            }}
+          />
+        }
+      >
+        {model.isQuestion ? (
+          <StickyNote size={15} aria-hidden="true" />
+        ) : (
+          <CircleHelp size={15} aria-hidden="true" />
+        )}
+      </TooltipTrigger>
+      <TooltipPopup>{model.isQuestion ? label : t('SessionMarkAsQuestionHelp')}</TooltipPopup>
+    </Tooltip>
   );
 }
 
@@ -67,9 +117,8 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
 
   if (answerId)
     return (
-      <Button
-        size="sm"
-        variant="ghost"
+      <QuestionToolbarButton
+        label={t(model.question?.answerArchived ? 'SessionRestoreAnswer' : 'SessionViewAnswer')}
         disabled={model.restore.isPending}
         onClick={() => {
           if (model.question?.answerArchived) model.restore.mutate();
@@ -77,15 +126,48 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
         }}
       >
         <ArrowDownToLine size={15} aria-hidden="true" />
-        {t(model.question?.answerArchived ? 'SessionRestoreAnswer' : 'SessionViewAnswer')}
-      </Button>
+      </QuestionToolbarButton>
     );
 
   return (
-    <Button size="sm" variant="outline" disabled={model.blocked} onClick={model.submitAnswer}>
+    <QuestionToolbarButton
+      label={t(model.answer.isPending ? 'SessionRequestingAnswer' : 'SessionAnswerQuestion')}
+      disabled={model.blocked}
+      onClick={model.submitAnswer}
+    >
       <MessageSquare size={15} aria-hidden="true" />
-      {t(model.answer.isPending ? 'SessionRequestingAnswer' : 'SessionAnswerQuestion')}
-    </Button>
+    </QuestionToolbarButton>
+  );
+}
+
+function QuestionToolbarButton({
+  label,
+  disabled,
+  onClick,
+  children
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            aria-label={label}
+            disabled={disabled}
+            onClick={onClick}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipPopup>{label}</TooltipPopup>
+    </Tooltip>
   );
 }
 

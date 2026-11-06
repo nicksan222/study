@@ -32,10 +32,12 @@ type MessageActionsModel = ReturnType<typeof useMessageActions>;
 export function MessageActions({
   children,
   onVersionChange,
+  questionAction,
   ...props
 }: Parameters<typeof useMessageActions>[0] & {
   children?: ReactNode;
   onVersionChange?: (id: VersionId) => void;
+  questionAction?: ReactNode;
 }) {
   const model = useMessageActions(props);
   const { draft } = model;
@@ -44,7 +46,11 @@ export function MessageActions({
     <>
       <MessageContextMenu model={model}>
         {children}
-        <MessageToolbar model={model} onVersionChange={onVersionChange} />
+        <MessageToolbar
+          model={model}
+          onVersionChange={onVersionChange}
+          questionAction={questionAction}
+        />
       </MessageContextMenu>
       <MessageEditDialog model={model} />
       {!draft.mode && <MessageRecovery model={model} />}
@@ -54,10 +60,12 @@ export function MessageActions({
 
 function MessageToolbar({
   model,
-  onVersionChange
+  onVersionChange,
+  questionAction
 }: {
   model: MessageActionsModel;
   onVersionChange?: (id: VersionId) => void;
+  questionAction?: ReactNode;
 }) {
   const { message, t, active, draft } = model;
 
@@ -113,6 +121,7 @@ function MessageToolbar({
         label="SessionUseVersion"
         icon={<Check size={15} aria-hidden="true" />}
       />
+      {questionAction}
       <MessageArchiveButton model={model} />
       <MessageDeletion
         message={message}

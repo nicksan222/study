@@ -56,11 +56,16 @@ import { makeThread } from './thread.ts';
 
 /** Carries manual corrections across versions while invalidating automatic results for changed content. */
 function questionSelection(message: typeof chatMessageSchema.Type, versionId: VersionId) {
+  const retained =
+    message.question &&
+    (message.question.versionId === versionId || message.question.answerVersionId === versionId);
+  const carry = retained || message.question?.origin === 'manual';
+
   return {
     active_version_id: versionId,
-    question_kind: message.question?.origin === 'manual' ? message.question.kind : null,
-    question_origin: message.question?.origin === 'manual' ? ('manual' as const) : null,
-    question_version_id: message.question?.origin === 'manual' ? versionId : null
+    question_kind: carry ? message.question!.kind : null,
+    question_origin: carry ? message.question!.origin : null,
+    question_version_id: retained ? message.question!.versionId : carry ? versionId : null
   };
 }
 
@@ -137,6 +142,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       ? db.orm
           .select({
             messageId: conversation_question_answers.answer_message_id,
+            versionId: conversation_question_answers.answer_version_id,
             requestId: conversation_question_answers.request_id,
             archivedAt: messages.archived_at
           })
@@ -146,18 +152,21 @@ function makeHelpers({ db, clock }: StoreResources) {
           .get()
       : undefined;
 
+    const question = () =>
+      m.question_kind && m.question_origin && m.question_version_id
+        ? {
+            kind: m.question_kind,
+            origin: m.question_origin,
+            versionId: m.question_version_id,
+            answerMessageId: answer?.messageId,
+            answerVersionId: answer?.versionId,
+            answerRequestId: answer?.requestId,
+            answerArchived: answer?.archivedAt != null
+          }
+        : undefined;
+
     return {
-      question:
-        m.question_kind && m.question_origin && m.question_version_id
-          ? {
-              kind: m.question_kind,
-              origin: m.question_origin,
-              versionId: m.question_version_id,
-              answerMessageId: answer?.messageId,
-              answerRequestId: answer?.requestId,
-              answerArchived: answer?.archivedAt != null
-            }
-          : undefined,
+      question: question(),
       id: m.id,
       sessionId: m.session_id,
       role: m.role,

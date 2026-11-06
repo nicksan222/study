@@ -587,6 +587,69 @@ testStable(
 );
 
 testStable(
+  'renders question and answer in one entry and keeps the question toggle beside deletion',
+  async () => {
+    const message = Schema.decodeUnknownSync(chatMessageSchema)({
+      id: 61n,
+      sessionId: id,
+      role: 'user',
+      threadRoot: null,
+      replyTo: null,
+      activeVersionId: 63n,
+      recordingId: null,
+      recordingMs: null,
+      recordedIn: null,
+      createdAt: 1n,
+      parts: [],
+      citations: [],
+      question: {
+        kind: 'question',
+        origin: 'manual',
+        versionId: 62n,
+        answerMessageId: 61n,
+        answerVersionId: 63n
+      },
+      versions: [
+        {
+          id: 62n,
+          number: 1n,
+          origin: 'typed',
+          status: 'complete',
+          text: 'Why does ice float?',
+          basedOn: null,
+          instruction: null,
+          createdAt: 1n
+        },
+        {
+          id: 63n,
+          number: 2n,
+          origin: 'answer',
+          status: 'complete',
+          text: '**Question**\n\nWhy does ice float?\n\n**Answer**\n\nIce is less dense than water.',
+          basedOn: 62n,
+          instruction: null,
+          createdAt: 1n
+        }
+      ]
+    });
+
+    rpc.thread.mockResolvedValue({ items: [message], next: null });
+    mount(<History id={id} />);
+    expect(await screen.findByText('Ice is less dense than water.')).toBeVisible();
+    expect(screen.queryByText('Question', { selector: 'strong' })).toBeNull();
+    expect(screen.getByText('SessionAnswer')).toBeVisible();
+    const toolbar = within(screen.getByRole('group', { name: 'SessionItemActions' }));
+
+    expect(toolbar.getByRole('button', { name: 'SessionMarkAsNote' })).toBeVisible();
+    expect(toolbar.getByRole('button', { name: 'SessionDeleteItem' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'SessionViewAnswer' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'SessionPreviousVersion' }));
+    expect(screen.getByText('Why does ice float?')).toBeVisible();
+    expect(screen.queryByText('Ice is less dense than water.')).toBeNull();
+  }
+);
+
+testStable(
   'queries citations for the exact viewed historical version, with no active-version fallback',
   async () => {
     const message = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -648,7 +711,9 @@ testStable(
         versionId: 62n
       })
     );
-    expect(await screen.findByText('quote 62')).toBeInTheDocument();
+    expect(screen.queryByText('quote 62')).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'SessionOpenCitation' }));
+    expect(await screen.findByText('quote 62')).toBeVisible();
     expect(screen.queryByText('quote 63')).not.toBeInTheDocument();
   }
 );

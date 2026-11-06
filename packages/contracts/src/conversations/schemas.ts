@@ -126,6 +126,7 @@ export const chatMessageSchema = Schema.Struct({
       origin: Schema.Literals(['automatic', 'manual']),
       versionId: versionIdSchema,
       answerMessageId: Schema.optional(messageIdSchema),
+      answerVersionId: Schema.optional(versionIdSchema),
       answerRequestId: Schema.optional(Schema.String),
       answerArchived: Schema.optional(Schema.Boolean)
     })
@@ -237,7 +238,8 @@ export const replySnapshotSchema = Schema.Struct({
   generation: Schema.optional(
     Schema.Struct({
       origin: Schema.Literals(['answer', 'improve', 'summarize', 'instruction']),
-      instruction: Schema.NullOr(Schema.String)
+      instruction: Schema.NullOr(Schema.String),
+      questionVersionId: Schema.optional(versionIdSchema)
     })
   ),
   pendingAttachments: Schema.optional(Schema.Array(pendingReplyAttachmentSchema)),

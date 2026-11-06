@@ -2,7 +2,7 @@ import type { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId, VersionId, SourceId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import { ChatConversation, ChatMessage, ChatMessageHeading, ChatMessageText } from '@study/ui/chat';
+import { ChatConversation, ChatMessage, ChatMessageHeading } from '@study/ui/chat';
 import {
   Dialog,
   DialogTrigger,
@@ -16,27 +16,28 @@ import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { History as HistoryIcon, MessagesSquare, UserRound, CircleHelp } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { CapturedInputLink } from '../source-library';
 import { ArchiveMenuItem } from './archive-menu-item';
 import { AttachmentCards } from './attachment-cards';
 import { ItemContextMenu } from './item-context-menu';
 import { ItemDeletionMenu } from './item-deletion-menu';
 import type { ItemDeletionActions } from './item-deletion-menu';
 import { MessageActions } from './message-actions';
+import { MessageContent, MessageSources, useMessageCitations } from './message-citations';
+import type { MessageCitation } from './message-citations';
 import { MessageDeletion } from './message-deletion';
-import { NoteContent, NoteSummary } from './note-editor';
+import { NoteSummary } from './note-editor';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
 import { PendingMessageWork } from './pending-message-work';
 import { QuestionActions } from './question-actions';
 import { SessionDocumentCard } from './session-document-card';
-import { citationsOptions, threadOptions } from './session-workspace.queries';
+import { threadOptions } from './session-workspace.queries';
 import { SessionReadError } from './status';
 
 export { CapturedContext } from './captured-context';
@@ -249,6 +250,7 @@ function MessageEntry({
     message.versions.find((item) => item.id === message.activeVersionId);
   const author = messageAuthor(message, version?.id);
   const AuthorIcon = author.icon;
+  const citations = useMessageCitations(message, version?.id);
 
   return (
     <ChatMessage data-role={message.role}>
@@ -260,6 +262,7 @@ function MessageEntry({
           version={version}
           onActive={() => setSelected(undefined)}
           onVersionChange={setSelected}
+          citations={citations.items}
         />
       )}
       {message.parts.length > 0 && (
@@ -270,7 +273,10 @@ function MessageEntry({
           indexSessionId={indexAnchors ? message.sessionId : undefined}
         />
       )}
-      <MessageCitations message={message} versionId={version?.id} />
+      <MessageSources key={String(version?.id)} citations={citations.items} />
+      {citations.error && (
+        <SessionReadError error={citations.error} retry={() => void citations.refetch()} />
+      )}
     </ChatMessage>
   );
 }
@@ -280,7 +286,7 @@ function messageAuthor(message: Message, versionId?: VersionId) {
   if (
     message.role === 'user' &&
     message.question?.kind === 'question' &&
-    message.question.versionId === versionId
+    (message.question.versionId === versionId || message.question.answerVersionId === versionId)
   )
     return { label: 'SessionQuestion' as const, icon: CircleHelp };
 
@@ -292,79 +298,36 @@ function MessageVersionBody({
   message,
   version,
   onActive,
-  onVersionChange
+  onVersionChange,
+  citations
 }: {
   message: Message;
   version: Message['versions'][number];
   onActive: () => void;
   onVersionChange: (id: VersionId) => void;
+  citations: readonly MessageCitation[];
 }) {
   return (
     <>
-      <MessageActions
-        message={message}
-        versionId={version.id}
-        onActive={onActive}
-        onVersionChange={onVersionChange}
-      >
-        {message.format === 'document' || message.role === 'assistant' ? (
-          <NoteContent value={version.text} />
-        ) : (
-          <ChatMessageText text={version.text} />
+      <QuestionActions message={message} versionId={version.id}>
+        {(questionAction) => (
+          <MessageActions
+            message={message}
+            versionId={version.id}
+            onActive={onActive}
+            onVersionChange={onVersionChange}
+            questionAction={questionAction}
+          >
+            <MessageContent message={message} version={version} citations={citations} />
+          </MessageActions>
         )}
-      </MessageActions>
-      <QuestionActions key={String(version.id)} message={message} versionId={version.id} />
+      </QuestionActions>
       {version.status !== 'complete' && (
         <PendingMessageWork
           sessionId={message.sessionId}
           messageId={message.id}
           versionId={version.id}
         />
-      )}
-    </>
-  );
-}
-
-function MessageCitations({ message, versionId }: { message: Message; versionId?: VersionId }) {
-  const { t } = useI18n();
-  const citations = useQuery({
-    ...citationsOptions(message.sessionId, message.id, versionId),
-    enabled: !!versionId
-  });
-
-  return (
-    <>
-      {citations.error && (
-        <SessionReadError error={citations.error} retry={() => void citations.refetch()} />
-      )}
-      {!!citations.data?.citations.length && (
-        <details>
-          <summary>{t('SessionCitations')}</summary>
-          <ol>
-            {citations.data.citations.map((citation) => (
-              <li key={`${citation.marker}:${citation.quote}`}>
-                <p>
-                  {citation.input ? (
-                    <CapturedInputLink input={citation.input} name={citation.sourceName} />
-                  ) : (
-                    citation.sourceName
-                  )}{' '}
-                  · {citation.marker}
-                </p>
-                <blockquote>{citation.quote}</blockquote>
-                <Notebook.Muted>
-                  {t(
-                    citation.precision === 'exact'
-                      ? 'SessionExactEvidence'
-                      : citation.precision === 'approximate'
-                        ? 'SessionApproximateEvidence'
-                        : 'SessionEvidenceUnavailable'
-                  )}
-                </Notebook.Muted>
-              </li>
-            ))}
-          </ol>
-        </details>
       )}
     </>
   );

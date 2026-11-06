@@ -1,8 +1,9 @@
 import { chatMessageSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { testStable } from '@study/testing/vitest';
+import { ChatMessageActionToolbar } from '@study/ui/chat';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
@@ -13,6 +14,9 @@ import { QuestionActions } from './question-actions';
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
+}));
+vi.mock('./pending-message-work', () => ({
+  PendingMessageWork: () => <div role="status">SessionThinking</div>
 }));
 
 const caches: QueryClient[] = [];
@@ -93,7 +97,13 @@ function mount(message = note(), versionId = message.activeVersionId!) {
   caches.push(cache);
   const view = render(
     <QueryClientProvider client={cache}>
-      <QuestionActions message={message} versionId={versionId} />
+      <QuestionActions message={message} versionId={versionId}>
+        {(action) => (
+          <ChatMessageActionToolbar aria-label="SessionItemActions">
+            {action}
+          </ChatMessageActionToolbar>
+        )}
+      </QuestionActions>
     </QueryClientProvider>
   );
 
@@ -102,11 +112,25 @@ function mount(message = note(), versionId = message.activeVersionId!) {
     update: (next: typeof message) =>
       view.rerender(
         <QueryClientProvider client={cache}>
-          <QuestionActions message={next} versionId={versionId} />
+          <QuestionActions message={next} versionId={versionId}>
+            {(action) => (
+              <ChatMessageActionToolbar aria-label="SessionItemActions">
+                {action}
+              </ChatMessageActionToolbar>
+            )}
+          </QuestionActions>
         </QueryClientProvider>
       )
   };
 }
+
+testStable('puts Answer inside the message toolbar instead of a separate action row', () => {
+  mount();
+  const toolbar = within(screen.getByRole('group', { name: 'SessionItemActions' }));
+
+  expect(toolbar.getByRole('button', { name: 'SessionAnswerQuestion' })).toBeVisible();
+  expect(screen.queryByLabelText('SessionQuestionActions')).toBeNull();
+});
 
 testStable('answers the displayed question once while its request is pending', async () => {
   let resolve!: (value: unknown) => void;
@@ -157,6 +181,37 @@ testStable('lets users mark an ordinary note as a question', async () => {
     })
   );
 });
+
+testStable.each(['pending', 'complete'] as const)(
+  'keeps an in-place %s answer in the original entry without a separate answer link',
+  (status) => {
+    const message = note('question', 2n, 'answer-in-place');
+    const answerVersion = {
+      ...message.versions[0]!,
+      id: Schema.decodeUnknownSync(chatMessageSchema.fields.activeVersionId)(4n)!,
+      number: 2n,
+      origin: 'answer' as const,
+      status,
+      text: status === 'complete' ? '**Question**\n\nWhy?\n\n**Answer**\n\nBecause.' : '',
+      basedOn: message.activeVersionId
+    };
+
+    mount({
+      ...message,
+      activeVersionId: status === 'complete' ? answerVersion.id : message.activeVersionId,
+      versions: [...message.versions, answerVersion],
+      question: { ...message.question!, answerVersionId: answerVersion.id }
+    });
+    expect(screen.queryByRole('button', { name: 'SessionViewAnswer' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'SessionAnswerQuestion' })).toBeNull();
+    const mark = screen.getByRole('button', { name: 'SessionMarkAsNote' });
+
+    if (status === 'pending') {
+      expect(screen.getByRole('status')).toHaveTextContent('SessionThinking');
+      expect(mark).toBeDisabled();
+    } else expect(mark).toBeEnabled();
+  }
+);
 
 testStable('disables question mutations while browsing historical content', () => {
   const message = note();

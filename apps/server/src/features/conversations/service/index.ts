@@ -190,21 +190,14 @@ export const Conversations = defineService(
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
     return {
-      /** Commits manual corrections with durable optional answer work, before capturing reply context. */
+      /** A manual question mark commits its answer request with the classification. */
       setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
-        Effect.gen(function* () {
-          const preferences = yield* readWorkspacePreferences();
+        transaction((tx) => {
+          tx.store(QuestionStore).setQuestionKind(input);
 
-          return yield* transaction((tx) => {
-            tx.store(QuestionStore).setQuestionKind(input);
+          if (input.kind === 'question') answerQuestion(tx, input);
 
-            const message = tx.store(MessageStore).message(input.messageId);
-
-            if (input.kind === 'question' && preferences.autoAnswerQuestions)
-              emitQuestionRequest(tx, message, input.expectedActiveVersionId, randomUUID());
-
-            return message;
-          });
+          return tx.store(MessageStore).message(input.messageId);
         }),
       answerQuestion: (input: typeof questionVersionInputSchema.Type) =>
         transaction((tx) => answerQuestion(tx, input)),
@@ -455,6 +448,9 @@ export const Conversations = defineService(
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
         Effect.gen(function* () {
           const preferences = yield* readWorkspacePreferences();
+          const language = yield* Effect.flatMap(Settings, (settings) => settings.language()).pipe(
+            Effect.provide(Settings.layer)
+          );
 
           return yield* publicationTransaction((tx) => {
             const context = tx
@@ -465,7 +461,7 @@ export const Conversations = defineService(
               for (const target of context.value.inputs) assertCapturedTarget(tx, target);
 
             tx.store(QuestionStore).assertQuestionAnswer(input);
-            const versionId = tx.store(ReplyStore).publishReply(input);
+            const versionId = tx.store(ReplyStore).publishReply({ ...input, language });
 
             if (preferences.autoTitleSessions) {
               const reply = tx

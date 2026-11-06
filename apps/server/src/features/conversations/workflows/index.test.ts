@@ -772,6 +772,55 @@ testStable(
       expect(selectedEdit.citations).toStrictEqual(selectedAnswer.citations);
       await assertLongHistoryPreservesEarlyMessages();
 
+      const marked = await run(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const notebook = yield* c.createSession({ title: 'Question and answer' });
+          const note = yield* c.postMessage({
+            sessionId: notebook.id,
+            text: 'Why does ice float?',
+            requestReply: false
+          });
+
+          return yield* c.setMessageKind({
+            messageId: note.id,
+            expectedActiveVersionId: note.activeVersionId!,
+            kind: 'question'
+          });
+        })
+      );
+      const questionEvent = context.db.orm
+        .select()
+        .from(s.workflowEvents)
+        .all()
+        .map((event) => decodeEvent(event.payload))
+        .find(
+          (event) =>
+            event.type === 'ConversationGenerationRequested' &&
+            event.requestId === marked.question?.answerRequestId
+        );
+
+      assertEventType(
+        questionEvent,
+        'ConversationGenerationRequested',
+        'missing in-place answer event'
+      );
+      output = 'Ice is less dense than water.';
+      const callsBeforeQuestion = calls;
+
+      await execute(questionEvent, 'answer-question-in-place');
+      await execute(questionEvent, 'answer-question-in-place');
+      expect(calls).toBe(callsBeforeQuestion + 1);
+      const answeredQuestion = await run(
+        Effect.flatMap(Conversations, (c) => c.message(marked.id))
+      );
+
+      expect(answeredQuestion.activeVersionId).toBe(questionEvent.versionId);
+      expect(answeredQuestion.versions).toHaveLength(2);
+      expect(latestVersion(answeredQuestion.versions).text).toBe(
+        '**Question**\n\nWhy does ice float?\n\n**Answer**\n\nIce is less dense than water.'
+      );
+
       async function assertLongHistoryPreservesEarlyMessages() {
         const longSession = await run(
           Effect.flatMap(Conversations, (c) =>

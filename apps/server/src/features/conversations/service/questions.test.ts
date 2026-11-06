@@ -26,6 +26,131 @@ import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 
+testStable.each([1, 2] as const)(
+  'marking a question starts one answer version and publishes question and answer in place in language %s',
+  async (language) => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const settings = yield* Settings;
+
+          yield* settings.saveAppSettings({ ...(yield* settings.appSettings()), language });
+          const session = yield* c.createSession({ title: 'Question and answer' });
+          const original = yield* c.postMessage({
+            sessionId: session.id,
+            text: 'Why does ice float?',
+            requestReply: false
+          });
+          const input = {
+            messageId: original.id,
+            expectedActiveVersionId: original.activeVersionId!
+          };
+          const marked = yield* c.setMessageKind({ ...input, kind: 'question' });
+
+          expect(marked.versions).toHaveLength(2);
+          expect(marked.question?.answerMessageId).toBe(original.id);
+          const answer = yield* c.answerQuestion(input);
+
+          expect(answer.messageId).toBe(original.id);
+          expect(answer.versionId).not.toBe(original.activeVersionId);
+          expect(marked.versions.at(-1)).toMatchObject({
+            id: answer.versionId,
+            origin: 'answer',
+            status: 'pending',
+            basedOn: original.activeVersionId,
+            text: ''
+          });
+          expect(yield* c.answerQuestion(input)).toEqual(answer);
+          const publication = {
+            requestId: answer.requestId,
+            text: 'Ice is less dense than liquid water.',
+            citations: []
+          };
+
+          yield* withTestPublication(context, c.publishReply(publication));
+          yield* settings.saveAppSettings({
+            ...(yield* settings.appSettings()),
+            language: language === 1 ? 2 : 1
+          });
+          yield* withTestPublication(context, c.publishReply(publication));
+          const completed = yield* c.message(original.id);
+
+          expect(completed.activeVersionId).toBe(answer.versionId);
+          expect(completed.versions).toHaveLength(2);
+          expect(completed.versions[0]?.text).toBe('Why does ice float?');
+          expect(completed.versions.at(-1)?.text).toBe(
+            language === 1
+              ? '**Question**\n\nWhy does ice float?\n\n**Answer**\n\nIce is less dense than liquid water.'
+              : '**Domanda**\n\nWhy does ice float?\n\n**Risposta**\n\nIce is less dense than liquid water.'
+          );
+          expect((yield* c.thread({ sessionId: session.id, limit: 30 })).items).toHaveLength(1);
+          expect(yield* c.answerQuestion(input)).toEqual(answer);
+          yield* c.setActiveVersion({
+            messageId: original.id,
+            versionId: original.activeVersionId!
+          });
+          yield* c.setActiveVersion({ messageId: original.id, versionId: answer.versionId });
+          expect((yield* c.message(original.id)).question?.answerVersionId).toBe(answer.versionId);
+        }).pipe(
+          Effect.provide(Layer.merge(Conversations.layer, Settings.layer)),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'abandoning an in-place answer preserves the question and permits a fresh answer',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const session = yield* c.createSession({ title: 'Recovery' });
+          const note = yield* c.postMessage({
+            sessionId: session.id,
+            text: 'Why?',
+            requestReply: false
+          });
+          const input = { messageId: note.id, expectedActiveVersionId: note.activeVersionId! };
+
+          yield* c.setMessageKind({ ...input, kind: 'question' });
+          const answer = yield* c.answerQuestion(input);
+
+          yield* withTestPublication(context, c.abandonReply(answer));
+          const restored = yield* c.message(note.id);
+
+          expect(restored.versions).toHaveLength(1);
+          expect(restored.activeVersionId).toBe(note.activeVersionId);
+          expect(restored.question?.answerVersionId).toBeUndefined();
+          const retried = yield* c.answerQuestion(input);
+
+          expect(retried.messageId).toBe(note.id);
+          expect(retried.requestId).not.toBe(answer.requestId);
+          expect((yield* c.message(note.id)).versions).toHaveLength(2);
+        }).pipe(
+          Effect.provide(Conversations.layer),
+          Effect.provide(Layer.succeed(Database, { store: context }))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
+
 testStable('question answers capture their exact target and deduplicate per version', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
@@ -54,7 +179,7 @@ testStable('question answers capture their exact target and deduplicate per vers
         const answer = yield* c.answerQuestion(input);
 
         expect(yield* c.answerQuestion(input)).toEqual(answer);
-        expect((yield* c.message(answer.messageId)).replyTo).toBe(question.id);
+        expect(answer.messageId).toBe(question.id);
         const snapshot = yield* c.replySnapshot({ requestId: answer.requestId });
 
         expect(snapshot.messages.at(-1)?.messageId).toBe(question.id);
@@ -75,7 +200,7 @@ testStable('question answers capture their exact target and deduplicate per vers
         const retried = yield* c.answerQuestion(input);
 
         expect(retried.requestId).not.toBe(answer.requestId);
-        expect((yield* c.message(retried.messageId)).replyTo).toBe(question.id);
+        expect(retried.messageId).toBe(question.id);
         expect((yield* c.message(question.id)).question?.answerRequestId).toBe(retried.requestId);
         expect(yield* c.answerQuestion(input)).toEqual(retried);
         const edited = yield* c.editMessage({ ...input, text: 'Why does wood float?' });
@@ -451,7 +576,7 @@ testStable(
 );
 
 testStable(
-  'automatic answer rejection cannot roll back detected or manually marked question kinds',
+  'unavailable evidence preserves automatic classification and rejects a manual answer atomically',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
@@ -485,7 +610,16 @@ testStable(
 
             yield* sources.deleteSource({ id: source.id });
 
-            if (manual) yield* c.setMessageKind({ ...input, kind: 'question' });
+            if (manual) {
+              expect(
+                (yield* Effect.result(c.setMessageKind({ ...input, kind: 'question' })))._tag
+              ).toBe('Failure');
+              const unchanged = yield* c.message(note.id);
+
+              expect(unchanged.question).toBeUndefined();
+              expect(unchanged.versions).toHaveLength(1);
+              continue;
+            }
 
             const attempted = yield* Effect.result(
               withTestPublication(context, c.publishQuestion({ ...input, kind: 'question' }))
@@ -493,9 +627,7 @@ testStable(
 
             expect(attempted._tag).toBe('Failure');
             expect((yield* c.message(note.id)).question?.kind).toBe('question');
-            expect((yield* c.message(note.id)).question?.origin).toBe(
-              manual ? 'manual' : 'automatic'
-            );
+            expect((yield* c.message(note.id)).question?.origin).toBe('automatic');
           }
         }).pipe(
           Effect.provide(Layer.mergeAll(Conversations.layer, Sources.layer, Settings.layer)),

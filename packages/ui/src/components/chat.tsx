@@ -187,11 +187,35 @@ export function ChatMessageContent({ className, ...props }: ComponentPropsWithRe
   return <div {...props} className={cn('chat-message-content', className)} />;
 }
 
-export function ChatMessageText({ text }: { text: string }) {
+export function ChatMessageText({
+  text,
+  renderText
+}: {
+  text: string;
+  renderText?: (text: string) => ReactNode;
+}) {
   return (
     <p data-slot="chat-message-text" className="session-desk-quick-text chat-message-text">
-      {text}
+      {renderText ? renderText(text) : text}
     </p>
+  );
+}
+
+export function ChatQuestionAnswer({
+  question,
+  answer,
+  label
+}: {
+  question: ReactNode;
+  answer: ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="chat-question-answer">
+      {question}
+      <div className="chat-answer-label">{label}</div>
+      {answer}
+    </div>
   );
 }
 

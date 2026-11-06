@@ -14,6 +14,7 @@
 
 import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import { runSelectionContextSchema } from '@study/contracts/conversations/context';
+import { runPreferencesSchema } from '@study/contracts/conversations/context';
 import {
   anchorSchema,
   reanswerInputSchema,
@@ -49,6 +50,7 @@ import {
   workflow_retired_correlations,
   workflowReceipts
 } from '@study/db/schema';
+import { text } from '@study/localization';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -112,7 +114,11 @@ const codec = Schema.fromJsonString(Schema.toCodecJson(replySnapshotSchema));
 
 const persistedCodec = Schema.fromJsonString(
   Schema.toCodecJson(
-    Schema.Struct({ ...replySnapshotSchema.fields, publication: Schema.optional(Schema.String) })
+    Schema.Struct({
+      ...replySnapshotSchema.fields,
+      publication: Schema.optional(Schema.String),
+      publicationText: Schema.optional(Schema.String)
+    })
   )
 );
 
@@ -141,6 +147,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       messageId: typeof reanswerInputSchema.Type.messageId;
       origin: 'answer' | 'improve' | 'summarize' | 'instruction';
       instruction: string | null;
+      questionVersionId?: typeof versionIdSchema.Type;
     }
   ) {
     const foundSession = db.orm
@@ -185,7 +192,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
       if (
         target?.origin === 'answer' &&
-        (existing?.role !== 'assistant' || existing.reply_to === null)
+        !isAnswerTarget(existing || undefined, target.questionVersionId)
       )
         throw new StudyError('invalid_input', 'reanswer target must be an assistant reply');
     }
@@ -354,15 +361,18 @@ function makeHelpers({ db, clock }: StoreResources) {
         .orderBy(desc(message_versions.number))
         .get();
 
-      const version = insertSelectedVersion({
+      const values = {
         message_id: message.id,
         number: (previous?.number ?? 0n) + 1n,
         ...generationFields(),
         generation_request_id: input.requestId,
-        status: 'pending',
+        status: 'pending' as const,
         text: '',
         created_at: now
-      });
+      };
+      const version = target?.questionVersionId
+        ? db.orm.insert(message_versions).values(values).returning().get()
+        : insertSelectedVersion(values);
 
       return { now, message, version };
     }
@@ -381,7 +391,13 @@ function makeHelpers({ db, clock }: StoreResources) {
             reason: 'conversation-boundary' as const
           }
         : undefined,
-      generation: target ? { origin: target.origin, instruction: target.instruction } : undefined,
+      generation: target
+        ? {
+            origin: target.origin,
+            instruction: target.instruction,
+            questionVersionId: target.questionVersionId
+          }
+        : undefined,
       messages: history,
       ...(pendingAttachments.length ? { pendingAttachments } : {})
     };
@@ -927,7 +943,11 @@ export const ReplyStore = defineStore({
                 !message ||
                 message.session_id !== request!.session_id ||
                 message.id !== input.messageId ||
-                (version!.origin === 'answer' && message.role !== 'assistant')
+                !generationMatches(
+                  version!,
+                  Schema.decodeUnknownSync(codec)(request!.snapshot),
+                  message.role
+                )
               )
                 throw new StudyError('invalid_input', 'invalid reply target');
             }
@@ -938,7 +958,10 @@ export const ReplyStore = defineStore({
           }
         }),
         publishReply: storeMutation({
-          input: publishReplyInputSchema,
+          input: Schema.Struct({
+            ...publishReplyInputSchema.fields,
+            language: runPreferencesSchema.fields.language
+          }),
           output: versionIdSchema,
           run: (input) => {
             const invalid = (): never => {
@@ -1006,11 +1029,13 @@ export const ReplyStore = defineStore({
                 invalid();
             }
 
-            const payload = JSON.stringify(input, (_key, value) =>
-              typeof value === 'bigint' ? value.toString() : value
+            const payload = JSON.stringify(
+              { requestId: input.requestId, text: input.text, citations: input.citations },
+              (_key, value) => (typeof value === 'bigint' ? value.toString() : value)
             );
 
             const saved = Schema.decodeUnknownSync(persistedCodec)(row.snapshot);
+            const publishedText = answerPublicationText(snapshot, input);
 
             function selectedCitation(
               citation: (typeof publishReplyInputSchema.Type.citations)[number]
@@ -1174,7 +1199,7 @@ export const ReplyStore = defineStore({
 
               if (
                 saved.publication !== payload ||
-                version!.text !== input.text ||
+                version!.text !== (saved.publicationText ?? input.text) ||
                 existing.length !== expected.length ||
                 existing.some((item, i) => !sameReceiptCitation(item, expected[i]!))
               )
@@ -1187,30 +1212,56 @@ export const ReplyStore = defineStore({
               return row.version_id;
             }
 
-            if ((snapshot.pendingAttachments?.length ?? 0) > 0) invalid();
+            const expectedActiveVersionId =
+              snapshot.generation?.questionVersionId ?? row.version_id;
 
-            if (
-              version!.status !== 'pending' ||
-              target!.active_version_id !== row.version_id ||
-              (snapshot.context === undefined &&
-                session!.context_revision !== snapshot.contextRevision)
-            )
-              invalid();
+            assertPendingPublication();
+
+            function assertPendingPublication() {
+              if (
+                (snapshot.pendingAttachments?.length ?? 0) > 0 ||
+                [...publishedText].length > 100_000
+              )
+                invalid();
+
+              if (
+                version!.status !== 'pending' ||
+                target!.active_version_id !== expectedActiveVersionId ||
+                (snapshot.context === undefined &&
+                  session!.context_revision !== snapshot.contextRevision)
+              )
+                invalid();
+            }
 
             assertPublicationAttachments();
 
             db.orm
               .update(message_versions)
-              .set({ text: input.text, status: 'complete' })
+              .set({ text: publishedText, status: 'complete' })
               .where(eq(message_versions.id, row.version_id))
               .run();
+
+            selectCompletedAnswer();
+
+            function selectCompletedAnswer() {
+              if (snapshot.generation?.questionVersionId)
+                db.orm
+                  .update(messages)
+                  .set({ active_version_id: row.version_id })
+                  .where(eq(messages.id, target!.id))
+                  .run();
+            }
 
             for (const citation of validated) db.orm.insert(citations).values(citation).run();
 
             db.orm
               .update(conversation_reply_requests)
               .set({
-                snapshot: Schema.encodeSync(persistedCodec)({ ...saved, publication: payload })
+                snapshot: Schema.encodeSync(persistedCodec)({
+                  ...saved,
+                  publication: payload,
+                  publicationText: publishedText
+                })
               })
               .where(eq(conversation_reply_requests.request_id, row.request_id))
               .run();
@@ -1283,7 +1334,14 @@ export const ReplyStore = defineStore({
             if (!input.context || input.context.messages.at(-1)?.role !== 'user')
               throw new StudyError('invalid_input', 'Question requires a captured user target');
 
-            return snapshot(input);
+            const question = input.context.messages.at(-1)!;
+
+            return snapshot(input, {
+              messageId: question.messageId,
+              origin: 'answer',
+              instruction: null,
+              questionVersionId: question.versionId
+            });
           }
         }),
         requestReply: storeMutation({
@@ -1434,11 +1492,46 @@ function generationMatches(
   role: typeof messages.$inferSelect.role
 ) {
   return (
-    (version.origin !== 'answer' || role === 'assistant') &&
+    validAnswerGeneration(version, snapshot, role) &&
     version.origin === (snapshot.generation?.origin ?? 'answer') &&
     version.instruction ===
       (snapshot.generation?.origin === 'instruction' ? snapshot.generation.instruction : null)
   );
+}
+
+function validAnswerGeneration(
+  version: typeof message_versions.$inferSelect,
+  snapshot: typeof replySnapshotSchema.Type,
+  role: typeof messages.$inferSelect.role
+) {
+  if (version.origin !== 'answer' || role === 'assistant') return true;
+
+  return role === 'user' && version.based_on === snapshot.generation?.questionVersionId;
+}
+
+function isAnswerTarget(
+  message: typeof messages.$inferSelect | undefined,
+  questionVersionId?: typeof versionIdSchema.Type
+) {
+  if (!message) return false;
+
+  if (questionVersionId)
+    return message.role === 'user' && message.active_version_id === questionVersionId;
+
+  return message.role === 'assistant' && message.reply_to !== null;
+}
+
+function answerPublicationText(
+  snapshot: typeof replySnapshotSchema.Type,
+  input: typeof publishReplyInputSchema.Type & {
+    language?: typeof runPreferencesSchema.Type.language;
+  }
+) {
+  if (!snapshot.generation?.questionVersionId) return input.text;
+
+  const language = snapshot.context?.preferences.language ?? input.language ?? 'english';
+
+  return `**${text(language, 'SessionQuestion')}**\n\n${snapshot.messages.at(-1)!.text}\n\n**${text(language, 'SessionAnswer')}**\n\n${input.text}`;
 }
 
 function replySelectionMatches(
@@ -1448,7 +1541,7 @@ function replySelectionMatches(
 ) {
   return (
     target?.session_id === result.sessionId &&
-    target.active_version_id === result.versionId &&
+    target.active_version_id === (result.generation?.questionVersionId ?? result.versionId) &&
     version?.message_id === result.messageId &&
     version.status !== 'complete'
   );
