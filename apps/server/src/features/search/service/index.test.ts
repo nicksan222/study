@@ -88,16 +88,34 @@ testStable(
                 (entry) => entry.kind === 'topic'
               )
             ).toBe(true);
+            const before = yield* service.search(
+              { query: 'sunshine', kinds: ['topic'] },
+              { type: 'all' }
+            );
+            const oldExcerpt = before.find(
+              (hit) => hit.target.type === 'registered' && hit.target.key === '1'
+            )?.text;
+
+            expect(oldExcerpt).toBeDefined();
             context.db.orm.run(
               sql`UPDATE test_topics SET name='Painting a portrait with oils' WHERE id=1`
             );
-            expect(
-              yield* service.search(
-                { query: 'sunshine', kinds: ['topic'] },
-                { type: 'projects', projectIds: [] }
-              )
-            ).toStrictEqual([]);
+            const stale = yield* service.search(
+              { query: 'sunshine', kinds: ['topic'] },
+              { type: 'all' }
+            );
+
+            expect(stale.some((hit) => hit.text === oldExcerpt)).toBe(false);
             expect(yield* service.reconcile()).toMatchObject({ embedded: 1 });
+            const updated = yield* service.search(
+              { query: 'sunshine', kinds: ['topic'] },
+              { type: 'all' }
+            );
+
+            expect(updated.some((hit) => hit.text === oldExcerpt)).toBe(false);
+            expect(updated.some((hit) => hit.text.includes('Painting a portrait with oils'))).toBe(
+              true
+            );
             context.db.orm.run(sql`DELETE FROM test_topics WHERE id=2`);
             expect(yield* service.reconcile()).toMatchObject({ removed: 1 });
           })

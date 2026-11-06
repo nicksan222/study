@@ -14,7 +14,7 @@ import { resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
 import { StudyError } from '@study/contracts/errors';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema, Semaphore } from 'effect';
 
 import { embeddingModel, validateEmbeddingModel } from './model.ts';
 
@@ -82,7 +82,10 @@ function open(directory: string) {
         }).pipe(Effect.orDie, Effect.asVoid)
     );
     let closed = false;
-    let busy = false;
+    const serial = Semaphore.makeUnsafe(1);
+    const capacity = Semaphore.makeUnsafe(17);
+    let idle = Promise.resolve();
+    let releaseIdle: (() => void) | undefined;
     let pending:
       | {
           resolve: (message: unknown) => void;
@@ -106,7 +109,8 @@ function open(directory: string) {
       readyReject = undefined;
       pending?.reject(error);
       pending = undefined;
-      busy = false;
+      releaseIdle?.();
+      releaseIdle = undefined;
     };
 
     worker.on('error', fail);
@@ -123,7 +127,8 @@ function open(directory: string) {
       const request = pending;
 
       pending = undefined;
-      busy = false;
+      releaseIdle?.();
+      releaseIdle = undefined;
 
       if (!request) return;
 
@@ -146,55 +151,71 @@ function open(directory: string) {
     });
 
     const perform = <A>(input: unknown, decode: (message: unknown) => A) =>
-      Effect.tryPromise({
-        try: (signal) =>
-          new Promise<A>((resolve, reject) => {
-            if (closed) {
-              reject(new StudyError('model_unavailable', 'Local embedding worker is closed'));
+      capacity
+        .withPermitsIfAvailable(1)(
+          serial.withPermit(
+            Effect.tryPromise({
+              try: async (signal) => {
+                // A cancelled caller releases its queue permit, but native work owns this boundary
+                // until its response arrives. New callers wait instead of racing the old response.
+                await idle;
 
-              return;
-            }
+                if (closed)
+                  throw new StudyError('model_unavailable', 'Local embedding worker is closed');
 
-            if (busy) {
-              reject(new StudyError('transient', 'Local embedding worker is busy'));
+                if (signal.aborted)
+                  throw new StudyError('cancelled', 'Embedding request was cancelled');
 
-              return;
-            }
+                return new Promise<A>((resolve, reject) => {
+                  idle = new Promise<void>((resolveIdle) => {
+                    releaseIdle = resolveIdle;
+                  });
+                  const abort = () =>
+                    reject(new StudyError('cancelled', 'Embedding request was cancelled'));
+                  const cleanup = () => signal.removeEventListener('abort', abort);
 
-            if (signal.aborted) {
-              reject(new StudyError('cancelled', 'Embedding request was cancelled'));
+                  pending = {
+                    resolve: (message) => {
+                      cleanup();
 
-              return;
-            }
+                      try {
+                        resolve(decode(message));
+                      } catch (cause) {
+                        reject(cause);
+                      }
+                    },
+                    reject: (error) => {
+                      cleanup();
+                      reject(error);
+                    }
+                  };
+                  signal.addEventListener('abort', abort, { once: true });
 
-            busy = true;
-            const abort = () =>
-              reject(new StudyError('cancelled', 'Embedding request was cancelled'));
-            const cleanup = () => signal.removeEventListener('abort', abort);
-
-            pending = {
-              resolve: (message) => {
-                cleanup();
-
-                try {
-                  resolve(decode(message));
-                } catch (cause) {
-                  reject(cause);
-                }
+                  try {
+                    worker.postMessage(input);
+                  } catch (cause) {
+                    fail(cause);
+                  }
+                });
               },
-              reject: (error) => {
-                cleanup();
-                reject(error);
-              }
-            };
-            signal.addEventListener('abort', abort, { once: true });
-            worker.postMessage(input);
-          }),
-        catch: (cause) =>
-          cause instanceof StudyError
-            ? cause
-            : new StudyError('internal', 'Local embedding generation failed', { cause })
-      });
+              catch: (cause) =>
+                cause instanceof StudyError
+                  ? cause
+                  : new StudyError('internal', 'Local embedding generation failed', { cause })
+            })
+          )
+        )
+        .pipe(
+          Effect.flatMap(
+            Option.match({
+              onNone: () =>
+                Effect.fail(
+                  new StudyError('rate_limited', 'Local embedding request queue is full')
+                ),
+              onSome: Effect.succeed
+            })
+          )
+        );
 
     const embed = (texts: readonly string[], prefix: 'query' | 'passage') => {
       if (texts.length > 16 || texts.some((text) => !text.trim() || text.length > 32000))

@@ -170,7 +170,7 @@ testStable(
 );
 
 testStable(
-  'cancelling real local inference releases the scoped worker and bounds concurrent requests',
+  'real local requests serialize, preserve active ownership after cancellation, and cancel queued queries',
   async () => {
     await Effect.runPromise(installEmbeddingModel(modelDirectory));
     let retained: LocalEmbeddingModel | undefined;
@@ -183,33 +183,66 @@ testStable(
           retained = model;
           yield* Effect.tryPromise({
             try: async () => {
-              const controller = new AbortController();
-              const pending = Effect.runPromise(
+              const activeController = new AbortController();
+              const queuedController = new AbortController();
+              const active = Effect.runPromise(
                 model.embedPassages(
                   Array.from({ length: 16 }, () =>
                     'Plants use sunlight to generate energy. '.repeat(20)
                   )
                 ),
-                { signal: controller.signal }
+                { signal: activeController.signal }
               );
-              const concurrent = await Effect.runPromise(
-                Effect.result(model.embedQuery('sunlight'))
+              const activeCancelled = active.then(
+                () => false,
+                () => true
               );
 
-              expect(concurrent._tag).toBe('Failure');
+              // Let the request enter native inference before cancelling its caller.
+              await Promise.resolve();
+              const queued = Effect.runPromise(model.embedQuery('cancel this queued query'), {
+                signal: queuedController.signal
+              });
+              const queuedCancelled = queued.then(
+                () => false,
+                () => true
+              );
+              const query = Effect.runPromise(Effect.result(model.embedQuery('sunlight')));
 
-              if (concurrent._tag === 'Failure') expect(concurrent.failure.kind).toBe('transient');
+              queuedController.abort();
+              activeController.abort();
+              expect(await activeCancelled).toBe(true);
+              expect(await queuedCancelled).toBe(true);
+              const result = await query;
 
-              controller.abort();
-              await expect(pending).rejects.toBeDefined();
+              expect(result._tag).toBe('Success');
+
+              if (result._tag === 'Success') expect(result.success).toHaveLength(384);
+
+              const subsequent = await Effect.runPromise(model.embedQuery('plants'));
+
+              expect(subsequent).toHaveLength(384);
+              const capacity = await Promise.all(
+                Array.from({ length: 20 }, () =>
+                  Effect.runPromise(Effect.result(model.embedQuery('sunlight')))
+                )
+              );
+
+              expect(capacity.filter((result) => result._tag === 'Failure')).toHaveLength(3);
+              expect(
+                capacity
+                  .filter((result) => result._tag === 'Failure')
+                  .every(
+                    (result) => result._tag === 'Failure' && result.failure.kind === 'rate_limited'
+                  )
+              ).toBe(true);
             },
             catch: (cause) =>
-              new StudyError('internal', 'Embedding cancellation verification failed', { cause })
+              new StudyError('internal', 'Embedding serialization verification failed', { cause })
           });
         })
       )
     );
-
     const closed = await Effect.runPromise(Effect.result(retained!.embedQuery('sunlight')));
 
     expect(closed._tag).toBe('Failure');
