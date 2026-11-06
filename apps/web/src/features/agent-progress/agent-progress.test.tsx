@@ -53,7 +53,9 @@ testStable(
     expect(screen.getByText('First')).toBeInTheDocument();
     expect(screen.getByText('AgentToolRunning')).toBeInTheDocument();
     await act(() => receive([{ ...run, text: 'First second', revision: 2n }]));
-    expect(screen.getByText('First second')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'AgentStreamingPreview' })).toHaveTextContent(
+      'First second'
+    );
     expect(screen.queryByText('FirstFirst second')).not.toBeInTheDocument();
     await act(() =>
       receive([

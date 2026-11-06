@@ -1,5 +1,6 @@
 import { generateText } from '@tiptap/core';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -18,15 +19,32 @@ import {
   Undo2,
   Redo2
 } from 'lucide-react';
-import { Fragment, useEffect, useMemo, useRef } from 'react';
-import type { ReactNode } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  createContext,
+  Fragment,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef
+} from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 import { Button } from './button';
 import { Menu, MenuTrigger, MenuPopup, MenuItem } from './menu';
+import { blockNoteMath, inlineNoteMath, NoteMath } from './note-math';
 
 const extensions = [StarterKit.configure({ link: { openOnClick: false } })];
 
+const readingExtensions = [...extensions, inlineNoteMath, blockNoteMath];
+
 const markdown = new MarkdownManager({ extensions, markedOptions: { breaks: true } });
+
+const readingMarkdown = new MarkdownManager({
+  extensions: readingExtensions,
+  markedOptions: { breaks: true }
+});
 
 /** Uses the same Markdown parser to label a note without formatting syntax. */
 export function RichNoteSummary({ value, fallback }: { value: string; fallback?: ReactNode }) {
@@ -184,35 +202,111 @@ export function RichNoteEditorSurface({
   );
 }
 
-/** Renders saved notes without creating an editor instance for every history entry. */
+const ReadingContext = createContext<{
+  renderText?: (value: string) => ReactNode;
+  streaming: boolean;
+}>({ streaming: false });
+
+type ReadingNodeProps = {
+  node: ProseMirrorNode;
+  parent?: ProseMirrorNode;
+  children?: ReactNode;
+};
+
+// Stable renderer identities keep already visible words mounted between stream updates.
+const readingNodeMapping = {
+  doc: ({ children }: ReadingNodeProps) => <>{children}</>,
+  paragraph: ({ children }: ReadingNodeProps) => <p>{children}</p>,
+  heading: ({ node, children }: ReadingNodeProps) => {
+    const Tag = `h${node.attrs.level}` as 'h1';
+
+    return <Tag>{children}</Tag>;
+  },
+  bulletList: ({ children }: ReadingNodeProps) => <ul>{children}</ul>,
+  orderedList: ({ node, children }: ReadingNodeProps) => (
+    <ol start={node.attrs.start}>{children}</ol>
+  ),
+  listItem: ({ children }: ReadingNodeProps) => <li>{children}</li>,
+  blockquote: ({ children }: ReadingNodeProps) => <blockquote>{children}</blockquote>,
+  inlineNoteMath: ({ node }: ReadingNodeProps) => <NoteMath latex={node.attrs.latex} />,
+  blockNoteMath: ({ node }: ReadingNodeProps) => <NoteMath latex={node.attrs.latex} display />,
+  text: function ReadingText({ node, parent }: ReadingNodeProps) {
+    const { renderText, streaming } = useContext(ReadingContext);
+    const text = node.text ?? '';
+
+    if (
+      parent?.type.name === 'codeBlock' ||
+      node.marks.some((mark) => mark.type.name === 'code' || mark.type.name === 'link')
+    )
+      return text;
+
+    if (renderText) return renderText(text);
+
+    return streaming
+      ? Array.from(text.matchAll(/\S+\s*|\s+/g), (match) => (
+          <span key={match.index} data-stream-word="">
+            {match[0]}
+          </span>
+        ))
+      : text;
+  }
+};
+
+const readingMarkMapping = {
+  bold: ({ children }: { children?: ReactNode }) => <strong>{children}</strong>,
+  italic: ({ children }: { children?: ReactNode }) => <em>{children}</em>,
+  strike: ({ children }: { children?: ReactNode }) => <s>{children}</s>,
+  underline: ({ children }: { children?: ReactNode }) => <u>{children}</u>
+};
+
+/** Tiptap assigns traversal keys that shift on append; reading uses sibling positions. */
+function stableReadingKeys(content: ReactNode): ReactNode {
+  if (Array.isArray(content)) return content.map(stableReadingKeys);
+
+  if (!isValidElement(content)) return content;
+
+  const element = content as ReactElement<{ children?: ReactNode }>;
+  const children = element.props.children;
+
+  return cloneElement(
+    element,
+    { key: null },
+    ...(Array.isArray(children) ? children : [children]).map((child, index) => {
+      const stable = stableReadingKeys(child);
+
+      return isValidElement(stable) ? cloneElement(stable, { key: index }) : stable;
+    })
+  );
+}
+
+/** Renders saved notes and live previews through the same math-aware Markdown parser. */
 export function RichNoteContent({
   value,
-  renderText
+  renderText,
+  streaming = false
 }: {
   value: string;
   renderText?: (value: string) => ReactNode;
+  streaming?: boolean;
 }) {
+  const context = useMemo(() => ({ renderText, streaming }), [renderText, streaming]);
   const content = useMemo(
     () =>
-      renderToReactElement({
-        extensions,
-        content: markdown.parse(value),
-        options: renderText
-          ? {
-              nodeMapping: {
-                text: ({ node, parent }) =>
-                  parent?.type.name === 'codeBlock' ||
-                  node.marks.some((mark) => mark.type.name === 'code' || mark.type.name === 'link')
-                    ? node.text
-                    : renderText(node.text ?? '')
-              }
-            }
-          : undefined
-      }),
-    [value, renderText]
+      stableReadingKeys(
+        renderToReactElement({
+          extensions: readingExtensions,
+          content: readingMarkdown.parse(value),
+          options: { nodeMapping: readingNodeMapping, markMapping: readingMarkMapping }
+        })
+      ),
+    [value]
   );
 
-  return <div className="rich-note-content">{content}</div>;
+  return (
+    <ReadingContext value={context}>
+      <div className="rich-note-content">{content}</div>
+    </ReadingContext>
+  );
 }
 
 function RichNoteFormatting({
