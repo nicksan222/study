@@ -4,6 +4,7 @@ import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
+import { StatusMessage } from '@study/ui/status-message';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -76,9 +77,9 @@ export function SourceHistoryRetirement({
         {t('SourceHistoryPrune')}
       </Button>
       {view.state.notice && (
-        <p role="status">
+        <StatusMessage>
           {t(view.state.notice === 'removed' ? 'SourceHistoryRemoved' : 'SourceHistoryReconciled')}
-        </p>
+        </StatusMessage>
       )}
       <DangerDialog
         open={view.open}

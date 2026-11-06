@@ -8,6 +8,7 @@ import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { SessionStarter } from '@study/ui/session-start';
 import { Notebook } from '@study/ui/session-workspace';
+import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
@@ -381,7 +382,7 @@ function CreationRecovery({ view }: { view: StartView }) {
     <>
       {flow.data.uncertain && !flow.data.pending && (
         <SessionStarter.Recovery aria-label={t('SessionRecent')}>
-          <p role="status">{t('SessionCreationUncertain')}</p>
+          <StatusMessage>{t('SessionCreationUncertain')}</StatusMessage>
           <SessionStarter.Actions>
             <Button
               variant="outline"

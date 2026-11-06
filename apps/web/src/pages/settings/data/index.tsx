@@ -7,6 +7,7 @@ import { DataManagement } from '@study/ui/data-management';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { Settings } from '@study/ui/settings';
+import { StatusMessage } from '@study/ui/status-message';
 import { Schema } from 'effect';
 import { Archive, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
@@ -367,7 +368,7 @@ function BackupFeedback({ state, owner }: ReturnType<typeof useDataSettings>) {
 
   return (
     <>
-      {state.busy && <p role="status">{t('DataPending')}</p>}
+      {state.busy && <StatusMessage>{t('DataPending')}</StatusMessage>}
       {state.error && (
         <Settings.Status>
           {t(

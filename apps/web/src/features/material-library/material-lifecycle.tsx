@@ -6,6 +6,7 @@ import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
+import { StatusMessage } from '@study/ui/status-message';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
@@ -152,7 +153,7 @@ function CleanupOperation({ c }: { c: LifecycleController }) {
     <>
       {operation && (
         <>
-          <p role="status">{t(cleanupMessage(operation.status))}</p>
+          <StatusMessage>{t(cleanupMessage(operation.status))}</StatusMessage>
           <Button disabled={busy} onClick={c.refreshOperation}>
             {t('LibraryRefresh')}
           </Button>
@@ -291,7 +292,7 @@ function LifecycleConfirmation({ c }: { c: LifecycleController }) {
 function RecoveryStatus({ state }: { state: ReturnType<typeof useDeletionRecovery>['state'] }) {
   const { t } = useI18n();
 
-  if (state.data) return <p role="status">{t(cleanupMessage(state.data.status))}</p>;
+  if (state.data) return <StatusMessage>{t(cleanupMessage(state.data.status))}</StatusMessage>;
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 

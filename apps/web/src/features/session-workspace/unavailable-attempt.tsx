@@ -2,6 +2,7 @@ import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/session-workspace';
+import { StatusMessage } from '@study/ui/status-message';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -29,7 +30,7 @@ export function UnavailableAttempt({
 
   return (
     <Notebook.AttemptRecovery aria-label={t('SessionAttemptUnavailable')}>
-      <p role="status">{t('SessionAttemptUnavailable')}</p>
+      <StatusMessage>{t('SessionAttemptUnavailable')}</StatusMessage>
       <Notebook.Muted>{t('SessionAbandonAttemptHelp')}</Notebook.Muted>
       <Button
         variant="outline"

@@ -2,6 +2,7 @@ import type { proposalOutcomeSchema } from '@study/contracts/documents/editing';
 import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
+import { StatusMessage } from '@study/ui/status-message';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
@@ -32,11 +33,11 @@ export function ProposalReview({ requestId }: { requestId: string }) {
         />
       )}
       {outcome && (
-        <p role="status">
+        <StatusMessage>
           {t(outcome.outcome === 'conflict' ? 'DocumentConflict' : 'DocumentProposalSaved')}
-        </p>
+        </StatusMessage>
       )}
-      {busy && <p role="status">{t('SessionSaving')}</p>}
+      {busy && <StatusMessage>{t('SessionSaving')}</StatusMessage>}
       {outcome?.resultVersionId && <ProposalResult versionId={outcome.resultVersionId} />}
       {failed && (
         <ErrorState title={t('ErrorStateTitle')} description={<> {t('DocumentActionFailed')} </>} />

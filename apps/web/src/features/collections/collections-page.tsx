@@ -8,6 +8,7 @@ import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
+import { StatusMessage } from '@study/ui/status-message';
 import { toastManager } from '@study/ui/toast';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -440,7 +441,7 @@ function CreationStatus({ view }: { view: CollectionsView }) {
 
   return (
     <>
-      {draft.uncertain && busy ? <p role="status">{t('collections.creating')}</p> : null}
+      {draft.uncertain && busy ? <StatusMessage>{t('collections.creating')}</StatusMessage> : null}
       {draft.uncertain && !busy ? (
         <ErrorState
           title={t('ErrorStateTitle')}
@@ -462,7 +463,7 @@ function CreationStatus({ view }: { view: CollectionsView }) {
           }
         />
       ) : null}
-      {draft.accepted ? <p role="status">{t('collections.created')}</p> : null}
+      {draft.accepted ? <StatusMessage>{t('collections.created')}</StatusMessage> : null}
       {draft.error ? (
         <ErrorState
           title={t('ErrorStateTitle')}

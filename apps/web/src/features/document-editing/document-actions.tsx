@@ -2,6 +2,7 @@ import type { comparisonSchema, restoreSchema } from '@study/contracts/documents
 import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
+import { StatusMessage } from '@study/ui/status-message';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -149,9 +150,9 @@ function DocumentSavedActions({ view }: { view: DocumentEditor }) {
   return (
     <>
       {outcome && (
-        <p role="status">
+        <StatusMessage>
           {t(outcome.outcome === 'conflict' ? 'DocumentConflict' : 'DocumentSaved')}
-        </p>
+        </StatusMessage>
       )}
       {outcome && (
         <Button
@@ -201,9 +202,9 @@ function DocumentSavedActions({ view }: { view: DocumentEditor }) {
         </Button>
       )}
       {undoOutcome && (
-        <p role="status">
+        <StatusMessage>
           {t(undoOutcome.outcome === 'saved' ? 'DocumentUndone' : 'DocumentUndoConflict')}
-        </p>
+        </StatusMessage>
       )}
     </>
   );

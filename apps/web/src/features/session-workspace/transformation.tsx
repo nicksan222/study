@@ -7,6 +7,7 @@ import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
+import { StatusMessage } from '@study/ui/status-message';
 import { Textarea } from '@study/ui/textarea';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import {
@@ -542,7 +543,7 @@ function TransformControls({ model }: { model: TransformResultModel }) {
           label={t('Retry')}
         />
       )}
-      {state.data?.cancelled && <p role="status">{t('SessionCancelledTransform')}</p>}
+      {state.data?.cancelled && <StatusMessage>{t('SessionCancelledTransform')}</StatusMessage>}
       {cancel.error && <SessionError error={cancel.error} retry={() => cancel.mutate()} />}
       <TransformRetryError model={model} />
     </>
@@ -613,9 +614,9 @@ export function SessionRuns({ id }: { id: SessionId }) {
               {run.proposedVersionId && <ProposalReview requestId={run.requestId} />}
             </>
           ) : (
-            <p role="status">
+            <StatusMessage>
               {t(run.state === 'retired' ? 'SessionRunRetired' : 'SessionContextUnavailable')}
-            </p>
+            </StatusMessage>
           )}
         </Notebook.TransformRun>
       ))}

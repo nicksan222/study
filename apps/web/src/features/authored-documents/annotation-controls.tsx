@@ -4,6 +4,7 @@ import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
+import { StatusMessage } from '@study/ui/status-message';
 import { Textarea } from '@study/ui/textarea';
 
 import { useAnnotationControls } from './annotation-controls.queries';
@@ -38,7 +39,7 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
   return (
     <>
       {draft.current.deleted || draft.review?.deleted ? (
-        <p role="status">{t('AnnotationDeleted')}</p>
+        <StatusMessage>{t('AnnotationDeleted')}</StatusMessage>
       ) : null}
       <EvidenceTarget reference={{ kind: 'range', target: draft.current.target }} />
       <label>
@@ -132,7 +133,7 @@ function AnnotationReceipt({ view }: { view: AnnotationView }) {
     <>
       {draft.pending && <Loading label={t('LoadingStudy')} />}
       {result && (
-        <p role="status">
+        <StatusMessage>
           {t(
             result.outcome === 'saved'
               ? 'DocumentAnnotationSaved'
@@ -140,7 +141,7 @@ function AnnotationReceipt({ view }: { view: AnnotationView }) {
                 ? 'DocumentAnnotationConflict'
                 : 'ReaderUnavailable'
           )}
-        </p>
+        </StatusMessage>
       )}
       {draft.review && (
         <section aria-label={t('AnnotationStoredRevision')}>

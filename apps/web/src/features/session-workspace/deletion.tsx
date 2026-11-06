@@ -5,6 +5,7 @@ import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
+import { StatusMessage } from '@study/ui/status-message';
 import { toastManager } from '@study/ui/toast';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -115,7 +116,7 @@ function DeleteStatus({ flow }: { flow: DeletionFlow }) {
     <>
       {state.isPending && <Loading label={t('LoadingStudy')} />}
       {(pending || state.data?.status === 'pending') && <Loading label={t('SessionDeleting')} />}
-      {state.data?.status === 'completed' && <p role="status">{t('SessionDeleted')}</p>}
+      {state.data?.status === 'completed' && <StatusMessage>{t('SessionDeleted')}</StatusMessage>}
     </>
   );
 }

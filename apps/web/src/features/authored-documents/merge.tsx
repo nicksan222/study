@@ -6,6 +6,7 @@ import { Button } from '@study/ui/button';
 import { DialogFooter } from '@study/ui/dialog';
 import { DocumentOverview } from '@study/ui/document-overview';
 import { Input } from '@study/ui/input';
+import { StatusMessage } from '@study/ui/status-message';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -160,7 +161,7 @@ function MergeProgress({
       {item.resultVersionId === null && !item.errorKind && (
         <AiActivity label={t('DocumentsMerging')} />
       )}
-      {item.errorKind && <p role="status">{t(mergeErrorMessage(item.errorKind))}</p>}
+      {item.errorKind && <StatusMessage>{t(mergeErrorMessage(item.errorKind))}</StatusMessage>}
       {result.data && (
         <Link
           to="/documents/$documentId"

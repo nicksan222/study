@@ -6,6 +6,7 @@ import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
+import { StatusMessage } from '@study/ui/status-message';
 import { Textarea } from '@study/ui/textarea';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -233,7 +234,7 @@ function AnnotationOutcome({ c }: { c: EvidenceController }) {
   return (
     <>
       {outcome && (
-        <p role="status">
+        <StatusMessage>
           {t(
             outcome.outcome === 'saved'
               ? 'DocumentAnnotationSaved'
@@ -241,7 +242,7 @@ function AnnotationOutcome({ c }: { c: EvidenceController }) {
                 ? 'DocumentAnnotationConflict'
                 : 'ReaderUnavailable'
           )}
-        </p>
+        </StatusMessage>
       )}
     </>
   );

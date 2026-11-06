@@ -48,3 +48,8 @@ testStable('requires tooltip-backed icon actions without confusing text buttons'
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes operation announcements while preserving prose', () => {
+  expect(lint(`const view = <p role="status">Saved</p>;`)).toHaveLength(1);
+  expect(lint(`const view = <p>Document paragraph</p>;`)).toHaveLength(0);
+});

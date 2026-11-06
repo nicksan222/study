@@ -33,6 +33,22 @@ export default defineRule({
       JSXElement(node) {
         const tag = node.openingElement.name;
 
+        if (
+          tag.type === 'JSXIdentifier' &&
+          tag.name === 'p' &&
+          node.openingElement.attributes.some(
+            (attribute) =>
+              attribute.type === 'JSXAttribute' &&
+              attribute.name.name === 'role' &&
+              attribute.value?.type === 'Literal' &&
+              attribute.value.value === 'status'
+          )
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use StatusMessage from @study/ui/status-message for operation feedback.'
+          });
+
         if (tag.type !== 'JSXIdentifier' || !buttons.has(tag.name)) return;
 
         const attributes = node.openingElement.attributes;

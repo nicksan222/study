@@ -15,6 +15,7 @@ import {
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
+import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { History as HistoryIcon } from 'lucide-react';
@@ -253,7 +254,7 @@ function MessageEntry({
   return (
     <ChatMessage data-role={message.role}>
       <ChatEntryLabel>{t(messageEntryLabel(message, version))}</ChatEntryLabel>
-      {!version && <p role="status">{t('SessionReadUnavailable')}</p>}
+      {!version && <StatusMessage>{t('SessionReadUnavailable')}</StatusMessage>}
       {version && (
         <MessageVersionBody
           message={message}
