@@ -3,6 +3,7 @@ import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
+import { Field } from '@study/ui/field';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
@@ -28,8 +29,7 @@ function PruneSettings({ c }: { c: LifecycleController }) {
   return (
     <>
       {mode === 'prune' && !pruneOperation && !pruneInput && (
-        <label>
-          {t('DocumentKeepLatest')}
+        <Field label={<> {t('DocumentKeepLatest')} </>}>
           <Input
             type="number"
             min={1}
@@ -41,7 +41,7 @@ function PruneSettings({ c }: { c: LifecycleController }) {
               setPrune(undefined);
             }}
           />
-        </label>
+        </Field>
       )}
     </>
   );

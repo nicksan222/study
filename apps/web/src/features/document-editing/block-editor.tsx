@@ -3,6 +3,7 @@ import type { BlockContent, Inline, documentSchema } from '@study/contracts/sour
 import { canonicalText } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
+import { Field } from '@study/ui/field';
 import { Textarea } from '@study/ui/textarea';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -22,8 +23,15 @@ function InlineFields({
     item.type === 'break' ? (
       <br key={key} />
     ) : (
-      <label key={key}>
-        {t('DocumentText')} {index + 1}
+      <Field
+        key={key}
+        label={
+          <>
+            {' '}
+            {t('DocumentText')} {index + 1}{' '}
+          </>
+        }
+      >
         <Textarea
           value={item.text}
           onChange={(event) =>
@@ -32,7 +40,7 @@ function InlineFields({
             )
           }
         />
-      </label>
+      </Field>
     )
   );
 }
@@ -70,36 +78,33 @@ function ContentFields({
 
   if (content.type === 'code')
     return (
-      <label>
-        {t('DocumentCode')}
+      <Field label={<> {t('DocumentCode')} </>}>
         <Textarea
           font="mono"
           value={content.code}
           onChange={(event) => change({ ...content, code: event.target.value })}
         />
-      </label>
+      </Field>
     );
 
   if (content.type === 'math')
     return (
-      <label>
-        {t('DocumentMath')}
+      <Field label={<> {t('DocumentMath')} </>}>
         <Textarea
           font="mono"
           value={content.expression}
           onChange={(event) => change({ ...content, expression: event.target.value })}
         />
-      </label>
+      </Field>
     );
 
   return (
-    <label>
-      {t('DocumentImageAlt')}
+    <Field label={<> {t('DocumentImageAlt')} </>}>
       <Textarea
         value={content.alt}
         onChange={(event) => change({ ...content, alt: event.target.value })}
       />
-    </label>
+    </Field>
   );
 }
 

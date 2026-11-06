@@ -2,6 +2,7 @@ import type { Source } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
+import { Field } from '@study/ui/field';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { StatusMessage } from '@study/ui/status-message';
@@ -97,8 +98,7 @@ export function SourceHistoryRetirement({
         }}
         onConfirm={view.confirm}
       >
-        <label>
-          {t('SourceHistoryKeep')}
+        <Field label={<> {t('SourceHistoryKeep')} </>}>
           <Input
             type="number"
             min={1}
@@ -107,7 +107,7 @@ export function SourceHistoryRetirement({
             disabled={view.pending || !!view.state.attempt}
             onChange={(event) => view.setKeep(event.target.value)}
           />
-        </label>
+        </Field>
         <HistoryReview view={view} />
       </DangerDialog>
     </>

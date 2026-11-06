@@ -4,6 +4,7 @@ import type { StudyDocumentVersion } from '@study/contracts/documents/types';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
+import { Field } from '@study/ui/field';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
 import { StatusMessage } from '@study/ui/status-message';
@@ -209,15 +210,14 @@ function AnnotationCreation({
               />
             </>
           )}
-          <label>
-            {t('DocumentAnnotationNote')}
+          <Field label={<> {t('DocumentAnnotationNote')} </>}>
             <Textarea
               value={note}
               disabled={busy}
               maxLength={100000}
               onChange={(event) => change({ note: event.target.value })}
             />
-          </label>
+          </Field>
           <Button disabled={busy || Boolean(unresolved) || !range} onClick={c.saveAnnotation}>
             {t('DocumentSaveAnnotation')}
           </Button>

@@ -6,6 +6,7 @@ import { Button } from '@study/ui/button';
 import { Disclosure } from '@study/ui/disclosure';
 import { ErrorState } from '@study/ui/error-state';
 import { EvidenceExcerpt } from '@study/ui/evidence-target';
+import { Field } from '@study/ui/field';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Textarea } from '@study/ui/textarea';
@@ -134,8 +135,7 @@ function BlockPicker({
             }}
           />
           {block && (
-            <label>
-              {t('DocumentSelectPassage')}
+            <Field label={<> {t('DocumentSelectPassage')} </>}>
               <Textarea
                 key={block.id}
                 readOnly
@@ -156,7 +156,7 @@ function BlockPicker({
                   onPick(valid ? { documentId, range } : undefined);
                 }}
               />
-            </label>
+            </Field>
           )}
           {preview && (
             <EvidenceExcerpt kind="preview" aria-label={t('AnnotationPreview')}>

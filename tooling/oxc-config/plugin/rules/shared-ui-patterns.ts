@@ -53,6 +53,21 @@ export default defineRule({
       JSXElement(node) {
         const tag = node.openingElement.name;
 
+        if (
+          tag.type === 'JSXIdentifier' &&
+          tag.name === 'label' &&
+          node.children.some(
+            (child) =>
+              child.type === 'JSXElement' &&
+              child.openingElement.name.type === 'JSXIdentifier' &&
+              ['Input', 'Textarea'].includes(child.openingElement.name.name)
+          )
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use Field from @study/ui/field for labelled text controls.'
+          });
+
         if (tag.type === 'JSXIdentifier' && closes.has(tag.name))
           context.report({
             node: node.openingElement,

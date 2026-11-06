@@ -124,3 +124,8 @@ testStable('requires primitive-backed shared dialog dismissal', () => {
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes labelled text controls but permits native document inputs', () => {
+  expect(lint(`const view = <label>Name<Input /></label>;`)).toHaveLength(1);
+  expect(lint(`const view = <label><input type="checkbox" />Choice</label>;`)).toHaveLength(0);
+});

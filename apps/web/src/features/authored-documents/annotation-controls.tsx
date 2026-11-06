@@ -3,6 +3,7 @@ import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { Disclosure } from '@study/ui/disclosure';
 import { ErrorState } from '@study/ui/error-state';
+import { Field } from '@study/ui/field';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { StatusMessage } from '@study/ui/status-message';
@@ -43,14 +44,13 @@ function AnnotationForm({ view }: { view: AnnotationView }) {
         <StatusMessage>{t('AnnotationDeleted')}</StatusMessage>
       ) : null}
       <EvidenceTarget reference={{ kind: 'range', target: draft.current.target }} />
-      <label>
-        {t('DocumentAnnotationNote')}
+      <Field label={<> {t('DocumentAnnotationNote')} </>}>
         <Textarea
           maxLength={100000}
           value={draft.note}
           onChange={(e) => edit({ note: e.target.value })}
         />
-      </label>
+      </Field>
       <SelectControl
         label={t('AnnotationKind')}
         value={draft.kind}

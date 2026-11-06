@@ -1,5 +1,6 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
 import { DangerDialog, DangerDialogSummary } from '@study/ui/danger-dialog';
+import { Field } from '@study/ui/field';
 import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 
@@ -61,8 +62,7 @@ function HistorySettings({ view }: { view: View }) {
   if (view.mode !== 'history') return null;
 
   return (
-    <label>
-      {t('DocumentKeepLatest')}
+    <Field label={<> {t('DocumentKeepLatest')} </>}>
       <Input
         type="number"
         min={1}
@@ -73,7 +73,7 @@ function HistorySettings({ view }: { view: View }) {
           view.setKeepLatest(event.target.value);
         }}
       />
-    </label>
+    </Field>
   );
 }
 
