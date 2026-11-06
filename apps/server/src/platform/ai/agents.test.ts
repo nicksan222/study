@@ -23,7 +23,7 @@ import { Effect, Schema, Stream } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
-import type { AgentsConfig } from '#server/platform/ai/agents';
+import type { AgentProgress, AgentsConfig } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { defineAgent } from '#server/platform/definitions/define-agent';
@@ -178,6 +178,88 @@ testStable('rejects malformed structured output', async () => {
     }
   );
 });
+
+testStable(
+  'batches preview writes without delaying direct deltas or losing the final text',
+  async () => {
+    let response!: ServerResponse;
+    let sawFirst!: () => void;
+    let sawBurst!: () => void;
+    let sawDirectBurst!: () => void;
+    const first = new Promise<void>((resolve) => {
+      sawFirst = resolve;
+    });
+    const burst = new Promise<void>((resolve) => {
+      sawBurst = resolve;
+    });
+    const directBurst = new Promise<void>((resolve) => {
+      sawDirectBurst = resolve;
+    });
+    const previews: string[] = [];
+    const direct: string[] = [];
+    const expected = `First${'x'.repeat(50)}`;
+    const delta = (text: string) =>
+      response.write(
+        `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: text })}\n\n`
+      );
+    const receive = (event: AgentProgress<string>) =>
+      Effect.sync(() => {
+        if (event.type !== 'text-delta') return;
+
+        direct.push(event.text);
+
+        if (direct.join('') === expected) sawDirectBurst();
+      });
+    const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+      Effect.sync(() => {
+        if (observation.event.type !== 'text-delta') return;
+
+        previews.push(observation.event.text);
+
+        if (previews.join('') === 'First') sawFirst();
+
+        if (previews.join('') === expected) sawBurst();
+      });
+
+    await peer(
+      (_request, res) => {
+        response = res;
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(
+          `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+        );
+        delta('First');
+      },
+      async (base, auth) => {
+        const running = Effect.runPromise(
+          streamAgent(definition, 'x').pipe(
+            Stream.tap(receive),
+            Stream.runLast,
+            Effect.provide(service(base, auth, observe))
+          )
+        );
+
+        try {
+          await first;
+
+          for (let i = 0; i < 50; i++) delta('x');
+
+          await directBurst;
+          await burst;
+          expect(previews.join('')).toBe(expected);
+          expect(previews.length).toBeLessThan(10);
+          expect(direct).toHaveLength(51);
+        } finally {
+          delta('tail');
+          response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
+          await running;
+        }
+
+        expect(previews.join('')).toBe(`${expected}tail`);
+      }
+    );
+  }
+);
 
 testStable('executes a source tool and sends its result back to the provider', async () => {
   const bodies: string[] = [];

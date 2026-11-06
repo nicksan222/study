@@ -85,6 +85,8 @@ function* makeWorkflows() {
     subscribeAgentProgress: (input: typeof agentProgressInputSchema.Type) =>
       Effect.succeed(
         updates.pipe(
+          // Keep only the latest pending hint and bound reads before loading full snapshots.
+          Stream.throttle({ units: 1, duration: '100 millis', cost: () => 1 }),
           Stream.mapEffect(() => agentProgress(input)),
           Stream.changesWith(
             (a, b) =>

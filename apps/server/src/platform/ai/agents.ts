@@ -39,6 +39,7 @@ import {
 
 import { makeAdmission } from '#server/platform/ai/admission';
 import type { Admission } from '#server/platform/ai/admission';
+import { batchAgentProgress } from '#server/platform/ai/progress';
 import { ChatGptRequestError, withRequestCheck } from '#server/platform/ai/providers/chatgpt/model';
 import { standardSchema } from '#server/platform/ai/schema';
 import { adaptTool, adaptRequestCheck } from '#server/platform/ai/tool-adapter';
@@ -135,8 +136,10 @@ export function streamAgent<
       agentId: definition.id,
       mode: definition.mode ?? ('text' as const)
     };
-    const observe = (event: (typeof agentObservationSchema.Type)['event']) =>
-      service.observe?.({ ...run, event }) ?? Effect.void;
+    const progress = batchAgentProgress(
+      (event) => service.observe?.({ ...run, event }) ?? Effect.void
+    );
+    const { observe } = progress;
 
     yield* observe({ type: 'start' });
 
@@ -276,6 +279,9 @@ export function streamAgent<
         })
       )
       .pipe(
+        Effect.raceFirst(
+          Effect.forever(Effect.sleep('100 millis').pipe(Effect.andThen(progress.flush)))
+        ),
         Effect.onExit((exit) =>
           Exit.isFailure(exit)
             ? observe({
