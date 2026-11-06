@@ -33,6 +33,7 @@ import { useStore, transaction } from '#server/platform/definitions/define-store
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { WorkflowRetirementStore } from '#server/platform/workflows/retirement';
 
+/** Compose workflow controls and persisted snapshot subscriptions over committed hints. */
 function* makeWorkflows() {
   const changes = yield* databaseChanges;
 
@@ -59,6 +60,7 @@ function* makeWorkflows() {
       return { items, next: more.length ? cursor : null };
     });
 
+  /** Seed each viewer, coalesce commit hints and periodically recover from missed hints. */
   function* watchExecutions(queue: Queue.Queue<void, Cause.Done>) {
     yield* Effect.acquireRelease(
       Effect.sync(() =>
@@ -82,6 +84,7 @@ function* makeWorkflows() {
 
   return {
     agentProgress,
+    /** Bound snapshot reads before querying and suppress unchanged revisions on the wire. */
     subscribeAgentProgress: (input: typeof agentProgressInputSchema.Type) =>
       Effect.succeed(
         updates.pipe(

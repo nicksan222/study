@@ -126,6 +126,7 @@ export function workflowStore(context: ServerContext) {
 
       return undefined;
     },
+    /** Atomically claim an eligible lease and discard previews captured by replaced owners. */
     claim(id: string, owner: string) {
       return context.transaction(() => {
         if (executionRetired(id)) return false;

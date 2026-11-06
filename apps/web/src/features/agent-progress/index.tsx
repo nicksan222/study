@@ -15,7 +15,11 @@ const progressLabels = {
   cancelled: 'AgentStreamInterrupted'
 } as const;
 
-/** Live generation previews shared by notebook, transformation and material surfaces. */
+/**
+ * Render read-only text and tool previews with connection and terminal-state labels.
+ * Refresh the authoritative feature queries when an observed workflow finishes or retires;
+ * raw structured output stays hidden until its owning feature publishes validated results.
+ */
 export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
   const { t } = useI18n();
   const cache = useQueryClient();

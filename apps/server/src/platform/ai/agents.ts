@@ -64,6 +64,7 @@ export interface AgentOptions {
   preflight?: Effect.Effect<void, StudyError>;
 }
 
+/** Reject invalid step and retry limits before admitting any provider work. */
 function agentLimits(options: AgentOptions) {
   const steps = options.maxSteps ?? 5;
   const retries = options.maxRetries ?? 0;
@@ -89,6 +90,7 @@ function failure(error: unknown): StudyError {
   return new StudyError('transient', 'Agent request failed', { cause: error });
 }
 
+/** Consume the agent stream and return only its schema-validated completion value. */
 export function generateAgent<
   I extends Schema.ConstraintDecoder<unknown>,
   O extends Schema.ConstraintDecoder<unknown>
@@ -109,6 +111,11 @@ export function generateAgent<
   );
 }
 
+/**
+ * Stream every text delta and tool update while batching durable observations separately.
+ * The stream scope owns provider cancellation and the preview-flush fiber; retries stop
+ * after a visible update, and completion is emitted only after output validation.
+ */
 export function streamAgent<
   I extends Schema.ConstraintDecoder<unknown>,
   O extends Schema.ConstraintDecoder<unknown>
@@ -117,6 +124,7 @@ export function streamAgent<
   input: I['Type'],
   options: AgentOptions = {}
 ): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents> {
+  /** Capture one run identity and preserve its scoped ownership through all observations. */
   function* runAgentStream(queue: Queue.Queue<AgentProgress<O['Type']>, StudyError | Cause.Done>) {
     const service = yield* Agents;
     const { steps, retries } = yield* agentLimits(options);
@@ -160,6 +168,7 @@ export function streamAgent<
             : model;
           let retryCount = 0;
           let published = false;
+          /** Observe before delivery and prevent retry once an update reaches the consumer. */
           const emit = (event: typeof agentUpdateSchema.Type) =>
             Effect.gen(function* () {
               yield* observe(event);
@@ -167,6 +176,7 @@ export function streamAgent<
               published = true;
             });
 
+          /** Own one cancellable provider attempt through validated terminal publication. */
           function* runAttempt() {
             const controller = yield* Effect.acquireRelease(
               Effect.sync(() => new AbortController()),
@@ -204,6 +214,7 @@ export function streamAgent<
             const iterator = result.fullStream[Symbol.asyncIterator]();
             const text = yield* Effect.gen(readStream);
 
+            /** Forward deltas but reject provider errors, truncation and empty responses. */
             function* readStream() {
               let text = '';
               let finished = false;

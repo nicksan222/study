@@ -24,6 +24,10 @@ import { standardSchema } from '#server/platform/ai/schema';
 import type { AgentEnvironment, AgentTool } from '#server/platform/definitions/define-agent';
 import { safeMetadata } from '#server/platform/observability/index';
 
+/**
+ * Restore the captured Effect context for provider-invoked tools and forward cancellation.
+ * When progress is enabled, publish tool identity and outcome around the actual execution.
+ */
 export function adaptTool(
   definition: AgentTool,
   environment: AgentEnvironment,

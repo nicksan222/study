@@ -33,6 +33,7 @@ import { withPublicationGuard, PublicationGuard } from '#server/platform/workflo
 
 const toolsCodec = Schema.fromJsonString(Schema.Array(agentToolProgressSchema));
 
+/** Replace a tool call's current state while retaining the order of distinct calls. */
 function updateToolProgress(
   encoded: string,
   event: Extract<
@@ -61,6 +62,7 @@ function updateToolProgress(
   return Schema.encodeSync(toolsCodec)(tools);
 }
 
+/** Advance the snapshot revision and apply one accepted text, tool or terminal update. */
 function progressChanges(
   existing: { revision: bigint; tools: string },
   event: Exclude<(typeof agentObservationSchema.Type)['event'], { type: 'start' }>,
@@ -90,6 +92,11 @@ function progressChanges(
   return update;
 }
 
+/**
+ * Persist observations only within the current workflow activity's publication fence.
+ * Starting an agent replaces its previous preview; later writes require the same live run
+ * and lease. The transaction commits before database subscribers receive refresh hints.
+ */
 export function observeAgentProgress(context: ServerContext) {
   return (observation: typeof agentObservationSchema.Type): Effect.Effect<void, StudyError> =>
     Effect.gen(function* () {
@@ -175,6 +182,11 @@ export function observeAgentProgress(context: ServerContext) {
     });
 }
 
+/**
+ * Read bounded, validated snapshots by execution or correlation for reconnecting viewers.
+ * Exclude retired and interrupted work, and hide running previews from superseded owners.
+ * Completed previews rely on claim-time cleanup because checkpoints clear owner tokens.
+ */
 export function agentProgressSnapshot(
   context: Pick<ServerContext, 'db'>,
   input: typeof agentProgressInputSchema.Type,
