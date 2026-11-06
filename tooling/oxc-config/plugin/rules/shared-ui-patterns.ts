@@ -4,7 +4,7 @@ import type { ESTree } from 'vite-plus/lint/plugins';
 import { propertyName } from '../effect-bindings.ts';
 import { webFile } from '../web-files.ts';
 
-const actions: Record<string, string> = { Retry: 'RetryButton' };
+const actions: Record<string, string> = { Retry: 'RetryButton', LibraryMore: 'LoadMoreButton' };
 
 function translation(node: ESTree.Node): string | undefined {
   if (node.type !== 'JSXExpressionContainer' || node.expression.type !== 'CallExpression') return;

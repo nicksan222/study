@@ -22,3 +22,16 @@ testStable('enforces shared recovery actions including imported aliases', () => 
     0
   );
 });
+
+testStable('enforces shared pagination while allowing owner-specific action labels', () => {
+  expect(
+    lint(
+      `import { Button } from '@study/ui/button'; const view = <Button disabled={pending}>{t('LibraryMore')}</Button>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { Button } from '@study/ui/button'; const view = <Button>{t('DocumentEdit')}</Button>;`
+    )
+  ).toHaveLength(0);
+});

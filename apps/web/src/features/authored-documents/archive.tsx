@@ -1,5 +1,6 @@
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { ProjectId, StudyDocumentId } from '@study/contracts/ids';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { Input } from '@study/ui/input';
@@ -76,13 +77,12 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
             ))}
         </Surface.Materials>
         {state.hasNextPage && (
-          <Button
+          <LoadMoreButton
             variant="ghost"
             disabled={state.isFetchingNextPage}
             onClick={() => void state.fetchNextPage()}
-          >
-            {t('LibraryMore')}
-          </Button>
+            label={t('LibraryMore')}
+          />
         )}
       </Surface.Navigation>
       <Surface.Main>

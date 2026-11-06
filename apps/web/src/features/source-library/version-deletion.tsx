@@ -1,5 +1,6 @@
 import type { ContentSnapshotId } from '@study/contracts/ids';
 import type { Source } from '@study/contracts/sources/schemas';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { Loading } from '@study/ui/loading';
@@ -145,12 +146,11 @@ function SourceVersionChoices({ model }: { model: Model }) {
       />
       {versions.length === 1 && !history.hasNextPage && <p>{t('SessionDeleteNoOlderVersions')}</p>}
       {history.hasNextPage && (
-        <Button
+        <LoadMoreButton
           disabled={history.isFetchingNextPage || pending}
           onClick={() => void history.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
     </>
   );

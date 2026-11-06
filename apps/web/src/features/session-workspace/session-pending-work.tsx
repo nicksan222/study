@@ -1,4 +1,5 @@
 import type { SessionId } from '@study/contracts/ids';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -52,14 +53,13 @@ export function SessionPendingWork({ id }: { id: SessionId }) {
         ))}
       </WorkspaceWork.List>
       {state.hasNextPage && (
-        <Button
+        <LoadMoreButton
           size="sm"
           variant="ghost-muted"
           disabled={state.isFetchingNextPage}
           onClick={() => void state.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
     </WorkspaceWork.Root>
   );

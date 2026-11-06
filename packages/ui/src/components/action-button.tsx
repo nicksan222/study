@@ -12,3 +12,24 @@ export function RetryButton({ label, variant = 'outline', size = 'sm', ...props 
     </Button>
   );
 }
+
+/** Pagination retains its label and exposes busy state without shifting the list. */
+export function LoadMoreButton({
+  label,
+  pending = false,
+  disabled,
+  variant = 'ghost',
+  ...props
+}: ActionProps & { pending?: boolean }) {
+  return (
+    <Button
+      {...props}
+      type="button"
+      variant={variant}
+      disabled={pending || disabled}
+      aria-busy={pending}
+    >
+      {label}
+    </Button>
+  );
+}

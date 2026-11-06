@@ -1,7 +1,7 @@
 import { Search } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
-import { Button } from './button';
+import { LoadMoreButton } from './action-button';
 import { DialogPopup, DialogTitle } from './dialog';
 import { Input } from './input';
 import { semanticPart as part } from './semantic-part';
@@ -108,9 +108,5 @@ function Item({
 }
 
 function More({ pending, onLoad, label }: { pending: boolean; onLoad: () => void; label: string }) {
-  return (
-    <Button variant="ghost" disabled={pending} onClick={onLoad}>
-      {label}
-    </Button>
-  );
+  return <LoadMoreButton pending={pending} onClick={onLoad} label={label} />;
 }

@@ -1,6 +1,7 @@
 import type { annotationTargetSchema } from '@study/contracts/documents/evidence';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { validBlockTextRange } from '@study/contracts/sources/document';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { EvidenceExcerpt } from '@study/ui/evidence-target';
@@ -67,12 +68,11 @@ export function TargetPicker({
         />
       )}
       {versions.hasNextPage && (
-        <Button
+        <LoadMoreButton
           disabled={versions.isFetchingNextPage}
           onClick={() => void versions.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
       <BlockPicker
         key={String(version)}

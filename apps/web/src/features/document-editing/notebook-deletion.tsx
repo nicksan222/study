@@ -1,5 +1,6 @@
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import type { ItemDeletionActions } from '@study/ui/context-menu';
 import { DangerDialog } from '@study/ui/danger-dialog';
@@ -207,12 +208,11 @@ function DocumentVersionChoices({ model }: { model: Model }) {
       />
       {versions.length === 1 && !history.hasNextPage && <p>{t('SessionDeleteNoOlderVersions')}</p>}
       {history.hasNextPage && (
-        <Button
+        <LoadMoreButton
           disabled={history.isFetchingNextPage || preview.isFetching}
           onClick={() => void history.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
     </>
   );

@@ -1,3 +1,4 @@
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
@@ -272,12 +273,11 @@ function AnnotationHistory({ view }: { view: AnnotationView }) {
             ))}
         </ol>
         {history.hasNextPage && (
-          <Button
+          <LoadMoreButton
             disabled={history.isFetchingNextPage}
             onClick={() => void history.fetchNextPage()}
-          >
-            {t('LibraryMore')}
-          </Button>
+            label={t('LibraryMore')}
+          />
         )}
       </details>
     </>

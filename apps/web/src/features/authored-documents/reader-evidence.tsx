@@ -1,6 +1,7 @@
 import type { assessmentViewSchema } from '@study/contracts/documents/evidence';
 import type { citationSchema } from '@study/contracts/documents/schemas';
 import type { StudyDocumentVersion } from '@study/contracts/documents/types';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
@@ -110,12 +111,11 @@ function CitationResults({ c }: { c: EvidenceController }) {
         />
       ))}
       {assessments.hasNextPage && (
-        <Button
+        <LoadMoreButton
           disabled={assessments.isFetchingNextPage}
           onClick={() => void assessments.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
     </>
   );
@@ -137,12 +137,11 @@ function AnnotationResults({ c }: { c: EvidenceController }) {
         ))}
       </ul>
       {annotations.hasNextPage && (
-        <Button
+        <LoadMoreButton
           disabled={annotations.isFetchingNextPage}
           onClick={() => void annotations.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
     </>
   );

@@ -1,5 +1,6 @@
 import { projectIdSchema } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { Loading } from '@study/ui/loading';
@@ -425,13 +426,12 @@ function CreationRecovery({ view }: { view: StartView }) {
             ))}
           </SessionStarter.Sessions>
           {state.hasNextPage && (
-            <Button
+            <LoadMoreButton
               variant="ghost"
               disabled={state.isFetchingNextPage}
               onClick={() => void state.fetchNextPage()}
-            >
-              {t('LibraryMore')}
-            </Button>
+              label={t('LibraryMore')}
+            />
           )}
         </SessionStarter.Recovery>
       )}

@@ -1,3 +1,4 @@
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { SelectionSurface } from '@study/ui/selection';
 import type { ReactNode } from 'react';
@@ -34,9 +35,13 @@ export function HistoryDisclosure({
         {error}
         {children}
         {more && (
-          <Button variant="ghost" size="sm" disabled={more.pending} onClick={more.load}>
-            {t('LibraryMore')}
-          </Button>
+          <LoadMoreButton
+            variant="ghost"
+            size="sm"
+            disabled={more.pending}
+            onClick={more.load}
+            label={t('LibraryMore')}
+          />
         )}
       </SelectionSurface.History>
     );
@@ -50,9 +55,7 @@ export function HistoryDisclosure({
       {error}
       {children}
       {more && (
-        <Button disabled={more.pending} onClick={more.load}>
-          {t('LibraryMore')}
-        </Button>
+        <LoadMoreButton disabled={more.pending} onClick={more.load} label={t('LibraryMore')} />
       )}
     </details>
   );

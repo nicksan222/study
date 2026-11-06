@@ -1,6 +1,7 @@
 import type { sessionGenerationSchema } from '@study/contracts/conversations/rpc';
 import { StudyError } from '@study/contracts/errors';
 import type { SessionId, StudyDocumentVersionId } from '@study/contracts/ids';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
@@ -619,13 +620,12 @@ export function SessionRuns({ id }: { id: SessionId }) {
         </Notebook.TransformRun>
       ))}
       {state.hasNextPage && (
-        <Button
+        <LoadMoreButton
           variant="ghost"
           disabled={state.isFetchingNextPage}
           onClick={() => void state.fetchNextPage()}
-        >
-          {t('LibraryMore')}
-        </Button>
+          label={t('LibraryMore')}
+        />
       )}
     </Notebook.Runs>
   );

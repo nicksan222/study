@@ -1,3 +1,4 @@
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
@@ -183,9 +184,11 @@ function History({
           ))}
       </ul>
       {state.hasNextPage && (
-        <Button disabled={state.isFetchingNextPage} onClick={() => void state.fetchNextPage()}>
-          {t('LibraryMore')}
-        </Button>
+        <LoadMoreButton
+          disabled={state.isFetchingNextPage}
+          onClick={() => void state.fetchNextPage()}
+          label={t('LibraryMore')}
+        />
       )}
     </MaterialLibrary.History>
   );

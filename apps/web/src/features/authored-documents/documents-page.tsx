@@ -1,6 +1,7 @@
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { ProjectId } from '@study/contracts/ids';
 import { projectIdSchema } from '@study/contracts/ids';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DocumentOverview } from '@study/ui/document-overview';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -74,13 +75,12 @@ function DocumentsOverviewPage({ project }: { project?: ProjectId }) {
       <SavedDocuments items={items} project={project} archived={archived} />
       {state.hasNextPage && (
         <DocumentOverview.Footer>
-          <Button
+          <LoadMoreButton
             variant="ghost"
             disabled={state.isFetchingNextPage}
             onClick={() => void state.fetchNextPage()}
-          >
-            {t('LibraryMore')}
-          </Button>
+            label={t('LibraryMore')}
+          />
         </DocumentOverview.Footer>
       )}
       <DocumentsEmpty ready={state.isSuccess} empty={!items.length} archived={archived} />
