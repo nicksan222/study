@@ -103,11 +103,13 @@ function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; clo
           <Surface.Scroll>
             <Surface.Body>
               <PracticeQueryState state={history}>
-                <Surface.Empty role="status" aria-live="polite">
-                  <History aria-hidden="true" />
-                  <strong>{t(search ? 'SearchNoResults' : 'PracticeNoAttempts')}</strong>
-                  <p>{t(search ? 'PracticeAttemptSearchHelp' : 'PracticeQuizSaveHint')}</p>
-                </Surface.Empty>
+                <Surface.EmptyState
+                  icon={<History aria-hidden="true" />}
+                  title={<>{t(search ? 'SearchNoResults' : 'PracticeNoAttempts')}</>}
+                  description={
+                    <>{t(search ? 'PracticeAttemptSearchHelp' : 'PracticeQuizSaveHint')}</>
+                  }
+                />
               </PracticeQueryState>
             </Surface.Body>
           </Surface.Scroll>

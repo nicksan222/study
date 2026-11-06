@@ -26,6 +26,7 @@ function SelectionDialogPopup({
 export const SelectionSurface = {
   Popup: SelectionDialogPopup,
   DetailHeader,
+  EmptyState,
   SearchField,
   Item,
   More,
@@ -132,5 +133,27 @@ function DetailHeader({
       </SelectionSurface.DetailHeading>
       {children}
     </SelectionSurface.Header>
+  );
+}
+
+/** One empty-state hierarchy for archives, search misses and unselected detail panes. */
+function EmptyState({
+  icon,
+  title,
+  description,
+  action
+}: {
+  icon?: ReactNode;
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <SelectionSurface.Empty role="status" aria-live="polite">
+      {icon}
+      <strong>{title}</strong>
+      {description && <p>{description}</p>}
+      {action}
+    </SelectionSurface.Empty>
   );
 }

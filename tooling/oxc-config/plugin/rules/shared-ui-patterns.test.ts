@@ -74,3 +74,16 @@ testStable('standardizes selected-item headings using imported aliases', () => {
   ).toHaveLength(1);
   expect(lint(`const view = <header><h2>Article heading</h2></header>;`)).toHaveLength(0);
 });
+
+testStable('standardizes selection empty states without banning content containers', () => {
+  expect(
+    lint(
+      `import { SelectionSurface as Surface } from '@study/ui/selection'; const view = <Surface.Empty><strong>Empty</strong></Surface.Empty>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { SelectionSurface as Surface } from '@study/ui/selection'; const view = <Surface.EmptyState title="Empty" />;`
+    )
+  ).toHaveLength(0);
+});

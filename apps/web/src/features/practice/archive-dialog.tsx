@@ -103,11 +103,13 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
           <Surface.Scroll>
             <Surface.Body>
               <PracticeQueryState state={state}>
-                <Surface.Empty role="status" aria-live="polite">
-                  <Archive aria-hidden="true" />
-                  <strong>{t(archiveEmptyTitle(search, Boolean(state.hasNextPage)))}</strong>
-                  <p>{t(search ? 'PracticeArchiveSearchHelp' : 'PracticeArchiveHelp')}</p>
-                </Surface.Empty>
+                <Surface.EmptyState
+                  icon={<Archive aria-hidden="true" />}
+                  title={<>{t(archiveEmptyTitle(search, Boolean(state.hasNextPage)))}</>}
+                  description={
+                    <>{t(search ? 'PracticeArchiveSearchHelp' : 'PracticeArchiveHelp')}</>
+                  }
+                />
               </PracticeQueryState>
             </Surface.Body>
           </Surface.Scroll>

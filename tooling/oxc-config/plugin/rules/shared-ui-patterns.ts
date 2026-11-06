@@ -47,6 +47,17 @@ export default defineRule({
           tag.type === 'JSXMemberExpression' &&
           tag.object.type === 'JSXIdentifier' &&
           selections.has(tag.object.name) &&
+          tag.property.name === 'Empty'
+        )
+          context.report({
+            node: node.openingElement,
+            message: 'Use SelectionSurface.EmptyState for consistent empty-state hierarchy.'
+          });
+
+        if (
+          tag.type === 'JSXMemberExpression' &&
+          tag.object.type === 'JSXIdentifier' &&
+          selections.has(tag.object.name) &&
           tag.property.name === 'Header' &&
           node.children.some(
             (child) =>

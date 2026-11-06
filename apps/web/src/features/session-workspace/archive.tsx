@@ -94,10 +94,10 @@ function ArchiveOverview({
     );
 
   return (
-    <Surface.Empty role="status">
-      <strong>{t(hasItems ? 'SessionArchiveChoose' : 'SessionArchiveEmpty')}</strong>
-      <Notebook.Muted>{t('SessionArchiveEmptyHelp')}</Notebook.Muted>
-    </Surface.Empty>
+    <Surface.EmptyState
+      title={<>{t(hasItems ? 'SessionArchiveChoose' : 'SessionArchiveEmpty')}</>}
+      description={<>{t('SessionArchiveEmptyHelp')}</>}
+    />
   );
 }
 
