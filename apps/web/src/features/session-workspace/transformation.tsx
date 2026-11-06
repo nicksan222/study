@@ -1,9 +1,9 @@
 import type { sessionGenerationSchema } from '@study/contracts/conversations/rpc';
 import { StudyError } from '@study/contracts/errors';
 import type { SessionId, StudyDocumentVersionId } from '@study/contracts/ids';
+import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -287,7 +287,10 @@ function CreateTransform({ model }: { model: TransformationModel }) {
 
   return (
     <>
-      <Button
+      <AiButton
+        label={t('SessionCreateDocument')}
+        workingLabel={t('SessionWorkTransform')}
+        pending={pending}
         disabled={
           pending ||
           !!draft.attempt ||
@@ -323,7 +326,7 @@ function CreateTransform({ model }: { model: TransformationModel }) {
         }}
       >
         {t('SessionCreateDocument')}
-      </Button>
+      </AiButton>
     </>
   );
 }
@@ -363,7 +366,6 @@ function TransformRecovery({ model }: { model: TransformationModel }) {
 
   return (
     <>
-      {pending && <Loading label={t('SessionSaving')} />}
       {retryable && !submit.error && (
         <Button variant="outline" onClick={() => start(draft.attempt!)}>
           {t('Retry')}

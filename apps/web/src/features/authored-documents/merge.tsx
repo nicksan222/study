@@ -1,11 +1,11 @@
 import type { transformSnapshotSchema } from '@study/contracts/documents/transform';
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { ProjectId } from '@study/contracts/ids';
+import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { DialogFooter } from '@study/ui/dialog';
 import { DocumentOverview } from '@study/ui/document-overview';
 import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
@@ -158,7 +158,7 @@ function MergeProgress({
     <div>
       <DocumentOverview.Name>{item.title}</DocumentOverview.Name>
       {item.resultVersionId === null && !item.errorKind && (
-        <Loading label={t('DocumentsMerging')} />
+        <AiActivity label={t('DocumentsMerging')} />
       )}
       {item.errorKind && <p role="status">{t(mergeErrorMessage(item.errorKind))}</p>}
       {result.data && (

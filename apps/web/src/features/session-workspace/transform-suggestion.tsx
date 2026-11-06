@@ -1,10 +1,8 @@
 import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
-import { Button } from '@study/ui/button';
+import { AiButton } from '@study/ui/ai-button';
 import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { useMutation } from '@tanstack/react-query';
-import { Sparkles } from 'lucide-react';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
@@ -67,11 +65,12 @@ export function TransformSuggestion({
     <>
       <Notebook.FieldHeading>
         <label htmlFor={`transform-${field}-${id}`}>{t(label)}</label>
-        <Button
+        <AiButton
           size="icon-sm"
           variant="ghost"
-          aria-label={t(action)}
-          title={t(exceedsSessionLimit ? 'SessionSuggestionLimit' : action)}
+          label={t(action)}
+          pending={mutation.isPending}
+          workingLabel={t('SessionGeneratingSuggestion')}
           aria-busy={mutation.isPending}
           disabled={exceedsSessionLimit || mutation.isPending || suggestionUnavailable(model)}
           onClick={() => {
@@ -93,12 +92,9 @@ export function TransformSuggestion({
               }
             });
           }}
-        >
-          <Sparkles aria-hidden="true" />
-        </Button>
+        />
       </Notebook.FieldHeading>
       {exceedsSessionLimit && <Notebook.Muted>{t('SessionSuggestionLimit')}</Notebook.Muted>}
-      {mutation.isPending && <Loading label={t('SessionGeneratingSuggestion')} />}
       {mutation.error && (
         <ErrorState title={t(errorTitle)} description={t(suggestionErrorMessage(mutation.error))} />
       )}

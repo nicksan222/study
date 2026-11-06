@@ -1,4 +1,5 @@
 import type { SessionId } from '@study/contracts/ids';
+import { AiIcon } from '@study/ui/ai-button';
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -7,7 +8,7 @@ import {
   ContextMenuSeparator
 } from '@study/ui/context-menu';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowUpRight, FileText, ListChecks, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowUpRight, FileText, ListChecks, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -58,8 +59,8 @@ export function SidebarSessionActions({
             {t('SessionTransform')}
           </ContextMenuItem>
           <ContextMenuItem disabled={title.pending} onClick={title.regenerate}>
-            <RefreshCw aria-hidden="true" />
-            {t(title.pending ? 'RegeneratingTitle' : 'RegenerateTitle')}
+            <AiIcon working={title.pending} />
+            {t('RegenerateTitle')}
           </ContextMenuItem>
           {onSelect && (
             <ContextMenuItem onClick={onSelect}>

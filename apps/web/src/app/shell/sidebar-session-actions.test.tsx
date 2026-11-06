@@ -226,7 +226,7 @@ testStable('regenerates the selected session title without navigating', async ()
   await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
   await waitFor(() => expect(titles.request).toHaveBeenCalledExactlyOnceWith({ sessionId: id }));
   expect(router.state.location.pathname).toBe('/');
-  expect(notices.add).toHaveBeenCalledWith({ title: en.RegeneratingTitle, type: 'info' });
+  expect(notices.add).not.toHaveBeenCalledWith({ title: en.RegeneratingTitle, type: 'info' });
 });
 
 testStable('reports title request failures and allows another attempt', async () => {
@@ -248,7 +248,7 @@ testStable('reports title request failures and allows another attempt', async ()
   await user.click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
   await waitFor(() => expect(titles.request).toHaveBeenCalledTimes(2));
   fireEvent.contextMenu(screen.getByRole('link', { name: 'Cell division' }), { button: 2 });
-  expect(await screen.findByRole('menuitem', { name: en.RegeneratingTitle })).toHaveAttribute(
+  expect(await screen.findByRole('menuitem', { name: en.RegenerateTitle })).toHaveAttribute(
     'aria-disabled',
     'true'
   );

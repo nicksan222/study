@@ -2,6 +2,8 @@ import { Spinner } from '@study/ui/spinner';
 import { cn } from '@study/ui/utils';
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 
+import { AiActivity } from './ai-button';
+
 type LoadingProps = Omit<ComponentPropsWithRef<'span'>, 'children' | 'role'> & {
   label: string;
   layout?: 'inline' | 'panel' | 'sidebar';
@@ -59,11 +61,7 @@ function LoadingSkeleton({
 function Thinking({ label, action }: { label: string; action?: ReactNode }) {
   return (
     <div className="study-thinking">
-      <span role="status" aria-atomic="true" className="study-thinking-label">
-        <span className="study-thinking-dot" aria-hidden="true" />
-        {label}
-      </span>
-      {action}
+      <AiActivity label={label} action={action} />
     </div>
   );
 }

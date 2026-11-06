@@ -68,7 +68,6 @@ export function useRegenerateSessionTitle(id: SessionId) {
     mutationFn: () => request((client) => client['conversations.requestTitle']({ sessionId: id })),
     onSuccess: (result) => {
       setRequestId(result.requestId);
-      toastManager.add({ title: t('RegeneratingTitle'), type: 'info' });
     },
     onError: () => {
       toastManager.add({

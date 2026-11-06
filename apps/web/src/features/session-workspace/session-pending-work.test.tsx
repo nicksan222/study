@@ -95,7 +95,9 @@ testStable('stops the exact execution safely and waits for committed cancellatio
   );
   stopping = true;
   await act(async () => resolve({ ...row.execution, status: 'cancelling', canCancel: false }));
-  expect(await screen.findByText('SessionWorkStopping')).toBeVisible();
+  expect(
+    await screen.findByRole('status', { name: 'SessionWorkReply · SessionWorkStopping' })
+  ).toBeInTheDocument();
   expect(stop).toBeDisabled();
 });
 

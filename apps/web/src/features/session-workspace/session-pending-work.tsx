@@ -1,11 +1,11 @@
 import type { SessionId } from '@study/contracts/ids';
+import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
-import { Spinner } from '@study/ui/spinner';
 import { WorkspaceWork } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, FileText, MessagesSquare, Paperclip, PenLine, X } from 'lucide-react';
+import { Activity, X } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -18,10 +18,10 @@ import type { SessionWorkItem } from './session-pending-work.queries';
 import { SessionReadError } from './status';
 
 const kinds = {
-  transform: { label: 'SessionWorkTransform', icon: FileText },
-  reply: { label: 'SessionWorkReply', icon: MessagesSquare },
-  attachment: { label: 'SessionWorkAttachment', icon: Paperclip },
-  title: { label: 'SessionWorkTitle', icon: PenLine }
+  transform: { label: 'SessionWorkTransform' },
+  reply: { label: 'SessionWorkReply' },
+  attachment: { label: 'SessionWorkAttachment' },
+  title: { label: 'SessionWorkTitle' }
 } as const;
 
 /** Shows committed work for this notebook independently of the selected dialog. */
@@ -91,22 +91,14 @@ function WorkRow({
   const status = item.execution.status;
   const stopping = cancel.isPending || status === 'cancelling';
   const stateLabel = workStateLabel(item, stopping);
-  const { label, icon: Icon } = kinds[item.kind];
+  const { label } = kinds[item.kind];
   const title = item.title || t(label);
 
   return (
     <WorkspaceWork.Row>
-      <WorkspaceWork.Icon tone="blue" size="compact">
-        <Icon aria-hidden="true" />
-      </WorkspaceWork.Icon>
+      <AiActivity label={title + ' · ' + t(stateLabel)} />
       <WorkspaceWork.Copy>
         <strong title={title}>{title}</strong>
-        <WorkspaceWork.Status>
-          {(status === 'running' || stopping) && (
-            <Spinner size="xs" label={t(stateLabel)} aria-hidden="true" />
-          )}
-          <span>{t(stateLabel)}</span>
-        </WorkspaceWork.Status>
       </WorkspaceWork.Copy>
       <Button
         size="icon-sm"
