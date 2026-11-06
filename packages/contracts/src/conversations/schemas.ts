@@ -307,3 +307,7 @@ const sessionSummarySchema = Schema.Struct({
 });
 
 export const sessionSummariesSchema = Schema.Struct({ items: Schema.Array(sessionSummarySchema) });
+
+export const transformSuggestionFieldSchema = Schema.Literals(['title', 'instruction']);
+
+export const transformSuggestionLanguageSchema = Schema.Literals(['english', 'italian']);

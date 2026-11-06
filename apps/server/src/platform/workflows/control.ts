@@ -29,6 +29,9 @@ import { workflowStore } from './store.ts';
 export class WorkflowControl extends Context.Service<
   WorkflowControl,
   {
+    readonly run?: <A>(
+      effect: Effect.Effect<A, StudyError, WorkflowEngine.WorkflowEngine>
+    ) => Effect.Effect<A, StudyError>;
     readonly cancel: (
       input: typeof cancelExecutionInputSchema.Type
     ) => Effect.Effect<void, StudyError>;

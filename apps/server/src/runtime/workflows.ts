@@ -23,6 +23,7 @@ import {
 } from '#server/features/conversations/workflows/index';
 import { conversationQuestionRegistration } from '#server/features/conversations/workflows/question';
 import { conversationTitleRegistration } from '#server/features/conversations/workflows/title';
+import { transformSuggestionRegistration } from '#server/features/conversations/workflows/transform-suggestion';
 import { documentTransformRegistration } from '#server/features/documents/workflows/transform';
 import {
   quizGradingRegistration,
@@ -39,6 +40,7 @@ import { sourceIngestionRegistration } from '#server/features/sources/workflows/
 
 /** Each workflow is registered once with its durable event subscriptions. */
 const entries = [
+  transformSuggestionRegistration,
   documentTransformRegistration,
   materialHistoryRegistration,
   materialDeletionRegistration,

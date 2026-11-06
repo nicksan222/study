@@ -17,6 +17,7 @@ import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import { Effect } from 'effect';
 
 import { Conversations } from '#server/features/conversations/service/index';
+import { suggestTransformField } from '#server/features/conversations/service/transform-suggestion';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const ConversationsRpcLive = defineRpc(
@@ -25,6 +26,7 @@ export const ConversationsRpcLive = defineRpc(
     const conversations = yield* Conversations;
 
     return {
+      'conversations.suggestTransformField': suggestTransformField,
       'conversations.setMessageKind': (input) => conversations.setMessageKind(input),
       'conversations.answerQuestion': (input) => conversations.answerQuestion(input),
       'conversations.archivedItems': (input) => conversations.archivedItems(input),

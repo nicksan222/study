@@ -30,6 +30,7 @@ import type {
 } from '@study/contracts/conversations/context';
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import type { ChatMessage } from '@study/contracts/conversations/messages';
+import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
 import type {
   createSessionInputSchema,
   createUntitledSessionInputSchema,
@@ -335,6 +336,36 @@ export const Conversations = defineService(
           resolveTargets(tx, input.targets);
 
           return tx.store(SessionSelectionStore).updateSelection(input);
+        }),
+      requestTransformSuggestion: (input: typeof transformSuggestionInputSchema.Type) =>
+        transaction((tx) => {
+          const capture = {
+            sessionId: input.sessionId,
+            additionalSessionIds: input.additionalSessionIds?.length
+              ? input.additionalSessionIds
+              : undefined,
+            intentKey: `suggest/${input.field}/${input.intentKey}`,
+            instruction: '',
+            preferences: { language: input.language }
+          };
+          const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(capture);
+          const context = captureContext(tx, capture, randomUUID());
+          const event = {
+            type: 'TransformSuggestionRequested' as const,
+            eventId: `suggest/${context.requestId}`,
+            causationId: null,
+            correlationId: context.requestId,
+            inputVersion: 1,
+            depth: 0,
+            sessionId: input.sessionId,
+            contextRequestId: context.requestId,
+            field: input.field,
+            language: input.language
+          };
+
+          if (Option.isNone(existing)) tx.emit(event);
+
+          return event;
         }),
       captureSessionContext: (input: typeof captureSessionContextSchema.Type) =>
         transaction((tx) => captureContext(tx, input, randomUUID())),
@@ -1149,6 +1180,7 @@ const deletionEventTypes = [
   'DocumentPublished',
   'ConversationGenerationRequested',
   'ConversationTitleRequested',
+  'TransformSuggestionRequested',
   'ConversationQuestionRequested',
   'RecordingPostRequested',
   'MaterialGenerationRequested',

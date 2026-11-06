@@ -1,4 +1,5 @@
 import type { captureSessionContextSchema } from '@study/contracts/conversations/context';
+import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
 import type {
   editMessageInputSchema,
   setActiveVersionInputSchema
@@ -8,7 +9,12 @@ import type { rewriteMessageInputSchema } from '@study/contracts/conversations/s
 import type { askInputSchema } from '@study/contracts/conversations/schemas';
 import type { transformRequestSchema } from '@study/contracts/documents/transform';
 import type { SessionId, MessageId, VersionId, ProjectId, SourceId } from '@study/contracts/ids';
-import { infiniteQueryOptions, queryOptions, mutationOptions } from '@tanstack/react-query';
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  mutationOptions,
+  skipToken
+} from '@tanstack/react-query';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
@@ -42,6 +48,16 @@ export const sessionOptions = (id: SessionId) =>
     queryKey: [...sessionKey(id), 'detail'],
     queryFn: ({ signal }) => request((client) => client['conversations.session']({ id }), signal)
   });
+
+/** Keep the unselected sessions index inert without inventing a session identity. */
+export const selectedSessionOptions = (id?: SessionId) => {
+  const selected = id === undefined ? undefined : sessionOptions(id);
+
+  return queryOptions({
+    queryKey: selected?.queryKey ?? ['session-workspace', 'unselected', 'detail'],
+    queryFn: selected?.queryFn ?? skipToken
+  });
+};
 
 export const threadOptions = (id: SessionId) =>
   infiniteQueryOptions({
@@ -234,3 +250,15 @@ export const deleteSessionMutationOptions = (id: SessionId) =>
 
 export const retrySessionDeletionMutationOptions = (id: SessionId) =>
   mutationOptions({ mutationFn: () => retryDeletion(id), retry: false });
+
+/** Give each explicit suggestion attempt its own durable intent without automatic retries. */
+export const transformSuggestionMutationOptions = (
+  input: Omit<typeof transformSuggestionInputSchema.Type, 'intentKey'>
+) =>
+  mutationOptions({
+    retry: false,
+    mutationFn: () =>
+      request((client) =>
+        client['conversations.suggestTransformField']({ ...input, intentKey: crypto.randomUUID() })
+      )
+  });

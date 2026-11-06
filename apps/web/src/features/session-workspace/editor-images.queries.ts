@@ -4,7 +4,7 @@ import type { revisionExportSchema } from '@study/contracts/sources/rpc';
 import { sniff } from '@study/contracts/sources/sniff';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 
 import { request } from '#web/lib/study-client/request.ts';
 
@@ -35,27 +35,8 @@ export function useDocumentEditorImages(
     ),
     combine: imageResults
   });
-  const [urls, setUrls] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    const next: Record<string, string> = {};
-
-    for (const image of assets.data) {
-      if (!image) continue;
-
-      next[`${image.sourceId}:${image.revision}`] = URL.createObjectURL(
-        new Blob([new Uint8Array(image.bytes)], { type: image.mime })
-      );
-    }
-
-    // Blob URLs are external resources created and revoked with this effect's lifetime.
-    // oxlint-disable-next-line react/set-state-in-effect
-    setUrls(next);
-
-    return () => {
-      Object.values(next).forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, [assets.data]);
+  const previews = useMemo(() => imagePreviewStore(assets.data), [assets.data]);
+  const urls = useSyncExternalStore(previews.subscribe, previews.getSnapshot);
 
   const upload = useCallback(
     async (file: File) => {
@@ -83,5 +64,32 @@ export function useDocumentEditorImages(
     upload,
     error: assets.error,
     retry: () => void cache.invalidateQueries({ queryKey: ['sources', 'image'] })
+  };
+}
+
+function imagePreviewStore(images: (ImageBytes | undefined)[]) {
+  let urls: Record<string, string> = {};
+
+  return {
+    getSnapshot: () => urls,
+    subscribe: (notify: () => void) => {
+      const next: Record<string, string> = {};
+
+      for (const image of images) {
+        if (!image) continue;
+
+        next[`${image.sourceId}:${image.revision}`] = URL.createObjectURL(
+          new Blob([new Uint8Array(image.bytes)], { type: image.mime })
+        );
+      }
+
+      urls = next;
+      notify();
+
+      return () => {
+        urls = {};
+        Object.values(next).forEach((url) => URL.revokeObjectURL(url));
+      };
+    }
   };
 }

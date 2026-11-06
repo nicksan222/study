@@ -1,6 +1,10 @@
 import { Schema } from 'effect';
 
-import { titleSnapshotSchema } from './conversations/schemas.ts';
+import {
+  titleSnapshotSchema,
+  transformSuggestionFieldSchema,
+  transformSuggestionLanguageSchema
+} from './conversations/schemas.ts';
 import { errorKindSchema } from './errors.ts';
 import {
   contentSnapshotIdSchema,
@@ -186,6 +190,15 @@ export const conversationTitleRequestedSchema = Schema.Struct({
   ...titleSnapshotSchema.fields
 });
 
+export const transformSuggestionRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('TransformSuggestionRequested'),
+  sessionId: sessionIdSchema,
+  contextRequestId: Schema.String,
+  field: transformSuggestionFieldSchema,
+  language: transformSuggestionLanguageSchema
+});
+
 export const practiceSlotRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('PracticeSlotRequested'),
@@ -235,6 +248,7 @@ export const workflowEventSchema = Schema.Union([
   materialGenerationFailedSchema,
   conversationGenerationRequestedSchema,
   conversationTitleRequestedSchema,
+  transformSuggestionRequestedSchema,
   conversationQuestionRequestedSchema,
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema

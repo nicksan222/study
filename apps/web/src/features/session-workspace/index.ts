@@ -1,6 +1,6 @@
 export { sessionPagesOptions, sessionKey } from './session-workspace.queries';
 export { SessionWorkspace } from './workspace';
-export { sessionOptions } from './session-workspace.queries';
+export { sessionOptions, selectedSessionOptions } from './session-workspace.queries';
 export { SessionDeleteDialog, SessionBatchDeleteDialog } from './deletion';
 
 export { SessionDocumentDialog } from './document-creation-dialog';

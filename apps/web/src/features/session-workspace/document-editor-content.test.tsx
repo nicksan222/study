@@ -456,6 +456,8 @@ testStable(
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Image description' }));
     const dialog = await screen.findByRole('dialog', { name: 'Image description' });
 
+    expect(within(dialog).getByLabelText('Image description')).toHaveValue('Original');
+
     fireEvent.change(within(dialog).getByLabelText('Image description'), {
       target: { value: 'New description' }
     });

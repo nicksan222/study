@@ -168,6 +168,14 @@ export class App {
             })
           },
           {
+            run: (effect) =>
+              Effect.tryPromise({
+                try: () => workers.runWorkflow(effect),
+                catch: (cause) =>
+                  cause instanceof StudyError
+                    ? cause
+                    : new StudyError('internal', 'Workflow execution failed', { cause })
+              }),
             cancel: (input) =>
               Effect.tryPromise({
                 try: () => workers.cancelExecution(input),

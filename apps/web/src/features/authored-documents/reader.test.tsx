@@ -79,13 +79,13 @@ function mount(initialVersion?: string) {
   const client = createStudyQueryClient();
 
   clients.push(client);
-  render(
+  const view = render(
     <QueryClientProvider client={client}>
       <AuthoredDocumentReader id={current.id} initialVersion={initialVersion} />
     </QueryClientProvider>
   );
 
-  return { rpc, current, old };
+  return { rpc, current, old, view, client };
 }
 
 testStable(
@@ -135,3 +135,16 @@ testStable(
     expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
   }
 );
+
+testStable('updates the selected version when the deep link changes in place', async () => {
+  const { current, view, client } = mount('20');
+
+  await screen.findByDisplayValue('Old text');
+  view.rerender(
+    <QueryClientProvider client={client}>
+      <AuthoredDocumentReader id={current.id} initialVersion="30" />
+    </QueryClientProvider>
+  );
+  await screen.findByDisplayValue('Current text');
+  expect(screen.getByRole('textbox', { name: 'content' })).not.toHaveAttribute('readonly');
+});
