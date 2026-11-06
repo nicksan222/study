@@ -170,7 +170,7 @@ testStable(
 );
 
 testStable(
-  'real local requests serialize, preserve active ownership after cancellation, and cancel queued queries',
+  'real local requests serialize concurrent queries, cancel callers, and bound queue admission',
   async () => {
     await Effect.runPromise(installEmbeddingModel(modelDirectory));
     let retained: LocalEmbeddingModel | undefined;
@@ -198,7 +198,7 @@ testStable(
                 () => true
               );
 
-              // Let the request enter native inference before cancelling its caller.
+              // Overlap callers; worker-client.test.ts separately holds native replies deterministically.
               await Promise.resolve();
               const queued = Effect.runPromise(model.embedQuery('cancel this queued query'), {
                 signal: queuedController.signal

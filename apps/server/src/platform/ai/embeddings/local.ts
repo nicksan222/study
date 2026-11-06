@@ -14,10 +14,11 @@ import { resolve } from 'node:path';
 import { Worker } from 'node:worker_threads';
 
 import { StudyError } from '@study/contracts/errors';
-import { Effect, Option, Schema, Semaphore } from 'effect';
+import { Effect, Schema } from 'effect';
 
 import { embeddingLimits } from './limits.ts';
 import { embeddingModel, validateEmbeddingModel } from './model.ts';
+import { makeWorkerClient } from './worker-client.ts';
 
 export interface LocalEmbeddingModel {
   readonly maxChunkingInputLength: number;
@@ -30,13 +31,7 @@ export interface LocalEmbeddingModel {
   ) => Effect.Effect<readonly Float32Array[], StudyError>;
 }
 
-const readyMessage = Schema.is(Schema.Struct({ ready: Schema.Literal(true) }));
-
 const passageMessage = Schema.is(Schema.Struct({ passages: Schema.Array(Schema.String) }));
-
-const workerError = Schema.is(
-  Schema.Struct({ error: Schema.Literals(['invalid_input', 'internal']) })
-);
 
 const vectorMessage = Schema.is(
   Schema.Struct({
@@ -83,141 +78,9 @@ function open(directory: string) {
             new StudyError('internal', 'Local embedding worker termination failed', { cause })
         }).pipe(Effect.orDie, Effect.asVoid)
     );
-    let closed = false;
-    const serial = Semaphore.makeUnsafe(1);
-    const capacity = Semaphore.makeUnsafe(embeddingLimits.queuedRequests + 1);
-    let idle = Promise.resolve();
-    let releaseIdle: (() => void) | undefined;
-    let pending:
-      | {
-          resolve: (message: unknown) => void;
-          reject: (error: StudyError) => void;
-        }
-      | undefined;
-    let readyResolve: (() => void) | undefined;
-    let readyReject: ((error: StudyError) => void) | undefined;
-    const ready = new Promise<void>((resolve, reject) => {
-      readyResolve = resolve;
-      readyReject = reject;
-    });
+    const client = makeWorkerClient(worker);
 
-    const fail = (cause: unknown) => {
-      closed = true;
-      const error = new StudyError('model_unavailable', 'Local embedding worker is unavailable', {
-        cause
-      });
-
-      readyReject?.(error);
-      readyReject = undefined;
-      pending?.reject(error);
-      pending = undefined;
-      releaseIdle?.();
-      releaseIdle = undefined;
-    };
-
-    worker.on('error', fail);
-    worker.on('exit', (code) => fail(new Error(`Embedding worker exited (${code})`)));
-    worker.on('message', (message: unknown) => {
-      if (readyMessage(message)) {
-        readyResolve?.();
-        readyResolve = undefined;
-        readyReject = undefined;
-
-        return;
-      }
-
-      const request = pending;
-
-      pending = undefined;
-      releaseIdle?.();
-      releaseIdle = undefined;
-
-      if (!request) return;
-
-      if (workerError(message)) {
-        request.reject(
-          new StudyError(message.error, 'Local embedding request failed validation or inference')
-        );
-
-        return;
-      }
-
-      request.resolve(message);
-    });
-    yield* Effect.tryPromise({
-      try: () => ready,
-      catch: (cause) =>
-        cause instanceof StudyError
-          ? cause
-          : new StudyError('model_unavailable', 'Local embedding model failed to load', { cause })
-    });
-
-    const perform = <A>(input: unknown, decode: (message: unknown) => A) =>
-      capacity
-        .withPermitsIfAvailable(1)(
-          serial.withPermit(
-            Effect.tryPromise({
-              try: async (signal) => {
-                // A cancelled caller releases its queue permit, but native work owns this boundary
-                // until its response arrives. New callers wait instead of racing the old response.
-                await idle;
-
-                if (closed)
-                  throw new StudyError('model_unavailable', 'Local embedding worker is closed');
-
-                if (signal.aborted)
-                  throw new StudyError('cancelled', 'Embedding request was cancelled');
-
-                return new Promise<A>((resolve, reject) => {
-                  idle = new Promise<void>((resolveIdle) => {
-                    releaseIdle = resolveIdle;
-                  });
-                  const abort = () =>
-                    reject(new StudyError('cancelled', 'Embedding request was cancelled'));
-                  const cleanup = () => signal.removeEventListener('abort', abort);
-
-                  pending = {
-                    resolve: (message) => {
-                      cleanup();
-
-                      try {
-                        resolve(decode(message));
-                      } catch (cause) {
-                        reject(cause);
-                      }
-                    },
-                    reject: (error) => {
-                      cleanup();
-                      reject(error);
-                    }
-                  };
-                  signal.addEventListener('abort', abort, { once: true });
-
-                  try {
-                    worker.postMessage(input);
-                  } catch (cause) {
-                    fail(cause);
-                  }
-                });
-              },
-              catch: (cause) =>
-                cause instanceof StudyError
-                  ? cause
-                  : new StudyError('internal', 'Local embedding generation failed', { cause })
-            })
-          )
-        )
-        .pipe(
-          Effect.flatMap(
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  new StudyError('rate_limited', 'Local embedding request queue is full')
-                ),
-              onSome: Effect.succeed
-            })
-          )
-        );
+    yield* client.ready;
 
     const embed = (texts: readonly string[], prefix: 'query' | 'passage') => {
       if (
@@ -233,7 +96,7 @@ function open(directory: string) {
 
       if (!texts.length) return Effect.succeed([]);
 
-      return perform(
+      return client.perform(
         texts.map((text) => `${prefix}: ${text}`),
         (message) => {
           const vectors = readVectors(message, texts.length);
@@ -252,7 +115,7 @@ function open(directory: string) {
           new StudyError('invalid_input', 'Passage chunking input exceeds its size bound')
         );
 
-      return perform({ operation: 'chunk', text }, (message) => {
+      return client.perform({ operation: 'chunk', text }, (message) => {
         if (!passageMessage(message))
           throw new StudyError('internal', 'Local embedding worker returned invalid passages');
 
