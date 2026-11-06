@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogDescription
 } from '@study/ui/dialog';
+import { DialogFormActions } from '@study/ui/dialog-form-actions';
 import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
@@ -18,7 +19,6 @@ import type { ReactElement } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { DescriptionField } from './description-field';
-import { DescriptionFooter } from './description-footer';
 import { useDocumentMetadata } from './session-document-metadata.queries';
 import { SessionError } from './status';
 
@@ -96,7 +96,12 @@ function MetadataForm({ document, onSaved }: { document: StudyDocument; onSaved:
         />
         {mutation.error && <SessionError error={mutation.error} />}
       </WorkspaceSurface.ContextDialogBody>
-      <DescriptionFooter pending={mutation.isPending} disabled={!title.trim()} />
+      <DialogFormActions
+        cancelLabel={t('Cancel')}
+        submitLabel={t(mutation.isPending ? 'SessionSaving' : 'Save')}
+        pending={mutation.isPending}
+        disabled={!title.trim()}
+      />
     </form>
   );
 }

@@ -1,6 +1,7 @@
 import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
+import { DialogFormActions } from '@study/ui/dialog-form-actions';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -9,7 +10,6 @@ import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { DescriptionFooter } from './description-footer';
 import { useSessionTitle } from './session-title.queries';
 import { SessionError } from './status';
 
@@ -66,7 +66,12 @@ export function SessionTitleEdit({ id, title }: { id: SessionId; title: string }
             />
             {mutation.error && <SessionError error={mutation.error} />}
           </WorkspaceSurface.ContextDialogBody>
-          <DescriptionFooter pending={mutation.isPending} disabled={!draft.trim()} />
+          <DialogFormActions
+            cancelLabel={t('Cancel')}
+            submitLabel={t(mutation.isPending ? 'SessionSaving' : 'Save')}
+            pending={mutation.isPending}
+            disabled={!draft.trim()}
+          />
         </form>
       </DialogPopup>
     </Dialog>

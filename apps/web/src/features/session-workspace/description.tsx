@@ -8,6 +8,7 @@ import {
   DialogTitle,
   DialogDescription
 } from '@study/ui/dialog';
+import { DialogFormActions } from '@study/ui/dialog-form-actions';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { Text } from 'lucide-react';
 import { useState } from 'react';
@@ -15,7 +16,6 @@ import { useState } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { DescriptionField } from './description-field';
-import { DescriptionFooter } from './description-footer';
 import { useDescription } from './description.queries';
 import { SessionError } from './status';
 
@@ -44,6 +44,7 @@ export function Description({ message }: { message: ChatMessage }) {
 }
 
 function DescriptionForm({ message, onSaved }: { message: ChatMessage; onSaved: () => void }) {
+  const { t } = useI18n();
   const { text, setText, mutation } = useDescription(message);
   const fieldId = `note-description-${message.id}`;
 
@@ -63,7 +64,11 @@ function DescriptionForm({ message, onSaved }: { message: ChatMessage; onSaved: 
         />
         {mutation.error && <SessionError error={mutation.error} />}
       </WorkspaceSurface.ContextDialogBody>
-      <DescriptionFooter pending={mutation.isPending} />
+      <DialogFormActions
+        cancelLabel={t('Cancel')}
+        submitLabel={t(mutation.isPending ? 'SessionSaving' : 'Save')}
+        pending={mutation.isPending}
+      />
     </form>
   );
 }
