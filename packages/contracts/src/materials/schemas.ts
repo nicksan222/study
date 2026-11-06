@@ -1,5 +1,6 @@
 import { Effect, Schema } from 'effect';
 
+import { errorKindSchema } from '../errors.ts';
 import {
   materialCardIdSchema,
   materialIdSchema,
@@ -20,6 +21,13 @@ export const materialKindSchema = Schema.Literals(['diagram', 'quiz', 'flashcard
 
 export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diagram', 'quiz']);
 
+export const quizGenerationConfigSchema = Schema.Struct({
+  questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
+  choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })),
+  questionKind: Schema.Literals(['mixed', 'choice', 'open']),
+  difficulty: Schema.Literals(['easy', 'balanced', 'challenging'])
+});
+
 export const materialGenerationInputSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
@@ -29,12 +37,15 @@ export const materialGenerationInputSchema = Schema.Struct({
   scopeId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
   questionSpec: Schema.optional(
     Schema.Struct({ count: Schema.Literal(1), kind: Schema.Literals(['choice', 'open']) })
-  )
+  ),
+  quizConfig: Schema.optional(quizGenerationConfigSchema)
 }).check(
   Schema.makeFilter(
     (value) =>
       new Set(value.inputs.map(contentInputKey)).size === value.inputs.length &&
       (value.questionSpec === undefined || value.kind === 'quiz') &&
+      (value.quizConfig === undefined ||
+        (value.kind === 'quiz' && value.questionSpec === undefined)) &&
       validGenerationScope(value)
   )
 );
@@ -54,7 +65,8 @@ export const materialGenerationPayloadSchema = Schema.Struct({
   kind: materialGenerationKindSchema,
   instruction: materialGenerationInputSchema.fields.instruction,
   scopeId: materialGenerationInputSchema.fields.scopeId,
-  questionSpec: materialGenerationInputSchema.fields.questionSpec
+  questionSpec: materialGenerationInputSchema.fields.questionSpec,
+  quizConfig: materialGenerationInputSchema.fields.quizConfig
 });
 
 export const materialGenerationSchema = Schema.Struct({
@@ -65,6 +77,7 @@ export const materialGenerationSchema = Schema.Struct({
 export const materialGenerationSnapshotSchema = Schema.Struct({
   ...materialGenerationSchema.fields,
   cancelled: Schema.Boolean,
+  errorKind: Schema.NullOr(errorKindSchema),
   resultVersionId: Schema.NullOr(materialVersionIdSchema)
 });
 

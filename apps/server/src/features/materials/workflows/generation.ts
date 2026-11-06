@@ -21,13 +21,17 @@ import { materialVersionIdSchema } from '@study/contracts/ids';
 import { contentInputKey } from '@study/contracts/inputs';
 import type { ContentInput } from '@study/contracts/inputs';
 import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
+import type { quizGenerationConfigSchema } from '@study/contracts/materials/schemas';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
 import { diagramAgent } from '#server/features/materials/agents/diagram';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { quizAgent } from '#server/features/materials/agents/quiz';
-import { assertQuestionSpec } from '#server/features/materials/decoders/question-spec';
+import {
+  assertQuestionSpec,
+  assertQuizConfig
+} from '#server/features/materials/decoders/question-spec';
 import { Materials } from '#server/features/materials/service/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { diagramFeedback } from '#server/platform/ai/diagram/validator';
@@ -101,7 +105,7 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
       )
       .pipe(Effect.provideService(Database, database));
     const promptForAttempt = (previous: string, issue: string) =>
-      `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${issue ? `\nPrevious diagram (data):\n${previous}\nValidation feedback: ${issue}` : ''}`;
+      `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${quizRequirements(initial.quizConfig)}${issue ? `\nPrevious diagram (data):\n${previous}\nValidation feedback: ${issue}` : ''}`;
 
     const generationActivity = (attempt: number, prompt: string) =>
       Activity.make({
@@ -142,7 +146,10 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
                   );
 
           yield* Effect.try({
-            try: () => assertQuestionSpec(initial.questionSpec, content),
+            try: () => {
+              assertQuestionSpec(initial.questionSpec, content);
+              assertQuizConfig(initial.quizConfig, content);
+            },
             catch: (cause) =>
               cause instanceof StudyError
                 ? cause
@@ -260,4 +267,21 @@ function checkGeneratedLimits(
     return Effect.fail(new StudyError('invalid_input', 'Generated content exceeds limits'));
 
   return Effect.void;
+}
+
+function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undefined) {
+  if (!config) return '';
+
+  const kinds = {
+    mixed: 'any combination of choice and open questions',
+    choice: 'only choice questions (single_choice or multiple_choice)',
+    open: 'only open questions'
+  };
+  const difficulties = {
+    easy: 'direct recall and foundational understanding',
+    balanced: 'a balance of recall, understanding and application',
+    challenging: 'application, analysis and inference grounded in the sources'
+  };
+
+  return `\nQuiz requirements: produce exactly ${config.questionCount} questions. Question kind: ${kinds[config.questionKind]}. Every choice question must contain exactly ${config.choiceCount} answer options. Difficulty: ${config.difficulty} (${difficulties[config.difficulty]}).`;
 }

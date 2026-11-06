@@ -34,3 +34,21 @@ export function assertQuestionSpec(
   )
     throw new StudyError('invalid_input', 'Generated quiz does not match question specification');
 }
+
+export function assertQuizConfig(
+  config: (typeof materialGenerationInputSchema.Type)['quizConfig'],
+  content: (typeof materialGenerationPublicationSchema.Type)['content']
+) {
+  if (!config) return;
+
+  if (
+    content.kind !== 'quiz' ||
+    content.questions.length !== config.questionCount ||
+    content.questions.some((question) =>
+      question.kind === 'open'
+        ? config.questionKind === 'choice'
+        : config.questionKind === 'open' || question.choices.length !== config.choiceCount
+    )
+  )
+    throw new StudyError('invalid_input', 'Generated quiz does not match quiz configuration');
+}

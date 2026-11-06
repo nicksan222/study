@@ -69,6 +69,64 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
   );
 }
 
+testStable('quiz settings persist as request intent and reject changed settings', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const projects = yield* Projects;
+        const materials = yield* Materials;
+        const project = yield* projects.createProject({ name: 'Configured quizzes' });
+        const doc = yield* createEvidence({ projectId: project.id, title: 'Evidence' });
+        const input = { kind: 'document' as const, versionId: doc.version.id };
+        const quizConfig = {
+          questionCount: 2,
+          choiceCount: 3,
+          questionKind: 'choice' as const,
+          difficulty: 'challenging' as const
+        };
+        const request = {
+          projectId: project.id,
+          title: 'Quiz',
+          kind: 'quiz' as const,
+          inputs: [input],
+          quizConfig
+        };
+
+        yield* materials.requestMaterialGenerationOnce({ requestId: 'configured-quiz', request });
+        expect(
+          (yield* materials.materialGeneration({ requestId: 'configured-quiz' })).quizConfig
+        ).toStrictEqual(quizConfig);
+        yield* materials.requestMaterialGenerationOnce({ requestId: 'configured-quiz', request });
+
+        for (const change of [
+          { questionCount: 3 },
+          { choiceCount: 4 },
+          { questionKind: 'open' as const },
+          { difficulty: 'easy' as const }
+        ])
+          assert.strictEqual(
+            (yield* Effect.flip(
+              materials.requestMaterialGenerationOnce({
+                requestId: 'configured-quiz',
+                request: { ...request, quizConfig: { ...quizConfig, ...change } }
+              })
+            )).kind,
+            'invalid_input'
+          );
+      }).pipe(Effect.provide(services))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
 testStable(
   'generation requests persist immutable published document inputs and an outbox event',
   async () => {

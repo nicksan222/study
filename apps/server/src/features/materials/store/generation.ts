@@ -25,12 +25,15 @@ import {
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
 import { validBlockTextRange } from '@study/contracts/sources/document';
-import { eq } from '@study/db';
+import { desc, eq } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { canonicalJson } from '#server/features/materials/decoders/edit-intent';
-import { assertQuestionSpec } from '#server/features/materials/decoders/question-spec';
+import {
+  assertQuestionSpec,
+  assertQuizConfig
+} from '#server/features/materials/decoders/question-spec';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { decodeEvent } from '#server/platform/workflows/events';
 
@@ -70,7 +73,8 @@ export function makeGeneration(resources: StoreResources) {
         instruction: input.instruction,
         inputs: input.inputs,
         scopeId: input.scopeId,
-        questionSpec: input.questionSpec
+        questionSpec: input.questionSpec,
+        quizConfig: input.quizConfig
       });
 
       if (!same(canonical(existing), canonical(request)))
@@ -93,7 +97,7 @@ export function makeGeneration(resources: StoreResources) {
 
     assertActiveScope(request);
 
-    const { title, kind, instruction, scopeId, questionSpec } = request;
+    const { title, kind, instruction, scopeId, questionSpec, quizConfig } = request;
 
     db.orm
       .insert(s.material_generation_requests)
@@ -106,6 +110,7 @@ export function makeGeneration(resources: StoreResources) {
           instruction,
           scopeId,
           questionSpec,
+          quizConfig,
           inputs: request.inputs
         }),
         created_at: now(clock)
@@ -167,8 +172,32 @@ export function makeGeneration(resources: StoreResources) {
       cancelled: row.cancelled,
       ...payload,
       inputs,
+      errorKind: generationError(requestId, row.result_version_id !== null, row.cancelled),
       resultVersionId: row.result_version_id
     };
+  }
+
+  function generationError(
+    requestId: string,
+    published: boolean,
+    cancelled: boolean
+  ): ErrorKind | null {
+    if (published || cancelled) return null;
+
+    const events = db.orm
+      .select()
+      .from(s.workflowEvents)
+      .where(eq(s.workflowEvents.correlationId, requestId))
+      .orderBy(desc(s.workflowEvents.createdAt), desc(s.workflowEvents.eventId))
+      .all()
+      .map((event) => decodeEvent(event.payload));
+    const failures = events.filter((event) => event.type === 'MaterialGenerationFailed');
+    const failedAttempts = new Set(failures.map((failure) => failure.generationEventId));
+    const pending = events.some(
+      (event) => event.type === 'MaterialGenerationRequested' && !failedAttempts.has(event.eventId)
+    );
+
+    return pending ? null : (failures[0]?.errorKind ?? null);
   }
 
   function validateInputs(request: NonNullable<ReturnType<typeof readGeneration>>) {
@@ -446,6 +475,7 @@ export function makeGeneration(resources: StoreResources) {
     value: typeof materialGenerationPublicationSchema.Type
   ) {
     assertQuestionSpec(request.questionSpec, value.content);
+    assertQuizConfig(request.quizConfig, value.content);
 
     if (value.content.kind !== request.kind)
       throw new StudyError('invalid_input', 'Generation kind mismatch');

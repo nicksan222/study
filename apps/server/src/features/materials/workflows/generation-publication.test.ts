@@ -185,6 +185,99 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           (yield* materials.materialGeneration({ requestId: request.id })).resultVersionId === null
         );
         context.db.exec('DROP TRIGGER reject_generated_event');
+        const configuredQuiz = yield* materials.requestMaterialGeneration({
+          projectId: project.id,
+          title: 'Configured quiz',
+          kind: 'quiz',
+          inputs: [{ kind: 'document', versionId: doc.version!.id }],
+          quizConfig: {
+            questionCount: 2,
+            choiceCount: 3,
+            questionKind: 'choice',
+            difficulty: 'balanced'
+          }
+        });
+        const configuredQuestion = {
+          kind: 'single_choice' as const,
+          prompt: 'Q [1]',
+          explanation: 'E',
+          choices: [
+            { text: 'A', isCorrect: true },
+            { text: 'B', isCorrect: false },
+            { text: 'C', isCorrect: false }
+          ]
+        };
+
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).errorKind,
+          null
+        );
+        yield* materials.notifyMaterialGenerationFailed({
+          requestId: configuredQuiz.id,
+          generationEventId: configuredQuiz.id,
+          errorKind: 'config'
+        });
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).errorKind,
+          'config'
+        );
+        const configuredRetry = `${configuredQuiz.id}/retry`;
+
+        yield* materials.retryMaterialGenerationOnce({
+          requestId: configuredQuiz.id,
+          retryId: configuredRetry
+        });
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).errorKind,
+          null
+        );
+        yield* materials.notifyMaterialGenerationFailed({
+          requestId: configuredQuiz.id,
+          generationEventId: configuredRetry,
+          errorKind: 'config'
+        });
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).errorKind,
+          'config'
+        );
+        const invalidQuestions = [
+          [configuredQuestion],
+          [
+            configuredQuestion,
+            { ...configuredQuestion, choices: configuredQuestion.choices.slice(0, 2) }
+          ],
+          [
+            configuredQuestion,
+            { kind: 'open' as const, prompt: 'Q', explanation: 'E', referenceAnswer: 'A' }
+          ]
+        ];
+
+        for (const questions of invalidQuestions)
+          assert.strictEqual(
+            (yield* Effect.flip(
+              materials.publishMaterialGeneration({
+                requestId: configuredQuiz.id,
+                citations: value.citations,
+                content: { kind: 'quiz', questions }
+              })
+            )).kind,
+            'invalid_input'
+          );
+
+        const configuredVersion = yield* materials.publishMaterialGeneration({
+          requestId: configuredQuiz.id,
+          citations: value.citations,
+          content: { kind: 'quiz', questions: [configuredQuestion, configuredQuestion] }
+        });
+
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).resultVersionId,
+          configuredVersion
+        );
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).errorKind,
+          null
+        );
         const quiz = yield* materials.requestMaterialGeneration({
           projectId: project.id,
           title: 'Quiz',
@@ -341,7 +434,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${other.id}`);
         assert.strictEqual(
           context.db.orm.all(sql`SELECT * FROM material_generation_requests`).length,
-          6
+          7
         );
         complete = true;
       }).pipe(Effect.provide(services))
