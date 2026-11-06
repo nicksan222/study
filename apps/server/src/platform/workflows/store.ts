@@ -19,6 +19,7 @@ import type { Db } from '@study/db';
 import { and, eq, getTableColumns, gt, inArray, isNull, lte, or, sql } from '@study/db';
 import {
   workflow_activities,
+  workflow_agent_progress,
   workflow_clocks,
   workflow_deferreds,
   workflow_executions,
@@ -349,7 +350,12 @@ export function scrubRetiredExecution(db: Db, executionId: string) {
   )
     return;
 
-  for (const table of [workflow_activities, workflow_deferreds, workflow_clocks])
+  for (const table of [
+    workflow_activities,
+    workflow_deferreds,
+    workflow_clocks,
+    workflow_agent_progress
+  ])
     db.orm.delete(table).where(eq(table.execution_id, executionId)).run();
 
   db.orm
@@ -374,6 +380,11 @@ export function scrubRetiredCorrectionExecution(db: Db, executionId: string) {
       .get()
   )
     return;
+
+  db.orm
+    .delete(workflow_agent_progress)
+    .where(eq(workflow_agent_progress.execution_id, executionId))
+    .run();
 
   db.orm
     .update(workflow_executions)

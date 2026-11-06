@@ -14,9 +14,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { agentUpdateSchema } from '@study/contracts/ai/progress';
 import type { StudyError } from '@study/contracts/errors';
 import { dynamicTool } from 'ai';
-import { Effect } from 'effect';
+import { Cause, Effect, Exit } from 'effect';
 import type { Context, Tracer } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
@@ -28,7 +29,11 @@ export function adaptTool(
   environment: AgentEnvironment,
   span: Tracer.Span,
   annotations: Readonly<Record<string, unknown>>,
-  context: Context.Context<never>
+  context: Context.Context<never>,
+  progress?: {
+    name: string;
+    emit: (event: typeof agentUpdateSchema.Type) => Effect.Effect<void, StudyError>;
+  }
 ) {
   return dynamicTool({
     description: definition.description,
@@ -41,13 +46,34 @@ export function adaptTool(
       };
 
       return Effect.runPromiseWith(context)(
-        definition
-          .execute(input, toolEnvironment)
-          .pipe(
-            Effect.annotateLogs(safeMetadata(annotations)),
-            Effect.withParentSpan(span),
-            Effect.withSpan('agent.tool')
-          ),
+        Effect.gen(function* () {
+          const identity = { toolCallId: options.toolCallId, toolName: progress?.name ?? '' };
+
+          if (progress) yield* progress.emit({ type: 'tool-start', ...identity });
+
+          return yield* definition.execute(input, toolEnvironment).pipe(
+            Effect.tap(() =>
+              progress
+                ? progress.emit({ type: 'tool-finish', ...identity, outcome: 'success' })
+                : Effect.void
+            ),
+            Effect.onExit((exit) =>
+              progress && Exit.isFailure(exit)
+                ? progress
+                    .emit({
+                      type: 'tool-finish',
+                      ...identity,
+                      outcome: Cause.hasInterruptsOnly(exit.cause) ? 'cancelled' : 'failure'
+                    })
+                    .pipe(Effect.ignore)
+                : Effect.void
+            )
+          );
+        }).pipe(
+          Effect.annotateLogs(safeMetadata(annotations)),
+          Effect.withParentSpan(span),
+          Effect.withSpan('agent.tool')
+        ),
         { signal: options.abortSignal }
       );
     }

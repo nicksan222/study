@@ -15,12 +15,27 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { randomUUID } from 'node:crypto';
+
 import type { LanguageModelV3 } from '@ai-sdk/provider';
+import { agentRunIdSchema } from '@study/contracts/ai/progress';
+import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts/ai/progress';
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';
 import { streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
-import { Context, Effect, Layer, Option, Queue, References, Schema, Stream } from 'effect';
+import {
+  Cause as EffectCause,
+  Context,
+  Effect,
+  Exit,
+  Layer,
+  Option,
+  Queue,
+  References,
+  Schema,
+  Stream
+} from 'effect';
 
 import { makeAdmission } from '#server/platform/ai/admission';
 import type { Admission } from '#server/platform/ai/admission';
@@ -32,6 +47,7 @@ import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
   model: (tier: ModelTier) => Effect.Effect<LanguageModelV3, StudyError>;
+  observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
 }
 
 export class Agents extends Context.Service<Agents, AgentsConfig & { admission: Admission }>()(
@@ -47,9 +63,21 @@ export interface AgentOptions {
   preflight?: Effect.Effect<void, StudyError>;
 }
 
-export type AgentProgress<A> =
-  | { type: 'text-delta'; text: string }
-  | { type: 'complete'; output: A };
+function agentLimits(options: AgentOptions) {
+  const steps = options.maxSteps ?? 5;
+  const retries = options.maxRetries ?? 0;
+
+  return Number.isInteger(steps) &&
+    steps >= 1 &&
+    steps <= 20 &&
+    Number.isInteger(retries) &&
+    retries >= 0 &&
+    retries <= 5
+    ? Effect.succeed({ steps, retries })
+    : Effect.fail(new StudyError('invalid_input', 'Invalid agent limits'));
+}
+
+export type AgentProgress<A> = typeof agentUpdateSchema.Type | { type: 'complete'; output: A };
 
 function failure(error: unknown): StudyError {
   if (error instanceof StudyError) return error;
@@ -90,18 +118,7 @@ export function streamAgent<
 ): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents> {
   function* runAgentStream(queue: Queue.Queue<AgentProgress<O['Type']>, StudyError | Cause.Done>) {
     const service = yield* Agents;
-    const steps = options.maxSteps ?? 5;
-    const retries = options.maxRetries ?? 0;
-
-    if (
-      !Number.isInteger(steps) ||
-      steps < 1 ||
-      steps > 20 ||
-      !Number.isInteger(retries) ||
-      retries < 0 ||
-      retries > 5
-    )
-      return yield* Effect.fail(new StudyError('invalid_input', 'Invalid agent limits'));
+    const { steps, retries } = yield* agentLimits(options);
 
     const validated = yield* Effect.try({
       try: () => Schema.decodeUnknownSync(definition.input)(input),
@@ -113,135 +130,163 @@ export function streamAgent<
     const span = yield* Effect.currentSpan;
     const annotations = yield* References.CurrentLogAnnotations;
     const callbackContext = yield* Effect.context<never>();
+    const run = {
+      runId: agentRunIdSchema.make(randomUUID()),
+      agentId: definition.id,
+      mode: definition.mode ?? ('text' as const)
+    };
+    const observe = (event: (typeof agentObservationSchema.Type)['event']) =>
+      service.observe?.({ ...run, event }) ?? Effect.void;
 
-    return yield* service.admission.run(
-      Effect.gen(function* () {
-        if (options.preflight) yield* options.preflight;
+    yield* observe({ type: 'start' });
 
-        const checkedModel = options.preflight
-          ? yield* Effect.try({
-              try: () =>
-                withRequestCheck(
-                  model,
-                  adaptRequestCheck(options.preflight!, span, annotations, callbackContext)
-                ),
-              catch: failure
-            })
-          : model;
-        let retryCount = 0;
-        let published = false;
+    return yield* service.admission
+      .run(
+        Effect.gen(function* () {
+          if (options.preflight) yield* options.preflight;
 
-        function* runAttempt() {
-          const controller = yield* Effect.acquireRelease(
-            Effect.sync(() => new AbortController()),
-            (controller) => Effect.sync(() => controller.abort())
-          );
-          const result = yield* Effect.try({
-            try: () => {
-              const prompt = definition.prompt(validated);
-              const tools = Object.fromEntries(
-                Object.entries(definition.tools ?? {}).map(([name, value]) => [
-                  name,
-                  adaptTool(value, service, span, annotations, callbackContext)
-                ])
-              );
-
-              return streamText({
-                onError: () => {},
-                model: checkedModel,
-                system:
-                  typeof definition.instructions === 'function'
-                    ? definition.instructions(language)
-                    : definition.instructions,
-                ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
-                tools,
-                stopWhen: stepCountIs(steps),
-                maxRetries: 0,
-                abortSignal: controller.signal,
-                ...(definition.mode === 'object'
-                  ? { output: Output.object({ schema: standardSchema(definition.output) }) }
-                  : {})
-              });
-            },
-            catch: failure
-          });
-          const iterator = result.fullStream[Symbol.asyncIterator]();
-          const text = yield* Effect.gen(readStream);
-
-          function* readStream() {
-            let text = '';
-            let finished = false;
-
-            while (true) {
-              const next = yield* Effect.tryPromise({
-                try: () => iterator.next(),
+          const checkedModel = options.preflight
+            ? yield* Effect.try({
+                try: () =>
+                  withRequestCheck(
+                    model,
+                    adaptRequestCheck(options.preflight!, span, annotations, callbackContext)
+                  ),
                 catch: failure
-              });
+              })
+            : model;
+          let retryCount = 0;
+          let published = false;
+          const emit = (event: typeof agentUpdateSchema.Type) =>
+            Effect.gen(function* () {
+              yield* observe(event);
+              yield* Queue.offer(queue, event);
+              published = true;
+            });
 
-              if (next.done) break;
+          function* runAttempt() {
+            const controller = yield* Effect.acquireRelease(
+              Effect.sync(() => new AbortController()),
+              (controller) => Effect.sync(() => controller.abort())
+            );
+            const result = yield* Effect.try({
+              try: () => {
+                const prompt = definition.prompt(validated);
+                const tools = Object.fromEntries(
+                  Object.entries(definition.tools ?? {}).map(([name, value]) => [
+                    name,
+                    adaptTool(value, service, span, annotations, callbackContext, { name, emit })
+                  ])
+                );
 
-              const part = next.value;
+                return streamText({
+                  onError: () => {},
+                  model: checkedModel,
+                  system:
+                    typeof definition.instructions === 'function'
+                      ? definition.instructions(language)
+                      : definition.instructions,
+                  ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
+                  tools,
+                  stopWhen: stepCountIs(steps),
+                  maxRetries: 0,
+                  abortSignal: controller.signal,
+                  ...(definition.mode === 'object'
+                    ? { output: Output.object({ schema: standardSchema(definition.output) }) }
+                    : {})
+                });
+              },
+              catch: failure
+            });
+            const iterator = result.fullStream[Symbol.asyncIterator]();
+            const text = yield* Effect.gen(readStream);
 
-              if (['error', 'tool-error', 'tool-output-denied', 'abort'].includes(part.type))
-                return yield* Effect.fail(agentStreamError(part));
+            function* readStream() {
+              let text = '';
+              let finished = false;
 
-              if (part.type === 'text-delta') {
-                text += part.text;
-                yield* Queue.offer(queue, { type: 'text-delta', text: part.text });
-                published = true;
+              while (true) {
+                const next = yield* Effect.tryPromise({
+                  try: () => iterator.next(),
+                  catch: failure
+                });
+
+                if (next.done) break;
+
+                const part = next.value;
+
+                if (['error', 'tool-error', 'tool-output-denied', 'abort'].includes(part.type))
+                  return yield* Effect.fail(agentStreamError(part));
+
+                if (part.type === 'text-delta') {
+                  text += part.text;
+                  yield* emit({ type: 'text-delta', text: part.text });
+                }
+
+                if (part.type === 'finish') {
+                  if (part.finishReason !== 'stop')
+                    return yield* Effect.fail(
+                      new StudyError('transient', 'Agent response did not complete')
+                    );
+
+                  finished = true;
+                }
               }
 
-              if (part.type === 'finish') {
-                if (part.finishReason !== 'stop')
-                  return yield* Effect.fail(
-                    new StudyError('transient', 'Agent response did not complete')
-                  );
+              if (!finished)
+                return yield* Effect.fail(
+                  new StudyError('transient', 'Agent response did not complete')
+                );
 
-                finished = true;
-              }
+              if (!text.trim())
+                return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
+
+              return text;
             }
 
-            if (!finished)
-              return yield* Effect.fail(
-                new StudyError('transient', 'Agent response did not complete')
-              );
+            const raw =
+              definition.mode === 'object'
+                ? yield* Effect.tryPromise({ try: () => result.output, catch: failure })
+                : text;
+            const output = yield* Effect.try({
+              try: () => Schema.decodeUnknownSync(definition.output)(raw),
+              catch: failure
+            });
 
-            if (!text.trim())
-              return yield* Effect.fail(new StudyError('transient', 'Agent output was empty'));
-
-            return text;
+            yield* observe({ type: 'complete' });
+            yield* Queue.offer(queue, { type: 'complete', output });
+            yield* Queue.end(queue);
           }
 
-          const raw =
-            definition.mode === 'object'
-              ? yield* Effect.tryPromise({ try: () => result.output, catch: failure })
-              : text;
-          const output = yield* Effect.try({
-            try: () => Schema.decodeUnknownSync(definition.output)(raw),
-            catch: failure
-          });
+          const attempt = Effect.gen(runAttempt).pipe(Effect.scoped);
 
-          yield* Queue.offer(queue, { type: 'complete', output });
-          yield* Queue.end(queue);
-        }
+          return yield* attempt.pipe(
+            Effect.retry({
+              times: 5,
+              while: (error) => {
+                if (published || retryCount >= retries || !isRetryable(error.kind))
+                  return Effect.succeed(false);
 
-        const attempt = Effect.gen(runAttempt).pipe(Effect.scoped);
+                retryCount++;
 
-        return yield* attempt.pipe(
-          Effect.retry({
-            times: 5,
-            while: (error) => {
-              if (published || retryCount >= retries || !isRetryable(error.kind))
-                return Effect.succeed(false);
-
-              retryCount++;
-
-              return recordAiRetry().pipe(Effect.as(true));
-            }
-          })
-        );
-      })
-    );
+                return recordAiRetry().pipe(Effect.as(true));
+              }
+            })
+          );
+        })
+      )
+      .pipe(
+        Effect.onExit((exit) =>
+          Exit.isFailure(exit)
+            ? observe({
+                type: 'failed',
+                kind: EffectCause.hasInterruptsOnly(exit.cause)
+                  ? 'cancelled'
+                  : failure(EffectCause.squash(exit.cause)).kind
+              }).pipe(Effect.ignore)
+            : Effect.void
+        )
+      );
   }
 
   return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents>(

@@ -56,6 +56,7 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
@@ -139,6 +140,7 @@ export function nativeLayers(
       const aiAdmission = yield* AiAdmission;
 
       return {
+        observe: observeAgentProgress(store),
         admission: withAdmissionSettings(aiAdmission, settings.concurrencySettings()),
         language: settings.language(),
         model: (tier) =>
