@@ -23,6 +23,7 @@ import { useState } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { CapturedInputLink } from '../source-library';
+import { ArchiveMenuItem } from './archive-menu-item';
 import { AttachmentCards } from './attachment-cards';
 import { ItemContextMenu } from './item-context-menu';
 import { ItemDeletionMenu } from './item-deletion-menu';
@@ -196,7 +197,15 @@ function DocumentEntry({
         <button type="button" aria-label={t('SessionOpenPage')} onClick={() => onOpen(message)} />
       }
       dialogOpen={actions?.open}
-      actions={actions && <ItemDeletionMenu {...actions} />}
+      actions={
+        <>
+          <ArchiveMenuItem
+            sessionId={message.sessionId}
+            target={{ kind: 'message', id: message.id }}
+          />
+          {actions && <ItemDeletionMenu {...actions} />}
+        </>
+      }
     >
       <Desk.DocumentCard
         title={<NoteSummary value={version?.text ?? ''} fallback={t('SessionNewPage')} />}

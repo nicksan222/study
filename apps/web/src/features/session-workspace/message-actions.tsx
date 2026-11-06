@@ -14,11 +14,12 @@ import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check } from 'lucide-react';
+import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check, Archive } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
+import { useItemArchive } from './archive.queries';
 import { useMessageActions } from './message-actions.queries';
 import { MessageContextMenu } from './message-context-menu';
 import { MessageDeletion } from './message-deletion';
@@ -112,6 +113,7 @@ function MessageToolbar({
         label="SessionUseVersion"
         icon={<Check size={15} aria-hidden="true" />}
       />
+      <MessageArchiveButton model={model} />
       <MessageDeletion
         message={message}
         versionId={model.versionId}
@@ -121,6 +123,32 @@ function MessageToolbar({
         }
       />
     </ChatMessageActionToolbar>
+  );
+}
+
+function MessageArchiveButton({ model }: { model: MessageActionsModel }) {
+  const archive = useItemArchive(model.message.sessionId, {
+    kind: 'message',
+    id: model.message.id
+  });
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={archive.pending || model.blocked || !!model.draft.mode}
+            onClick={() => archive.change(true)}
+          />
+        }
+      >
+        <Archive size={15} aria-hidden="true" />
+        <Notebook.ActionLabel>{model.t('SessionArchive')}</Notebook.ActionLabel>
+      </TooltipTrigger>
+      <TooltipPopup>{model.t('SessionArchive')}</TooltipPopup>
+    </Tooltip>
   );
 }
 
