@@ -19,6 +19,8 @@ import type { SearchProjection } from '@study/contracts/search/schemas';
 import { searchTargetSchema } from '@study/contracts/search/schemas';
 import { Schema } from 'effect';
 
+import { textWindowSize } from './text-windows.ts';
+
 const encodeTarget = Schema.encodeSync(
   Schema.fromJsonString(Schema.toCodecJson(searchTargetSchema))
 );
@@ -28,10 +30,11 @@ function hash(text: string) {
 }
 
 /** Include the indexing policy so a segmentation change invalidates every cached ordinal. */
-function fingerprint(row: SearchProjection, target: string): string {
+function fingerprint(row: SearchProjection, target: string, maximum: number): string {
   return hash(
     JSON.stringify([
       'bounded-text-windows-v1',
+      textWindowSize(maximum),
       target,
       row.title,
       row.text,
@@ -41,7 +44,7 @@ function fingerprint(row: SearchProjection, target: string): string {
   );
 }
 
-export function searchEntities(rows: readonly SearchProjection[]) {
+export function searchEntities(rows: readonly SearchProjection[], maximum: number) {
   const identities = new Set<string>();
 
   return rows.map((row) => {
@@ -55,7 +58,7 @@ export function searchEntities(rows: readonly SearchProjection[]) {
     return {
       kind: row.target.type === 'registered' ? row.target.entity : row.target.type,
       target,
-      fingerprint: fingerprint(row, target),
+      fingerprint: fingerprint(row, target, maximum),
       title: row.title,
       text: [row.title, row.text].filter(Boolean).join('\n').trim(),
       projection: row

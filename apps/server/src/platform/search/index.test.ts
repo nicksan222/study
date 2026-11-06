@@ -259,3 +259,48 @@ testStable(
     }
   }
 );
+
+testStable(
+  'changing the chunking limit invalidates cached ordinals without changing model identity',
+  async () => {
+    const location = createTestDatabase();
+    const db = location.open();
+    const rows = [project(1n, 'planet '.repeat(30))];
+    const chunked: EmbeddingModel = {
+      ...model,
+      maxChunkingInputLength: 32,
+      chunkPassages: (text) => Effect.succeed([text])
+    };
+
+    try {
+      const initial = makeSemanticIndex({ db, model: chunked, read: () => rows });
+
+      await Effect.runPromise(initial.reconcile());
+      const previous = db.orm.select().from(semantic_search_entries).all();
+      const larger = makeSemanticIndex({
+        db,
+        model: { ...chunked, maxChunkingInputLength: 80 },
+        read: () => rows
+      });
+
+      expect(
+        await Effect.runPromise(larger.search({ query: 'planet' }, { type: 'all' }))
+      ).toStrictEqual([]);
+      expect((await Effect.runPromise(larger.reconcile())).embedded).toBeGreaterThan(0);
+      const current = db.orm.select().from(semantic_search_entries).all();
+
+      expect(current.length).toBeLessThan(previous.length);
+      expect(current.every((row) => row.fingerprint !== previous[0]!.fingerprint)).toBe(true);
+      expect(
+        await Effect.runPromise(larger.search({ query: 'planet' }, { type: 'all' }))
+      ).toHaveLength(1);
+      expect(await Effect.runPromise(larger.reconcile())).toStrictEqual({
+        embedded: 0,
+        removed: 0
+      });
+    } finally {
+      db.close();
+      location.cleanup();
+    }
+  }
+);

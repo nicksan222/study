@@ -77,7 +77,9 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
   }
 
   function purge(rows: readonly SearchProjection[]) {
-    const live = new Map(searchEntities(rows).map((row) => [row.target, row.fingerprint]));
+    const live = new Map(
+      searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row.fingerprint])
+    );
     const stale = persisted().filter(
       (row) =>
         live.get(row.target) !== row.fingerprint ||
@@ -135,7 +137,9 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     vectors: readonly Float32Array[],
     rows: readonly SearchProjection[]
   ) {
-    const live = new Map(searchEntities(rows).map((row) => [row.target, row.fingerprint]));
+    const live = new Map(
+      searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row.fingerprint])
+    );
     let count = 0;
 
     for (let i = 0; i < batch.length; i++) {
@@ -182,7 +186,9 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     rows: readonly SearchProjection[]
   ) {
     const vector = vectorBuffer(query, model.dimensions);
-    const live = new Map(searchEntities(rows).map((row) => [row.target, row]));
+    const live = new Map(
+      searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row])
+    );
     const saved = db.orm
       .select({
         key: entries.key,

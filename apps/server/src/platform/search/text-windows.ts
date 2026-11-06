@@ -10,9 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+/** Use one effective size for segmentation and cache identity. */
+export function textWindowSize(maximum: number): number {
+  return Math.min(maximum, 64 * 1024);
+}
+
 /** Bound worker requests independently of whole-document size and preserve surrogate pairs. */
 export function* textWindows(text: string, maximum: number): Generator<string> {
-  const size = Math.min(maximum, 64 * 1024);
+  const size = textWindowSize(maximum);
 
   for (let start = 0; start < text.length;) {
     let end = Math.min(text.length, start + size);

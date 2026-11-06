@@ -97,7 +97,7 @@ export function makeSemanticIndex(options: {
     return Effect.gen(function* () {
       const removed = yield* commit(store.purge);
       const desired = yield* snapshot();
-      const entities = yield* sync(() => searchEntities(desired));
+      const entities = yield* sync(() => searchEntities(desired, model.maxChunkingInputLength));
       const embedded = yield* Stream.fromIterable(entities).pipe(
         Stream.flatMap(entityRecords),
         Stream.grouped(200),
