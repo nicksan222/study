@@ -1,10 +1,11 @@
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogTitle, DialogClose } from '@study/ui/dialog';
 import { cn } from '@study/ui/utils';
-import { Search as SearchIcon, X, ChevronRight } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
+import { SearchField } from './search-field';
 import { semanticPart } from './semantic-part';
 import { ToggleRow, SelectRow, NumberRow, RangeRow } from './settings-controls';
 import { SettingsGroup, SettingsRow } from './settings-group';
@@ -338,25 +339,22 @@ function Search({
   }, []);
 
   return (
-    <label className="settings-search">
-      <SearchIcon aria-hidden="true" />
-      <input
-        ref={input}
-        type="search"
-        aria-label={label}
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key !== 'Escape' || !value) return;
+    <SearchField
+      className="settings-search"
+      ref={input}
+      aria-label={label}
+      placeholder={placeholder}
+      value={value}
+      onValueChange={(value) => onChange(value)}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !value) return;
 
-          event.preventDefault();
-          event.stopPropagation();
-          onChange('');
-        }}
-      />
-      <kbd aria-hidden="true">/</kbd>
-    </label>
+        event.preventDefault();
+        event.stopPropagation();
+        onChange('');
+      }}
+      trailing={<kbd aria-hidden="true">/</kbd>}
+    />
   );
 }
 

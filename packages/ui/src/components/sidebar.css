@@ -84,28 +84,8 @@
   padding: 2px var(--sidebar-content-inset) 8px;
 }
 .study-sidebar-search {
-  display: flex;
-  min-width: 0;
   flex: 1;
-  align-items: center;
-  height: 2rem;
-  gap: 0.5rem;
-  padding-inline: 0.5rem;
-  border-radius: 6px;
-  background: transparent;
   color: var(--sidebar-supporting);
-}
-.study-sidebar-search > svg {
-  width: 1.125rem;
-  height: 1.125rem;
-  flex: none;
-}
-.study-sidebar-search [data-slot='input-control'] {
-  min-width: 0;
-  flex: 1;
-}
-.study-sidebar-search input {
-  padding-inline: 0;
 }
 .study-sidebar-scroll {
   min-height: 0;

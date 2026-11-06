@@ -9,15 +9,15 @@ import {
   ComboboxItem,
   ComboboxEmpty
 } from '@study/ui/combobox';
-import { Input } from '@study/ui/input';
 import type { InputProps } from '@study/ui/input';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { cn } from '@study/ui/utils';
-import { PanelLeft, Search, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { PanelLeft, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+import { SearchField as SharedSearchField } from './search-field';
 import { useSidebarShortcuts } from './sidebar-shortcuts';
 
 const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
@@ -422,15 +422,17 @@ function SearchField({
   ...props
 }: InputProps & { clearLabel: string; onClear: () => void }) {
   return (
-    <div className="study-sidebar-search">
-      <Search aria-hidden="true" />
-      <Input {...props} unstyled type="search" />
-      {props.value && (
-        <Button size="icon-xs" variant="ghost-muted" aria-label={clearLabel} onClick={onClear}>
-          <X aria-hidden="true" />
-        </Button>
-      )}
-    </div>
+    <SharedSearchField
+      {...props}
+      className={cn('study-sidebar-search', props.className)}
+      trailing={
+        props.value ? (
+          <Button size="icon-xs" variant="ghost-muted" aria-label={clearLabel} onClick={onClear}>
+            <X aria-hidden="true" />
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }
 

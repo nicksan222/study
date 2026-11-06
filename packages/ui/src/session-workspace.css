@@ -1154,32 +1154,6 @@
   outline: 2px solid var(--ring);
   outline-offset: -2px;
 }
-.ui-selection-search {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-height: 2rem;
-  padding-inline: 0.5rem;
-  color: var(--contrast-sidebar-muted-foreground);
-}
-.ui-selection-search > svg {
-  width: 1rem;
-  height: 1rem;
-  flex: none;
-}
-.ui-selection-search [data-slot='input-control'] {
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  font-size: 0.8125rem;
-}
-.ui-selection-search [data-slot='input-control']:has(:focus-visible) {
-  background: var(--accent);
-}
-.ui-selection-search input {
-  padding-inline: 0;
-  font-size: 0.8125rem;
-}
 .ui-selection .ui-selection-editor {
   padding: 0;
 }

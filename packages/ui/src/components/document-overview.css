@@ -1,8 +1,7 @@
 .document-overview {
   container: document-overview / inline-size;
   width: 100%;
-  max-width: 64rem;
-  margin-inline: auto;
+  min-width: 0;
   padding-block: 2rem 4rem;
   color: var(--foreground);
 }

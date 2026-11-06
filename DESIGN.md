@@ -22,8 +22,10 @@ and geometry. Include only controls the study tasks need, with no second compone
 Headers sit on the page, with no rule, contrasting band or sticky overlay. A muted parent,
 light slash and 20px semibold title share a row with compact actions. The 73.5px desktop
 title row aligns with the sidebar switcher's centre. Header-to-body space is 24px on
-desktop and 16px on narrow views. Page bodies have 24px desktop/16px narrow insets and a
-1600px maximum width. Lists bleed to those insets, use fine divided rows, 12px vertical
+desktop and 16px on narrow views. Page bodies fill the available width with
+24px desktop/16px narrow insets. Overview and library pages share these insets without an additional
+page-width cap; reading and editing columns retain their content-specific measures.
+Lists bleed to those insets, use fine divided rows, 12px vertical
 padding, 13.5px desktop type, and plain 18px icons; they are not grids of boxed icon cards.
 Hover, focus, current selection and keyboard activation retain their distinct states.
 

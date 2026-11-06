@@ -1,7 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { DocumentOverview } from '@study/ui/document-overview';
-import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
+import { SearchField } from '@study/ui/search-field';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Circle } from 'lucide-react';
 import { useState } from 'react';
@@ -34,8 +34,7 @@ export function SessionPicker({
 
   return (
     <DocumentOverview.Picker>
-      <Input
-        type="search"
+      <SearchField
         aria-label={t('DocumentsFindSessions')}
         placeholder={t('DocumentsFindSessions')}
         value={query}

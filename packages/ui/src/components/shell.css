@@ -143,8 +143,6 @@
 
 .groam-shell-page-body[data-layout='padded'] {
   width: 100%;
-  max-width: 1600px;
-  margin-inline: auto;
   padding: 0 16px calc(120px + env(safe-area-inset-bottom, 0px));
   gap: 24px;
 }

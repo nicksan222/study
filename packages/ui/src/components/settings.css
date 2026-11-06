@@ -34,35 +34,7 @@
   padding: 0.5rem;
 }
 .settings-search {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  height: 2rem;
   margin-bottom: 0.5rem;
-  padding: 0 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--contrast-sidebar-muted-foreground);
-}
-.settings-search svg {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  opacity: 0.8;
-}
-.settings-search input {
-  width: 100%;
-  min-width: 0;
-  outline: none;
-  background: transparent;
-}
-.settings-search input::placeholder {
-  color: inherit;
-  opacity: 1;
-}
-.settings-search:has(input:focus-visible) {
-  border-radius: 0.5rem;
-  background: var(--accent);
 }
 .settings-search kbd {
   display: grid;

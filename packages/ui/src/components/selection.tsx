@@ -1,9 +1,8 @@
-import { Search } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { LoadMoreButton } from './action-button';
 import { DialogPopup, DialogTitle } from './dialog';
-import { Input } from './input';
+import { SearchField as SharedSearchField } from './search-field';
 import { semanticPart as part } from './semantic-part';
 
 function SelectionDialogPopup({
@@ -33,7 +32,6 @@ export const SelectionSurface = {
   Message: part('p', 'ui-selection-message'),
   Title: part(DialogTitle, 'sr-only'),
   Root: part('div', 'ui-selection'),
-  Search: part('label', 'ui-selection-search'),
   Navigation: part('aside', 'settings-navigation ui-selection-navigation'),
   Main: part('div', 'settings-main'),
   Header: part('header', 'settings-header'),
@@ -72,17 +70,12 @@ function SearchField({
   onValueChange: (value: string) => void;
 }) {
   return (
-    <SelectionSurface.Search>
-      <Search aria-hidden="true" />
-      <Input
-        unstyled
-        type="search"
-        aria-label={label}
-        placeholder={placeholder}
-        value={value}
-        onValueChange={onValueChange}
-      />
-    </SelectionSurface.Search>
+    <SharedSearchField
+      aria-label={label}
+      placeholder={placeholder}
+      value={value}
+      onValueChange={onValueChange}
+    />
   );
 }
 
