@@ -243,7 +243,13 @@ export const replySnapshotSchema = Schema.Struct({
       conversion: Schema.optional(messageConversionSchema),
       instruction: Schema.NullOr(Schema.String),
       questionVersionId: Schema.optional(versionIdSchema)
-    })
+    }).check(
+      Schema.makeFilter(
+        (generation) =>
+          (generation.origin === 'convert') === (generation.conversion !== undefined) &&
+          (generation.questionVersionId === undefined || generation.origin === 'answer')
+      )
+    )
   ),
   pendingAttachments: Schema.optional(Schema.Array(pendingReplyAttachmentSchema)),
   messages: Schema.Array(
@@ -261,7 +267,21 @@ export const replySnapshotSchema = Schema.Struct({
       )
     })
   )
-});
+}).check(
+  Schema.makeFilter((snapshot) => {
+    const conversion = snapshot.generation?.conversion;
+
+    return (
+      !conversion ||
+      snapshot.messages.some(
+        (message) =>
+          message.messageId === snapshot.messageId &&
+          message.versionId === conversion.baseVersionId &&
+          message.role === 'user'
+      )
+    );
+  })
+);
 
 export const publishReplyInputSchema = Schema.Struct({
   requestId: Schema.String,
