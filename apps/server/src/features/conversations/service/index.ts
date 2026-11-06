@@ -67,7 +67,7 @@ import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
@@ -926,10 +926,8 @@ export const Conversations = defineService(
     };
   }),
   {
-    searchProjectionsInTransaction: (
-      tx: Transaction,
-      input: typeof searchProjectionPageInputSchema.Type
-    ) => tx.store(ConversationSearchStore).searchProjectionPages(input),
+    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
+      tx.store(ConversationSearchStore).searchProjectionPages(input),
     prepareBackup: (tx: Transaction) => tx.store(ConversationBackupStore).prepare(undefined),
     validateBackup: (tx: Transaction, requireRetired = false) =>
       tx.store(ConversationBackupStore).backupConversation(requireRetired)

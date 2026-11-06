@@ -13,22 +13,19 @@
  */
 
 import type { ProjectId, SessionId } from '@study/contracts/ids';
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjection, SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { and, asc, eq, inArray, sql } from '@study/db';
 import { messages, message_versions, project_sessions, sessions } from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import { searchProjectionPageQuery } from '#server/platform/search/projection-page';
-import type { SearchProjection } from '#server/platform/search/types';
-
-type ProjectionInput = typeof searchProjectionPageInputSchema.Type;
 
 type ConversationEntry = Omit<SearchProjection, 'projectIds'> & { sessionId: SessionId };
 
 export function makeConversationSearchProjections({ db }: StoreResources) {
   const visible = sql`NOT EXISTS (SELECT 1 FROM session_deletions d WHERE d.session_id = ${sessions.id})`;
-  const sessionEntries = (input: ProjectionInput): ConversationEntry[] => {
+  const sessionEntries = (input: SearchProjectionPageInput): ConversationEntry[] => {
     const entries: ConversationEntry[] = [];
     const { offset, limit, targets } = input;
     const selected = targets?.filter((target) => target.type === 'session');
@@ -61,7 +58,7 @@ export function makeConversationSearchProjections({ db }: StoreResources) {
 
     return entries;
   };
-  const messageEntries = (input: ProjectionInput): ConversationEntry[] => {
+  const messageEntries = (input: SearchProjectionPageInput): ConversationEntry[] => {
     const entries: ConversationEntry[] = [];
     const { offset, limit, targets } = input;
     const selected = targets?.filter((target) => target.type === 'message');
@@ -134,7 +131,9 @@ export function makeConversationSearchProjections({ db }: StoreResources) {
     }));
   };
 
-  return (input: ProjectionInput = { offset: 0, limit: 1000 }): readonly SearchProjection[] => {
+  return (
+    input: SearchProjectionPageInput = { offset: 0, limit: 1000 }
+  ): readonly SearchProjection[] => {
     const entries = [
       ...(input.kind === undefined || input.kind === 'session' ? sessionEntries(input) : []),
       ...(input.kind === undefined || input.kind === 'message' ? messageEntries(input) : [])

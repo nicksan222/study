@@ -14,12 +14,16 @@
 
 import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema } from '@study/contracts/ids';
+import type {
+  SearchProjection,
+  SearchProjectionPageInput,
+  SearchTarget
+} from '@study/contracts/search/schemas';
 import {
   searchProjectionPageInputSchema,
   searchProjectionPageSchema,
   registeredEntityKeySchema
 } from '@study/contracts/search/schemas';
-import type { SearchTarget } from '@study/contracts/search/schemas';
 import { collectSchemaRegistry, getTableColumns, asc, and, eq, isNull, sql } from '@study/db';
 import type { RegisteredEntity } from '@study/db';
 import * as databaseSchema from '@study/db/schema';
@@ -27,9 +31,6 @@ import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
-import type { SearchProjection } from '#server/platform/search/types';
-
-type PageInput = typeof searchProjectionPageInputSchema.Type;
 
 const featureKinds = new Set([
   'project',
@@ -106,7 +107,10 @@ function targetKeys(
 }
 
 function makeRegistrySearchProjections({ db }: StoreResources) {
-  return (entity: RegisteredEntity, input: PageInput): readonly SearchProjection[] => {
+  return (
+    entity: RegisteredEntity,
+    input: SearchProjectionPageInput
+  ): readonly SearchProjection[] => {
     const meta = entity.metadata;
 
     if (meta.projection !== 'columns')

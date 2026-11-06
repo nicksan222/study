@@ -13,9 +13,13 @@
  */
 
 import type { StudyError } from '@study/contracts/errors';
+import type {
+  SearchEntityCatalog,
+  SemanticSearchHit,
+  SemanticSearchInput
+} from '@study/contracts/search/schemas';
 import { semanticSearchInputSchema } from '@study/contracts/search/schemas';
 import { semanticSearchHitSchema } from '@study/contracts/search/schemas';
-import type { searchEntityCatalogSchema } from '@study/contracts/search/schemas';
 import { Effect, Schema } from 'effect';
 
 import type { AgentTool } from '#server/platform/definitions/define-agent';
@@ -26,11 +30,11 @@ const catalogInput = Schema.Struct({});
 /** Scope is captured from trusted agent setup, never accepted from model input. */
 export function makeSearchTools(
   service: {
-    catalog: () => Effect.Effect<typeof searchEntityCatalogSchema.Type, StudyError>;
+    catalog: () => Effect.Effect<SearchEntityCatalog, StudyError>;
     search: (
-      input: typeof semanticSearchInputSchema.Type,
+      input: SemanticSearchInput,
       scope: SearchScope
-    ) => Effect.Effect<readonly (typeof semanticSearchHitSchema.Type)[], StudyError>;
+    ) => Effect.Effect<readonly SemanticSearchHit[], StudyError>;
   },
   scope: SearchScope
 ) {
@@ -41,10 +45,7 @@ export function makeSearchTools(
     input: semanticSearchInputSchema,
     execute: (input) => service.search(input, scope).pipe(Effect.map(encodeHits))
   };
-  const listSearchableEntities: AgentTool<
-    typeof catalogInput,
-    typeof searchEntityCatalogSchema.Type
-  > = {
+  const listSearchableEntities: AgentTool<typeof catalogInput, SearchEntityCatalog> = {
     description:
       'List searchable application entity kinds, their meaning, supported filters and citation capabilities.',
     input: catalogInput,

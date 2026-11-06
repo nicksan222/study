@@ -13,7 +13,8 @@
  */
 
 import type {
-  searchProjectionPageInputSchema,
+  SearchProjection,
+  SearchProjectionPageInput,
   SearchTarget
 } from '@study/contracts/search/schemas';
 import { Effect } from 'effect';
@@ -28,7 +29,6 @@ import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import { SearchConfiguration } from '#server/platform/search/configuration';
 import { SearchStorage } from '#server/platform/search/storage';
-import type { SearchProjection } from '#server/platform/search/types';
 
 export const Search = defineService(
   'study/Search',
@@ -64,7 +64,7 @@ export const Search = defineService(
 
         const reader =
           readers.get(entry.kind) ??
-          ((tx: Transaction, input: typeof searchProjectionPageInputSchema.Type) =>
+          ((tx: Transaction, input: SearchProjectionPageInput) =>
             tx.store(registryStore).searchProjectionPages(input));
         let offset = 0;
 

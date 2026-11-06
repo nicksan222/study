@@ -12,18 +12,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { semanticSearchInputSchema } from '@study/contracts/search/schemas';
+import type {
+  SearchProjection,
+  SemanticSearchHit,
+  SemanticSearchInput
+} from '@study/contracts/search/schemas';
 import type { Db } from '@study/db';
 import { and, eq, inArray, sql } from '@study/db';
 import { semantic_search_entries as entries } from '@study/db/schema';
 
 import { searchEntities, vectorBuffer } from './records.ts';
 import type { SearchRecord } from './records.ts';
-import type { EmbeddingModel, SearchProjection, SearchScope } from './types.ts';
+import type { EmbeddingModel, SearchScope } from './types.ts';
 
-type SearchInput = typeof semanticSearchInputSchema.Type;
-
-function isEligible(row: SearchRecord, input: SearchInput, scope: SearchScope): boolean {
+function isEligible(row: SearchRecord, input: SemanticSearchInput, scope: SearchScope): boolean {
   if (input.kinds && !input.kinds.includes(row.kind)) return false;
 
   if (scope.type === 'all') return true;
@@ -36,12 +38,7 @@ function bestHits(
   eligible: Map<string, SearchRecord>,
   limit: number
 ) {
-  const hits: Array<{
-    target: SearchProjection['target'];
-    title: string;
-    text: string;
-    distance: number;
-  }> = [];
+  const hits: SemanticSearchHit[] = [];
   const seen = new Set<string>();
 
   for (const match of [...ranked].sort(
@@ -163,7 +160,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
   }
 
   function search(
-    input: SearchInput,
+    input: SemanticSearchInput,
     scope: SearchScope,
     query: Float32Array,
     rows: readonly SearchProjection[]

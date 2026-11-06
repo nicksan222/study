@@ -24,7 +24,7 @@ import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { Effect, Option } from 'effect';
 
 import {
@@ -315,10 +315,8 @@ export const Documents = defineService(
     };
   }),
   {
-    searchProjectionsInTransaction: (
-      tx: Transaction,
-      input: typeof searchProjectionPageInputSchema.Type
-    ) => tx.store(DocumentSearchStore).searchProjectionPages(input),
+    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
+      tx.store(DocumentSearchStore).searchProjectionPages(input),
     prepareSessionRetirement: (
       tx: Transaction,
       v: { sessionId: SessionId; contextIds: readonly string[] }

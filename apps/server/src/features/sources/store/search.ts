@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjection, SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { anchorSchema } from '@study/contracts/sources/schemas';
 import { and, asc, eq, inArray, sql } from '@study/db';
 import { chunks, content_snapshots, source_processing, sources } from '@study/db/schema';
@@ -21,14 +21,11 @@ import { Schema } from 'effect';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import { searchProjectionPageQuery } from '#server/platform/search/projection-page';
-import type { SearchProjection } from '#server/platform/search/types';
 
 const decodeAnchor = Schema.decodeUnknownSync(Schema.fromJsonString(anchorSchema));
 
-type ProjectionInput = typeof searchProjectionPageInputSchema.Type;
-
 export function makeSourceSearchProjections({ db }: StoreResources) {
-  const sourceEntries = (input: ProjectionInput): SearchProjection[] => {
+  const sourceEntries = (input: SearchProjectionPageInput): SearchProjection[] => {
     const entries: Array<SearchProjection> = [];
     const { offset, limit, targets } = input;
     const selected = targets?.filter((target) => target.type === 'source');
@@ -61,7 +58,7 @@ export function makeSourceSearchProjections({ db }: StoreResources) {
 
     return entries;
   };
-  const passageEntries = (input: ProjectionInput): SearchProjection[] => {
+  const passageEntries = (input: SearchProjectionPageInput): SearchProjection[] => {
     const entries: Array<SearchProjection> = [];
     const { offset, limit, targets } = input;
     const selected = targets?.filter((target) => target.type === 'passage');
@@ -112,7 +109,9 @@ export function makeSourceSearchProjections({ db }: StoreResources) {
     return entries;
   };
 
-  return (input: ProjectionInput = { offset: 0, limit: 1000 }): readonly SearchProjection[] => {
+  return (
+    input: SearchProjectionPageInput = { offset: 0, limit: 1000 }
+  ): readonly SearchProjection[] => {
     const entries = [
       ...(input.kind === undefined || input.kind === 'source' ? sourceEntries(input) : []),
       ...(input.kind === undefined || input.kind === 'passage' ? passageEntries(input) : [])

@@ -13,23 +13,26 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type {
+  SearchProjection,
+  SearchProjectionPage,
+  SearchProjectionPageInput
+} from '@study/contracts/search/schemas';
 import {
   searchProjectionPageInputSchema,
   searchProjectionPageSchema
 } from '@study/contracts/search/schemas';
 
-import type { SearchProjection } from './types.ts';
-
 /** Share bounded lookahead and validation, while features retain their SQL and visibility. */
 export function searchProjectionPageQuery(
-  read: (input: typeof searchProjectionPageInputSchema.Type) => readonly SearchProjection[],
+  read: (input: SearchProjectionPageInput) => readonly SearchProjection[],
   requiresKind = false
 ) {
   return {
     role: 'collection' as const,
     input: searchProjectionPageInputSchema,
     output: searchProjectionPageSchema,
-    run: (input: typeof searchProjectionPageInputSchema.Type) => {
+    run: (input: SearchProjectionPageInput): SearchProjectionPage => {
       if (requiresKind && input.kind === undefined)
         throw new StudyError('invalid_input', 'A search entity kind is required');
 

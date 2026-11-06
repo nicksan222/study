@@ -15,10 +15,9 @@
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
+import type { SearchProjection } from '@study/contracts/search/schemas';
 import { searchTargetSchema } from '@study/contracts/search/schemas';
 import { Schema } from 'effect';
-
-import type { SearchProjection } from './types.ts';
 
 const encodeTarget = Schema.encodeSync(
   Schema.fromJsonString(Schema.toCodecJson(searchTargetSchema))

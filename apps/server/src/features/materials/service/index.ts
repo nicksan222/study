@@ -25,7 +25,7 @@ import type {
   materialGenerationInputSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { Effect } from 'effect';
 
 import {
@@ -382,10 +382,8 @@ function* makeMaterials() {
 }
 
 export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
-  searchProjectionsInTransaction: (
-    tx: Transaction,
-    input: typeof searchProjectionPageInputSchema.Type
-  ) => tx.store(MaterialSearchStore).searchProjectionPages(input),
+  searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
+    tx.store(MaterialSearchStore).searchProjectionPages(input),
   validateContentInputsInTransaction: assertContentInputs,
   prepareBackup: (tx: Transaction) => {
     for (const requestId of tx.store(MaterialPendingBackupStore).pendingGenerations(undefined))

@@ -12,6 +12,7 @@
 
 import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema } from '@study/contracts/ids';
+import type { SearchProjection } from '@study/contracts/search/schemas';
 import { semantic_search_entries } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -20,7 +21,7 @@ import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { makeSemanticIndex } from './index.ts';
-import type { EmbeddingModel, SearchProjection } from './types.ts';
+import type { EmbeddingModel } from './types.ts';
 
 const id = Schema.decodeUnknownSync(projectIdSchema);
 

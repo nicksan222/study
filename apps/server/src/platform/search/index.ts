@@ -13,8 +13,12 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type {
+  SearchProjection,
+  SearchTarget,
+  SemanticSearchInput
+} from '@study/contracts/search/schemas';
 import { semanticSearchInputSchema } from '@study/contracts/search/schemas';
-import type { SearchTarget } from '@study/contracts/search/schemas';
 import type { Db } from '@study/db';
 import { Effect, Schema } from 'effect';
 
@@ -23,9 +27,7 @@ import { normalizeError } from '#server/platform/errors/classify-error';
 import { searchEntities, searchRecord } from './records.ts';
 import type { SearchRecord } from './records.ts';
 import { makeVectorStore } from './store.ts';
-import type { EmbeddingModel, SearchProjection, SearchScope } from './types.ts';
-
-type SearchInput = typeof semanticSearchInputSchema.Type;
+import type { EmbeddingModel, SearchScope } from './types.ts';
 
 type SearchCommit = <A>(
   work: (rows: readonly SearchProjection[]) => A,
@@ -92,7 +94,7 @@ export function makeSemanticIndex(options: {
     });
   }
 
-  function search(input: SearchInput, scope: SearchScope) {
+  function search(input: SemanticSearchInput, scope: SearchScope) {
     return Effect.gen(function* () {
       const request = yield* Effect.try({
         try: () => Schema.decodeUnknownSync(semanticSearchInputSchema)(input),

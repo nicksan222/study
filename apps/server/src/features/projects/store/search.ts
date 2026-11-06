@@ -11,18 +11,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjection, SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { asc, inArray, sql } from '@study/db';
 import { projects } from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import { searchProjectionPageQuery } from '#server/platform/search/projection-page';
-import type { SearchProjection } from '#server/platform/search/types';
 
 export function makeProjectSearchProjections({ db }: StoreResources) {
   return (
-    input: typeof searchProjectionPageInputSchema.Type = { offset: 0, limit: 1000 }
+    input: SearchProjectionPageInput = { offset: 0, limit: 1000 }
   ): readonly SearchProjection[] => {
     if (input.kind !== undefined && input.kind !== 'project') return [];
 

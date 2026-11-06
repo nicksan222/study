@@ -23,7 +23,7 @@ import type {
   projectMaterialInputSchema,
   projectSessionInputSchema
 } from '@study/contracts/projects/rpc';
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { Effect } from 'effect';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
@@ -95,9 +95,7 @@ export const Projects = defineService(
     };
   }),
   {
-    searchProjectionsInTransaction: (
-      tx: Transaction,
-      input: typeof searchProjectionPageInputSchema.Type
-    ) => tx.store(ProjectSearchStore).searchProjectionPages(input)
+    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
+      tx.store(ProjectSearchStore).searchProjectionPages(input)
   }
 );

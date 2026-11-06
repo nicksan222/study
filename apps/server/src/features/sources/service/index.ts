@@ -17,7 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
 import type { ProjectId, SessionId, SourceId } from '@study/contracts/ids';
-import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
+import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import type {
   importCapabilityInputSchema,
   importCapabilitySchema
@@ -480,10 +480,8 @@ export const Sources = defineService(
     };
   }),
   {
-    searchProjectionsInTransaction: (
-      tx: Transaction,
-      input: typeof searchProjectionPageInputSchema.Type
-    ) => tx.store(SourceSearchStore).searchProjectionPages(input),
+    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
+      tx.store(SourceSearchStore).searchProjectionPages(input),
     currentExtractionInTransaction: (tx: Transaction, id: SourceId) => {
       tx.store(SourceStore).source(id);
 

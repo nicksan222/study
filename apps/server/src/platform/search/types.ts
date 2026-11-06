@@ -12,10 +12,7 @@
 
 import type { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
-import type { searchProjectionSchema } from '@study/contracts/search/schemas';
 import type { Effect } from 'effect';
-
-export type SearchProjection = typeof searchProjectionSchema.Type;
 
 export interface EmbeddingModel {
   readonly chunkPassages: (text: string) => Effect.Effect<readonly string[], StudyError>;

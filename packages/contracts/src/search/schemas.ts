@@ -79,7 +79,7 @@ export const semanticSearchHitSchema = Schema.Struct({
   distance: Schema.Number
 });
 
-export const searchEntityCatalogSchema = Schema.Array(
+const searchEntityCatalogSchema = Schema.Array(
   Schema.Struct({
     kind: Schema.String,
     description: Schema.String,
@@ -88,7 +88,7 @@ export const searchEntityCatalogSchema = Schema.Array(
   })
 );
 
-export const searchProjectionSchema = Schema.Struct({
+const searchProjectionSchema = Schema.Struct({
   target: searchTargetSchema,
   title: Schema.String,
   text: Schema.String,
@@ -107,3 +107,15 @@ export const searchProjectionPageSchema = Schema.Struct({
   items: Schema.Array(searchProjectionSchema),
   next: Schema.NullOr(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
 });
+
+export type SemanticSearchInput = typeof semanticSearchInputSchema.Type;
+
+export type SemanticSearchHit = typeof semanticSearchHitSchema.Type;
+
+export type SearchEntityCatalog = typeof searchEntityCatalogSchema.Type;
+
+export type SearchProjection = typeof searchProjectionSchema.Type;
+
+export type SearchProjectionPageInput = typeof searchProjectionPageInputSchema.Type;
+
+export type SearchProjectionPage = typeof searchProjectionPageSchema.Type;

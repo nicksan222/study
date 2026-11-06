@@ -19,8 +19,9 @@ import type {
   QuizQuestionId
 } from '@study/contracts/ids';
 import type {
-  SearchTarget,
-  searchProjectionPageInputSchema
+  SearchProjection,
+  SearchProjectionPageInput,
+  SearchTarget
 } from '@study/contracts/search/schemas';
 import { asc, inArray, sql } from '@study/db';
 import {
@@ -34,7 +35,6 @@ import {
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import { searchProjectionPageQuery } from '#server/platform/search/projection-page';
-import type { SearchProjection } from '#server/platform/search/types';
 
 type MaterialRow = {
   id: MaterialId;
@@ -43,8 +43,6 @@ type MaterialRow = {
   version_id: MaterialVersionId;
   kind: 'diagram' | 'quiz' | 'flashcards';
 };
-
-type ProjectionInput = typeof searchProjectionPageInputSchema.Type;
 
 type QuestionRow = MaterialRow & { question_id: QuizQuestionId; prompt: string };
 
@@ -69,7 +67,7 @@ function targetIdentity(target: SearchTarget) {
   return undefined;
 }
 
-function targetFilter(input: ProjectionInput) {
+function targetFilter(input: SearchProjectionPageInput) {
   if (input.targets === undefined) return sql`1`;
 
   const identities = input.targets
@@ -148,16 +146,16 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
 
     return contents;
   };
-  const materialsRows = (input: ProjectionInput) =>
+  const materialsRows = (input: SearchProjectionPageInput) =>
     db.orm.all<MaterialRow>(sql`SELECT m.id,m.title,m.description,m.kind,v.id AS version_id
       FROM materials m JOIN material_versions v ON v.material_id=m.id
       WHERE ${visibleMaterial} AND ${targetFilter(input)} ORDER BY m.id LIMIT ${input.limit} OFFSET ${input.offset}`);
-  const questionsRows = (input: ProjectionInput) =>
+  const questionsRows = (input: SearchProjectionPageInput) =>
     db.orm
       .all<QuestionRow>(sql`SELECT m.id,m.title,m.description,m.kind,v.id AS version_id,q.id AS question_id,q.prompt
       FROM material_quiz_questions q JOIN material_versions v ON v.id=q.version_id JOIN materials m ON m.id=v.material_id
       WHERE ${visibleMaterial} AND ${targetFilter(input)} ORDER BY q.id LIMIT ${input.limit} OFFSET ${input.offset}`);
-  const materialsFor = (input: ProjectionInput): readonly SearchProjection[] => {
+  const materialsFor = (input: SearchProjectionPageInput): readonly SearchProjection[] => {
     const rows = materialsRows(input);
 
     if (!rows.length) return [];
@@ -175,7 +173,7 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
       revision: row.version_id.toString()
     }));
   };
-  const questionsFor = (input: ProjectionInput): readonly SearchProjection[] => {
+  const questionsFor = (input: SearchProjectionPageInput): readonly SearchProjection[] => {
     const rows = questionsRows(input);
 
     if (!rows.length) return [];
@@ -197,7 +195,9 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
     }));
   };
 
-  return (input: ProjectionInput = { offset: 0, limit: 1000 }): readonly SearchProjection[] => {
+  return (
+    input: SearchProjectionPageInput = { offset: 0, limit: 1000 }
+  ): readonly SearchProjection[] => {
     if (input.kind === undefined)
       return [
         ...questionsFor({ ...input, kind: 'question' }),
