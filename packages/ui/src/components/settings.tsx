@@ -154,7 +154,7 @@ function Section({
   className,
   variant = 'default'
 }: {
-  title: string;
+  title?: string;
   actions?: ReactNode;
   children: ReactNode;
   className?: string;
@@ -164,10 +164,12 @@ function Section({
     <section
       className={cn('settings-section', variant !== 'default' && `settings-${variant}`, className)}
     >
-      <div className="settings-section-header">
-        <h3>{title}</h3>
-        {actions && <div className="settings-actions">{actions}</div>}
-      </div>
+      {(title || actions) && (
+        <div className="settings-section-header">
+          {title && <h3>{title}</h3>}
+          {actions && <div className="settings-actions">{actions}</div>}
+        </div>
+      )}
       {children}
     </section>
   );

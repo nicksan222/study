@@ -10,6 +10,7 @@ import type { Locale } from '../lib/i18n';
 import { LanguageProvider, useLanguage, useI18n } from '../lib/i18n';
 import { appSettingsQueryOptions } from '../lib/study-client/preferences.queries';
 import { BackupNotifications } from '../pages/settings/data/notifications';
+import { OnboardingProvider } from './onboarding';
 
 export function Providers({
   children,
@@ -25,7 +26,9 @@ export function Providers({
       <TooltipProvider>
         <LanguageProvider locale={locale}>
           <SavedLanguage />
-          <Notifications>{children}</Notifications>
+          <Notifications>
+            <OnboardingProvider>{children}</OnboardingProvider>
+          </Notifications>
         </LanguageProvider>
       </TooltipProvider>
     </QueryClientProvider>

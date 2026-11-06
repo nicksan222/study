@@ -75,3 +75,14 @@ testStable('does not save an appearance patch when current settings cannot be re
   await expect(updateAppSettings({ appearance: 2 })).rejects.toMatchObject({ kind: 'transient' });
   expect(api.save).not.toHaveBeenCalled();
 });
+
+testStable(
+  'marks onboarding complete while preserving the latest language, appearance and zoom',
+  async () => {
+    const latest = { language: 2, appearance: 1, zoomPercent: 125, onboarded: false };
+
+    api.read.mockReturnValue(Effect.succeed(latest));
+    await updateAppSettings({ onboarded: true });
+    expect(api.save).toHaveBeenCalledExactlyOnceWith({ ...latest, onboarded: true });
+  }
+);

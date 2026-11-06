@@ -94,7 +94,7 @@ export const loadAppearance = (signal?: AbortSignal) =>
   );
 
 export const updateAppSettings = (
-  patch: Partial<Pick<AppSettings, 'appearance' | 'zoomPercent'>>
+  patch: Partial<Pick<AppSettings, 'appearance' | 'zoomPercent' | 'onboarded'>>
 ) =>
   request((client) =>
     Effect.gen(function* () {

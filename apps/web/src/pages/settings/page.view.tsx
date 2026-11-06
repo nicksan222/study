@@ -40,6 +40,7 @@ const sections = [
     Icon: Settings2,
     keywords: [
       'GeneralSettingsLanguage',
+      'ReplayOnboarding',
       'WorkspaceSidebarTitle',
       'WorkspaceDensity',
       'WorkspaceTimeFormat',

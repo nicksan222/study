@@ -1226,6 +1226,41 @@ export const italian = Object.freeze({
   StartupMeasuring: 'Misurazione di questo computer…',
   StartupFailed: 'Impossibile completare la misurazione di questo computer. Riprova.',
   StartupSkip: 'Continua senza misurare',
+  OnboardingNotebookDescription:
+    'Tieni appunti e file insieme in una sessione. Salva un pensiero, allega il tuo materiale o scegli Chiedi a Study quando ti serve una risposta.',
+  OnboardingExample: 'Uno sguardo dentro una sessione',
+  OnboardingNotebookQuestion: 'Perché il ciclo di Krebs si ferma senza ossigeno?',
+  OnboardingNotebookHint: 'Chiedi a Study risponde dal tuo materiale, con citazioni da consultare.',
+  OnboardingReplayHint: 'Una breve introduzione. Puoi saltarla o rivederla quando vuoi.',
+  OnboardingReplayDescription: 'Scopri le sessioni, gli strumenti di studio e come iniziare.',
+  OnboardingSaveFailed:
+    'Non è stato possibile salvare i progressi. Riprova per completare il benvenuto.',
+  OnboardingConnectTitle: 'Collega il tuo ChatGPT',
+  OnboardingConnectDescription:
+    'Accedi con il tuo piano ChatGPT per fare domande e creare materiale di studio. Puoi farlo anche in seguito dalle Impostazioni.',
+  OnboardingLanguageIntro: 'Scegli la lingua in cui ti senti a casa.',
+  OnboardingAppearanceIntro: 'Segui il sistema o scegli il tema chiaro o scuro.',
+  OnboardingWelcomeSimple:
+    'Un posto tranquillo per i tuoi appunti, il tuo materiale e tutto ciò che impari.',
+  OnboardingSubjectsTitle: 'Le materie tengono tutto insieme',
+  OnboardingSubjectsDescription:
+    'Crea una materia per un corso, un esame o un argomento. Le sue sessioni e i suoi documenti restano insieme. Cambia materia dalla barra laterale quando passi ad altro.',
+  OnboardingDocumentsTitle: 'I documenti sono pagine da conservare',
+  OnboardingDocumentsDescription:
+    'Un documento è una pagina modificabile per una spiegazione chiara, un esempio svolto o una guida di studio. Scrivilo da zero o crealo dalle tue sessioni. Lo ritrovi in Documenti.',
+  OnboardingWorkflowTitle: 'Dalla sessione al documento',
+  OnboardingWorkflowDescription:
+    'Raccogli liberamente i tuoi appunti in una sessione mentre studi. Quando vuoi una pagina chiara da rileggere, scegli Trasforma sessione. Study usa gli appunti salvati e le fonti selezionate per creare un documento. Puoi includere più sessioni e scegliere come organizzare, spiegare o riassumere il materiale.',
+  OnboardingSampleSubject: 'Biologia',
+  OnboardingSampleMonogram: 'BIO',
+  OnboardingSampleSession: 'Respirazione cellulare · appunti della lezione',
+  OnboardingSampleDocumentTitle: 'Come le cellule liberano energia',
+  OnboardingSampleDocumentBody:
+    'Il **ciclo di Krebs** avviene nei mitocondri. Le sue reazioni trasferiscono energia ai trasportatori di elettroni.\n\n- **NADH e FADH₂** portano gli elettroni alla catena di trasporto.\n- **L’ossigeno** accetta gli elettroni alla fine della catena.\n- Senza ossigeno i trasportatori non vengono rigenerati e il ciclo si ferma.',
+  OnboardingExampleDocument: 'Documento di esempio',
+  OnboardingExampleTransformation: 'Trasformazione di esempio',
+  OnboardingPreviewTransform: 'Guarda il documento di esempio',
+  OnboardingPreviewNotes: 'Torna agli appunti di esempio',
   OnboardingSkip: 'Salta',
   OnboardingNext: 'Continua',
   OnboardingStart: 'Iniziamo',

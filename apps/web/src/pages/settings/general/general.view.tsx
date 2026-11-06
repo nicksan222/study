@@ -4,15 +4,22 @@ import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 
+import { ReplayOnboarding } from '#web/features/onboarding/index.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import type { useGeneralSettings } from './use-general';
 
-export function GeneralSettingsView({ model }: { model: ReturnType<typeof useGeneralSettings> }) {
+export function GeneralSettingsView({
+  model,
+  showReplay = true
+}: {
+  model: ReturnType<typeof useGeneralSettings>;
+  showReplay?: boolean;
+}) {
   const { t } = useI18n();
 
   return (
-    <Settings.Section title={t('GeneralSettingsTitle')}>
+    <Settings.Section title={showReplay ? t('GeneralSettingsTitle') : undefined}>
       {model.error && (
         <Settings.Status
           action={
@@ -29,7 +36,11 @@ export function GeneralSettingsView({ model }: { model: ReturnType<typeof useGen
         <Settings.Group>
           <Settings.Row
             title={t('GeneralSettingsLanguage')}
-            description={`${t('GeneralSettingsLanguageDescription')} ${t('GeneralSettingsLocalPreferences')}`}
+            description={
+              showReplay
+                ? `${t('GeneralSettingsLanguageDescription')} ${t('GeneralSettingsLocalPreferences')}`
+                : undefined
+            }
           >
             <SelectControl
               label={t('GeneralSettingsLanguage')}
@@ -42,6 +53,7 @@ export function GeneralSettingsView({ model }: { model: ReturnType<typeof useGen
               disabled={model.pending}
             />
           </Settings.Row>
+          {showReplay && <ReplayOnboarding />}
         </Settings.Group>
       )}
       {model.pending && <Loading label={t('Saving')} />}

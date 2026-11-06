@@ -16,14 +16,14 @@ const tiers = [
   { tier: 'smart', title: 'AiSettingsSmart', description: 'AiSettingsSmartDescription' }
 ] as const;
 
-export function AiSettingsView({ model }: { model: AiSettingsModel }) {
+export function AiAccountSettingsView({
+  model,
+  showHeading = true
+}: {
+  model: AiSettingsModel;
+  showHeading?: boolean;
+}) {
   const { t } = useI18n();
-  const options = [
-    { value: '', label: t('AiSettingsDefaultModel') },
-    { value: String(LlmModel.GPT6_LUNA), label: t('AiSettingsLuna') },
-    { value: String(LlmModel.GPT61_SOL), label: t('AiSettingsSol') },
-    { value: String(LlmModel.GPT6_ASTRA), label: t('AiSettingsAstra') }
-  ];
 
   return (
     <>
@@ -41,7 +41,7 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
       )}
       {model.data && (
         <>
-          <Settings.Section title={t('AiSettingsAccount')}>
+          <Settings.Section title={showHeading ? t('AiSettingsAccount') : undefined}>
             <Settings.Group>
               <Settings.Row
                 title={t('AiSettingsChatGpt')}
@@ -73,28 +73,46 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
               </Settings.Row>
             </Settings.Group>
           </Settings.Section>
-          <Settings.Section title={t('AiSettingsModels')}>
-            <Settings.Group>
-              {tiers.map(({ tier, title, description }) => (
-                <Settings.Row key={tier} title={t(title)} description={t(description)}>
-                  <SelectControl
-                    label={t(title)}
-                    value={String(model.data!.settings[tier].model ?? '')}
-                    options={options}
-                    disabled={model.pending}
-                    onValueChange={(value) => {
-                      const selected = Object.values(LlmModel).find(
-                        (modelId) => String(modelId) === value
-                      );
-
-                      if (value === '' || selected !== undefined) model.setModel(tier, selected);
-                    }}
-                  />
-                </Settings.Row>
-              ))}
-            </Settings.Group>
-          </Settings.Section>
         </>
+      )}
+    </>
+  );
+}
+
+export function AiSettingsView({ model }: { model: AiSettingsModel }) {
+  const { t } = useI18n();
+  const options = [
+    { value: '', label: t('AiSettingsDefaultModel') },
+    { value: String(LlmModel.GPT6_LUNA), label: t('AiSettingsLuna') },
+    { value: String(LlmModel.GPT61_SOL), label: t('AiSettingsSol') },
+    { value: String(LlmModel.GPT6_ASTRA), label: t('AiSettingsAstra') }
+  ];
+
+  return (
+    <>
+      <AiAccountSettingsView model={model} />
+      {model.data && (
+        <Settings.Section title={t('AiSettingsModels')}>
+          <Settings.Group>
+            {tiers.map(({ tier, title, description }) => (
+              <Settings.Row key={tier} title={t(title)} description={t(description)}>
+                <SelectControl
+                  label={t(title)}
+                  value={String(model.data!.settings[tier].model ?? '')}
+                  options={options}
+                  disabled={model.pending}
+                  onValueChange={(value) => {
+                    const selected = Object.values(LlmModel).find(
+                      (modelId) => String(modelId) === value
+                    );
+
+                    if (value === '' || selected !== undefined) model.setModel(tier, selected);
+                  }}
+                />
+              </Settings.Row>
+            ))}
+          </Settings.Group>
+        </Settings.Section>
       )}
     </>
   );

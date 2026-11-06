@@ -11,7 +11,7 @@ export function SettingsRow({
   children
 }: {
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
 }) {
   const id = useId();

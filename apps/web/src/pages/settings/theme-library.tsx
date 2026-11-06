@@ -15,7 +15,13 @@ import { ThemeEditor } from './theme-editor';
 import type { AppearanceModel } from './use-page';
 
 /** Switches between system, light and dark appearance preferences. */
-export function ColorScheme({ model }: { model: AppearanceModel }) {
+export function ColorScheme({
+  model,
+  showHeading = true
+}: {
+  model: AppearanceModel;
+  showHeading?: boolean;
+}) {
   const { t } = useI18n();
   const data = model.data!;
   const mode =
@@ -27,7 +33,7 @@ export function ColorScheme({ model }: { model: AppearanceModel }) {
   const theme = data.themes.find((item) => item.id === (data.selected ?? defaultThemeId)) ?? {};
 
   return (
-    <Settings.Section variant="color-scheme" title={t('ColorScheme')}>
+    <Settings.Section variant="color-scheme" title={showHeading ? t('ColorScheme') : undefined}>
       <Settings.ChoiceGroup label={t('ColorScheme')}>
         {(['system', 'light', 'dark'] as const).map((value) => (
           <Settings.Choice

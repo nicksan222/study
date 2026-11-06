@@ -1,0 +1,267 @@
+.ui-onboarding[data-slot='dialog-popup'] {
+  display: flex;
+  flex-direction: column;
+  height: min(40rem, calc(100dvh - 2rem));
+  width: min(42rem, calc(100vw - 2rem));
+  max-width: 42rem;
+  max-height: calc(100dvh - 2rem);
+  overflow: hidden;
+  padding: 0;
+}
+.ui-onboarding-top,
+.ui-onboarding-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 2rem;
+}
+.ui-onboarding-top > span {
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+.ui-onboarding-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding: 0 2rem;
+  animation: onboarding-arrive 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ui-onboarding-visual {
+  display: grid;
+  align-items: start;
+  align-content: start;
+  min-height: 0;
+  padding: 1.25rem 0 0;
+}
+.ui-onboarding-copy {
+  padding: 0.25rem 0 0;
+}
+.ui-onboarding-copy [data-slot='dialog-title'] {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.ui-onboarding-copy [data-slot='dialog-description'] {
+  margin-top: 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  max-width: 54ch;
+}
+.ui-onboarding-progress {
+  flex: 1;
+  min-width: 0;
+  max-width: 11rem;
+  display: flex;
+  gap: 0.375rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ui-onboarding-progress li {
+  flex: 1;
+  min-width: 0;
+  max-width: 1.25rem;
+  height: 0.25rem;
+  border-radius: 2px;
+  background: var(--border);
+}
+.ui-onboarding-progress li[aria-current],
+.ui-onboarding-progress li[data-complete='true'] {
+  background: var(--primary);
+}
+.ui-onboarding-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+.ui-onboarding-error {
+  flex-shrink: 0;
+  margin: 0 2rem;
+  color: var(--destructive-foreground);
+  font-size: 0.875rem;
+}
+/* The previews use the same reading surfaces as the notebook itself. */
+.ui-onboarding-notebook {
+  background: var(--background);
+  border: 1px solid var(--contrast-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.ui-onboarding-notebook > header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.875rem 1.25rem;
+  background: var(--sidebar);
+  color: var(--contrast-sidebar-muted-foreground);
+  font-size: 0.75rem;
+}
+.ui-onboarding-notebook svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+.ui-onboarding-notebook-page {
+  padding: 1.25rem 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--contrast-foreground);
+}
+.ui-onboarding-file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
+}
+.ui-onboarding-setup {
+  display: grid;
+  gap: 1.5rem;
+}
+.ui-onboarding-visual .settings-section {
+  margin: 0;
+}
+.ui-onboarding-visual .settings-row {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.ui-onboarding-visual .settings-row-copy {
+  min-width: min(14rem, 100%);
+}
+.ui-onboarding-visual .settings-row-control {
+  max-width: 100%;
+}
+.ui-onboarding-visual .settings-choice-group {
+  gap: 0.5rem;
+}
+@keyframes onboarding-arrive {
+  from {
+    transform: translateY(6px);
+    clip-path: inset(0 0 2% 0);
+  }
+  to {
+    transform: translateY(0);
+    clip-path: inset(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-onboarding-content {
+    animation: none;
+  }
+}
+@media (max-width: 540px) {
+  .ui-onboarding-top,
+  .ui-onboarding-footer {
+    padding: 1rem;
+  }
+  .ui-onboarding-content {
+    padding: 0 1rem;
+  }
+  .ui-onboarding-visual {
+    padding: 1rem 0;
+    min-height: 0;
+  }
+  .ui-onboarding-copy {
+    padding-top: 1.5rem;
+  }
+  .ui-onboarding-progress {
+    gap: 0.25rem;
+  }
+}
+@media (max-height: 650px) and (min-width: 600px) {
+  .ui-onboarding-visual {
+    min-height: 0;
+    padding: 1rem 0;
+  }
+  .ui-onboarding-copy {
+    padding-top: 1.25rem;
+  }
+}
+
+.ui-onboarding-visual:empty {
+  display: none;
+}
+.ui-onboarding-visual .settings-section-title {
+  font-size: 0.8125rem;
+}
+
+.ui-onboarding-preview {
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--contrast-border);
+  border-radius: 12px;
+  background: var(--background);
+}
+.ui-onboarding-preview > figcaption {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--sidebar);
+  color: var(--contrast-sidebar-muted-foreground);
+  font-size: 0.75rem;
+}
+.ui-onboarding-preview > figcaption svg {
+  width: 1rem;
+  height: 1rem;
+}
+.ui-onboarding-subject-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.25rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+.ui-onboarding-document {
+  padding: 1.25rem 1.5rem;
+  font-size: 0.875rem;
+  color: var(--contrast-foreground);
+}
+.ui-onboarding-document > h3 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 550;
+  line-height: 1.5;
+}
+.ui-onboarding-document .rich-note-content {
+  font-size: 0.875rem;
+}
+.ui-onboarding-workflow {
+  display: grid;
+  gap: 1rem;
+  justify-items: start;
+}
+.ui-onboarding-workflow > div {
+  width: 100%;
+}
+.ui-onboarding-workflow-path {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.8125rem;
+}
+.ui-onboarding-workflow-path > svg {
+  width: 1rem;
+  height: 1rem;
+}
+.ui-onboarding-workflow-path [data-current='true'] {
+  color: var(--contrast-foreground);
+  font-weight: 550;
+}
+.ui-onboarding-workflow > button {
+  max-width: 100%;
+  white-space: normal;
+  height: auto;
+  min-height: 2rem;
+  padding-block: 0.375rem;
+}
