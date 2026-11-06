@@ -1,11 +1,13 @@
 import type { MessageId, SessionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, check, integer, text, uniqueIndex } from '../schema-builder.ts';
 import { sessions } from './conversations.ts';
 
 // The message ID is historical: deleting a message must not permit a second publication.
-export const conversation_recording_posts = sqliteTable(
+export const conversation_recording_posts = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'conversation_recording_posts',
   {
     request_id: text().primaryKey(),

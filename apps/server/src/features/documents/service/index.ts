@@ -24,6 +24,7 @@ import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import type { SessionId } from '@study/contracts/ids';
 import type { StudyDocumentVersionId } from '@study/contracts/ids';
+import type { searchProjectionPageInputSchema } from '@study/contracts/search/schemas';
 import { Effect, Option } from 'effect';
 
 import {
@@ -43,6 +44,7 @@ import {
   DocumentDeletionStore
 } from '#server/features/documents/store/index';
 import { DocumentMergesStore } from '#server/features/documents/store/merges';
+import { DocumentSearchStore } from '#server/features/documents/store/search';
 import { DocumentTransformsStore } from '#server/features/documents/store/transforms';
 import { Sources } from '#server/features/sources/index';
 import { Workflows } from '#server/features/workflows/index';
@@ -313,6 +315,10 @@ export const Documents = defineService(
     };
   }),
   {
+    searchProjectionsInTransaction: (
+      tx: Transaction,
+      input: typeof searchProjectionPageInputSchema.Type
+    ) => tx.store(DocumentSearchStore).searchProjectionPages(input),
     prepareSessionRetirement: (
       tx: Transaction,
       v: { sessionId: SessionId; contextIds: readonly string[] }

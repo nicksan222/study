@@ -1,7 +1,7 @@
 import { testStable } from '@study/testing/vitest';
-import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { assert } from 'vite-plus/test';
 
+import { getTableConfig } from '../schema-builder.ts';
 import { learning_practice_controls, learning_practice_slots } from './learning-practice.ts';
 
 testStable('practice keeps one control per project and unique slot ordinals per epoch', () => {

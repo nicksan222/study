@@ -5,6 +5,7 @@ import { production } from './synchronous-transactions.ts';
 
 const groups: Record<string, string[]> = {
   projects: ['projects'],
+  search: ['semantic_search_entries'],
   'projects,materials': ['project_materials'],
   'projects,conversations': ['project_sessions'],
   sources: [

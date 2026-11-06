@@ -19,6 +19,7 @@
     "@ai-sdk/openai": "3.0.132",
     "@ai-sdk/provider": "3.0.19",
     "@effect/platform-node": "4.0.7",
+    "@huggingface/transformers": "4.3.2",
     "@study/contracts": "*",
     "@study/db": "*",
     "@study/localization": "*",

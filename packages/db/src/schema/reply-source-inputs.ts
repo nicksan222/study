@@ -1,20 +1,23 @@
 /** Reply captures retain exact source bytes and their completed canonical extractions. */
 import type { ContentSnapshotId, PartId, SourceId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
+
 import {
-  sqliteTable,
+  defineTable,
+  sql,
   text,
   integer,
   primaryKey,
   foreignKey,
   index,
   check
-} from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
 import { conversation_reply_requests } from './conversations.ts';
 import { source_snapshots, source_extraction_revisions } from './source-processing.ts';
 
-export const conversation_reply_sources = sqliteTable(
+export const conversation_reply_sources = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'conversation_reply_sources',
   {
     request_id: text()

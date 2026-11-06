@@ -1,7 +1,9 @@
-import { sql } from 'drizzle-orm';
-import { sqliteTable, text, primaryKey, check } from 'drizzle-orm/sqlite-core';
+import { defineTable, sql, text, primaryKey, check } from '../schema-builder.ts';
 
-export const preferences = sqliteTable(
+export const preferences = defineTable({
+  role: 'internal',
+  reason: 'Private preferences and authentication configuration'
+})(
   'preferences',
   {
     scope: text().notNull(),

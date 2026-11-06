@@ -1,11 +1,13 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, check, integer, text } from '../schema-builder.ts';
 import { sqliteBoolean } from './column-types.ts';
 import { projects } from './sources.ts';
 
-export const material_generation_scopes = sqliteTable(
+export const material_generation_scopes = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_generation_scopes',
   {
     id: text().primaryKey(),

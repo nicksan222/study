@@ -1,11 +1,10 @@
 import type { MaterialId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, check } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, integer, text, check } from '../schema-builder.ts';
 import { cleanupAttemptColumns } from './column-types.ts';
 
 /** Content-free barrier and exact cleanup attempt; independent of content lifetimes. */
-export const material_deletions = sqliteTable(
+export const material_deletions = defineTable({ role: 'contributes', entity: 'material' })(
   'material_deletions',
   {
     material_id: integer().$type<MaterialId>().primaryKey(),
@@ -25,16 +24,22 @@ export const material_deletions = sqliteTable(
   ]
 );
 
-export const material_deletion_members = sqliteTable('material_deletion_members', {
-  material_id: integer().$type<MaterialId>().primaryKey(),
-  deletion_id: integer()
-    .$type<MaterialId>()
-    .notNull()
-    .references(() => material_deletions.material_id)
-});
+export const material_deletion_members = defineTable({ role: 'contributes', entity: 'material' })(
+  'material_deletion_members',
+  {
+    material_id: integer().$type<MaterialId>().primaryKey(),
+    deletion_id: integer()
+      .$type<MaterialId>()
+      .notNull()
+      .references(() => material_deletions.material_id)
+  }
+);
 
 /** Exact captured ownership survives scrub and restart without retaining captured content. */
-export const material_deletion_requests = sqliteTable('material_deletion_requests', {
+export const material_deletion_requests = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})('material_deletion_requests', {
   request_id: text().primaryKey(),
   deletion_id: integer()
     .$type<MaterialId>()
