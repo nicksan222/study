@@ -1,14 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { MessagesSquare } from 'lucide-react';
 import { useState } from 'react';
 
@@ -32,10 +25,10 @@ export function DocumentsFromSessions({ project }: { project?: ProjectId }) {
           {t('DocumentsFromSessions')}
         </DialogTrigger>
         <DialogPopup closeLabel={t('Close')}>
-          <DialogHeader>
-            <DialogTitle>{t('SidebarSelectSessions')}</DialogTitle>
-            <DialogDescription>{t('DocumentsSelectSessionsHelp')}</DialogDescription>
-          </DialogHeader>
+          <DialogHeading
+            title={<> {t('SidebarSelectSessions')} </>}
+            description={<> {t('DocumentsSelectSessionsHelp')} </>}
+          />
           {open && <SessionPicker project={project} selected={selected} onChange={setSelected} />}
           <DialogFooter>
             <Button

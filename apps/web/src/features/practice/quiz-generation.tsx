@@ -4,16 +4,9 @@ import type { MaterialVersionDetailDto } from '@study/contracts/materials/schema
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogDismissButton } from '@study/ui/dialog-form-actions';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { ErrorState } from '@study/ui/error-state';
 import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
@@ -93,10 +86,10 @@ function GenerationDialog({
         variant="practice-generation"
         bottomStickOnMobile={false}
       >
-        <DialogHeader>
-          <DialogTitle>{t('PracticeGenerate')}</DialogTitle>
-          <DialogDescription>{t('PracticeGenerateHelp')}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t('PracticeGenerate')} </>}
+          description={<> {t('PracticeGenerateHelp')} </>}
+        />
         {open && (
           <GenerationPanel
             projectId={projectId}

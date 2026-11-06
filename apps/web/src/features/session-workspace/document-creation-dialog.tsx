@@ -1,14 +1,7 @@
 import type { SessionId } from '@study/contracts/ids';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogDismissButton } from '@study/ui/dialog-form-actions';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import type { ReactElement } from 'react';
 
@@ -42,10 +35,10 @@ export function SessionDocumentDialog({
         variant="workspace-context"
         bottomStickOnMobile={false}
       >
-        <DialogHeader>
-          <DialogTitle>{t('SessionTransform')}</DialogTitle>
-          <DialogDescription>{t('SessionTransformHelp')}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t('SessionTransform')} </>}
+          description={<> {t('SessionTransformHelp')} </>}
+        />
         <WorkspaceSurface.ContextDialogBody>
           <WorkspaceSurface.Container>
             <Transformation

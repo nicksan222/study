@@ -142,3 +142,12 @@ testStable('standardizes directional actions while keeping unrelated icons avail
     )
   ).toHaveLength(0);
 });
+
+testStable('standardizes dialog heading composition using imported aliases', () => {
+  expect(
+    lint(
+      `import { DialogHeader as Header } from '@study/ui/dialog'; const view = <Header><DialogTitle>Title</DialogTitle></Header>;`
+    )
+  ).toHaveLength(1);
+  expect(lint(`const view = <header><h1>Document content</h1></header>;`)).toHaveLength(0);
+});

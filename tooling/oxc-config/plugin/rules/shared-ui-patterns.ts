@@ -23,6 +23,7 @@ export default defineRule({
     const buttons = new Set<string>();
     const selections = new Set<string>();
     const closes = new Set<string>();
+    const headers = new Set<string>();
 
     return {
       ImportDeclaration(node) {
@@ -44,6 +45,15 @@ export default defineRule({
               selections.add(specifier.local.name);
           }
 
+        if (node.source.value === '@study/ui/dialog')
+          for (const specifier of node.specifiers) {
+            if (
+              specifier.type === 'ImportSpecifier' &&
+              propertyName(specifier.imported) === 'DialogHeader'
+            )
+              headers.add(specifier.local.name);
+          }
+
         if (node.source.value !== '@study/ui/button') return;
 
         for (const specifier of node.specifiers)
@@ -52,6 +62,12 @@ export default defineRule({
       },
       JSXElement(node) {
         const tag = node.openingElement.name;
+
+        if (tag.type === 'JSXIdentifier' && headers.has(tag.name))
+          context.report({
+            node: node.openingElement,
+            message: 'Use DialogHeading from @study/ui/dialog-heading for dialog titles and help.'
+          });
 
         if (
           tag.type === 'JSXIdentifier' &&

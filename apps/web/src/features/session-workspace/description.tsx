@@ -1,14 +1,8 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import { Button } from '@study/ui/button';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
 import { DialogFormActions } from '@study/ui/dialog-form-actions';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { Text } from 'lucide-react';
 import { useState } from 'react';
@@ -33,10 +27,10 @@ export function Description({ message }: { message: ChatMessage }) {
         <Text size={15} aria-hidden="true" />
       </DialogTrigger>
       <DialogPopup closeLabel={t('Close')}>
-        <DialogHeader>
-          <DialogTitle>{t('SessionDescriptionTitle')}</DialogTitle>
-          <DialogDescription>{t('SessionDescriptionHelp')}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t('SessionDescriptionTitle')} </>}
+          description={<> {t('SessionDescriptionHelp')} </>}
+        />
         {open && <DescriptionForm message={message} onSaved={() => setOpen(false)} />}
       </DialogPopup>
     </Dialog>

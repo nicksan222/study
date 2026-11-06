@@ -7,7 +7,8 @@ import {
   ContextMenuItem,
   ContextMenuSeparator
 } from '@study/ui/context-menu';
-import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
+import { Dialog, DialogPopup } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
@@ -142,9 +143,7 @@ function DocumentActionDialog({
         }}
       >
         <DialogPopup closeLabel={t('Close')}>
-          <DialogHeader>
-            <DialogTitle>{t('DocumentEditing')}</DialogTitle>
-          </DialogHeader>
+          <DialogHeading title={<> {t('DocumentEditing')} </>} />
           {state.error ? (
             <ContentReadError error={state.error} retry={() => void state.refetch()} />
           ) : (

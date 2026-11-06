@@ -3,15 +3,9 @@ import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId, VersionId, SourceId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { ChatConversation, ChatMessage, ChatEntryLabel } from '@study/ui/chat';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter
-} from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogDismissButton } from '@study/ui/dialog-form-actions';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
@@ -354,9 +348,7 @@ export function PageDetails({ message }: { message: Message }) {
         <HistoryIcon size={15} aria-hidden="true" />
       </DialogTrigger>
       <DialogPopup closeLabel={t('Close')} variant="workspace-context" bottomStickOnMobile={false}>
-        <DialogHeader>
-          <DialogTitle>{t('VersionHistory')}</DialogTitle>
-        </DialogHeader>
+        <DialogHeading title={<> {t('VersionHistory')} </>} />
         <WorkspaceSurface.ContextDialogBody>
           <WorkspaceSurface.Container>
             <MessageEntry message={message} />

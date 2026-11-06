@@ -1,10 +1,5 @@
-import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@study/ui/dialog';
+import { Dialog, DialogPopup } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -33,10 +28,7 @@ export function DocumentActionDialog({
       }}
     >
       <DialogPopup closeLabel={t('Close')}>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading title={<> {title} </>} description={<> {description} </>} />
         {children}
       </DialogPopup>
     </Dialog>

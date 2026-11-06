@@ -1,5 +1,6 @@
 import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogHeader, DialogTitle, DialogFooter } from '@study/ui/dialog';
+import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
@@ -535,9 +536,7 @@ function NewProjectDialog({
             void createSubject();
           }}
         >
-          <DialogHeader>
-            <DialogTitle>{t('NewProject')}</DialogTitle>
-          </DialogHeader>
+          <DialogHeading title={<> {t('NewProject')} </>} />
           <SidebarUI.FormFields>
             <label htmlFor="study-subject-name">{t('ProjectName')}</label>
             <Input

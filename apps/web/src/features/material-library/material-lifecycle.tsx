@@ -1,7 +1,8 @@
 import type { MaterialId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
-import { Dialog, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
+import { Dialog, DialogPopup } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { ErrorState } from '@study/ui/error-state';
 import { Field } from '@study/ui/field';
 import { Input } from '@study/ui/input';
@@ -213,9 +214,9 @@ export function MaterialLifecycle({ id }: { id: MaterialId }) {
         }}
       >
         <DialogPopup closeLabel={t('Close')}>
-          <DialogHeader>
-            <DialogTitle>{t(mode === 'delete' ? 'DocumentDelete' : 'DocumentPrune')}</DialogTitle>
-          </DialogHeader>
+          <DialogHeading
+            title={<> {t(mode === 'delete' ? 'DocumentDelete' : 'DocumentPrune')} </>}
+          />
           <MaterialLibrary.Import>
             <p>{t(mode === 'delete' ? 'DocumentDeleteExplanation' : 'DocumentPruneExplanation')}</p>
             <PruneSettings c={c} />

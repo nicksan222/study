@@ -2,13 +2,8 @@ import type { VersionId } from '@study/contracts/ids';
 import type { StaticMessageKey } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ChatMessageActionToolbar } from '@study/ui/chat';
-import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@study/ui/dialog';
+import { Dialog, DialogPopup } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
@@ -233,20 +228,22 @@ function MessageEditDialog({ model }: { model: MessageActionsModel }) {
           null
         }
       >
-        <DialogHeader>
-          <DialogTitle>{t(draft.mode ? labels[draft.mode] : 'SessionItemActions')}</DialogTitle>
-          <DialogDescription>
-            {t(
-              draft.mode === 'edit'
-                ? 'SessionEditHelp'
-                : draft.mode === 'activate'
-                  ? 'SessionActivateHelp'
-                  : messageScope(draft.mode)
-            )}
-            {' · '}
-            {t('ReaderVersion')} {String(draft.targetNumber ?? '')}
-          </DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t(draft.mode ? labels[draft.mode] : 'SessionItemActions')} </>}
+          description={
+            <>
+              {t(
+                draft.mode === 'edit'
+                  ? 'SessionEditHelp'
+                  : draft.mode === 'activate'
+                    ? 'SessionActivateHelp'
+                    : messageScope(draft.mode)
+              )}
+              {' · '}
+              {t('ReaderVersion')} {String(draft.targetNumber ?? '')}
+            </>
+          }
+        />
         <WorkspaceSurface.ContextDialogBody>
           <MessageEditor model={model} />
           <MessageRecovery model={model} />

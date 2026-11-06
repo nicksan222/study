@@ -7,14 +7,8 @@ import {
   projectEmojis
 } from '@study/contracts/projects/schemas';
 import { Button } from '@study/ui/button';
-import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@study/ui/dialog';
+import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { ErrorState } from '@study/ui/error-state';
 import { IconChoices } from '@study/ui/icon-choices';
 import { IdentityEditor } from '@study/ui/identity-editor';
@@ -143,10 +137,10 @@ function SubjectIconDialog({
       }}
     >
       <DialogPopup closeLabel={t('Close')} variant="identity">
-        <DialogHeader>
-          <DialogTitle>{t('SubjectIconTitle')}</DialogTitle>
-          <DialogDescription>{t('SubjectIconHelp')}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t('SubjectIconTitle')} </>}
+          description={<> {t('SubjectIconHelp')} </>}
+        />
         <IdentityEditor.Form
           id={field}
           onSubmit={(event) => {

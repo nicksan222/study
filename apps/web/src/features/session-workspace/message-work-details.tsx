@@ -1,11 +1,6 @@
 import type { SessionId, MessageId, VersionId } from '@study/contracts/ids';
-import {
-  Dialog,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@study/ui/dialog';
+import { Dialog, DialogPopup } from '@study/ui/dialog';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -40,10 +35,10 @@ export function MessageWorkDetails({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPopup variant="workspace-context" closeLabel={t('Close')} finalFocus={finalFocus}>
-        <DialogHeader>
-          <DialogTitle>{t('SessionWorkDetails')}</DialogTitle>
-          <DialogDescription>{t('SessionWorkDetailsHelp')}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t('SessionWorkDetails')} </>}
+          description={<> {t('SessionWorkDetailsHelp')} </>}
+        />
         <WorkspaceSurface.ContextDialogBody>
           {open && target && <WorkContent target={target} />}
         </WorkspaceSurface.ContextDialogBody>

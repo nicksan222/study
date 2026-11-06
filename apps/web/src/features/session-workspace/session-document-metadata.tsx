@@ -1,13 +1,7 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
-import {
-  Dialog,
-  DialogTrigger,
-  DialogPopup,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription
-} from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
 import { DialogFormActions } from '@study/ui/dialog-form-actions';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
@@ -57,10 +51,10 @@ export function DocumentMetadataDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger render={trigger} />}
       <DialogPopup closeLabel={t('Close')}>
-        <DialogHeader>
-          <DialogTitle>{t('DocumentEditing')}</DialogTitle>
-          <DialogDescription>{t('SessionDescriptionHelp')}</DialogDescription>
-        </DialogHeader>
+        <DialogHeading
+          title={<> {t('DocumentEditing')} </>}
+          description={<> {t('SessionDescriptionHelp')} </>}
+        />
         {open && <MetadataForm document={document} onSaved={() => onOpenChange(false)} />}
       </DialogPopup>
     </Dialog>

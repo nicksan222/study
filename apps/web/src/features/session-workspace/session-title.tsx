@@ -1,7 +1,8 @@
 import type { SessionId } from '@study/contracts/ids';
 import { Button } from '@study/ui/button';
-import { Dialog, DialogTrigger, DialogPopup, DialogHeader, DialogTitle } from '@study/ui/dialog';
+import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
 import { DialogFormActions } from '@study/ui/dialog-form-actions';
+import { DialogHeading } from '@study/ui/dialog-heading';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/session-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
@@ -43,9 +44,7 @@ export function SessionTitleEdit({ id, title }: { id: SessionId; title: string }
         <Pencil aria-hidden="true" />
       </DialogTrigger>
       <DialogPopup closeLabel={t('Close')} showCloseButton={!mutation.isPending}>
-        <DialogHeader>
-          <DialogTitle>{t('SessionRename')}</DialogTitle>
-        </DialogHeader>
+        <DialogHeading title={<> {t('SessionRename')} </>} />
         <form
           onSubmit={(event) => {
             event.preventDefault();
