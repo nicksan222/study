@@ -13,7 +13,10 @@ export const conversionStrategySchema = Schema.Struct({
 });
 
 export const textConversionInputSchema = Schema.Struct({
-  text: Schema.String.check(Schema.isBetweenLength(1, 100000))
+  text: Schema.String.check(
+    Schema.isBetweenLength(1, 100000),
+    Schema.makeFilter((text) => text.trim().length > 0)
+  )
 });
 
 export const textConversionOutputSchema = Schema.String.check(Schema.isBetweenLength(1, 100000));

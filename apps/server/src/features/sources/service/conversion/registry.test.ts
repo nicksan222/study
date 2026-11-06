@@ -15,9 +15,9 @@ import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 
-import { document } from '#server/features/sources/decoders/common';
+import { DEFAULT_MAX_BYTES, document } from '#server/features/sources/decoders/common';
 
-import type { ConversionContext } from './registry.ts';
+import type { ConversionContext, ConversionInput } from './registry.ts';
 import { makeConversionRegistry } from './registry.ts';
 
 testStable(
@@ -64,3 +64,40 @@ testStable('a method for one input kind does not disable default PDF reading', (
   expect(registry.forInput('text-only', 'text').id).toBe('text-only');
   expect(() => registry.forInput('missing', 'pdf')).toThrow();
 });
+
+testStable(
+  'rejects empty or oversized inputs before invoking any conversion implementation',
+  async () => {
+    let calls = 0;
+    const output = document([plainBlock('paragraph', 'Converted', { type: 'authored' })], 'text');
+    const registry = makeConversionRegistry([
+      {
+        id: 'test',
+        label: 'ConversionChatGpt',
+        supportedInputs: ['text', 'pdf'],
+        convert: () => {
+          calls++;
+
+          return Effect.succeed(output);
+        }
+      }
+    ]);
+    const context: ConversionContext = { generate: () => Effect.die('Unexpected model call') };
+    const inputs: ConversionInput[] = [
+      { kind: 'text', text: '' },
+      { kind: 'text', text: '  \n ' },
+      { kind: 'text', text: 'x'.repeat(100001) },
+      { kind: 'pdf', bytes: new Uint8Array(DEFAULT_MAX_BYTES + 1) }
+    ];
+
+    for (const input of inputs) {
+      const result = await Effect.runPromise(
+        Effect.result(registry.convert('test', input, context))
+      );
+
+      expect(result._tag).toBe('Failure');
+    }
+
+    expect(calls).toBe(0);
+  }
+);

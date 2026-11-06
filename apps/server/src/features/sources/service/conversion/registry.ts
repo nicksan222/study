@@ -12,13 +12,17 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import { conversionStrategyIdSchema } from '@study/contracts/sources/conversion';
+import {
+  conversionStrategyIdSchema,
+  textConversionInputSchema
+} from '@study/contracts/sources/conversion';
 import type { Document } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { text } from '@study/localization';
 import type { Locale, StaticMessageKey } from '@study/localization';
 import { Effect, Schema } from 'effect';
 
+import { checkInput, DEFAULT_MAX_BYTES } from '#server/features/sources/decoders/common';
 import type { Agents } from '#server/platform/ai/agents';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 
@@ -95,6 +99,17 @@ export function makeConversionRegistry<R>(strategies: readonly ConversionStrateg
           return yield* Effect.fail(
             new StudyError('unsupported', 'Conversion input is unsupported')
           );
+
+        yield* Effect.try({
+          try: () => {
+            if (input.kind === 'pdf') checkInput(input.bytes, DEFAULT_MAX_BYTES);
+            else Schema.decodeUnknownSync(textConversionInputSchema)(input);
+          },
+          catch: (cause) =>
+            cause instanceof StudyError
+              ? cause
+              : new StudyError('invalid_input', 'Invalid conversion input', { cause })
+        });
 
         const result = yield* strategy.convert(input, context);
 
