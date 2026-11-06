@@ -24,7 +24,12 @@ for (const file of ['package.json', 'package-lock.json'])
 
 // Keep workspace resolution and the lockfile intact while installing only server dependencies.
 for (const parent of ['apps', 'packages', 'tooling']) {
-  const folders = parent === 'tooling' ? [''] : await readdir(join(root, parent));
+  const folders =
+    parent === 'tooling'
+      ? ['']
+      : (await readdir(join(root, parent), { withFileTypes: true }))
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => entry.name);
 
   for (const folder of folders) {
     await copyManifest(join(parent, folder));
