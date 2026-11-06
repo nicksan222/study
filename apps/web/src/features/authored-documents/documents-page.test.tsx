@@ -41,7 +41,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-testStable('documents support multiple selection and keep archive browsing separate', async () => {
+testStable('documents open directly without a selection button', async () => {
   const documents = [1n, 2n].map((id) => ({
     id: studyDocumentIdSchema.make(id),
     title: id === 1n ? 'First' : 'Second',
@@ -57,7 +57,6 @@ testStable('documents support multiple selection and keep archive browsing separ
     Promise.resolve({ items: archived ? [] : documents, nextCursor: null })
   );
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const user = userEvent.setup();
 
   render(
     <QueryClientProvider client={cache}>
@@ -65,13 +64,8 @@ testStable('documents support multiple selection and keep archive browsing separ
     </QueryClientProvider>
   );
   await screen.findByText('First');
-  await user.click(screen.getByRole('button', { name: 'DocumentsSelect' }));
-  expect(screen.getByRole('button', { name: 'DocumentsMerge' })).toBeDisabled();
-  await user.click(screen.getByRole('button', { name: /First/ }));
-  expect(screen.getByRole('button', { name: 'DocumentsMerge' })).toBeDisabled();
-  await user.click(screen.getByRole('button', { name: /Second/ }));
-  await user.click(screen.getByRole('button', { name: 'DocumentsMerge' }));
-  expect(screen.getByRole('region', { name: 'Merge dialog' })).toHaveTextContent('First, Second');
+  expect(screen.queryByRole('button', { name: 'DocumentsSelect' })).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /First/ })).toBeVisible();
   cache.clear();
 });
 
