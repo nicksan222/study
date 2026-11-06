@@ -29,7 +29,7 @@ formats() {
 }
 # jq receives JSON paths from native Windows processes; coreutils use POSIX paths.
 posix_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -u "$1"; else printf '%s\n' "$1"; fi; }
-native_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s/%s\n' "$(cd "$(dirname "$1")" && pwd)" "$(basename "$1")"; fi; }
+native_path() { if command -v cygpath >/dev/null 2>&1; then cygpath -am "$1"; else printf '%s/%s\n' "$(cd "$(dirname "$1")" && pwd)" "$(basename "$1")"; fi; }
 hash() { if command -v sha256sum >/dev/null 2>&1; then sha256sum | cut -d ' ' -f 1; else shasum -a 256 | cut -d ' ' -f 1; fi; }
 encode() { base64 | tr -d '\r\n'; }
 decode() { if base64 --decode </dev/null >/dev/null 2>&1; then base64 --decode; else base64 -D; fi; }

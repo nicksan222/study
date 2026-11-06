@@ -81,6 +81,8 @@ const groups: Record<string, string[]> = {
   ],
   learning: [
     'material_quiz_attempts',
+    'material_quiz_attempt_questions',
+    'material_quiz_attempt_choices',
     'material_quiz_responses',
     'material_quiz_selections',
     'material_card_schedules',

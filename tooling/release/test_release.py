@@ -260,5 +260,23 @@ esac
         self.assertIn("APPLE_CERTIFICATE_PASSWORD<<", github_env.read_text())
         self.assertNotIn("APPLE_SIGNING_IDENTITY", github_env.read_text())
 
+    def test_config_path_is_absolute_when_tauri_changes_directory(self):
+        version = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())["version"]
+        output = self.root / "release-config.json"
+        relative = os.path.relpath(output, ROOT)
+        binary = self.root / "bin"
+        binary.mkdir()
+        cygpath = binary / "cygpath"
+        cygpath.write_text('#!/usr/bin/env python3\nimport os, sys\nprint(os.path.abspath(sys.argv[2]) if "a" in sys.argv[1] else sys.argv[2])\n')
+        cygpath.chmod(0o755)
+        jq = binary / "jq"
+        jq.write_text(f'#!/usr/bin/env python3\nimport os, sys\nos.execv({str(shutil.which("jq"))!r}, ["jq", *[arg for arg in sys.argv[1:] if arg != "--binary"]])\n')
+        jq.chmod(0o755)
+        for path in [os.environ["PATH"], str(binary) + os.pathsep + os.environ["PATH"]]:
+            with self.subTest(path=path):
+                config = self.cli("configure", version, relative, PATH=path).stdout.strip()
+                self.assertTrue(Path(config).is_absolute(), config)
+                self.assertEqual((ROOT / "apps/desktop" / config).read_bytes(), output.read_bytes())
+
 if __name__ == "__main__":
     unittest.main()

@@ -184,6 +184,8 @@ to the base64 encoded public key printed by Tauri (not raw Minisign text), secre
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to the private key/password, and allow Actions to
 write release contents. The release preflight merges that same public key and endpoint into
 Tauri's effective bundler configuration; the app reads the embedded configuration.
+The release helper returns an absolute native configuration path on every platform so
+Tauri can resolve it after changing to the desktop package directory.
 The existing `CARGO_PACKAGER_SIGN_PRIVATE_KEY` and its password are accepted as a pair
 when no Tauri-named key is configured: both signers use the same base64 Minisign format.
 This preserves the installed public key without rotating credentials. A Tauri-named key
