@@ -618,10 +618,6 @@
   color: var(--contrast-sidebar-foreground);
   background: var(--sidebar-row-selected);
 }
-.study-sidebar-search:focus-within {
-  outline: 2px solid var(--ring);
-  outline-offset: -2px;
-}
 .study-shell[data-sidebar-collapsed='true']
   :is(.study-sidebar-navigation-label, .study-sidebar-navigation-count) {
   display: none;
@@ -778,12 +774,12 @@
   gap: 0.5rem;
   margin: 2px 2px 6px;
   padding: 0 0.5rem;
-  border: 1px solid var(--ui-divider-border);
+  border: 0;
   border-radius: 6px;
   background: color-mix(in srgb, var(--contrast-popover-foreground) 3%, transparent);
 }
 .study-subject-menu .study-combobox-search:focus-within {
-  border-color: var(--ring);
+  background: var(--accent);
 }
 .study-subject-menu .study-combobox-search > svg {
   width: 0.875rem;

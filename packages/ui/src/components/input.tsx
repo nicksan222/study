@@ -45,9 +45,7 @@ function Input({
               CONTROL_SURFACE_CLASS,
               'has-autofill:bg-foreground/4 dark:has-autofill:bg-foreground/8'
             ),
-          !unstyled &&
-            size === 'compact' &&
-            'rounded-md before:rounded-[calc(var(--radius-md)-1px)]',
+          !unstyled && size === 'compact' && 'rounded-md',
           font === 'mono' && 'font-mono tabular-nums',
           className
         ) || undefined

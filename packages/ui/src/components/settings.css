@@ -60,8 +60,9 @@
   color: inherit;
   opacity: 1;
 }
-.settings-search input:focus-visible {
-  box-shadow: 0 1px var(--ring);
+.settings-search:has(input:focus-visible) {
+  border-radius: 0.5rem;
+  background: var(--accent);
 }
 .settings-search kbd {
   display: grid;
