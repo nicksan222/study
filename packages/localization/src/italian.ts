@@ -813,6 +813,7 @@ export const italian = Object.freeze({
   SessionVersions: 'Versioni precedenti',
   SessionCitations: 'Citazioni',
   SessionOpenCitation: 'Citazione {number}: {source}',
+  SessionCitationTakeMeThere: 'Portami lì',
   SessionExactEvidence: 'Riferimento esatto',
   SessionApproximateEvidence: 'Riferimento approssimativo',
   SessionEvidenceUnavailable: 'Riferimento esatto non disponibile',

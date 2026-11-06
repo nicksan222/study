@@ -58,19 +58,24 @@ export function CitationEvidence({
   title,
   location,
   quote,
-  precision
+  precision,
+  action
 }: {
   title: ReactNode;
   location?: string;
   quote: string;
   precision: string;
+  action?: ReactNode;
 }) {
   return (
     <>
       <div className="citation-title">{title}</div>
       {location && <p className="citation-location">{location}</p>}
       <blockquote className="citation-quote">{quote}</blockquote>
-      <p className="citation-precision">{precision}</p>
+      <div className="citation-footer">
+        <p className="citation-precision">{precision}</p>
+        {action}
+      </div>
     </>
   );
 }

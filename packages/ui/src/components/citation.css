@@ -95,6 +95,15 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.citation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.citation-footer .citation-precision {
+  margin: 0;
+}
 .citation-sources {
   display: flex;
   flex-direction: column;

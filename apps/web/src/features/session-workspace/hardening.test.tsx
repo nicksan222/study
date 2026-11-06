@@ -688,6 +688,7 @@ testStable(
             marker: 1,
             sourceId: null,
             sourceName: `evidence ${versionId}`,
+            input: { kind: 'source', sourceId: 10n, revision: 1n, snapshotId: 16n },
             anchor: { type: 'authored' },
             quote: `quote ${versionId}`
           }
@@ -714,6 +715,10 @@ testStable(
     expect(screen.queryByText('quote 62')).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: 'SessionOpenCitation' }));
     expect(await screen.findByText('quote 62')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'SessionCitationTakeMeThere' })).toHaveAttribute(
+      'href',
+      '/sources/10?sourceRevision=1&sourceSnapshot=16'
+    );
     expect(screen.queryByText('quote 63')).not.toBeInTheDocument();
   }
 );

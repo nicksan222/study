@@ -794,6 +794,7 @@ export const english = Object.freeze({
   SessionVersions: 'Earlier versions',
   SessionCitations: 'Citations',
   SessionOpenCitation: 'Citation {number}: {source}',
+  SessionCitationTakeMeThere: 'Take me there',
   SessionExactEvidence: 'Exact evidence',
   SessionApproximateEvidence: 'Approximate evidence',
   SessionEvidenceUnavailable: 'Exact evidence unavailable',

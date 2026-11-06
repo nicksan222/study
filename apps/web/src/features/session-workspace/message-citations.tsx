@@ -45,6 +45,15 @@ function EvidenceReference({
       closeLabel={t('Close')}
     >
       <CitationEvidence
+        action={
+          citation.input && (
+            <CapturedInputLink
+              input={citation.input}
+              name={t('SessionCitationTakeMeThere')}
+              action
+            />
+          )
+        }
         title={
           citation.input ? (
             <CapturedInputLink input={citation.input} name={citation.sourceName} />
