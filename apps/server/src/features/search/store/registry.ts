@@ -25,7 +25,7 @@ import {
   registeredEntityKeySchema
 } from '@study/contracts/search/schemas';
 import { collectSchemaRegistry, getTableColumns, asc, and, eq, isNull, sql } from '@study/db';
-import type { RegisteredEntity } from '@study/db';
+import type { RegisteredEntity, SchemaExports } from '@study/db';
 import * as databaseSchema from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -146,7 +146,7 @@ function makeRegistrySearchProjections({ db }: StoreResources) {
 }
 
 /** Build the agent catalog and automatic projection store from the validated Drizzle registry. */
-export function makeRegistryStore(schema: Readonly<Record<string, unknown>> = databaseSchema) {
+export function makeRegistryStore(schema: SchemaExports = databaseSchema) {
   const registry = collectSchemaRegistry(schema);
 
   for (const { metadata } of registry.entities) {

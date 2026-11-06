@@ -44,6 +44,9 @@ export interface RegisteredEntity extends RegisteredTable {
   readonly metadata: EntityTableMetadata;
 }
 
+/** The exported Drizzle schema namespace is the sole input to registry discovery. */
+export type SchemaExports = Readonly<Record<string, unknown>>;
+
 const declarations = new WeakMap<SQLiteTable, TableSearchMetadata>();
 
 type ColumnEntityMetadata = Extract<EntityTableMetadata, { projection: 'columns' }>;
@@ -204,7 +207,7 @@ export function defineTable(metadata: TableSearchMetadata): typeof sqliteTable {
 }
 
 /** Discover each exported table once and reject raw declarations or duplicate SQL names. */
-function declaredTables(exports: Readonly<Record<string, unknown>>): RegisteredTable[] {
+function declaredTables(exports: SchemaExports): RegisteredTable[] {
   const tables: RegisteredTable[] = [];
   const seen = new Set<SQLiteTable>();
   const names = new Set<string>();
@@ -246,7 +249,7 @@ function declaredEntities(tables: readonly RegisteredTable[]): RegisteredEntity[
 }
 
 /** Derive a deterministic registry from the same exports consumed by Drizzle Kit. */
-export function collectSchemaRegistry(exports: Readonly<Record<string, unknown>>): {
+export function collectSchemaRegistry(exports: SchemaExports): {
   readonly tables: readonly RegisteredTable[];
   readonly entities: readonly RegisteredEntity[];
 } {

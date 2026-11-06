@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { SchemaExports } from '@study/db';
 import { Context } from 'effect';
 
 import type { EmbeddingModel } from './types.ts';
@@ -21,6 +22,6 @@ export class SearchConfiguration extends Context.Service<
   SearchConfiguration,
   {
     readonly model: EmbeddingModel;
-    readonly schema?: Readonly<Record<string, unknown>>;
+    readonly schema?: SchemaExports;
   }
 >()('study/search/Configuration') {}
