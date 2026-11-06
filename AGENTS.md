@@ -3,10 +3,6 @@
 Study has a shared React web app, a Tauri desktop host and a TypeScript server app.
 The native shell owns windows, devices, and the private server process. Native Effect RPC exposes feature services, which own application behavior and use one SQLite database through Drizzle.
 
-All work happens inside the devcontainer (`devcontainer up`, then work inside it). The code
-is the documentation: read the owning package's exports and types, or a retained Rust
-crate's `src/lib.rs` module docs. `.agents/skills/` holds task-specific checklists.
-
 ## Golden rules
 
 1. **Layers only point down.** A crate may depend only on crates in a lower layer (see the
