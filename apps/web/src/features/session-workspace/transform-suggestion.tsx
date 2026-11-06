@@ -27,6 +27,7 @@ const suggestionFields = {
   }
 } as const;
 
+/** Distinguish saved-context failures from retryable generation failures. */
 function suggestionErrorMessage(error: unknown) {
   const kind = toStudyError(error).kind;
 
@@ -37,10 +38,12 @@ function suggestionErrorMessage(error: unknown) {
   return 'SessionSuggestionError';
 }
 
+/** Prevent suggestions while the captured transformation context is unavailable or busy. */
 function suggestionUnavailable(model: TransformationModel) {
   return !model.active || !!model.draft.attempt || model.pending || !model.suggestionReady;
 }
 
+/** Apply a field suggestion only while its captured context and draft revision remain current. */
 export function TransformSuggestion({
   model,
   field

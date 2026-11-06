@@ -2,13 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { useParams, useSearch, useNavigate } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
-import { sessionOptions } from '#web/features/session-workspace/index.ts';
+import { selectedSessionOptions } from '#web/features/session-workspace/index.ts';
 
 /** Keep the router-validated bigint identity and authoritative subject ownership. */
 export function usePage() {
   const { sessionId } = useParams({ strict: false });
   const { project } = useSearch({ from: '__root__' });
-  const state = useQuery({ ...sessionOptions(sessionId!), enabled: sessionId !== undefined });
+  const state = useQuery(selectedSessionOptions(sessionId));
   const navigate = useNavigate();
   const owner =
     state.data?.projectIds.find((id) => String(id) === project) ?? state.data?.projectIds[0];

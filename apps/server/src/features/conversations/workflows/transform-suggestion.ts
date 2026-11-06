@@ -38,6 +38,7 @@ function suggestionPrompt(context: typeof runSelectionContextSchema.Type) {
   });
 }
 
+/** Generate and validate one bounded field suggestion inside a durable activity. */
 export const transformSuggestionHandler = ({
   event: input
 }: typeof transformSuggestionWorkflow.payloadSchema.Type) =>
@@ -83,6 +84,7 @@ export const transformSuggestionHandler = ({
     });
   });
 
+/** Dispatch persisted suggestion events through the canonical workflow subscription. */
 export const transformSuggestionRegistration = defineWorkflowHandler(transformSuggestionWorkflow, {
   execute: transformSuggestionHandler,
   triggers: [
