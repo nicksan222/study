@@ -65,8 +65,9 @@ import type {
 } from '@study/contracts/documents/transform';
 import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
-import type { MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type { VersionId, MessageId, ProjectId, SessionId, SourceId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
+import type { convertMessageInputSchema } from '@study/contracts/sources/conversion';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
@@ -386,11 +387,14 @@ export const Conversations = defineService(
             });
 
             if (input.initialMessage) {
-              postMessage(tx, {
+              const message = postMessage(tx, {
                 ...input.initialMessage,
                 sessionId: session.id,
                 requestReply: false
               });
+
+              if (preferences.textConversionMode === 'automatic')
+                scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
 
               if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, session.id);
             }
@@ -661,6 +665,8 @@ export const Conversations = defineService(
         }),
       reanswer: (input: typeof reanswerInputSchema.Type) =>
         transaction((tx) => requestTarget(tx, { ...input, origin: 'answer' })),
+      convertMessage: (input: typeof convertMessageInputSchema.Type) =>
+        transaction((tx) => requestConversion(tx, input)),
       rewriteMessage: (input: typeof rewriteMessageInputSchema.Type) =>
         transaction((tx) => requestTarget(tx, input)),
       message: (id: MessageId) =>
@@ -759,9 +765,12 @@ export const Conversations = defineService(
               });
             }
 
+            if (preferences.textConversionMode === 'automatic')
+              scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
+
             if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, input.sessionId);
 
-            return message;
+            return tx.store(MessageStore).message(message.id);
           });
         }),
       updateMessageDescription: (input: typeof updateMessageDescriptionInputSchema.Type) =>
@@ -1313,5 +1322,64 @@ function questionEligible(message: ChatMessage) {
     message.format !== 'document' &&
     message.question?.origin !== 'manual' &&
     !!text.trim()
+  );
+}
+
+function requestConversion(tx: Transaction, input: typeof convertMessageInputSchema.Type) {
+  const strategy = Sources.conversionStrategy(input.strategyId);
+  const message = tx.store(MessageStore).message(input.messageId);
+
+  if (
+    !conversionEligible(message, input.expectedActiveVersionId, strategy) ||
+    message.role !== 'user'
+  )
+    throw new StudyError('invalid_input', 'No convertible content');
+
+  requireAvailableSession(tx, message.sessionId);
+  const { created, ...result } = tx.store(ReplyStore).requestConversion(input);
+
+  if (created) emitReplyRequest(tx, result, 'rewrite');
+
+  return result;
+}
+
+function scheduleAutomaticConversion(tx: Transaction, message: ChatMessage, strategyId: string) {
+  const version = message.versions.find((version) => version.id === message.activeVersionId);
+
+  if (
+    !version ||
+    version.origin !== 'typed' ||
+    !(version.text.includes('\n') || message.parts.some((part) => part.sourceKind === 'pdf'))
+  )
+    return;
+
+  try {
+    const strategy = Sources.conversionStrategy(strategyId);
+
+    if (!conversionEligible(message, version.id, strategy)) return;
+  } catch (error) {
+    if (error instanceof StudyError && error.kind === 'unsupported') return;
+
+    throw error;
+  }
+
+  requestConversion(tx, {
+    messageId: message.id,
+    expectedActiveVersionId: version.id,
+    strategyId
+  });
+}
+
+function conversionEligible(
+  message: ChatMessage,
+  versionId: VersionId,
+  strategy: ReturnType<typeof Sources.conversionStrategy>
+) {
+  const version = message.versions.find((version) => version.id === versionId);
+
+  return (
+    (strategy.supportedInputs.includes('text') && !!version?.text.trim()) ||
+    (strategy.supportedInputs.includes('pdf') &&
+      message.parts.some((part) => part.sourceKind === 'pdf' && part.sourceId !== null))
   );
 }

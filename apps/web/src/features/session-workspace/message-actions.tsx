@@ -9,7 +9,15 @@ import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check, Archive } from 'lucide-react';
+import {
+  Pencil,
+  Sparkles,
+  AlignLeft,
+  SlidersHorizontal,
+  Check,
+  Archive,
+  FileText
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
@@ -20,6 +28,7 @@ import { MessageContextMenu } from './message-context-menu';
 import { MessageDeletion } from './message-deletion';
 import { MessageVersionStepper } from './message-version-stepper';
 import { NoteEditor } from './note-editor';
+import { PendingMessageWork } from './pending-message-work';
 import { SessionError } from './status';
 
 type MessageActionsModel = ReturnType<typeof useMessageActions>;
@@ -47,6 +56,27 @@ export function MessageActions({
           questionAction={questionAction}
         />
       </MessageContextMenu>
+      {model.conversion.mutation.error && (
+        <SessionError
+          error={model.conversion.mutation.error}
+          retry={() => model.conversion.mutation.mutate()}
+        />
+      )}
+      {props.message.versions
+        .filter(
+          (version) =>
+            version.origin === 'convert' &&
+            version.status !== 'complete' &&
+            version.id !== props.versionId
+        )
+        .map((version) => (
+          <PendingMessageWork
+            key={String(version.id)}
+            sessionId={props.message.sessionId}
+            messageId={props.message.id}
+            versionId={version.id}
+          />
+        ))}
       <MessageEditDialog model={model} />
       {!draft.mode && <MessageRecovery model={model} />}
     </>
@@ -116,6 +146,7 @@ function MessageToolbar({
         label="SessionUseVersion"
         icon={<Check size={15} aria-hidden="true" />}
       />
+      <MessageConversionButton model={model} />
       {questionAction}
       <MessageArchiveButton model={model} />
       <MessageDeletion
@@ -127,6 +158,28 @@ function MessageToolbar({
         }
       />
     </ChatMessageActionToolbar>
+  );
+}
+
+function MessageConversionButton({ model }: { model: MessageActionsModel }) {
+  if (!model.conversion.available) return null;
+
+  return (
+    <Button
+      size="sm"
+      variant="ghost"
+      disabled={
+        !model.active ||
+        model.blocked ||
+        !!model.draft.mode ||
+        model.conversion.blocked ||
+        model.conversion.mutation.isPending
+      }
+      onClick={() => model.conversion.mutation.mutate()}
+    >
+      <FileText size={15} aria-hidden="true" />
+      <Notebook.ActionLabel>{model.t('SessionConvertText')}</Notebook.ActionLabel>
+    </Button>
   );
 }
 

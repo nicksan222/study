@@ -11,6 +11,7 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
+import { convertMessageInputSchema } from '../sources/conversion.ts';
 import {
   sessionArchiveInputSchema,
   setSessionItemArchivedSchema,
@@ -264,6 +265,11 @@ export const ConversationsRpc = RpcGroup.make(
   }),
   Rpc.make('reanswer', {
     payload: reanswerInputSchema,
+    success: replyRequestSchema,
+    error: failureSchema
+  }),
+  Rpc.make('convertMessage', {
+    payload: convertMessageInputSchema,
     success: replyRequestSchema,
     error: failureSchema
   }),

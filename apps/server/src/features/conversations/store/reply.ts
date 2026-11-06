@@ -32,6 +32,8 @@ import { StudyError } from '@study/contracts/errors';
 import { conversationGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
 import { versionIdSchema } from '@study/contracts/ids';
+import type { messageConversionSchema } from '@study/contracts/sources/conversion';
+import { convertMessageInputSchema } from '@study/contracts/sources/conversion';
 import { isNull, and, asc, desc, eq, sql } from '@study/db';
 import {
   blocks,
@@ -145,7 +147,8 @@ function makeHelpers({ db, clock }: StoreResources) {
     input: typeof requestInput.Type,
     target?: {
       messageId: typeof reanswerInputSchema.Type.messageId;
-      origin: 'answer' | 'improve' | 'summarize' | 'instruction';
+      origin: 'answer' | 'improve' | 'summarize' | 'instruction' | 'convert';
+      conversion?: typeof messageConversionSchema.Type;
       instruction: string | null;
       questionVersionId?: typeof versionIdSchema.Type;
     }
@@ -171,7 +174,38 @@ function makeHelpers({ db, clock }: StoreResources) {
 
     assertSnapshotTarget();
 
-    const captured = input.context ? [...input.context.messages] : captureConversation();
+    const captured = captureMessages();
+
+    function captureMessages() {
+      if (input.context) return [...input.context.messages];
+
+      if (target?.conversion) return captureConversion();
+
+      return captureConversation();
+    }
+
+    function captureConversion() {
+      const version =
+        existing?.active_version_id == null
+          ? undefined
+          : db.orm
+              .select()
+              .from(message_versions)
+              .where(
+                and(
+                  eq(message_versions.id, existing.active_version_id),
+                  eq(message_versions.message_id, existing.id)
+                )
+              )
+              .get();
+
+      if (!existing || !version || version.status !== 'complete')
+        throw new StudyError('invalid_input', 'Conversion input is unavailable');
+
+      return [
+        { messageId: existing.id, versionId: version.id, role: existing.role, text: version.text }
+      ];
+    }
 
     function captureConversation() {
       let captured = conversationHistory(session.id, target?.messageId, threadRoot ?? undefined);
@@ -316,7 +350,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         throw new StudyError('invalid_input', 'reply context has too many attachments');
 
       const selectedParts =
-        threadRoot != null && message === captured[0]
+        threadRoot != null && !target?.conversion && message === captured[0]
           ? parts.filter((part) => part.id === threadRoot)
           : parts;
 
@@ -370,7 +404,7 @@ function makeHelpers({ db, clock }: StoreResources) {
         text: '',
         created_at: now
       };
-      const version = target?.questionVersionId
+      const version = keepsOriginalSelection(target)
         ? db.orm.insert(message_versions).values(values).returning().get()
         : insertSelectedVersion(values);
 
@@ -395,7 +429,8 @@ function makeHelpers({ db, clock }: StoreResources) {
         ? {
             origin: target.origin,
             instruction: target.instruction,
-            questionVersionId: target.questionVersionId
+            questionVersionId: target.questionVersionId,
+            conversion: target.conversion
           }
         : undefined,
       messages: history,
@@ -506,7 +541,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     if (
       !session ||
       !matchesRequest(result, row) ||
-      (result.context === undefined && session.context_revision !== result.contextRevision) ||
+      !replyContextMatches(result, session) ||
       !replySelectionMatches(target, version, result)
     )
       throw new StudyError('invalid_input', 'reply request is stale');
@@ -984,10 +1019,14 @@ export const ReplyStore = defineStore({
                 invalid();
             }
 
-            validatePublicationInput();
-
             function validatePublicationInput() {
               if (!input.text.trim() || [...input.text].length > 100_000) invalid();
+
+              if (snapshot.generation?.conversion) {
+                if (input.citations.length) invalid();
+
+                return;
+              }
 
               const markers = new Set<number>();
 
@@ -1015,6 +1054,8 @@ export const ReplyStore = defineStore({
               target,
               version
             } = replyContext(input.requestId);
+
+            validatePublicationInput();
 
             assertPublicationIdentity();
 
@@ -1212,9 +1253,6 @@ export const ReplyStore = defineStore({
               return row.version_id;
             }
 
-            const expectedActiveVersionId =
-              snapshot.generation?.questionVersionId ?? row.version_id;
-
             assertPendingPublication();
 
             function assertPendingPublication() {
@@ -1226,9 +1264,8 @@ export const ReplyStore = defineStore({
 
               if (
                 version!.status !== 'pending' ||
-                target!.active_version_id !== expectedActiveVersionId ||
-                (snapshot.context === undefined &&
-                  session!.context_revision !== snapshot.contextRevision)
+                !replyVersionSelection(target!, version!, snapshot) ||
+                !replyContextMatches(snapshot, session!)
               )
                 invalid();
             }
@@ -1244,7 +1281,11 @@ export const ReplyStore = defineStore({
             selectCompletedAnswer();
 
             function selectCompletedAnswer() {
-              if (snapshot.generation?.questionVersionId)
+              if (
+                snapshot.generation?.questionVersionId ||
+                (snapshot.generation?.conversion &&
+                  target!.active_version_id === snapshot.generation.conversion.baseVersionId)
+              )
                 db.orm
                   .update(messages)
                   .set({ active_version_id: row.version_id })
@@ -1291,6 +1332,79 @@ export const ReplyStore = defineStore({
             if (!message) throw new StudyError('not_found', 'message not found');
 
             retirePending(message);
+          }
+        }),
+        requestConversion: storeMutation({
+          input: convertMessageInputSchema,
+          output: Schema.Struct({ ...replyRequestSchema.fields, created: Schema.Boolean }),
+          run: (input) => {
+            const existing = db.orm
+              .select()
+              .from(conversation_reply_requests)
+              .innerJoin(
+                message_versions,
+                eq(message_versions.id, conversation_reply_requests.version_id)
+              )
+              .where(
+                and(
+                  eq(message_versions.message_id, input.messageId),
+                  eq(message_versions.based_on, input.expectedActiveVersionId),
+                  eq(message_versions.origin, 'convert')
+                )
+              )
+              .all();
+
+            for (const row of existing) {
+              const saved = Schema.decodeUnknownSync(codec)(
+                row.conversation_reply_requests.snapshot
+              );
+
+              if (saved.generation?.conversion?.strategyId === input.strategyId)
+                return {
+                  requestId: saved.requestId,
+                  sessionId: saved.sessionId,
+                  messageId: saved.messageId,
+                  versionId: saved.versionId,
+                  created: false
+                };
+            }
+
+            const message = db.orm
+              .select()
+              .from(messages)
+              .where(eq(messages.id, input.messageId))
+              .get();
+
+            if (
+              !message ||
+              message.role !== 'user' ||
+              message.active_version_id !== input.expectedActiveVersionId
+            )
+              throw new StudyError('invalid_input', 'Conversion target changed');
+
+            const versions = db.orm
+              .select()
+              .from(message_versions)
+              .where(eq(message_versions.message_id, message.id))
+              .all();
+
+            if (versions.some((version) => version.status !== 'complete'))
+              throw new StudyError('invalid_input', 'Message already has pending work');
+
+            const result = snapshot(
+              { sessionId: message.session_id, requestId: crypto.randomUUID() },
+              {
+                messageId: message.id,
+                origin: 'convert',
+                instruction: null,
+                conversion: {
+                  strategyId: input.strategyId,
+                  baseVersionId: input.expectedActiveVersionId
+                }
+              }
+            );
+
+            return { ...result, created: true };
           }
         }),
         requestTarget: storeMutation({
@@ -1534,15 +1648,50 @@ function answerPublicationText(
   return `**${text(language, 'SessionQuestion')}**\n\n${snapshot.messages.at(-1)!.text}\n\n**${text(language, 'SessionAnswer')}**\n\n${input.text}`;
 }
 
+function keepsOriginalSelection(
+  target: { questionVersionId?: unknown; conversion?: unknown } | undefined
+) {
+  return (
+    target !== undefined &&
+    (target.questionVersionId !== undefined || target.conversion !== undefined)
+  );
+}
+
+function replyContextMatches(
+  snapshot: typeof replySnapshotSchema.Type,
+  session: typeof sessions.$inferSelect
+) {
+  return (
+    snapshot.context !== undefined ||
+    snapshot.generation?.conversion !== undefined ||
+    session.context_revision === snapshot.contextRevision
+  );
+}
+
+function replyVersionSelection(
+  target: typeof messages.$inferSelect,
+  version: typeof message_versions.$inferSelect,
+  snapshot: typeof replySnapshotSchema.Type
+) {
+  if (snapshot.generation?.conversion)
+    return version.based_on === snapshot.generation.conversion.baseVersionId;
+
+  return (
+    target.active_version_id === (snapshot.generation?.questionVersionId ?? snapshot.versionId)
+  );
+}
+
 function replySelectionMatches(
   target: typeof messages.$inferSelect | undefined,
   version: typeof message_versions.$inferSelect | undefined,
   result: typeof replySnapshotSchema.Type
 ) {
+  if (!target || !version) return false;
+
   return (
-    target?.session_id === result.sessionId &&
-    target.active_version_id === (result.generation?.questionVersionId ?? result.versionId) &&
-    version?.message_id === result.messageId &&
-    version.status !== 'complete'
+    target.session_id === result.sessionId &&
+    version.message_id === result.messageId &&
+    version.status !== 'complete' &&
+    replyVersionSelection(target, version, result)
   );
 }

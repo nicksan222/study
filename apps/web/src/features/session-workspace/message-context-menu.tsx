@@ -6,7 +6,15 @@ import {
   ContextMenuItem,
   ContextMenuSeparator
 } from '@study/ui/context-menu';
-import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check, ListChecks } from 'lucide-react';
+import {
+  Pencil,
+  Sparkles,
+  AlignLeft,
+  SlidersHorizontal,
+  Check,
+  ListChecks,
+  FileText
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -68,6 +76,21 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                     {model.t(label)}
                   </ContextMenuItem>
                 ))}
+              {model.conversion.available && (
+                <ContextMenuItem
+                  disabled={
+                    !model.active ||
+                    model.blocked ||
+                    !!model.draft.mode ||
+                    model.conversion.blocked ||
+                    model.conversion.mutation.isPending
+                  }
+                  onClick={() => model.conversion.mutation.mutate()}
+                >
+                  <FileText aria-hidden="true" />
+                  {model.t('SessionConvertText')}
+                </ContextMenuItem>
+              )}
               <ContextMenuSeparator />
               <ContextMenuItem
                 onClick={() => {

@@ -47,6 +47,7 @@ export const ConversationsRpcLive = defineRpc(
       'conversations.replyVersion': (input) => conversations.replyVersion(input),
       'conversations.requestReply': (input) => conversations.requestReply(input),
       'conversations.reanswer': (input) => conversations.reanswer(input),
+      'conversations.convertMessage': (input) => conversations.convertMessage(input),
       'conversations.rewriteMessage': (input) => conversations.rewriteMessage(input),
       'conversations.message': ({ id }) => conversations.message(id),
       'conversations.thread': (input) => conversations.thread(input),

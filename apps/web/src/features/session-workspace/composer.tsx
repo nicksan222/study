@@ -45,6 +45,12 @@ export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () =>
         rows={1}
         value={draft.text}
         spellCheck={preferences.spellcheck}
+        onPaste={(event) => {
+          if (event.clipboardData.files.length && !blocked) {
+            event.preventDefault();
+            files.add(Array.from(event.clipboardData.files));
+          }
+        }}
         onKeyDown={(event) => {
           if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();

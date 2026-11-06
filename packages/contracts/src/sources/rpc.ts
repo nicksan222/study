@@ -9,6 +9,7 @@ import {
   sessionIdSchema
 } from '../ids.ts';
 import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
+import { conversionStrategySchema } from './conversion.ts';
 import { documentSchema, sourceSchema } from './schemas.ts';
 
 export const sourceExportSchema = Schema.Struct({ source: sourceSchema, bytes: Schema.Uint8Array });
@@ -144,6 +145,11 @@ export const sourceHistoryRetireSchema = Schema.Struct({
 });
 
 export const SourcesRpc = RpcGroup.make(
+  Rpc.make('conversionStrategies', {
+    payload: Schema.Struct({}),
+    success: Schema.Array(conversionStrategySchema),
+    error: failureSchema
+  }),
   Rpc.make('previewHistory', {
     payload: sourceHistoryInputSchema,
     success: sourceHistoryPreviewSchema,

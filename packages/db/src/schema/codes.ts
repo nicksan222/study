@@ -42,7 +42,7 @@ export const codes_message_status = sqliteTable('codes_message_status', {
 
 export const codes_version_origin = sqliteTable('codes_version_origin', {
   code: text({
-    enum: ['answer', 'edited', 'improve', 'instruction', 'summarize', 'typed']
+    enum: ['answer', 'edited', 'improve', 'instruction', 'summarize', 'typed', 'convert']
   }).primaryKey()
 });
 

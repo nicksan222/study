@@ -90,6 +90,8 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   defaultAiDetail: 'balanced',
   autoTitleSessions: false,
   autoAnswerQuestions: false,
+  textConversionMode: 'manual',
+  textConversionStrategy: 'chatgpt',
   sidebarDensity: 'comfortable',
   sidebarShowDocumentCounts: true,
   sidebarTimeFormat: 'relative',

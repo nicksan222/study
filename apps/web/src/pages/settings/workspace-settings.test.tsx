@@ -3,6 +3,7 @@ import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { AiWritingSettings, WritingSettings } from './workspace-settings';
@@ -16,11 +17,15 @@ vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key 
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (
     invoke: (rpc: {
+      'sources.conversionStrategies': () => Promise<unknown[]>;
       'settings.workspacePreferences': typeof api.read;
       'settings.saveWorkspacePreferences': typeof api.save;
     }) => unknown
   ) =>
     invoke({
+      'sources.conversionStrategies': async () => [
+        { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
+      ],
       'settings.workspacePreferences': api.read,
       'settings.saveWorkspacePreferences': api.save
     })
@@ -122,4 +127,36 @@ testStable('keeps automatic answers opt-in and persists the confirmed preference
     })
   );
   await waitFor(() => expect(toggle).toBeChecked());
+});
+
+testStable('offers manual conversion by default and discovers the available method', async () => {
+  mount(true);
+  expect(
+    await screen.findByRole('combobox', { name: 'WorkspaceConversionMode' })
+  ).toHaveTextContent('WorkspaceConversionManual');
+  expect(await screen.findByText('ChatGPT')).toBeVisible();
+});
+
+testStable('persists automatic conversion only after an explicit mode selection', async () => {
+  api.save.mockImplementation(async (value) => {
+    api.read.mockResolvedValue(value);
+
+    return value;
+  });
+  const user = userEvent.setup();
+
+  mount(true);
+  await user.click(await screen.findByRole('combobox', { name: 'WorkspaceConversionMode' }));
+  await user.click(await screen.findByRole('option', { name: 'WorkspaceConversionAutomatic' }));
+  await waitFor(() =>
+    expect(api.save).toHaveBeenCalledWith({
+      ...defaultWorkspacePreferences,
+      textConversionMode: 'automatic'
+    })
+  );
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: 'WorkspaceConversionMode' })).toHaveTextContent(
+      'WorkspaceConversionAutomatic'
+    )
+  );
 });

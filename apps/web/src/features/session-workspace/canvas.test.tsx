@@ -25,7 +25,13 @@ import {
 } from './session-workspace.queries';
 import { SessionRuns } from './transformation';
 
-const rpc = vi.hoisted(() => ({ message: vi.fn(), pages: vi.fn(), archive: vi.fn() }));
+const rpc = vi.hoisted(() => ({
+  message: vi.fn(),
+  pages: vi.fn(),
+  archive: vi.fn(),
+  convert: vi.fn(),
+  strategies: vi.fn()
+}));
 
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
@@ -33,10 +39,18 @@ vi.mock('#web/lib/i18n.tsx', () => ({
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (
     fn: (client: {
+      'sources.conversionStrategies': typeof rpc.strategies;
+      'conversations.convertMessage': typeof rpc.convert;
       'conversations.message': typeof rpc.message;
       'conversations.setItemArchived': typeof rpc.archive;
     }) => unknown
-  ) => fn({ 'conversations.message': rpc.message, 'conversations.setItemArchived': rpc.archive })
+  ) =>
+    fn({
+      'sources.conversionStrategies': rpc.strategies,
+      'conversations.convertMessage': rpc.convert,
+      'conversations.message': rpc.message,
+      'conversations.setItemArchived': rpc.archive
+    })
 }));
 vi.mock('../document-editing/proposal-review', () => ({
   ProposalReview: ({ requestId }: { requestId: string }) => (
@@ -140,6 +154,9 @@ const actions = (versionId = message.activeVersionId!, value = message) => (
 beforeEach(() => {
   vi.resetAllMocks();
   rpc.message.mockResolvedValue(message);
+  rpc.strategies.mockResolvedValue([
+    { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
+  ]);
   rpc.pages.mockResolvedValue({ items: [], next: null });
 });
 afterEach(() => {
@@ -848,4 +865,23 @@ testStable('archives the exact note membership independently of permanent deleti
     })
   );
   expect(screen.queryByRole('alertdialog')).toBeNull();
+});
+
+testStable('converts the selected active message version directly from its toolbar', async () => {
+  rpc.convert.mockResolvedValue({
+    requestId: 'converted',
+    sessionId: id,
+    messageId: message.id,
+    versionId: 99n
+  });
+  mount(actions());
+  fireEvent.click(await screen.findByRole('button', { name: 'SessionConvertText' }));
+  await waitFor(() =>
+    expect(rpc.convert).toHaveBeenCalledWith({
+      messageId: message.id,
+      expectedActiveVersionId: message.activeVersionId,
+      strategyId: 'chatgpt'
+    })
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });

@@ -40,6 +40,7 @@ import { Activity, DurableDeferred } from 'effect/workflow';
 
 import { replyAgent } from '#server/features/conversations/agents/reply';
 import { rewriteAgent } from '#server/features/conversations/agents/rewrite';
+import { convertCapturedMessage } from '#server/features/conversations/service/conversion';
 import { Conversations } from '#server/features/conversations/service/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
@@ -123,6 +124,24 @@ export const conversationReplyHandler = ({
           if (snapshot.context)
             yield* conversations.sessionContext({ requestId: snapshot.requestId });
 
+          if (snapshot.generation?.conversion) {
+            const preflight = conversations
+              .replySnapshot({ requestId: event.requestId })
+              .pipe(Effect.asVoid, Effect.provideService(Database, database));
+            const publication = yield* convertCapturedMessage(
+              snapshot,
+              snapshot.generation.conversion,
+              {
+                generate: (definition, input) =>
+                  generateAgent(definition, input, { maxRetries: 0, preflight })
+              }
+            );
+
+            yield* preflight;
+
+            return publication;
+          }
+
           const catalog = selectionCatalog(snapshot);
           const seen = new Set<string>();
 
@@ -185,8 +204,9 @@ export const conversationReplyHandler = ({
             language: preferences.language ?? agents.language,
             searchSources: (query: string) => Effect.sync(() => catalog.search(query))
           };
+          const rewrite = rewriteGeneration(snapshot);
           const text = yield* (
-            snapshot.generation && snapshot.generation.origin !== 'answer'
+            rewrite
               ? generateAgent(
                   rewriteAgent,
                   {
@@ -194,8 +214,8 @@ export const conversationReplyHandler = ({
                       role: message.role,
                       content: message.text
                     })),
-                    origin: snapshot.generation.origin,
-                    instruction: snapshot.generation.instruction,
+                    origin: rewrite.origin,
+                    instruction: rewrite.instruction,
                     preferences
                   },
                   options
@@ -436,4 +456,13 @@ function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
   return snapshot.generation?.origin === undefined || snapshot.generation.origin === 'answer'
     ? 'reply'
     : 'rewrite';
+}
+
+function rewriteGeneration(snapshot: typeof replySnapshotSchema.Type) {
+  const generation = snapshot.generation;
+
+  if (!generation || generation.origin === 'answer' || generation.origin === 'convert')
+    return undefined;
+
+  return { origin: generation.origin, instruction: generation.instruction };
 }

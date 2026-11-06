@@ -30,6 +30,7 @@ export const SourcesRpcLive = defineRpc(
       'sources.exportRevision': (v) => sources.exportRevision(v),
       'sources.currentExtraction': (v) => sources.currentExtraction(v),
       'sources.extraction': (v) => sources.extraction(v),
+      'sources.conversionStrategies': () => sources.conversionStrategies(),
       'sources.sessionSources': (v) => sources.sessionSources(v),
       'sources.attachSource': (v) => sources.attachSource(v),
       'sources.detachSource': (v) => sources.detachSource(v),

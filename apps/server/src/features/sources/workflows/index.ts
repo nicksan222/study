@@ -19,18 +19,19 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { contentSnapshotIdSchema } from '@study/contracts/ids';
+import { conversionStrategyIdSchema } from '@study/contracts/sources/conversion';
 import { correctBlockText } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { detectedMime, sniff } from '@study/contracts/sources/sniff';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
+import { Settings } from '#server/features/settings/index';
 import { visionTranscriptionAgent } from '#server/features/sources/agents/vision-transcription';
 import { decoderPath } from '#server/features/sources/decoders/capability';
 import { checkInput, DEFAULT_MAX_BYTES } from '#server/features/sources/decoders/common';
 import { decodeHtml } from '#server/features/sources/decoders/html';
 import { decodeOffice } from '#server/features/sources/decoders/office';
-import { decodePdf } from '#server/features/sources/decoders/pdf';
 import { decodeText } from '#server/features/sources/decoders/text';
 import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
@@ -94,6 +95,15 @@ export const sourceIngestionHandler = ({
             })
           )
         : null;
+    const conversionStrategyId = yield* Activity.make({
+      name: 'resolve-source-conversion-strategy',
+      success: conversionStrategyIdSchema,
+      error: failureSchema,
+      execute: Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+        Effect.map((preferences) => preferences.textConversionStrategy),
+        Effect.provide(Settings.layer)
+      )
+    });
     const document = yield* retryResumableActivity(
       Activity.make({
         name: 'decode-source',
@@ -186,16 +196,18 @@ export const sourceIngestionHandler = ({
               new StudyError('unsupported', 'Source type cannot be processed')
             );
 
-          const pageCount =
-            input.kind === 'pdf'
-              ? yield* Effect.tryPromise({
-                  try: () => decodePdf(input.bytes),
-                  catch: (cause) =>
-                    cause instanceof StudyError
-                      ? cause
-                      : new StudyError('internal', 'PDF decoding failed', { cause })
-                })
-              : 1;
+          if (input.kind === 'pdf') {
+            return yield* sources.convertDocument(
+              conversionStrategyId,
+              { kind: 'pdf', bytes: input.bytes },
+              {
+                generate: (definition, data) =>
+                  generateAgent(definition, data, { maxRetries: 0, preflight: currentRequest })
+              }
+            );
+          }
+
+          const pageCount = 1;
 
           yield* currentRequest;
           const result = yield* generateAgent(

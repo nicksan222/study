@@ -10,6 +10,7 @@ import {
   sourceIdSchema,
   versionIdSchema
 } from '../ids.ts';
+import { messageConversionSchema } from '../sources/conversion.ts';
 import { anchorSchema, blockIdSchema } from '../sources/schemas.ts';
 import { sourceKindSchema } from '../sources/sniff.ts';
 import { selectionReferenceSchema, selectionRangeSchema } from './context.ts';
@@ -29,6 +30,7 @@ export const versionStatusSchema = Schema.Literals(['complete', 'pending', 'writ
 export const versionOriginSchema = Schema.Literals([
   'answer',
   'edited',
+  'convert',
   'improve',
   'instruction',
   'summarize',
@@ -237,7 +239,8 @@ export const replySnapshotSchema = Schema.Struct({
   ),
   generation: Schema.optional(
     Schema.Struct({
-      origin: Schema.Literals(['answer', 'improve', 'summarize', 'instruction']),
+      origin: Schema.Literals(['answer', 'improve', 'summarize', 'instruction', 'convert']),
+      conversion: Schema.optional(messageConversionSchema),
       instruction: Schema.NullOr(Schema.String),
       questionVersionId: Schema.optional(versionIdSchema)
     })

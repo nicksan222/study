@@ -7,6 +7,7 @@ import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { useConversionStrategies } from '#web/lib/study-client/conversion.queries.ts';
 import { useWorkspacePreferenceControls } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 const PreferenceContext = createContext<ReturnType<typeof useWorkspacePreferenceControls> | null>(
@@ -144,6 +145,7 @@ function PreferenceNumber({
 
 type SelectField =
   | 'defaultExportFormat'
+  | 'textConversionMode'
   | 'defaultAiDetail'
   | 'sidebarDensity'
   | 'sidebarTimeFormat';
@@ -283,6 +285,16 @@ export function AiWritingSettings() {
           { value: 'detailed', label: 'SessionDetailDetailed' }
         ]}
       />
+      <PreferenceSelect
+        field="textConversionMode"
+        title="WorkspaceConversionMode"
+        description="WorkspaceConversionModeHelp"
+        options={[
+          { value: 'manual', label: 'WorkspaceConversionManual' },
+          { value: 'automatic', label: 'WorkspaceConversionAutomatic' }
+        ]}
+      />
+      <ConversionStrategySetting />
       <PreferenceToggle
         field="autoAnswerQuestions"
         title="WorkspaceAutoAnswerQuestions"
@@ -294,5 +306,42 @@ export function AiWritingSettings() {
         description="WorkspaceAutoTitlesHelp"
       />
     </PreferenceSection>
+  );
+}
+
+function ConversionStrategySetting() {
+  const { t } = useI18n();
+  const { query, mutation } = useControls();
+  const strategies = useConversionStrategies();
+  const selected = query.data!.textConversionStrategy;
+
+  if (strategies.error)
+    return (
+      <Settings.Status
+        action={<RetryButton label={t('Retry')} onClick={() => void strategies.refetch()} />}
+      >
+        {t('WorkspaceSettingsFailed')}
+      </Settings.Status>
+    );
+
+  if (!strategies.data) return <Loading label={t('LoadingSettings')} />;
+
+  const available = strategies.data.some((strategy) => strategy.id === selected);
+
+  return (
+    <>
+      {!available && <Settings.Status>{t('WorkspaceConversionUnavailable')}</Settings.Status>}
+      <Settings.SelectRow
+        title={t('WorkspaceConversionStrategy')}
+        description={t('WorkspaceConversionStrategyHelp')}
+        value={available ? selected : ''}
+        disabled={mutation.isPending || (available && strategies.data.length === 1)}
+        options={strategies.data.map((strategy) => ({ value: strategy.id, label: strategy.name }))}
+        onValueChange={(value) => {
+          if (strategies.data.some((strategy) => strategy.id === value))
+            mutation.mutate({ textConversionStrategy: value });
+        }}
+      />
+    </>
   );
 }
