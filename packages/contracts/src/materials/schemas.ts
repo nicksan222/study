@@ -31,6 +31,7 @@ export const quizGenerationConfigSchema = Schema.Struct({
 export const materialGenerationInputSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200)),
+  autoTitle: Schema.optional(Schema.Boolean),
   kind: materialGenerationKindSchema,
   inputs: Schema.mutable(Schema.Array(contentInputSchema)).check(Schema.isBetweenLength(1, 20)),
   instruction: Schema.optional(Schema.Trim.check(Schema.isBetweenLength(1, 100000))),
@@ -62,6 +63,7 @@ function validGenerationScope(value: {
 export const materialGenerationPayloadSchema = Schema.Struct({
   inputs: materialGenerationInputSchema.fields.inputs,
   title: materialGenerationInputSchema.fields.title,
+  autoTitle: materialGenerationInputSchema.fields.autoTitle,
   kind: materialGenerationKindSchema,
   instruction: materialGenerationInputSchema.fields.instruction,
   scopeId: materialGenerationInputSchema.fields.scopeId,
@@ -163,9 +165,25 @@ export const materialContentInputSchema = Schema.Union([
   materialFlashcardsContentInputSchema
 ]);
 
+export const titledQuizGenerationOutputSchema = Schema.Struct({
+  title: materialGenerationInputSchema.fields.title,
+  content: materialQuizContentInputSchema
+});
+
+export const titledFlashcardsGenerationOutputSchema = Schema.Struct({
+  title: materialGenerationInputSchema.fields.title,
+  content: materialFlashcardsContentInputSchema
+});
+
+export const titledDiagramGenerationOutputSchema = Schema.Struct({
+  title: materialGenerationInputSchema.fields.title,
+  content: materialDiagramContentInputSchema
+});
+
 export const materialGenerationPublicationSchema = Schema.Struct({
   generationEventId: Schema.optional(Schema.String.check(Schema.isMinLength(1))),
   requestId: Schema.String.check(Schema.isMinLength(1)),
+  title: materialGenerationInputSchema.fields.title.pipe(Schema.optional),
   content: materialContentInputSchema,
   citations: Schema.mutable(
     Schema.Array(

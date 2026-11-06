@@ -1,4 +1,5 @@
 import { testStable } from '@study/testing/vitest';
+import { sql } from 'drizzle-orm';
 import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
@@ -30,13 +31,16 @@ const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Proj
  INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'diagram',1,'agent','generate',1);
  INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
 
-function fixture(scoped = false) {
+function fixture(scoped = false, autoTitle = false) {
   const location = createTestDatabase();
   const db = location.open();
+  const intent = autoTitle
+    ? seed.replace('"title":"Requested",', '"title":"Requested","autoTitle":true,')
+    : seed;
 
   db.exec(
     scoped
-      ? seed
+      ? intent
           .replace(
             'INSERT INTO materials',
             "INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1); INSERT INTO materials"
@@ -45,7 +49,7 @@ function fixture(scoped = false) {
             '"title":"Requested","kind":"diagram","inputs"',
             '"title":"Requested","kind":"diagram","scopeId":"scope","inputs"'
           )
-      : seed
+      : intent
   );
 
   return {
@@ -56,6 +60,53 @@ function fixture(scoped = false) {
     }
   };
 }
+
+testStable(
+  'automatic titles permit bounded generated names while ordinary requests keep exact title intent',
+  () => {
+    for (const autoTitle of [false, true]) {
+      const { db, close } = fixture(false, autoTitle);
+
+      try {
+        db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
+      UPDATE material_versions SET generation_request_id='request' WHERE id=2;
+      UPDATE materials SET title='Evidence relationships' WHERE id=2;`);
+        const publish = () =>
+          db.exec(`UPDATE material_versions SET status='published',published_at=2 WHERE id=2;
+      UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request';`);
+
+        if (autoTitle) assert.doesNotThrow(publish);
+        else assert.throws(publish);
+      } finally {
+        close();
+      }
+    }
+  }
+);
+
+testStable('automatic titles reject unbounded or blank names and malformed title intent', () => {
+  const { db, close } = fixture(false, true);
+
+  try {
+    db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
+    UPDATE material_versions SET generation_request_id='request' WHERE id=2;`);
+
+    for (const title of ['', ' ', ' Evidence ', 'x'.repeat(201)]) {
+      assert.throws(() => {
+        db.orm.run(sql`UPDATE materials SET title=${title} WHERE id=2`);
+        db.exec(`UPDATE material_versions SET status='published',published_at=2 WHERE id=2`);
+      });
+    }
+
+    assert.throws(() =>
+      db.exec(
+        `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"diagram","inputs":[{"kind":"document","versionId":"1"}]}',1)`
+      )
+    );
+  } finally {
+    close();
+  }
+});
 
 testStable('a receipt cannot select an unrelated draft', () => {
   const { db, close } = fixture();

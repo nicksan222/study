@@ -69,6 +69,7 @@ export function makeGeneration(resources: StoreResources) {
       const canonical = (input: typeof request) => ({
         projectId: input.projectId,
         title: input.title,
+        autoTitle: input.autoTitle,
         kind: input.kind,
         instruction: input.instruction,
         inputs: input.inputs,
@@ -97,7 +98,7 @@ export function makeGeneration(resources: StoreResources) {
 
     assertActiveScope(request);
 
-    const { title, kind, instruction, scopeId, questionSpec, quizConfig } = request;
+    const { title, autoTitle, kind, instruction, scopeId, questionSpec, quizConfig } = request;
 
     db.orm
       .insert(s.material_generation_requests)
@@ -106,6 +107,7 @@ export function makeGeneration(resources: StoreResources) {
         project_id: request.projectId ?? null,
         payload: Schema.encodeSync(codec)({
           title,
+          autoTitle,
           kind,
           instruction,
           scopeId,
@@ -342,6 +344,7 @@ export function makeGeneration(resources: StoreResources) {
         canonicalJson(
           Schema.encodeSync(publicationCodec)({
             requestId: value.requestId,
+            ...(value.title === undefined ? {} : { title: value.title }),
             content: value.content,
             language: value.language,
             citations
@@ -414,7 +417,7 @@ export function makeGeneration(resources: StoreResources) {
     const material = createMaterial({
       ...versionInput,
       projectId: request.projectId,
-      title: request.title
+      title: request.autoTitle ? required(value.title) : request.title
     });
 
     db.orm
@@ -474,6 +477,9 @@ export function makeGeneration(resources: StoreResources) {
     request: NonNullable<ReturnType<typeof readGeneration>>,
     value: typeof materialGenerationPublicationSchema.Type
   ) {
+    if (request.autoTitle && value.title === undefined)
+      throw new StudyError('invalid_input', 'Automatic generation requires a title');
+
     assertQuestionSpec(request.questionSpec, value.content);
     assertQuizConfig(request.quizConfig, value.content);
 

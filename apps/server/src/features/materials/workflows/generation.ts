@@ -14,6 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { promptInputSchema } from '@study/contracts/ai/shared';
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
 import { materialGenerationRequestedSchema } from '@study/contracts/events';
@@ -22,12 +23,16 @@ import { contentInputKey } from '@study/contracts/inputs';
 import type { ContentInput } from '@study/contracts/inputs';
 import { materialGenerationPublicationSchema } from '@study/contracts/materials/schemas';
 import type { quizGenerationConfigSchema } from '@study/contracts/materials/schemas';
+import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
 import { diagramAgent } from '#server/features/materials/agents/diagram';
+import { diagramTitledAgent } from '#server/features/materials/agents/diagram-titled';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
+import { flashcardsTitledAgent } from '#server/features/materials/agents/flashcards-titled';
 import { quizAgent } from '#server/features/materials/agents/quiz';
+import { quizTitledAgent } from '#server/features/materials/agents/quiz-titled';
 import {
   assertQuestionSpec,
   assertQuizConfig
@@ -37,6 +42,7 @@ import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { diagramFeedback } from '#server/platform/ai/diagram/validator';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -132,18 +138,31 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
             searchSources: (query: string) => Effect.sync(() => catalog.search(query))
           };
           const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
-          const content =
-            event.kind === 'flashcards'
-              ? yield* generateAgent(flashcardsAgent, { prompt }, options).pipe(
-                  Effect.provideService(Agents, scoped)
-                )
-              : event.kind === 'quiz'
-                ? yield* generateAgent(quizAgent, { prompt }, options).pipe(
-                    Effect.provideService(Agents, scoped)
-                  )
-                : yield* generateAgent(diagramAgent, { prompt }, options).pipe(
-                    Effect.provideService(Agents, scoped)
-                  );
+          const definition: AgentDefinition<
+            typeof promptInputSchema,
+            Schema.ConstraintDecoder<MaterialContentInput>
+          > = {
+            quiz: quizAgent,
+            flashcards: flashcardsAgent,
+            diagram: diagramAgent
+          }[event.kind];
+          const titledDefinition: AgentDefinition<
+            typeof promptInputSchema,
+            Schema.ConstraintDecoder<{ title: string; content: MaterialContentInput }>
+          > = {
+            quiz: quizTitledAgent,
+            flashcards: flashcardsTitledAgent,
+            diagram: diagramTitledAgent
+          }[event.kind];
+          const generated = initial.autoTitle
+            ? yield* generateAgent(titledDefinition, { prompt }, options).pipe(
+                Effect.provideService(Agents, scoped)
+              )
+            : yield* generateAgent(definition, { prompt }, options).pipe(
+                Effect.map((content) => ({ content, title: undefined })),
+                Effect.provideService(Agents, scoped)
+              );
+          const { content } = generated;
 
           yield* Effect.try({
             try: () => {
@@ -194,6 +213,7 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
           return {
             requestId: event.requestId,
             generationEventId: event.eventId,
+            title: generated.title,
             content: safeContent,
             citations
           };

@@ -93,6 +93,7 @@ testStable('quiz settings persist as request intent and reject changed settings'
         const request = {
           projectId: project.id,
           title: 'Quiz',
+          autoTitle: true,
           kind: 'quiz' as const,
           inputs: [input],
           quizConfig
@@ -102,6 +103,19 @@ testStable('quiz settings persist as request intent and reject changed settings'
         expect(
           (yield* materials.materialGeneration({ requestId: 'configured-quiz' })).quizConfig
         ).toStrictEqual(quizConfig);
+        assert.strictEqual(
+          (yield* materials.materialGeneration({ requestId: 'configured-quiz' })).autoTitle,
+          true
+        );
+        assert.strictEqual(
+          (yield* Effect.flip(
+            materials.requestMaterialGenerationOnce({
+              requestId: 'configured-quiz',
+              request: { ...request, autoTitle: false }
+            })
+          )).kind,
+          'invalid_input'
+        );
         yield* materials.requestMaterialGenerationOnce({ requestId: 'configured-quiz', request });
 
         for (const change of [

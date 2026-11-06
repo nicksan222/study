@@ -188,6 +188,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         const configuredQuiz = yield* materials.requestMaterialGeneration({
           projectId: project.id,
           title: 'Configured quiz',
+          autoTitle: true,
           kind: 'quiz',
           inputs: [{ kind: 'document', versionId: doc.version!.id }],
           quizConfig: {
@@ -257,6 +258,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
             (yield* Effect.flip(
               materials.publishMaterialGeneration({
                 requestId: configuredQuiz.id,
+                title: 'Source evidence and understanding',
                 citations: value.citations,
                 content: { kind: 'quiz', questions }
               })
@@ -264,11 +266,49 @@ testStable('guarded generation publishes once and replays its receipt', async ()
             'invalid_input'
           );
 
+        assert.strictEqual(
+          (yield* Effect.flip(
+            materials.publishMaterialGeneration({
+              requestId: configuredQuiz.id,
+              citations: value.citations,
+              content: { kind: 'quiz', questions: [configuredQuestion, configuredQuestion] }
+            })
+          )).kind,
+          'invalid_input'
+        );
         const configuredVersion = yield* materials.publishMaterialGeneration({
           requestId: configuredQuiz.id,
+          title: 'Source evidence and understanding',
           citations: value.citations,
           content: { kind: 'quiz', questions: [configuredQuestion, configuredQuestion] }
         });
+
+        assert.strictEqual(
+          (yield* materials.material({
+            id: (yield* materials.materialVersion({ id: configuredVersion })).material_id
+          })).title,
+          'Source evidence and understanding'
+        );
+        assert.strictEqual(
+          yield* materials.publishMaterialGeneration({
+            requestId: configuredQuiz.id,
+            title: 'Source evidence and understanding',
+            citations: value.citations,
+            content: { kind: 'quiz', questions: [configuredQuestion, configuredQuestion] }
+          }),
+          configuredVersion
+        );
+        assert.strictEqual(
+          (yield* Effect.flip(
+            materials.publishMaterialGeneration({
+              requestId: configuredQuiz.id,
+              title: 'A different title',
+              citations: value.citations,
+              content: { kind: 'quiz', questions: [configuredQuestion, configuredQuestion] }
+            })
+          )).kind,
+          'invalid_input'
+        );
 
         assert.strictEqual(
           (yield* materials.materialGeneration({ requestId: configuredQuiz.id })).resultVersionId,
