@@ -9,6 +9,12 @@ export const italian = Object.freeze({
   StudyChatSendHint: 'Invio per inviare · Maiusc + Invio per andare a capo',
   StudyChatEmptyTitle: 'Inizia una conversazione',
   StudyChatEmptyDescription: 'I tuoi messaggi appariranno qui. Study non può ancora rispondere.',
+  DesktopUpdateAvailable: 'Study {version} è disponibile',
+  DesktopUpdateConsent: 'Termina il lavoro in corso prima di installare. Study si riavvierà.',
+  DesktopUpdateInstall: 'Installa e riavvia',
+  DesktopUpdateInstalling: 'Download e installazione dell’aggiornamento…',
+  DesktopUpdateFailed: 'Impossibile installare l’aggiornamento',
+  DesktopUpdateRetryHelp: 'Controlla la connessione e riprova. Puoi continuare a usare Study.',
   WorkspaceAutoAnswerQuestions: 'Rispondi automaticamente alle domande',
   WorkspaceAutoAnswerQuestionsHelp:
     'Salva una nuova versione con domanda e risposta quando viene rilevata una domanda. Puoi anche rispondere manualmente; segnare una domanda avvia sempre la risposta.',

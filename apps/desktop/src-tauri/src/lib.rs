@@ -3,6 +3,7 @@ mod diagnostics;
 mod logging;
 mod server;
 mod transport;
+mod updater;
 use tauri::Manager as _;
 use transport::NativeError;
 
@@ -17,6 +18,8 @@ async fn server_connection(
 }
 pub fn run() {
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updater::PendingUpdate::default())
         .plugin(
             tauri_plugin_opener::Builder::new()
                 .open_js_links_on_click(false)
@@ -63,28 +66,34 @@ pub fn run() {
             }));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![server_connection])
+        .invoke_handler(tauri::generate_handler![
+            server_connection,
+            updater::check_for_update,
+            updater::install_update
+        ])
         .build(tauri::generate_context!());
     match result {
         Ok(application) => application.run(|app, event| {
             if let tauri::RunEvent::Exit = event {
-                tauri::async_runtime::block_on(async {
-                    if let Err(e) = app
-                        .state::<std::sync::Arc<Shell>>()
-                        .server
-                        .lock()
-                        .await
-                        .shutdown()
-                        .await
-                    {
-                        tracing::error!(message=%e.message, "server shutdown failed");
-                    }
-                });
+                tauri::async_runtime::block_on(shutdown_server(app));
             }
         }),
         Err(error) => {
             tracing::error!(%error, "desktop failed");
             std::process::exit(1);
         }
+    }
+}
+
+async fn shutdown_server(app: &tauri::AppHandle) {
+    if let Err(error) = app
+        .state::<std::sync::Arc<Shell>>()
+        .server
+        .lock()
+        .await
+        .shutdown()
+        .await
+    {
+        tracing::error!(message=%error.message, "server shutdown failed");
     }
 }

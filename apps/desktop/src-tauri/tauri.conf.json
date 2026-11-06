@@ -7,7 +7,7 @@
   "build": {
     "beforeDevCommand": "npm run dev --workspace @study/web",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm run build --workspace @study/web",
+    "beforeBuildCommand": "npm --prefix ../.. run desktop:runtime && npm run build --workspace @study/web",
     "frontendDist": "../../web/dist"
   },
   "app": {

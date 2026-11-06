@@ -7,6 +7,7 @@
     "../../vite.config.ts",
     "../oxc-config/**/*.ts",
     "../development/*.ts",
+    "../release/*.ts",
     "../../packages/testing/**/*.ts",
     "../seed/**/*.ts"
   ],

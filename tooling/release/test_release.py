@@ -61,6 +61,71 @@ class ReleaseTests(unittest.TestCase):
         self.fixtures(encoded=True)
         self.assemble()
 
+    def test_ci_version_and_effective_bundle_version(self):
+        base = json.loads((ROOT / "apps/desktop/src-tauri/tauri.conf.json").read_text())["version"]
+        major, minor, patch = map(int, base.split("."))
+        for sequence in [1, 42, 1000]:
+            version = self.cli("ci-version", sequence).stdout.strip()
+            self.assertEqual(version, f"{major}.{minor}.{patch + sequence}")
+            output = self.root / "ci-config.json"
+            self.cli("configure", version, output)
+            self.assertEqual(json.loads(output.read_text())["version"], version)
+            self.assertEqual(json.loads(output.read_text())["bundle"]["resources"], {"../../../target/desktop-runtime/": ""})
+        for sequence in ["0", "-1", "1.2", "abc", "99999999999999999999", "65535"]:
+            self.cli("ci-version", sequence, ok=False)
+
+    def test_signing_environment_preserves_key_password_pair(self):
+        output = self.root / "signing-env"
+        self.cli("signing-environment", GITHUB_ENV=str(output),
+                 TAURI_SIGNING_PRIVATE_KEY="", TAURI_SIGNING_PRIVATE_KEY_PASSWORD="stale",
+                 CARGO_PACKAGER_SIGN_PRIVATE_KEY="existing-key", CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD="")
+        self.assertIn("existing-key", output.read_text())
+        self.assertNotIn("stale", output.read_text())
+        output.unlink()
+        self.cli("signing-environment", GITHUB_ENV=str(output),
+                 TAURI_SIGNING_PRIVATE_KEY="tauri-key", TAURI_SIGNING_PRIVATE_KEY_PASSWORD="",
+                 CARGO_PACKAGER_SIGN_PRIVATE_KEY="existing-key", CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD="old-password")
+        self.assertIn("tauri-key", output.read_text())
+        self.assertNotIn("old-password", output.read_text())
+
+    def test_tauri_signer_accepts_existing_minisign_key_format(self):
+        artifact = self.root / "installer"
+        artifact.write_bytes(b"desktop update")
+        subprocess.run(["minisign", "-G", "-p", str(self.root / "encrypted-public"), "-s", str(self.root / "encrypted-secret")],
+                       input="test-password\ntest-password\n", text=True, check=True, capture_output=True)
+        environment = dict(self.env,
+                           TAURI_SIGNING_PRIVATE_KEY=base64.b64encode((self.root / "encrypted-secret").read_bytes()).decode(),
+                           TAURI_SIGNING_PRIVATE_KEY_PASSWORD="test-password")
+        result = subprocess.run([str(ROOT / "node_modules/.bin/tauri"), "signer", "sign", str(artifact)],
+                                env=environment, text=True, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        signature = Path(str(artifact) + ".sig")
+        signature.write_bytes(base64.b64decode(signature.read_bytes()))
+        subprocess.run(["minisign", "-V", "-m", str(artifact), "-p", str(self.root / "encrypted-public"), "-x", str(signature)],
+                       check=True, capture_output=True)
+
+    def test_release_tag_must_resolve_to_the_checked_commit(self):
+        binary = self.root / "bin"
+        binary.mkdir()
+        gh = binary / "gh"
+        gh.write_text('''#!/usr/bin/env bash
+case "$*" in
+  *"/git/ref/tags/"*) exit "${TEST_TAG_MISSING:-0}" ;;
+  *"/commits/"*) printf '%s\\n' "$TEST_TAG_SHA" ;;
+  *POST*) printf 'created\\n' >> "$TEST_CREATIONS" ;;
+  *) exit 1 ;;
+esac
+''')
+        gh.chmod(0o755)
+        created = self.root / "created"
+        environment = dict(PATH=str(binary) + os.pathsep + os.environ["PATH"],
+                           TEST_TAG_SHA="checked-sha", TEST_CREATIONS=str(created))
+        self.cli("ensure-tag", "nicksan222/study", "v0.1.42", "checked-sha", **environment)
+        self.assertFalse(created.exists())
+        self.cli("ensure-tag", "nicksan222/study", "v0.1.42", "different-sha", ok=False, **environment)
+        self.cli("ensure-tag", "nicksan222/study", "v0.1.42", "checked-sha", TEST_TAG_MISSING="1", **environment)
+        self.assertEqual(created.read_text(), "created\n")
+
     def test_incomplete_duplicate_versions_and_unknown_platforms(self):
         self.fixtures()
         self.assemble(ok=False, tag="v0.1.2")

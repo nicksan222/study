@@ -21,6 +21,7 @@
     "gen:check": "node tooling/development/generate-theme-css.ts --check && bun run --filter @study/db gen:check",
     "desktop:dev": "vp run --fail-if-no-match --filter @study/desktop tauri dev",
     "desktop:build": "vp run --fail-if-no-match --filter @study/desktop tauri build",
+    "desktop:runtime": "node tooling/release/prepare-runtime.ts",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
     "gen:routes": "vp run --fail-if-no-match --filter @study/web gen:routes",
