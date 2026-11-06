@@ -65,19 +65,29 @@ export function makeConversionRegistry<R>(strategies: readonly ConversionStrateg
     return strategy;
   }
 
+  function describe(id: string) {
+    const strategy = requireStrategy(id);
+
+    return {
+      id: strategy.id,
+      label: strategy.label,
+      supportedInputs: [...strategy.supportedInputs]
+    };
+  }
+
   return {
-    requireStrategy,
+    describe,
     forInput: (preferredId: string, kind: ConversionInput['kind']) => {
       const preferred = requireStrategy(preferredId);
 
-      if (preferred.supportedInputs.includes(kind)) return preferred;
+      if (preferred.supportedInputs.includes(kind)) return describe(preferred.id);
 
       const fallback = strategies.find((strategy) => strategy.supportedInputs.includes(kind));
 
       if (!fallback)
         throw new StudyError('unsupported', 'No conversion strategy supports this input');
 
-      return fallback;
+      return describe(fallback.id);
     },
     list: (locale: Locale) =>
       strategies.map((strategy) => ({

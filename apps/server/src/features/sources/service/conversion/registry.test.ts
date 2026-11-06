@@ -45,6 +45,9 @@ testStable(
     );
 
     expect(missing._tag).toBe('Failure');
+    const metadata = registry.describe('test');
+    metadata.supportedInputs.push('pdf');
+
     const unsupported = await Effect.runPromise(
       Effect.result(registry.convert('test', { kind: 'pdf', bytes: new Uint8Array() }, context))
     );

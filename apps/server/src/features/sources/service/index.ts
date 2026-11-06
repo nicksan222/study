@@ -506,7 +506,7 @@ export const Sources = defineService(
       tx: Transaction,
       v: typeof sourceLinkSchema.Type & { archivedAt: bigint | null }
     ) => tx.store(SessionSourcesStore).archiveSession(v),
-    conversionStrategy: conversions.requireStrategy,
+    conversionStrategy: conversions.describe,
     conversionStrategyForInput: conversions.forInput,
     attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);
