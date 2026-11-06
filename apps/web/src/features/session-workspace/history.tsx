@@ -9,9 +9,9 @@ import {
   DialogPopup,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogClose
+  DialogFooter
 } from '@study/ui/dialog';
+import { DialogDismissButton } from '@study/ui/dialog-form-actions';
 import { Loading } from '@study/ui/loading';
 import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
@@ -363,7 +363,7 @@ export function PageDetails({ message }: { message: Message }) {
           </WorkspaceSurface.Container>
         </WorkspaceSurface.ContextDialogBody>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
+          <DialogDismissButton label={t('Close')} />
         </DialogFooter>
       </DialogPopup>
     </Dialog>

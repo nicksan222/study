@@ -1,5 +1,4 @@
 import type { SessionId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
 import {
   Dialog,
   DialogTrigger,
@@ -7,9 +6,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
-  DialogClose
+  DialogFooter
 } from '@study/ui/dialog';
+import { DialogDismissButton } from '@study/ui/dialog-form-actions';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import type { ReactElement } from 'react';
 
@@ -58,7 +57,7 @@ export function SessionDocumentDialog({
           </WorkspaceSurface.Container>
         </WorkspaceSurface.ContextDialogBody>
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
+          <DialogDismissButton label={t('Close')} />
         </DialogFooter>
       </DialogPopup>
     </Dialog>

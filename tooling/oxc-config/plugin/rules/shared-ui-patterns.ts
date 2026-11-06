@@ -22,9 +22,19 @@ export default defineRule({
 
     const buttons = new Set<string>();
     const selections = new Set<string>();
+    const closes = new Set<string>();
 
     return {
       ImportDeclaration(node) {
+        if (node.source.value === '@study/ui/dialog')
+          for (const specifier of node.specifiers) {
+            if (
+              specifier.type === 'ImportSpecifier' &&
+              propertyName(specifier.imported) === 'DialogClose'
+            )
+              closes.add(specifier.local.name);
+          }
+
         if (node.source.value === '@study/ui/selection')
           for (const specifier of node.specifiers) {
             if (
@@ -42,6 +52,13 @@ export default defineRule({
       },
       JSXElement(node) {
         const tag = node.openingElement.name;
+
+        if (tag.type === 'JSXIdentifier' && closes.has(tag.name))
+          context.report({
+            node: node.openingElement,
+            message:
+              'Use DialogDismissButton from @study/ui/dialog-form-actions for consistent dialog dismissal.'
+          });
 
         if (
           tag.type === 'JSXMemberExpression' &&

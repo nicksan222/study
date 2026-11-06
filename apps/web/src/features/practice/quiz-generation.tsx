@@ -4,7 +4,6 @@ import type { MaterialVersionDetailDto } from '@study/contracts/materials/schema
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
-import { Button } from '@study/ui/button';
 import {
   Dialog,
   DialogTrigger,
@@ -12,9 +11,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
-  DialogClose
+  DialogFooter
 } from '@study/ui/dialog';
+import { DialogDismissButton } from '@study/ui/dialog-form-actions';
 import { ErrorState } from '@study/ui/error-state';
 import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
@@ -240,7 +239,7 @@ function GenerationPanel({
         <GenerationStatus model={model} />
       </Practice.GenerationStatus>
       <DialogFooter>
-        <DialogClose render={<Button variant="outline" />}>{t('Close')}</DialogClose>
+        <DialogDismissButton label={t('Close')} />
         <GenerationAction model={model} />
       </DialogFooter>
     </>

@@ -26,3 +26,12 @@ export function DialogFormActions({
     </DialogFooter>
   );
 }
+
+/** Uses the dialog primitive's dismissal and focus return instead of imperative closure. */
+export function DialogDismissButton({ label, disabled }: { label: string; disabled?: boolean }) {
+  return (
+    <DialogClose disabled={disabled} render={<Button type="button" variant="outline" />}>
+      {label}
+    </DialogClose>
+  );
+}

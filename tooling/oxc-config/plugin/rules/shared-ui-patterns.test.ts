@@ -111,3 +111,16 @@ testStable('requires shared selectable rows rather than assembling labels and ic
     )
   ).toHaveLength(0);
 });
+
+testStable('requires primitive-backed shared dialog dismissal', () => {
+  expect(
+    lint(
+      `import { DialogClose as Close } from '@study/ui/dialog'; const view = <Close render={<Button />}>Close</Close>;`
+    )
+  ).toHaveLength(1);
+  expect(
+    lint(
+      `import { DialogDismissButton } from '@study/ui/dialog-form-actions'; const view = <DialogDismissButton label="Close" />;`
+    )
+  ).toHaveLength(0);
+});
