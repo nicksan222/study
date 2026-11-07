@@ -1,3 +1,5 @@
+import { RichNoteContent } from './rich-note';
+
 /** Status announcements stay separate from token updates in the uncommitted read-only preview. */
 export function GenerationPreview({
   label,
@@ -14,7 +16,11 @@ export function GenerationPreview({
         <span>{label}</span>
         {activity && <span>{activity}</span>}
       </div>
-      {text && <p className="ui-generation-preview-text">{text}</p>}
+      {text && (
+        <div className="ui-generation-preview-text">
+          <RichNoteContent value={text} streaming />
+        </div>
+      )}
     </section>
   );
 }
