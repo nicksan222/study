@@ -1,21 +1,21 @@
 import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
 import type { BlockId } from '@study/contracts/sources/document';
-import { sql } from 'drizzle-orm';
+
 import {
+  defineTable,
+  sql,
   blob,
   check,
   foreignKey,
   integer,
   primaryKey,
-  sqliteTable,
   text
-} from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
 import { codes_source_kind } from './codes.ts';
 import { content_snapshots, blocks } from './content-snapshots.ts';
 import { sources } from './sources.ts';
 
-export const source_processing = sqliteTable(
+export const source_processing = defineTable({ role: 'contributes', entity: 'passage' })(
   'source_processing',
   {
     source_id: integer()
@@ -35,7 +35,7 @@ export const source_processing = sqliteTable(
   ]
 );
 
-export const source_snapshots = sqliteTable(
+export const source_snapshots = defineTable({ role: 'contributes', entity: 'source' })(
   'source_snapshots',
   {
     source_id: integer()
@@ -55,7 +55,10 @@ export const source_snapshots = sqliteTable(
 );
 
 /** Explicit retention roots for copied managed images, independent of membership/session. */
-export const document_assets = sqliteTable(
+export const document_assets = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'document_assets',
   {
     document_id: integer().$type<ContentSnapshotId>().notNull(),
@@ -77,7 +80,7 @@ export const document_assets = sqliteTable(
 );
 
 /** Sources owns exact extraction publication identities independently of Material projections. */
-export const source_extraction_revisions = sqliteTable(
+export const source_extraction_revisions = defineTable({ role: 'contributes', entity: 'passage' })(
   'source_extraction_revisions',
   {
     source_id: integer().$type<SourceId>().notNull(),

@@ -1,6 +1,7 @@
 import type { ContentSnapshotId } from '@study/contracts/ids';
-import { integer } from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+
+import { integer } from './schema-builder.ts';
+import type { AnySQLiteColumn } from './schema-builder.ts';
 
 export function contentSnapshotReference(reference: () => AnySQLiteColumn) {
   return integer()

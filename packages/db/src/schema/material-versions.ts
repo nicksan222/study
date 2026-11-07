@@ -1,7 +1,10 @@
 import type { MaterialId, MaterialVersionId, ProjectId } from '@study/contracts/ids';
-import { sql, desc } from 'drizzle-orm';
+
+import { materialKinds, materialOperations } from '../material-kinds.ts';
 import {
-  sqliteTable,
+  defineTable,
+  sql,
+  desc,
   integer,
   text,
   primaryKey,
@@ -9,14 +12,18 @@ import {
   uniqueIndex,
   index,
   check
-} from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
-
-import { materialKinds, materialOperations } from '../material-kinds.ts';
+} from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { libraryContentColumns } from './column-types.ts';
 
 /** Durable library content; collection and session membership never own it. */
-export const materials = sqliteTable(
+export const materials = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'material',
+  description: 'Published learning materials and their content',
+  textColumns: ['title', 'description']
+})(
   'materials',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MaterialId>(),
@@ -44,7 +51,7 @@ export const materials = sqliteTable(
 );
 
 /** Draft payloads are assembled transactionally; published snapshots are sealed by SQLite. */
-export const material_versions = sqliteTable(
+export const material_versions = defineTable({ role: 'contributes', entity: 'material' })(
   'material_versions',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MaterialVersionId>(),
@@ -102,7 +109,10 @@ export const material_versions = sqliteTable(
   ]
 );
 
-export const material_version_parents = sqliteTable(
+export const material_version_parents = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_version_parents',
   {
     version_id: integer().$type<MaterialVersionId>().notNull(),
@@ -125,7 +135,10 @@ export const material_version_parents = sqliteTable(
   ]
 );
 
-export const material_generation_requests = sqliteTable(
+export const material_generation_requests = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_generation_requests',
   {
     id: text().primaryKey(),

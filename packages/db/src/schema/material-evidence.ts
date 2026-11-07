@@ -1,8 +1,7 @@
 /** Learning artifacts consume authored versions and source extractions directly. */
 import type { MaterialVersionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, integer, text, index, uniqueIndex, check } from '../schema-builder.ts';
 import {
   exactCitationColumns,
   exactCitationConstraints,
@@ -11,7 +10,10 @@ import {
 } from './exact-content-input.ts';
 import { material_generation_requests, material_versions } from './material-versions.ts';
 
-export const material_evidence_inputs = sqliteTable(
+export const material_evidence_inputs = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_evidence_inputs',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
@@ -40,7 +42,10 @@ export const material_evidence_inputs = sqliteTable(
   ]
 );
 
-export const material_evidence_citations = sqliteTable(
+export const material_evidence_citations = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_evidence_citations',
   {
     version_id: integer().$type<MaterialVersionId>().notNull(),

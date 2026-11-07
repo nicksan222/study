@@ -1,6 +1,7 @@
 import { Effect, Schema } from 'effect';
 
 import { exportFormatSchema } from '../materials/export.ts';
+import { conversionStrategyIdSchema } from '../sources/conversion.ts';
 
 export const appSettingsSchema = Schema.Struct({
   language: Schema.Literals([1, 2]),
@@ -53,6 +54,8 @@ export const workspacePreferencesSchema = Schema.Struct({
   defaultAiDetail: Schema.Literals(['brief', 'balanced', 'detailed']),
   autoTitleSessions: Schema.Boolean,
   autoAnswerQuestions: Schema.Boolean,
+  textConversionMode: Schema.Literals(['manual', 'automatic']),
+  textConversionStrategy: conversionStrategyIdSchema,
   sidebarDensity: Schema.Literals(['comfortable', 'compact']),
   sidebarShowDocumentCounts: Schema.Boolean,
   sidebarTimeFormat: Schema.Literals(['relative', 'absolute']),

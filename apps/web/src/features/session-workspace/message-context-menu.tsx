@@ -6,7 +6,15 @@ import {
   ContextMenuItem,
   ContextMenuSeparator
 } from '@study/ui/context-menu';
-import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check, ListChecks } from 'lucide-react';
+import {
+  Pencil,
+  Sparkles,
+  AlignLeft,
+  SlidersHorizontal,
+  Check,
+  ListChecks,
+  FileText
+} from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -27,6 +35,7 @@ const actions = [
   { mode: 'activate', label: 'SessionUseVersion', icon: Check }
 ] as const;
 
+/** Exposes selection-aware message actions through the shared context menu. */
 export function MessageContextMenu({ model, children }: { model: Model; children: ReactNode }) {
   const trigger = useRef<HTMLDivElement>(null);
   const [workOpen, setWorkOpen] = useState(false);
@@ -68,6 +77,21 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                     {model.t(label)}
                   </ContextMenuItem>
                 ))}
+              {model.conversion.available && (
+                <ContextMenuItem
+                  disabled={
+                    !model.active ||
+                    model.blocked ||
+                    !!model.draft.mode ||
+                    model.conversion.blocked ||
+                    model.conversion.mutation.isPending
+                  }
+                  onClick={model.conversion.convert}
+                >
+                  <FileText aria-hidden="true" />
+                  {model.t('SessionConvertText')}
+                </ContextMenuItem>
+              )}
               <ContextMenuSeparator />
               <ContextMenuItem
                 onClick={() => {

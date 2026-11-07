@@ -33,3 +33,5 @@ export * from './schema/document-transforms.ts';
 export * from './schema/session-context-inputs.ts';
 export * from './schema/material-evidence.ts';
 export * from './schema/reply-source-inputs.ts';
+
+export * from './schema/semantic-search.ts';

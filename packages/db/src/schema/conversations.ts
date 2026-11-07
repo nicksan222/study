@@ -7,18 +7,18 @@ import type {
   SourceId,
   VersionId
 } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
+
 import {
-  sqliteTable,
+  defineTable,
+  sql,
   integer,
   text,
   blob,
   index,
   uniqueIndex,
   check
-} from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import {
   codes_message_role,
   codes_message_status,
@@ -28,7 +28,7 @@ import {
 } from './codes.ts';
 import { sources } from './sources.ts';
 
-export const message_versions = sqliteTable(
+export const message_versions = defineTable({ role: 'contributes', entity: 'message' })(
   'message_versions',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<VersionId>(),
@@ -58,9 +58,9 @@ export const message_versions = sqliteTable(
     created_at: integer().$type<bigint>().notNull()
   },
   (t) => [
-    uniqueIndex('message_versions_unfinished_idx')
+    uniqueIndex('message_versions_active_idx')
       .on(t.message_id)
-      .where(sql`status != 'complete'`),
+      .where(sql`status IN ('pending', 'writing')`),
     index('message_versions_based_on_idx')
       .on(t.based_on)
       .where(sql`based_on IS NOT NULL`),
@@ -81,7 +81,7 @@ export const message_versions = sqliteTable(
   ]
 );
 
-export const message_parts = sqliteTable(
+export const message_parts = defineTable({ role: 'contributes', entity: 'message' })(
   'message_parts',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<PartId>(),
@@ -104,7 +104,12 @@ export const message_parts = sqliteTable(
   ]
 );
 
-export const messages = sqliteTable(
+export const messages = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'message',
+  description: 'Completed active conversation messages'
+})(
   'messages',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<MessageId>(),
@@ -163,7 +168,10 @@ export const messages = sqliteTable(
   ]
 );
 
-export const recording_chunks = sqliteTable(
+export const recording_chunks = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'recording_chunks',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
@@ -183,7 +191,10 @@ export const recording_chunks = sqliteTable(
   ]
 );
 
-export const recordings = sqliteTable(
+export const recordings = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'recordings',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<RecordingId>(),
@@ -194,7 +205,13 @@ export const recordings = sqliteTable(
   (t) => [index('recordings_session_idx').on(t.session_id)]
 );
 
-export const sessions = sqliteTable(
+export const sessions = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'session',
+  description: 'Conversations and their titles',
+  textColumns: ['title']
+})(
   'sessions',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
@@ -213,7 +230,10 @@ export const sessions = sqliteTable(
   () => [check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)]
 );
 
-export const conversation_reply_requests = sqliteTable(
+export const conversation_reply_requests = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'conversation_reply_requests',
   {
     request_id: text().primaryKey(),
@@ -248,7 +268,10 @@ function sessionReference() {
 }
 
 /** Captured context has no execution state; replies use the same request identity. */
-export const session_run_contexts = sqliteTable(
+export const session_run_contexts = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'session_run_contexts',
   {
     request_id: text().primaryKey(),
@@ -267,7 +290,7 @@ export const session_run_contexts = sqliteTable(
 );
 
 /** Durable content-free deletion barrier; deliberately outlives the session row. */
-export const session_deletions = sqliteTable(
+export const session_deletions = defineTable({ role: 'contributes', entity: 'session' })(
   'session_deletions',
   {
     session_id: integer().$type<SessionId>().primaryKey(),
@@ -286,7 +309,10 @@ export const session_deletions = sqliteTable(
   ]
 );
 
-export const session_deletion_correlations = sqliteTable('session_deletion_correlations', {
+export const session_deletion_correlations = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})('session_deletion_correlations', {
   correlation_id: text().primaryKey(),
   session_id: integer()
     .$type<SessionId>()
@@ -295,7 +321,7 @@ export const session_deletion_correlations = sqliteTable('session_deletion_corre
 });
 
 /** Manual sidebar placement belongs to the session and disappears with it. */
-export const session_sidebar_preferences = sqliteTable(
+export const session_sidebar_preferences = defineTable({ role: 'contributes', entity: 'session' })(
   'session_sidebar_preferences',
   {
     session_id: integer()
@@ -308,7 +334,10 @@ export const session_sidebar_preferences = sqliteTable(
 );
 
 /** One answer receipt per immutable question version. */
-export const conversation_question_answers = sqliteTable('conversation_question_answers', {
+export const conversation_question_answers = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})('conversation_question_answers', {
   version_id: integer()
     .$type<VersionId>()
     .primaryKey()

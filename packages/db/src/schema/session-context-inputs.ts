@@ -4,14 +4,17 @@ import type {
   ContentSnapshotId,
   SessionId
 } from '@study/contracts/ids';
-import { sqliteTable, text, integer, primaryKey, foreignKey } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, text, integer, primaryKey, foreignKey } from '../schema-builder.ts';
 import { session_run_contexts } from './conversations.ts';
 import { source_extraction_revisions } from './source-processing.ts';
 import { study_document_versions } from './study-documents.ts';
 
 /** Exact captures pin inputs until the owning private capture is explicitly retired. */
-export const session_context_documents = sqliteTable(
+export const session_context_documents = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'session_context_documents',
   {
     request_id: text()
@@ -25,7 +28,10 @@ export const session_context_documents = sqliteTable(
   (t) => [primaryKey({ columns: [t.request_id, t.version_id] })]
 );
 
-export const session_context_sources = sqliteTable(
+export const session_context_sources = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'session_context_sources',
   {
     request_id: text()
@@ -49,7 +55,10 @@ export const session_context_sources = sqliteTable(
 );
 
 /** Content-free consumed intent identities prevent recapture after private content retirement. */
-export const session_retired_intents = sqliteTable(
+export const session_retired_intents = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'session_retired_intents',
   {
     session_id: integer().$type<SessionId>().notNull(),

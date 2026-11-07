@@ -1,12 +1,11 @@
 import type { MessageId, ProjectId, RecordingId, SessionId, SourceId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { blob, check, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, blob, check, integer, text, uniqueIndex } from '../schema-builder.ts';
 import { recordings, sessions } from './conversations.ts';
 import { projects } from './sources.ts';
 
 /** Immutable recording input and a durable publication receipt; execution belongs to Workflow. */
-export const recording_posts = sqliteTable(
+export const recording_posts = defineTable({ role: 'contributes', entity: 'source' })(
   'recording_posts',
   {
     request_id: text().primaryKey(),

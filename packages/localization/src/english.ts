@@ -42,6 +42,22 @@ export const english = Object.freeze({
   AgentRulesSaveFailed:
     'Could not save your instructions. Your edits are still here. Try saving again.',
   AgentRulesLoadFailed: 'Could not load your custom instructions. Try again.',
+  SessionConversionFailed: 'Text conversion failed',
+  SessionConversionFailedHelp:
+    'Your original note is kept. Retry the saved conversion or discard the failed attempt.',
+  SessionDiscardConversion: 'Discard conversion',
+  ConversionChatGpt: 'ChatGPT',
+  SessionConvertText: 'Convert to text',
+  WorkspaceConversionMode: 'Text conversion',
+  WorkspaceConversionModeHelp:
+    'Create a cleaned text version of multi-line notes and PDF attachments after saving. Original versions are kept. Documents are sent to ChatGPT.',
+  WorkspaceConversionManual: 'Manual',
+  WorkspaceConversionAutomatic: 'Automatic',
+  WorkspaceConversionStrategy: 'Conversion method',
+  WorkspaceConversionStrategyHelp:
+    'Use this method for supported inputs. PDF reading uses the default method when needed.',
+  WorkspaceConversionUnavailable:
+    'The saved conversion method is unavailable. Choose an available method.',
 
   QuizReviewAnswers: 'Review your answers',
   QuizEditAnswer: 'Edit answer',

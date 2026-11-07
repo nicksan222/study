@@ -1,23 +1,26 @@
 import type { ErrorKind } from '@study/contracts/errors';
 import type { MaterialVersionId, ProjectId, QuizAttemptId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
+
 import {
-  sqliteTable,
+  defineTable,
+  sql,
   integer,
   text,
   uniqueIndex,
   index,
   check,
   primaryKey
-} from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
 import { sqliteBoolean } from './column-types.ts';
 import { exactContentInputColumns, exactContentInputConstraints } from './exact-content-input.ts';
 import { material_quiz_attempts } from './learning-content.ts';
 import { material_versions } from './material-versions.ts';
 import { projects } from './sources.ts';
 
-export const learning_practice_controls = sqliteTable(
+export const learning_practice_controls = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'learning_practice_controls',
   {
     project_id: integer()
@@ -35,7 +38,10 @@ export const learning_practice_controls = sqliteTable(
   ]
 );
 
-export const learning_practice_slots = sqliteTable(
+export const learning_practice_slots = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'learning_practice_slots',
   {
     id: text().primaryKey(),
@@ -67,7 +73,10 @@ export const learning_practice_slots = sqliteTable(
   ]
 );
 
-export const learning_practice_inputs = sqliteTable(
+export const learning_practice_inputs = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'learning_practice_inputs',
   {
     slot_id: text()

@@ -1,8 +1,10 @@
-import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { defineTable, sql, check, index, integer, text, uniqueIndex } from '../schema-builder.ts';
 
 /** Transactional outbox; rows are retained so delivery survives process restarts. */
-export const workflowEvents = sqliteTable(
+export const workflowEvents = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_events',
   {
     eventId: text('event_id').primaryKey(),
@@ -24,7 +26,10 @@ export const workflowEvents = sqliteTable(
 );
 
 /** A receipt and its durable scheduling record are committed together. */
-export const workflowReceipts = sqliteTable(
+export const workflowReceipts = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_receipts',
   {
     eventId: text('event_id')

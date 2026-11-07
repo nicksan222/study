@@ -105,6 +105,7 @@ function citationPrecision(row: CitationRow) {
     : ('approximate' as const);
 }
 
+/** Binds message reads and version projections to the current database and clock. */
 function makeHelpers({ db, clock }: StoreResources) {
   const { assertThreadRoot } = makeThread({ db, clock });
 
@@ -191,6 +192,9 @@ function makeHelpers({ db, clock }: StoreResources) {
           number: v.number,
           origin: v.origin,
           status: v.status,
+          ...(v.status === 'failed' && v.generation_request_id !== null
+            ? { generationRequestId: v.generation_request_id }
+            : {}),
           text: v.text,
           basedOn: v.based_on,
           instruction: v.instruction,
@@ -527,7 +531,11 @@ export const MessageStore = defineStore({
             const message = required(input.messageId);
             const version = message.versions.find((item) => item.id === input.versionId);
 
-            if (!version || version.status !== 'complete')
+            if (
+              !version ||
+              (version.status !== 'complete' &&
+                !(version.origin === 'convert' && version.status === 'failed'))
+            )
               throw new StudyError('invalid_input', 'Invalid message version');
 
             const remaining = message.versions.filter(

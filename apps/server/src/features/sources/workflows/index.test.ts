@@ -72,6 +72,12 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const sources = yield* Sources;
+            const settings = yield* Settings;
+
+            yield* settings.saveWorkspacePreferences({
+              ...(yield* settings.workspacePreferences()),
+              textConversionStrategy: 'unavailable'
+            });
             const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
             const projects = yield* Projects;
             const collection = yield* projects.createProject({ name: 'Temporary organization' });

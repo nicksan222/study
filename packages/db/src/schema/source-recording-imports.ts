@@ -1,11 +1,10 @@
 import type { ProjectId, SessionId, SourceId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { blob, check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, blob, check, integer, text } from '../schema-builder.ts';
 import { projects } from './sources.ts';
 
 // source_id deliberately has no foreign key: a receipt survives source deletion.
-export const source_recording_imports = sqliteTable(
+export const source_recording_imports = defineTable({ role: 'contributes', entity: 'source' })(
   'source_recording_imports',
   {
     request_id: text().primaryKey().notNull(),

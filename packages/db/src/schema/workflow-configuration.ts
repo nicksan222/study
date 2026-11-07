@@ -1,9 +1,11 @@
-import { primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-
+import { defineTable, primaryKey, text } from '../schema-builder.ts';
 import { workflow_executions } from './workflows.ts';
 
 /** Native deferred registrations retained while an execution awaits configuration. */
-export const workflow_configuration_waits = sqliteTable(
+export const workflow_configuration_waits = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_configuration_waits',
   {
     execution_id: text()

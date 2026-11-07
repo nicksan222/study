@@ -14,7 +14,9 @@ export default defineRule({
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
     const connectionOwner = filename.endsWith('/packages/db/src/db.ts');
-    const schemaOwner = /\/packages\/db\/src\/schema\/.+\.[cm]?[jt]sx?$/.test(filename);
+    const schemaOwner =
+      /\/packages\/db\/src\/schema\/.+\.[cm]?[jt]sx?$/.test(filename) ||
+      filename.endsWith('/packages/db/src/table.ts');
 
     const migrators = new Set(['migrateSync', 'migrateAsync']);
     const ownedImports = new Map<string, 'connection' | 'schema'>();

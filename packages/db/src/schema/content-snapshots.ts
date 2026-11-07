@@ -1,14 +1,13 @@
 import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
 import type { BlockId } from '@study/contracts/sources/document';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, uniqueIndex, index, check } from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
 import { contentSnapshotReference } from '../columns.ts';
+import { defineTable, sql, integer, text, uniqueIndex, index, check } from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { codes_block_kind, codes_extractor_kind } from './codes.ts';
 import { sources } from './sources.ts';
 
-export const content_snapshots = sqliteTable(
+export const content_snapshots = defineTable({ role: 'contributes', entity: 'passage' })(
   'content_snapshots',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<ContentSnapshotId>(),
@@ -30,7 +29,7 @@ export const content_snapshots = sqliteTable(
   ]
 );
 
-export const blocks = sqliteTable(
+export const blocks = defineTable({ role: 'contributes', entity: 'document' })(
   'blocks',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
