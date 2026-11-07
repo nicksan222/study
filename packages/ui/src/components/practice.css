@@ -843,6 +843,10 @@
   height: 1.25rem;
   flex-shrink: 0;
 }
+.study-generation-brief .settings-section > .settings-intro {
+  margin: 1rem 0 0;
+  line-height: 1.6;
+}
 .study-generation-brief textarea {
   min-height: 9rem;
   resize: vertical;
