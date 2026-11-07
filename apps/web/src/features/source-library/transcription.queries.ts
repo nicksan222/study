@@ -22,6 +22,8 @@ export function useTranscriptionModel() {
 }
 
 export function useSourceTranscription(id: SourceId) {
+  const cache = useQueryClient();
+
   return useMutation({
     mutationFn: async () => {
       const current = await request((rpc) => rpc['sources.sourceProcessing']({ id }));
@@ -29,7 +31,12 @@ export function useSourceTranscription(id: SourceId) {
       return request((rpc) =>
         rpc['sources.requestSourceProcessing']({ id, expectedRevision: current.revision })
       );
-    }
+    },
+    onSuccess: () =>
+      Promise.all([
+        cache.invalidateQueries({ queryKey: ['sources', 'current-extraction', String(id)] }),
+        cache.invalidateQueries({ queryKey: ['source-transcription', String(id)] })
+      ])
   });
 }
 
