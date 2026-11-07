@@ -2,7 +2,7 @@ import { askResultSchema } from '@study/contracts/conversations/schemas';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { api, message, mountAssistant } from '#web/test/assistant.tsx';
 
@@ -18,9 +18,33 @@ testStable(
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     await screen.findByText(/Could not load or send/);
     expect(input).toHaveValue('Keep this request');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() =>
+      expect(screen.queryByText(/Could not load or send/)).not.toBeInTheDocument()
+    );
+    expect(input).toHaveValue('Keep this request');
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(2));
     expect(api.ask.mock.calls[1][0]).toEqual(api.ask.mock.calls[0][0]);
+  }
+);
+
+testStable(
+  'editing the next draft cannot detach an in-flight send or allow a second send',
+  async () => {
+    api.ask.mockImplementation(() => new Promise(() => {}));
+    mountAssistant();
+    const input = await screen.findByRole('textbox', { name: 'Message' });
+
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'First request' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
+    fireEvent.change(input, { target: { value: 'Next draft' } });
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.ask).toHaveBeenCalledTimes(1);
+    expect(input).toHaveValue('Next draft');
   }
 );
 
@@ -90,6 +114,26 @@ testStable('shows an estimated context ring that includes the unsent draft', asy
   });
   expect(meter).toHaveAttribute('aria-valuenow', '18');
   expect(meter).toHaveAccessibleName(/Auto compact is on/);
+});
+
+testStable('an idle chat does not keep polling its history and context', async () => {
+  mountAssistant();
+  await screen.findByRole('meter');
+  await waitFor(() => expect(api.thread).toHaveBeenCalled());
+  const threadCalls = api.thread.mock.calls.length;
+  const contextCalls = api.context.mock.calls.length;
+
+  vi.useFakeTimers();
+
+  try {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3500);
+    });
+    expect(api.thread).toHaveBeenCalledTimes(threadCalls);
+    expect(api.context).toHaveBeenCalledTimes(contextCalls);
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 testStable(

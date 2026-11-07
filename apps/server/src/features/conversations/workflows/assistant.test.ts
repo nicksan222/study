@@ -247,8 +247,19 @@ testStable(
           .execute({ newCardsPerDay: 20 }, environment)
           .pipe(Effect.provideService(Database, { store: context }))
       );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const subjects = yield* subjectTools.list_subjects.execute({ limit: 100 }, environment);
+
+          yield* subjectTools.rename_subject.execute(
+            { id: subjects.items[0]!.id, name: 'Updated biology' },
+            environment
+          );
+        }).pipe(Effect.provideService(Database, { store: context }))
+      );
       await execute('unused', 'assistant-retried', firstReply.messageId);
-      expect(context.db.orm.select().from(s.assistant_tool_receipts).all()).toHaveLength(6);
+      expect(context.db.orm.select().from(s.assistant_tool_receipts).all()).toHaveLength(4);
+      expect(bodies.at(-1)).toContain('Updated biology');
       await Effect.runPromise(
         Effect.gen(function* () {
           expect(

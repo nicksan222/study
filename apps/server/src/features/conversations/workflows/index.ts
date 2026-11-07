@@ -603,7 +603,7 @@ function durableAssistantTool(
 ): NonNullable<AgentEnvironment['runTool']> {
   return (call, execute) =>
     Effect.gen(function* () {
-      if (versionId === undefined) return yield* execute;
+      if (versionId === undefined || !call.mutates) return yield* execute;
 
       const key = { versionId, name: call.name, ordinal: call.ordinal };
       const intent = yield* withPublicationGuard(

@@ -57,8 +57,19 @@ function ReplyText({ model }: { model: ReplyModel }) {
           />
         )
       )}
-      {model.reconnecting && (
+      {model.connection === 'reconnecting' && (
         <Notebook.Status role="status">{t('AgentStreamReconnecting')}</Notebook.Status>
+      )}
+      {model.connection === 'unavailable' && (
+        <>
+          <Notebook.Status role="status">{t('AgentStreamUnavailable')}</Notebook.Status>
+          <RetryButton
+            size="sm"
+            variant="ghost-muted"
+            label={t('LibraryRefresh')}
+            onClick={model.reconnect}
+          />
+        </>
       )}
     </>
   );

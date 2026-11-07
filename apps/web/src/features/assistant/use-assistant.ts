@@ -31,7 +31,6 @@ export function useAssistant() {
     select(session.data.id);
   }, [cache, select, selectedId, session.data]);
   const chats = useInfiniteQuery(assistantChatsOptions());
-  const context = useQuery(assistantContextOptions(session.data?.id));
   const createChat = useMutation({
     ...newAssistantChatOptions(),
     onSuccess: (created) => {
@@ -57,6 +56,7 @@ export function useAssistant() {
   const work = useQuery(assistantExecutionOptions(requestId));
   const execution = work.data?.items[0];
   const busy = replyBusy(pending, execution);
+  const context = useQuery(assistantContextOptions(session.data?.id, busy));
   const mutation = useMutation({
     ...assistantAskOptions(),
     onSuccess: (_result, input) => {
@@ -91,10 +91,13 @@ export function useAssistant() {
     blocked: busy || mutation.isPending || !history.isSuccess,
     error: [session, history, mutation, provenance, work].find((result) => result.error)?.error,
     retry: () => {
+      if (mutation.isError) mutation.reset();
+
       void cache.invalidateQueries({ queryKey: assistantKey });
     },
     setDraft: (text: string) => {
-      mutation.reset();
+      if (!mutation.isPending) mutation.reset();
+
       setDraft({ ...draft, text });
     },
     send: () => {

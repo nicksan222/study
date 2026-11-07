@@ -92,3 +92,25 @@ testStable('explains sign-in failures and retries the same Assistant message', a
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
 });
+
+testStable(
+  'exhausted progress retries show unavailable and allow an explicit reconnect',
+  async () => {
+    api.thread.mockResolvedValue({
+      items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
+      next: null
+    });
+    api.executions.mockResolvedValue({ items: [execution], next: null });
+    api.subscribe.mockRejectedValueOnce(new Error('Stream unavailable'));
+    mountAssistant();
+
+    expect(
+      await screen.findByText(
+        'Live progress is unavailable. Your work can continue in the background.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Reconnecting to live progress…')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(api.subscribe).toHaveBeenCalledTimes(2));
+  }
+);

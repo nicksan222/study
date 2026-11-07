@@ -34,7 +34,15 @@ export const assistantThreadOptions = (sessionId?: SessionId) =>
               signal
             ),
     getNextPageParam: (page) => page.next ?? undefined,
-    refetchInterval: 1000
+    refetchInterval: (query) =>
+      query.state.data?.pages[0]?.items.some(
+        (message) =>
+          message.role === 'assistant' &&
+          message.versions.find((version) => version.id === message.activeVersionId)?.status !==
+            'complete'
+      )
+        ? 1000
+        : false
   });
 
 export const assistantAskOptions = () =>
@@ -133,7 +141,7 @@ export const newAssistantChatOptions = () =>
     retry: false
   });
 
-export const assistantContextOptions = (sessionId?: SessionId) =>
+export const assistantContextOptions = (sessionId?: SessionId, active = false) =>
   queryOptions({
     queryKey: [...assistantKey, 'context', sessionId?.toString()],
     queryFn:
@@ -141,7 +149,7 @@ export const assistantContextOptions = (sessionId?: SessionId) =>
         ? skipToken
         : ({ signal }) =>
             request((rpc) => rpc['conversations.assistantContext']({ sessionId }), signal),
-    refetchInterval: 1000
+    refetchInterval: active ? 1000 : false
   });
 
 /** Completed tool activity remains inspectable from the authoritative workflow snapshot. */
