@@ -549,6 +549,7 @@ testStable(
       id,
       title: 'Server-selected session',
       titleSource: 'user',
+      archivedAt: null,
       projectIds: [project],
       createdAt: 1n,
       updatedAt: 2n

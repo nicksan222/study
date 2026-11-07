@@ -157,6 +157,7 @@ testStable('first send creates once, consumes its draft, and preserves later typ
         id: 10n,
         title: 'Lecture',
         titleSource: 'user',
+        archivedAt: null,
         projectIds: [1n],
         createdAt: 1n,
         updatedAt: 1n

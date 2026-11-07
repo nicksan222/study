@@ -115,6 +115,7 @@ beforeEach(() => {
         projectIds: [1n],
         title: 'Cell division',
         titleSource: 'user',
+        archivedAt: null,
         createdAt: 0n,
         updatedAt: 0n
       },
@@ -123,6 +124,7 @@ beforeEach(() => {
         projectIds: [2n],
         title: 'Roman Republic',
         titleSource: 'user',
+        archivedAt: null,
         createdAt: 0n,
         updatedAt: 0n
       }
@@ -413,6 +415,7 @@ testStable('loads later project and session pages', async () => {
                 projectIds: [1n],
                 title: 'Later session',
                 titleSource: 'user',
+                archivedAt: null,
                 createdAt: 0n,
                 updatedAt: 0n
               }
@@ -512,6 +515,7 @@ testStable(
           projectIds: [1n],
           title: 'Created session',
           titleSource: 'user',
+          archivedAt: null,
           createdAt: 0n,
           updatedAt: 0n
         }
@@ -522,6 +526,7 @@ testStable(
       projectIds: [1n],
       title: 'Created session',
       titleSource: 'provisional',
+      archivedAt: null,
       createdAt: 0n,
       updatedAt: 0n
     });
@@ -554,6 +559,7 @@ testStable(
       projectIds: [1n],
       title: 'Second session',
       titleSource: 'provisional',
+      archivedAt: null,
       createdAt: 0n,
       updatedAt: 0n
     };

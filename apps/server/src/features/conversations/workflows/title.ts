@@ -75,7 +75,12 @@ export const conversationTitleHandler = ({
 
           const output = yield* generateAgent(
             titleAgent,
-            { prompt: JSON.stringify(snapshot.messages.map(({ role, text }) => ({ role, text }))) },
+            {
+              prompt: JSON.stringify({
+                title: snapshot.title,
+                messages: snapshot.messages.map(({ role, text }) => ({ role, text }))
+              })
+            },
             {
               maxRetries: 0,
               preflight: conversations

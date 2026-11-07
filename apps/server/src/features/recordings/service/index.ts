@@ -14,6 +14,7 @@
 
 import { randomUUID } from 'node:crypto';
 
+import type { copySessionContentSchema } from '@study/contracts/conversations/sessions';
 import type { RecordingId, SessionId } from '@study/contracts/ids';
 import type {
   postRecordingInputSchema,
@@ -22,6 +23,7 @@ import type {
 } from '@study/contracts/recordings/rpc';
 import { Effect } from 'effect';
 
+import { RecordingCopyStore } from '#server/features/recordings/store/copy';
 import {
   RecordingStore,
   RecordingPostStore,
@@ -29,6 +31,7 @@ import {
 } from '#server/features/recordings/store/index';
 import type { finishRecordingPostInputSchema } from '#server/features/recordings/store/schemas';
 import { defineService } from '#server/platform/definitions/define-service';
+import type { Transaction } from '#server/platform/definitions/define-store';
 import {
   transaction,
   useStore,
@@ -91,5 +94,9 @@ export const Recordings = defineService(
           return tx.store(RecordingPostStore).finishRecordingPost(input);
         })
     };
-  })
+  }),
+  {
+    copySessionsInTransaction: (tx: Transaction, input: typeof copySessionContentSchema.Type) =>
+      tx.store(RecordingCopyStore).copy(input)
+  }
 );

@@ -60,7 +60,7 @@ function earlierMatch(
   existing: typeof sessionSchema.Type | undefined,
   candidate: typeof sessionSchema.Type
 ) {
-  if (candidate.title !== title) return existing;
+  if (candidate.archivedAt !== null || candidate.title !== title) return existing;
 
   return !existing || candidate.id < existing.id ? candidate : existing;
 }

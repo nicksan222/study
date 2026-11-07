@@ -116,6 +116,7 @@ beforeEach(() => {
       projectIds: [],
       title: 'Assistant',
       titleSource: 'user',
+      archivedAt: null,
       createdAt: 1n,
       updatedAt: 1n
     })
@@ -133,6 +134,7 @@ beforeEach(() => {
       projectIds: [],
       title: 'Assistant',
       titleSource: 'user',
+      archivedAt: null,
       createdAt: 2n,
       updatedAt: 2n
     })

@@ -26,6 +26,7 @@ export const ConversationsRpcLive = defineRpc(
     const conversations = yield* Conversations;
 
     return {
+      'conversations.mergeSessions': (input) => conversations.mergeSessions(input),
       'conversations.suggestTransformField': suggestTransformField,
       'conversations.setMessageKind': (input) => conversations.setMessageKind(input),
       'conversations.answerQuestion': (input) => conversations.answerQuestion(input),

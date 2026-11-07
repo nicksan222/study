@@ -1242,6 +1242,10 @@ export const italian = Object.freeze({
   SessionConfirmDelete: 'Elimina questa sessione',
   SessionDeleting: 'Eliminazione della sessione…',
   SessionRetryDelete: 'Ritenta la pulizia della sessione',
+  SessionMerge: 'Unisci sessioni',
+  SessionMergeHelp:
+    'Unisci da 2 a 20 sessioni, con conversazioni, versioni e materiale allegato. Gli originali restano in Archiviate. Study genererà un nuovo titolo.',
+  SessionMerging: 'Unione delle sessioni…',
   SessionDeleted: 'Sessione eliminata. Il materiale della libreria è conservato.',
   SessionSearchMaterial: 'Cerca nel materiale pubblicato',
   LibraryStartAnother: 'Importa un altro materiale',
