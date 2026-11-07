@@ -101,6 +101,19 @@ jobs:
       - name: Install frontend dependencies
         if: runner.os != 'Linux'
         run: npm ci
+      - name: Verify Bun survives AppImage ELF rewriting
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          probe=$(mktemp -d)
+          trap 'rm -rf "$probe"' EXIT
+          cp "$(command -v bun)" "$probe/bun"
+          strip "$probe/bun"
+          for rpath in '$ORIGIN' '$ORIGIN/../lib:$ORIGIN'; do
+            "$PATCHELF" --set-rpath "$rpath" "$probe/bun"
+            ldd "$probe/bun"
+            "$probe/bun" --version
+          done
       - name: Prepare effective signed updater configuration
         id: config
         shell: bash

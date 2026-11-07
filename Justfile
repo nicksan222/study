@@ -293,4 +293,4 @@ agents-usage *args:
 
 # Lint the devcontainer and packaging shell scripts.
 check-shell:
-    shellcheck -x tooling/development/*.sh tooling/release/*.sh .devcontainer/initialize.sh .devcontainer/shell-env.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh
+    shellcheck -x tooling/development/*.sh tooling/release/*.sh .devcontainer/*.sh .devcontainer/desktop/*.sh apps/desktop/packaging/*.sh

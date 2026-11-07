@@ -206,6 +206,8 @@ ship in both installers and updates. Every platform smoke-tests Tauri’s copied
 from an isolated directory with a fresh database and no dependency on a system Bun installation. Run
 `bun run desktop:runtime` to stage it independently. macOS development also requires
 `brew install sqlite`, since Bun’s system SQLite cannot load the vector extension.
+Linux CI and the devcontainer use the pinned Patchelf 0.19.3 from
+`.devcontainer/install-patchelf.sh`; older ELF rewriters corrupt Bun’s ARM64 symbol-version pointers.
 
 For local bundles without signing credentials, use `just package linux-x86_64 --unsigned`.
 This explicitly disables updater artifacts and signing for that build.

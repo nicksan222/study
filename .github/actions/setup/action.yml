@@ -45,6 +45,11 @@ runs:
       uses: oven-sh/setup-bun@v2
       with:
         bun-version-file: apps/landing/package.json
+    - name: Set up the ELF patcher
+      shell: bash
+      run: |
+        bash .devcontainer/install-patchelf.sh "$RUNNER_TEMP/study-patchelf"
+        printf 'PATCHELF=%s/bin/patchelf\n' "$RUNNER_TEMP/study-patchelf" >> "$GITHUB_ENV"
     - name: 📦 Install workspace dependencies
       shell: bash
       # CPU binaries are bundled; CI does not need the optional CUDA download.

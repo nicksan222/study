@@ -83,6 +83,10 @@ rm -r /tmp/bun.zip "/tmp/bun-linux-${arch}"
 bun --version
 SH
 
+COPY install-patchelf.sh /usr/local/share/study/install-patchelf.sh
+RUN bash /usr/local/share/study/install-patchelf.sh /usr/local
+ENV PATCHELF=/usr/local/bin/patchelf
+
 # Node for frontend/Tauri and the npm-installed agents. Replace npm's dependency tree
 # before extracting; overlaying an older npm leaves incompatible transitive modules.
 RUN python3 -c "import shutil; shutil.rmtree('/usr/local/lib/node_modules/npm', ignore_errors=True)" \
