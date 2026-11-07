@@ -37,10 +37,11 @@ function shuffled<T>(items: readonly T[]): T[] {
   return result;
 }
 
+/** Create attempts using saved question filters and stable randomized answer presentations. */
 export function makeStartQuiz(resources: StoreResources) {
   const { db, clock } = resources;
   const { attemptView, published, questions, choices } = makeQuiz(resources);
-  /** Snapshots the configured question subset and choice order from a published version for a stable attempt. */
+  /** Persist selected questions and independently shuffled matching definitions before returning an attempt. */
   const startQuiz = (input: Input) => {
     published(input.versionId, 'quiz');
 
@@ -79,7 +80,11 @@ export function makeStartQuiz(resources: StoreResources) {
           attempt_id: row.id,
           version_id: input.versionId,
           question_id: question.id,
-          position: BigInt(position)
+          position: BigInt(position),
+          matching_order:
+            question.kind === 'matching'
+              ? shuffled(question.matching_pairs!.map((p) => p.definitionId))
+              : null
         }))
       )
       .run();

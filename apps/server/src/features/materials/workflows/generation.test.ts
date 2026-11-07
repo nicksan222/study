@@ -493,6 +493,15 @@ testStable(
             referenceAnswer: 'alpha'
           },
           {
+            kind: 'matching',
+            prompt: 'Match the captured terms.',
+            explanation: 'alpha [1]',
+            pairs: [
+              { term: 'Alpha', definition: 'First' },
+              { term: 'Beta', definition: 'Second' }
+            ]
+          },
+          {
             kind: 'true_false',
             prompt: 'The captured value is alpha.',
             isTrue: true,
@@ -508,7 +517,7 @@ testStable(
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open, blank, boolean] = quiz.content.questions;
+        const [single, multiple, open, blank, matching, boolean] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -526,7 +535,17 @@ testStable(
         assert.ok(open.referenceAnswer === 'alpha');
         assert.ok(blank?.kind === 'fill_blank');
         assert.equal(blank.referenceAnswer, 'alpha');
-        assert.ok(boolean?.kind === 'true_false');
+        assert.ok(matching);
+        assert.ok(matching.kind === 'matching');
+        assert.deepEqual(
+          matching.pairs.map((p) => [p.term, p.definition]),
+          [
+            ['Alpha', 'First'],
+            ['Beta', 'Second']
+          ]
+        );
+        assert.ok(boolean);
+        assert.ok(boolean.kind === 'true_false');
         assert.deepEqual(
           boolean.choices.map((choice) => [choice.text, choice.isCorrect]),
           [

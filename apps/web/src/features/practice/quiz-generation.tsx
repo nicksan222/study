@@ -13,6 +13,7 @@ import { Settings } from '@study/ui/settings';
 import { Textarea } from '@study/ui/textarea';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Link2,
   GraduationCap,
   Layers,
   SlidersHorizontal,
@@ -113,11 +114,13 @@ function GenerationDialog({
   );
 }
 
-/** Keeps the generation draft and submits the selected mode through canonical material and quiz configuration contracts. */
+/** Build document-grounded generation requests using the selected kind and saved preferences. */
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank' | 'true_false'>('quiz');
+  const [kind, setKind] = useState<
+    'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false'
+  >('quiz');
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
@@ -135,6 +138,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     quiz: 'SidebarQuiz',
     flashcards: 'Flashcards',
     fill_blank: 'PracticeFillBlank',
+    matching: 'PracticeMatching',
     true_false: 'PracticeTrueFalse'
   } as const;
   const configuredQuestionKind =
@@ -180,7 +184,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
 
 type GenerationModel = ReturnType<typeof useGeneration>;
 
-/** Presents mode selection, optional instructions and document scope while retaining the current generation draft. */
+/** Offer localized practice modes alongside the selected source documents. */
 function GenerationPanel({
   projectId,
   accepted
@@ -222,6 +226,14 @@ function GenerationPanel({
                 <TextCursorInput aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
+                label={t('PracticeMatching')}
+                selected={model.kind === 'matching'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('matching')}
+              >
+                <Link2 aria-hidden="true" />
+              </Settings.Choice>
+              <Settings.Choice
                 label={t('PracticeTrueFalse')}
                 selected={model.kind === 'true_false'}
                 disabled={model.busy}
@@ -230,6 +242,9 @@ function GenerationPanel({
                 <GraduationCap aria-hidden="true" />
               </Settings.Choice>
             </Settings.ChoiceGroup>
+            {model.kind === 'matching' && (
+              <Settings.Intro>{t('PracticeMatchingHelp')}</Settings.Intro>
+            )}
             {model.kind === 'fill_blank' && (
               <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>
             )}

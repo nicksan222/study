@@ -1929,6 +1929,11 @@ export const italian = Object.freeze({
     'Il tuo primo tentativo parte da qui. Puoi fermarti e riprendere quando vuoi.',
   PracticeViewResults: 'Vedi i risultati',
   PracticeResume: 'Continua il quiz',
+  PracticeMatching: 'Abbinamenti',
+  PracticeMatchingHelp: 'Abbina i termini dei tuoi documenti alle rispettive definizioni.',
+  PracticeMatchingHint:
+    'Abbina ogni termine a una definizione. Usa ogni definizione una sola volta.',
+  PracticeMatchingChoose: 'Scegli una definizione',
   PracticeTrueFalse: 'Vero o falso',
   PracticeTrueFalseHelp: 'Decidi se le affermazioni tratte dai tuoi documenti sono vere o false.',
   PracticeTrueFalseHint: 'Scegli vero o falso per questa affermazione.',

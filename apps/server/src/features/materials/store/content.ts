@@ -10,14 +10,19 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { randomUUID } from 'node:crypto';
+
 import { StudyError } from '@study/contracts/errors';
+import { matchingTermIdSchema, matchingDefinitionIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+/** Persist version-owned content bodies inside the caller transaction. */
 export function makeContent({ db: store }: StoreResources) {
   function insertContent(
     version: typeof s.material_versions.$inferSelect,
@@ -52,7 +57,7 @@ export function makeContent({ db: store }: StoreResources) {
       .run();
   }
 
-  /** Stores quiz questions with either typed reference answers or choices under the owning draft version. */
+  /** Allocate independent matching identities when persisting canonical question definitions. */
   function insertQuiz(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'quiz' }>
@@ -73,7 +78,15 @@ export function makeContent({ db: store }: StoreResources) {
           position: BigInt(i),
           kind: q.kind,
           prompt: q.prompt,
-          explanation: q.explanation
+          explanation: q.explanation,
+          matching_pairs:
+            q.kind === 'matching'
+              ? q.pairs.map((pair) => ({
+                  ...pair,
+                  termId: Schema.decodeUnknownSync(matchingTermIdSchema)(randomUUID()),
+                  definitionId: Schema.decodeUnknownSync(matchingDefinitionIdSchema)(randomUUID())
+                }))
+              : null
         })
         .returning()
         .get();
@@ -86,7 +99,7 @@ export function makeContent({ db: store }: StoreResources) {
             reference_answer: q.referenceAnswer
           })
           .run();
-      else
+      else if (q.kind === 'true_false' || 'choices' in q)
         (q.kind === 'true_false'
           ? [
               { text: 'true', isCorrect: q.isTrue },

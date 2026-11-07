@@ -5,6 +5,8 @@ import type { ReactNode, ComponentProps } from 'react';
 import { semanticPart } from './semantic-part';
 
 export const Practice = {
+  MatchingRow: semanticPart('div', 'study-practice-matching-row'),
+  MatchingReview: semanticPart('div', 'study-practice-matching-review'),
   OutlineItems,
   ChoiceOption,
   AnswerComparison,

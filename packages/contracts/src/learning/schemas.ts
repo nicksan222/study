@@ -1,6 +1,8 @@
 import { Schema, SchemaGetter } from 'effect';
 
 import {
+  matchingTermIdSchema,
+  matchingDefinitionIdSchema,
   materialCardIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
@@ -21,7 +23,29 @@ export const learningVerdictSchema = Schema.Literals(['correct', 'partly', 'inco
 
 export const learningRatingSchema = Schema.Literals(['again', 'hard', 'good', 'easy']);
 
+export const matchingAssociationsSchema = Schema.mutable(
+  Schema.Array(
+    Schema.Struct({
+      termId: matchingTermIdSchema,
+      definitionId: matchingDefinitionIdSchema
+    })
+  )
+).check(
+  Schema.isBetweenLength(2, 8),
+  Schema.makeFilter(
+    (associations) =>
+      new Set(associations.map((a) => a.termId)).size === associations.length &&
+      new Set(associations.map((a) => a.definitionId)).size === associations.length
+  )
+);
+
+const matchingAnswerSchema = Schema.Struct({
+  type: Schema.Literal('matching'),
+  associations: matchingAssociationsSchema
+});
+
 export const quizAnswerSchema = Schema.Union([
+  matchingAnswerSchema,
   Schema.Struct({
     type: Schema.Literal('open'),
     answer: Schema.String.pipe(
@@ -103,7 +127,20 @@ const choiceAttemptQuestionFields = {
   )
 };
 
+const matchingAttemptQuestionFields = {
+  ...quizAttemptQuestionFields,
+  kind: Schema.Literal('matching'),
+  answer: Schema.NullOr(matchingAnswerSchema),
+  terms: Schema.mutable(
+    Schema.Array(Schema.Struct({ id: matchingTermIdSchema, text: Schema.String }))
+  ),
+  definitions: Schema.mutable(
+    Schema.Array(Schema.Struct({ id: matchingDefinitionIdSchema, text: Schema.String }))
+  )
+};
+
 const quizAttemptInProgressQuestionSchema = Schema.Union([
+  Schema.Struct(matchingAttemptQuestionFields),
   Schema.Struct({
     ...openAttemptQuestionFields
   }),
@@ -126,6 +163,19 @@ const quizQuestionResultFields = {
 };
 
 const quizAttemptCompletedQuestionSchema = Schema.Union([
+  Schema.Struct({
+    ...matchingAttemptQuestionFields,
+    ...quizQuestionResultFields,
+    pairs: Schema.mutable(
+      Schema.Array(
+        Schema.Struct({
+          termId: matchingTermIdSchema,
+          definitionId: matchingDefinitionIdSchema,
+          score: Schema.Number
+        })
+      )
+    )
+  }),
   Schema.Struct({
     ...openAttemptQuestionFields,
     ...quizQuestionResultFields,
