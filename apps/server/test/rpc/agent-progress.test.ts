@@ -13,6 +13,8 @@
 
 import type { LanguageModelV3, LanguageModelV3StreamPart } from '@ai-sdk/provider';
 import { StudyRpc } from '@study/contracts/rpc';
+import { AgentRule } from '@study/contracts/settings/schemas';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -66,6 +68,7 @@ function controlledModel() {
 
 const definition = defineAgent({
   id: 'rpc-stream',
+  customRules: [AgentRule.Replies],
   input: Schema.String,
   output: Schema.String,
   model: 'tiny',
@@ -96,6 +99,7 @@ testStable(
       observe,
       model: () => Effect.succeed(provider.model),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     });
     let listeners = 0;

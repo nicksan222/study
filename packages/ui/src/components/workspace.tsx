@@ -14,7 +14,7 @@ import {
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
 import { semanticPart as part } from './semantic-part';
-import { AttachmentIcon } from './session-desk';
+import { AttachmentIcon } from './workspace-desk';
 
 const CardContext = createContext<{
   id: string;

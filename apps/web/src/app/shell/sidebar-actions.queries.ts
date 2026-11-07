@@ -3,11 +3,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
+import type { sidebarSubjectDestination } from '#web/lib/navigation/sidebar-config.ts';
 import { createProjectMutationOptions } from '#web/lib/study-client/study.queries.ts';
 
 export function useSidebarActions(
   project: ProjectId | undefined,
-  subjectDestination: '/sessions' | '/documents' | '/practice' | '.',
+  subjectDestination: ReturnType<typeof sidebarSubjectDestination>,
   clearSearch: () => void
 ) {
   const navigate = useNavigate();

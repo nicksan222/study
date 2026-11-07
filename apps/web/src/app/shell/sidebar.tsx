@@ -1,9 +1,9 @@
 import { useParams } from '@tanstack/react-router';
 import type { ComponentType } from 'react';
-import type { ReactNode } from 'react';
 
 import { DocumentsSidebar } from '#web/features/authored-documents/index.ts';
 import { LibraryList } from '#web/features/library/index.ts';
+import { PracticeSidebarGenerations } from '#web/features/practice/index.ts';
 import type { SidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 
@@ -17,6 +17,7 @@ type PanelProps = { model: SidebarModel; ready: boolean };
 /** Each section owns its data and rendering; the shell only selects its registered panel. */
 const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   workspace: null,
+  assistant: null,
   documents: ({ model, ready }) =>
     ready ? (
       <DocumentsSidebar
@@ -29,7 +30,7 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   practice: ({ model, ready }) => <PracticePanel model={model} ready={ready} />
 };
 
-export function Sidebar(props: SidebarProps & { chat?: ReactNode }) {
+export function Sidebar(props: SidebarProps) {
   const model = useSidebar(props);
   const { sessionId } = useParams({ strict: false });
   const Panel = panels[sidebarContent(model.metadata)];
@@ -48,7 +49,6 @@ export function Sidebar(props: SidebarProps & { chat?: ReactNode }) {
 
   return (
     <SidebarView
-      chat={props.chat}
       counts={counts}
       {...model}
       selectedSession={sessionId ? String(sessionId) : null}
@@ -59,12 +59,21 @@ export function Sidebar(props: SidebarProps & { chat?: ReactNode }) {
 
 function PracticePanel({ model, ready }: PanelProps) {
   return (
-    <LibraryList
-      subjects={model.subjects}
-      project={model.project}
-      blocked={Boolean(model.requestedProject) && !ready}
-      ready={model.subjectState === 'ready'}
-      query={model.query}
-    />
+    <>
+      <PracticeSidebarGenerations
+        key={String(model.project)}
+        project={model.project}
+        subjects={model.subjects}
+        query={model.query}
+        enabled={ready}
+      />
+      <LibraryList
+        subjects={model.subjects}
+        project={model.project}
+        blocked={Boolean(model.requestedProject) && !ready}
+        ready={model.subjectState === 'ready'}
+        query={model.query}
+      />
+    </>
   );
 }

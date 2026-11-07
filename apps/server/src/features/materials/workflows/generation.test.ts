@@ -13,6 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -58,6 +59,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
     agentsLayer({
       model: () => Effect.die('unexpected model'),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     })
   );
@@ -238,6 +240,7 @@ testStable(
               return model;
             }),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.die('global search')
         })
       );

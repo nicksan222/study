@@ -13,12 +13,14 @@
 
 import { documentTransformOutputSchema } from '@study/contracts/ai/document-transform';
 import { promptInputSchema } from '@study/contracts/ai/shared';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const documentTransformAgent = defineAgent({
   id: 'document-transform',
+  customRules: [AgentRule.Documents],
   input: promptInputSchema,
   output: documentTransformOutputSchema,
   prompt: ({ prompt }) => prompt,

@@ -1,7 +1,7 @@
 import type { SessionId } from '@study/contracts/ids';
 import { IconButton } from '@study/ui/icon-button';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { WorkspaceCard } from '@study/ui/workspace';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { PanelBottom, PanelRight } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';

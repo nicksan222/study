@@ -1,5 +1,5 @@
 import { studyDocumentIdSchema } from '@study/contracts/ids';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

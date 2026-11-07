@@ -14,6 +14,7 @@
 
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { materialQuizContentInputSchema } from '@study/contracts/materials/schemas';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';
@@ -27,6 +28,7 @@ export const quizAgent = defineAgent({
   tools: { sources: sourcesTool },
   mode: 'object',
   id: 'quiz',
+  customRules: [AgentRule.Quizzes],
   output: materialQuizContentInputSchema,
   model: 'medium',
   instructions: (language) =>

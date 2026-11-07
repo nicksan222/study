@@ -31,7 +31,7 @@ import type { ServerContext } from '#server/platform/database/context';
 import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { withPublicationGuard, PublicationGuard } from '#server/platform/workflows/publication';
 
-const toolsCodec = Schema.fromJsonString(Schema.Array(agentToolProgressSchema));
+const toolsCodec = Schema.fromJsonString(Schema.toCodecJson(Schema.Array(agentToolProgressSchema)));
 
 /** Replace a tool call's current state while retaining the order of distinct calls. */
 function updateToolProgress(
@@ -39,12 +39,20 @@ function updateToolProgress(
   event: Extract<
     (typeof agentObservationSchema.Type)['event'],
     { type: 'tool-start' | 'tool-finish' }
-  >
+  >,
+  now: bigint
 ) {
   const tools = [...Schema.decodeUnknownSync(toolsCodec)(encoded)];
+  const index = tools.findIndex((item) => item.toolCallId === event.toolCallId);
+  const previous = tools[index];
   const tool = {
+    ...previous,
     toolCallId: event.toolCallId,
     toolName: event.toolName,
+    startedAtMs: previous?.startedAtMs ?? now,
+    ...(event.type === 'tool-start'
+      ? { input: event.input }
+      : { output: event.output, errorKind: event.errorKind, finishedAtMs: now }),
     status:
       event.type === 'tool-start'
         ? ('running' as const)
@@ -54,7 +62,6 @@ function updateToolProgress(
             ? ('cancelled' as const)
             : ('failed' as const)
   };
-  const index = tools.findIndex((item) => item.toolCallId === tool.toolCallId);
 
   if (index < 0) tools.push(tool);
   else tools[index] = tool;
@@ -85,7 +92,7 @@ function progressChanges(
       break;
     case 'tool-start':
     case 'tool-finish':
-      update.tools = updateToolProgress(existing.tools, event);
+      update.tools = updateToolProgress(existing.tools, event, now);
       break;
   }
 

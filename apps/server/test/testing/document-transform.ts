@@ -17,6 +17,7 @@ import type { documentTransformOutputSchema } from '@study/contracts/ai/document
 import type { documentGenerationRequestedSchema } from '@study/contracts/events';
 import type { materialGenerationRequestedSchema } from '@study/contracts/events';
 import type { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
@@ -228,6 +229,7 @@ export async function documentTransformFixture() {
         agentsLayer({
           model: () => Effect.succeed(model),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.die('Global retrieval is forbidden')
         })
       );

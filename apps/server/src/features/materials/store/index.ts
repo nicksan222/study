@@ -361,3 +361,19 @@ export const MaterialGenerationStore = defineStore({
     };
   }
 });
+
+export const MaterialActiveGenerationsStore = defineStore({
+  name: 'study/MaterialActiveGenerationsStore',
+  entity: { singular: 'activeGenerations', plural: 'activeGenerationBatches' },
+  make: (resources) => ({
+    queries: {
+      activeGenerations: storeQuery({
+        role: 'required',
+        input: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+        output: Schema.Array(materialGenerationSnapshotSchema),
+        run: makeGeneration(resources).activeGenerations
+      })
+    },
+    mutations: {}
+  })
+});

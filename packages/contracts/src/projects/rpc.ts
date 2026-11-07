@@ -10,7 +10,7 @@ export const projectPageInputSchema = Schema.Struct({
   before: Schema.optional(projectIdSchema)
 });
 
-const projectPageSchema = Schema.Struct({
+export const projectPageSchema = Schema.Struct({
   items: Schema.Array(projectSchema),
   next: Schema.NullOr(projectIdSchema)
 });
