@@ -14,7 +14,9 @@ export const sessionsQueryOptions = () =>
   queryOptions({
     queryKey: ['sessions'],
     queryFn: ({ signal }) => listSessions(signal),
-    refetchOnWindowFocus: 'always'
+    refetchOnWindowFocus: 'always',
+    refetchInterval: (query) =>
+      query.state.data?.some((session) => session.titleSource === 'provisional') ? 3000 : false
   });
 
 export const searchQueryOptions = (input: SearchInput, enabled: boolean) =>

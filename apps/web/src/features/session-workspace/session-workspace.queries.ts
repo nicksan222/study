@@ -46,7 +46,8 @@ export const sessionPagesOptions = (project?: ProjectId | null) =>
 export const sessionOptions = (id: SessionId) =>
   queryOptions({
     queryKey: [...sessionKey(id), 'detail'],
-    queryFn: ({ signal }) => request((client) => client['conversations.session']({ id }), signal)
+    queryFn: ({ signal }) => request((client) => client['conversations.session']({ id }), signal),
+    refetchInterval: (query) => (query.state.data?.titleSource === 'provisional' ? 3000 : false)
   });
 
 /** Keep the unselected sessions index inert without inventing a session identity. */

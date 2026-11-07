@@ -6,11 +6,20 @@ import { IconButton } from '@study/ui/icon-button';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
-import { FileText, MessagesSquare, SquareDashed, ChevronDown, Trash2, X } from 'lucide-react';
+import {
+  FileText,
+  MessagesSquare,
+  SquareDashed,
+  ChevronDown,
+  Trash2,
+  Merge,
+  X
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
+  SessionMergeDialog,
   SessionDocumentDialog,
   SessionBatchDeleteDialog
 } from '#web/features/session-workspace/index.ts';
@@ -46,7 +55,7 @@ function SidebarSessionList(props: Props) {
   const selectionOrigin = useRef<string | undefined>(undefined);
   const [selected, setSelected] = useState<SelectedSession[] | null>(null);
   const [action, setAction] = useState<{
-    kind: 'document' | 'delete';
+    kind: 'document' | 'delete' | 'merge';
     sessions: SelectedSession[];
   } | null>(null);
   const selection: SelectionControls = {
@@ -85,8 +94,11 @@ function SidebarSessionList(props: Props) {
       (summary.settledOverride ?? summary.generatedDocumentCount >= BigInt(threshold))
     );
   };
-  const open = props.sessions.filter((session) => !settled(session));
-  const complete = props.sessions.filter(settled);
+  const archived = props.sessions.filter((session) => session.archivedAt != null);
+  const open = props.sessions.filter((session) => session.archivedAt == null && !settled(session));
+  const complete = props.sessions.filter(
+    (session) => session.archivedAt == null && settled(session)
+  );
 
   return (
     <>
@@ -110,6 +122,16 @@ function SidebarSessionList(props: Props) {
           >
             <FileText aria-hidden="true" />
             {t('SessionCreateDocument')}
+          </Button>
+          <Button
+            size="sm"
+            aria-label={t('SessionMerge')}
+            title={t('SessionMerge')}
+            disabled={!canMergeSessions(selected, props.sessions)}
+            onClick={() => setAction({ kind: 'merge', sessions: [...selected] })}
+          >
+            <Merge aria-hidden="true" />
+            <span data-selection-action-label>{t('SessionMerge')}</span>
           </Button>
           <Button
             size="sm"
@@ -154,7 +176,30 @@ function SidebarSessionList(props: Props) {
           summaries={summaries}
           selection={selection}
         />
+        {archived.length > 0 && (
+          <SidebarUI.SessionGroup
+            title={t('SessionArchived')}
+            count={archived.length}
+            variant="settled"
+          >
+            {archived.map((session) => (
+              <RichSession
+                key={String(session.id)}
+                {...props}
+                session={session}
+                progress={summaries.get(String(session.id))}
+                settled
+                selection={selection}
+              />
+            ))}
+          </SidebarUI.SessionGroup>
+        )}
       </SidebarUI.SessionGroups>
+      <MergeAction
+        action={action}
+        onClose={() => setAction(null)}
+        onMerged={() => setSelected(null)}
+      />
       {action?.kind === 'document' && action.sessions[0] && (
         <SessionDocumentDialog
           id={action.sessions[0].id}
@@ -265,7 +310,7 @@ function SessionControls(props: RowProps) {
 
   return (
     <>
-      {!props.selection.items && (
+      {!props.selection.items && props.session.archivedAt == null && (
         <SessionActionLayout
           compact={preferences.sidebarDensity === 'compact'}
           documentAction={documentAction}
@@ -443,5 +488,37 @@ function SessionDocumentCount({ progress }: { progress?: Progress }) {
       <FileText size={12} aria-hidden="true" />
       {progress ? String(progress.generatedDocumentCount) : '—'}
     </SidebarUI.SessionCount>
+  );
+}
+
+function canMergeSessions(selected: readonly SelectedSession[], sessions: readonly SessionDto[]) {
+  if (selected.length < 2 || selected.length > 20) return false;
+
+  const archived = new Set(
+    sessions.filter((session) => session.archivedAt != null).map((session) => session.id)
+  );
+
+  return selected.every((session) => !archived.has(session.id));
+}
+
+function MergeAction({
+  action,
+  onClose,
+  onMerged
+}: {
+  action: { kind: 'document' | 'delete' | 'merge'; sessions: SelectedSession[] } | null;
+  onClose: () => void;
+  onMerged: () => void;
+}) {
+  if (action?.kind !== 'merge') return null;
+
+  return (
+    <SessionMergeDialog
+      sessions={action.sessions}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      onMerged={onMerged}
+    />
   );
 }

@@ -21,6 +21,7 @@ vi.mock('#web/lib/study-client/request.ts', async () => {
               projectIds: [9007199254740995n],
               title: 'Cell division',
               titleSource: 'user',
+              archivedAt: null,
               createdAt: 1n,
               updatedAt: 1n
             })

@@ -17,7 +17,7 @@ import type { conversationMessageSnapshotSchema } from '@study/contracts/convers
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, PartId, SessionId } from '@study/contracts/ids';
 import { and, desc, eq, isNull, lte } from '@study/db';
-import { messages, message_versions, sessions } from '@study/db/schema';
+import { messages, message_versions, sessions, session_merges } from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
@@ -44,7 +44,7 @@ export function makeHistory({ db }: StoreResources) {
     through?: MessageId,
     threadRoot?: PartId,
     allowEmpty = false,
-    policy: { pendingAssistant?: 'omit' } = {}
+    policy: { pendingAssistant?: 'omit'; bounded?: boolean } = {}
   ) {
     const rows = selectedMessages()
       .where(
@@ -79,7 +79,7 @@ export function makeHistory({ db }: StoreResources) {
       if (!version || version.status !== 'complete')
         throw new StudyError('invalid_input', 'conversation has an unfinished message');
 
-      if (contextFull(mode, version.text.length, remaining, history.length)) break;
+      if (contextFull(mode, version.text.length, remaining, history.length, policy.bounded)) break;
 
       remaining -= version.text.length;
       history.push({
@@ -122,8 +122,15 @@ export function makeHistory({ db }: StoreResources) {
 
   /** Titles use complete context while an assistant reply is still being generated. */
   function titleHistory(sessionId: SessionId) {
-    return conversationHistory(sessionId, undefined, undefined, false, {
-      pendingAssistant: 'omit'
+    const merged = db.orm
+      .select({ id: session_merges.session_id })
+      .from(session_merges)
+      .where(eq(session_merges.session_id, sessionId))
+      .get();
+
+    return conversationHistory(sessionId, undefined, undefined, merged !== undefined, {
+      pendingAssistant: 'omit',
+      bounded: true
     });
   }
 
@@ -134,11 +141,12 @@ function contextFull(
   mode: ConversationMode | undefined,
   size: number,
   remaining: number,
-  count: number
+  count: number,
+  bounded = false
 ) {
   if (size <= remaining) return false;
 
-  if (mode === ConversationMode.Assistant && count > 0) return true;
+  if ((bounded || mode === ConversationMode.Assistant) && count > 0) return true;
 
   throw new StudyError('not_enough', 'Active session messages exceed the context limit');
 }
