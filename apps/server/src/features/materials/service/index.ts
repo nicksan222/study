@@ -34,6 +34,7 @@ import {
 } from '#server/features/materials/store/backup';
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
 import {
+  MaterialActiveGenerationsStore,
   MaterialGenerationStore,
   MaterialsStore,
   MaterialVersionsStore,
@@ -87,6 +88,20 @@ function* makeMaterials() {
     closeGenerationScope: (value: { scopeId: string; projectId: ProjectId }) =>
       transaction((tx) => tx.store(MaterialGenerationStore).closeScope(value)),
     contentInput: (input: ContentInput) => transaction((tx) => readContentInput(tx, input)),
+    activeMaterialGenerations: (value: { projectId?: ProjectId }) =>
+      transaction((tx) =>
+        tx
+          .store(MaterialActiveGenerationsStore)
+          .activeGenerations(value)
+          .filter(
+            (request) =>
+              !Workflows.correlatedExecutions(tx, request.id).some(
+                (run) =>
+                  run.workflow === 'material-generation/v1' &&
+                  (run.status === 'cancelled' || run.status === 'cancelling')
+              )
+          )
+      ),
     materialGeneration: (value: { requestId: string; eventId?: string; verifyOnly?: boolean }) =>
       transaction((tx) => {
         const request = tx.store(MaterialGenerationStore).materialGeneration(value);
