@@ -13,14 +13,19 @@ testStable(
   () => {
     const folder = mkdtempSync(join(tmpdir(), 'study-boolean-migration-'));
     const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
-    const previous = join(folder, 'migrations');
+    const previous = join(folder, 'previous-migrations');
+    const current = join(folder, 'current-migrations');
     const path = join(folder, 'study.sqlite');
     let connection: Db | undefined;
 
     try {
-      for (const name of readdirSync(migrations))
+      for (const name of readdirSync(migrations)) {
         if (name < '20261107130459_true-false-practice')
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
+
+        if (name <= '20261107130459_true-false-practice')
+          cpSync(join(migrations, name), join(current, name), { recursive: true });
+      }
 
       connection = Db.open(path, previous);
       const db = connection.orm;
@@ -59,7 +64,7 @@ testStable(
 
       connection.close();
       connection = undefined;
-      connection = Db.open(path);
+      connection = Db.open(path, current);
       assert.deepEqual(
         tables.map((table) => connection!.orm.all(sql.raw(`SELECT * FROM ${table}`))),
         before
