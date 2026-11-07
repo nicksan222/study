@@ -17,13 +17,19 @@ import type {
   SemanticSearchHit,
   SemanticSearchInput
 } from '@study/contracts/search/schemas';
+import { searchTargetSchema } from '@study/contracts/search/schemas';
 import type { Db } from '@study/db';
 import { and, eq, inArray, sql } from '@study/db';
 import { semantic_search_entries as entries } from '@study/db/schema';
+import { Schema } from 'effect';
 
 import { searchEntities, vectorBuffer } from './records.ts';
 import type { SearchRecord } from './records.ts';
 import type { EmbeddingModel, SearchScope } from './types.ts';
+
+const decodeTarget = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.toCodecJson(searchTargetSchema))
+);
 
 /** Apply the trusted caller scope and requested kinds before any candidate is ranked. */
 function isEligible(
@@ -65,9 +71,9 @@ function bestHits(
   for (const match of [...ranked].sort(
     (a, b) => a.distance - b.distance || a.key.localeCompare(b.key)
   )) {
-    const row = eligible.get(match.key)!;
+    const row = eligible.get(match.key);
 
-    if (seen.has(row.target)) continue;
+    if (!row || seen.has(row.target)) continue;
 
     seen.add(row.target);
     hits.push({
@@ -128,35 +134,37 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     return stale.filter((row) => !live.has(row.target)).length;
   }
 
-  /** Compare only this bounded record batch with persisted fingerprints and model settings. */
-  function changed(desired: readonly SearchRecord[]) {
-    const saved = new Map<string, { fingerprint: string; model: string; dimensions: number }>();
+  /** Read bounded current-model cache identities without loading vectors or excerpts. */
+  function cached(keys: readonly string[]) {
+    const saved = new Map<string, { target: string; fingerprint: string }>();
 
-    for (let i = 0; i < desired.length; i += 200) {
-      const keys = desired.slice(i, i + 200).map((row) => row.key);
+    for (let i = 0; i < keys.length; i += 200) {
       const rows = db.orm
-        .select({
-          key: entries.key,
-          fingerprint: entries.fingerprint,
-          model: entries.model,
-          dimensions: entries.dimensions
-        })
+        .select({ key: entries.key, target: entries.target, fingerprint: entries.fingerprint })
         .from(entries)
-        .where(inArray(entries.key, keys))
+        .where(
+          and(
+            inArray(entries.key, keys.slice(i, i + 200)),
+            eq(entries.model, model.identity),
+            eq(entries.dimensions, model.dimensions)
+          )
+        )
         .all();
 
       for (const row of rows) saved.set(row.key, row);
     }
 
+    return saved;
+  }
+
+  /** Compare only this bounded record batch with persisted fingerprints and model settings. */
+  function changed(desired: readonly SearchRecord[]) {
+    const saved = cached(desired.map((row) => row.key));
+
     return desired.filter((row) => {
       const old = saved.get(row.key);
 
-      return (
-        !old ||
-        old.fingerprint !== row.fingerprint ||
-        old.model !== model.identity ||
-        Number(old.dimensions) !== model.dimensions
-      );
+      return !old || old.target !== row.target || old.fingerprint !== row.fingerprint;
     });
   }
 
@@ -202,24 +210,38 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     return count;
   }
 
-  /** Use sqlite-vec cosine distance on bounded eligible key batches without loading vectors into JavaScript. */
-  function score(keys: readonly string[], vector: Buffer) {
-    return db.orm.all<{ key: string; distance: number }>(
-      sql`SELECT key,vec_distance_cosine(embedding,${vector}) AS distance FROM ${entries} WHERE key IN (${sql.join(
-        keys.map((key) => sql`${key}`),
-        sql`,`
-      )}) ORDER BY distance,key`
-    );
+  /** Rank persisted metadata before taking a publication transaction or reading feature content. */
+  function rank(input: SemanticSearchInput, query: Float32Array, limit: number) {
+    const vector = vectorBuffer(query, model.dimensions);
+
+    return db.orm
+      .select({
+        key: entries.key,
+        target: entries.target,
+        fingerprint: entries.fingerprint,
+        distance: sql<number>`vec_distance_cosine(${entries.embedding},${vector})`.as('distance')
+      })
+      .from(entries)
+      .where(
+        and(
+          eq(entries.model, model.identity),
+          eq(entries.dimensions, model.dimensions),
+          input.kinds ? inArray(entries.kind, [...input.kinds]) : undefined
+        )
+      )
+      .orderBy(sql`distance`, entries.key)
+      .limit(limit)
+      .all()
+      .map((row) => ({ ...row, projection: { target: decodeTarget(row.target) } }));
   }
 
-  /** Exclude invisible or stale records before ranking, deduplicating entities, and enforcing the limit. */
+  /** Revalidate live and cached identities before deduplication, the limit, and excerpt loading. */
   function search(
     input: SemanticSearchInput,
     scope: SearchScope,
-    query: Float32Array,
+    ranked: ReturnType<typeof rank>,
     rows: Iterable<SearchProjection>
   ) {
-    const vector = vectorBuffer(query, model.dimensions);
     const live = new Map(
       Array.from(
         searchEntities(eligibleProjections(rows, input, scope), model.maxChunkingInputLength),
@@ -238,36 +260,24 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
 
     if (!live.size) return [];
 
-    const saved = db.orm
-      .select({
-        key: entries.key,
-        target: entries.target,
-        fingerprint: entries.fingerprint
-      })
-      .from(entries)
-      .where(
-        and(
-          eq(entries.model, model.identity),
-          eq(entries.dimensions, model.dimensions),
-          input.kinds ? inArray(entries.kind, [...input.kinds]) : undefined
-        )
-      )
-      .all();
+    const current = cached(ranked.map((row) => row.key));
     const eligible = new Map<string, SearchCandidate>();
 
-    for (const row of saved) {
+    for (const row of ranked) {
       const entity = live.get(row.target);
+      const saved = current.get(row.key);
 
-      if (!entity || entity.fingerprint !== row.fingerprint) continue;
+      if (
+        !entity ||
+        !saved ||
+        saved.target !== row.target ||
+        saved.fingerprint !== row.fingerprint ||
+        entity.fingerprint !== row.fingerprint
+      )
+        continue;
 
       eligible.set(row.key, entity);
     }
-
-    const candidates = [...eligible.keys()];
-    const ranked: Array<{ key: string; distance: number }> = [];
-
-    for (let i = 0; i < candidates.length; i += 200)
-      ranked.push(...score(candidates.slice(i, i + 200), vector));
 
     const selected = bestHits(ranked, eligible, input.limit ?? 10);
 
@@ -294,5 +304,5 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     }));
   }
 
-  return { purge, changed, publish, search };
+  return { purge, changed, publish, rank, search };
 }

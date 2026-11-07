@@ -134,7 +134,23 @@ export function makeSemanticIndex(options: {
 
       const query = yield* model.embedQuery(request.query);
 
-      return yield* commit((rows) => store.search(request, scope, query, rows));
+      let window = Math.max(32, (request.limit ?? 10) * 4);
+
+      for (;;) {
+        // Ranking uses SQLite's ordinary read snapshot; only the candidate fence takes a transaction.
+        const ranked = yield* sync(() => store.rank(request, query, window));
+
+        if (!ranked.length) return [];
+
+        const targets = [
+          ...new Map(ranked.map((row) => [row.target, row.projection.target])).values()
+        ];
+        const hits = yield* commit((rows) => store.search(request, scope, ranked, rows), targets);
+
+        if (hits.length >= (request.limit ?? 10) || ranked.length < window) return hits;
+
+        window *= 2;
+      }
     });
   }
 

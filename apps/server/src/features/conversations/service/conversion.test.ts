@@ -221,3 +221,114 @@ testStable(
     );
   }
 );
+
+testStable('failed conversion retry rejects a base version that is no longer active', async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const c = yield* Conversations;
+      const session = yield* c.createSession({ title: 'Stale conversion' });
+      const note = yield* c.postMessage({
+        sessionId: session.id,
+        text: 'Original\ntext.',
+        requestReply: false
+      });
+      const input = {
+        messageId: note.id,
+        expectedActiveVersionId: note.activeVersionId!,
+        strategyId: 'chatgpt'
+      };
+      const receipt = yield* c.convertMessage(input);
+
+      yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
+      yield* c.editMessage({ messageId: note.id, text: 'A newer edit.' });
+      const edited = yield* c.message(note.id);
+      const events = context.db.orm.select().from(workflowEvents).all();
+      const error = yield* c
+        .convertMessage(input)
+        .pipe(Effect.match({ onFailure: (error) => error, onSuccess: () => null }));
+
+      expect(error?.kind).toBe('invalid_input');
+      expect(yield* c.message(note.id)).toEqual(edited);
+      expect(edited.versions.find((version) => version.id === receipt.versionId)?.status).toBe(
+        'failed'
+      );
+      expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
+    }).pipe(Effect.provide(services()))
+  );
+});
+
+testStable(
+  'Ask schedules automatic conversion once after capturing its original reply input',
+  async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const c = yield* Conversations;
+        const settings = yield* Settings;
+        const manualSession = yield* c.createSession({ title: 'Manual Ask' });
+        const manual = yield* c.ask({
+          sessionId: manualSession.id,
+          intentKey: 'manual-ask',
+          expectedSelectionRevision: 0n,
+          text: 'Manual\ninput.'
+        });
+
+        expect((yield* c.message(manual.userMessageId)).versions).toHaveLength(1);
+        yield* settings.saveWorkspacePreferences({
+          ...(yield* settings.workspacePreferences()),
+          textConversionMode: 'automatic'
+        });
+        const session = yield* c.createSession({ title: 'Automatic Ask' });
+        const input = {
+          sessionId: session.id,
+          intentKey: 'automatic-ask',
+          expectedSelectionRevision: 0n,
+          text: 'Original\nAsk input.'
+        };
+        const asked = yield* c.ask(input);
+        const note = yield* c.message(asked.userMessageId);
+
+        expect(note.versions).toHaveLength(2);
+        expect(note.activeVersionId).toBe(asked.userVersionId);
+        const conversion = note.versions.find((version) => version.origin === 'convert')!;
+
+        expect(conversion).toMatchObject({ status: 'pending', basedOn: asked.userVersionId });
+        expect((yield* c.replySnapshot(asked)).messages.at(-1)).toMatchObject({
+          messageId: note.id,
+          versionId: asked.userVersionId,
+          text: 'Original\nAsk input.'
+        });
+        const conversionEvents = context.db.orm
+          .select()
+          .from(workflowEvents)
+          .all()
+          .map((row) => decodeEvent(row.payload))
+          .filter(
+            (event) =>
+              event.type === 'ConversationGenerationRequested' && event.messageId === note.id
+          );
+
+        expect(conversionEvents).toHaveLength(1);
+        expect(conversionEvents[0]).toMatchObject({
+          versionId: conversion.id,
+          operation: 'rewrite'
+        });
+        const receipt = yield* c.convertMessage({
+          messageId: note.id,
+          expectedActiveVersionId: asked.userVersionId,
+          strategyId: 'chatgpt'
+        });
+
+        expect(receipt.versionId).toBe(conversion.id);
+        yield* withTestPublication(context, c.failConversion(receipt).pipe(Effect.asVoid));
+        const events = context.db.orm.select().from(workflowEvents).all();
+
+        expect(yield* c.ask(input)).toEqual(asked);
+        expect(context.db.orm.select().from(workflowEvents).all()).toEqual(events);
+        expect(
+          (yield* c.message(note.id)).versions.find((version) => version.id === conversion.id)
+            ?.status
+        ).toBe('failed');
+      }).pipe(Effect.provide(services()))
+    );
+  }
+);

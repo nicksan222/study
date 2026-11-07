@@ -13,6 +13,8 @@
 import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { SearchProjection } from '@study/contracts/search/schemas';
+import type { Db } from '@study/db';
+import { eq } from '@study/db';
 import { semantic_search_entries } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -49,6 +51,114 @@ const project = (n: bigint, text: string): SearchProjection => ({
   projectIds: [id(n)],
   revision: text
 });
+
+function targetedCommit(
+  db: Db,
+  rows: readonly SearchProjection[],
+  windows: number[]
+): NonNullable<Parameters<typeof makeSemanticIndex>[0]['commit']> {
+  return (work, targets) =>
+    Effect.sync(() =>
+      db.transaction(() => {
+        expect(targets).toBeDefined();
+        windows.push(targets!.length);
+        const ids = new Set<SearchProjection['projectIds'][number]>();
+
+        for (const target of targets!) if (target.type === 'project') ids.add(target.id);
+
+        const visible: SearchProjection[] = [];
+
+        for (const row of rows)
+          if (row.target.type === 'project' && ids.has(row.target.id)) visible.push(row);
+
+        return work(visible);
+      })
+    );
+}
+
+testStable(
+  'search revalidates cached rows after ranking before filling its result limit',
+  async () => {
+    const location = createTestDatabase();
+    const db = location.open();
+    const rows = [project(1n, 'planet winner'), project(2n, 'painting fallback')];
+
+    try {
+      await Effect.runPromise(makeSemanticIndex({ db, model, read: () => rows }).reconcile());
+      const winner = db.orm
+        .select()
+        .from(semantic_search_entries)
+        .all()
+        .find((row) => row.title === 'planet winner')!;
+      const index = makeSemanticIndex({
+        db,
+        model,
+        read: () => rows,
+        beforePublish: () => {
+          db.orm
+            .update(semantic_search_entries)
+            .set({ fingerprint: 'superseded', text: 'unrelated replacement' })
+            .where(eq(semantic_search_entries.key, winner.key))
+            .run();
+        }
+      });
+
+      expect(
+        await Effect.runPromise(index.search({ query: 'planet', limit: 1 }, { type: 'all' }))
+      ).toMatchObject([
+        { target: { type: 'project', id: id(2n) }, text: 'painting fallback\npainting fallback' }
+      ]);
+      const removed = makeSemanticIndex({
+        db,
+        model,
+        read: () => rows,
+        beforePublish: () => {
+          db.orm.delete(semantic_search_entries).run();
+        }
+      });
+
+      expect(
+        await Effect.runPromise(removed.search({ query: 'planet', limit: 1 }, { type: 'all' }))
+      ).toStrictEqual([]);
+    } finally {
+      db.close();
+      location.cleanup();
+    }
+  }
+);
+
+testStable(
+  'search ranks before targeted visibility checks and widens past unauthorized candidates',
+  async () => {
+    const location = createTestDatabase();
+    const db = location.open();
+    const rows = Array.from({ length: 220 }, (_, n) =>
+      project(BigInt(n + 1), n === 219 ? 'painting scoped' : 'planet ' + n)
+    );
+    const windows: number[] = [];
+
+    try {
+      await Effect.runPromise(makeSemanticIndex({ db, model, read: () => rows }).reconcile());
+      const index = makeSemanticIndex({
+        db,
+        model,
+        commit: targetedCommit(db, rows, windows)
+      });
+      const hits = await Effect.runPromise(
+        index.search({ query: 'planet', limit: 1 }, { type: 'projects', projectIds: [id(220n)] })
+      );
+
+      expect(hits).toMatchObject([
+        { target: { type: 'project', id: id(220n) }, text: 'painting scoped\npainting scoped' }
+      ]);
+      expect(windows[0]).toBeLessThan(rows.length);
+      expect(windows.length).toBeGreaterThan(1);
+    } finally {
+      db.close();
+      location.cleanup();
+    }
+  }
+);
 
 testStable('search reads passage text only for its selected result keys', async () => {
   const location = createTestDatabase();

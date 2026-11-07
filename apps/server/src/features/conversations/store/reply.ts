@@ -1397,6 +1397,24 @@ export const ReplyStore = defineStore({
           input: convertMessageInputSchema,
           output: Schema.Struct({ ...replyRequestSchema.fields, created: Schema.Boolean }),
           run: (input) => {
+            /** Fence both new requests and failed retries against the active base version. */
+            function requireCurrentTarget() {
+              const message = db.orm
+                .select()
+                .from(messages)
+                .where(eq(messages.id, input.messageId))
+                .get();
+
+              if (
+                !message ||
+                message.role !== 'user' ||
+                message.active_version_id !== input.expectedActiveVersionId
+              )
+                throw new StudyError('invalid_input', 'Conversion target changed');
+
+              return message;
+            }
+
             const existing = db.orm
               .select()
               .from(conversation_reply_requests)
@@ -1422,6 +1440,7 @@ export const ReplyStore = defineStore({
                 const retry = row.message_versions.status === 'failed';
 
                 if (retry) {
+                  requireCurrentTarget();
                   requireNoActiveVersion(input.messageId);
                   db.orm
                     .update(message_versions)
@@ -1440,18 +1459,7 @@ export const ReplyStore = defineStore({
               }
             }
 
-            const message = db.orm
-              .select()
-              .from(messages)
-              .where(eq(messages.id, input.messageId))
-              .get();
-
-            if (
-              !message ||
-              message.role !== 'user' ||
-              message.active_version_id !== input.expectedActiveVersionId
-            )
-              throw new StudyError('invalid_input', 'Conversion target changed');
+            const message = requireCurrentTarget();
 
             requireNoActiveVersion(input.messageId);
 
