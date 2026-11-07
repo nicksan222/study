@@ -162,10 +162,28 @@ jobs:
         timeout-minutes: 10
         run: npm run server:test
 
+  integrations:
+    name: 🔌 Real integration tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      - name: 📦 Install workspace dependencies
+        env:
+          ONNXRUNTIME_NODE_INSTALL: skip
+        run: bun install --frozen-lockfile --ignore-scripts
+      - name: 🔌 Run every provider in a fresh Testcontainers environment
+        run: bun run integrations:e2e
+
   check:
     # Required by the main branch ruleset; keep this name.
     name: Test and build
-    needs: [gates, server_tests]
+    needs: [gates, server_tests, integrations]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     steps:
@@ -180,7 +198,7 @@ jobs:
 
           results = json.loads(os.environ['RESULTS'])
           icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
-          labels = {'gates': '📦 Package checks', 'server_tests': '🧪 Server tests'}
+          labels = {'gates': '📦 Package checks', 'server_tests': '🧪 Server tests', 'integrations': '🔌 Real integration tests'}
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write('## 🏁 Study CI\n\n| Check | Result |\n| :--- | :--- |\n')
               for name, job in results.items():

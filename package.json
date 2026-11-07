@@ -28,7 +28,8 @@
     "dev": "node --watch --watch-preserve-output tooling/development/dev.ts",
     "architecture:check": "node tooling/oxc-config/check-architecture.ts",
     "fallow:check": "fallow --config tooling/fallow.jsonc --fail-on-issues",
-    "seed": "node tooling/seed/index.ts"
+    "seed": "node tooling/seed/index.ts",
+    "integrations:e2e": "bun test --timeout 180000 ./apps/server/test/integrations/integrations.e2e.ts"
   },
   "devDependencies": {
     "@study/testing": "*",

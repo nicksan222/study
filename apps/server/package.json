@@ -4,7 +4,8 @@
   "type": "module",
   "imports": {
     "#server/*": "./src/*.ts",
-    "#testing/*": "./test/testing/*.ts"
+    "#testing/*": "./test/testing/*.ts",
+    "#integration-tests/*": "./test/integrations/*.ts"
   },
   "exports": {
     "./client": "./src/client/index.ts",
@@ -22,6 +23,7 @@
     "@huggingface/transformers": "4.3.2",
     "@study/contracts": "*",
     "@study/db": "*",
+    "@study/integrations": "*",
     "@study/localization": "*",
     "@study/theme": "*",
     "ai": "6.0.316",
@@ -37,6 +39,7 @@
   "devDependencies": {
     "@study/testing": "*",
     "@types/jsdom": "30.0.0",
-    "@types/yauzl": "3.4.0"
+    "@types/yauzl": "3.4.0",
+    "testcontainers": "12.2.1"
   }
 }
