@@ -37,6 +37,7 @@ import { Effect, Option } from 'effect';
 
 import { Settings } from '#server/features/settings/index';
 import { decoderPath } from '#server/features/sources/decoders/capability';
+import { decodeText } from '#server/features/sources/decoders/text';
 import type {
   ConversionInput,
   ConversionContext
@@ -501,6 +502,31 @@ export const Sources = defineService(
     };
   }),
   {
+    decodeImportedMarkdown: (bytes: Uint8Array) =>
+      decodeText({ bytes, kind: 'text', mime: 'text/markdown' }),
+    createImportedInTransaction: (
+      tx: Transaction,
+      input: { name: string; bytes: Uint8Array; projectId: ProjectId | null }
+    ) => {
+      const requestId = randomUUID();
+      const detected = sniff(input.name, input.bytes);
+      const source = tx
+        .store(SourceStore)
+        .createSource({ ...input, ...detected, origin: 'import', uri: null, requestId });
+
+      tx.emit({
+        type: 'SourceProcessingRequested',
+        eventId: randomUUID(),
+        causationId: null,
+        correlationId: requestId,
+        inputVersion: 1,
+        depth: 0,
+        sourceId: source.id,
+        requestId
+      });
+
+      return source;
+    },
     searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
       tx.store(SourceSearchStore).searchProjectionPages(input),
     currentExtractionInTransaction: (tx: Transaction, id: SourceId) => {

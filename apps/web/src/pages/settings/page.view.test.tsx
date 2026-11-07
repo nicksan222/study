@@ -181,7 +181,8 @@ testStable('groups settings navigation and shows relevant cross-section search r
     'Matching',
     'True or false',
     'Subjects',
-    'Data & backups'
+    'Data & backups',
+    'Integrations'
   ]);
   expect(
     within(navigation)
@@ -193,7 +194,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
     .map((button) => button.querySelector('svg')?.innerHTML);
 
   expect(new Set(icons).size).toBe(labels.length);
-  expect(labels).toHaveLength(19);
+  expect(labels).toHaveLength(20);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'

@@ -5,6 +5,12 @@ import { production } from './synchronous-transactions.ts';
 
 const groups: Record<string, string[]> = {
   projects: ['projects'],
+  integrations: [
+    'integration_imports',
+    'integration_import_notes',
+    'integration_import_files',
+    'integration_receipts'
+  ],
   search: ['semantic_search_entries'],
   'projects,materials': ['project_materials'],
   'projects,conversations': ['project_sessions'],

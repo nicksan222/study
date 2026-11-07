@@ -20,7 +20,8 @@ import {
   TextCursorInput,
   ListOrdered,
   Link2,
-  Binary
+  Binary,
+  Plug
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -34,6 +35,7 @@ import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
 import { SidebarSettings } from './general/sidebar-settings';
+import { IntegrationsSettings } from './integrations';
 import { InterfaceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
 import { StudySettings } from './study';
@@ -202,6 +204,12 @@ const sections = [
     label: 'DataSettingsTitle',
     Icon: Database,
     keywords: ['DataCreate', 'DataImport', 'DataPreview']
+  },
+  {
+    id: 'integrations',
+    label: 'IntegrationsTitle',
+    Icon: Plug,
+    keywords: ['IntegrationObsidian', 'IntegrationChooseVault']
   }
 ] as const satisfies readonly {
   id: string;
@@ -225,7 +233,7 @@ const navigationGroups = [
     label: 'Practice',
     ids: ['flashcards', 'quizzes', 'fill_blank', 'ordering', 'matching', 'true_false']
   },
-  { label: 'SettingsGroupLibrary', ids: ['projects', 'data'] }
+  { label: 'SettingsGroupLibrary', ids: ['projects', 'data', 'integrations'] }
 ] as const satisfies readonly { label: StaticMessageKey; ids: readonly SettingsSectionId[] }[];
 
 /** Composes settings navigation and passes subject identity and committed deletion outcomes to its section. */
@@ -376,6 +384,7 @@ function SectionContent({
   const content = {
     projects: <ProjectSettings initialProject={initialProject} onDeleted={onProjectDeleted} />,
     data: <DataSettings />,
+    integrations: <IntegrationsSettings />,
     appearance: <AppearanceContent model={model} search={search} />,
     general: <GeneralSettings />,
     sidebar: (

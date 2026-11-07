@@ -26,6 +26,7 @@ import effectV4Api from './rules/effect-v4-api.ts';
 import featureOrchestration from './rules/feature-orchestration.ts';
 import featurePreviewBoundary from './rules/feature-preview-boundary.ts';
 import harnessBoundary from './rules/harness-boundary.ts';
+import integrationTestEnvironment from './rules/integration-test-environment.ts';
 import metricCardinality from './rules/metric-cardinality.ts';
 import nativeClock from './rules/native-clock.ts';
 import noDeepRelativeImports from './rules/no-deep-relative-imports.ts';
@@ -103,6 +104,7 @@ export default definePlugin({
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
     'feature-preview-boundary': featurePreviewBoundary,
+    'integration-test-environment': integrationTestEnvironment,
     'no-deep-relative-imports': noDeepRelativeImports,
     'theme-colors': themeRule,
     'shared-ui-variants': sharedUiVariants,

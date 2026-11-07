@@ -25,6 +25,7 @@ import { conversationQuestionRegistration } from '#server/features/conversations
 import { conversationTitleRegistration } from '#server/features/conversations/workflows/title';
 import { transformSuggestionRegistration } from '#server/features/conversations/workflows/transform-suggestion';
 import { documentTransformRegistration } from '#server/features/documents/workflows/transform';
+import { integrationImportRegistration } from '#server/features/integrations/workflows/index';
 import {
   quizGradingRegistration,
   practiceSlotRegistration,
@@ -40,6 +41,7 @@ import { sourceIngestionRegistration } from '#server/features/sources/workflows/
 
 /** Each workflow is registered once with its durable event subscriptions. */
 const entries = [
+  integrationImportRegistration,
   transformSuggestionRegistration,
   documentTransformRegistration,
   materialHistoryRegistration,

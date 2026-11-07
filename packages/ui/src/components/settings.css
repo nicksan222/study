@@ -519,6 +519,11 @@
   max-width: 18rem;
   justify-self: end;
 }
+.settings-row-control [data-slot='input-control'] {
+  display: block;
+  width: 18rem;
+  max-width: 100%;
+}
 .settings-row[data-has-control='false'] {
   grid-template-columns: minmax(0, 1fr);
 }

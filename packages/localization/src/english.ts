@@ -1,5 +1,52 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  IntegrationResume: 'Resume import',
+
+  IntegrationsTitle: 'Integrations',
+  IntegrationIntro:
+    'Bring an Obsidian vault into Study. Each note becomes an editable session document. Imports are one-way and never change the vault.',
+  IntegrationProvider: 'Provider',
+  IntegrationObsidian: 'Obsidian',
+  IntegrationVaultName: 'Vault name',
+  IntegrationIdentityHelp:
+    'Defaults to the folder name. Reuse this identity and destination for repeat imports. Use a different name for unrelated vaults.',
+  IntegrationVaultFolder: 'Vault folder',
+  IntegrationLimit:
+    'Up to 2,000 notes and 32 MB per import. Hidden folders and Obsidian configuration are excluded.',
+  IntegrationChooseVault: 'Choose vault folder',
+  IntegrationScanning: 'Reading vault…',
+  IntegrationHistory: 'Recent imports',
+  IntegrationHistoryEmpty: 'Your imported vaults will appear here.',
+  IntegrationError:
+    'Could not complete the operation. Retry loading the import history before submitting again.',
+  IntegrationPreview: 'Ready to import',
+  IntegrationRunning: 'Importing…',
+  IntegrationCompleted: 'Completed',
+  IntegrationCancelled: 'Cancelled',
+  IntegrationFailed: 'Failed',
+  IntegrationPending: 'Pending',
+  IntegrationImported: 'Imported',
+  IntegrationUnchanged: 'Already imported',
+  IntegrationConflict: 'Needs review',
+  IntegrationExcluded: 'Excluded',
+  IntegrationProgress: 'Notes imported: {completed} / {total}',
+  IntegrationDestination: 'Destination project',
+  IntegrationNoProject: 'No project',
+  IntegrationCancelHelp:
+    'Completed notes are kept. Resume this import to continue the remaining notes.',
+  IntegrationConflictHelp:
+    'Changed notes, changed link destinations and deleted sessions need review. Existing Study content has been kept.',
+  IntegrationOpenSession: 'Open session',
+  IntegrationWarnings: 'Import warnings ({count})',
+  IntegrationStart: 'Import {count} notes',
+  IntegrationEmptyNote: 'Empty note skipped',
+  IntegrationOversizedNote: 'Note exceeds the text limit',
+  IntegrationMissingLink: 'Linked note not found',
+  IntegrationAmbiguousLink: 'Link matches multiple files',
+  IntegrationMissingAttachment: 'Attachment not found',
+  IntegrationEmbeddedNote: 'Embedded note imported as a link',
+  IntegrationUnsupportedFile: 'Unreferenced file skipped',
+
   UsageTitle: 'AI usage',
   UsageProvider: 'Provider',
   UsageAllProviders: 'All providers',

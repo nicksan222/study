@@ -17,6 +17,7 @@ import { createBlock } from '@study/contracts/sources/document';
 import type { Block } from '@study/contracts/sources/document';
 import type { Document } from '@study/contracts/sources/document';
 import type { BlockContent, Inline } from '@study/contracts/sources/schemas';
+import { validDocumentHref } from '@study/contracts/sources/schemas';
 import type { SourceKind } from '@study/contracts/sources/sniff';
 
 type TextInput = { bytes: Uint8Array; kind: SourceKind; mime: string };
@@ -164,14 +165,14 @@ function blockKind(
 
 function markdownInlines(text: string): Inline[] {
   const result: Inline[] = [];
-  const pattern = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g;
+  const pattern = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\(([^\s)]+)\))/g;
   let offset = 0;
 
   for (const match of text.matchAll(pattern)) {
     if (match.index > offset)
       result.push({ type: 'text', text: text.slice(offset, match.index), marks: [] });
 
-    if (match[5]) result.push({ type: 'link', text: match[5], href: match[6]! });
+    if (match[5]) result.push(markdownLink(match[5], match[6]!, match[0]));
     else
       result.push({
         type: 'text',
@@ -185,6 +186,12 @@ function markdownInlines(text: string): Inline[] {
   if (offset < text.length) result.push({ type: 'text', text: text.slice(offset), marks: [] });
 
   return result;
+}
+
+function markdownLink(text: string, href: string, original: string): Inline {
+  return validDocumentHref(href)
+    ? { type: 'link', text, href }
+    : { type: 'text', text: original, marks: [] };
 }
 
 function textContent(kind: Block['kind'], text: string, markdown: boolean): BlockContent {

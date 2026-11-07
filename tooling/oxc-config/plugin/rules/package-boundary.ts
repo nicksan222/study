@@ -8,6 +8,7 @@ import { moduleEdges } from '../architecture-imports.ts';
 
 const directories = {
   'packages/contracts': '@study/contracts',
+  'packages/integrations': '@study/integrations',
   'packages/testing': '@study/testing',
   tooling: '@study/tooling',
   'packages/ui': '@study/ui',
@@ -25,6 +26,7 @@ type Owner = (typeof directories)[keyof typeof directories];
 
 const allowed: Record<Owner, readonly Owner[]> = {
   '@study/contracts': [],
+  '@study/integrations': ['@study/contracts'],
   '@study/testing': [],
   '@study/tooling': [
     '@study/contracts',
@@ -39,7 +41,13 @@ const allowed: Record<Owner, readonly Owner[]> = {
   '@study/localization': [],
   '@study/db': ['@study/contracts', '@study/theme'],
   '@study/ai': ['@study/localization'],
-  '@study/server': ['@study/contracts', '@study/db', '@study/localization', '@study/theme'],
+  '@study/server': [
+    '@study/contracts',
+    '@study/db',
+    '@study/localization',
+    '@study/theme',
+    '@study/integrations'
+  ],
   '@study/web': ['@study/contracts', '@study/ui', '@study/localization', '@study/theme'],
   '@study/desktop': [],
   'study-landing': ['@study/ui', '@study/localization', '@study/contracts']
