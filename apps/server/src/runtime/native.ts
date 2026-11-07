@@ -25,6 +25,8 @@ import { Conversations } from '#server/features/conversations/index';
 import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
 import { Documents } from '#server/features/documents/index';
 import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
+import { Integrations } from '#server/features/integrations/index';
+import { IntegrationsRpcLive } from '#server/features/integrations/rpc/index';
 import { Learning } from '#server/features/learning/index';
 import { LearningRpcLive } from '#server/features/learning/rpc/index';
 import { Materials } from '#server/features/materials/index';
@@ -93,6 +95,7 @@ export function nativeLayers(
     Recordings.layer,
     Materials.layer,
     Documents.layer,
+    Integrations.layer,
     Materials.deletionParticipantsLayer({ Learning }),
     Conversations.layer,
     Learning.layer.pipe(Layer.provide(Layer.mergeAll(Settings.layer, Materials.layer))),
@@ -178,6 +181,7 @@ export function nativeLayers(
     RecordingsRpcLive,
     MaterialsRpcLive,
     DocumentsRpcLive,
+    IntegrationsRpcLive,
     ConversationsRpcLive,
     LearningRpcLive,
     ProjectsRpcLive,

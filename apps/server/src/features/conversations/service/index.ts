@@ -987,6 +987,9 @@ export const Conversations = defineService(
     };
   }),
   {
+    createSessionInTransaction: (tx: Transaction, input: typeof createSessionInputSchema.Type) =>
+      tx.store(SessionStore).createSession({ ...input, titleSource: 'user' }),
+    postMessageInTransaction: postMessage,
     searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
       tx.store(ConversationSearchStore).searchProjectionPages(input),
     prepareBackup: (tx: Transaction) => tx.store(ConversationBackupStore).prepare(undefined),

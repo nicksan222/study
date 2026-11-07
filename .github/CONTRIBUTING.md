@@ -248,3 +248,19 @@ runs the server and package suites; `npm run quality:test` runs lint, developmen
 desktop permission, and shared runner tests. Server fixtures use Vitest lifecycle
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
 of production modules.
+
+Run `npm run integrations:e2e` with Docker available to test a real Obsidian import.
+Testcontainers builds the shared `apps/server/test/integrations/Dockerfile` once,
+including the pinned Obsidian release, and runs each provider case in
+a fresh container. Obsidian uses Xvfb; its profile, synthetic vault and Study SQLite
+database stay inside the container. No host vault or profile is mounted. Teardown
+removes containers and volumes after successful and failed commands, verifies their
+removal and removes the test image. The Testcontainers resource reaper must remain
+enabled for cleanup after interrupted runs. Ordinary adapter tests do not launch
+Obsidian.
+
+Adding a provider requires a matching `providers.json` fixture, a provider scenario,
+and an `integration-<provider>` install stage copied into the shared image. Oxlint
+enforces these together and forbids provider-specific Dockerfiles and container
+builders. The shared runner selects every registered fixture automatically. CI runs
+the same command in its required real-integration test job.

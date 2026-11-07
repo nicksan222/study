@@ -80,7 +80,9 @@
     "./ai/assistant-tools": "./src/ai/assistant-tools.ts",
     "./sources/conversion": "./src/sources/conversion.ts",
     "./conversations/conversion": "./src/conversations/conversion.ts",
-    "./search/schemas": "./src/search/schemas.ts"
+    "./search/schemas": "./src/search/schemas.ts",
+    "./integrations/schemas": "./src/integrations/schemas.ts",
+    "./integrations/rpc": "./src/integrations/rpc.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

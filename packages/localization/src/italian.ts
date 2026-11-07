@@ -1,6 +1,53 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  IntegrationResume: 'Riprendi importazione',
+
+  IntegrationsTitle: 'Integrazioni',
+  IntegrationIntro:
+    'Importa un vault Obsidian in Study. Ogni nota diventa un documento modificabile in una sessione. Le importazioni sono unidirezionali e non modificano il vault.',
+  IntegrationProvider: 'Provider',
+  IntegrationObsidian: 'Obsidian',
+  IntegrationVaultName: 'Nome del vault',
+  IntegrationIdentityHelp:
+    'Per impostazione predefinita usa il nome della cartella. Riutilizza identità e destinazione per importare di nuovo. Usa un nome diverso per vault distinti.',
+  IntegrationVaultFolder: 'Cartella del vault',
+  IntegrationLimit:
+    'Fino a 2.000 note e 32 MB per importazione. Cartelle nascoste e configurazione di Obsidian sono escluse.',
+  IntegrationChooseVault: 'Scegli la cartella del vault',
+  IntegrationScanning: 'Lettura del vault…',
+  IntegrationHistory: 'Importazioni recenti',
+  IntegrationHistoryEmpty: 'I vault importati appariranno qui.',
+  IntegrationError:
+    'Impossibile completare l’operazione. Ricarica la cronologia prima di inviare di nuovo.',
+  IntegrationPreview: 'Pronto da importare',
+  IntegrationRunning: 'Importazione…',
+  IntegrationCompleted: 'Completata',
+  IntegrationCancelled: 'Annullata',
+  IntegrationFailed: 'Non riuscita',
+  IntegrationPending: 'In attesa',
+  IntegrationImported: 'Importata',
+  IntegrationUnchanged: 'Già importata',
+  IntegrationConflict: 'Da controllare',
+  IntegrationExcluded: 'Esclusa',
+  IntegrationProgress: 'Note importate: {completed} / {total}',
+  IntegrationDestination: 'Progetto di destinazione',
+  IntegrationNoProject: 'Nessun progetto',
+  IntegrationCancelHelp:
+    'Le note completate vengono mantenute. Riprendi questa importazione per continuare con le note rimanenti.',
+  IntegrationConflictHelp:
+    'Le note modificate, i collegamenti cambiati e le sessioni eliminate richiedono un controllo. Il contenuto esistente in Study è stato mantenuto.',
+  IntegrationOpenSession: 'Apri sessione',
+  IntegrationWarnings: 'Avvisi di importazione ({count})',
+  IntegrationStart: 'Importa {count} note',
+  IntegrationEmptyNote: 'Nota vuota ignorata',
+  IntegrationOversizedNote: 'La nota supera il limite di testo',
+  IntegrationMissingLink: 'Nota collegata non trovata',
+  IntegrationAmbiguousLink: 'Il collegamento corrisponde a più file',
+  IntegrationMissingAttachment: 'Allegato non trovato',
+  IntegrationEmbeddedNote: 'Nota incorporata importata come collegamento',
+  IntegrationUnsupportedFile: 'File senza riferimenti ignorato',
+
   UsageTitle: 'Utilizzo IA',
   UsageProvider: 'Provider',
   UsageAllProviders: 'Tutti i provider',

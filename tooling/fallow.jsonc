@@ -65,6 +65,10 @@
         "patterns": ["packages/contracts/src/**"]
       },
       {
+        "name": "integrations",
+        "patterns": ["packages/integrations/src/**"]
+      },
+      {
         "name": "theme",
         "patterns": ["packages/theme/src/**"]
       },
@@ -127,6 +131,10 @@
         "allow": []
       },
       {
+        "from": "integrations",
+        "allow": ["contracts"]
+      },
+      {
         "from": "theme",
         "allow": ["contracts"]
       },
@@ -152,7 +160,7 @@
       },
       {
         "from": "server-features",
-        "allow": ["server-platform", "contracts", "db", "localization", "theme"]
+        "allow": ["server-platform", "contracts", "db", "localization", "theme", "integrations"]
       },
       {
         "from": "server-runtime",
@@ -183,6 +191,7 @@
         "allow": [
           "tests",
           "contracts",
+          "integrations",
           "theme",
           "localization",
           "ui",
@@ -235,7 +244,8 @@
     "packages/localization/test/api.types.ts",
     "packages/testing/test/api.types.ts",
     "packages/testing/test/vitest.types.ts",
-    "apps/server/test/testing/automatic-fixture-scenario.ts"
+    "apps/server/test/testing/automatic-fixture-scenario.ts",
+    "apps/server/test/integrations/providers/*/scenario.ts"
   ],
   // Oxlint loads this plugin from the specifier in tooling/oxc-config/lint.ts.
   "framework": [
@@ -244,7 +254,10 @@
       "enablers": ["vite-plus"],
       "toolingDependencies": ["@stylistic/eslint-plugin"],
       // The Vitest CLI consumes this config default export in isolated fixture subprocesses.
-      "configPatterns": ["apps/server/test/testing/automatic-fixture.config.ts"]
+      "configPatterns": [
+        "apps/server/test/testing/automatic-fixture.config.ts",
+        "apps/server/test/integrations/scenario.config.ts"
+      ]
     }
   ]
 }

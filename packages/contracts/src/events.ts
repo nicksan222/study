@@ -22,6 +22,7 @@ import {
   quizAttemptIdSchema,
   quizQuestionIdSchema
 } from './ids.ts';
+import { integrationImportIdSchema } from './integrations/schemas.ts';
 import { materialGenerationKindSchema } from './materials/schemas.ts';
 
 const envelope = {
@@ -227,7 +228,15 @@ export const recordingPostRequestedSchema = Schema.Struct({
   projectId: Schema.NullOr(projectIdSchema)
 });
 
+export const integrationImportRequestedSchema = Schema.Struct({
+  ...envelope,
+  type: Schema.Literal('IntegrationImportRequested'),
+  importId: integrationImportIdSchema,
+  attempt: Schema.Int.check(Schema.isGreaterThan(0))
+});
+
 export const workflowEventSchema = Schema.Union([
+  integrationImportRequestedSchema,
   sourceHistoryPrunedSchema,
   documentGenerationRequestedSchema,
   documentGenerationFailedSchema,
