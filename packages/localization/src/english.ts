@@ -1,5 +1,10 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  SettingsSidebar: 'Sidebar',
+  SettingsAiBehavior: 'AI behavior',
+  SettingsPerformance: 'Performance',
+  SettingsQuizzes: 'Quizzes',
+
   AgentRulesTitle: 'Custom instructions',
   AgentRulesIntro:
     'Choose a task and describe how Study should work. Save your changes to apply them to future runs. Leave a field empty to use the defaults. Your preferences supplement the task instructions; required formats and source accuracy still apply.',

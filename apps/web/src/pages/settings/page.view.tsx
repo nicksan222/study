@@ -1,12 +1,29 @@
 import type { ProjectId } from '@study/contracts/ids';
+import type { StaticMessageKey } from '@study/localization';
 import { Settings } from '@study/ui/settings';
-import { Palette, Settings2, Bot, GraduationCap, Database, Folder, PenLine } from 'lucide-react';
+import {
+  Palette,
+  Settings2,
+  Layers,
+  Database,
+  Folder,
+  PenLine,
+  PanelLeft,
+  BookOpen,
+  UserRound,
+  SlidersHorizontal,
+  FileText,
+  Sparkles,
+  Gauge,
+  ListChecks
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '#web/features/collections/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { AiSettings } from './ai';
+import { AiAccountSettings, AiModelSettings } from './ai';
 import { AgentRulesSettings } from './ai/agent-rules';
 import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
@@ -15,6 +32,7 @@ import { SidebarSettings } from './general/sidebar-settings';
 import { InterfaceSettings } from './interface-settings';
 import { PerformanceSettings } from './performance';
 import { StudySettings } from './study';
+import { QuizSettings } from './study/quiz-settings';
 import { ColorScheme, ThemeLibrary } from './theme-library';
 import type { AppearanceModel } from './use-page';
 import {
@@ -24,35 +42,31 @@ import {
   WritingSettings
 } from './workspace-settings';
 
-export type SettingsSectionId =
-  | 'writing'
-  | 'general'
-  | 'appearance'
-  | 'ai'
-  | 'study'
-  | 'data'
-  | 'projects';
-
+/** Each section owns one settings task; search points to that task's actual destination. */
 const sections = [
   {
     id: 'general',
     label: 'GeneralSettingsTitle',
     Icon: Settings2,
-    keywords: [
-      'GeneralSettingsLanguage',
-      'ReplayOnboarding',
-      'WorkspaceSidebarTitle',
-      'WorkspaceDensity',
-      'WorkspaceTimeFormat',
-      'WorkspaceDocumentCounts',
-      'SidebarSettledThreshold'
-    ]
+    keywords: ['GeneralSettingsLanguage', 'ReplayOnboarding']
   },
   {
     id: 'appearance',
     label: 'Appearance',
     Icon: Palette,
     keywords: ['Themes', 'AppearanceContrast', 'GlassOpacity', 'PanelAnimations', 'TextSize']
+  },
+  {
+    id: 'sidebar',
+    label: 'SettingsSidebar',
+    Icon: PanelLeft,
+    keywords: [
+      'WorkspaceSidebarTitle',
+      'WorkspaceDensity',
+      'WorkspaceTimeFormat',
+      'WorkspaceDocumentCounts',
+      'SidebarSettledThreshold'
+    ]
   },
   {
     id: 'writing',
@@ -67,32 +81,28 @@ const sections = [
     ]
   },
   {
-    id: 'study',
-    label: 'StudySettingsNavigation',
-    Icon: GraduationCap,
-    keywords: [
-      'StudySettingsTitle',
-      'StudySettingsNewCards',
-      'QuizSettingsTitle',
-      'QuizQuestionCount',
-      'QuizQuestionKind',
-      'QuizShuffleQuestions',
-      'QuizShuffleChoices',
-      'QuizGenerateChoices',
-      'QuizDifficulty',
-      'WorkspaceReadingTitle',
-      'WorkspaceReaderFont',
-      'WorkspaceExportFormat'
-    ]
+    id: 'reading',
+    label: 'WorkspaceReadingTitle',
+    Icon: BookOpen,
+    keywords: ['WorkspaceReaderFont', 'WorkspaceExportFormat']
   },
   {
-    id: 'ai',
-    label: 'SettingsAi',
-    Icon: Bot,
+    id: 'account',
+    label: 'AiSettingsAccount',
+    Icon: UserRound,
+    keywords: ['AiSettingsChatGpt', 'AiSettingsSignIn', 'AiSettingsSignOut']
+  },
+  {
+    id: 'models',
+    label: 'AiSettingsModels',
+    Icon: SlidersHorizontal,
+    keywords: ['SettingsAi', 'AiSettingsTiny', 'AiSettingsMedium', 'AiSettingsSmart']
+  },
+  {
+    id: 'instructions',
+    label: 'AgentRulesTitle',
+    Icon: FileText,
     keywords: [
-      'AiSettingsAccount',
-      'AiSettingsModels',
-      'AgentRulesTitle',
       'AgentRulesDocuments',
       'AgentRulesTitles',
       'AgentRulesReplies',
@@ -101,13 +111,48 @@ const sections = [
       'AgentRulesDiagrams',
       'AgentRulesGrading',
       'AgentRulesTranscription',
-      'AgentRulesQuestionDetection',
-      'AiSettingsSignIn',
+      'AgentRulesQuestionDetection'
+    ]
+  },
+  {
+    id: 'automation',
+    label: 'SettingsAiBehavior',
+    Icon: Sparkles,
+    keywords: [
+      'WorkspaceAiTitle',
       'WorkspaceAiDetail',
       'WorkspaceAutoTitles',
+      'WorkspaceAutoAnswerQuestions'
+    ]
+  },
+  {
+    id: 'performance',
+    label: 'SettingsPerformance',
+    Icon: Gauge,
+    keywords: [
       'PerformanceSettingsTitle',
       'PerformanceSettingsParallel',
       'PerformanceSettingsQueue'
+    ]
+  },
+  {
+    id: 'flashcards',
+    label: 'Flashcards',
+    Icon: Layers,
+    keywords: ['StudySettingsTitle', 'StudySettingsNewCards']
+  },
+  {
+    id: 'quizzes',
+    label: 'SettingsQuizzes',
+    Icon: ListChecks,
+    keywords: [
+      'QuizSettingsTitle',
+      'QuizQuestionCount',
+      'QuizQuestionKind',
+      'QuizShuffleQuestions',
+      'QuizShuffleChoices',
+      'QuizGenerateChoices',
+      'QuizDifficulty'
     ]
   },
   {
@@ -122,7 +167,14 @@ const sections = [
     Icon: Database,
     keywords: ['DataCreate', 'DataImport', 'DataPreview']
   }
-] as const;
+] as const satisfies readonly {
+  id: string;
+  label: StaticMessageKey;
+  Icon: LucideIcon;
+  keywords: readonly StaticMessageKey[];
+}[];
+
+export type SettingsSectionId = (typeof sections)[number]['id'];
 
 /** Composes settings navigation and passes subject identity and committed deletion outcomes to its section. */
 export function PageView({
@@ -270,28 +322,22 @@ function SectionContent({
     projects: <ProjectSettings initialProject={initialProject} onDeleted={onProjectDeleted} />,
     data: <DataSettings />,
     appearance: <AppearanceContent model={model} search={search} />,
-    general: (
+    general: <GeneralSettings />,
+    sidebar: (
       <>
-        <GeneralSettings />
         <SessionDisplaySettings />
         <SidebarSettings />
       </>
     ),
     writing: <WritingSettings />,
-    ai: (
-      <>
-        <AiSettings />
-        <AiWritingSettings />
-        <AgentRulesSettings />
-        <PerformanceSettings />
-      </>
-    ),
-    study: (
-      <>
-        <StudySettings />
-        <ReadingSettings />
-      </>
-    )
+    reading: <ReadingSettings />,
+    account: <AiAccountSettings />,
+    models: <AiModelSettings />,
+    instructions: <AgentRulesSettings />,
+    automation: <AiWritingSettings />,
+    performance: <PerformanceSettings />,
+    flashcards: <StudySettings />,
+    quizzes: <QuizSettings />
   } satisfies Record<SettingsSectionId, ReactNode>;
 
   return content[section];

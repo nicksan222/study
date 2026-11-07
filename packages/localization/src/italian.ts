@@ -1,6 +1,11 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  SettingsSidebar: 'Barra laterale',
+  SettingsAiBehavior: 'Comportamento IA',
+  SettingsPerformance: 'Prestazioni',
+  SettingsQuizzes: 'Quiz',
+
   AgentRulesTitle: 'Istruzioni personalizzate',
   AgentRulesIntro:
     'Scegli un’attività e descrivi come deve lavorare Study. Salva le modifiche per applicarle alle esecuzioni future. Lascia un campo vuoto per usare le impostazioni predefinite. Le tue preferenze integrano le istruzioni dell’attività; i formati richiesti e la fedeltà alle fonti restano validi.',
