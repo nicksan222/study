@@ -18,6 +18,6 @@ export const cerebras = compatibleProvider({
   id: 'cerebras',
   name: 'Cerebras',
   baseURL: 'https://api.cerebras.ai/v1',
-  models: ['gpt-oss-120b'],
-  defaults: { tiny: 'gpt-oss-120b', medium: 'gpt-oss-120b', smart: 'gpt-oss-120b' }
+  models: ['qwen-3.8-27b', 'gpt-oss-120b'],
+  defaults: { tiny: 'qwen-3.8-27b', medium: 'qwen-3.8-27b', smart: 'gpt-oss-120b' }
 });
