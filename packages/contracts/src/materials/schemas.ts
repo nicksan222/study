@@ -141,6 +141,7 @@ export const materialQuestionInputSchema = Schema.Union([
   })
 ]);
 
+/** Narrows question kinds whose learner response and reference answer are text rather than choice identities. */
 export function isTextQuestionKind(
   kind: (typeof materialQuestionInputSchema.Type)['kind']
 ): kind is 'open' | 'fill_blank' {

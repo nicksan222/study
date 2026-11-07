@@ -174,6 +174,7 @@ export function makeReads(resources: StoreResources) {
     };
   }
 
+  /** Rebuilds canonical quiz content from ordered questions, joining reference answers only for text question kinds. */
   function readQuiz(
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'quiz' }> {

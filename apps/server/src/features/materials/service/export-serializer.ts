@@ -31,6 +31,7 @@ const json = (value: unknown) =>
 const csvCell = (s: string) =>
   '"' + (/^(?:\s*[=+@-]|[\t\r\n])/.test(s) ? "'" : '') + s.replaceAll('"', '""') + '"';
 
+/** Serializes an immutable version within export budgets; CSV includes text reference answers and reports lost structure. */
 export function serializeMaterialVersion(
   version: MaterialVersionDetailDto,
   format: typeof learningExportFormatSchema.Type,

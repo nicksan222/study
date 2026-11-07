@@ -17,6 +17,7 @@ type Question = (typeof quizAttemptInProgressSchema.Type)['questions'][number];
 
 type Answer = typeof quizAnswerSchema.Type;
 
+/** Restores a saved response and submits valid typed answers, preserving multiline entry and IME composition. */
 export function QuizQuestion({
   question,
   pending,
@@ -46,6 +47,7 @@ export function QuizQuestion({
   );
   const valid = !('choices' in question) ? text.trim().length > 0 : selected.length > 0;
 
+  /** Trims text answers and submits a single valid response while no save is pending. */
   function send() {
     if (!valid || pending) return;
 
@@ -150,6 +152,7 @@ export function QuizQuestion({
   );
 }
 
+/** Keeps browser and application shortcuts out of numeric choice selection. */
 function hasModifier(event: KeyboardEvent) {
   return event.metaKey || event.ctrlKey || event.altKey;
 }

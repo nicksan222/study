@@ -27,6 +27,7 @@ type Input = typeof gradeResponseInputSchema.Type;
 export function makeGradeResponse(resources: StoreResources) {
   const { db } = resources;
   const { attemptRow, attemptView, attemptQuestions } = makeQuiz(resources);
+  /** Stores a text grade for a selected response; a completed response can receive its first grade only once. */
   const settleGrade = (input: Input) => {
     const a = attemptRow(input.attemptId);
 

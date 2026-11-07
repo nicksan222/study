@@ -1723,6 +1723,8 @@ export const italian = Object.freeze({
   PracticeActions: 'Azioni delle esercitazioni',
   PracticeArchivePreview: 'Anteprima del materiale archiviato',
   PracticeArchiveOtherOption: 'Risposta non corretta',
+  PracticeScorePending: 'Punteggio in attesa',
+  PracticeFeedback: 'Valutazione',
   PracticeArchiveExplanation: 'Spiegazione',
   PracticeArchiveSearchHelp: 'Prova un’altra ricerca per trovare quiz e flashcard archiviati.',
   PracticeArchived: 'Archivio',

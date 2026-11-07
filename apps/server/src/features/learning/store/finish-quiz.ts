@@ -27,6 +27,7 @@ type Input = typeof attemptInputSchema.Type;
 export function makeFinishQuiz(resources: StoreResources) {
   const { db, clock } = resources;
   const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  /** Validates saved responses and completes the attempt while leaving text grades available for later settlement. */
   const finishQuiz = (input: Input) => {
     const a = attemptRow(input.attemptId, true);
 

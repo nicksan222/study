@@ -57,6 +57,7 @@ export function MaterialVersionContent({ version }: { version: MaterialVersionDe
   );
 }
 
+/** Shows an authored question and its correct response without exposing editable practice controls. */
 function QuestionPreview({
   question,
   index

@@ -289,6 +289,7 @@ function checkGeneratedLimits(
   return Effect.void;
 }
 
+/** Builds generation instructions from the requested quiz shape, including the single-marker rule for blank prompts. */
 function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undefined) {
   if (!config) return '';
 

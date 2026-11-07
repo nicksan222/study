@@ -122,6 +122,7 @@ export function makeQuiz(resources: StoreResources) {
       : 0;
   }
 
+  /** Reconstructs the persisted attempt order, hiding reference answers until completion and withholding totals while grades are missing. */
   function attemptView(attemptId: QuizAttemptId) {
     const attempt = attemptRow(attemptId);
     const version = published(attempt.version_id, 'quiz');

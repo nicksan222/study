@@ -113,6 +113,7 @@ function GenerationDialog({
   );
 }
 
+/** Keeps the generation draft and submits the selected mode through canonical material and quiz configuration contracts. */
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
@@ -138,6 +139,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const configuredQuestionKind =
     configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
   const questionKind = kind === 'fill_blank' ? kind : configuredQuestionKind;
+  /** Starts generation only after source selection and saved preferences are ready; blank practice remains a quiz material. */
   const create = () => {
     if (hasSources && preferences.isSuccess)
       start.mutate({
@@ -177,6 +179,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
 
 type GenerationModel = ReturnType<typeof useGeneration>;
 
+/** Presents mode selection, optional instructions and document scope while retaining the current generation draft. */
 function GenerationPanel({
   projectId,
   accepted

@@ -698,6 +698,7 @@ export const PracticeControlStore = defineStore({
   }
 });
 
+/** Compares retry payloads with the committed answer, treating choice selections as an unordered set. */
 function sameAnswer(
   previous: (typeof quizAttemptSchema.Type)['questions'][number]['answer'],
   answer: (typeof answerPracticeQuestionInputSchema.Type)['answer']
