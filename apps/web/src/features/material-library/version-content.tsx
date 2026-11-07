@@ -57,7 +57,7 @@ export function MaterialVersionContent({ version }: { version: MaterialVersionDe
   );
 }
 
-/** Renders the canonical answer for explicit material-version inspection. */
+/** Render canonical material answers, including term-definition pairs, for version review. */
 function QuestionPreview({
   question,
   index
@@ -71,17 +71,7 @@ function QuestionPreview({
     <Practice.PreviewItem>
       <Practice.ProgressHeading>
         <span>{questionNumber(locale, index + 1)}</span>
-        <span>
-          {t(
-            question.kind === 'ordering'
-              ? 'PracticeOrdering'
-              : question.kind === 'fill_blank'
-                ? 'PracticeFillBlank'
-                : question.kind === 'open'
-                  ? 'QuestionOpen'
-                  : 'QuestionChoice'
-          )}
-        </span>
+        <span>{t(questionLabel(question.kind))}</span>
       </Practice.ProgressHeading>
       <Practice.Prompt>{question.prompt}</Practice.Prompt>
       <Practice.Answers aria-label={t('RightAnswer')}>
@@ -90,13 +80,24 @@ function QuestionPreview({
             label={t('RightAnswer')}
             items={question.items.map((item) => ({ key: String(item.id), text: item.text }))}
           />
+        ) : question.kind === 'matching' ? (
+          question.pairs.map((pair) => (
+            <Practice.MatchingRow key={pair.termId}>
+              <span>{pair.term}</span>
+              <p>{pair.definition}</p>
+            </Practice.MatchingRow>
+          ))
         ) : !('choices' in question) ? (
           <Textarea readOnly aria-label={t('RightAnswer')} value={question.referenceAnswer} />
         ) : (
           question.choices.map((choice, position) => (
             <Practice.ChoiceOption
               key={String(choice.id)}
-              text={choice.text}
+              text={
+                question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text
+              }
               number={position + 1}
               selected={choice.isCorrect}
               type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
@@ -105,7 +106,9 @@ function QuestionPreview({
               disabled
               readOnly
               aria-label={
-                choice.text +
+                (question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text) +
                 '. ' +
                 t(choice.isCorrect ? 'ReaderCorrectAnswer' : 'PracticeArchiveOtherOption')
               }
@@ -120,4 +123,19 @@ function QuestionPreview({
       </Practice.Explanation>
     </Practice.PreviewItem>
   );
+}
+
+/** Name every persisted question variant in material previews. */
+function questionLabel(kind: Quiz['content']['questions'][number]['kind']) {
+  const labels = {
+    ordering: 'PracticeOrdering',
+    matching: 'PracticeMatching',
+    true_false: 'PracticeTrueFalse',
+    fill_blank: 'PracticeFillBlank',
+    open: 'QuestionOpen',
+    single_choice: 'QuestionChoice',
+    multiple_choice: 'QuestionChoice'
+  } as const;
+
+  return labels[kind];
 }

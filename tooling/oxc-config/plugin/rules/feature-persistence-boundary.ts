@@ -19,6 +19,9 @@ const groups: Record<string, string[]> = {
   ],
   'sources,documents': ['content_snapshots', 'blocks', 'chunks'],
   conversations: [
+    'assistant_chat_starts',
+    'assistant_memory',
+    'assistant_tool_receipts',
     'sessions',
     'messages',
     'message_versions',

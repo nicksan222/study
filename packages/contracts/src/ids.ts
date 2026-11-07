@@ -81,3 +81,15 @@ export type StudyDocumentAnnotationId = typeof studyDocumentAnnotationIdSchema.T
 export const quizOrderingItemIdSchema = positiveId.pipe(Schema.brand('QuizOrderingItemId'));
 
 export type QuizOrderingItemId = typeof quizOrderingItemIdSchema.Type;
+
+export const matchingTermIdSchema = Schema.String.check(Schema.isUUID()).pipe(
+  Schema.brand('MatchingTermId')
+);
+
+export type MatchingTermId = typeof matchingTermIdSchema.Type;
+
+export const matchingDefinitionIdSchema = Schema.String.check(Schema.isUUID()).pipe(
+  Schema.brand('MatchingDefinitionId')
+);
+
+export type MatchingDefinitionId = typeof matchingDefinitionIdSchema.Type;

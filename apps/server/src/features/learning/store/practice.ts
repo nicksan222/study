@@ -336,7 +336,7 @@ function makePractice(resources: StoreResources) {
     return row;
   }
 
-  /** Publishes only the exact choice or open kind captured by an endless-practice slot. */
+  /** Accept only the exact choice or open question kind requested by an endless practice slot. */
   function publish(slotId: string, versionId: MaterialVersionId) {
     const row = db.orm.select().from(slots).where(eq(slots.id, slotId)).get();
 

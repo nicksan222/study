@@ -15,6 +15,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { JsonValue } from '@study/contracts/json';
 import {
+  agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
@@ -26,6 +27,7 @@ import {
   reviewSettingsSchema
 } from '@study/contracts/settings/schemas';
 import type {
+  AgentRules,
   QuizSettings,
   WorkspacePreferences,
   AppSettings,
@@ -36,6 +38,7 @@ import type {
   ReviewSettings
 } from '@study/contracts/settings/types';
 import {
+  defaultAgentRules,
   defaultQuizSettings,
   defaultWorkspacePreferences,
   Appearance,
@@ -82,6 +85,22 @@ const make = Effect.gen(function* () {
   const store = yield* useStore(SettingsStore);
 
   return {
+    agentRules: () =>
+      store.preference('agent-rules').pipe(
+        Effect.map((values) => {
+          const resolved = { ...defaultAgentRules, ...values };
+
+          return Schema.is(agentRulesSchema)(resolved) ? resolved : defaultAgentRules;
+        })
+      ),
+    saveAgentRules: (input: AgentRules) =>
+      !Schema.is(agentRulesSchema)(input)
+        ? Effect.fail(new StudyError('invalid_input', 'Invalid agent rules'))
+        : transaction((tx) => {
+            tx.store(SettingsStore).saveAgentRules(input);
+
+            return {};
+          }),
     quizSettings: () =>
       store.preference('quiz').pipe(
         Effect.map((v) => {

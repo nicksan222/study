@@ -37,16 +37,48 @@ export function AttemptsAction({ id }: { id: MaterialId }) {
         <span>{t('PracticeAttempts')}</span>
         <ArrowUpRight aria-hidden="true" />
       </DialogTrigger>
-      <Surface.Popup
-        contentLayout="fill"
-        keepMounted
-        closeLabel={t('Close')}
-        bottomStickOnMobile={false}
-      >
-        <Surface.Title>{t('PracticeAttempts')}</Surface.Title>
-        <AttemptsPanel id={id} open={open} close={() => setOpen(false)} />
-      </Surface.Popup>
+      <AttemptsPopup id={id} open={open} onOpenChange={setOpen} />
     </Dialog>
+  );
+}
+
+export function AttemptsDialog({
+  id,
+  open,
+  onOpenChange
+}: {
+  id: MaterialId;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <AttemptsPopup id={id} open={open} onOpenChange={onOpenChange} />
+    </Dialog>
+  );
+}
+
+function AttemptsPopup({
+  id,
+  open,
+  onOpenChange
+}: {
+  id: MaterialId;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Surface.Popup
+      contentLayout="fill"
+      keepMounted
+      closeLabel={t('Close')}
+      bottomStickOnMobile={false}
+    >
+      <Surface.Title>{t('PracticeAttempts')}</Surface.Title>
+      <AttemptsPanel id={id} open={open} close={() => onOpenChange(false)} />
+    </Surface.Popup>
   );
 }
 
@@ -235,9 +267,13 @@ function SavedQuestion({ question }: { question: Question }) {
             <Practice.ChoiceOption
               key={String(choice.id)}
               number={number + 1}
-              text={choice.text}
+              text={
+                question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text
+              }
               selected={selected.includes(choice.id)}
-              type={question.kind === 'single_choice' ? 'radio' : 'checkbox'}
+              type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
               name={label}
               value={String(choice.id)}
               readOnly

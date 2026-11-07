@@ -10,9 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomBytes } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
+import { matchingTermIdSchema, matchingDefinitionIdSchema } from '@study/contracts/ids';
 import { quizOrderingItemIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
@@ -22,7 +23,7 @@ import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-/** Persists canonical version bodies and removes them only within owned transactions. */
+/** Persist version-owned content bodies inside the caller transaction. */
 export function makeContent({ db: store }: StoreResources) {
   function insertContent(
     version: typeof s.material_versions.$inferSelect,
@@ -57,7 +58,7 @@ export function makeContent({ db: store }: StoreResources) {
       .run();
   }
 
-  /** Assigns opaque random ordering identities independently of canonical positions. */
+  /** Allocate independent matching identities when persisting canonical question definitions. */
   function insertQuiz(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'quiz' }>
@@ -78,7 +79,15 @@ export function makeContent({ db: store }: StoreResources) {
           position: BigInt(i),
           kind: q.kind,
           prompt: q.prompt,
-          explanation: q.explanation
+          explanation: q.explanation,
+          matching_pairs:
+            q.kind === 'matching'
+              ? q.pairs.map((pair) => ({
+                  ...pair,
+                  termId: Schema.decodeUnknownSync(matchingTermIdSchema)(randomUUID()),
+                  definitionId: Schema.decodeUnknownSync(matchingDefinitionIdSchema)(randomUUID())
+                }))
+              : null
         })
         .returning()
         .get();
@@ -104,8 +113,14 @@ export function makeContent({ db: store }: StoreResources) {
             reference_answer: q.referenceAnswer
           })
           .run();
-      else
-        q.choices.forEach((choice, j) =>
+      else if (q.kind === 'true_false' || 'choices' in q)
+        (q.kind === 'true_false'
+          ? [
+              { text: 'true', isCorrect: q.isTrue },
+              { text: 'false', isCorrect: !q.isTrue }
+            ]
+          : q.choices
+        ).forEach((choice, j) =>
           db
             .insert(s.material_quiz_choices)
             .values({

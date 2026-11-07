@@ -1,5 +1,6 @@
-import { randomBytes } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 
+import { matchingTermIdSchema, matchingDefinitionIdSchema } from '@study/contracts/ids';
 import { quizOrderingItemIdSchema } from '@study/contracts/ids';
 import { materialContentInputSchema } from '@study/contracts/materials/schemas';
 import { eq } from '@study/db';
@@ -57,7 +58,7 @@ function seedCards(
   }
 }
 
-/** Seeds canonical quiz fixtures with opaque identities for ordering steps. */
+/** Seed canonical quiz content with fresh independent identities for matching terms and definitions. */
 function seedQuiz(
   { db }: ProjectHarness,
   content: Extract<Content, { kind: 'quiz' }>,
@@ -66,6 +67,15 @@ function seedQuiz(
   db.orm.insert(material_quiz_versions).values({ version_id: version.id }).run();
 
   for (const [position, value] of content.questions.entries()) {
+    const matchingPairs =
+      value.kind === 'matching'
+        ? value.pairs.map((pair) => ({
+            ...pair,
+            termId: Schema.decodeUnknownSync(matchingTermIdSchema)(randomUUID()),
+            definitionId: Schema.decodeUnknownSync(matchingDefinitionIdSchema)(randomUUID())
+          }))
+        : null;
+
     const question = db.orm
       .insert(material_quiz_questions)
       .values({
@@ -73,7 +83,8 @@ function seedQuiz(
         position: BigInt(position),
         kind: value.kind,
         prompt: value.prompt,
-        explanation: value.explanation
+        explanation: value.explanation,
+        matching_pairs: matchingPairs
       })
       .returning()
       .get();
@@ -101,8 +112,14 @@ function seedQuiz(
           reference_answer: value.referenceAnswer
         })
         .run();
-    } else {
-      for (const [index, option] of value.choices.entries()) {
+    } else if (value.kind === 'true_false' || 'choices' in value) {
+      for (const [index, option] of (value.kind === 'true_false'
+        ? [
+            { text: 'true', isCorrect: value.isTrue },
+            { text: 'false', isCorrect: !value.isTrue }
+          ]
+        : value.choices
+      ).entries()) {
         db.orm
           .insert(material_quiz_choices)
           .values({

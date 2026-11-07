@@ -15,6 +15,7 @@
 
 import { createServer } from 'node:http';
 
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { eq } from '@study/db';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -101,6 +102,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     }),
     workflowEngineLayer(context)
@@ -672,6 +674,7 @@ testStable(
         agentsLayer({
           model: () => Effect.succeed(model),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         }),
         control

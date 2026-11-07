@@ -324,9 +324,11 @@ testStable(
   }
 );
 
-testStable(
-  'generates fill-in-the-blank practice with a typed kind and saved difficulty',
-  async () => {
+for (const [kind, label] of [
+  ['fill_blank', en.PracticeFillBlank],
+  ['matching', en.PracticeMatching]
+] as const)
+  testStable(`generates ${kind} practice with a typed kind and saved difficulty`, async () => {
     const rpc = rpcFixture();
     const user = userEvent.setup();
 
@@ -334,25 +336,51 @@ testStable(
     await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
     const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
-    await user.click(within(dialog).getByRole('radio', { name: 'Fill in the blank' }));
+    await user.click(within(dialog).getByRole('radio', { name: label }));
     await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
     await waitFor(() =>
       expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
         expect.objectContaining({
           kind: 'quiz',
-          title: 'Fill in the blank',
+          title: label,
           autoTitle: true,
           quizConfig: {
             questionCount: 3,
             choiceCount: 2,
-            questionKind: 'fill_blank',
+            questionKind: kind,
             difficulty: 'balanced'
           }
         })
       )
     );
-  }
-);
+  });
+
+testStable('generates true or false practice with a typed kind and saved difficulty', async () => {
+  const rpc = rpcFixture();
+  const user = userEvent.setup();
+
+  mountLibraryRoute('/practice/41?project=1', rpc);
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+  await user.click(within(dialog).getByRole('radio', { name: 'True or false' }));
+  await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+  await waitFor(() =>
+    expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        kind: 'quiz',
+        title: 'True or false',
+        autoTitle: true,
+        quizConfig: {
+          questionCount: 3,
+          choiceCount: 2,
+          questionKind: 'true_false',
+          difficulty: 'balanced'
+        }
+      })
+    )
+  );
+});
 
 testStable('generates ordering practice with a typed kind and saved difficulty', async () => {
   const rpc = rpcFixture();

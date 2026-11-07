@@ -38,6 +38,14 @@ testStable('conversation projections exclude archived messages and deleting sess
       sql`INSERT INTO message_versions (id,message_id,number,origin,status,text,created_at) VALUES (2,2,1,'answer','pending','',1)`
     );
     db.orm.run(sql`UPDATE messages SET active_version_id=2 WHERE id=2`);
+    db.orm.run(
+      sql`INSERT INTO sessions (id,title,mode,title_source,created_at,updated_at) VALUES (2,'Private Assistant','assistant','user',1,1)`
+    );
+    db.orm.run(sql`INSERT INTO messages (id,session_id,role,created_at) VALUES (3,2,'user',1)`);
+    db.orm.run(
+      sql`INSERT INTO message_versions (id,message_id,number,origin,status,text,created_at) VALUES (3,3,1,'typed','complete','Private Assistant context',1)`
+    );
+    db.orm.run(sql`UPDATE messages SET active_version_id=3 WHERE id=3`);
     expect(
       makeConversationSearchProjections({ db, clock: Effect.runSync(Clock.Clock) })().map(
         (entry) => entry.target.type

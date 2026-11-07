@@ -10,6 +10,7 @@ import { useState, useId } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { MatchingReview } from './matching-review';
 import { OrderingResult } from './ordering-result';
 
 type Completed = typeof quizAttemptCompletedSchema.Type;
@@ -132,7 +133,7 @@ export function QuizResults({
   );
 }
 
-/** Selects the result renderer while preserving shared verdict and explanation presentation. */
+/** Separates the learner response, reference, feedback and explanation without offering editable answer fields. */
 function ResultQuestion({
   question,
   index,
@@ -145,7 +146,7 @@ function ResultQuestion({
   showHeading: boolean;
 }) {
   const { t, locale } = useI18n();
-  const selected = selectedChoices(question);
+  const selected = question.answer?.type === 'choice' ? question.answer.choiceIds : [];
 
   return (
     <Practice.Preview data-results="true">
@@ -162,49 +163,7 @@ function ResultQuestion({
           <Practice.Prompt>{question.prompt}</Practice.Prompt>
         </>
       )}
-      {question.kind === 'ordering' ? (
-        <OrderingResult question={question} />
-      ) : !('choices' in question) ? (
-        <Practice.OpenAnswers>
-          <Practice.AnswerComparison label={t('YourAnswer')}>
-            {question.answer?.type === 'open' && question.answer.answer?.trim()
-              ? question.answer.answer
-              : t('PracticeUnanswered')}
-          </Practice.AnswerComparison>
-          <Practice.AnswerComparison label={t('RightAnswer')}>
-            {question.referenceAnswer ?? t('PracticeUngraded')}
-          </Practice.AnswerComparison>
-        </Practice.OpenAnswers>
-      ) : (
-        <Practice.Answers aria-label={t('YourAnswer')}>
-          {question.choices.map((choice, position) => (
-            <Practice.ChoiceOption
-              key={String(choice.id)}
-              type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
-              name={'result-' + String(question.id)}
-              text={choice.text}
-              number={position + 1}
-              selected={selected.includes(choice.id)}
-              disabled
-              readOnly
-              tone={
-                choice.isCorrect
-                  ? 'correct'
-                  : selected.includes(choice.id)
-                    ? 'incorrect'
-                    : undefined
-              }
-              status={
-                choice.isCorrect
-                  ? t('ReaderCorrectAnswer')
-                  : selected.includes(choice.id)
-                    ? t('YourAnswer')
-                    : undefined
-              }
-            />
-          ))}
-        </Practice.Answers>
-      )}
+      <ResultAnswers question={question} selected={selected} />
       {question.feedback && (
         <Practice.ResultNote>
           <h3>{t('PracticeFeedback')}</h3>
@@ -257,7 +216,67 @@ function OverallScore({ attempt }: { attempt: Completed }) {
   );
 }
 
-/** Reads selected choice identities without interpreting ordering responses as choices. */
-function selectedChoices(question: Question) {
-  return question.answer?.type === 'choice' ? question.answer.choiceIds : [];
+/** Renders each completed answer variant within the shared compact comparison presentation. */
+function ResultAnswers({
+  question,
+  selected
+}: {
+  question: Question;
+  selected: Extract<Question['answer'], { type: 'choice' }>['choiceIds'];
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {question.kind === 'ordering' ? (
+        <OrderingResult question={question} />
+      ) : question.kind === 'matching' ? (
+        <MatchingReview question={question} />
+      ) : !('choices' in question) ? (
+        <Practice.OpenAnswers>
+          <Practice.AnswerComparison label={t('YourAnswer')}>
+            {question.answer?.type === 'open' && question.answer.answer?.trim()
+              ? question.answer.answer
+              : t('PracticeUnanswered')}
+          </Practice.AnswerComparison>
+          <Practice.AnswerComparison label={t('RightAnswer')}>
+            {question.referenceAnswer ?? t('PracticeUngraded')}
+          </Practice.AnswerComparison>
+        </Practice.OpenAnswers>
+      ) : (
+        <Practice.Answers aria-label={t('YourAnswer')}>
+          {question.choices.map((choice, position) => (
+            <Practice.ChoiceOption
+              key={String(choice.id)}
+              type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
+              name={'result-' + String(question.id)}
+              text={
+                question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text
+              }
+              number={position + 1}
+              selected={selected.includes(choice.id)}
+              disabled
+              readOnly
+              tone={
+                choice.isCorrect
+                  ? 'correct'
+                  : selected.includes(choice.id)
+                    ? 'incorrect'
+                    : undefined
+              }
+              status={
+                choice.isCorrect
+                  ? t('ReaderCorrectAnswer')
+                  : selected.includes(choice.id)
+                    ? t('YourAnswer')
+                    : undefined
+              }
+            />
+          ))}
+        </Practice.Answers>
+      )}
+    </>
+  );
 }

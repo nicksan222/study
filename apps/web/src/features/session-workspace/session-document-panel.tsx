@@ -1,7 +1,7 @@
 import type { StudyDocument, StudyDocumentVersion } from '@study/contracts/documents/types';
 import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
 import { Loading } from '@study/ui/loading';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useQuery } from '@tanstack/react-query';
 import { Check, Cloud, CloudOff } from 'lucide-react';
 import type { ReactNode } from 'react';

@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as SessionsRouteImport } from './routes/sessions'
@@ -28,6 +29,11 @@ import { Route as SourcesSourceIdRouteImport } from './routes/sources.$sourceId'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssistantRoute = AssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HomeRoute = HomeRouteImport.update({
@@ -103,6 +109,7 @@ const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/home': typeof HomeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRouteWithChildren
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/home': typeof HomeRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
@@ -137,6 +145,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/assistant': typeof AssistantRoute
   '/home': typeof HomeRoute
   '/projects': typeof ProjectsRoute
   '/sessions': typeof SessionsRouteWithChildren
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/assistant'
     | '/home'
     | '/projects'
     | '/sessions'
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/assistant'
     | '/home'
     | '/projects'
     | '/settings'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/assistant'
     | '/home'
     | '/projects'
     | '/sessions'
@@ -207,6 +219,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AssistantRoute: typeof AssistantRoute
   HomeRoute: typeof HomeRoute
   ProjectsRoute: typeof ProjectsRoute
   SessionsRoute: typeof SessionsRouteWithChildren
@@ -229,6 +242,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assistant': {
+      id: '/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home': {
@@ -346,6 +366,7 @@ const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssistantRoute: AssistantRoute,
   HomeRoute: HomeRoute,
   ProjectsRoute: ProjectsRoute,
   SessionsRoute: SessionsRouteWithChildren,

@@ -19,7 +19,8 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 export function makeDiscardPending({ db }: StoreResources) {
   function discardPending(
     message: typeof messages.$inferSelect,
-    version: typeof message_versions.$inferSelect
+    version: typeof message_versions.$inferSelect,
+    preserveShell = false
   ) {
     const completed =
       (version.based_on === null
@@ -52,6 +53,13 @@ export function makeDiscardPending({ db }: StoreResources) {
           .where(eq(messages.id, message.id))
           .run();
 
+      db.orm.delete(message_versions).where(eq(message_versions.id, version.id)).run();
+    } else if (preserveShell) {
+      db.orm
+        .update(messages)
+        .set({ active_version_id: null })
+        .where(eq(messages.id, message.id))
+        .run();
       db.orm.delete(message_versions).where(eq(message_versions.id, version.id)).run();
     } else db.orm.delete(messages).where(eq(messages.id, message.id)).run();
   }

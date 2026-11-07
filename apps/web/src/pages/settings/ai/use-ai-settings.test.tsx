@@ -8,7 +8,7 @@ import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import * as operations from '#web/lib/study-client/ai-settings.ts';
 
-import { AiSettings } from './index';
+import { AiAccountSettings, AiModelSettings } from './index';
 
 const runtime = vi.hoisted(() => ({ native: false, openUrl: vi.fn() }));
 
@@ -37,7 +37,7 @@ const settings = {
   smart: { provider: 1, model: 3 }
 } as const;
 
-function mount() {
+function mount(Section = AiAccountSettings) {
   vi.mocked(operations.loadAiSettings).mockResolvedValue({
     settings,
     status: { signedIn: false, email: null, sharing: false }
@@ -48,14 +48,14 @@ function mount() {
 
   return render(
     <QueryClientProvider client={client}>
-      <AiSettings />
+      <Section />
     </QueryClientProvider>
   );
 }
 
 testStable('saves a canonical model change while preserving the other tiers', async () => {
   vi.mocked(operations.saveAiSettings).mockResolvedValue({});
-  mount();
+  mount(AiModelSettings);
   const user = userEvent.setup();
 
   await user.click(await screen.findByRole('combobox', { name: 'Everyday tasks' }));

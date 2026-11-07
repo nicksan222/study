@@ -1,3 +1,4 @@
+import type { MatchingDefinitionId } from '@study/contracts/ids';
 import type {
   MaterialCardId,
   MaterialId,
@@ -7,6 +8,7 @@ import type {
   QuizQuestionId,
   QuizOrderingItemId
 } from '@study/contracts/ids';
+import type { matchingPairsSchema } from '@study/contracts/materials/schemas';
 
 import {
   defineTable,
@@ -56,10 +58,19 @@ export const material_quiz_questions = defineTable({
     version_id: integer().$type<MaterialVersionId>().notNull(),
     position: integer().$type<bigint>().notNull(),
     kind: text({
-      enum: ['single_choice', 'multiple_choice', 'open', 'fill_blank', 'ordering']
+      enum: [
+        'true_false',
+        'single_choice',
+        'multiple_choice',
+        'open',
+        'fill_blank',
+        'ordering',
+        'matching'
+      ]
     }).notNull(),
     prompt: text().notNull(),
-    explanation: text().notNull()
+    explanation: text().notNull(),
+    matching_pairs: text({ mode: 'json' }).$type<typeof matchingPairsSchema.Type>()
   },
   (t) => [
     foreignKey({ columns: [t.version_id], foreignColumns: [material_quiz_versions.version_id] })
@@ -70,7 +81,7 @@ export const material_quiz_questions = defineTable({
     uniqueIndex('material_quiz_questions_kind').on(t.id, t.kind),
     check(
       'material_quiz_questions_values',
-      sql`typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','open','fill_blank','ordering') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))`
+      sql`typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))`
     )
   ]
 );
@@ -80,7 +91,7 @@ export const material_quiz_choices = defineTable({ role: 'contributes', entity: 
   {
     id: integer().$type<QuizChoiceId>().primaryKey({ autoIncrement: true }),
     question_id: integer().$type<QuizQuestionId>().notNull(),
-    question_kind: text({ enum: ['single_choice', 'multiple_choice'] }).notNull(),
+    question_kind: text({ enum: ['single_choice', 'multiple_choice', 'true_false'] }).notNull(),
     position: integer().$type<bigint>().notNull(),
     text: text().notNull(),
     is_correct: sqliteBoolean().notNull().default(false)
@@ -96,7 +107,7 @@ export const material_quiz_choices = defineTable({ role: 'contributes', entity: 
     uniqueIndex('material_quiz_choices_question').on(t.id, t.question_id),
     check(
       'material_quiz_choices_values',
-      sql`question_kind IN ('single_choice','multiple_choice') AND typeof(position) = 'integer' AND position >= 0 AND length(trim(text)) > 0 AND is_correct IN (0,1)`
+      sql`question_kind IN ('single_choice','multiple_choice','true_false') AND typeof(position) = 'integer' AND position >= 0 AND length(trim(text)) > 0 AND is_correct IN (0,1)`
     )
   ]
 );
@@ -261,7 +272,8 @@ export const material_quiz_attempt_questions = defineTable({
     attempt_id: integer().$type<QuizAttemptId>().notNull(),
     version_id: integer().$type<MaterialVersionId>().notNull(),
     question_id: integer().$type<QuizQuestionId>().notNull(),
-    position: integer().$type<bigint>().notNull()
+    position: integer().$type<bigint>().notNull(),
+    matching_order: text({ mode: 'json' }).$type<MatchingDefinitionId[]>()
   },
   (t) => [
     primaryKey({ columns: [t.attempt_id, t.question_id] }),
@@ -311,7 +323,15 @@ export const material_quiz_responses = defineTable({
     version_id: integer().$type<MaterialVersionId>().notNull(),
     question_id: integer().$type<QuizQuestionId>().notNull(),
     question_kind: text({
-      enum: ['single_choice', 'multiple_choice', 'open', 'fill_blank', 'ordering']
+      enum: [
+        'true_false',
+        'single_choice',
+        'multiple_choice',
+        'open',
+        'fill_blank',
+        'ordering',
+        'matching'
+      ]
     }).notNull(),
     answer: text(),
     score: real(),
@@ -330,7 +350,7 @@ export const material_quiz_responses = defineTable({
     index('material_quiz_responses_question_kind_fk').on(t.question_id, t.question_kind),
     check(
       'material_quiz_responses_values',
-      sql`question_kind IN ('single_choice','multiple_choice','open','fill_blank','ordering') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank','ordering') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind IN ('single_choice','multiple_choice') AND answer IS NULL))`
+      sql`question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank','ordering') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL))`
     )
   ]
 );

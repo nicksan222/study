@@ -7,6 +7,7 @@ import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
 import { Layers, GraduationCap } from 'lucide-react';
 
+import { PracticeSidebarContextMenu } from '#web/features/practice/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import type { AppSearch } from '#web/lib/navigation/route-contract.ts';
 import type { Subjects } from '#web/lib/study-client/operations.ts';
@@ -71,22 +72,31 @@ export function LibraryListView({
         const active = selectedMaterial === String(item.value.id);
 
         return (
-          <Sidebar.Item
+          <PracticeSidebarContextMenu
             key={`${item.type}:${item.value.id}`}
-            label={title}
-            icon={<Icon aria-hidden="true" />}
-            context={owner?.name ?? t('Projects')}
-            description={label}
-            timestamp={
-              <time dateTime={new Date(Number(updated) * 1000).toISOString()} title={date(updated)}>
-                {age(locale, now - Number(updated))}
-              </time>
-            }
-            aria-label={title}
-            aria-current={active ? 'page' : undefined}
-            title={title}
-            render={<Link {...itemLocation(item, search.project)} />}
-          />
+            material={item.value}
+            project={search.project}
+            active={active}
+          >
+            <Sidebar.Item
+              label={title}
+              icon={<Icon aria-hidden="true" />}
+              context={owner?.name ?? t('Projects')}
+              description={label}
+              timestamp={
+                <time
+                  dateTime={new Date(Number(updated) * 1000).toISOString()}
+                  title={date(updated)}
+                >
+                  {age(locale, now - Number(updated))}
+                </time>
+              }
+              aria-label={title}
+              aria-current={active ? 'page' : undefined}
+              title={title}
+              render={<Link {...itemLocation(item, search.project)} />}
+            />
+          </PracticeSidebarContextMenu>
         );
       })}
       {items.length === 0 && (

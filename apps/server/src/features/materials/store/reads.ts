@@ -175,7 +175,7 @@ export function makeReads(resources: StoreResources) {
     };
   }
 
-  /** Reconstructs canonical quiz bodies for material inspection and export. */
+  /** Reconstruct complete version content, including matching keys for material review and export. */
   function readQuiz(
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'quiz' }> {
@@ -240,6 +240,9 @@ export function makeReads(resources: StoreResources) {
               .all()
               .map((item) => ({ id: item.id, text: item.text }))
           };
+
+        if (q.kind === 'matching')
+          return { ...questionBase, kind: q.kind, pairs: required(q.matching_pairs) };
 
         if (isTextQuestionKind(q.kind))
           return {

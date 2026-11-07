@@ -15,7 +15,7 @@ import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { testStable } from '@study/testing/vitest';
 import { assert } from 'vite-plus/test';
 
-import { assertQuizConfig } from './question-spec.ts';
+import { assertQuizConfig, assertQuestionSpec } from './question-spec.ts';
 
 const open = { kind: 'open' as const, prompt: 'Q', explanation: 'E', referenceAnswer: 'A' };
 
@@ -97,3 +97,48 @@ testStable('ordering-only generation enforces exact kind and count without choic
     assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([ordering, choice]))
   );
 });
+testStable(
+  'matching-only generation preserves exact question counts and excludes other kinds',
+  () => {
+    const matching = {
+      kind: 'matching' as const,
+      prompt: 'Match',
+      explanation: 'Evidence [1]',
+      pairs: [
+        { term: 'A', definition: 'a' },
+        { term: 'B', definition: 'b' }
+      ]
+    };
+    const configured = { ...config, questionKind: 'matching' as const };
+
+    assert.doesNotThrow(() => assertQuizConfig(configured, quiz([matching, matching])));
+    assert.throws(() => assertQuizConfig(configured, quiz([matching])));
+    assert.throws(() => assertQuizConfig(configured, quiz([matching, open])));
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([matching, choice]))
+    );
+  }
+);
+
+testStable(
+  'boolean generation enforces its exact kind and count independently of choice preferences',
+  () => {
+    const question = {
+      kind: 'true_false' as const,
+      prompt: 'ATP carries energy.',
+      explanation: 'Energy carrier',
+      isTrue: true
+    };
+
+    assert.throws(() => assertQuestionSpec({ count: 1, kind: 'choice' }, quiz([question])));
+    assert.throws(() => assertQuestionSpec({ count: 1, kind: 'open' }, quiz([question])));
+    const booleanConfig = { ...config, questionKind: 'true_false' as const, choiceCount: 6 };
+
+    assert.doesNotThrow(() => assertQuizConfig(booleanConfig, quiz([question, question])));
+    assert.throws(() => assertQuizConfig(booleanConfig, quiz([question])));
+    assert.throws(() => assertQuizConfig(booleanConfig, quiz([question, choice])));
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([question, question]))
+    );
+  }
+);

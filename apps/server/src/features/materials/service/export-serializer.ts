@@ -69,9 +69,7 @@ export function serializeMaterialVersion(
           q.explanation,
           'referenceAnswer' in q
             ? q.referenceAnswer
-            : q.kind === 'ordering'
-              ? json(q.items)
-              : json(q.choices)
+            : json(q.kind === 'ordering' ? q.items : q.kind === 'matching' ? q.pairs : q.choices)
         ])
       ];
     else throw new StudyError('unsupported', 'CSV requires flashcards or quiz content');

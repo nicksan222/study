@@ -108,7 +108,11 @@ export function makeStartQuiz(resources: StoreResources) {
           attempt_id: row.id,
           version_id: input.versionId,
           question_id: question.id,
-          position: BigInt(position)
+          position: BigInt(position),
+          matching_order:
+            question.kind === 'matching'
+              ? shuffled(question.matching_pairs!.map((p) => p.definitionId))
+              : null
         }))
       )
       .run();

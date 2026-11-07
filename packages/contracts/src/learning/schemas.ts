@@ -1,6 +1,8 @@
 import { Schema, SchemaGetter } from 'effect';
 
 import {
+  matchingTermIdSchema,
+  matchingDefinitionIdSchema,
   materialCardIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
@@ -34,7 +36,29 @@ export const orderingAnswerJsonSchema = Schema.fromJsonString(
   Schema.toCodecJson(orderingAnswerSchema)
 );
 
+export const matchingAssociationsSchema = Schema.mutable(
+  Schema.Array(
+    Schema.Struct({
+      termId: matchingTermIdSchema,
+      definitionId: matchingDefinitionIdSchema
+    })
+  )
+).check(
+  Schema.isBetweenLength(2, 8),
+  Schema.makeFilter(
+    (associations) =>
+      new Set(associations.map((a) => a.termId)).size === associations.length &&
+      new Set(associations.map((a) => a.definitionId)).size === associations.length
+  )
+);
+
+const matchingAnswerSchema = Schema.Struct({
+  type: Schema.Literal('matching'),
+  associations: matchingAssociationsSchema
+});
+
 export const quizAnswerSchema = Schema.Union([
+  matchingAnswerSchema,
   orderingAnswerSchema,
   Schema.Struct({
     type: Schema.Literal('open'),
@@ -108,7 +132,7 @@ const openAttemptQuestionFields = {
 
 const choiceAttemptQuestionFields = {
   ...quizAttemptQuestionFields,
-  kind: Schema.Literals(['single_choice', 'multiple_choice']),
+  kind: Schema.Literals(['single_choice', 'multiple_choice', 'true_false']),
   answer: Schema.NullOr(
     Schema.Struct({
       type: Schema.Literal('choice'),
@@ -126,7 +150,20 @@ const orderingAttemptQuestionFields = {
   answer: Schema.NullOr(orderingAnswerSchema)
 };
 
+const matchingAttemptQuestionFields = {
+  ...quizAttemptQuestionFields,
+  kind: Schema.Literal('matching'),
+  answer: Schema.NullOr(matchingAnswerSchema),
+  terms: Schema.mutable(
+    Schema.Array(Schema.Struct({ id: matchingTermIdSchema, text: Schema.String }))
+  ),
+  definitions: Schema.mutable(
+    Schema.Array(Schema.Struct({ id: matchingDefinitionIdSchema, text: Schema.String }))
+  )
+};
+
 const quizAttemptInProgressQuestionSchema = Schema.Union([
+  Schema.Struct(matchingAttemptQuestionFields),
   Schema.Struct(orderingAttemptQuestionFields),
   Schema.Struct({
     ...openAttemptQuestionFields
@@ -154,6 +191,19 @@ const quizAttemptCompletedQuestionSchema = Schema.Union([
     ...orderingAttemptQuestionFields,
     ...quizQuestionResultFields,
     correctItemIds: Schema.mutable(Schema.Array(quizOrderingItemIdSchema))
+  }),
+  Schema.Struct({
+    ...matchingAttemptQuestionFields,
+    ...quizQuestionResultFields,
+    pairs: Schema.mutable(
+      Schema.Array(
+        Schema.Struct({
+          termId: matchingTermIdSchema,
+          definitionId: matchingDefinitionIdSchema,
+          score: Schema.Number
+        })
+      )
+    )
   }),
   Schema.Struct({
     ...openAttemptQuestionFields,

@@ -35,6 +35,7 @@ export const MaterialsRpcLive = defineRpc(
       'materials.requestDeletion': (value) => materials.requestDeletion(value),
       'materials.deletion': (value) => materials.deletion(value),
       'materials.retryDeletion': (value) => materials.retryDeletion(value),
+      'materials.activeMaterialGenerations': (value) => materials.activeMaterialGenerations(value),
       'materials.materialGeneration': (value) =>
         materials.materialGeneration({ ...value, verifyOnly: true }),
       'materials.cancelMaterialGeneration': (value) => materials.cancelMaterialGeneration(value),

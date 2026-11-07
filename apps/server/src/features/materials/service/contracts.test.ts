@@ -53,6 +53,7 @@ testStable('native materials RPC names cover the complete public API', async () 
       'requestDeletion',
       'deletion',
       'retryDeletion',
+      'activeMaterialGenerations',
       'materialGeneration',
       'cancelMaterialGeneration',
       'retryMaterialGeneration',

@@ -14,6 +14,7 @@
  */
 
 import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -59,6 +60,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
     agentsLayer({
       model: () => Effect.die('unexpected model'),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     })
   );
@@ -239,6 +241,7 @@ testStable(
               return model;
             }),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.die('global search')
         })
       );
@@ -497,6 +500,21 @@ testStable(
             prompt: 'Order the captured process.',
             explanation: 'alpha evidence [1]',
             items: [{ text: 'Initial stage' }, { text: 'Final stage' }]
+          },
+          {
+            kind: 'matching',
+            prompt: 'Match the captured terms.',
+            explanation: 'alpha [1]',
+            pairs: [
+              { term: 'Alpha', definition: 'First' },
+              { term: 'Beta', definition: 'Second' }
+            ]
+          },
+          {
+            kind: 'true_false',
+            prompt: 'The captured value is alpha.',
+            isTrue: true,
+            explanation: 'alpha [1]'
           }
         ]
       });
@@ -527,7 +545,7 @@ testStable(
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open, blank, ordering] = quiz.content.questions;
+        const [single, multiple, open, blank, ordering, matching, boolean] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -549,6 +567,24 @@ testStable(
         assert.deepEqual(
           ordering.items.map((item) => item.text),
           ['Initial stage', 'Final stage']
+        );
+        assert.ok(matching);
+        assert.ok(matching.kind === 'matching');
+        assert.deepEqual(
+          matching.pairs.map((p) => [p.term, p.definition]),
+          [
+            ['Alpha', 'First'],
+            ['Beta', 'Second']
+          ]
+        );
+        assert.ok(boolean);
+        assert.ok(boolean.kind === 'true_false');
+        assert.deepEqual(
+          boolean.choices.map((choice) => [choice.text, choice.isCorrect]),
+          [
+            ['true', true],
+            ['false', false]
+          ]
         );
       }
 

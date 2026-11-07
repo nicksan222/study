@@ -289,12 +289,17 @@ function checkGeneratedLimits(
   return Effect.void;
 }
 
-/** Builds generation instructions from the requested quiz shape, including the single-marker rule for blank prompts. */
+/** Constrain generation to the saved count, question kind and difficulty. */
 function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undefined) {
   if (!config) return '';
 
   const kinds = {
-    mixed: 'any combination of choice, open, fill_blank and ordering questions',
+    mixed:
+      'any combination of choice, open, fill_blank, true_false matching and ordering questions',
+    matching:
+      'only matching questions with 2 to 8 distinct term/definition pairs from the selected documents; each definition must match exactly one term. Never disclose associations in the prompt; cite evidence in the explanation',
+    true_false:
+      'only true_false statements, with boolean isTrue and an explanation that corrects any false statement',
     ordering:
       'only ordering questions with 2 to 10 distinct steps or events in canonical chronological or process order in items; ground the sequence in selected documents, put citations in explanation and do not number items',
     choice: 'only choice questions (single_choice or multiple_choice)',

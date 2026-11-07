@@ -19,7 +19,7 @@ testStable(
 
     try {
       for (const name of readdirSync(migrations))
-        if (name < '20261107131942_ordering-practice')
+        if (name < '20261107141857_ordering-practice')
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
 
       connection = Db.open(path, previous);

@@ -31,11 +31,12 @@ for (const [width, initiallyOpen] of [
     expect(panel.hidden).toBe(initiallyOpen);
     expect(screen.getByRole('heading', { name: 'Core question' })).toBeInTheDocument();
 
-    if (!initiallyOpen) {
-      screen.getByRole('button', { name: 'Source action' }).focus();
-      await user.keyboard('{Escape}');
-      expect(panel.hidden).toBe(true);
-      expect(toggle).toHaveFocus();
-    }
+    if (initiallyOpen) await user.click(toggle);
+
+    screen.getByRole('button', { name: 'Source action' }).focus();
+    await user.keyboard('{Escape}');
+    expect(panel.hidden).toBe(true);
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
   });
 }

@@ -22,6 +22,7 @@ import { Schema } from 'effect';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
 
+import { encodeAssociations, matchingScore } from './matching.ts';
 import { makeQuiz } from './quiz.ts';
 
 type Input = typeof answerQuestionInputSchema.Type;
@@ -38,6 +39,12 @@ export function makeAnswerQuestion(resources: StoreResources) {
       return {
         answer: Schema.encodeSync(orderingAnswerJsonSchema)(answer),
         score: orderingScore(q.id, answer.itemIds)
+      };
+
+    if (answer.type === 'matching')
+      return {
+        answer: storedAnswer(answer),
+        score: matchingScore(q.matching_pairs!, answer.associations)
       };
 
     if (answer.type === 'open') return { answer: answer.answer, score: null };
@@ -64,11 +71,9 @@ export function makeAnswerQuestion(resources: StoreResources) {
 
     if (!q) invalid('question does not belong to attempt selection');
 
-    if (
-      (q.kind === 'ordering') !== (input.answer.type === 'ordering') ||
-      isTextQuestionKind(q.kind) !== (input.answer.type === 'open')
-    )
-      invalid('wrong answer kind');
+    const expected = expectedAnswerKind(q.kind);
+
+    if (input.answer.type !== expected) invalid('wrong answer kind');
 
     db.orm
       .delete(s.material_quiz_selections)
@@ -119,4 +124,18 @@ export function makeAnswerQuestion(resources: StoreResources) {
   return {
     answerQuestion
   };
+}
+
+/** Serialize matching associations without treating them as free text answers. */
+function storedAnswer(answer: Input['answer']) {
+  if (answer.type === 'matching') return encodeAssociations(answer.associations);
+
+  return answer.type === 'open' ? answer.answer : null;
+}
+
+/** Map persisted question kinds to the single canonical response variant. */
+function expectedAnswerKind(kind: typeof s.material_quiz_questions.$inferSelect.kind) {
+  if (kind === 'ordering' || kind === 'matching') return kind;
+
+  return isTextQuestionKind(kind) ? 'open' : 'choice';
 }

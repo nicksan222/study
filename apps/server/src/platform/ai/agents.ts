@@ -22,6 +22,7 @@ import { agentRunIdSchema } from '@study/contracts/ai/progress';
 import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts/ai/progress';
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { AgentRules } from '@study/contracts/settings/types';
 import { streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
 import {
@@ -47,6 +48,7 @@ import type { AgentDefinition, AgentEnvironment } from '#server/platform/definit
 import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
+  rules: Effect.Effect<AgentRules, StudyError>;
   model: (tier: ModelTier) => Effect.Effect<LanguageModelV3, StudyError>;
   observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
 }
@@ -93,12 +95,13 @@ function failure(error: unknown): StudyError {
 /** Consume the agent stream and return only its schema-validated completion value. */
 export function generateAgent<
   I extends Schema.ConstraintDecoder<unknown>,
-  O extends Schema.ConstraintDecoder<unknown>
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never
 >(
-  definition: AgentDefinition<I, O>,
+  definition: AgentDefinition<I, O, Requirements>,
   input: I['Type'],
   options: AgentOptions = {}
-): Effect.Effect<O['Type'], StudyError, Agents> {
+): Effect.Effect<O['Type'], StudyError, Agents | Requirements> {
   return Stream.runLast(streamAgent(definition, input, options)).pipe(
     Effect.flatMap((event) => {
       const last = Option.getOrUndefined(event);
@@ -118,12 +121,13 @@ export function generateAgent<
  */
 export function streamAgent<
   I extends Schema.ConstraintDecoder<unknown>,
-  O extends Schema.ConstraintDecoder<unknown>
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never
 >(
-  definition: AgentDefinition<I, O>,
+  definition: AgentDefinition<I, O, Requirements>,
   input: I['Type'],
   options: AgentOptions = {}
-): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents> {
+): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents | Requirements> {
   /** Capture one run identity and preserve its scoped ownership through all observations. */
   function* runAgentStream(queue: Queue.Queue<AgentProgress<O['Type']>, StudyError | Cause.Done>) {
     const service = yield* Agents;
@@ -136,9 +140,27 @@ export function streamAgent<
     const model = yield* service.model(definition.model);
     const language =
       typeof service.language === 'string' ? service.language : yield* service.language;
+    const rules = yield* service.rules;
+    const instructions =
+      typeof definition.instructions === 'function'
+        ? definition.instructions(language)
+        : definition.instructions;
+    const customRules = [...new Set(definition.customRules)]
+      .map((rule) => rules[rule.key].trim())
+      .filter(Boolean);
+    const baseSystem = customRules.length
+      ? `${instructions}\n\nUser preferences (apply where compatible with the task, required output format and source fidelity):\n${customRules.join('\n\n')}`
+      : instructions;
+    const wiki = Object.entries(definition.tools ?? {}).map(
+      ([name, tool]) =>
+        `${name} (${tool.mutates ? 'changes local data' : 'read only'}): ${tool.description}\nWhen: ${tool.wiki.when}\nExamples: ${tool.wiki.examples.join(' | ')}\nLimits: ${tool.wiki.limits}`
+    );
+    const system = wiki.length
+      ? `${baseSystem}\n\nAvailable capabilities (use this guide when explaining what you can do):\n${wiki.join('\n\n')}`
+      : baseSystem;
     const span = yield* Effect.currentSpan;
     const annotations = yield* References.CurrentLogAnnotations;
-    const callbackContext = yield* Effect.context<never>();
+    const callbackContext = yield* Effect.context<Requirements>();
     const run = {
       runId: agentRunIdSchema.make(randomUUID()),
       agentId: definition.id,
@@ -195,10 +217,7 @@ export function streamAgent<
                 return streamText({
                   onError: () => {},
                   model: checkedModel,
-                  system:
-                    typeof definition.instructions === 'function'
-                      ? definition.instructions(language)
-                      : definition.instructions,
+                  system,
                   ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
                   tools,
                   stopWhen: stepCountIs(steps),
@@ -306,7 +325,7 @@ export function streamAgent<
       );
   }
 
-  return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents>(
+  return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents | Requirements>(
     (queue) =>
       Effect.gen(() => runAgentStream(queue)).pipe(
         Effect.mapError(failure),

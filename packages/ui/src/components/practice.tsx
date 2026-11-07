@@ -7,6 +7,8 @@ import { semanticPart } from './semantic-part';
 
 export const Practice = {
   Ordering,
+  MatchingRow: semanticPart('div', 'study-practice-matching-row'),
+  MatchingReview: semanticPart('div', 'study-practice-matching-review'),
   OutlineItems,
   ChoiceOption,
   AnswerComparison,

@@ -68,7 +68,15 @@ export const quizSettingsSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   questionOrder: Schema.Literals(['source', 'shuffle']),
   shuffleChoices: Schema.Boolean,
-  questionKind: Schema.Literals(['all', 'choice', 'open', 'fill_blank', 'ordering']),
+  questionKind: Schema.Literals([
+    'all',
+    'choice',
+    'open',
+    'fill_blank',
+    'ordering',
+    'matching',
+    'true_false'
+  ]),
   choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })).pipe(
     Schema.withDecodingDefault(Effect.succeed(4))
   ),
@@ -76,3 +84,36 @@ export const quizSettingsSchema = Schema.Struct({
     Schema.withDecodingDefault(Effect.succeed('balanced'))
   )
 });
+
+export const AgentRule = {
+  Documents: { key: 'documents' },
+  Titles: { key: 'titles' },
+  Replies: { key: 'replies' },
+  Quizzes: { key: 'quizzes' },
+  Flashcards: { key: 'flashcards' },
+  Diagrams: { key: 'diagrams' },
+  Grading: { key: 'grading' },
+  Transcription: { key: 'transcription' },
+  QuestionDetection: { key: 'questionDetection' }
+} as const;
+
+export const maxAgentRuleLength = 8000;
+
+/** User preferences augment task instructions without replacing schemas or evidence requirements. */
+const agentRuleTextSchema = Schema.String.check(Schema.isMaxLength(maxAgentRuleLength));
+
+export const agentRulesSchema = Schema.Struct({
+  [AgentRule.Documents.key]: agentRuleTextSchema,
+  [AgentRule.Titles.key]: agentRuleTextSchema,
+  [AgentRule.Replies.key]: agentRuleTextSchema,
+  [AgentRule.Quizzes.key]: agentRuleTextSchema,
+  [AgentRule.Flashcards.key]: agentRuleTextSchema,
+  [AgentRule.Diagrams.key]: agentRuleTextSchema,
+  [AgentRule.Grading.key]: agentRuleTextSchema,
+  [AgentRule.Transcription.key]: agentRuleTextSchema,
+  [AgentRule.QuestionDetection.key]: agentRuleTextSchema
+});
+
+export type AgentRule = (typeof AgentRule)[keyof typeof AgentRule];
+
+export type AgentRuleKey = AgentRule['key'];
