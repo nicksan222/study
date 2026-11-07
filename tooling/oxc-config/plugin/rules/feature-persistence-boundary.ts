@@ -5,6 +5,7 @@ import { production } from './synchronous-transactions.ts';
 
 const groups: Record<string, string[]> = {
   projects: ['projects'],
+  search: ['semantic_search_entries'],
   'projects,materials': ['project_materials'],
   'projects,conversations': ['project_sessions'],
   sources: [
@@ -109,6 +110,7 @@ const groups: Record<string, string[]> = {
     'workflow_retired_executions',
     'workflow_executions',
     'workflow_activities',
+    'workflow_agent_progress',
     'workflow_deferreds',
     'workflow_clocks',
     'workflow_events',

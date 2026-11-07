@@ -1,6 +1,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
+import { agentProgressInputSchema, agentProgressPageSchema } from '../ai/progress.ts';
 import { failureSchema } from '../errors.ts';
 import {
   executionIdSchema,
@@ -11,6 +12,17 @@ import {
 } from './schemas.ts';
 
 export const WorkflowsRpc = RpcGroup.make(
+  Rpc.make('agentProgress', {
+    payload: agentProgressInputSchema,
+    success: agentProgressPageSchema,
+    error: failureSchema
+  }),
+  Rpc.make('subscribeAgentProgress', {
+    payload: agentProgressInputSchema,
+    success: agentProgressPageSchema,
+    error: failureSchema,
+    stream: true
+  }),
   Rpc.make('execution', {
     payload: { id: executionIdSchema },
     success: executionSchema,

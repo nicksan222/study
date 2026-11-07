@@ -8,18 +8,18 @@ import type {
   SessionId,
   StudyDocumentAnnotationId
 } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
+
+import { requiredIdReference } from '../columns.ts';
 import {
-  sqliteTable,
+  defineTable,
+  sql,
   integer,
   text,
   primaryKey,
   foreignKey,
   uniqueIndex,
   check
-} from 'drizzle-orm/sqlite-core';
-
-import { requiredIdReference } from '../columns.ts';
+} from '../schema-builder.ts';
 import { validAnchor } from './anchor-validity.ts';
 import { content_snapshots } from './content-snapshots.ts';
 import { sessions, message_versions } from './conversations.ts';
@@ -28,7 +28,7 @@ import { source_snapshots, source_extraction_revisions } from './source-processi
 import { sources } from './sources.ts';
 import { study_documents, study_document_versions } from './study-documents.ts';
 
-export const session_sources = sqliteTable(
+export const session_sources = defineTable({ role: 'contributes', entity: 'source' })(
   'session_sources',
   {
     session_id: integer()
@@ -49,7 +49,10 @@ export const session_sources = sqliteTable(
   ]
 );
 
-export const study_document_generation_requests = sqliteTable(
+export const study_document_generation_requests = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_generation_requests',
   {
     id: text().primaryKey(),
@@ -78,7 +81,10 @@ export const study_document_generation_requests = sqliteTable(
 );
 
 /** Exactly one authored version, source revision or original message version. */
-export const study_document_inputs = sqliteTable(
+export const study_document_inputs = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_inputs',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),
@@ -125,7 +131,10 @@ export const study_document_inputs = sqliteTable(
   ]
 );
 
-export const study_document_citations = sqliteTable(
+export const study_document_citations = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_citations',
   {
     version_id: integer().$type<StudyDocumentVersionId>().notNull(),
@@ -141,7 +150,7 @@ export const study_document_citations = sqliteTable(
   ]
 );
 
-export const study_document_annotations = sqliteTable(
+export const study_document_annotations = defineTable({ role: 'contributes', entity: 'document' })(
   'study_document_annotations',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<StudyDocumentAnnotationId>(),
@@ -154,7 +163,10 @@ export const study_document_annotations = sqliteTable(
   ]
 );
 
-export const study_document_annotation_revisions = sqliteTable(
+export const study_document_annotation_revisions = defineTable({
+  role: 'contributes',
+  entity: 'document'
+})(
   'study_document_annotation_revisions',
   {
     annotation_id: integer().$type<StudyDocumentAnnotationId>().notNull(),
@@ -178,7 +190,10 @@ export const study_document_annotation_revisions = sqliteTable(
   ]
 );
 
-export const study_document_proposals = sqliteTable('study_document_proposals', {
+export const study_document_proposals = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})('study_document_proposals', {
   request_id: text()
     .primaryKey()
     .references(() => study_document_generation_requests.id),
@@ -190,7 +205,10 @@ export const study_document_proposals = sqliteTable('study_document_proposals', 
     .references(() => study_document_versions.id)
 });
 
-export const study_document_proposal_receipts = sqliteTable(
+export const study_document_proposal_receipts = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_proposal_receipts',
   {
     key: text().primaryKey(),
@@ -216,25 +234,34 @@ export const study_document_proposal_receipts = sqliteTable(
 );
 /** Explicit body retirement retains version identity and immutable edit outcomes. */
 
-export const study_document_retirements = sqliteTable('study_document_retirements', {
-  version_id: integer()
-    .$type<StudyDocumentVersionId>()
-    .primaryKey()
-    .references(() => study_document_versions.id),
-  reason: text({ enum: ['history', 'deletion'] }).notNull(),
-  created_at: integer().$type<bigint>().notNull()
-});
+export const study_document_retirements = defineTable({ role: 'contributes', entity: 'document' })(
+  'study_document_retirements',
+  {
+    version_id: integer()
+      .$type<StudyDocumentVersionId>()
+      .primaryKey()
+      .references(() => study_document_versions.id),
+    reason: text({ enum: ['history', 'deletion'] }).notNull(),
+    created_at: integer().$type<bigint>().notNull()
+  }
+);
 
-export const study_document_deletions = sqliteTable('study_document_deletions', {
-  document_id: integer()
-    .$type<StudyDocumentId>()
-    .primaryKey()
-    .references(() => study_documents.id),
-  created_at: integer().$type<bigint>().notNull()
-});
+export const study_document_deletions = defineTable({ role: 'contributes', entity: 'document' })(
+  'study_document_deletions',
+  {
+    document_id: integer()
+      .$type<StudyDocumentId>()
+      .primaryKey()
+      .references(() => study_documents.id),
+    created_at: integer().$type<bigint>().notNull()
+  }
+);
 /** User judgments belong to one exact declared citation; never inferred verification. */
 
-export const study_document_citation_assessments = sqliteTable(
+export const study_document_citation_assessments = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_citation_assessments',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),

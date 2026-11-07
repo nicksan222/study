@@ -189,6 +189,14 @@ export const italian = Object.freeze({
   SessionWorkDetails: 'Dettagli attività',
   SessionWorkDetailsHelp: 'Attività e contesto salvato per questa nota.',
   SessionWorkActivity: 'Attività',
+  AgentStreamingPreview: 'Scrittura · anteprima',
+  AgentStreamInterrupted: 'Generazione interrotta · anteprima incompleta',
+  AgentStreamReconnecting: 'Riconnessione all’avanzamento in tempo reale…',
+  AgentStreamUnavailable:
+    'L’avanzamento in tempo reale non è disponibile. Il lavoro può continuare in background.',
+  AgentToolRunning: 'Esame del tuo materiale…',
+  AgentToolCompleted: 'Materiale verificato',
+  AgentToolFailed: 'Impossibile completare la verifica del materiale',
   SessionWorkManual:
     'Questa versione è stata scritta manualmente. Non ci sono attività di generazione da mostrare.',
   SessionWorkStarted: 'Avvio',

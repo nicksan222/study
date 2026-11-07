@@ -1,8 +1,10 @@
-import { sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { defineTable, sql, check, index, integer, primaryKey, text } from '../schema-builder.ts';
 
 /** Durable execution identity and the current owner's fencing token. */
-export const workflow_executions = sqliteTable(
+export const workflow_executions = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_executions',
   {
     execution_id: text().primaryKey(),
@@ -36,7 +38,10 @@ export const workflow_executions = sqliteTable(
 );
 
 /** Completed activity results keyed by the native activity name and attempt. */
-export const workflow_activities = sqliteTable(
+export const workflow_activities = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_activities',
   {
     execution_id: text()
@@ -53,7 +58,10 @@ export const workflow_activities = sqliteTable(
   ]
 );
 
-export const workflow_deferreds = sqliteTable(
+export const workflow_deferreds = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_deferreds',
   {
     execution_id: text()
@@ -68,7 +76,10 @@ export const workflow_deferreds = sqliteTable(
   ]
 );
 
-export const workflow_clocks = sqliteTable(
+export const workflow_clocks = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_clocks',
   {
     execution_id: text()
@@ -85,7 +96,10 @@ export const workflow_clocks = sqliteTable(
 );
 
 /** Content-free fences survive payload scrubbing and duplicate event delivery. */
-export const workflow_retired_correlations = sqliteTable(
+export const workflow_retired_correlations = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})(
   'workflow_retired_correlations',
   {
     correlation_id: text().notNull(),
@@ -94,7 +108,10 @@ export const workflow_retired_correlations = sqliteTable(
   (t) => [primaryKey({ columns: [t.correlation_id, t.event_type] })]
 );
 
-export const workflow_retired_executions = sqliteTable('workflow_retired_executions', {
+export const workflow_retired_executions = defineTable({
+  role: 'internal',
+  reason: 'Durable execution and recovery state'
+})('workflow_retired_executions', {
   execution_id: text().primaryKey(),
   correlation_id: text().notNull()
 });

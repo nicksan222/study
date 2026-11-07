@@ -10,6 +10,7 @@ export * from './schema/material-content.ts';
 export * from './schema/learning-content.ts';
 export * from './schema/themes.ts';
 export * from './schema/workflows.ts';
+export * from './schema/workflow-agent-progress.ts';
 export * from './schema/workflow-events.ts';
 export * from './schema/source-processing.ts';
 export * from './schema/workflow-configuration.ts';
@@ -32,3 +33,5 @@ export * from './schema/document-transforms.ts';
 export * from './schema/session-context-inputs.ts';
 export * from './schema/material-evidence.ts';
 export * from './schema/reply-source-inputs.ts';
+
+export * from './schema/semantic-search.ts';

@@ -222,3 +222,9 @@ export function observeSyncOperation<A>(
     throw error;
   }
 }
+
+/** Record recoverable search failures without logging queries or indexed content. */
+export const recordSearchReconciliationRetry = (errorKind: ErrorKind) =>
+  Effect.logWarning('search.reconciliation.retry').pipe(
+    Effect.annotateLogs(safeMetadata({ errorKind }))
+  );

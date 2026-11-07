@@ -6,16 +6,15 @@ import type {
   VersionId
 } from '@study/contracts/ids';
 import type { BlockId } from '@study/contracts/sources/document';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, primaryKey, index, check } from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, integer, text, primaryKey, index, check } from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { content_snapshots } from './content-snapshots.ts';
 import { message_versions } from './conversations.ts';
 import { sources } from './sources.ts';
 import { study_document_versions } from './study-documents.ts';
 
-export const citations = sqliteTable(
+export const citations = defineTable({ role: 'contributes', entity: 'message' })(
   'citations',
   {
     version_id: integer()

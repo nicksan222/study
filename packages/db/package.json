@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./testing": "./src/testing.ts"
+    "./testing": "./src/testing.ts",
+    "./schema-builder": "./src/schema-builder.ts"
   },
   "scripts": {
     "check:generated": "vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\"",
@@ -17,7 +18,8 @@
   "dependencies": {
     "@study/contracts": "*",
     "@study/theme": "*",
-    "drizzle-orm": "1.0.0-rc.5"
+    "drizzle-orm": "1.0.0-rc.5",
+    "sqlite-vec": "0.1.9"
   },
   "devDependencies": {
     "@study/testing": "*",

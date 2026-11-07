@@ -1,21 +1,21 @@
 import type { MaterialId, ProjectId, SessionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
+
 import {
+  defineTable,
+  sql,
   integer,
   primaryKey,
   index,
-  sqliteTable,
   foreignKey,
   uniqueIndex,
   check
-} from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
 import { sessions } from './conversations.ts';
 import { materials } from './material-versions.ts';
 import { projects } from './sources.ts';
 
 /** Flat organizational links. Deleting a collection never deletes library content. */
-export const project_materials = sqliteTable(
+export const project_materials = defineTable({ role: 'contributes', entity: 'material' })(
   'project_materials',
   {
     project_id: integer()
@@ -33,7 +33,7 @@ export const project_materials = sqliteTable(
   ]
 );
 
-export const project_sessions = sqliteTable(
+export const project_sessions = defineTable({ role: 'contributes', entity: 'session' })(
   'project_sessions',
   {
     project_id: integer()
@@ -51,7 +51,7 @@ export const project_sessions = sqliteTable(
   ]
 );
 
-export const session_materials = sqliteTable(
+export const session_materials = defineTable({ role: 'contributes', entity: 'material' })(
   'session_materials',
   {
     session_id: integer().$type<SessionId>().notNull(),

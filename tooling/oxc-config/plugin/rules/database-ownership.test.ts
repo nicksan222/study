@@ -130,3 +130,20 @@ testStable(
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
+
+testStable('the metadata wrapper may construct tables without exposing raw factories', () => {
+  const diagnostics = lintRule(
+    'database-ownership',
+    {
+      'packages/db/src/table.ts':
+        "import { sqliteTable, SQLiteTable } from 'drizzle-orm/sqlite-core';",
+      'packages/db/src/schema-builder.ts':
+        "export { integer, text } from 'drizzle-orm/sqlite-core';",
+      'packages/db/src/unwrapped.ts': "import { sqliteTable } from 'drizzle-orm/sqlite-core';"
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  assert.ok(diagnostics[0]?.filename.endsWith('/unwrapped.ts'));
+});

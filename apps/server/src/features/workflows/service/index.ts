@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
 import { StudyError } from '@study/contracts/errors';
 import type { WorkflowEvent } from '@study/contracts/events';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
@@ -23,6 +24,7 @@ import type {
 import type { Cause } from 'effect';
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
 
+import { AgentProgressStore } from '#server/features/workflows/store/agent-progress';
 import { ExecutionStore } from '#server/features/workflows/store/index';
 import { databaseChanges } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
@@ -31,12 +33,16 @@ import { useStore, transaction } from '#server/platform/definitions/define-store
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { WorkflowRetirementStore } from '#server/platform/workflows/retirement';
 
+/** Compose workflow controls and persisted snapshot subscriptions over committed hints. */
 function* makeWorkflows() {
   const changes = yield* databaseChanges;
 
   const control = yield* WorkflowControl;
 
   const store = yield* useStore(ExecutionStore);
+  const progressStore = yield* useStore(AgentProgressStore);
+  const agentProgress = (input: typeof agentProgressInputSchema.Type) =>
+    progressStore.agentProgress({ scope: input, limit: 100 });
 
   const executions = (input: typeof executionsInputSchema.Type) =>
     Effect.gen(function* () {
@@ -54,6 +60,7 @@ function* makeWorkflows() {
       return { items, next: more.length ? cursor : null };
     });
 
+  /** Seed each viewer, coalesce commit hints and periodically recover from missed hints. */
   function* watchExecutions(queue: Queue.Queue<void, Cause.Done>) {
     yield* Effect.acquireRelease(
       Effect.sync(() =>
@@ -70,17 +77,37 @@ function* makeWorkflows() {
     );
   }
 
+  const updates = Stream.callback<void>((queue) => Effect.gen(() => watchExecutions(queue)), {
+    bufferSize: 1,
+    strategy: 'sliding'
+  });
+
   return {
+    agentProgress,
+    /** Bound snapshot reads before querying and suppress unchanged revisions on the wire. */
+    subscribeAgentProgress: (input: typeof agentProgressInputSchema.Type) =>
+      Effect.succeed(
+        updates.pipe(
+          // Keep only the latest pending hint and bound reads before loading full snapshots.
+          Stream.throttle({ units: 1, duration: '100 millis', cost: () => 1 }),
+          Stream.mapEffect(() => agentProgress(input)),
+          Stream.changesWith(
+            (a, b) =>
+              a.length === b.length &&
+              a.every(
+                (run, index) =>
+                  run.runId === b[index]?.runId &&
+                  run.revision === b[index]?.revision &&
+                  run.executionStatus === b[index]?.executionStatus
+              )
+          )
+        )
+      ),
     execution: store.execution,
     findExecution: store.findExecution,
     executions,
     subscribeExecutions: (input: typeof executionsInputSchema.Type) =>
-      Effect.succeed(
-        Stream.callback<void>((queue) => Effect.gen(() => watchExecutions(queue)), {
-          bufferSize: 1,
-          strategy: 'sliding'
-        }).pipe(Stream.mapEffect(() => executions(input)))
-      ),
+      Effect.succeed(updates.pipe(Stream.mapEffect(() => executions(input)))),
     cancelExecution: (input: typeof cancelExecutionInputSchema.Type) =>
       control.cancel(input).pipe(Effect.andThen(store.execution(input.id)))
   };
