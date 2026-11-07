@@ -1,4 +1,4 @@
-//! Owns the Node server process and its loopback transport.
+//! Owns the Bun server process and its loopback transport.
 use crate::transport::{Client, NativeError};
 use std::{path::PathBuf, process::Stdio, time::Duration};
 use tokio::{
@@ -13,11 +13,11 @@ pub struct Server {
 }
 impl Server {
     pub async fn start(
-        node: PathBuf,
+        bun: PathBuf,
         entry: PathBuf,
         database: PathBuf,
     ) -> Result<Self, NativeError> {
-        let (child, url) = spawn(&node, &entry, &database).await?;
+        let (child, url) = spawn(&bun, &entry, &database).await?;
         Ok(Self {
             child: Mutex::new(Some(child)),
             client: Client::new(url),
@@ -50,11 +50,11 @@ impl Server {
     }
 }
 async fn spawn(
-    node: &PathBuf,
+    bun: &PathBuf,
     entry: &PathBuf,
     database: &PathBuf,
 ) -> Result<(Child, String), NativeError> {
-    let mut child = Command::new(node)
+    let mut child = Command::new(bun)
         .arg(entry)
         .env("STUDY_DATABASE", database)
         .stdin(Stdio::piped())

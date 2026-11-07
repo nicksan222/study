@@ -54,7 +54,7 @@ sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-d
 ```
 
 Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` picks the version) and
-[just](https://github.com/casey/just), Node 26 and Bun (for landing). Run `npm ci` and
+[just](https://github.com/casey/just), Node 26 for build tooling and Bun 1.4.2 for the application runtime. Run `npm ci` and
 `bun install --cwd apps/landing --frozen-lockfile`, then `just check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the
@@ -65,7 +65,7 @@ image independently of its path filters.
 Use the local web app in a browser for routine development and UI verification. First
 check `http://localhost:5173` and reuse it if Study is already working. Only otherwise
 run `bun dev` from the repository root inside the devcontainer to start the web app and
-Effect RPC server. Vite updates frontend modules; Node watch restarts the backend when
+Effect RPC server. Vite updates frontend modules; Bun watch restarts the backend when
 its imported source changes. The native Vite config loader avoids temporary bundled-config
 restart loops. Development data lives in `target/web/study.sqlite`; set
 `STUDY_DATABASE` to use another database.
@@ -200,11 +200,12 @@ with an **Install and restart** action. Downloads require that action; Tauri ver
 the signature before installing. Failures offer retry. The private server shuts down
 before restart (and before the Windows installer exits). Browser, debug and unsigned
 builds skip the updater. Linux in-app updates require the AppImage distribution.
-Tauri’s pre-build hook stages Node, the private server’s source, locked production
-dependencies and Drizzle migrations under `target/desktop-runtime`. The same resources
+Tauri’s pre-build hook stages Bun, the private server’s source, locked production
+dependencies, the macOS SQLite library and Drizzle migrations under `target/desktop-runtime`. The same resources
 ship in both installers and updates. Every platform smoke-tests Tauri’s copied runtime
-from an isolated directory with a fresh database and no dependency on a system Node installation. Run
-`npm run desktop:runtime` to stage it independently.
+from an isolated directory with a fresh database and no dependency on a system Bun installation. Run
+`bun run desktop:runtime` to stage it independently. macOS development also requires
+`brew install sqlite`, since Bun’s system SQLite cannot load the vector extension.
 
 For local bundles without signing credentials, use `just package linux-x86_64 --unsigned`.
 This explicitly disables updater artifacts and signing for that build.

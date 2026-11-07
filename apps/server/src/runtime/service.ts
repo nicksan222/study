@@ -25,6 +25,7 @@ import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
 import { nativeLayers } from './native.ts';
+import { configureSqliteRuntime } from './sqlite.ts';
 import { Workers } from './workers.ts';
 
 type OpenPhase = `${'ownership' | 'restore' | 'database' | 'services'}:${'start' | 'complete'}`;
@@ -65,6 +66,8 @@ export class App {
     fetch?: typeof fetch;
     onPhase?: (phase: OpenPhase) => void;
   }): Promise<App> {
+    configureSqliteRuntime();
+
     const report = (phase: OpenPhase) => {
       try {
         options.onPhase?.(phase);

@@ -97,7 +97,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Native build tools
         if: runner.os == 'macOS'
-        run: brew install cmake pkg-config python
+        run: brew install cmake pkg-config python sqlite
       - name: Install frontend dependencies
         if: runner.os != 'Linux'
         run: npm ci

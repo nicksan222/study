@@ -36,13 +36,13 @@ pub fn run() {
             std::fs::create_dir_all(&data)?;
             logging::install(&data);
             let resources = app.path().resource_dir()?;
-            let node = std::env::var_os("STUDY_NODE_PATH")
+            let bun = std::env::var_os("STUDY_BUN_PATH")
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| {
                     if cfg!(debug_assertions) {
-                        "node".into()
+                        "bun".into()
                     } else {
-                        resources.join(if cfg!(windows) { "node.exe" } else { "node" })
+                        resources.join(if cfg!(windows) { "bun.exe" } else { "bun" })
                     }
                 });
             let entry = std::env::var_os("STUDY_SERVER_ENTRY")
@@ -59,7 +59,7 @@ pub fn run() {
                 .map(std::path::PathBuf::from)
                 .unwrap_or_else(|| data.join("study.sqlite"));
             let server =
-                tauri::async_runtime::block_on(server::Server::start(node, entry, database))
+                tauri::async_runtime::block_on(server::Server::start(bun, entry, database))
                     .map_err(|e| std::io::Error::other(e.message))?;
             app.manage(std::sync::Arc::new(Shell {
                 server: tokio::sync::Mutex::new(server),

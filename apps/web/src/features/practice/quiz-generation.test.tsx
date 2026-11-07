@@ -22,6 +22,10 @@ import type { StudyClient } from '#web/lib/study-client/client.ts';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
+vi.mock('../agent-progress', () => ({
+  AgentProgress: () => <div>Leaked generation activity</div>
+}));
+
 const en = catalogs.english;
 
 function rpcFixture(linked = true) {
@@ -312,6 +316,7 @@ testStable(
     await waitFor(() =>
       expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
     );
+    expect(screen.queryByText('Leaked generation activity')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: en.PracticeGenerateFromDocuments })).toHaveAttribute(
       'aria-busy',
       'true'

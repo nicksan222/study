@@ -12,12 +12,14 @@ source = Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory() as temporary:
     runtime = Path(temporary) / "runtime"
     runtime.mkdir()
-    node = runtime / ("node.exe" if sys.platform == "win32" else "node")
-    shutil.copy2(source / node.name, node)
+    bun = runtime / ("bun.exe" if sys.platform == "win32" else "bun")
+    shutil.copy2(source / bun.name, bun)
+    if sys.platform == "darwin":
+        shutil.copy2(source / "libsqlite3.dylib", runtime / "libsqlite3.dylib")
     shutil.copytree(source / "server", runtime / "server", symlinks=True)
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
-        [str(node), str(runtime / "server/main.js")],
+        [str(bun), str(runtime / "server/main.js")],
         input="", text=True, capture_output=True, timeout=60, cwd=temporary,
         env=dict(os.environ, STUDY_DATABASE=str(database)),
     )

@@ -100,6 +100,13 @@ jobs:
         # Type checking already ran above; the root build repeats it.
         run: npm exec -- vp run --fail-if-no-match --filter @study/web build
 
+      - name: 🥟 Smoke-test the packaged Bun server
+        id: runtime
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
+        run: |
+          bun run desktop:runtime
+          python3 tooling/release/smoke_runtime.py target/desktop-runtime
+
       - name: 🌍 Check landing page
         id: landing
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
@@ -130,6 +137,7 @@ jobs:
             'generated': '🗃️ Check generated database schema',
             'docs': '📚 Build Rust documentation',
             'frontend_build': '📦 Build web app',
+            'runtime': '🥟 Smoke-test the packaged Bun server',
             'landing': '🌍 Check landing page',
           }
           icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}

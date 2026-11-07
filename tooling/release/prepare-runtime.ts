@@ -1,6 +1,6 @@
-/** Stages the private server, its production dependencies, migrations and native Node runtime. */
+/** Stages the private server, its production dependencies, migrations and native Bun runtime. */
 import { execFileSync } from 'node:child_process';
-import { chmod, copyFile, cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,16 +10,12 @@ const output = resolve(root, 'target/desktop-runtime');
 
 const server = join(output, 'server');
 
-const npm = process.env.npm_execpath;
-
-const workspaceImports: Record<string, string> = {};
-
-if (!npm) throw new Error('Run through npm run desktop:runtime');
+if (!process.versions.bun) throw new Error('Run through bun run desktop:runtime');
 
 await rm(output, { recursive: true, force: true });
 await mkdir(server, { recursive: true });
 
-for (const file of ['package.json', 'package-lock.json'])
+for (const file of ['package.json', 'bun.lock'])
   await copyFile(join(root, file), join(server, file));
 
 // Keep workspace resolution and the lockfile intact while installing only server dependencies.
@@ -41,6 +37,7 @@ for (const folder of [
   'packages/contracts/src',
   'packages/db/src',
   'packages/db/drizzle',
+  'packages/integrations/src',
   'packages/localization/src',
   'packages/theme/src'
 ])
@@ -48,66 +45,45 @@ for (const folder of [
 
 execFileSync(
   process.execPath,
-  [
-    npm,
-    'ci',
-    '--omit=dev',
-    '--ignore-scripts',
-    '--workspace',
-    '@study/server',
-    '--include-workspace-root=false',
-    '--no-audit',
-    '--no-fund'
-  ],
+  ['install', '--production', '--frozen-lockfile', '--ignore-scripts', '--filter', '@study/server'],
   {
     cwd: server,
     stdio: 'inherit'
   }
 );
 
-// Tauri does not copy npm's workspace symlinks. Resolve canonical exports outside
-// node_modules, where Node can strip the workspace's TypeScript sources.
-await rm(join(server, 'node_modules/@study'), { recursive: true, force: true });
-await writeFile(
-  join(server, 'main.js'),
-  `import { registerHooks } from 'node:module';
-const workspaces = new Map(Object.entries(${JSON.stringify(workspaceImports)}));
-registerHooks({ resolve(specifier, context, nextResolve) {
-  const source = workspaces.get(specifier);
-  return nextResolve(source ? new URL(source, import.meta.url).href : specifier, context);
-} });
-await import('./apps/server/src/runtime/main.ts');
-`
-);
+// Tauri does not retain workspace symlinks. Bun can load their TypeScript sources
+// from real package directories, so materialize each installed workspace before bundling.
+const workspaces = join(server, 'node_modules/@study');
 
-const node = join(output, process.platform === 'win32' ? 'node.exe' : 'node');
+for (const entry of await readdir(workspaces, { withFileTypes: true })) {
+  if (!entry.isSymbolicLink()) continue;
 
-await copyFile(process.execPath, node);
-await chmod(node, 0o755);
+  const link = join(workspaces, entry.name);
+  const source = await realpath(link);
+
+  await rm(link, { recursive: true, force: true });
+  await cp(source, link, { recursive: true });
+}
+
+await writeFile(join(server, 'main.js'), "await import('./apps/server/src/runtime/main.ts');\n");
+
+const bun = join(output, process.platform === 'win32' ? 'bun.exe' : 'bun');
+
+await copyFile(process.execPath, bun);
+await chmod(bun, 0o755);
 
 async function copyManifest(relative: string) {
   try {
     await mkdir(join(server, relative), { recursive: true });
     await copyFile(join(root, relative, 'package.json'), join(server, relative, 'package.json'));
-    const manifest: { name: string; exports?: Record<string, string> } = JSON.parse(
-      await readFile(join(root, relative, 'package.json'), 'utf8')
-    );
-
-    recordExports(manifest, relative);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 }
 
-function recordExports(
-  manifest: { name: string; exports?: Record<string, string> },
-  relative: string
-) {
-  for (const [name, target] of Object.entries(manifest.exports ?? {})) {
-    if (typeof target !== 'string')
-      throw new Error(`Unsupported workspace export: ${manifest.name}`);
+if (process.platform === 'darwin') {
+  const prefix = execFileSync('brew', ['--prefix', 'sqlite'], { encoding: 'utf8' }).trim();
 
-    workspaceImports[name === '.' ? manifest.name : manifest.name + name.slice(1)] =
-      `./${relative.replaceAll('\\', '/')}/${target}`;
-  }
+  await copyFile(join(prefix, 'lib/libsqlite3.dylib'), join(output, 'libsqlite3.dylib'));
 }

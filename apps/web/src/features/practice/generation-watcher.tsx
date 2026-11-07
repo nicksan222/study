@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { AgentProgress } from '../agent-progress';
 import { quizGenerationOptions } from './quiz-generation.queries';
 
 export function GenerationWatcher({ id, settled }: { id: string; settled: (id: string) => void }) {
@@ -32,5 +31,5 @@ export function GenerationWatcher({ id, settled }: { id: string; settled: (id: s
     settled(id);
   }, [cache, ready, failed, cancelled, t, id, settled]);
 
-  return <AgentProgress correlationId={id} />;
+  return null;
 }
