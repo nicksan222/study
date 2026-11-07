@@ -130,7 +130,7 @@ export function makeHistory({ db }: StoreResources) {
 
     return conversationHistory(sessionId, undefined, undefined, merged !== undefined, {
       pendingAssistant: 'omit',
-      bounded: true
+      bounded: merged !== undefined
     });
   }
 
