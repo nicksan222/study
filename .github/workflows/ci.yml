@@ -167,7 +167,8 @@ jobs:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: npm ci --no-fund --no-audit
       - name: 🧪 Test server, AI, database and localization
-        timeout-minutes: 10
+        # Real model inference and cold asset installs need headroom on shared runners.
+        timeout-minutes: 15
         run: npm run server:test
 
   integrations:
