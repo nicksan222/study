@@ -123,11 +123,14 @@ jobs:
       - name: Build signed Tauri bundles and updater assets
         id: build
         uses: tauri-apps/tauri-action@v0
+        env:
+          # linuxdeploy's bundled strip predates modern native dependency ELF sections.
+          NO_STRIP: 'true'
         with:
           projectPath: apps/desktop
           tauriScript: npx --no-install tauri
           includeUpdaterJson: false
-          args: --config "${{ steps.config.outputs.path }}" --target ${{ matrix.target }} -- --locked
+          args: --verbose --config "${{ steps.config.outputs.path }}" --target ${{ matrix.target }} -- --locked
       - name: Verify signed macOS microphone permission metadata
         shell: bash
         if: runner.os == 'macOS'
