@@ -9,21 +9,32 @@ import { Notebook } from '@study/ui/session-workspace';
 import { Textarea } from '@study/ui/textarea';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Pencil, Sparkles, AlignLeft, SlidersHorizontal, Check, Archive } from 'lucide-react';
+import {
+  Pencil,
+  Sparkles,
+  AlignLeft,
+  SlidersHorizontal,
+  Check,
+  Archive,
+  FileText
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { useItemArchive } from './archive.queries';
+import { FailedMessageConversion } from './failed-conversion';
 import { useMessageActions } from './message-actions.queries';
 import { MessageContextMenu } from './message-context-menu';
 import { MessageDeletion } from './message-deletion';
 import { MessageVersionStepper } from './message-version-stepper';
 import { NoteEditor } from './note-editor';
+import { PendingMessageWork } from './pending-message-work';
 import { SessionError } from './status';
 
 type MessageActionsModel = ReturnType<typeof useMessageActions>;
 
+/** Keeps message actions and recoverable conversion work beside the selected version. */
 export function MessageActions({
   children,
   onVersionChange,
@@ -47,12 +58,40 @@ export function MessageActions({
           questionAction={questionAction}
         />
       </MessageContextMenu>
+      {model.conversion.mutation.error && (
+        <SessionError error={model.conversion.mutation.error} retry={model.conversion.retry} />
+      )}
+      {props.message.versions
+        .filter(
+          (version) =>
+            version.origin === 'convert' &&
+            (version.status === 'pending' || version.status === 'writing') &&
+            version.id !== props.versionId
+        )
+        .map((version) => (
+          <PendingMessageWork
+            key={String(version.id)}
+            sessionId={props.message.sessionId}
+            messageId={props.message.id}
+            versionId={version.id}
+          />
+        ))}
+      {props.message.versions
+        .filter((version) => version.origin === 'convert' && version.status === 'failed')
+        .map((version) => (
+          <FailedMessageConversion
+            key={String(version.id)}
+            message={props.message}
+            version={version}
+          />
+        ))}
       <MessageEditDialog model={model} />
       {!draft.mode && <MessageRecovery model={model} />}
     </>
   );
 }
 
+/** Shows the actions available for the current selection and draft state. */
 function MessageToolbar({
   model,
   onVersionChange,
@@ -116,6 +155,7 @@ function MessageToolbar({
         label="SessionUseVersion"
         icon={<Check size={15} aria-hidden="true" />}
       />
+      <MessageConversionButton model={model} />
       {questionAction}
       <MessageArchiveButton model={model} />
       <MessageDeletion
@@ -127,6 +167,36 @@ function MessageToolbar({
         }
       />
     </ChatMessageActionToolbar>
+  );
+}
+
+/** Exposes the conversion action with the same pointer and keyboard help as other actions. */
+function MessageConversionButton({ model }: { model: MessageActionsModel }) {
+  if (!model.conversion.available) return null;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={
+              !model.active ||
+              model.blocked ||
+              !!model.draft.mode ||
+              model.conversion.blocked ||
+              model.conversion.mutation.isPending
+            }
+            onClick={model.conversion.convert}
+          />
+        }
+      >
+        <FileText size={15} aria-hidden="true" />
+        <Notebook.ActionLabel>{model.t('SessionConvertText')}</Notebook.ActionLabel>
+      </TooltipTrigger>
+      <TooltipPopup role="tooltip">{model.t('SessionConvertText')}</TooltipPopup>
+    </Tooltip>
   );
 }
 

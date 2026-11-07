@@ -53,7 +53,7 @@ export const codes_message_status = defineTable({
   role: 'internal',
   reason: 'Closed vocabulary for schema constraints'
 })('codes_message_status', {
-  code: text({ enum: ['complete', 'pending', 'writing'] }).primaryKey()
+  code: text({ enum: ['complete', 'pending', 'writing', 'failed'] }).primaryKey()
 });
 
 export const codes_version_origin = defineTable({
@@ -61,7 +61,7 @@ export const codes_version_origin = defineTable({
   reason: 'Closed vocabulary for schema constraints'
 })('codes_version_origin', {
   code: text({
-    enum: ['answer', 'edited', 'improve', 'instruction', 'summarize', 'typed']
+    enum: ['answer', 'edited', 'improve', 'instruction', 'summarize', 'typed', 'convert']
   }).primaryKey()
 });
 

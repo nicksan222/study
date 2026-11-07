@@ -23,6 +23,7 @@ import {
   captureSessionContextSchema,
   runSelectionContextSchema
 } from './context.ts';
+import { convertMessageInputSchema } from './conversion.ts';
 import { sessionDeletionSchema } from './deletion.ts';
 import { sessionSummariesSchema } from './schemas.ts';
 import {
@@ -264,6 +265,11 @@ export const ConversationsRpc = RpcGroup.make(
   }),
   Rpc.make('reanswer', {
     payload: reanswerInputSchema,
+    success: replyRequestSchema,
+    error: failureSchema
+  }),
+  Rpc.make('convertMessage', {
+    payload: convertMessageInputSchema,
     success: replyRequestSchema,
     error: failureSchema
   }),

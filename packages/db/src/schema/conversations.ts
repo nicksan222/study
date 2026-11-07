@@ -58,9 +58,9 @@ export const message_versions = defineTable({ role: 'contributes', entity: 'mess
     created_at: integer().$type<bigint>().notNull()
   },
   (t) => [
-    uniqueIndex('message_versions_unfinished_idx')
+    uniqueIndex('message_versions_active_idx')
       .on(t.message_id)
-      .where(sql`status != 'complete'`),
+      .where(sql`status IN ('pending', 'writing')`),
     index('message_versions_based_on_idx')
       .on(t.based_on)
       .where(sql`based_on IS NOT NULL`),

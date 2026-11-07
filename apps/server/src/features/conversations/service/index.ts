@@ -28,6 +28,8 @@ import type {
   captureSessionContextSchema,
   updateSessionSelectionSchema
 } from '@study/contracts/conversations/context';
+import { canConvertMessage } from '@study/contracts/conversations/conversion';
+import type { convertMessageInputSchema } from '@study/contracts/conversations/conversion';
 import type { sessionDeletionSchema } from '@study/contracts/conversations/deletion';
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
@@ -388,11 +390,14 @@ export const Conversations = defineService(
             });
 
             if (input.initialMessage) {
-              postMessage(tx, {
+              const message = postMessage(tx, {
                 ...input.initialMessage,
                 sessionId: session.id,
                 requestReply: false
               });
+
+              if (preferences.textConversionMode === 'automatic')
+                scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
 
               if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, session.id);
             }
@@ -443,6 +448,8 @@ export const Conversations = defineService(
         publicationTransaction((tx) => {
           return tx.store(ReplyStore).sealReplyAttachments(input);
         }),
+      failConversion: (input: typeof replyRequestSchema.Type) =>
+        publicationTransaction((tx) => tx.store(ReplyStore).failConversion(input)),
       abandonReply: (input: typeof replyRequestSchema.Type) =>
         publicationTransaction((tx) => {
           return tx.store(ReplyStore).abandonReply(input);
@@ -551,64 +558,76 @@ export const Conversations = defineService(
           }
         }),
       ask: (input: typeof askInputSchema.Type) =>
-        transaction((tx) => {
-          const normalized = normalizeAsk(input);
-          const askDigest = impactToken(normalized);
-          const intent = {
-            sessionId: input.sessionId,
-            threadRoot: input.threadRoot,
-            intentKey: input.intentKey,
-            instruction: normalized.instruction,
-            preferences: normalized.preferences,
-            askDigest
-          };
-          const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
+        Effect.gen(function* () {
+          const preferences = yield* readWorkspacePreferences();
 
-          if (Option.isSome(existing)) {
-            const context = existing.value;
-            const previous = tx
-              .store(ReplyRequestStore)
-              .findReplyRequest({ requestId: context.requestId });
-            const note = context.messages.find(
-              (item) => item.messageId === context.throughMessageId
-            );
-
-            if (Option.isNone(previous) || !note || note.role !== 'user')
-              throw new StudyError('not_found', 'Captured Ask is unavailable');
-
-            for (const target of context.inputs) assertCapturedTarget(tx, target);
-
-            return {
-              ...previous.value,
-              userMessageId: note.messageId,
-              userVersionId: note.versionId
+          return yield* transaction((tx) => {
+            const normalized = normalizeAsk(input);
+            const askDigest = impactToken(normalized);
+            const intent = {
+              sessionId: input.sessionId,
+              threadRoot: input.threadRoot,
+              intentKey: input.intentKey,
+              instruction: normalized.instruction,
+              preferences: normalized.preferences,
+              askDigest
             };
-          }
+            const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
 
-          const selection = tx
-            .store(SessionSelectionStore)
-            .sessionSelection({ sessionId: input.sessionId });
+            if (Option.isSome(existing)) {
+              const context = existing.value;
+              const previous = tx
+                .store(ReplyRequestStore)
+                .findReplyRequest({ requestId: context.requestId });
+              let note: (typeof context.messages)[number] | undefined;
 
-          if (selection.revision !== input.expectedSelectionRevision)
-            throw new StudyError('invalid_input', 'Session selection changed');
+              for (const item of context.messages) {
+                if (item.messageId !== context.throughMessageId) continue;
 
-          tx.store(ReplyStore).prepareReply(input);
-          const note = postMessage(tx, input);
-          const context = captureContext(
-            tx,
-            { ...intent, throughMessageId: note.id },
-            randomUUID(),
-            true
-          );
-          const result = tx
-            .store(ReplyStore)
-            .requestReply({ ...input, requestId: context.requestId, context });
+                note = item;
+                break;
+              }
 
-          emitReplyRequest(tx, result, 'reply');
+              if (Option.isNone(previous) || !note || note.role !== 'user')
+                throw new StudyError('not_found', 'Captured Ask is unavailable');
 
-          retainExplicitQuestionAnswer(tx, note, result);
+              for (const target of context.inputs) assertCapturedTarget(tx, target);
 
-          return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
+              return {
+                ...previous.value,
+                userMessageId: note.messageId,
+                userVersionId: note.versionId
+              };
+            }
+
+            const selection = tx
+              .store(SessionSelectionStore)
+              .sessionSelection({ sessionId: input.sessionId });
+
+            if (selection.revision !== input.expectedSelectionRevision)
+              throw new StudyError('invalid_input', 'Session selection changed');
+
+            tx.store(ReplyStore).prepareReply(input);
+            const note = postMessage(tx, input);
+            const context = captureContext(
+              tx,
+              { ...intent, throughMessageId: note.id },
+              randomUUID(),
+              true
+            );
+            const result = tx
+              .store(ReplyStore)
+              .requestReply({ ...input, requestId: context.requestId, context });
+
+            emitReplyRequest(tx, result, 'reply');
+
+            retainExplicitQuestionAnswer(tx, note, result);
+
+            if (preferences.textConversionMode === 'automatic')
+              scheduleAutomaticConversion(tx, note, preferences.textConversionStrategy);
+
+            return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
+          });
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
         transaction((tx) => {
@@ -663,6 +682,8 @@ export const Conversations = defineService(
         }),
       reanswer: (input: typeof reanswerInputSchema.Type) =>
         transaction((tx) => requestTarget(tx, { ...input, origin: 'answer' })),
+      convertMessage: (input: typeof convertMessageInputSchema.Type) =>
+        transaction((tx) => requestConversion(tx, input)),
       rewriteMessage: (input: typeof rewriteMessageInputSchema.Type) =>
         transaction((tx) => requestTarget(tx, input)),
       message: (id: MessageId) =>
@@ -761,9 +782,12 @@ export const Conversations = defineService(
               });
             }
 
+            if (preferences.textConversionMode === 'automatic')
+              scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
+
             if (preferences.autoTitleSessions) scheduleAutomaticTitle(tx, input.sessionId);
 
-            return message;
+            return tx.store(MessageStore).message(message.id);
           });
         }),
       updateMessageDescription: (input: typeof updateMessageDescriptionInputSchema.Type) =>
@@ -1318,4 +1342,48 @@ function questionEligible(message: ChatMessage) {
     message.question?.origin !== 'manual' &&
     !!text.trim()
   );
+}
+
+/** Reuses a conversion receipt or commits one new durable request for the captured version. */
+function requestConversion(tx: Transaction, input: typeof convertMessageInputSchema.Type) {
+  const strategy = Sources.conversionStrategy(input.strategyId);
+  const message = tx.store(MessageStore).message(input.messageId);
+
+  if (!canConvertMessage(message, input.expectedActiveVersionId, strategy.supportedInputs))
+    throw new StudyError('invalid_input', 'No convertible content');
+
+  requireAvailableSession(tx, message.sessionId);
+  const { created, ...result } = tx.store(ReplyStore).requestConversion(input);
+
+  if (created) emitReplyRequest(tx, result, 'rewrite');
+
+  return result;
+}
+
+/** Schedules eligible saved inputs while retaining their original selected version. */
+function scheduleAutomaticConversion(tx: Transaction, message: ChatMessage, strategyId: string) {
+  const version = message.versions.find((version) => version.id === message.activeVersionId);
+
+  if (
+    !version ||
+    version.origin !== 'typed' ||
+    !(version.text.includes('\n') || message.parts.some((part) => part.sourceKind === 'pdf'))
+  )
+    return;
+
+  try {
+    const strategy = Sources.conversionStrategy(strategyId);
+
+    if (!canConvertMessage(message, version.id, strategy.supportedInputs)) return;
+  } catch (error) {
+    if (error instanceof StudyError && error.kind === 'unsupported') return;
+
+    throw error;
+  }
+
+  requestConversion(tx, {
+    messageId: message.id,
+    expectedActiveVersionId: version.id,
+    strategyId
+  });
 }

@@ -35,7 +35,13 @@ import type {
 import { sniff } from '@study/contracts/sources/sniff';
 import { Effect, Option } from 'effect';
 
+import { Settings } from '#server/features/settings/index';
 import { decoderPath } from '#server/features/sources/decoders/capability';
+import type {
+  ConversionInput,
+  ConversionContext
+} from '#server/features/sources/service/conversion/registry';
+import { conversions } from '#server/features/sources/service/conversion/strategies';
 import { SourceBackupStore } from '#server/features/sources/store/backup';
 import {
   SourceExtractionsStore,
@@ -117,6 +123,13 @@ export const Sources = defineService(
     };
 
     return {
+      conversionStrategies: () =>
+        Effect.flatMap(Settings, (settings) => settings.language()).pipe(
+          Effect.map((locale) => conversions.list(locale)),
+          Effect.provide(Settings.layer)
+        ),
+      convertDocument: (strategyId: string, input: ConversionInput, context: ConversionContext) =>
+        conversions.convert(strategyId, input, context),
       importCapability: (input: typeof importCapabilityInputSchema.Type) =>
         Effect.gen(function* () {
           const session = yield* Effect.serviceOption(ChatGptSession);
@@ -497,6 +510,8 @@ export const Sources = defineService(
       tx: Transaction,
       v: typeof sourceLinkSchema.Type & { archivedAt: bigint | null }
     ) => tx.store(SessionSourcesStore).archiveSession(v),
+    conversionStrategy: conversions.describe,
+    conversionStrategyForInput: conversions.forInput,
     attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);
       tx.store(SessionSourcesStore).attachSource(v);
