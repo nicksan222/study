@@ -1,0 +1,2 @@
+ALTER TABLE `sessions` ADD `assistant_for_session_id` integer REFERENCES sessions(id) ON DELETE CASCADE;--> statement-breakpoint
+CREATE UNIQUE INDEX `sessions_assistant_for_session_unique` ON `sessions` (`assistant_for_session_id`);

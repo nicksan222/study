@@ -15,10 +15,16 @@ import { request } from '#web/lib/study-client/request.ts';
 
 export const assistantKey = ['assistant'] as const;
 
-export const assistantSessionOptions = (id?: SessionId) =>
+export const assistantSessionOptions = (id?: SessionId, scope?: SessionId) =>
   queryOptions({
-    queryKey: [...assistantKey, 'session', id?.toString()],
-    queryFn: ({ signal }) => request((rpc) => rpc['conversations.assistantSession']({ id }), signal)
+    queryKey:
+      scope === undefined
+        ? [...assistantKey, 'session', id?.toString()]
+        : [...assistantKey, 'scoped-session', String(scope)],
+    queryFn: ({ signal }) =>
+      scope === undefined
+        ? request((rpc) => rpc['conversations.assistantSession']({ id }), signal)
+        : request((rpc) => rpc['conversations.sessionAssistant']({ sessionId: scope }), signal)
   });
 
 export const assistantThreadOptions = (sessionId?: SessionId) =>

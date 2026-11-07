@@ -11,6 +11,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
+import { AssistantProvider } from '../assistant';
 import { authoredDocument as material } from '../document-editing/test-support';
 import { SourcePanel } from '../source-library/source-panel';
 import { SessionDocumentPanel } from './session-document-panel';
@@ -23,7 +24,9 @@ const rpc = vi.hoisted(() => ({
   material: vi.fn(),
   materials: vi.fn(),
   thread: vi.fn(),
-  post: vi.fn()
+  post: vi.fn(),
+  assistant: vi.fn(),
+  ask: vi.fn()
 }));
 
 vi.mock('#web/lib/i18n.tsx', () => ({
@@ -47,6 +50,14 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
       'documents.document': rpc.material,
       'documents.documents': rpc.materials,
       'conversations.thread': rpc.thread,
+      'conversations.sessionAssistant': rpc.assistant,
+      'conversations.assistantAsk': rpc.ask,
+      'conversations.assistantContext': async () => ({
+        estimatedTokens: 0,
+        maxTokens: 50000,
+        autoCompact: true,
+        lastCompactedAtMs: null
+      }),
       'conversations.postMessage': rpc.post,
       'conversations.sessionGenerations': async () => ({ items: [], next: null }),
       'conversations.sessionSelection': async () => ({ revision: 0n, targets: [] }),
@@ -79,7 +90,9 @@ function mount(children: ReactNode) {
 
   return render(
     <QueryClientProvider client={client}>
-      <WorkspaceCard.Provider>{children}</WorkspaceCard.Provider>
+      <AssistantProvider>
+        <WorkspaceCard.Provider>{children}</WorkspaceCard.Provider>
+      </AssistantProvider>
     </QueryClientProvider>
   );
 }
@@ -87,6 +100,15 @@ function mount(children: ReactNode) {
 beforeEach(() => {
   vi.resetAllMocks();
   created = undefined;
+  rpc.assistant.mockImplementation(async ({ sessionId }: { sessionId: bigint }) => ({
+    id: sessionId + 100n,
+    title: 'Assistant',
+    projectIds: [],
+    titleSource: 'user',
+    archivedAt: null,
+    createdAt: 1n,
+    updatedAt: 1n
+  }));
   rpc.thread.mockResolvedValue({ items: [], next: null });
   rpc.materials.mockImplementation(async () => ({
     items: created ? [created] : [],
@@ -240,5 +262,38 @@ testStable(
     fireEvent.click(screen.getByRole('button', { name: 'SessionDockBeside' }));
     expect(await screen.findByRole('tab', { name: 'SessionNewPage' })).toBeVisible();
     expect(rpc.create).toHaveBeenCalledTimes(1);
+  }
+);
+
+testStable(
+  'opens the scoped assistant beside documents and preserves its unsent draft after closing the tab',
+  async () => {
+    mount(
+      <>
+        <SessionLayoutControls id={sessionId} />
+        <SessionWorkbench id={sessionId} onDelete={() => {}} />
+      </>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionAssistantOpen' }));
+    expect(await screen.findByRole('tab', { name: 'SessionAssistant' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(rpc.assistant).toHaveBeenCalledWith({ sessionId });
+    const input = await screen.findByRole('textbox', { name: 'StudyChatMessage' });
+
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Explain this session' } });
+    fireEvent.click(screen.getByRole('button', { name: 'SessionCloseDocument' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('tab', { name: 'SessionAssistant' })).not.toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionAssistantOpen' }));
+    expect(await screen.findByRole('textbox', { name: 'StudyChatMessage' })).toHaveValue(
+      'Explain this session'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SessionAssistantOpen' }));
+    expect(screen.getAllByRole('tab', { name: 'SessionAssistant' })).toHaveLength(1);
+    expect(rpc.ask).not.toHaveBeenCalled();
   }
 );

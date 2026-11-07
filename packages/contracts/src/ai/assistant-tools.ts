@@ -1,6 +1,10 @@
 import { Schema } from 'effect';
 
 export const assistantToolNameSchema = Schema.Literals([
+  'read_session_context',
+  'edit_session_note',
+  'list_session_sources',
+  'read_session_source',
   'read_settings',
   'update_general_settings',
   'update_appearance_settings',

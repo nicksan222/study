@@ -272,6 +272,12 @@ export const Documents = defineService(
         ),
       create: (v: typeof e.createSchema.Type) =>
         transaction((tx) => created(tx, tx.store(DocumentsStore).create(v))),
+      saveInSession: (sessionId: SessionId, v: typeof e.saveSchema.Type) =>
+        transaction((tx) => {
+          tx.store(DocumentsStore).document({ sessionId, id: v.documentId });
+
+          return edited(tx, tx.store(DocumentsStore).save(v));
+        }),
       save: (v: typeof e.saveSchema.Type) =>
         transaction((tx) => edited(tx, tx.store(DocumentsStore).save(v))),
       restore: (v: typeof e.restoreSchema.Type) =>

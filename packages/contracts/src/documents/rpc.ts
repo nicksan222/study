@@ -16,7 +16,10 @@ import { exportDocumentInputSchema, documentFileSchema } from './export.ts';
 import * as s from './schemas.ts';
 import * as t from './transform.ts';
 
-export const documentKeySchema = Schema.Struct({ id: studyDocumentIdSchema });
+export const documentKeySchema = Schema.Struct({
+  id: studyDocumentIdSchema,
+  sessionId: Schema.optional(sessionIdSchema)
+});
 
 export const versionKeySchema = Schema.Struct({ id: studyDocumentVersionIdSchema });
 

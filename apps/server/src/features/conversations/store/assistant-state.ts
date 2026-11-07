@@ -20,7 +20,7 @@ import {
 import { ConversationMode } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
-import { and, asc, desc, eq, gt, lt, lte, sql } from '@study/db';
+import { and, asc, desc, eq, gt, lt, lte, sql, isNull } from '@study/db';
 import {
   assistant_chat_starts,
   assistant_memory,
@@ -79,6 +79,7 @@ export const AssistantChatsStore = defineStore({
             .where(
               and(
                 eq(sessions.mode, ConversationMode.Assistant),
+                isNull(sessions.assistant_for_session_id),
                 before === undefined ? undefined : lt(sessions.id, before)
               )
             )

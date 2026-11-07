@@ -27,6 +27,8 @@ import { Effect, Option } from 'effect';
 
 import {
   AssistantSessionStore,
+  SessionAssistantStore,
+  AssistantScopeStore,
   SessionModeStore
 } from '#server/features/conversations/store/assistant';
 import {
@@ -44,6 +46,7 @@ import {
 } from '#server/platform/definitions/define-store';
 
 export const makeAssistantConversations = Effect.gen(function* () {
+  const scopes = yield* useStore(AssistantScopeStore);
   const states = yield* useStore(AssistantStateStore);
   const compaction = yield* useStore(AssistantCompactionStore);
   const assistantSession = (input: typeof assistantSessionInputSchema.Type = {}) =>
@@ -68,6 +71,26 @@ export const makeAssistantConversations = Effect.gen(function* () {
 
   return {
     assistantSession,
+    sessionAssistantScope: scopes.findAssistantScope,
+    sessionAssistant: ({ sessionId }: { sessionId: SessionId }) =>
+      transaction((tx) => {
+        if (tx.store(SessionModeStore).sessionMode(sessionId) !== ConversationMode.Notebook)
+          throw new StudyError('invalid_input', 'Notebook session required');
+
+        const existing = tx.store(SessionAssistantStore).findSessionAssistant(sessionId);
+
+        if (Option.isSome(existing)) return tx.store(SessionStore).session(existing.value);
+
+        const chat = tx.store(SessionStore).createSession({
+          title: text('english', 'Assistant'),
+          titleSource: 'user',
+          mode: ConversationMode.Assistant
+        });
+
+        tx.store(SessionAssistantStore).bind({ sessionId, chatId: chat.id });
+
+        return chat;
+      }),
     retainAssistantTool: (input: typeof assistantToolIntentSchema.Type) =>
       publicationTransaction((tx) => tx.store(AssistantToolStore).intent(input)),
     completeAssistantTool: (input: typeof assistantToolResultSchema.Type) =>

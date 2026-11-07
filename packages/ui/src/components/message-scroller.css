@@ -96,3 +96,11 @@
     animation: spin 1s linear infinite;
   }
 }
+
+.workspace-desk-tab-panel > .workspace-desk-notebook:has(.ui-ai-chat-layout) {
+  flex: 1;
+}
+.workspace-desk-tab-panel .ui-ai-chat-layout [data-slot='message-scroller-content'] {
+  padding-inline: 1.25rem;
+  padding-block-start: 1.25rem;
+}

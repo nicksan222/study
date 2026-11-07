@@ -48,6 +48,7 @@ import { assistantAgent } from '#server/features/conversations/agents/assistant'
 import { compactAssistantAgent } from '#server/features/conversations/agents/assistant-compaction';
 import { replyAgent } from '#server/features/conversations/agents/reply';
 import { rewriteAgent } from '#server/features/conversations/agents/rewrite';
+import { sessionAssistantAgent } from '#server/features/conversations/agents/session-assistant';
 import { convertCapturedMessage } from '#server/features/conversations/service/conversion';
 import { Conversations } from '#server/features/conversations/service/index';
 import { Settings } from '#server/features/settings/index';
@@ -196,6 +197,7 @@ export const conversationReplyHandler = ({
 
           yield* conversations.replySnapshot({ requestId: event.requestId });
           const mode = yield* conversations.sessionMode(snapshot.sessionId);
+          const sessionScope = yield* conversations.sessionAssistantScope(snapshot.sessionId);
           const options = {
             maxRetries: 0,
             maxSteps: mode === ConversationMode.Assistant ? 12 : 5,
@@ -234,7 +236,7 @@ export const conversationReplyHandler = ({
                   options
                 )
               : generateAgent(
-                  replyAgentForMode(mode),
+                  replyAgentForMode(mode, Option.getOrUndefined(sessionScope)),
                   {
                     messages: replyMessages(mode, snapshot, preferences, memory)
                   },
@@ -486,7 +488,12 @@ function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
     : 'rewrite';
 }
 
-function replyAgentForMode(mode: ConversationMode) {
+function replyAgentForMode(
+  mode: ConversationMode,
+  scopedSession?: typeof replySnapshotSchema.Type.sessionId
+) {
+  if (scopedSession !== undefined) return sessionAssistantAgent(scopedSession);
+
   return mode === ConversationMode.Assistant ? assistantAgent : replyAgent;
 }
 

@@ -14,12 +14,14 @@
 
 import { assistantToolNameSchema } from '@study/contracts/ai/assistant-tools';
 import type { AssistantToolName } from '@study/contracts/ai/assistant-tools';
+import { sessionIdSchema } from '@study/contracts/ids';
 import { AgentRule } from '@study/contracts/settings/schemas';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { assert, expect, expectTypeOf } from 'vite-plus/test';
 
 import { assistantAgent } from '#server/features/conversations/agents/assistant';
+import { sessionAssistantAgent } from '#server/features/conversations/agents/session-assistant';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 
 testStable('defineAgent preserves schemas and rejects invalid identifiers', () => {
@@ -92,8 +94,12 @@ testStable('tool declarations require a wiki and bind execution to canonical sch
 });
 
 testStable('Assistant tool names and localized capability catalog stay exhaustive', () => {
-  expectTypeOf<keyof typeof assistantAgent.tools>().toEqualTypeOf<AssistantToolName>();
-  expect(Object.keys(assistantAgent.tools).sort()).toEqual(
+  const scoped = sessionAssistantAgent(sessionIdSchema.make(1n));
+
+  expectTypeOf<
+    keyof typeof assistantAgent.tools | keyof typeof scoped.tools
+  >().toEqualTypeOf<AssistantToolName>();
+  expect(Object.keys({ ...assistantAgent.tools, ...scoped.tools }).sort()).toEqual(
     [...assistantToolNameSchema.literals].sort()
   );
 });

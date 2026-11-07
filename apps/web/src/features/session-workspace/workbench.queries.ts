@@ -8,11 +8,14 @@ import type { PageTarget } from './page-autosave.queries';
 import { threadOptions } from './session-workspace.queries';
 
 export type WorkbenchTarget =
+  | { kind: 'assistant' }
   | PageTarget
   | { kind: 'document'; documentId: StudyDocumentId; title: string }
   | { kind: 'source'; sourceId: SourceId; title: string };
 
 export function workbenchIdentity(target: WorkbenchTarget) {
+  if (target.kind === 'assistant') return 'assistant';
+
   return target.kind === 'document'
     ? `document:${target.documentId}`
     : target.kind === 'source'
@@ -82,7 +85,7 @@ export function useWorkbench(id: SessionId) {
   }
 
   const tabs = model.tabs.map((tab) => {
-    if (tab.kind === 'document' || tab.kind === 'source') return tab;
+    if (tab.kind === 'assistant' || tab.kind === 'document' || tab.kind === 'source') return tab;
 
     const message = messages.find(
       (item) => (item.captureKey ?? String(item.id)) === workbenchIdentity(tab)

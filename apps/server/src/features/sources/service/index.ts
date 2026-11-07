@@ -177,6 +177,14 @@ export const Sources = defineService(
       exportRevision: (v: Parameters<typeof revisions.revisionExport>[0]) =>
         sources.source(v.sourceId).pipe(Effect.andThen(revisions.revisionExport(v))),
       sessionSources: sessionSources.sessionSources,
+      sessionSourceExtraction: (v: typeof sourceLinkSchema.Type) =>
+        transaction((tx) => {
+          tx.store(SessionSourcesStore).sessionSource(v);
+
+          return Option.getOrNull(
+            tx.store(CurrentExtractionStore).findCurrentExtraction({ id: v.sourceId })
+          );
+        }),
       attachSource: (v: typeof sourceLinkSchema.Type) =>
         transaction((tx) => {
           tx.store(SourceStore).source(v.sourceId);

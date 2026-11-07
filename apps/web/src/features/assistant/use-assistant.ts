@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
+import type { SessionId } from '@study/contracts/ids';
 import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -17,20 +18,20 @@ import {
 import { useAssistantDraft, useAssistantSelection } from './conversation';
 
 /** Reads committed history and keeps idempotent sends recoverable after transport failures. */
-export function useAssistant() {
+export function useAssistant(scope?: SessionId) {
   const cache = useQueryClient();
   const { selectedId, select, takeNewChatKey, clearNewChatKey, clearSentDraft } =
     useAssistantSelection();
-  const session = useQuery(assistantSessionOptions(selectedId));
+  const session = useQuery(assistantSessionOptions(selectedId, scope));
   const { draft, setDraft } = useAssistantDraft(session.data?.id);
 
   useEffect(() => {
-    if (selectedId !== undefined || !session.data) return;
+    if (scope !== undefined || selectedId !== undefined || !session.data) return;
 
     cache.setQueryData(assistantSessionOptions(session.data.id).queryKey, session.data);
     select(session.data.id);
-  }, [cache, select, selectedId, session.data]);
-  const chats = useInfiniteQuery(assistantChatsOptions());
+  }, [cache, select, selectedId, session.data, scope]);
+  const chats = useInfiniteQuery({ ...assistantChatsOptions(), enabled: scope === undefined });
   const createChat = useMutation({
     ...newAssistantChatOptions(),
     onSuccess: (created) => {

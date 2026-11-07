@@ -12,6 +12,8 @@ export const assistantContextBudget = {
   summary: 16000
 } as const;
 
+export const sessionAssistantInputSchema = Schema.Struct({ sessionId: sessionIdSchema });
+
 export const assistantSessionInputSchema = Schema.Struct({ id: Schema.optional(sessionIdSchema) });
 
 export const assistantChatStartSchema = Schema.Struct({

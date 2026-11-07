@@ -14,7 +14,7 @@
 import { createServer } from 'node:http';
 
 import { ConversationMode } from '@study/contracts/conversations/schemas';
-import type { MessageId } from '@study/contracts/ids';
+import type { MessageId, SessionId, VersionId } from '@study/contracts/ids';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -39,6 +39,36 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { conversationReplyHandler, conversationReplyWorkflow } from './index.ts';
 
+function scriptedCall(
+  tools: { name: string }[],
+  step: number,
+  fail: boolean,
+  edit?: { messageId: MessageId; versionId: VersionId }
+) {
+  if (tools.some((tool) => tool.name === 'read_session_context'))
+    return [
+      { name: 'read_session_context', arguments: '{}' },
+      {
+        name: 'edit_session_note',
+        arguments: JSON.stringify({
+          messageId: String(edit?.messageId),
+          expectedActiveVersionId: String(edit?.versionId),
+          text: 'Improved by the session assistant'
+        })
+      }
+    ][step];
+
+  if (!tools.some((tool) => tool.name === 'create_subject')) return undefined;
+
+  if (fail) return { name: 'read_subject', arguments: '{"id":"999999999999"}' };
+
+  return [
+    { name: 'create_subject', arguments: '{"name":"Biology"}' },
+    { name: 'read_subject', arguments: '{"id":"1"}' },
+    { name: 'update_review_settings', arguments: '{"newCardsPerDay":12}' }
+  ][step];
+}
+
 testStable(
   'Assistant uses durable capability-guided replies, retains history across reopen and stays out of notebooks',
   async () => {
@@ -47,6 +77,7 @@ testStable(
     const bodies: string[] = [];
     const agents: string[] = [];
     let failTool = false;
+    let scopedEdit: { messageId: MessageId; versionId: VersionId } | undefined;
     const peer = createServer(async (request, response) => {
       let body = '';
 
@@ -60,21 +91,14 @@ testStable(
         (item: { type: string }) => item.type === 'function_call_output'
       ).length;
 
-      if (
-        requestBody.tools?.some((tool: { name: string }) => tool.name === 'create_subject') &&
-        (failTool || toolStep < 3)
-      ) {
+      const callStep = scriptedCall(requestBody.tools ?? [], toolStep, failTool, scopedEdit);
+
+      if (callStep) {
         const call = {
           type: 'function_call',
           id: `item${toolStep}`,
           call_id: `call${toolStep}`,
-          ...(failTool
-            ? { name: 'read_subject', arguments: '{"id":"999999999999"}' }
-            : [
-                { name: 'create_subject', arguments: '{"name":"Biology"}' },
-                { name: 'read_subject', arguments: '{"id":"1"}' },
-                { name: 'update_review_settings', arguments: '{"newCardsPerDay":12}' }
-              ][toolStep]!)
+          ...callStep
         };
 
         for (const event of [
@@ -123,11 +147,16 @@ testStable(
       Layer.mergeAll(Conversations.layer, Sources.layer, Documents.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const execute = async (text: string, key: string, retryMessageId?: MessageId) => {
+    const execute = async (
+      text: string,
+      key: string,
+      retryMessageId?: MessageId,
+      chatId?: SessionId
+    ) => {
       const asked = await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Conversations;
-          const input = { text, intentKey: key };
+          const input = { text, intentKey: key, sessionId: chatId };
           const asked = yield* retryMessageId === undefined
             ? c.assistantAsk(input)
             : c.reanswer({ messageId: retryMessageId });
@@ -328,6 +357,64 @@ testStable(
           expect(
             failed.versions.find((version) => version.id === failed.activeVersionId)?.status
           ).toBe('pending');
+        }).pipe(Effect.provide(domain()))
+      );
+      const scoped = await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const notebook = yield* c.createSession({ title: 'Scoped workflow notebook' });
+          const unrelated = yield* c.createSession({ title: 'PRIVATE_OTHER_NOTEBOOK' });
+
+          yield* c.postMessage({ sessionId: unrelated.id, text: 'PRIVATE_OTHER_NOTE' });
+          const note = yield* c.postMessage({
+            sessionId: notebook.id,
+            text: 'SESSION_SCOPE_ORIGINAL_NOTE'
+          });
+          const chat = yield* c.sessionAssistant({ sessionId: notebook.id });
+
+          return { notebook, note, chat };
+        }).pipe(Effect.provide(domain()))
+      );
+
+      scopedEdit = { messageId: scoped.note.id, versionId: scoped.note.activeVersionId! };
+      await execute(
+        'Read my session and improve the note.',
+        'session-assistant-edit',
+        undefined,
+        scoped.chat.id
+      );
+      expect(agents).toContain('session-assistant');
+      const scopedRequest = bodies.at(-1)!;
+
+      for (const tool of JSON.parse(scopedRequest).tools)
+        expect(tool.parameters.type).toBe('object');
+
+      const capabilities = JSON.parse(scopedRequest).tools.map(
+        (tool: { name: string }) => tool.name
+      );
+
+      expect(capabilities).toHaveLength(8);
+      expect(capabilities).toContain('edit_session_note');
+      expect(capabilities).not.toContain('read_settings');
+      expect(capabilities).not.toContain('list_sessions');
+      expect(scopedRequest).toContain('SESSION_SCOPE_ORIGINAL_NOTE');
+      expect(scopedRequest).not.toContain('PRIVATE_OTHER_NOTE');
+      context.close();
+      context = new ServerContext(location.open());
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const edited = yield* c.message(scoped.note.id);
+
+          expect(
+            edited.versions.find((version) => version.id === edited.activeVersionId)?.text
+          ).toBe('Improved by the session assistant');
+          expect(
+            edited.versions.some((version) => version.text === 'SESSION_SCOPE_ORIGINAL_NOTE')
+          ).toBe(true);
+          expect((yield* c.sessionAssistant({ sessionId: scoped.notebook.id })).id).toBe(
+            scoped.chat.id
+          );
         }).pipe(Effect.provide(domain()))
       );
     } finally {

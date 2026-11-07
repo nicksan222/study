@@ -1,8 +1,9 @@
 import { agentProgressPageSchema } from '@study/contracts/ai/progress';
 import { testStable } from '@study/testing/vitest';
+import { QueryObserver } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
-import { expect } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { api, message, mountAssistant } from '#web/test/assistant.tsx';
 
@@ -112,5 +113,70 @@ testStable(
     expect(screen.queryByText('Reconnecting to live progress…')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
     await waitFor(() => expect(api.subscribe).toHaveBeenCalledTimes(2));
+  }
+);
+
+testStable(
+  'completed session tools refresh content without resetting open tabs or drafts',
+  async () => {
+    let receive!: (value: typeof agentProgressPageSchema.Type) => void;
+
+    api.thread.mockResolvedValue({
+      items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
+      next: null
+    });
+    api.executions.mockResolvedValue({ items: [execution], next: null });
+    api.subscribe.mockImplementation((_invoke, onValue) => {
+      receive = onValue;
+
+      return new Promise(() => {});
+    });
+    const { client } = mountAssistant();
+    const workbench = { tabs: ['assistant'], draft: 'Keep this question' };
+    const resetWorkbench = vi.fn(async () => ({ tabs: [], draft: '' }));
+    const refreshContent = vi.fn(async () => 'updated');
+    const tabs = new QueryObserver(client, {
+      queryKey: ['session-drafts', '25', 'workbench'],
+      queryFn: resetWorkbench,
+      initialData: workbench,
+      staleTime: Infinity
+    });
+    const content = new QueryObserver(client, {
+      queryKey: ['materials'],
+      queryFn: refreshContent,
+      initialData: 'original',
+      staleTime: Infinity
+    });
+    const stopTabs = tabs.subscribe(() => {});
+    const stopContent = content.subscribe(() => {});
+
+    try {
+      await waitFor(() => expect(receive).toBeTypeOf('function'));
+      act(() =>
+        receive(
+          Schema.decodeUnknownSync(agentProgressPageSchema)([
+            {
+              runId: 'scoped',
+              executionId: 'run',
+              executionStatus: 'running',
+              agentId: 'session-assistant',
+              mode: 'text',
+              status: 'running',
+              failureKind: null,
+              text: '',
+              tools: [{ toolCallId: 'edit', toolName: 'edit_session_note', status: 'completed' }],
+              revision: 1n,
+              updatedAtMs: 1n
+            }
+          ])
+        )
+      );
+      await waitFor(() => expect(refreshContent).toHaveBeenCalledOnce());
+      expect(resetWorkbench).not.toHaveBeenCalled();
+      expect(tabs.getCurrentResult().data).toEqual(workbench);
+    } finally {
+      stopTabs();
+      stopContent();
+    }
   }
 );

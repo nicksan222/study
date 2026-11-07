@@ -61,6 +61,7 @@ export const ConversationsRpcLive = defineRpc(
       'conversations.setActiveVersion': (input) => conversations.setActiveVersion(input),
       'conversations.renameSession': (input) => conversations.renameSession(input),
       'conversations.assistantAsk': (input) => conversations.assistantAsk(input),
+      'conversations.sessionAssistant': (input) => conversations.sessionAssistant(input),
       'conversations.assistantSession': (input) => conversations.assistantSession(input),
       'conversations.newAssistantSession': (input) => conversations.newAssistantSession(input),
       'conversations.assistantChats': (input) => conversations.assistantChats(input),

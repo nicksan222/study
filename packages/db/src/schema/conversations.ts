@@ -219,6 +219,9 @@ export const sessions = defineTable({
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
     title: text().notNull(),
     mode: text({ enum: conversationModes }).notNull().default('notebook'),
+    assistant_for_session_id: integer()
+      .$type<SessionId>()
+      .references((): AnySQLiteColumn => sessions.id, { onDelete: 'cascade' }),
     archived_at: integer().$type<bigint>(),
     selection_revision: integer().$type<bigint>().notNull().default(0n),
     selection: text().notNull().default('[]'),
@@ -231,7 +234,10 @@ export const sessions = defineTable({
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
-  () => [check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)]
+  (t) => [
+    check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`),
+    uniqueIndex('sessions_assistant_for_session_unique').on(t.assistant_for_session_id)
+  ]
 );
 
 export const conversation_reply_requests = defineTable({

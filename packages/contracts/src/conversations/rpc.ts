@@ -18,6 +18,7 @@ import {
 } from './archive.ts';
 import {
   assistantSessionInputSchema,
+  sessionAssistantInputSchema,
   assistantChatStartSchema,
   assistantChatsInputSchema,
   assistantChatsSchema,
@@ -366,6 +367,11 @@ export const ConversationsRpc = RpcGroup.make(
   Rpc.make('assistantAsk', {
     payload: assistantAskInputSchema,
     success: askResultSchema,
+    error: failureSchema
+  }),
+  Rpc.make('sessionAssistant', {
+    payload: sessionAssistantInputSchema,
+    success: sessionSchema,
     error: failureSchema
   }),
   Rpc.make('assistantSession', {

@@ -36,7 +36,25 @@ export const DocumentsStore = defineStore({
           role: 'required',
           input: r.documentKeySchema,
           output: c.detailSchema,
-          run: ({ id }) => d.document(id)
+          run: ({ id, sessionId }) => {
+            if (
+              sessionId !== undefined &&
+              !db.orm
+                .select({ id: session_documents.document_id })
+                .from(session_documents)
+                .where(
+                  and(
+                    eq(session_documents.document_id, id),
+                    eq(session_documents.session_id, sessionId),
+                    sql`${session_documents.archived_at} IS NULL`
+                  )
+                )
+                .get()
+            )
+              throw new StudyError('not_found', 'Document is not in this session');
+
+            return d.document(id);
+          }
         }),
         documents: storeQuery({
           role: 'collection',

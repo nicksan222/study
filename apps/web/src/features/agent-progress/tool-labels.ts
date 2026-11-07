@@ -2,6 +2,10 @@ import type { AssistantToolName } from '@study/contracts/ai/assistant-tools';
 import type { StaticMessageKey } from '@study/localization';
 
 export const toolLabels = {
+  read_session_context: 'AssistantCallReadSessionContext',
+  edit_session_note: 'AssistantCallEditSessionNote',
+  list_session_sources: 'AssistantCallListSessionSources',
+  read_session_source: 'AssistantCallReadSessionSource',
   read_settings: 'AssistantCallReadSettings',
   update_general_settings: 'AssistantCallUpdateGeneralSettings',
   update_appearance_settings: 'AssistantCallUpdateAppearanceSettings',

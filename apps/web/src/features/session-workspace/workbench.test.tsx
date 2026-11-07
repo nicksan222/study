@@ -259,3 +259,24 @@ testStable(
     await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
   }
 );
+
+testStable(
+  'the session assistant is one document-style tab, survives hiding and stays scoped across session switches',
+  async () => {
+    const view = mount();
+
+    act(() => view.result.current.open({ kind: 'assistant' }));
+    act(() => view.result.current.open({ kind: 'assistant' }));
+    await waitFor(() => expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }]));
+    expect(view.result.current.active).toBe('assistant');
+    act(() => view.result.current.hide());
+    act(() => view.result.current.showEditor('side'));
+    await waitFor(() => expect(view.result.current.visible).toBe(true));
+    view.rerender({ sessionId: otherId });
+    await waitFor(() => expect(view.result.current.tabs).toEqual([]));
+    view.rerender({ sessionId: id });
+    await waitFor(() => expect(view.result.current.tabs).toEqual([{ kind: 'assistant' }]));
+    act(() => view.result.current.close('assistant'));
+    await waitFor(() => expect(view.result.current.tabs).toEqual([]));
+  }
+);

@@ -12,7 +12,10 @@ export function useToolActivity(message: ChatMessage) {
     message.versions.find((version) => version.id === message.activeVersionId)?.status !==
     'complete';
   const progress = useQuery(assistantToolProgressOptions(requestId, pending));
-  const runs = progress.data?.filter((run) => run.agentId === 'assistant') ?? [];
+  const runs =
+    progress.data?.filter(
+      (run) => run.agentId === 'assistant' || run.agentId === 'session-assistant'
+    ) ?? [];
 
   return {
     tools: runs.flatMap((run) =>

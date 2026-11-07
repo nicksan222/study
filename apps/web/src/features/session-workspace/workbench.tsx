@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { SessionAssistantPanel } from '../assistant';
 import { SourcePanel } from '../source-library';
 import { Composer } from './composer';
 import { SessionContextActions } from './context-actions';
@@ -25,6 +26,8 @@ import { WorkspaceContext } from './workspace-context';
 
 function TabLabel({ target }: { target: WorkbenchTarget }) {
   const { t } = useI18n();
+
+  if (target.kind === 'assistant') return t('SessionAssistant');
 
   if (target.kind === 'source') return target.title;
 
@@ -170,7 +173,9 @@ function EditorPanel({
       closeLabel={t('SessionDocumentTabs')}
       hideLabel={t('SessionBackToBoard')}
     >
-      {active.kind === 'document' ? (
+      {active.kind === 'assistant' ? (
+        <SessionAssistantPanel key={String(id)} sessionId={id} />
+      ) : active.kind === 'document' ? (
         <SessionDocumentPanel key={workbenchIdentity(active)} documentId={active.documentId} />
       ) : active.kind === 'source' ? (
         <SourcePanel

@@ -172,6 +172,28 @@ export const SessionSourcesStore = defineStore({
 
     return {
       queries: {
+        sessionSource: storeQuery({
+          role: 'required',
+          input: c.sourceLinkSchema,
+          output: c.sourceLinkSchema.fields.sourceId,
+          run: ({ sessionId, sourceId }) => {
+            assertSession(sessionId);
+
+            return (
+              db.orm
+                .select({ id: s.session_sources.source_id })
+                .from(s.session_sources)
+                .where(
+                  and(
+                    eq(s.session_sources.session_id, sessionId),
+                    eq(s.session_sources.source_id, sourceId),
+                    sql`${s.session_sources.archived_at} IS NULL`
+                  )
+                )
+                .get()?.id ?? null
+            );
+          }
+        }),
         sessionSources: storeQuery({
           role: 'collection',
           input: c.sessionSourcesInputSchema,

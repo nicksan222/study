@@ -32,7 +32,10 @@ export function useReply(requestId: string, messageId: MessageId) {
 
     for (const tool of fresh) observedTools.current.add(tool.toolCallId);
 
-    void cache.invalidateQueries({ predicate: (query) => query.queryKey[0] !== assistantKey[0] });
+    void cache.invalidateQueries({
+      predicate: (query) =>
+        query.queryKey[0] !== assistantKey[0] && query.queryKey[0] !== 'session-drafts'
+    });
 
     if (
       fresh.some((tool) => tool.toolName.startsWith('update_') || tool.toolName.includes('theme'))
@@ -52,7 +55,9 @@ export function useReply(requestId: string, messageId: MessageId) {
   const stop = useMutation({ ...stopAssistantReplyOptions(), onSuccess: refresh });
 
   return {
-    run: progress.runs.findLast((run) => run.agentId === 'assistant'),
+    run: progress.runs.findLast(
+      (run) => run.agentId === 'assistant' || run.agentId === 'session-assistant'
+    ),
     compacting: progress.runs.some(
       (run) => run.agentId === 'assistant-compaction' && run.status === 'running'
     ),

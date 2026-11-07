@@ -2,7 +2,7 @@ import type { SessionId } from '@study/contracts/ids';
 import { IconButton } from '@study/ui/icon-button';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { PanelBottom, PanelRight } from 'lucide-react';
+import { PanelBottom, PanelRight, Sparkles } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -15,6 +15,14 @@ export function SessionLayoutControls({ id }: { id: SessionId }) {
 
   return (
     <Desk.LayoutControls aria-label={t('SessionLayout')}>
+      <IconButton
+        size="icon-sm"
+        variant={model.visible && model.active === 'assistant' ? 'secondary' : 'ghost-muted'}
+        label={t('SessionAssistantOpen')}
+        onClick={() => model.open({ kind: 'assistant' })}
+      >
+        <Sparkles aria-hidden="true" />
+      </IconButton>
       <WorkspaceCard.Toggle
         label={t('SessionActions')}
         open={model.cardVisible}

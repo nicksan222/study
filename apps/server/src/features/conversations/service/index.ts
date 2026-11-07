@@ -77,7 +77,10 @@ import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
 import { SessionArchiveStore } from '#server/features/conversations/store/archive';
-import { SessionModeStore } from '#server/features/conversations/store/assistant';
+import {
+  SessionModeStore,
+  SessionAssistantStore
+} from '#server/features/conversations/store/assistant';
 import { ConversationBackupStore } from '#server/features/conversations/store/backup';
 import {
   SessionContextStore,
@@ -831,6 +834,25 @@ export const Conversations = defineService(
         transaction((tx) =>
           resolveMessageCitations(tx, tx.store(MessageStore).updateMessageDescription(input))
         ),
+      editSessionNote: (sessionId: SessionId, input: typeof editMessageInputSchema.Type) =>
+        transaction((tx) => {
+          requireAvailableSession(tx, sessionId);
+          const note = tx.store(MessageStore).message(input.messageId);
+
+          if (
+            note.sessionId !== sessionId ||
+            note.role !== 'user' ||
+            note.parts.length ||
+            input.expectedActiveVersionId === undefined
+          )
+            throw new StudyError('not_found', 'Editable text note is not in this session');
+
+          const edited = tx.store(MessageStore).editMessage(input);
+
+          scheduleQuestion(tx, edited);
+
+          return resolveMessageCitations(tx, edited);
+        }),
       editMessage: (input: typeof editMessageInputSchema.Type) =>
         transaction((tx) => {
           const message = tx.store(MessageStore).editMessage(input);
@@ -957,7 +979,14 @@ export const Conversations = defineService(
 
           if (Option.isSome(existing)) return existing.value;
 
-          const owned = tx.store(SessionDeletionOwnershipStore).deletionOwnership(id);
+          const child = tx.store(SessionAssistantStore).findSessionAssistant(id);
+          const ownership = (Option.isSome(child) ? [id, child.value] : [id]).map((sessionId) =>
+            tx.store(SessionDeletionOwnershipStore).deletionOwnership(sessionId)
+          );
+          const owned = {
+            contextIds: ownership.flatMap((value) => value.contextIds),
+            correlations: ownership.flatMap((value) => value.correlations)
+          };
 
           const status = tx
             .store(SessionDeletionStore)
