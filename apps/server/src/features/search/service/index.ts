@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { StudyError } from '@study/contracts/errors';
 import type {
   SearchProjection,
   SearchProjectionPage,
@@ -57,6 +58,15 @@ export const Search = defineService(
     const readColumns: ProjectionReader = (tx, input) =>
       tx.store(registryStore).searchProjectionPages(input);
 
+    /** Resolve declared projection readers at one guarded configuration boundary. */
+    const readerFor = (entry: (typeof registry.projections)[number]): ProjectionReader => {
+      const reader = entry.projection === 'feature' ? featureReaders.get(entry.kind) : readColumns;
+
+      if (!reader) throw new StudyError('config', 'Missing searchable feature projection reader');
+
+      return reader;
+    };
+
     /** Consume SQL pages inside the transaction without retaining the entire corpus text. */
     function* read(
       tx: Transaction,
@@ -71,8 +81,7 @@ export const Search = defineService(
         )
           continue;
 
-        const reader =
-          entry.projection === 'feature' ? featureReaders.get(entry.kind)! : readColumns;
+        const reader = readerFor(entry);
         let offset = 0;
 
         for (;;) {
@@ -108,8 +117,7 @@ export const Search = defineService(
     // Concurrent additions or offset shifts are recovered by the next reconciliation pass.
     const pages = Stream.fromIterable(registry.projections).pipe(
       Stream.flatMap((entry) => {
-        const reader =
-          entry.projection === 'feature' ? featureReaders.get(entry.kind)! : readColumns;
+        const reader = readerFor(entry);
 
         return Stream.paginate(0, (offset) => readPage(entry.kind, reader, offset));
       })
