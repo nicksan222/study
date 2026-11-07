@@ -5,8 +5,8 @@ import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
+import { MaterialLibrary } from '@study/ui/material-library';
 import { StatusMessage } from '@study/ui/status-message';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -18,6 +18,7 @@ import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
 import { sourceExportOptions } from './source-export.queries';
 import { sourceExtractionOptions, sourceOptions, useSourceCopy } from './source-panel.queries';
+import { SourceTranscription } from './transcription';
 
 function SourceHeader({
   source,
@@ -34,14 +35,16 @@ function SourceHeader({
 }) {
   return (
     <>
-      {source && <h1>{source.name}</h1>}
-      {!!error && <ContentReadError error={error} retry={retry} />}
-      {source && !error && (
-        <>
-          <SourceDeletion source={source} onDeleted={remove} />
-          <SourceHistoryRetirement source={source} onRetired={retire} />
-        </>
+      {source && (
+        <MaterialLibrary.Heading>
+          <h1>{source.name}</h1>
+          <MaterialLibrary.Actions>
+            <SourceDeletion source={source} onDeleted={remove} />
+            <SourceHistoryRetirement source={source} onRetired={retire} />
+          </MaterialLibrary.Actions>
+        </MaterialLibrary.Heading>
       )}
+      {!!error && <ContentReadError error={error} retry={retry} />}
     </>
   );
 }
@@ -69,28 +72,25 @@ function SourceBody({
   document,
   snapshotId,
   failed,
-  pending,
-  onCopy
+  audio
 }: {
   document?: typeof documentSchema.Type;
   snapshotId?: ContentSnapshotId;
   failed: boolean;
-  pending: boolean;
-  onCopy: () => void;
+  audio?: boolean;
 }) {
   const { t } = useI18n();
 
   if (failed) return null;
 
+  if (audio && !document) return null;
+
   if (!document || snapshotId === undefined) return <Loading label={t('SessionPending')} />;
 
   return (
-    <Desk.Editor>
-      <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
-        {t(pending ? 'SessionSaving' : 'DocumentEditCopy')}
-      </Button>
+    <MaterialLibrary.Document>
       <RetainedDocumentReader document={document} snapshotId={snapshotId} />
-    </Desk.Editor>
+    </MaterialLibrary.Document>
   );
 }
 
@@ -145,7 +145,11 @@ export function SourcePanel({
       />
       <SourceHistory sourceId={sourceId} onSelect={setSelected} />
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
-      <SourceOriginal sourceId={sourceId} revision={originalRevision(selected, state.data)} />
+      <MaterialLibrary.VersionToolbar>
+        <SourceOriginal sourceId={sourceId} revision={originalRevision(selected, state.data)} />
+        <SourceAudio source={source.data} exact={!!selected} hasDocument={!!state.data} />
+        <SourceCopyAction available={!!state.data} pending={copy.pending} onCopy={editCopy} />
+      </MaterialLibrary.VersionToolbar>
       {copy.document && (
         <Button variant="ghost" onClick={copy.acknowledge}>
           {t('DocumentEditAnotherCopy')}
@@ -156,9 +160,42 @@ export function SourcePanel({
         document={state.data?.document}
         snapshotId={state.data?.snapshotId}
         failed={!state.isSuccess || !source.isSuccess}
-        pending={copy.pending}
-        onCopy={editCopy}
+        audio={source.data?.kind === 'audio'}
       />
     </>
+  );
+}
+
+function SourceAudio({
+  source,
+  exact,
+  hasDocument
+}: {
+  source?: Source;
+  exact: boolean;
+  hasDocument: boolean;
+}) {
+  if (!source || source.kind !== 'audio' || exact) return null;
+
+  return <SourceTranscription source={source} hasDocument={hasDocument} />;
+}
+
+function SourceCopyAction({
+  available,
+  pending,
+  onCopy
+}: {
+  available: boolean;
+  pending: boolean;
+  onCopy: () => void;
+}) {
+  const { t } = useI18n();
+
+  if (!available) return null;
+
+  return (
+    <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
+      {t(pending ? 'SessionSaving' : 'DocumentEditCopy')}
+    </Button>
   );
 }

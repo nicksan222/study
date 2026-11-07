@@ -24,6 +24,8 @@ export const SourcesRpcLive = defineRpc(
     const sources = yield* Sources;
 
     return {
+      'sources.transcriptionModelStatus': () => sources.transcriptionModelStatus(),
+      'sources.installTranscriptionModel': () => sources.installTranscriptionModel(),
       'sources.previewHistory': (input) => sources.previewHistory(input),
       'sources.retireHistory': (input) => sources.retireHistory(input),
       'sources.extractions': (v) => sources.extractions(v),

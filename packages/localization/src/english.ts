@@ -1,5 +1,22 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  LocalTranscriptionModel: 'Speech recognition model',
+  TranscribeAgain: 'Transcribe again',
+  AutoTranscribeAudioHelp:
+    'Transcribe new WAV files and recordings after import. You can also transcribe them manually.',
+  VozModelHelp: 'Voz · 410 MB download · About 1.2 GB of memory while transcribing.',
+  AudioTranscriptionIntro:
+    'Turn recordings into searchable text on this computer. Audio stays on your device.',
+  TranscriptionFailed: 'Transcription failed. Check that Voz is installed, then try again.',
+  UnsupportedAudioTranscription:
+    'Transcription currently supports WAV files. The original audio is saved and can be downloaded.',
+  AutoTranscribeAudio: 'Transcribe audio automatically',
+  TranscribeAudio: 'Transcribe audio',
+  TranscriptionManualHelp: 'This recording is saved. Transcribe it when you are ready.',
+  TranscriptionInstallHelp:
+    'Download the transcription model in Settings → Transcription to get started.',
+  TranscriptionRequested: 'Transcription requested.',
+
   IntegrationResume: 'Resume import',
 
   IntegrationsTitle: 'Integrations',

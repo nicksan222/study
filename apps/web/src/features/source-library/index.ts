@@ -10,3 +10,5 @@ export { SourceDeletion } from './deletion';
 export { SourceVersionDeletion } from './version-deletion';
 
 export { subjectSourcesOptions } from './subject-sources.queries';
+
+export { TranscriptionModelSetting } from './transcription-model';

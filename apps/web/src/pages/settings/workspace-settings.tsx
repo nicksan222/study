@@ -6,6 +6,7 @@ import { Settings } from '@study/ui/settings';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { TranscriptionModelSetting } from '#web/features/source-library/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { useConversionStrategies } from '#web/lib/study-client/conversion.queries.ts';
 import { useWorkspacePreferenceControls } from '#web/lib/study-client/workspace-preferences.queries.ts';
@@ -70,6 +71,7 @@ function PreferenceSection({
 }
 
 type BooleanField =
+  | 'autoTranscribeAudio'
   | 'spellcheck'
   | 'submitOnEnter'
   | 'autoTitleSessions'
@@ -345,5 +347,19 @@ function ConversionStrategySetting() {
         }}
       />
     </>
+  );
+}
+
+/** Local audio processing follows the same focused settings layout as other capabilities. */
+export function AudioTranscriptionSettings() {
+  return (
+    <PreferenceSection title="Transcription" description="AudioTranscriptionIntro">
+      <TranscriptionModelSetting />
+      <PreferenceToggle
+        field="autoTranscribeAudio"
+        title="AutoTranscribeAudio"
+        description="AutoTranscribeAudioHelp"
+      />
+    </PreferenceSection>
   );
 }

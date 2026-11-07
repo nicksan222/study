@@ -1,23 +1,16 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Pins and installs verified local embedding model assets without implicit           │
- * │ downloads.                                                                               │
+ * │ @file Pins the local embedding model and delegates explicit verified installation.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Exports explicit installation and offline validation of pinned embedding assets.       │
+ * │ - Validates typed inputs and preserves explicit operation ownership.                     │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Only explicit installation contacts the model host; inference validates local files.     │
+ * │ Keeps application policy outside shared inference and persistence mechanisms.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-
-import { StudyError } from '@study/contracts/errors';
-import { Effect, Schema } from 'effect';
+import { installModelAssets, validateModelAssets } from '#server/platform/ai/model-assets';
 
 import { embeddingLimits } from './limits.ts';
 
@@ -57,122 +50,8 @@ export const embeddingModel = {
   ]
 } as const;
 
-const installationSchema = Schema.fromJsonString(
-  Schema.Struct({ identity: Schema.Literal(embeddingModel.identity) })
-);
-
-/** Check pinned file size and SHA-256, treating only absent files as a cache miss. */
-async function matches(
-  path: string,
-  expected: { bytes: number; sha256: string }
-): Promise<boolean> {
-  try {
-    if ((await stat(path)).size !== expected.bytes) return false;
-
-    const hash = createHash('sha256');
-
-    for await (const chunk of createReadStream(path)) hash.update(chunk);
-
-    return hash.digest('hex') === expected.sha256;
-  } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return false;
-
-    throw cause;
-  }
-}
-
-/** Validate the complete pinned installation without permitting any network activity. */
 export const validateEmbeddingModel = (directory: string) =>
-  Effect.tryPromise({
-    try: async () => {
-      Schema.decodeUnknownSync(installationSchema)(
-        await readFile(join(directory, 'installation.json'), 'utf8')
-      );
+  validateModelAssets(directory, embeddingModel);
 
-      for (const file of embeddingModel.files) {
-        if (!(await matches(join(directory, file.path), file)))
-          throw new TypeError('Embedding model integrity check failed');
-      }
-    },
-    catch: (cause) =>
-      new StudyError('model_unavailable', 'Local embedding model is not installed or is invalid', {
-        cause
-      })
-  });
-
-/** Stream into an exclusive private temporary file and reject oversized downloads immediately. */
-async function writeDownload(body: ReadableStream<Uint8Array>, path: string, maximumBytes: number) {
-  const handle = await open(path, 'wx', 0o600);
-
-  try {
-    let bytes = 0;
-
-    for await (const chunk of body) {
-      bytes += chunk.byteLength;
-
-      if (bytes > maximumBytes)
-        throw new RangeError('Embedding model download exceeded expected size');
-
-      await handle.writeFile(chunk);
-    }
-  } finally {
-    await handle.close();
-  }
-}
-
-/** Reuse verified assets or atomically publish a bounded, verified download with cancellation cleanup. */
-async function downloadFile(
-  directory: string,
-  file: (typeof embeddingModel.files)[number],
-  signal: AbortSignal
-) {
-  const path = join(directory, file.path);
-
-  if (await matches(path, file)) return;
-
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${randomUUID()}.partial`;
-
-  try {
-    const response = await fetch(
-      `https://huggingface.co/${embeddingModel.name}/resolve/${embeddingModel.revision}/${file.path}`,
-      { signal }
-    );
-
-    if (!response.ok || !response.body) throw new Error('Embedding model download failed');
-
-    await writeDownload(response.body, temporary, file.bytes);
-
-    if (!(await matches(temporary, file)))
-      throw new TypeError('Embedding model download integrity check failed');
-
-    signal.throwIfAborted();
-    await rename(temporary, path);
-  } finally {
-    await rm(temporary, { force: true });
-  }
-}
-
-/** Explicit install is the only embedding operation that can download model assets. */
 export const installEmbeddingModel = (directory: string) =>
-  Effect.tryPromise({
-    try: async (signal) => {
-      await mkdir(directory, { recursive: true });
-
-      for (const file of embeddingModel.files) await downloadFile(directory, file, signal);
-
-      const temporary = join(directory, `installation.${randomUUID()}.partial`);
-
-      try {
-        await writeFile(temporary, JSON.stringify({ identity: embeddingModel.identity }), {
-          flag: 'wx',
-          mode: 0o600
-        });
-        await rename(temporary, join(directory, 'installation.json'));
-      } finally {
-        await rm(temporary, { force: true });
-      }
-    },
-    catch: (cause) =>
-      new StudyError('model_unavailable', 'Local embedding model installation failed', { cause })
-  });
+  installModelAssets(directory, embeddingModel);

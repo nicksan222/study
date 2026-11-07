@@ -145,6 +145,16 @@ export const sourceHistoryRetireSchema = Schema.Struct({
 });
 
 export const SourcesRpc = RpcGroup.make(
+  Rpc.make('transcriptionModelStatus', {
+    payload: {},
+    success: Schema.Struct({ installed: Schema.Boolean }),
+    error: failureSchema
+  }),
+  Rpc.make('installTranscriptionModel', {
+    payload: {},
+    success: Schema.Struct({ installed: Schema.Boolean }),
+    error: failureSchema
+  }),
   Rpc.make('conversionStrategies', {
     payload: Schema.Struct({}),
     success: Schema.Array(conversionStrategySchema),

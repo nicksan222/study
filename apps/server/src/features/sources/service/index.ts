@@ -13,6 +13,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
@@ -72,6 +73,7 @@ import { SourceSearchStore } from '#server/features/sources/store/search';
 import { Workflows } from '#server/features/workflows/index';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
+import { databaseDirectory } from '#server/platform/database/database';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import {
@@ -82,11 +84,18 @@ import {
 import { pageById } from '#server/platform/definitions/page-by-id';
 import { validateLink } from '#server/platform/http/index';
 
+import {
+  installTranscriptionModel,
+  transcriptionModelStatus,
+  transcribeSourceAudio
+} from './transcription.ts';
+
 type SourcePageInput = typeof sourcePageInputSchema.Type;
 
 export const Sources = defineService(
   'study/Sources',
   Effect.gen(function* () {
+    const speechDirectory = join(yield* databaseDirectory, 'models', 'voz-v0.5.0');
     const sources = yield* useStore(SourceStore);
     const histories = yield* useStore(SourceHistoryStore);
     const extractions = yield* useStore(SourceExtractionsStore);
@@ -124,6 +133,9 @@ export const Sources = defineService(
     };
 
     return {
+      installTranscriptionModel: () => installTranscriptionModel(speechDirectory),
+      transcriptionModelStatus: () => transcriptionModelStatus(speechDirectory),
+      transcribeAudio: (bytes: Uint8Array) => transcribeSourceAudio(speechDirectory, bytes),
       conversionStrategies: () =>
         Effect.flatMap(Settings, (settings) => settings.language()).pipe(
           Effect.map((locale) => conversions.list(locale)),
@@ -135,6 +147,8 @@ export const Sources = defineService(
         Effect.gen(function* () {
           const session = yield* Effect.serviceOption(ChatGptSession);
           const path = decoderPath(input);
+          const installed =
+            path === 'audio' ? (yield* transcriptionModelStatus(speechDirectory)).installed : true;
           const authentication = (() => {
             if (Option.isNone(session)) return 'unavailable' as const;
 
@@ -148,10 +162,11 @@ export const Sources = defineService(
           return {
             kind: input.kind,
             recognized: input.kind !== 'other',
-            status: path !== 'none' && path !== 'vision' ? 'supported' : 'unavailable',
+            status: path !== 'none' && path !== 'vision' && installed ? 'supported' : 'unavailable',
             path,
-            reason:
-              path === 'none'
+            reason: !installed
+              ? 'model_missing'
+              : path === 'none'
                 ? 'no_decoder'
                 : path === 'vision'
                   ? 'provider_unverified'
@@ -206,7 +221,8 @@ export const Sources = defineService(
             .store(SourceStore)
             .createSource({ ...input, ...detected, origin: 'attachment', uri: null, requestId });
 
-          requested(tx, source.id, 1, requestId);
+          if (source.kind !== 'audio' || Settings.autoTranscribeAudio(tx))
+            requested(tx, source.id, 1, requestId);
 
           return source;
         }),
@@ -273,7 +289,8 @@ export const Sources = defineService(
 
           imports.saveRecordingImport({ ...input, sourceId: source.id, hash });
 
-          requested(tx, source.id, 1, input.requestId, input.requestId);
+          if (Settings.autoTranscribeAudio(tx))
+            requested(tx, source.id, 1, input.requestId, input.requestId);
 
           return source;
         }),
@@ -295,7 +312,8 @@ export const Sources = defineService(
             .store(SourceStore)
             .replaceSourceInput({ ...input, ...detected, requestId });
 
-          requested(tx, input.id, result.revision, requestId);
+          if (detected.kind !== 'audio' || Settings.autoTranscribeAudio(tx))
+            requested(tx, input.id, result.revision, requestId);
 
           return result;
         }),

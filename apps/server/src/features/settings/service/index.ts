@@ -54,6 +54,7 @@ import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
 import { defineService } from '#server/platform/definitions/define-service';
+import type { Transaction } from '#server/platform/definitions/define-store';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { UsageStore } from '#server/platform/observability/usage-store';
 
@@ -265,4 +266,7 @@ const make = Effect.gen(function* () {
   };
 });
 
-export const Settings = defineService('study/Settings', make);
+export const Settings = defineService('study/Settings', make, {
+  autoTranscribeAudio: (tx: Transaction) =>
+    tx.store(SettingsStore).preference('workspace').autoTranscribeAudio === true
+});

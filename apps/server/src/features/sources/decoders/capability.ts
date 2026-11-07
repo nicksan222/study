@@ -25,11 +25,17 @@ export function decoderPath(input: { kind: SourceKind; mime: string }) {
   )
     return 'text';
 
+  if (audioPath(input)) return 'audio';
+
   if (officePath(input)) return 'office';
 
   if (visionPath(input)) return 'vision';
 
   return 'none';
+}
+
+function audioPath(input: { kind: SourceKind; mime: string }) {
+  return input.kind === 'audio' && ['audio/wav', 'audio/x-wav'].includes(input.mime);
 }
 
 function officePath(input: { kind: SourceKind; mime: string }) {

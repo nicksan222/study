@@ -2,6 +2,7 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { StaticMessageKey } from '@study/localization';
 import { Settings } from '@study/ui/settings';
 import {
+  AudioLines,
   Palette,
   Settings2,
   Layers,
@@ -45,6 +46,7 @@ import { UsageSettings } from './usage';
 import type { AppearanceModel } from './use-page';
 import {
   AiWritingSettings,
+  AudioTranscriptionSettings,
   ReadingSettings,
   SessionDisplaySettings,
   WritingSettings
@@ -105,6 +107,12 @@ const sections = [
     label: 'AiSettingsModels',
     Icon: SlidersHorizontal,
     keywords: ['SettingsAi', 'AiSettingsTiny', 'AiSettingsMedium', 'AiSettingsSmart']
+  },
+  {
+    id: 'transcription',
+    label: 'Transcription',
+    Icon: AudioLines,
+    keywords: ['AutoTranscribeAudio', 'DownloadModel']
   },
   {
     id: 'instructions',
@@ -227,7 +235,15 @@ const navigationGroups = [
   },
   {
     label: 'SettingsAi',
-    ids: ['account', 'models', 'instructions', 'automation', 'usage', 'performance']
+    ids: [
+      'account',
+      'models',
+      'transcription',
+      'instructions',
+      'automation',
+      'usage',
+      'performance'
+    ]
   },
   {
     label: 'Practice',
@@ -399,6 +415,7 @@ function SectionContent({
     models: <AiModelSettings />,
     instructions: <AgentRulesSettings />,
     automation: <AiWritingSettings />,
+    transcription: <AudioTranscriptionSettings />,
     performance: <PerformanceSettings />,
     usage: <UsageSettings />,
     flashcards: <StudySettings />,

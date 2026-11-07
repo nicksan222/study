@@ -52,6 +52,7 @@ export const workspacePreferencesSchema = Schema.Struct({
   submitOnEnter: Schema.Boolean,
   defaultExportFormat: exportFormatSchema,
   defaultAiDetail: Schema.Literals(['brief', 'balanced', 'detailed']),
+  autoTranscribeAudio: Schema.Boolean,
   autoTitleSessions: Schema.Boolean,
   autoAnswerQuestions: Schema.Boolean,
   textConversionMode: Schema.Literals(['manual', 'automatic']),

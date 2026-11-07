@@ -6,9 +6,14 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { AiWritingSettings, WritingSettings } from './workspace-settings';
+import {
+  AiWritingSettings,
+  AudioTranscriptionSettings,
+  WritingSettings
+} from './workspace-settings';
 
 const api = vi.hoisted(() => ({
+  model: vi.fn<() => Promise<{ installed: boolean }>>(),
   strategies: vi.fn<() => Promise<unknown[]>>(),
   read: vi.fn<() => Promise<WorkspacePreferences>>(),
   save: vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
@@ -18,12 +23,14 @@ vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key 
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (
     invoke: (rpc: {
+      'sources.transcriptionModelStatus': typeof api.model;
       'sources.conversionStrategies': typeof api.strategies;
       'settings.workspacePreferences': typeof api.read;
       'settings.saveWorkspacePreferences': typeof api.save;
     }) => unknown
   ) =>
     invoke({
+      'sources.transcriptionModelStatus': api.model,
       'sources.conversionStrategies': api.strategies,
       'settings.workspacePreferences': api.read,
       'settings.saveWorkspacePreferences': api.save
@@ -34,6 +41,7 @@ const caches: QueryClient[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  api.model.mockResolvedValue({ installed: false });
   api.read.mockResolvedValue(defaultWorkspacePreferences);
   api.strategies.mockResolvedValue([
     { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
@@ -45,7 +53,7 @@ afterEach(() => {
   caches.length = 0;
 });
 
-function mount(ai = false) {
+function mount(ai: boolean | 'audio' = false) {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
@@ -53,7 +61,13 @@ function mount(ai = false) {
   caches.push(cache);
   render(
     <QueryClientProvider client={cache}>
-      {ai ? <AiWritingSettings /> : <WritingSettings />}
+      {ai === 'audio' ? (
+        <AudioTranscriptionSettings />
+      ) : ai ? (
+        <AiWritingSettings />
+      ) : (
+        <WritingSettings />
+      )}
     </QueryClientProvider>
   );
 }
@@ -205,4 +219,21 @@ testStable('recovers strategy discovery through its retry action', async () => {
   await user.click(screen.getByRole('button', { name: 'Retry' }));
   expect(await screen.findByText('ChatGPT')).toBeVisible();
   expect(api.strategies).toHaveBeenCalledTimes(2);
+});
+
+testStable('automatic transcription is opt-in and persists the enabled preference', async () => {
+  api.save.mockImplementation(async (value) => {
+    api.read.mockResolvedValue(value);
+
+    return value;
+  });
+  mount('audio');
+  const toggle = await screen.findByRole('switch', { name: 'AutoTranscribeAudio' });
+
+  expect(toggle).toHaveAttribute('aria-checked', 'false');
+  await userEvent.click(toggle);
+  await waitFor(() =>
+    expect(api.save).toHaveBeenCalledWith(expect.objectContaining({ autoTranscribeAudio: true }))
+  );
+  await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
 });

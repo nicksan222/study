@@ -28,6 +28,7 @@ import { Activity } from 'effect/workflow';
 
 import { Settings } from '#server/features/settings/index';
 import { visionTranscriptionAgent } from '#server/features/sources/agents/vision-transcription';
+import { transcriptDocument } from '#server/features/sources/decoders/audio';
 import { decoderPath } from '#server/features/sources/decoders/capability';
 import { checkInput, DEFAULT_MAX_BYTES } from '#server/features/sources/decoders/common';
 import { decodeHtml } from '#server/features/sources/decoders/html';
@@ -147,6 +148,19 @@ export const sourceIngestionHandler = ({
         error: failureSchema,
         execute: Effect.gen(function* () {
           yield* currentRequest;
+
+          if (decoderPath(input) === 'audio') {
+            checkInput(input.bytes, DEFAULT_MAX_BYTES);
+            const transcript = yield* sources.transcribeAudio(input.bytes);
+
+            return yield* Effect.try({
+              try: () => transcriptDocument(transcript),
+              catch: (cause) =>
+                cause instanceof StudyError
+                  ? cause
+                  : new StudyError('invalid_input', 'Invalid transcript', { cause })
+            });
+          }
 
           function isHtml() {
             return decoderPath(input) === 'html';

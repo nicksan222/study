@@ -685,7 +685,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
             'legacy.doc',
             'sheet.xlsx',
             'slides.ppt',
-            'sound.wav',
+            'sound.mp3',
             'image.bmp'
           ].entries()) {
             const bytes = name.endsWith('.bmp')

@@ -23,6 +23,7 @@ import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
+import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
@@ -55,7 +56,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const layer = Sources.layer.pipe(
+    const layer = Layer.mergeAll(Sources.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
     let completed = false;
@@ -70,6 +71,13 @@ testStable(
 
       function* verifyRecordingImports() {
         const sources = yield* Sources;
+        const settings = yield* Settings;
+
+        yield* settings.saveWorkspacePreferences({
+          ...(yield* settings.workspacePreferences()),
+          autoTranscribeAudio: true
+        });
+
         const input = {
           requestId: 'recording-1',
           projectId: 1n as ProjectId,

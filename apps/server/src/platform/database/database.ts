@@ -13,6 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { dirname } from 'node:path';
+
 import { Context, Effect } from 'effect';
 
 import type { ServerContext } from './context.ts';
@@ -25,3 +27,6 @@ export class Database extends Context.Service<Database, { readonly store: Server
 export const databaseChanges = Effect.map(Database, ({ store }) => ({
   subscribe: (listener: () => void) => store.subscribe(listener)
 }));
+
+/** Workspace assets share the owned database's parent directory. */
+export const databaseDirectory = Effect.map(Database, ({ store }) => dirname(store.db.path));

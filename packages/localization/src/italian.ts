@@ -1,6 +1,22 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  LocalTranscriptionModel: 'Modello di riconoscimento vocale',
+  TranscribeAgain: 'Trascrivi di nuovo',
+  AutoTranscribeAudioHelp:
+    'Trascrivi i nuovi file WAV e le registrazioni dopo l’importazione. Puoi anche trascriverli manualmente.',
+  VozModelHelp: 'Voz · Download di 410 MB · Circa 1,2 GB di memoria durante la trascrizione.',
+  AudioTranscriptionIntro:
+    'Trasforma le registrazioni in testo ricercabile su questo computer. L’audio resta sul tuo dispositivo.',
+  TranscriptionFailed: 'Trascrizione non riuscita. Controlla che Voz sia installato, poi riprova.',
+  UnsupportedAudioTranscription:
+    'La trascrizione supporta attualmente i file WAV. L’audio originale è salvato e può essere scaricato.',
+  AutoTranscribeAudio: 'Trascrivi automaticamente gli audio',
+  TranscribeAudio: 'Trascrivi audio',
+  TranscriptionManualHelp: 'La registrazione è salvata. Trascrivila quando vuoi.',
+  TranscriptionInstallHelp: 'Scarica il modello in Impostazioni → Trascrizione per iniziare.',
+  TranscriptionRequested: 'Trascrizione richiesta.',
+
   IntegrationResume: 'Riprendi importazione',
 
   IntegrationsTitle: 'Integrazioni',
