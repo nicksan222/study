@@ -7,6 +7,7 @@ import { ProjectSettings } from '#web/features/collections/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AiSettings } from './ai';
+import { AgentRulesSettings } from './ai/agent-rules';
 import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
@@ -91,6 +92,16 @@ const sections = [
     keywords: [
       'AiSettingsAccount',
       'AiSettingsModels',
+      'AgentRulesTitle',
+      'AgentRulesDocuments',
+      'AgentRulesTitles',
+      'AgentRulesReplies',
+      'AgentRulesQuizzes',
+      'AgentRulesFlashcards',
+      'AgentRulesDiagrams',
+      'AgentRulesGrading',
+      'AgentRulesTranscription',
+      'AgentRulesQuestionDetection',
       'AiSettingsSignIn',
       'WorkspaceAiDetail',
       'WorkspaceAutoTitles',
@@ -271,6 +282,7 @@ function SectionContent({
       <>
         <AiSettings />
         <AiWritingSettings />
+        <AgentRulesSettings />
         <PerformanceSettings />
       </>
     ),

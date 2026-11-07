@@ -143,6 +143,7 @@ export function nativeLayers(
         observe: observeAgentProgress(store),
         admission: withAdmissionSettings(aiAdmission, settings.concurrencySettings()),
         language: settings.language(),
+        rules: settings.agentRules(),
         model: (tier) =>
           settings
             .model(tier)

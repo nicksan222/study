@@ -16,6 +16,7 @@
 import { createServer } from 'node:http';
 
 import type { messageVersionSchema } from '@study/contracts/conversations/schemas';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { createBlock } from '@study/contracts/sources/document';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
@@ -146,6 +147,7 @@ testStable(
         Layer.succeed(Database, { store: context }),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
+          rules: Effect.succeed(defaultAgentRules),
           model: () =>
             Effect.promise(async () => {
               const action = duringModelResolution;

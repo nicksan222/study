@@ -16,6 +16,7 @@
 import { quizSettingsSchema } from '@study/contracts/settings/schemas';
 import {
   defaultQuizSettings,
+  defaultAgentRules,
   defaultWorkspacePreferences,
   Appearance,
   Language,
@@ -302,3 +303,46 @@ testStable('older quiz preferences receive generation defaults during decoding',
     difficulty: 'balanced'
   });
 });
+
+testStable(
+  'agent rules persist, merge missing fields and reject oversized updates atomically',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const layer = Settings.layer.pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const settings = yield* Settings;
+
+          expect(yield* settings.agentRules()).toStrictEqual(defaultAgentRules);
+          const rules = {
+            ...defaultAgentRules,
+            documents: 'Use descriptive headings.',
+            titles: 'Use Italian titles.'
+          };
+
+          yield* settings.saveAgentRules(rules);
+          expect(yield* settings.agentRules()).toStrictEqual(rules);
+          expect(
+            (yield* Effect.flip(settings.saveAgentRules({ ...rules, documents: 'x'.repeat(8001) })))
+              .kind
+          ).toBe('invalid_input');
+          expect(yield* settings.agentRules()).toStrictEqual(rules);
+          context.db.orm.run(
+            sql`DELETE FROM preferences WHERE scope = 'agent-rules' AND key = 'quizzes'`
+          );
+          expect(yield* settings.agentRules()).toStrictEqual(rules);
+          yield* settings.saveAgentRules(defaultAgentRules);
+          expect(yield* settings.agentRules()).toStrictEqual(defaultAgentRules);
+        }).pipe(Effect.provide(layer))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

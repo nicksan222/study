@@ -39,6 +39,7 @@ export const LlmModel = {
 export type LlmModel = (typeof LlmModel)[keyof typeof LlmModel];
 
 import type {
+  agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
@@ -107,4 +108,18 @@ export const defaultQuizSettings: QuizSettings = {
   questionKind: 'all',
   choiceCount: 4,
   difficulty: 'balanced'
+};
+
+export type AgentRules = typeof agentRulesSchema.Type;
+
+export const defaultAgentRules: AgentRules = {
+  documents: '',
+  titles: '',
+  replies: '',
+  quizzes: '',
+  flashcards: '',
+  diagrams: '',
+  grading: '',
+  transcription: '',
+  questionDetection: ''
 };

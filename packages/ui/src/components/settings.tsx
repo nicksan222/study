@@ -7,7 +7,7 @@ import type { ReactNode, KeyboardEvent } from 'react';
 
 import { SearchField } from './search-field';
 import { semanticPart } from './semantic-part';
-import { ToggleRow, SelectRow, NumberRow, RangeRow } from './settings-controls';
+import { ToggleRow, SelectRow, NumberRow, RangeRow, TextareaRow } from './settings-controls';
 import { SettingsGroup, SettingsRow } from './settings-group';
 
 function Root({
@@ -389,6 +389,7 @@ function Status({ children, action }: { children: ReactNode; action?: ReactNode 
 }
 
 export const Settings = {
+  Actions: semanticPart('div', 'settings-actions settings-form-actions'),
   Intro: semanticPart('p', 'settings-intro'),
   Feedback: semanticPart('p', 'settings-feedback'),
   Item,
@@ -396,6 +397,7 @@ export const Settings = {
   SearchResults,
   Group: SettingsGroup,
   Row: SettingsRow,
+  TextareaRow,
   ToggleRow,
   SelectRow,
   NumberRow,

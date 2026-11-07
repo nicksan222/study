@@ -15,6 +15,7 @@
 
 import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import type { ProjectId } from '@study/contracts/ids';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -60,6 +61,7 @@ testStable(
         agentsLayer({
           model: () => Effect.succeed(model),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         }),
         workflowEngineLayer(context)
@@ -254,6 +256,7 @@ testStable(
       agentsLayer({
         model: () => Effect.succeed(model),
         language: 'en',
+        rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
       }),
       workflowEngineLayer(context)
@@ -434,6 +437,7 @@ for (const input of ['attachment', 'link'] as const)
           agentsLayer({
             model: () => Effect.succeed(model),
             language: 'en',
+            rules: Effect.succeed(defaultAgentRules),
             searchSources: () => Effect.succeed([])
           }),
           workflowEngineLayer(context)
@@ -547,6 +551,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     }),
     workflowEngineLayer(context)
@@ -743,6 +748,7 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     }),
     workflowEngineLayer(context)
@@ -821,6 +827,7 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
       agentsLayer({
         model: () => Effect.succeed(model),
         language: 'en',
+        rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
       }),
       workflowEngineLayer(context)
@@ -945,6 +952,7 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
     agentsLayer({
       model: () => Effect.succeed(model),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     }),
     workflowEngineLayer(context)

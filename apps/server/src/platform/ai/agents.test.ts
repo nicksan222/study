@@ -18,6 +18,8 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
+import { AgentRule } from '@study/contracts/settings/schemas';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
@@ -31,6 +33,7 @@ import { defineAgent } from '#server/platform/definitions/define-agent';
 
 const definition = defineAgent({
   id: 'reply',
+  customRules: [AgentRule.Replies],
   input: Schema.String,
   output: Schema.String,
   model: 'tiny',
@@ -40,6 +43,7 @@ const definition = defineAgent({
 
 const objectDefinition = defineAgent({
   id: 'object',
+  customRules: [AgentRule.Replies],
   input: Schema.String,
   output: Schema.Struct({ count: Schema.Number }),
   model: 'tiny',
@@ -100,6 +104,7 @@ function service(base: string, auth: AuthManager, observe?: AgentsConfig['observ
     observe,
     model: () => Effect.succeed(model),
     language: 'en',
+    rules: Effect.succeed(defaultAgentRules),
     searchSources: () => Effect.succeed([])
   });
 }
@@ -322,6 +327,7 @@ testStable('executes a source tool and sends its result back to the provider', a
                 }),
               model: () => Effect.succeed(model),
               language: 'en',
+              rules: Effect.succeed(defaultAgentRules),
               searchSources: (query) => {
                 queries.push(query);
 
@@ -385,6 +391,7 @@ testStable(
       const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
       const definition = defineAgent({
         id: 'reply',
+        customRules: [AgentRule.Replies],
         input: Schema.String,
         output: Schema.String,
         model: 'tiny',
@@ -409,6 +416,7 @@ testStable(
             layer({
               model: () => Effect.succeed(model),
               language: 'en',
+              rules: Effect.succeed(defaultAgentRules),
               searchSources: () => Effect.succeed([])
             })
           )
@@ -716,6 +724,7 @@ testStable(
               layer({
                 model: () => Effect.succeed(model),
                 language: 'en',
+                rules: Effect.succeed(defaultAgentRules),
                 searchSources: () => Effect.succeed([])
               })
             )
@@ -846,6 +855,7 @@ testStable('decoder exceptions remain typed input failures before provider work'
         layer({
           model: () => Effect.die(new Error('unexpected provider work')),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         })
       )
@@ -855,3 +865,54 @@ testStable('decoder exceptions remain typed input failures before provider work'
   assert.ok(failure.kind === 'invalid_input');
   assert.ok(failure.message === 'Invalid agent input');
 });
+
+testStable(
+  'injects only selected rules, composes title rules and reloads preferences for each run',
+  async () => {
+    let rules = {
+      ...defaultAgentRules,
+      quizzes: 'Use application questions.',
+      titles: 'Use descriptive titles.',
+      documents: 'UNRELATED DOCUMENT RULE'
+    };
+    const bodies: string[] = [];
+
+    await peer(
+      (_req, res, body) => {
+        bodies.push(body);
+        send(res, 'ok');
+      },
+      async (base, auth) => {
+        const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+        const configured = layer({
+          model: () => Effect.succeed(model),
+          language: 'en',
+          searchSources: () => Effect.succeed([]),
+          rules: Effect.sync(() => rules)
+        });
+        const agent = defineAgent({
+          ...definition,
+          customRules: [AgentRule.Quizzes, AgentRule.Titles],
+          instructions: (language) => `Base instructions in ${language}`
+        });
+        const run = () =>
+          Effect.runPromise(generateAgent(agent, 'question').pipe(Effect.provide(configured)));
+
+        await run();
+        expect(bodies[0]).toContain('Base instructions in en');
+        expect(bodies[0]).toContain('Use application questions.');
+        expect(bodies[0]).toContain('Use descriptive titles.');
+        expect(bodies[0]).not.toContain('UNRELATED DOCUMENT RULE');
+        rules = { ...rules, quizzes: 'Updated quiz preference.', titles: '   ' };
+        await run();
+        expect(bodies[1]).toContain('Updated quiz preference.');
+        expect(bodies[1]).not.toContain('Use application questions.');
+        expect(bodies[1]).not.toContain('Use descriptive titles.');
+        rules = defaultAgentRules;
+        await run();
+        expect(bodies[2]).not.toContain('User preferences');
+        expect(bodies[2]).toContain('Base instructions in en');
+      }
+    );
+  }
+);

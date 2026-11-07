@@ -13,6 +13,7 @@
  */
 
 import {
+  agentRulesSchema,
   quizSettingsSchema,
   workspacePreferencesSchema,
   sidebarSettingsSchema,
@@ -80,6 +81,11 @@ export const SettingsStore = defineStore({
         })
       },
       mutations: {
+        saveAgentRules: storeMutation({
+          input: agentRulesSchema,
+          output: Schema.Void,
+          run: (input) => replace('agent-rules', { ...input })
+        }),
         saveQuizSettings: storeMutation({
           input: quizSettingsSchema,
           output: Schema.Void,
