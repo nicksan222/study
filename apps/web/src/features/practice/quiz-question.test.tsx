@@ -169,10 +169,10 @@ testStable(
     nucleus.focus();
     await user.keyboard('{Enter}');
     expect(submit).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('option', { name: 'Stores DNA' }));
+    await user.click(await screen.findByRole('option', { name: 'Stores DNA' }));
     expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
     await user.click(ribosome);
-    await user.click(screen.getByRole('option', { name: 'Builds proteins' }));
+    await user.click(await screen.findByRole('option', { name: 'Builds proteins' }));
     await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
     expect(submit).toHaveBeenCalledExactlyOnceWith({
       type: 'matching',
