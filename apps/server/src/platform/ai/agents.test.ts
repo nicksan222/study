@@ -29,7 +29,10 @@ import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
 import type { AgentProgress, AgentsConfig } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
+import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
+import { createServerTest } from '#testing/server-test';
 
 const definition = defineAgent({
   id: 'reply',
@@ -583,6 +586,110 @@ testStable('preserves conversation history in the native reply request', async (
 
       for (const value of ['Earlier request', 'Earlier answer', 'Read these'])
         assert.ok(body.includes(value));
+
+      const request = JSON.parse(body);
+
+      expect(request.tools).toContainEqual({ type: 'web_search' });
+      expect(request.tools).toContainEqual(
+        expect.objectContaining({ type: 'function', name: 'sources' })
+      );
+    }
+  );
+});
+
+testStable('the Assistant keeps its local tools without gaining web search', async (t) => {
+  const { assistantAgent } = await import('#server/features/conversations/agents/assistant');
+  const fixture = createServerTest(t, { app: false });
+  const store = new ServerContext(fixture.openDb());
+
+  fixture.dispose(() => store.close());
+  let body = '';
+
+  await peer(
+    (_req, res, request) => {
+      body = request;
+      send(res, 'Local answer');
+    },
+    async (base, auth) => {
+      await Effect.runPromise(
+        generateAgent(assistantAgent, {
+          messages: [{ role: 'user', content: 'Search online' }]
+        }).pipe(Effect.provide(service(base, auth)), Effect.provideService(Database, { store }))
+      );
+      const tools = JSON.parse(body).tools;
+
+      expect(tools.length).toBeGreaterThan(0);
+      expect(tools.every((tool: { type: string }) => tool.type === 'function')).toBe(true);
+    }
+  );
+});
+
+testStable(
+  'native web search completes inside the reply request without a local search executor',
+  async () => {
+    const { replyAgent } = await import('#server/features/conversations/agents/reply');
+    const answer = 'Verified with [OpenAI](https://openai.com/).';
+    let requests = 0;
+
+    await peer(
+      (_req, res) => {
+        requests++;
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        const item = {
+          type: 'web_search_call',
+          id: 'search-1',
+          status: 'completed',
+          action: {
+            type: 'search',
+            query: 'OpenAI',
+            sources: [{ type: 'url', url: 'https://openai.com/' }]
+          }
+        };
+
+        for (const event of [
+          { type: 'response.output_item.added', output_index: 0, item },
+          { type: 'response.output_item.done', output_index: 0, item },
+          {
+            type: 'response.output_item.added',
+            output_index: 1,
+            item: { type: 'message', id: 'm' }
+          },
+          { type: 'response.output_text.delta', item_id: 'm', delta: answer },
+          { type: 'response.completed', response: {} }
+        ])
+          res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+        res.end();
+      },
+      async (base, auth) => {
+        expect(
+          await Effect.runPromise(
+            generateAgent(replyAgent, {
+              messages: [{ role: 'user', content: 'Check online' }]
+            }).pipe(Effect.provide(service(base, auth)))
+          )
+        ).toBe(answer);
+        expect(requests).toBe(1);
+      }
+    );
+  }
+);
+
+testStable('agents without a web search declaration never receive native web search', async () => {
+  let body = '';
+
+  await peer(
+    (_req, res, request) => {
+      body = request;
+      send(res, 'Local answer');
+    },
+    async (base, auth) => {
+      await Effect.runPromise(
+        generateAgent(definition, 'Search online').pipe(Effect.provide(service(base, auth)))
+      );
+      expect(JSON.parse(body).tools ?? []).not.toContainEqual(
+        expect.objectContaining({ type: 'web_search' })
+      );
     }
   );
 });

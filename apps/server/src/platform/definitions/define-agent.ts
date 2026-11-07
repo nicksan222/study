@@ -43,6 +43,15 @@ export interface ToolWiki {
 
 const toolDeclaration = Symbol('AgentTool');
 
+/** Provider-executed capabilities must be explicitly declared in an agent's tools. */
+export interface ProviderTool {
+  readonly [toolDeclaration]: true;
+  provider: 'openai.web_search';
+  description: string;
+  wiki: ToolWiki;
+  mutates: false;
+}
+
 export interface AgentTool<
   Input extends Schema.ConstraintDecoder<unknown> = Schema.ConstraintDecoder<unknown>,
   Output = unknown,
@@ -73,7 +82,10 @@ export interface AgentDefinition<
   customRules: readonly [AgentRule, ...AgentRule[]];
   instructions: string | ((language: string) => string);
   prompt: (input: Input['Type']) => string | ModelMessage[];
-  tools?: Record<string, AgentTool<Schema.ConstraintDecoder<unknown>, unknown, Requirements>>;
+  tools?: Record<
+    string,
+    AgentTool<Schema.ConstraintDecoder<unknown>, unknown, Requirements> | ProviderTool
+  >;
   mode?: 'text' | 'object';
 }
 
@@ -104,5 +116,11 @@ export function defineTool<
     environment: AgentEnvironment
   ): Effect.Effect<NoInfer<Output['Type']>, StudyError, Requirements>;
 }): AgentTool<Input, Output['Type'], Requirements> {
+  return { ...definition, [toolDeclaration]: true };
+}
+
+export function defineProviderTool(
+  definition: Omit<ProviderTool, typeof toolDeclaration>
+): ProviderTool {
   return { ...definition, [toolDeclaration]: true };
 }
