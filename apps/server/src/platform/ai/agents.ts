@@ -43,6 +43,7 @@ import { makeAdmission } from '#server/platform/ai/admission';
 import type { Admission } from '#server/platform/ai/admission';
 import { batchAgentProgress } from '#server/platform/ai/progress';
 import { ChatGptRequestError, withRequestCheck } from '#server/platform/ai/providers/chatgpt/model';
+import { adaptProviderTool } from '#server/platform/ai/providers/chatgpt/tools';
 import { standardSchema } from '#server/platform/ai/schema';
 import { adaptTool, adaptRequestCheck, adaptUsageRecorder } from '#server/platform/ai/tool-adapter';
 import { withUsageTracking } from '#server/platform/ai/usage';
@@ -214,7 +215,12 @@ export function streamAgent<
                 const tools = Object.fromEntries(
                   Object.entries(definition.tools ?? {}).map(([name, value]) => [
                     name,
-                    adaptTool(value, service, span, annotations, callbackContext, { name, emit })
+                    'provider' in value
+                      ? adaptProviderTool(value)
+                      : adaptTool(value, service, span, annotations, callbackContext, {
+                          name,
+                          emit
+                        })
                   ])
                 );
 
