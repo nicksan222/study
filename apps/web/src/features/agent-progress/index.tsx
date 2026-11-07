@@ -1,11 +1,14 @@
 import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
 import { RetryButton } from '@study/ui/action-button';
 import { GenerationPreview } from '@study/ui/generation-preview';
+import { Trace } from '@study/ui/trace';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { AgentToolCall } from './tool-call';
+import { settledAgentTool } from './tool-state';
 import { useAgentProgress } from './use-agent-progress';
 
 const progressLabels = {
@@ -71,27 +74,19 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
     <>
       {runs.map((run) => {
         const text = run.mode === 'text' ? run.text : undefined;
-        const tool = run.tools.at(-1);
+        const tools = run.tools;
 
-        if (!text && !tool) return null;
+        if (!text && !tools.length) return null;
 
         return (
-          <GenerationPreview
-            key={run.runId}
-            label={t(progressLabels[run.status])}
-            text={text}
-            activity={
-              tool
-                ? t(
-                    tool.status === 'running'
-                      ? 'AgentToolRunning'
-                      : tool.status === 'completed'
-                        ? 'AgentToolCompleted'
-                        : 'AgentToolFailed'
-                  )
-                : undefined
-            }
-          />
+          <div key={run.runId}>
+            <Trace aria-label={t('AssistantActivity')}>
+              {tools.map((tool) => (
+                <AgentToolCall key={tool.toolCallId} tool={settledAgentTool(tool, run)} />
+              ))}
+            </Trace>
+            <GenerationPreview label={t(progressLabels[run.status])} text={text} />
+          </div>
         );
       })}
     </>
@@ -99,3 +94,7 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
 }
 
 export { useAgentProgress } from './use-agent-progress';
+
+export { AgentToolCall, AgentToolOutcome } from './tool-call';
+
+export { settledAgentTool } from './tool-state';

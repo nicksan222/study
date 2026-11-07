@@ -18,7 +18,10 @@ testStable.each(['english', 'italian'] as const)(
       'aria-current',
       'page'
     );
-    expect(screen.getByRole('log', { name: copy.Assistant })).toBeInTheDocument();
+    expect(screen.getByRole('log', { name: copy.Assistant })).toHaveAttribute(
+      'data-slot',
+      'message-scroller-content'
+    );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   }
 );

@@ -1,11 +1,12 @@
 import type { ChatMessage as ConversationMessage } from '@study/contracts/conversations/messages';
-import { ChatEntryLabel, ChatMessage, ChatMessageText } from '@study/ui/chat';
-import { Loading } from '@study/ui/loading';
+import { Bubble, BubbleContent } from '@study/ui/bubble';
+import { CodeBlockCopyButton } from '@study/ui/code-block';
+import { Message, MessageContent, MessageHeader, MessageFooter } from '@study/ui/message';
 import { RichNoteContent } from '@study/ui/rich-note';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { AssistantReply } from './reply';
+import { AssistantReply, AssistantThinking } from './reply';
 import { AssistantToolActivity } from './tool-activity';
 
 const roleLabels = { user: 'SessionContextYou', assistant: 'Assistant' } as const;
@@ -22,17 +23,39 @@ export function AssistantMessage({
   const version = message.versions.find((version) => version.id === message.activeVersionId);
 
   return (
-    <ChatMessage data-role={message.role} aria-label={t(roleLabels[message.role])}>
-      <ChatEntryLabel>{t(roleLabels[message.role])}</ChatEntryLabel>
-      {message.role === 'assistant' ? (
-        <>
-          <AssistantToolActivity message={message} />
-          <AssistantBody message={message} requestId={requestId} />
-        </>
-      ) : (
-        <ChatMessageText text={version?.text ?? ''} />
-      )}
-    </ChatMessage>
+    <Message
+      align={message.role === 'user' ? 'end' : 'start'}
+      role="article"
+      data-role={message.role}
+      aria-label={t(roleLabels[message.role])}
+    >
+      <MessageContent>
+        <MessageHeader>{t(roleLabels[message.role])}</MessageHeader>
+        {message.role === 'assistant' ? (
+          <>
+            <AssistantToolActivity message={message} />
+            <Bubble variant="ghost">
+              <BubbleContent>
+                <AssistantBody message={message} requestId={requestId} />
+              </BubbleContent>
+            </Bubble>
+          </>
+        ) : (
+          <Bubble align="end" variant="muted">
+            <BubbleContent>{version?.text ?? ''}</BubbleContent>
+          </Bubble>
+        )}
+        {message.role === 'assistant' && version?.status === 'complete' && version.text && (
+          <MessageFooter>
+            <CodeBlockCopyButton
+              value={version.text}
+              copyLabel={t('CopyText')}
+              copiedLabel={t('MaterialCopied')}
+            />
+          </MessageFooter>
+        )}
+      </MessageContent>
+    </Message>
   );
 }
 
@@ -51,6 +74,6 @@ function AssistantBody({
   return requestId ? (
     <AssistantReply requestId={requestId} messageId={message.id} />
   ) : (
-    <Loading label={t('AssistantThinking')} />
+    <AssistantThinking label={t('AssistantThinking')} />
   );
 }

@@ -46,12 +46,19 @@ testStable(
       failureKind: null,
       revision: 1n,
       updatedAtMs: 1n,
-      tools: [{ toolCallId: 'call', toolName: 'sources', status: 'running' }]
+      tools: [
+        { toolCallId: 'earlier', toolName: 'read_settings', status: 'completed' },
+        { toolCallId: 'call', toolName: 'sources', status: 'running' }
+      ]
     };
 
     await act(() => receive([run]));
     expect(screen.getByText('First')).toBeInTheDocument();
-    expect(screen.getByText('AgentToolRunning')).toBeInTheDocument();
+    expect(screen.getByText('AssistantToolWorking')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'AssistantCallReadSettings AssistantToolDone' })
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('button')).toHaveLength(2);
     await act(() => receive([{ ...run, text: 'First second', revision: 2n }]));
     expect(screen.getByRole('region', { name: 'AgentStreamingPreview' })).toHaveTextContent(
       'First second'

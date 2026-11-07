@@ -21,9 +21,6 @@
   scrollbar-width: thin;
   outline: none;
 }
-.chat-viewport:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--ring);
-}
 .chat-content {
   width: min(100%, 52rem);
   margin-inline: auto;

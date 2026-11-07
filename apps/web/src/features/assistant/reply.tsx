@@ -2,9 +2,10 @@ import type { MessageId } from '@study/contracts/ids';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
 import { RichNoteContent } from '@study/ui/rich-note';
-import { Notebook } from '@study/ui/session-workspace';
+import { StatusMessage } from '@study/ui/status-message';
+import { TraceLine, TraceTitle, TraceIcon } from '@study/ui/trace';
+import { LoaderCircle } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -46,7 +47,7 @@ function ReplyText({ model }: { model: ReplyModel }) {
         <RichNoteContent value={model.run.text} streaming={model.run.status === 'running'} />
       ) : (
         !model.failed && (
-          <Loading
+          <AssistantThinking
             label={t(
               model.needsSignIn
                 ? 'AssistantSignIn'
@@ -58,11 +59,11 @@ function ReplyText({ model }: { model: ReplyModel }) {
         )
       )}
       {model.connection === 'reconnecting' && (
-        <Notebook.Status role="status">{t('AgentStreamReconnecting')}</Notebook.Status>
+        <StatusMessage>{t('AgentStreamReconnecting')}</StatusMessage>
       )}
       {model.connection === 'unavailable' && (
         <>
-          <Notebook.Status role="status">{t('AgentStreamUnavailable')}</Notebook.Status>
+          <StatusMessage>{t('AgentStreamUnavailable')}</StatusMessage>
           <RetryButton
             size="sm"
             variant="ghost-muted"
@@ -95,5 +96,16 @@ function ReplyFailure({ model }: { model: ReplyModel }) {
         />
       }
     />
+  );
+}
+
+export function AssistantThinking({ label }: { label: string }) {
+  return (
+    <TraceLine status="running" role="status">
+      <TraceIcon>
+        <LoaderCircle />
+      </TraceIcon>
+      <TraceTitle>{label}</TraceTitle>
+    </TraceLine>
   );
 }

@@ -1,7 +1,7 @@
-import type { agentProgressSchema, agentToolProgressSchema } from '@study/contracts/ai/progress';
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import { useQuery } from '@tanstack/react-query';
 
+import { settledAgentTool } from '../agent-progress';
 import { assistantReplyOptions, assistantToolProgressOptions } from './assistant.queries';
 
 /** Keeps the disclosure mounted as a reply settles, and reloads it after navigation. */
@@ -17,7 +17,7 @@ export function useToolActivity(message: ChatMessage) {
   return {
     tools: runs.flatMap((run) =>
       run.tools.map((tool) => ({
-        ...settledTool(tool, run),
+        ...settledAgentTool(tool, run),
         activityId: `${run.runId}:${tool.toolCallId}`
       }))
     ),
@@ -28,23 +28,4 @@ export function useToolActivity(message: ChatMessage) {
       if (requestId) void progress.refetch();
     }
   };
-}
-
-function settledTool(
-  tool: typeof agentToolProgressSchema.Type,
-  run: typeof agentProgressSchema.Type
-): typeof agentToolProgressSchema.Type {
-  if (tool.status !== 'running') return tool;
-
-  if (run.status === 'cancelled' || run.executionStatus === 'cancelled')
-    return { ...tool, status: 'cancelled' };
-
-  if (run.status === 'failed' || run.executionStatus === 'completed')
-    return {
-      ...tool,
-      status: 'failed',
-      errorKind: tool.errorKind ?? run.failureKind ?? 'internal'
-    };
-
-  return tool;
 }

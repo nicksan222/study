@@ -1,13 +1,23 @@
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
-import { ChatConversation } from '@study/ui/chat';
 import { ComposerSurface } from '@study/ui/composer';
 import { ContextUsage } from '@study/ui/context-usage';
 import { ErrorState } from '@study/ui/error-state';
+import {
+  MessageScrollerProvider,
+  MessageScrollerLayout,
+  MessageScrollerEmpty,
+  MessageScroller,
+  MessageScrollerViewport,
+  MessageScrollerContent,
+  MessageScrollerItem,
+  MessageScrollerButton
+} from '@study/ui/message-scroller';
 import { Notebook } from '@study/ui/session-workspace';
 import { Sidebar } from '@study/ui/sidebar';
 import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { ArrowDown } from 'lucide-react';
 import { ArrowUp } from 'lucide-react';
 
 import { AssistantMessage, AssistantHistory } from '#web/features/assistant/index.ts';
@@ -15,7 +25,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import type { usePage } from './use-page';
 
-/** Shares the session notebook canvas, reading column and floating composer. */
+/** The assistant uses shadcn conversation primitives and retains the notebook composer. */
 export function PageView({ model }: { model: ReturnType<typeof usePage> }) {
   const { t } = useI18n();
 
@@ -33,74 +43,73 @@ export function PageView({ model }: { model: ReturnType<typeof usePage> }) {
         </Sidebar.Topbar>
         <Desk.Root open={false} expanded={false} cardOpen={model.cardVisible}>
           <Desk.Notebook>
-            <Desk.ScrollArea>
-              <Desk.NotebookLayout>
-                <Desk.Board>
-                  <Desk.BoardBody>
-                    <ChatConversation
-                      key={String(model.session.data?.id)}
-                      label={t('Assistant')}
-                      jumpLabel={t('JumpToLatest')}
-                      itemCount={model.messages.length}
-                      firstItemKey={model.messages[0]?.id.toString()}
-                    >
-                      <Notebook.History aria-label={t('Assistant')}>
-                        <Notebook.NotesHeading>
-                          <Notebook.PageHeading>
-                            <p>{t('AssistantIntro')}</p>
-                          </Notebook.PageHeading>
-                        </Notebook.NotesHeading>
-                        {model.error && (
-                          <ErrorState
-                            layout="inline"
-                            title={t('AssistantLoadFailed')}
-                            action={
-                              <RetryButton
-                                size="sm"
-                                variant="outline"
-                                label={t('Retry')}
-                                onClick={model.retry}
-                              />
-                            }
-                          />
-                        )}
-                        {model.history.hasNextPage && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={model.history.isFetchingNextPage}
-                            onClick={() => void model.history.fetchNextPage()}
-                          >
-                            {t('AssistantEarlier')}
-                          </Button>
-                        )}
-                        {model.history.isSuccess && model.messages.length === 0 && (
-                          <WorkspaceSurface.Heading>
-                            <h3>{t('StudyChatEmptyTitle')}</h3>
-                            <p>{t('AssistantEmptyDescription')}</p>
-                          </WorkspaceSurface.Heading>
-                        )}
-                        {model.messages.map((message) => (
+            <MessageScrollerLayout>
+              <MessageScrollerProvider
+                key={String(model.session.data?.id)}
+                autoScroll
+                defaultScrollPosition="last-anchor"
+              >
+                <MessageScroller>
+                  <MessageScrollerViewport data-notebook-scroll-host aria-label={t('Assistant')}>
+                    <MessageScrollerContent aria-label={t('Assistant')}>
+                      {model.error && (
+                        <ErrorState
+                          layout="inline"
+                          title={t('AssistantLoadFailed')}
+                          action={
+                            <RetryButton
+                              size="sm"
+                              variant="outline"
+                              label={t('Retry')}
+                              onClick={model.retry}
+                            />
+                          }
+                        />
+                      )}
+                      {model.history.hasNextPage && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={model.history.isFetchingNextPage}
+                          onClick={() => void model.history.fetchNextPage()}
+                        >
+                          {t('AssistantEarlier')}
+                        </Button>
+                      )}
+                      {model.history.isSuccess && model.messages.length === 0 && (
+                        <MessageScrollerEmpty>
+                          <h3>{t('StudyChatEmptyTitle')}</h3>
+                          <p>{t('AssistantEmptyDescription')}</p>
+                        </MessageScrollerEmpty>
+                      )}
+                      {model.messages.map((message) => (
+                        <MessageScrollerItem
+                          key={String(message.id)}
+                          messageId={String(message.id)}
+                          scrollAnchor={message.role === 'user'}
+                        >
                           <AssistantMessage
-                            key={String(message.id)}
                             message={message}
                             requestId={
                               model.pending?.id === message.id ? model.requestId : undefined
                             }
                           />
-                        ))}
-                      </Notebook.History>
-                    </ChatConversation>
-                  </Desk.BoardBody>
-                </Desk.Board>
-                <AssistantHistory
-                  panelRef={model.historyPanel}
-                  model={model}
-                  visible={model.cardVisible}
-                  onDismiss={() => model.setCardVisible(false)}
-                />
-              </Desk.NotebookLayout>
-            </Desk.ScrollArea>
+                        </MessageScrollerItem>
+                      ))}
+                    </MessageScrollerContent>
+                  </MessageScrollerViewport>
+                  <MessageScrollerButton aria-label={t('JumpToLatest')}>
+                    <ArrowDown aria-hidden="true" />
+                  </MessageScrollerButton>
+                </MessageScroller>
+              </MessageScrollerProvider>
+              <AssistantHistory
+                panelRef={model.historyPanel}
+                model={model}
+                visible={model.cardVisible}
+                onDismiss={() => model.setCardVisible(false)}
+              />
+            </MessageScrollerLayout>
             <Desk.NavigationHost />
             <Desk.FloatingComposer>
               <WorkspaceSurface.Dock>
