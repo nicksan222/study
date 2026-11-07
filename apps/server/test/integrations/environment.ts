@@ -22,7 +22,7 @@ async function buildContext() {
   const directory = await mkdtemp(join(tmpdir(), 'study-integrations-image-'));
   const files = [
     'package.json',
-    'package-lock.json',
+    'bun.lock',
     'vite.config.ts',
     'packages',
     'apps/server',
@@ -57,6 +57,8 @@ async function buildContext() {
 }
 
 export async function buildIntegrationImage() {
+  if (!process.versions.bun) throw new Error('Integration tests require the Bun runtime');
+
   if (process.env.TESTCONTAINERS_RYUK_DISABLED === 'true')
     throw new Error('Integration tests require Testcontainers resource-reaper cleanup');
 

@@ -169,17 +169,16 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
-      - name: 💚 Set up Node
-        uses: actions/setup-node@v4
+      - name: 🥟 Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 26.8.2
-          cache: npm
+          bun-version-file: apps/landing/package.json
       - name: 📦 Install workspace dependencies
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
-        run: npm ci --ignore-scripts --no-fund --no-audit
+        run: bun install --frozen-lockfile --ignore-scripts
       - name: 🔌 Run every provider in a fresh Testcontainers environment
-        run: npm run integrations:e2e
+        run: bun run integrations:e2e
 
   check:
     # Required by the main branch ruleset; keep this name.

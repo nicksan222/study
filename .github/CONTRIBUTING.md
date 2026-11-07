@@ -249,7 +249,8 @@ desktop permission, and shared runner tests. Server fixtures use Vitest lifecycl
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
 of production modules.
 
-Run `npm run integrations:e2e` with Docker available to test a real Obsidian import.
+Run `bun run integrations:e2e` with Docker available to test a real Obsidian import.
+Bun installs the locked dependencies and runs the classified integration tests directly.
 Testcontainers builds the shared `apps/server/test/integrations/Dockerfile` once,
 including the pinned Obsidian release, and runs each provider case in
 a fresh container. Obsidian uses Xvfb; its profile, synthetic vault and Study SQLite

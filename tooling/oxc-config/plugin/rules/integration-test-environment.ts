@@ -120,13 +120,15 @@ export default defineRule({
       ...edges,
       CallExpression(node) {
         edges.CallExpression(node);
+        const dockerfile = node.arguments[1];
 
         if (
           filename.endsWith('/test/integrations/environment.ts') &&
           node.callee.type === 'MemberExpression' &&
           node.callee.property.type === 'Identifier' &&
           node.callee.property.name === 'fromDockerfile' &&
-          node.arguments[1]?.value !== 'apps/server/test/integrations/Dockerfile'
+          (dockerfile?.type !== 'Literal' ||
+            dockerfile.value !== 'apps/server/test/integrations/Dockerfile')
         )
           context.report({ node, messageId: 'image' });
       },

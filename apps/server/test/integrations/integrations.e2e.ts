@@ -22,10 +22,10 @@ const containers = new Set<string>();
 
 beforeAll(async () => {
   image = await buildIntegrationImage();
-});
+}, 900000);
 afterAll(async () => {
   await image?.close();
-});
+}, 60000);
 
 const cases = Object.entries(integrationFixtures).flatMap(([provider, fixture]) =>
   ['success', 'failure'].map((outcome) => ({ provider, fixture, outcome }))
@@ -43,7 +43,7 @@ testStable.each(cases)(
         expect(containers.has(id)).toBe(false);
         containers.add(id);
         const clean = await container.exec([
-          'node',
+          'bun',
           '-e',
           "if(require('node:fs').readdirSync('/run/study-test').length) process.exit(1)"
         ]);
@@ -55,18 +55,18 @@ testStable.each(cases)(
         const scenario = await container.exec([
           'xvfb-run',
           '-a',
-          './node_modules/.bin/vp',
+          'bun',
           'test',
-          'run',
-          '--config',
-          'apps/server/test/integrations/scenario.config.ts'
+          '--timeout',
+          '60000',
+          `./apps/server/test/integrations/${fixture.scenario}`
         ]);
 
         expect(scenario.exitCode, scenario.output).toBe(0);
 
         if (outcome === 'failure') {
           const failure = await container.exec([
-            'node',
+            'bun',
             '-e',
             "require('node:fs').writeFileSync('/run/study-test/dirty-state', 'discard me'); process.exit(23)"
           ]);

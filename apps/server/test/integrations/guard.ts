@@ -15,6 +15,7 @@ import { existsSync } from 'node:fs';
 /** Real provider software may only run in a disposable integration container. */
 export function requireIntegrationContainer(provider: string) {
   if (
+    !process.versions.bun ||
     process.platform !== 'linux' ||
     process.env.STUDY_INTEGRATION_PROVIDER !== provider ||
     !process.env.STUDY_INTEGRATION_EXECUTABLE ||
