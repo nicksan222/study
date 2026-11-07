@@ -297,6 +297,69 @@ testStable(
           expect(messages.every((message) => message.versions[0]?.text.length === 90000)).toBe(
             true
           );
+          const input = {
+            sessionId: merged.id,
+            intentKey: 'merged-context',
+            instruction: '',
+            preferences: {}
+          };
+          const captured = yield* c.captureSessionContext(input);
+
+          expect(captured.messages.map((message) => message.messageId)).toEqual(
+            messages.slice(-2).map((message) => message.id)
+          );
+          expect(captured.excludedMessages).toBe(1);
+          const boundary = yield* c.captureSessionContext({
+            ...input,
+            intentKey: 'merged-boundary',
+            throughMessageId: messages[0]!.id
+          });
+
+          expect(boundary.messages.map((message) => message.messageId)).toEqual([messages[0]!.id]);
+          const foreign = (yield* c.thread({ sessionId: first.id, limit: 100 })).items[0]!;
+
+          expect(
+            (yield* Effect.flip(
+              c.captureSessionContext({
+                ...input,
+                intentKey: 'foreign-boundary',
+                throughMessageId: foreign.id
+              })
+            )).kind
+          ).toBe('invalid_input');
+          const extra = yield* c.createSession({ title: 'Additional context' });
+
+          yield* c.postMessage({
+            sessionId: extra.id,
+            text: 'b'.repeat(30000),
+            requestReply: false
+          });
+          expect(
+            (yield* Effect.flip(
+              c.captureSessionContext({
+                ...input,
+                intentKey: 'combined-budget',
+                additionalSessionIds: [extra.id]
+              })
+            )).kind
+          ).toBe('not_enough');
+          const transform = yield* c.requestDocumentTransform({
+            contextRequestId: captured.requestId,
+            title: 'Merged notes',
+            operations: ['structure']
+          });
+
+          expect(transform.sessionId).toBe(merged.id);
+          const asked = yield* c.ask({
+            sessionId: merged.id,
+            intentKey: 'merged-ask',
+            expectedSelectionRevision: 0n,
+            text: 'Summarize the recent notes'
+          });
+          const askContext = yield* c.inspectSessionContext({ requestId: asked.requestId });
+
+          expect(askContext.messages.at(-1)?.messageId).toBe(asked.userMessageId);
+          expect(askContext.excludedMessages).toBe(1);
         }).pipe(Effect.provide(layer))
       );
     } finally {

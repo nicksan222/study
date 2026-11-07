@@ -72,6 +72,7 @@ export function makeHistory({ db }: StoreResources) {
       .from(sessions)
       .where(eq(sessions.id, sessionId))
       .get()?.mode;
+    const bounded = boundedHistory(sessionId, policy.bounded);
     let remaining = 200_000;
     const history: Array<typeof conversationMessageSnapshotSchema.Type> = [];
 
@@ -79,7 +80,7 @@ export function makeHistory({ db }: StoreResources) {
       if (!version || version.status !== 'complete')
         throw new StudyError('invalid_input', 'conversation has an unfinished message');
 
-      if (contextFull(mode, version.text.length, remaining, history.length, policy.bounded)) break;
+      if (contextFull(mode, version.text.length, remaining, history.length, bounded)) break;
 
       remaining -= version.text.length;
       history.push({
@@ -120,17 +121,28 @@ export function makeHistory({ db }: StoreResources) {
     };
   }
 
+  function isMergedSession(sessionId: SessionId) {
+    return (
+      db.orm
+        .select({ id: session_merges.session_id })
+        .from(session_merges)
+        .where(eq(session_merges.session_id, sessionId))
+        .get() !== undefined
+    );
+  }
+
+  /** Merged notebooks retain all text on disk while captures use the existing recent window. */
+  function boundedHistory(sessionId: SessionId, explicit?: boolean) {
+    return explicit ?? isMergedSession(sessionId);
+  }
+
   /** Titles use complete context while an assistant reply is still being generated. */
   function titleHistory(sessionId: SessionId) {
-    const merged = db.orm
-      .select({ id: session_merges.session_id })
-      .from(session_merges)
-      .where(eq(session_merges.session_id, sessionId))
-      .get();
+    const merged = isMergedSession(sessionId);
 
-    return conversationHistory(sessionId, undefined, undefined, merged !== undefined, {
+    return conversationHistory(sessionId, undefined, undefined, merged, {
       pendingAssistant: 'omit',
-      bounded: merged !== undefined
+      bounded: merged
     });
   }
 
