@@ -36,6 +36,7 @@ const groups: Record<string, string[]> = {
     'session_retired_intents',
     'session_run_contexts',
     'session_deletions',
+    'session_merges',
     'session_sidebar_preferences',
     'session_deletion_correlations'
   ],
