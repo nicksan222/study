@@ -37,7 +37,10 @@
     "apps/server": {
       "name": "@study/server",
       "dependencies": {
+        "@ai-sdk/anthropic": "3.0.135",
+        "@ai-sdk/google": "3.0.139",
         "@ai-sdk/openai": "3.0.132",
+        "@ai-sdk/openai-compatible": "2.0.87",
         "@ai-sdk/provider": "3.0.19",
         "@effect/platform-node": "4.0.7",
         "@huggingface/transformers": "4.3.2",
@@ -200,9 +203,15 @@
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.5.0", "", {}, "sha512-6OzddxPio9UiWTCemp4N8cYLV2ZN1ncRnV1cVGtve7dhPOtRkleRyx32GQCYSwDYgaHU3USMm84tNsvKzRCa1Q=="],
 
+    "@ai-sdk/anthropic": ["@ai-sdk/anthropic@3.0.135", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.62" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-lOMoKXRbQ0gQ9ctOBo8aOqqQQ8nZEEf9INT8PpAXLSuwIsZl26Jg0vDqkhUsBWBuS9oPtEx3VFqGt3AuAvkjgg=="],
+
     "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.222", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.62", "@vercel/oidc": "3.2.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-ln8Fbcvq20V15HBMoBvvNAX8a3i4dQmuxAQ9qG8XHoeCcj5x8BQD8pLFO66DXDaIlvfdIczSNuLCog2yN3kaiA=="],
 
+    "@ai-sdk/google": ["@ai-sdk/google@3.0.139", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.62" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-k4FB6rtwQwIlYHHsVtVCJY2yR5l+HR0bODT5zm7pKpvVve1mLXUBOcE/5PYwAKF26cIBtVw3XGkAx36sgBn83g=="],
+
     "@ai-sdk/openai": ["@ai-sdk/openai@3.0.132", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.62" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-PYCE6DV31wlUjktP9BhFCh8puadioDmyKL6McwonYzv4bReQVnT2Ey9CSg4NmKYPGrusVVe8D9q6l4ue3pWmgQ=="],
+
+    "@ai-sdk/openai-compatible": ["@ai-sdk/openai-compatible@2.0.87", "", { "dependencies": { "@ai-sdk/provider": "3.0.19", "@ai-sdk/provider-utils": "4.0.62" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-tge19iHFcU4r6QxlFmwIRU/ytd6RFjsXfMpEc9sLiS5+NnkUYLeh2mm4RzemdqrQS6uO0h0t4RD04CpbgjWXqw=="],
 
     "@ai-sdk/provider": ["@ai-sdk/provider@3.0.19", "", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-5lWq7zSfRaU5ylDESn3sDQjgGl2AI1vjZKO/6JY3aFW70ct4zcP1kN+ZUYOuTXr28fVsYbyu2YFhddLdIgQFZQ=="],
 
