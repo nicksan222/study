@@ -19,6 +19,7 @@ import { UnavailableAttempt } from './unavailable-attempt';
 type ComposerModel = ReturnType<typeof useComposer>;
 
 /** Combines quick capture, attachments and request recovery for the active session. */
+/** Composes notes, questions and attachments while preserving mixed clipboard content. */
 export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () => void }) {
   const model = useComposer(id);
   const preferences = useWorkspacePreferences();
@@ -45,6 +46,13 @@ export function Composer({ id, onDocument }: { id: SessionId; onDocument?: () =>
         rows={1}
         value={draft.text}
         spellCheck={preferences.spellcheck}
+        onPaste={(event) => {
+          if (event.clipboardData.files.length && !blocked) {
+            if (!event.clipboardData.getData('text/plain')) event.preventDefault();
+
+            files.add(Array.from(event.clipboardData.files));
+          }
+        }}
         onKeyDown={(event) => {
           if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();

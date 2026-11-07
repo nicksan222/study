@@ -8,6 +8,7 @@ import { types } from 'node:util';
 import { drizzle, nodeSQLiteCodecs } from 'drizzle-orm/node-sqlite';
 import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
+import { load as loadVectorExtension } from 'sqlite-vec';
 
 /** Owns a SQLite connection and synchronous, nested Drizzle transactions. */
 
@@ -22,6 +23,8 @@ export class Db {
   }>();
 
   private constructor(sqlite: DatabaseSync, path: string) {
+    loadVectorExtension(sqlite);
+    sqlite.enableLoadExtension(false);
     this.sqlite = sqlite;
     this.path = path;
     this.database = drizzle({
@@ -48,7 +51,7 @@ export class Db {
       chmodSync(path, 0o600);
     }
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true });
+    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
 
     try {
       // SQLite table rebuilds must disable foreign keys before the migrator's transaction.
@@ -70,7 +73,7 @@ export class Db {
 
   /** Flush an exclusively owned file before replacement, without running migrations. */
   static checkpointFile(path: string): void {
-    const sqlite = new DatabaseSync(path, { readBigInts: true });
+    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
 
     try {
       const result = sqlite.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get();
@@ -191,7 +194,11 @@ export class Db {
 
   /** Validate untrusted schema before running integrity checks or opening it for writes. */
   static validateSnapshot(path: string): string {
-    const sqlite = new DatabaseSync(path, { readOnly: true, readBigInts: true });
+    const sqlite = new DatabaseSync(path, {
+      readOnly: true,
+      readBigInts: true,
+      allowExtension: true
+    });
 
     const candidate = new Db(sqlite, path);
 
@@ -229,7 +236,7 @@ export class Db {
   static openSnapshot(path: string): Db {
     Db.validateSnapshot(path);
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true });
+    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
 
     sqlite.exec('PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON;');
 

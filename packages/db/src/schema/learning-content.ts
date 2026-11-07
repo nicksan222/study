@@ -6,10 +6,10 @@ import type {
   QuizChoiceId,
   QuizQuestionId
 } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
+
 import {
-  sqliteTable,
+  defineTable,
+  sql,
   integer,
   real,
   text,
@@ -18,12 +18,12 @@ import {
   index,
   check,
   foreignKey
-} from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { sqliteBoolean } from './column-types.ts';
 import { materials, material_versions } from './material-versions.ts';
 
-export const material_quiz_versions = sqliteTable(
+export const material_quiz_versions = defineTable({ role: 'contributes', entity: 'material' })(
   'material_quiz_versions',
   {
     version_id: integer().$type<MaterialVersionId>().primaryKey(),
@@ -42,7 +42,13 @@ export const material_quiz_versions = sqliteTable(
   ]
 );
 
-export const material_quiz_questions = sqliteTable(
+export const material_quiz_questions = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'question',
+  description: 'Published quiz prompts and choices',
+  textColumns: ['prompt']
+})(
   'material_quiz_questions',
   {
     id: integer().$type<QuizQuestionId>().primaryKey({ autoIncrement: true }),
@@ -66,7 +72,7 @@ export const material_quiz_questions = sqliteTable(
   ]
 );
 
-export const material_quiz_choices = sqliteTable(
+export const material_quiz_choices = defineTable({ role: 'contributes', entity: 'question' })(
   'material_quiz_choices',
   {
     id: integer().$type<QuizChoiceId>().primaryKey({ autoIncrement: true }),
@@ -92,7 +98,7 @@ export const material_quiz_choices = sqliteTable(
   ]
 );
 
-export const material_quiz_open_answers = sqliteTable(
+export const material_quiz_open_answers = defineTable({ role: 'contributes', entity: 'question' })(
   'material_quiz_open_answers',
   {
     question_id: integer().$type<QuizQuestionId>().primaryKey(),
@@ -115,7 +121,7 @@ export const material_quiz_open_answers = sqliteTable(
   ]
 );
 
-export const material_flashcard_versions = sqliteTable(
+export const material_flashcard_versions = defineTable({ role: 'contributes', entity: 'material' })(
   'material_flashcard_versions',
   {
     version_id: integer().$type<MaterialVersionId>().primaryKey(),
@@ -135,7 +141,7 @@ export const material_flashcard_versions = sqliteTable(
   ]
 );
 
-export const material_card_identities = sqliteTable(
+export const material_card_identities = defineTable({ role: 'contributes', entity: 'material' })(
   'material_card_identities',
   {
     id: integer().$type<MaterialCardId>().primaryKey({ autoIncrement: true }),
@@ -152,7 +158,7 @@ export const material_card_identities = sqliteTable(
   ]
 );
 
-export const material_flashcard_entries = sqliteTable(
+export const material_flashcard_entries = defineTable({ role: 'contributes', entity: 'material' })(
   'material_flashcard_entries',
   {
     version_id: integer().$type<MaterialVersionId>().notNull(),
@@ -188,7 +194,10 @@ export const material_flashcard_entries = sqliteTable(
   ]
 );
 
-export const material_quiz_attempts = sqliteTable(
+export const material_quiz_attempts = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_quiz_attempts',
   {
     id: integer().$type<QuizAttemptId>().primaryKey({ autoIncrement: true }),
@@ -240,7 +249,10 @@ function choiceQuestionReference(t: { choice_id: AnySQLiteColumn; question_id: A
     .onUpdate('restrict');
 }
 
-export const material_quiz_attempt_questions = sqliteTable(
+export const material_quiz_attempt_questions = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_quiz_attempt_questions',
   {
     attempt_id: integer().$type<QuizAttemptId>().notNull(),
@@ -259,7 +271,10 @@ export const material_quiz_attempt_questions = sqliteTable(
   ]
 );
 
-export const material_quiz_attempt_choices = sqliteTable(
+export const material_quiz_attempt_choices = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_quiz_attempt_choices',
   {
     attempt_id: integer().$type<QuizAttemptId>().notNull(),
@@ -291,7 +306,10 @@ export const material_quiz_attempt_choices = sqliteTable(
   ]
 );
 
-export const material_quiz_responses = sqliteTable(
+export const material_quiz_responses = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_quiz_responses',
   {
     attempt_id: integer().$type<QuizAttemptId>().notNull(),
@@ -320,7 +338,10 @@ export const material_quiz_responses = sqliteTable(
   ]
 );
 
-export const material_quiz_selections = sqliteTable(
+export const material_quiz_selections = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_quiz_selections',
   {
     attempt_id: integer().$type<QuizAttemptId>().notNull(),
@@ -340,7 +361,10 @@ export const material_quiz_selections = sqliteTable(
   ]
 );
 
-export const material_card_schedules = sqliteTable(
+export const material_card_schedules = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_card_schedules',
   {
     card_id: integer().$type<MaterialCardId>().primaryKey(),
@@ -376,7 +400,10 @@ export const material_card_schedules = sqliteTable(
   ]
 );
 
-export const material_card_reviews = sqliteTable(
+export const material_card_reviews = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'material_card_reviews',
   {
     id: integer().$type<bigint>().primaryKey({ autoIncrement: true }),

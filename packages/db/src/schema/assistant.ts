@@ -1,10 +1,12 @@
 import type { SessionId, MessageId, VersionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, check, primaryKey } from 'drizzle-orm/sqlite-core';
 
+import { sql, defineTable, text, integer, check, primaryKey } from '../schema-builder.ts';
 import { sessions, messages, message_versions } from './conversations.ts';
 
-export const assistant_chat_starts = sqliteTable('assistant_chat_starts', {
+export const assistant_chat_starts = defineTable({
+  role: 'internal',
+  reason: 'Idempotent private Assistant chat creation is not searchable content.'
+})('assistant_chat_starts', {
   key: text().primaryKey(),
   session_id: integer()
     .$type<SessionId>()
@@ -13,7 +15,10 @@ export const assistant_chat_starts = sqliteTable('assistant_chat_starts', {
     .references(() => sessions.id, { onDelete: 'cascade' })
 });
 
-export const assistant_memory = sqliteTable(
+export const assistant_memory = defineTable({
+  role: 'internal',
+  reason: 'Private conversation compaction is contextual memory rather than study content.'
+})(
   'assistant_memory',
   {
     session_id: integer()
@@ -31,7 +36,10 @@ export const assistant_memory = sqliteTable(
 );
 
 /** Intent is recorded before execution; results survive generation retries and reanswers. */
-export const assistant_tool_receipts = sqliteTable(
+export const assistant_tool_receipts = defineTable({
+  role: 'internal',
+  reason: 'Private tool intents and results are retained for safe action replay.'
+})(
   'assistant_tool_receipts',
   {
     version_id: integer()

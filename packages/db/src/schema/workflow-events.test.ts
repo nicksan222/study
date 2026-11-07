@@ -1,7 +1,7 @@
 import { testStable } from '@study/testing/vitest';
-import { getTableConfig } from 'drizzle-orm/sqlite-core';
 import { assert } from 'vite-plus/test';
 
+import { getTableConfig } from '../schema-builder.ts';
 import { workflowEvents, workflowReceipts } from './workflow-events.ts';
 
 testStable('event receipts have a durable unique subscription identity', () => {

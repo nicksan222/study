@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
 import type { ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import type {
   importCapabilityInputSchema,
   importCapabilitySchema
@@ -34,7 +35,13 @@ import type {
 import { sniff } from '@study/contracts/sources/sniff';
 import { Effect, Option } from 'effect';
 
+import { Settings } from '#server/features/settings/index';
 import { decoderPath } from '#server/features/sources/decoders/capability';
+import type {
+  ConversionInput,
+  ConversionContext
+} from '#server/features/sources/service/conversion/registry';
+import { conversions } from '#server/features/sources/service/conversion/strategies';
 import { SourceBackupStore } from '#server/features/sources/store/backup';
 import {
   SourceExtractionsStore,
@@ -60,6 +67,7 @@ import {
   SourceRetirementStore,
   SourceDeletionPreviewStore
 } from '#server/features/sources/store/retirement';
+import { SourceSearchStore } from '#server/features/sources/store/search';
 import { Workflows } from '#server/features/workflows/index';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
@@ -115,6 +123,13 @@ export const Sources = defineService(
     };
 
     return {
+      conversionStrategies: () =>
+        Effect.flatMap(Settings, (settings) => settings.language()).pipe(
+          Effect.map((locale) => conversions.list(locale)),
+          Effect.provide(Settings.layer)
+        ),
+      convertDocument: (strategyId: string, input: ConversionInput, context: ConversionContext) =>
+        conversions.convert(strategyId, input, context),
       importCapability: (input: typeof importCapabilityInputSchema.Type) =>
         Effect.gen(function* () {
           const session = yield* Effect.serviceOption(ChatGptSession);
@@ -478,6 +493,8 @@ export const Sources = defineService(
     };
   }),
   {
+    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
+      tx.store(SourceSearchStore).searchProjectionPages(input),
     currentExtractionInTransaction: (tx: Transaction, id: SourceId) => {
       tx.store(SourceStore).source(id);
 
@@ -493,6 +510,8 @@ export const Sources = defineService(
       tx: Transaction,
       v: typeof sourceLinkSchema.Type & { archivedAt: bigint | null }
     ) => tx.store(SessionSourcesStore).archiveSession(v),
+    conversionStrategy: conversions.describe,
+    conversionStrategyForInput: conversions.forInput,
     attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);
       tx.store(SessionSourcesStore).attachSource(v);

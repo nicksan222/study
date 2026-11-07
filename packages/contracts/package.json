@@ -76,7 +76,10 @@
     "./conversations/archive": "./src/conversations/archive.ts",
     "./conversations/assistant": "./src/conversations/assistant.ts",
     "./ai/compaction": "./src/ai/compaction.ts",
-    "./ai/assistant-tools": "./src/ai/assistant-tools.ts"
+    "./ai/assistant-tools": "./src/ai/assistant-tools.ts",
+    "./sources/conversion": "./src/sources/conversion.ts",
+    "./conversations/conversion": "./src/conversations/conversion.ts",
+    "./search/schemas": "./src/search/schemas.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

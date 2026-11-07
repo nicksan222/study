@@ -19,18 +19,19 @@ import {
   sourceCorrectionRequestedSchema
 } from '@study/contracts/events';
 import { contentSnapshotIdSchema } from '@study/contracts/ids';
+import { conversionStrategyIdSchema } from '@study/contracts/sources/conversion';
 import { correctBlockText } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { detectedMime, sniff } from '@study/contracts/sources/sniff';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
+import { Settings } from '#server/features/settings/index';
 import { visionTranscriptionAgent } from '#server/features/sources/agents/vision-transcription';
 import { decoderPath } from '#server/features/sources/decoders/capability';
 import { checkInput, DEFAULT_MAX_BYTES } from '#server/features/sources/decoders/common';
 import { decodeHtml } from '#server/features/sources/decoders/html';
 import { decodeOffice } from '#server/features/sources/decoders/office';
-import { decodePdf } from '#server/features/sources/decoders/pdf';
 import { decodeText } from '#server/features/sources/decoders/text';
 import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
@@ -51,6 +52,7 @@ export const sourceIngestionWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
+/** Decodes one retained source capture and checkpoints its guarded publication. */
 export const sourceIngestionHandler = ({
   event
 }: typeof sourceIngestionWorkflow.payloadSchema.Type) =>
@@ -94,6 +96,50 @@ export const sourceIngestionHandler = ({
             })
           )
         : null;
+
+    /** Reconciles fetched MIME and sniffed content before choosing a decoder or PDF strategy. */
+    function decodingInput() {
+      if (!fetched) return snapshot;
+
+      const detected = sniff(fetched.name, fetched.bytes);
+      const declared = detectedMime(fetched.mime);
+
+      return {
+        ...snapshot,
+        bytes: fetched.bytes,
+        uri: fetched.url,
+        ...(detected.kind !== 'other' && (detected.kind !== 'text' || declared.kind === 'other')
+          ? detected
+          : declared),
+        ...(fetched.mime === 'text/html' && ['text', 'code', 'other'].includes(detected.kind)
+          ? { kind: 'web' as const, mime: 'text/html' }
+          : {})
+      };
+    }
+
+    const input = decodingInput();
+    const conversionStrategyId =
+      input.kind === 'pdf'
+        ? yield* Activity.make({
+            name: 'resolve-source-conversion-strategy',
+            success: conversionStrategyIdSchema,
+            error: failureSchema,
+            execute: Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+              Effect.flatMap((preferences) =>
+                Effect.try({
+                  try: () =>
+                    Sources.conversionStrategyForInput(preferences.textConversionStrategy, 'pdf')
+                      .id,
+                  catch: (cause) =>
+                    cause instanceof StudyError
+                      ? cause
+                      : new StudyError('internal', 'Invalid conversion strategy', { cause })
+                })
+              ),
+              Effect.provide(Settings.layer)
+            )
+          })
+        : null;
     const document = yield* retryResumableActivity(
       Activity.make({
         name: 'decode-source',
@@ -101,27 +147,6 @@ export const sourceIngestionHandler = ({
         error: failureSchema,
         execute: Effect.gen(function* () {
           yield* currentRequest;
-          const input = decodingInput();
-
-          function decodingInput() {
-            if (!fetched) return snapshot;
-
-            const detected = sniff(fetched.name, fetched.bytes);
-            const declared = detectedMime(fetched.mime);
-
-            return {
-              ...snapshot,
-              bytes: fetched.bytes,
-              uri: fetched.url,
-              ...(detected.kind !== 'other' &&
-              (detected.kind !== 'text' || declared.kind === 'other')
-                ? detected
-                : declared),
-              ...(fetched.mime === 'text/html' && ['text', 'code', 'other'].includes(detected.kind)
-                ? { kind: 'web' as const, mime: 'text/html' }
-                : {})
-            };
-          }
 
           function isHtml() {
             return decoderPath(input) === 'html';
@@ -186,16 +211,23 @@ export const sourceIngestionHandler = ({
               new StudyError('unsupported', 'Source type cannot be processed')
             );
 
-          const pageCount =
-            input.kind === 'pdf'
-              ? yield* Effect.tryPromise({
-                  try: () => decodePdf(input.bytes),
-                  catch: (cause) =>
-                    cause instanceof StudyError
-                      ? cause
-                      : new StudyError('internal', 'PDF decoding failed', { cause })
-                })
-              : 1;
+          if (input.kind === 'pdf') {
+            if (conversionStrategyId === null)
+              return yield* Effect.fail(
+                new StudyError('config', 'PDF conversion strategy is unavailable')
+              );
+
+            return yield* sources.convertDocument(
+              conversionStrategyId,
+              { kind: 'pdf', bytes: input.bytes },
+              {
+                generate: (definition, data) =>
+                  generateAgent(definition, data, { maxRetries: 0, preflight: currentRequest })
+              }
+            );
+          }
+
+          const pageCount = 1;
 
           yield* currentRequest;
           const result = yield* generateAgent(

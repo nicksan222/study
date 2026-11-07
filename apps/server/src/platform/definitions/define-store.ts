@@ -265,7 +265,9 @@ type StoreDefinition = {
   ) => object;
 };
 
-type SyncResult<T> = T extends PromiseLike<unknown> | Effect.Effect<unknown, unknown, unknown>
+export type SyncResult<T> = T extends
+  | PromiseLike<unknown>
+  | Effect.Effect<unknown, unknown, unknown>
   ? never
   : T;
 

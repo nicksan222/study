@@ -46,6 +46,7 @@ testStable(
     let context = new ServerContext(location.open());
     const bodies: string[] = [];
     const agents: string[] = [];
+    let failTool = false;
     const peer = createServer(async (request, response) => {
       let body = '';
 
@@ -61,17 +62,19 @@ testStable(
 
       if (
         requestBody.tools?.some((tool: { name: string }) => tool.name === 'create_subject') &&
-        toolStep < 3
+        (failTool || toolStep < 3)
       ) {
         const call = {
           type: 'function_call',
           id: `item${toolStep}`,
           call_id: `call${toolStep}`,
-          ...[
-            { name: 'create_subject', arguments: '{"name":"Biology"}' },
-            { name: 'read_subject', arguments: '{"id":"1"}' },
-            { name: 'update_review_settings', arguments: '{"newCardsPerDay":12}' }
-          ][toolStep]!
+          ...(failTool
+            ? { name: 'read_subject', arguments: '{"id":"999999999999"}' }
+            : [
+                { name: 'create_subject', arguments: '{"name":"Biology"}' },
+                { name: 'read_subject', arguments: '{"id":"1"}' },
+                { name: 'update_review_settings', arguments: '{"newCardsPerDay":12}' }
+              ][toolStep]!)
         };
 
         for (const event of [
@@ -298,6 +301,22 @@ testStable(
 
           expect((yield* c.assistantSession()).id).toBe(session.id);
           expect((yield* c.thread({ sessionId: session.id, limit: 30 })).items).toHaveLength(13);
+        }).pipe(Effect.provide(domain()))
+      );
+      failTool = true;
+      await expect(
+        execute('Read the missing subject.', 'assistant-missing-subject')
+      ).rejects.toBeDefined();
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const history = (yield* c.thread({ sessionId: session.id, limit: 30 })).items;
+          const failed = history.at(-1)!;
+
+          expect(failed.role).toBe('assistant');
+          expect(
+            failed.versions.find((version) => version.id === failed.activeVersionId)?.status
+          ).toBe('pending');
         }).pipe(Effect.provide(domain()))
       );
     } finally {

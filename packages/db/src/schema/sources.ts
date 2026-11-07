@@ -1,12 +1,14 @@
 import type { ProjectId, SourceId } from '@study/contracts/ids';
 import { projectIconColors } from '@study/contracts/projects/schemas';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, blob, index, check } from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, integer, text, blob, index, check } from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { codes_source_kind, codes_source_origin } from './codes.ts';
 
-export const source_blobs = sqliteTable('source_blobs', {
+export const source_blobs = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})('source_blobs', {
   source_id: integer()
     .primaryKey()
     .$type<SourceId>()
@@ -14,7 +16,13 @@ export const source_blobs = sqliteTable('source_blobs', {
   bytes: blob({ mode: 'buffer' }).notNull()
 });
 
-export const projects = sqliteTable(
+export const projects = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'project',
+  description: 'Projects and their names',
+  textColumns: ['name']
+})(
   'projects',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<ProjectId>(),
@@ -34,7 +42,13 @@ export const projects = sqliteTable(
   ]
 );
 
-export const sources = sqliteTable(
+export const sources = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'source',
+  description: 'Imported sources and their metadata',
+  textColumns: ['name']
+})(
   'sources',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<SourceId>(),

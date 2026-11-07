@@ -48,6 +48,7 @@ import { assistantAgent } from '#server/features/conversations/agents/assistant'
 import { compactAssistantAgent } from '#server/features/conversations/agents/assistant-compaction';
 import { replyAgent } from '#server/features/conversations/agents/reply';
 import { rewriteAgent } from '#server/features/conversations/agents/rewrite';
+import { convertCapturedMessage } from '#server/features/conversations/service/conversion';
 import { Conversations } from '#server/features/conversations/service/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
@@ -73,6 +74,7 @@ export const conversationReplyWorkflow = defineWorkflow({
 const attachmentGate = (sourceId: SourceId, requestId: string) =>
   DurableDeferred.make(`attachment/${sourceId}/${requestId}`, { error: failureSchema });
 
+/** Runs captured reply or conversion work and settles failures through guarded activities. */
 export const conversationReplyHandler = ({
   event
 }: typeof conversationReplyWorkflow.payloadSchema.Type) =>
@@ -133,6 +135,22 @@ export const conversationReplyHandler = ({
 
           if (snapshot.context)
             yield* conversations.sessionContext({ requestId: snapshot.requestId });
+
+          const conversion = replyConversion(snapshot);
+
+          if (conversion) {
+            const preflight = conversations
+              .replySnapshot({ requestId: event.requestId })
+              .pipe(Effect.asVoid, Effect.provideService(Database, database));
+            const publication = yield* convertCapturedMessage(snapshot, conversion, {
+              generate: (definition, input) =>
+                generateAgent(definition, input, { maxRetries: 0, preflight })
+            });
+
+            yield* preflight;
+
+            return publication;
+          }
 
           const catalog = selectionCatalog(snapshot);
           const seen = new Set<string>();
@@ -199,8 +217,9 @@ export const conversationReplyHandler = ({
             searchSources: (query: string) => Effect.sync(() => catalog.search(query)),
             runTool: toolRunnerForReply(mode, conversations, database, snapshot, agents.runTool)
           };
+          const rewrite = rewriteGeneration(mode, snapshot);
           const text = yield* (
-            isRewrite(mode, snapshot)
+            rewrite
               ? generateAgent(
                   rewriteAgent,
                   {
@@ -208,8 +227,8 @@ export const conversationReplyHandler = ({
                       role: message.role,
                       content: message.text
                     })),
-                    origin: snapshot.generation.origin,
-                    instruction: snapshot.generation.instruction,
+                    origin: rewrite.origin,
+                    instruction: rewrite.instruction,
                     preferences
                   },
                   options
@@ -250,7 +269,35 @@ export const conversationReplyHandler = ({
   }).pipe(
     Effect.catch((error) =>
       Effect.gen(function* () {
-        if (['invalid_input', 'not_found', 'unsupported'].includes(error.kind)) {
+        const conversations = yield* Conversations;
+        const conversion = yield* conversations
+          .inspectReplySnapshot({ requestId: event.requestId })
+          .pipe(
+            Effect.match({
+              onFailure: () => false,
+              onSuccess: (snapshot) => snapshot.generation?.conversion !== undefined
+            })
+          );
+
+        if (conversion) {
+          const { store } = yield* Database;
+
+          yield* Activity.make({
+            name: 'fail-conversion',
+            success: Schema.Boolean,
+            error: failureSchema,
+            execute: withPublicationGuard(store, conversations.failConversion(event))
+          });
+        }
+
+        const assistant =
+          (yield* conversations.sessionMode(event.sessionId)) === ConversationMode.Assistant;
+
+        if (
+          !conversion &&
+          !assistant &&
+          ['invalid_input', 'not_found', 'unsupported'].includes(error.kind)
+        ) {
           const conversations = yield* Conversations;
           const { store } = yield* Database;
 
@@ -432,25 +479,11 @@ function validateReplyEvent(
   return Effect.void;
 }
 
+/** Classifies conversions with rewrites so their workflow status follows the target note. */
 function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
   return snapshot.generation?.origin === undefined || snapshot.generation.origin === 'answer'
     ? 'reply'
     : 'rewrite';
-}
-
-function isRewrite(
-  mode: ConversationMode,
-  snapshot: typeof replySnapshotSchema.Type
-): snapshot is typeof replySnapshotSchema.Type & {
-  generation: NonNullable<(typeof replySnapshotSchema.Type)['generation']> & {
-    origin: 'improve' | 'summarize' | 'instruction';
-  };
-} {
-  return (
-    mode !== ConversationMode.Assistant &&
-    snapshot.generation !== undefined &&
-    snapshot.generation.origin !== 'answer'
-  );
 }
 
 function replyAgentForMode(mode: ConversationMode) {
@@ -634,4 +667,20 @@ function toolRunnerForReply(
   return mode === ConversationMode.Assistant
     ? durableAssistantTool(conversations, database, snapshot.messages.at(-1)?.versionId)
     : fallback;
+}
+
+/** Keeps ordinary rewrite inputs separate from answers and registered conversions. */
+function rewriteGeneration(mode: ConversationMode, snapshot: typeof replySnapshotSchema.Type) {
+  if (mode === ConversationMode.Assistant) return undefined;
+
+  const generation = snapshot.generation;
+
+  if (!generation || generation.origin === 'answer' || generation.origin === 'convert')
+    return undefined;
+
+  return { origin: generation.origin, instruction: generation.instruction };
+}
+
+function replyConversion(snapshot: typeof replySnapshotSchema.Type) {
+  return snapshot.generation?.conversion;
 }

@@ -7,6 +7,7 @@ import { useEffect, useRef } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { request } from '#web/lib/study-client/request.ts';
 
+import { useMessageConversion } from './conversion.queries';
 import type { Draft } from './draft';
 import {
   activateVersion,
@@ -45,6 +46,7 @@ type State = {
   reviewed?: boolean;
 };
 
+/** Coordinates version-scoped edits, generation attempts and conversion controls. */
 export function useMessageActions({
   message,
   versionId,
@@ -55,6 +57,7 @@ export function useMessageActions({
   onActive: () => void;
 }) {
   const { t, locale } = useI18n();
+  const conversion = useMessageConversion(message, versionId);
   const cache = useQueryClient();
   const key = ['session-drafts', String(message.sessionId), 'message-action', String(message.id)];
   const initial: State = { text: '', instruction: '' };
@@ -212,6 +215,7 @@ export function useMessageActions({
   return {
     message,
     versionId,
+    conversion,
     t,
     locale,
     cache,

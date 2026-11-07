@@ -5,9 +5,11 @@ import type {
   SessionId,
   ProjectId
 } from '@study/contracts/ids';
-import { sql, desc } from 'drizzle-orm';
+
 import {
-  sqliteTable,
+  defineTable,
+  sql,
+  desc,
   integer,
   text,
   primaryKey,
@@ -15,15 +17,20 @@ import {
   uniqueIndex,
   index,
   check
-} from 'drizzle-orm/sqlite-core';
-
+} from '../schema-builder.ts';
 import { libraryContentColumns } from './column-types.ts';
 import { content_snapshots } from './content-snapshots.ts';
 import { sessions } from './conversations.ts';
 import { projects } from './sources.ts';
 
 /** Authored output identity, independent of sources, sessions and learning materials. */
-export const study_documents = sqliteTable(
+export const study_documents = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'document',
+  description: 'Published authored documents and their blocks',
+  textColumns: ['title', 'description']
+})(
   'study_documents',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<StudyDocumentId>(),
@@ -48,7 +55,7 @@ export const study_documents = sqliteTable(
 );
 
 /** A version owns exactly one canonical snapshot; publication seals both together. */
-export const study_document_versions = sqliteTable(
+export const study_document_versions = defineTable({ role: 'contributes', entity: 'document' })(
   'study_document_versions',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<StudyDocumentVersionId>(),
@@ -108,7 +115,10 @@ export const study_document_versions = sqliteTable(
   ]
 );
 
-export const study_document_version_parents = sqliteTable(
+export const study_document_version_parents = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_version_parents',
   {
     version_id: integer().$type<StudyDocumentVersionId>().notNull(),
@@ -134,7 +144,7 @@ export const study_document_version_parents = sqliteTable(
 );
 
 /** Organizational links do not own output lifetime or provide generation provenance. */
-export const project_documents = sqliteTable(
+export const project_documents = defineTable({ role: 'contributes', entity: 'document' })(
   'project_documents',
   {
     project_id: integer()
@@ -152,7 +162,7 @@ export const project_documents = sqliteTable(
   ]
 );
 
-export const session_documents = sqliteTable(
+export const session_documents = defineTable({ role: 'contributes', entity: 'document' })(
   'session_documents',
   {
     session_id: integer()
@@ -178,7 +188,10 @@ export const session_documents = sqliteTable(
 );
 
 /** Exact conflict alternatives and idempotent intent belong to one authored document. */
-export const study_document_edit_receipts = sqliteTable(
+export const study_document_edit_receipts = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_edit_receipts',
   {
     document_id: integer()

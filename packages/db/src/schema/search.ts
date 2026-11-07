@@ -1,19 +1,25 @@
 import type { ChunkId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
+
+import { contentSnapshotReference } from '../columns.ts';
 import {
-  sqliteTable,
+  defineTable,
+  sql,
   integer,
   text,
   blob,
   index,
   uniqueIndex,
   check
-} from 'drizzle-orm/sqlite-core';
-
-import { contentSnapshotReference } from '../columns.ts';
+} from '../schema-builder.ts';
 import { content_snapshots } from './content-snapshots.ts';
 
-export const chunks = sqliteTable(
+export const chunks = defineTable({
+  role: 'entity',
+  projection: 'feature',
+  kind: 'passage',
+  description: 'Published extracted passages with source anchors',
+  textColumns: ['text']
+})(
   'chunks',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<ChunkId>(),

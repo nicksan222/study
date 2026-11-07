@@ -1,5 +1,5 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { skipToken, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useMatches, useParams, useSearch } from '@tanstack/react-router';
 
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
@@ -13,7 +13,7 @@ export function useSidebarContext(metadata: PageMetadata) {
   const resolve = metadata.sidebar?.owner;
   const options = routeOwnerOptions(resolve, params, matched);
   const owner = useQuery({
-    ...(options ?? { queryKey: ['sidebar', 'unowned-route'], queryFn: skipToken }),
+    ...(options ?? { queryKey: ['sidebar', 'unowned-route'], queryFn: async () => null }),
     enabled: options !== undefined
   });
   const ready = !resolve || (matched && owner.isSuccess);
