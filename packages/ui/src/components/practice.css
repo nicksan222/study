@@ -214,9 +214,10 @@
   border: 1px solid var(--border);
 }
 
-.study-practice-short-answer:has(input:focus-visible) > [data-slot='input-control'] {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+.study-practice-short-answer:focus-within > [data-slot='input-control'] {
+  border-color: transparent;
+  outline: none;
+  background: var(--accent);
 }
 
 .study-practice-short-answer input {
@@ -247,11 +248,12 @@
 }
 .study-practice-choice[data-selected='true'] {
   background: var(--accent);
-  border-color: var(--primary);
+  border-color: transparent;
 }
 .study-practice-choice:has(input:focus-visible) {
-  outline: 2px solid var(--ring);
-  outline-offset: 3px;
+  border-color: transparent;
+  outline: none;
+  background: var(--accent);
 }
 .study-practice-choice input {
   position: absolute;
@@ -842,6 +844,15 @@
   width: 1.25rem;
   height: 1.25rem;
   flex-shrink: 0;
+}
+.study-generation-brief .settings-selected {
+  outline: none;
+  border-color: transparent;
+}
+.study-generation-brief .settings-choice:focus-visible {
+  outline: none;
+  border-color: transparent;
+  background: var(--accent);
 }
 .study-generation-brief .settings-section > .settings-intro {
   margin: 1rem 0 0;
