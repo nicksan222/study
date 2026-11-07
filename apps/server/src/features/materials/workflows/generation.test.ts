@@ -13,6 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -294,7 +295,8 @@ testStable(
       const generate = async (
         kind: 'flashcards' | 'quiz' | 'diagram',
         content: unknown,
-        failure?: 'publication' | 'validation'
+        failure?: 'publication' | 'validation',
+        quizConfig?: (typeof materialGenerationInputSchema.Type)['quizConfig']
       ) => {
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
@@ -302,7 +304,8 @@ testStable(
               projectId: doc.projectId,
               title: kind,
               kind,
-              inputs: [doc.input]
+              inputs: [doc.input],
+              quizConfig
             })
           ).pipe(Effect.provide(domain()))
         );
@@ -499,6 +502,25 @@ testStable(
       });
 
       assertQuizQuestionShapes();
+
+      await generate(
+        'quiz',
+        {
+          kind: 'quiz',
+          questions: [
+            { kind: 'open', prompt: 'Explain [1]', explanation: 'alpha', referenceAnswer: 'alpha' },
+            {
+              kind: 'ordering',
+              prompt: 'Order the process.',
+              explanation: 'alpha evidence [1]',
+              items: [{ text: 'Initial stage' }, { text: 'Final stage' }]
+            }
+          ]
+        },
+        undefined,
+        { questionCount: 2, choiceCount: 2, questionKind: 'mixed', difficulty: 'balanced' }
+      );
+      expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
 
       function assertQuizQuestionShapes() {
         assert.ok(quiz.content.kind === 'quiz');
