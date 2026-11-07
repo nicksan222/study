@@ -131,6 +131,7 @@
   width: 0.875rem;
   height: 0.875rem;
 }
+.ui-workspace-card .ui-workspace-card-item[aria-current='page'],
 .ui-workspace-card .ui-workspace-card-item:not(:disabled):hover {
   background: var(--accent);
 }

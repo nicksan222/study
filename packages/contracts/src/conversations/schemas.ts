@@ -337,3 +337,11 @@ export const sessionSummariesSchema = Schema.Struct({ items: Schema.Array(sessio
 export const transformSuggestionFieldSchema = Schema.Literals(['title', 'instruction']);
 
 export const transformSuggestionLanguageSchema = Schema.Literals(['english', 'italian']);
+
+export const ConversationMode = { Notebook: 'notebook', Assistant: 'assistant' } as const;
+
+export type ConversationMode = (typeof ConversationMode)[keyof typeof ConversationMode];
+
+export const conversationModes = [ConversationMode.Notebook, ConversationMode.Assistant] as const;
+
+export const conversationModeSchema = Schema.Literals(conversationModes);

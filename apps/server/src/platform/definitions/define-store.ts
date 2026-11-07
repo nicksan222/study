@@ -348,7 +348,9 @@ function transactionEffect<T>(
 export function transaction<T>(
   work: (tx: Transaction) => T & SyncResult<T>
 ): Effect.Effect<T, StudyError, Database> {
-  return transactionEffect<T>(work);
+  return Effect.serviceOption(PublicationGuard).pipe(
+    Effect.flatMap((guard) => transactionEffect<T>(work, Option.getOrUndefined(guard)))
+  );
 }
 
 /** Assert the current activity owner inside the same transaction as publication. */

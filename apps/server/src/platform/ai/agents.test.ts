@@ -29,7 +29,7 @@ import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
 import type { AgentProgress, AgentsConfig } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
-import { defineAgent } from '#server/platform/definitions/define-agent';
+import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
 
 const definition = defineAgent({
   id: 'reply',
@@ -307,14 +307,23 @@ testStable('executes a source tool and sends its result back to the provider', a
       const withTool = defineAgent({
         ...definition,
         tools: {
-          sources: {
+          sources: defineTool({
             description: 'Find sources',
+            wiki: {
+              when: 'Find evidence.',
+              examples: ['Find cells.'],
+              limits: 'Captured sources only.'
+            },
+            output: Schema.Array(
+              Schema.Struct({ id: Schema.String, name: Schema.String, text: Schema.String })
+            ),
+            mutates: false,
             input: Schema.Struct({ query: Schema.String }),
             execute: (input, environment) =>
               environment.searchSources(
                 Schema.decodeUnknownSync(Schema.Struct({ query: Schema.String }))(input).query
               )
-          }
+          })
         }
       });
       const output = await Effect.runPromise(

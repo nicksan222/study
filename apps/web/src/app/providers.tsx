@@ -6,6 +6,8 @@ import type { QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
+import { AssistantProvider } from '#web/features/assistant/index.ts';
+
 import type { Locale } from '../lib/i18n';
 import { LanguageProvider, useLanguage, useI18n } from '../lib/i18n';
 import { appSettingsQueryOptions } from '../lib/study-client/preferences.queries';
@@ -27,7 +29,9 @@ export function Providers({
         <LanguageProvider locale={locale}>
           <SavedLanguage />
           <Notifications>
-            <OnboardingProvider>{children}</OnboardingProvider>
+            <AssistantProvider>
+              <OnboardingProvider>{children}</OnboardingProvider>
+            </AssistantProvider>
           </Notifications>
         </LanguageProvider>
       </TooltipProvider>

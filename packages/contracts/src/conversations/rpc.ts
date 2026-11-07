@@ -17,6 +17,14 @@ import {
   archivedSessionItemSchema
 } from './archive.ts';
 import {
+  assistantSessionInputSchema,
+  assistantChatStartSchema,
+  assistantChatsInputSchema,
+  assistantChatsSchema,
+  assistantContextInputSchema,
+  assistantContextSchema
+} from './assistant.ts';
+import {
   sessionSelectionInputSchema,
   sessionSelectionSchema,
   updateSessionSelectionSchema,
@@ -93,12 +101,18 @@ export const sessionPageInputSchema = Schema.Struct({
   before: Schema.optional(sessionCursorSchema)
 });
 
-const sessionPageSchema = Schema.Struct({
+export const sessionPageSchema = Schema.Struct({
   items: Schema.Array(sessionSchema),
   next: Schema.NullOr(sessionCursorSchema)
 });
 
-const sessionIdInputSchema = Schema.Struct({ id: sessionIdSchema });
+export const sessionIdInputSchema = Schema.Struct({ id: sessionIdSchema });
+
+export const assistantAskInputSchema = Schema.Struct({
+  sessionId: Schema.optional(sessionIdSchema),
+  text: Schema.String.check(Schema.isBetweenLength(1, 100000)),
+  intentKey: Schema.String.check(Schema.isBetweenLength(1, 200))
+});
 
 export const createSessionInputSchema = Schema.Struct({
   project: Schema.optional(projectIdSchema),
@@ -124,7 +138,7 @@ export const threadInputSchema = Schema.Struct({
   before: Schema.optional(messageIdSchema)
 });
 
-const threadPageSchema = Schema.Struct({
+export const threadPageSchema = Schema.Struct({
   items: Schema.Array(chatMessageSchema),
   next: Schema.NullOr(messageIdSchema)
 });
@@ -172,6 +186,22 @@ export const transformSuggestionInputSchema = Schema.Struct({
 });
 
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('newAssistantSession', {
+    payload: assistantChatStartSchema,
+    success: sessionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('assistantChats', {
+    payload: assistantChatsInputSchema,
+    success: assistantChatsSchema,
+    error: failureSchema
+  }),
+  Rpc.make('assistantContext', {
+    payload: assistantContextInputSchema,
+    success: assistantContextSchema,
+    error: failureSchema
+  }),
+
   Rpc.make('suggestTransformField', {
     payload: transformSuggestionInputSchema,
     success: Schema.String,
@@ -320,6 +350,16 @@ export const ConversationsRpc = RpcGroup.make(
   }),
   Rpc.make('renameSession', {
     payload: renameSessionInputSchema,
+    success: sessionSchema,
+    error: failureSchema
+  }),
+  Rpc.make('assistantAsk', {
+    payload: assistantAskInputSchema,
+    success: askResultSchema,
+    error: failureSchema
+  }),
+  Rpc.make('assistantSession', {
+    payload: assistantSessionInputSchema,
     success: sessionSchema,
     error: failureSchema
   }),

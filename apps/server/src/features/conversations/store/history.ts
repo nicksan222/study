@@ -12,11 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { ConversationMode } from '@study/contracts/conversations/schemas';
 import type { conversationMessageSnapshotSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, PartId, SessionId } from '@study/contracts/ids';
 import { and, desc, eq, isNull, lte } from '@study/db';
-import { messages, message_versions } from '@study/db/schema';
+import { messages, message_versions, sessions } from '@study/db/schema';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
@@ -66,6 +67,11 @@ export function makeHistory({ db }: StoreResources) {
             version?.status === 'pending'
           )
       );
+    const mode = db.orm
+      .select({ mode: sessions.mode })
+      .from(sessions)
+      .where(eq(sessions.id, sessionId))
+      .get()?.mode;
     let remaining = 200_000;
     const history: Array<typeof conversationMessageSnapshotSchema.Type> = [];
 
@@ -73,8 +79,7 @@ export function makeHistory({ db }: StoreResources) {
       if (!version || version.status !== 'complete')
         throw new StudyError('invalid_input', 'conversation has an unfinished message');
 
-      if (version.text.length > remaining)
-        throw new StudyError('not_enough', 'Active session messages exceed the context limit');
+      if (contextFull(mode, version.text.length, remaining, history.length)) break;
 
       remaining -= version.text.length;
       history.push({
@@ -123,4 +128,17 @@ export function makeHistory({ db }: StoreResources) {
   }
 
   return { conversationHistory, conversationRoot, titleHistory };
+}
+
+function contextFull(
+  mode: ConversationMode | undefined,
+  size: number,
+  remaining: number,
+  count: number
+) {
+  if (size <= remaining) return false;
+
+  if (mode === ConversationMode.Assistant && count > 0) return true;
+
+  throw new StudyError('not_enough', 'Active session messages exceed the context limit');
 }

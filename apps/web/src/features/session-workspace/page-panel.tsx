@@ -1,6 +1,6 @@
 import type { SessionId } from '@study/contracts/ids';
 import { Disclosure } from '@study/ui/disclosure';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { Check, Cloud, CloudOff } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';

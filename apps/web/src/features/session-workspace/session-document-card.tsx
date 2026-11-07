@@ -1,8 +1,8 @@
 import type { StudyDocumentSummary } from '@study/contracts/documents/types';
 import type { SessionId } from '@study/contracts/ids';
 import { ChatEntryLabel } from '@study/ui/chat';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { WorkspaceAttachments } from '@study/ui/workspace';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { FileText } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';

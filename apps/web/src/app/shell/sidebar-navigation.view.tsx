@@ -1,8 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
-import { MessagesSquare, FileText, GraduationCap } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { MessagesSquare, FileText, GraduationCap, MessageCircle } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 import type { Section } from '#web/lib/navigation/route-contract.ts';
@@ -18,7 +17,6 @@ const sections = [
 
 /** Preserves subject scope in section links and passes resolved workspace ownership into settings. */
 export function SidebarNavigation({
-  chat,
   section,
   settings,
   project,
@@ -26,7 +24,6 @@ export function SidebarNavigation({
   onNavigate,
   counts
 }: {
-  chat?: ReactNode;
   counts?: ReturnType<typeof useSidebarCounts>;
   section: Section;
   settings: boolean;
@@ -57,7 +54,19 @@ export function SidebarNavigation({
             <Icon aria-hidden="true" />
           </Sidebar.NavigationItem>
         ))}
-        {chat}
+        <Sidebar.NavigationItem
+          label={t('Assistant')}
+          render={
+            <Link
+              to="/assistant"
+              search={project ? { project } : {}}
+              aria-current={!settings && section === 'assistant' ? 'page' : undefined}
+              onClick={onNavigate}
+            />
+          }
+        >
+          <MessageCircle aria-hidden="true" />
+        </Sidebar.NavigationItem>
       </Sidebar.Navigation>
       <Sidebar.Footer aria-label={t('Settings')}>
         <SettingsMenu active={settings} onOpen={onNavigate} workspaceProject={workspaceProject} />

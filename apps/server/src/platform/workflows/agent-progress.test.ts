@@ -72,18 +72,34 @@ testStable(
     try {
       await emit({ type: 'start' });
       await emit({ type: 'text-delta', text: 'Hello ' });
-      await emit({ type: 'tool-start', toolCallId: 'call', toolName: 'sources' });
+      await emit({
+        type: 'tool-start',
+        toolCallId: 'call',
+        toolName: 'sources',
+        input: { text: '{"query":"topic"}', truncated: false }
+      });
       await emit({
         type: 'tool-finish',
         toolCallId: 'call',
         toolName: 'sources',
-        outcome: 'success'
+        outcome: 'success',
+        output: { text: '["result"]', truncated: false }
       });
       await emit({ type: 'text-delta', text: 'world' });
       expect(read()[0]).toMatchObject({
         text: 'Hello world',
         status: 'running',
-        tools: [{ toolCallId: 'call', toolName: 'sources', status: 'completed' }]
+        tools: [
+          {
+            toolCallId: 'call',
+            toolName: 'sources',
+            status: 'completed',
+            input: { text: '{"query":"topic"}', truncated: false },
+            output: { text: '["result"]', truncated: false },
+            startedAtMs: expect.any(BigInt),
+            finishedAtMs: expect.any(BigInt)
+          }
+        ]
       });
       expect(notifications.at(-1)).toBe('Hello world');
       await emit({ type: 'complete' });
@@ -229,3 +245,81 @@ testStable(
     }
   }
 );
+
+testStable('tool details and legacy rows recover after reopening SQLite', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const executionId = executionIdSchema.make('tool-recovery');
+  const store = workflowStore(context);
+  const observe = observeAgentProgress(context);
+  const emit = (event: Parameters<typeof observe>[0]['event']) =>
+    Effect.runPromise(
+      observe({
+        runId: agentRunIdSchema.make('tools'),
+        agentId: 'reply',
+        mode: 'text',
+        event
+      }).pipe(
+        Effect.provideService(WorkflowActivityOwner, {
+          executionId,
+          ownerToken: 'owner',
+          activityName: 'generate',
+          attempt: 0
+        })
+      )
+    );
+
+  try {
+    store.start(executionId, 'reply', '{}', undefined);
+    store.claim(executionId, 'owner');
+    await emit({ type: 'start' });
+    context.db.orm
+      .update(workflow_agent_progress)
+      .set({
+        tools: JSON.stringify([{ toolCallId: 'old', toolName: 'sources', status: 'completed' }])
+      })
+      .run();
+    await emit({
+      type: 'tool-start',
+      toolCallId: 'new',
+      toolName: 'sources',
+      input: { text: '{"query":"topic"}', truncated: false }
+    });
+    await emit({
+      type: 'tool-finish',
+      toolCallId: 'new',
+      toolName: 'sources',
+      outcome: 'failure',
+      errorKind: 'not_found'
+    });
+    await emit({ type: 'complete' });
+    store.checkpoint(executionId, 'owner', '{}', 'completed');
+  } finally {
+    context.close();
+  }
+
+  const reopened = new ServerContext(location.open());
+
+  try {
+    const [snapshot] = agentProgressSnapshot(reopened, { executionId });
+
+    expect(snapshot?.tools).toEqual([
+      { toolCallId: 'old', toolName: 'sources', status: 'completed' },
+      {
+        toolCallId: 'new',
+        toolName: 'sources',
+        status: 'failed',
+        errorKind: 'not_found',
+        input: { text: '{"query":"topic"}', truncated: false },
+        startedAtMs: expect.any(BigInt),
+        finishedAtMs: expect.any(BigInt)
+      }
+    ]);
+    const tool = snapshot?.tools[1];
+
+    expect(tool?.finishedAtMs).toBeGreaterThanOrEqual(tool?.startedAtMs ?? 0n);
+  } finally {
+    reopened.close();
+    location.cleanup();
+  }
+});
