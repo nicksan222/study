@@ -23,6 +23,7 @@ import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';
 import type { AgentRules } from '@study/contracts/settings/types';
+import type { UsageRecord } from '@study/contracts/settings/usage';
 import { streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
 import {
@@ -43,13 +44,16 @@ import type { Admission } from '#server/platform/ai/admission';
 import { batchAgentProgress } from '#server/platform/ai/progress';
 import { ChatGptRequestError, withRequestCheck } from '#server/platform/ai/providers/chatgpt/model';
 import { standardSchema } from '#server/platform/ai/schema';
-import { adaptTool, adaptRequestCheck } from '#server/platform/ai/tool-adapter';
+import { adaptTool, adaptRequestCheck, adaptUsageRecorder } from '#server/platform/ai/tool-adapter';
+import { withUsageTracking } from '#server/platform/ai/usage';
 import type { AgentDefinition, AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
   rules: Effect.Effect<AgentRules, StudyError>;
   model: (tier: ModelTier) => Effect.Effect<LanguageModelV3, StudyError>;
+  recordUsage?: (usage: UsageRecord) => Effect.Effect<void>;
+  now?: () => number;
   observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
 }
 
@@ -216,7 +220,14 @@ export function streamAgent<
 
                 return streamText({
                   onError: () => {},
-                  model: checkedModel,
+                  model: service.recordUsage
+                    ? withUsageTracking(
+                        checkedModel,
+                        { runId: run.runId, agent: definition.id },
+                        adaptUsageRecorder(service.recordUsage, span, annotations),
+                        service.now ?? Date.now
+                      )
+                    : checkedModel,
                   system,
                   ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
                   tools,
