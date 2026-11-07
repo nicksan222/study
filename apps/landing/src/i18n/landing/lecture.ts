@@ -14,10 +14,9 @@ export const lectureEn = {
     p1: 'Mitosis itself has four phases: prophase, metaphase, anaphase and telophase.',
     mid1: ' ',
     p2: 'Some textbooks add prometaphase between prophase and metaphase',
-    mid2: '; I’ll mention it, but we’ll work with four. In prophase ',
+    mid2: '; in prophase ',
     p3: 'the chromatin condenses into visible chromosomes',
-    after:
-      ', the nucleolus disappears, and the centrosomes move to opposite poles and start building the spindle.'
+    after: '.'
   },
   became: {
     answer: {
@@ -60,10 +59,9 @@ export const lectureIt: Shape<typeof lectureEn> = {
     p1: 'La mitosi vera e propria ha quattro fasi: profase, metafase, anafase e telofase.',
     mid1: ' ',
     p2: 'Alcuni libri aggiungono la prometafase tra profase e metafase',
-    mid2: '; la cito, ma lavoreremo con quattro. Nella profase ',
+    mid2: '; nella profase ',
     p3: 'la cromatina si condensa in cromosomi visibili',
-    after:
-      ', il nucleolo scompare e i centrosomi si spostano ai poli opposti e iniziano a formare il fuso.'
+    after: '.'
   },
   became: {
     answer: {

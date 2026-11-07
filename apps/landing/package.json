@@ -1,6 +1,7 @@
 {
   "name": "study-landing",
   "private": true,
+  "description": "Astro website; shared preview peers are supplied by the root workspace install.",
   "type": "module",
   "imports": {
     "#landing/*": "./src/*"
@@ -21,6 +22,38 @@
     "@astrojs/check": "^0.9.10",
     "@types/node": "^26.6.4",
     "typescript": "^6"
+  },
+  "peerDependencies": {
+    "@study/contracts": "*",
+    "@study/localization": "*",
+    "@study/ui": "*",
+    "@study/web": "*",
+    "@tailwindcss/vite": "^4.3.3",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "peerDependenciesMeta": {
+    "@study/localization": {
+      "optional": true
+    },
+    "@study/ui": {
+      "optional": true
+    },
+    "@study/web": {
+      "optional": true
+    },
+    "@tailwindcss/vite": {
+      "optional": true
+    },
+    "@study/contracts": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
   },
   "packageManager": "bun@1.4.2"
 }

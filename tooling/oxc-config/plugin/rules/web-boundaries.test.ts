@@ -124,3 +124,17 @@ testStable('private web aliases preserve downward ownership and transport restri
 
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
+
+testStable('only the isolated feature preview layer may compose private feature views', () => {
+  expect(
+    lintRule(
+      'web-boundaries',
+      {
+        'apps/web/src/feature-previews/index.tsx':
+          "import { QuizQuestion } from '../features/practice/quiz-question'; export { QuizQuestion };",
+        'apps/web/src/features/practice/leak.ts': "import '../../feature-previews';"
+      },
+      true
+    ).map(({ filename }) => filename.split('/').at(-1))
+  ).toStrictEqual(['leak.ts']);
+});

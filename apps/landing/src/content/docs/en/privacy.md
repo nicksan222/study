@@ -1,57 +1,38 @@
 ---
 title: Privacy and your data
-description: What stays on your computer, what goes to your ChatGPT plan, and where Study keeps your files.
-section: more
-order: 2
+description: Understand local storage, what model work sends to ChatGPT and how to keep a backup.
+section: reference
+order: 5
 ---
 
-Study is local-first. Your projects, sessions, files and recordings live in one database on your computer. There is no Study account and no Study server. When a task needs a language model, Study sends it to your own ChatGPT plan, and only what that task needs.
+Study keeps your saved workspace in a SQLite database on your computer. Subjects, sessions, documents and saved practice belong to that local workspace. The desktop app runs its own private server process to serve the interface and application services.
 
-## What runs on your ChatGPT plan
+## What goes to ChatGPT
 
-These tasks are sent to ChatGPT, under the account you signed in with:
+When you request model work, Study uses the ChatGPT connection you configured. Depending on the task, requests can include source content, saved notes, selected document text, your instructions or a practice answer.
 
-- reading PDF pages and pictures
-- correcting transcripts
-- naming sessions
-- answering notes that mention @study
-- writing flashcards and diagrams
-- writing practice questions and grading your answers
+Examples include reading supported source material, answering a question, transforming sessions into a document, generating practice and grading written answers. The content needed for these operations leaves the local workspace for processing by the provider.
 
-Each request carries the text or pages that task needs, such as the passages an answer cites from. The plan's own terms and usage limits apply, as they do in ChatGPT. You can sign out at any time in **Settings › Language models** with **Sign out**.
+Use **Settings** to review the connected account and sign out when you want to disconnect. Your plan's access and usage limits apply to the work you send through it.
 
-## What runs on your computer
+## Local content and network access
 
-Two things never leave your computer:
+Saving a note is distinct from asking for an answer or a transformation. Review the material you select before starting model work, especially when it contains personal or sensitive information.
 
-- **Transcription.** Recordings are turned into text by a speech model running locally. It's about 670 MB to download and uses about 2 GB of memory for each copy you run. **Model copies** in **Settings › Transcription** sets how many run at once.
-- **Search by meaning.** A multilingual model of about 135 MB turns your text into something search can compare. See [search](../search/).
-
-The audio of your recordings stays on your computer. Only the transcript is sent on, if you leave **Correct transcripts with AI** on.
-
-## Downloads
-
-Study downloads nothing on its own. The two local models come from Hugging Face, and only when you choose to install them, either during the welcome tour or in **Settings › This computer**. App updates download only when you choose **Install and restart**.
-
-## Other network use
-
-- **Add link** fetches the web page you give it, directly from your computer.
-- For a YouTube link, Study runs yt-dlp on your computer to fetch the sound.
+Fetching a link also uses the network to contact the source you supplied. Local storage does not mean that every operation is offline. Check an operation's status rather than assuming that a stored file has been processed locally.
 
 ## Where your data lives
 
-Study keeps your database and its log in one folder, and the downloaded models in another.
+The desktop app uses the operating system's application data directory. Its default database filename is `study.sqlite`. Development and explicitly configured environments can use a different database location.
 
-| Platform | Database and log                       | Models                               |
-| -------- | -------------------------------------- | ------------------------------------ |
-| Linux    | `~/.local/share/study/`                | `~/.cache/study/models/`             |
-| macOS    | `~/Library/Application Support/Study/` | `~/Library/Caches/Study/models/`     |
-| Windows  | `%LOCALAPPDATA%\Study\data\`           | `%LOCALAPPDATA%\Study\cache\models\` |
+Use the app's data and backup controls rather than relying on paths from an older installation guide. Original source content, extracted material and authored documents have distinct roles; review what a backup contains before restoring it.
 
-On Linux, `XDG_DATA_HOME` and `XDG_CACHE_HOME` move these folders if you've set them.
+## Keep a backup
 
-The data folder holds `study.sqlite3`, the database, and `diagnostics.log`, a log that can help when something goes wrong. On Linux and macOS, the folder can be opened only by your user account.
+Open **Settings** and find the data section. Create a backup, inspect saved backups or import a `.studybackup` file. Review the restore preview and confirmation before replacing data.
 
-## Keeping or removing it
+A local backup on the same computer is useful for recovery, but keeping another copy of an exported backup elsewhere protects against losing that computer. Store backups according to the sensitivity of their content.
 
-To back up your work, copy the data folder while Study is closed. To remove everything, quit Study and delete both folders. Updating the app never touches them.
+## Removing the app
+
+Uninstalling the application and deleting its saved data are separate actions. Back up anything you need first. Use the available data controls and the operating system's application data location when you intend to remove saved work as well.

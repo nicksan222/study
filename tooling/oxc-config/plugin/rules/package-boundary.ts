@@ -42,14 +42,17 @@ const allowed: Record<Owner, readonly Owner[]> = {
   '@study/server': ['@study/contracts', '@study/db', '@study/localization', '@study/theme'],
   '@study/web': ['@study/contracts', '@study/ui', '@study/localization', '@study/theme'],
   '@study/desktop': [],
-  'study-landing': []
+  'study-landing': ['@study/ui', '@study/localization', '@study/contracts']
 };
 
 const exportsByPackage = new Map<string, unknown>(
   Object.entries(directories)
     .filter(
       ([directory]) =>
-        directory.startsWith('packages/') || directory === 'apps/server' || directory === 'tooling'
+        directory.startsWith('packages/') ||
+        directory === 'apps/server' ||
+        directory === 'apps/web' ||
+        directory === 'tooling'
     )
     .map(([directory, name]) => {
       const path = new URL(`../../../../${directory}/package.json`, import.meta.url);
@@ -154,6 +157,21 @@ export default defineRule({
       return name !== owner && !allowed[owner].includes(name as Owner);
     }
 
+    function permitsPackageLayer(name: string, subpath: string, nativeClient: boolean): boolean {
+      const featurePreview =
+        owner === 'study-landing' &&
+        name === '@study/web' &&
+        ['/feature-previews', '/feature-previews/catalog'].includes(subpath);
+
+      return nativeClient || featurePreview || !disallowedPackage(name);
+    }
+
+    function unsafeBrowserExport(name: string, subpath: string): boolean {
+      return (
+        owner === '@study/web' && name === '@study/server' && !['', '/client'].includes(subpath)
+      );
+    }
+
     function checkPackageAccess(
       node: ReportNode,
       name: string,
@@ -167,17 +185,12 @@ export default defineRule({
         });
       } else if (!isPublic(name, subpath)) {
         context.report({ node, message: `${name}${subpath} is not a public package export.` });
-      } else if (disallowedPackage(name) && !nativeClient) {
+      } else if (!permitsPackageLayer(name, subpath, nativeClient)) {
         context.report({
           node,
           message: `${owner} cannot depend on ${name}; use its owning layer.`
         });
-      } else if (
-        owner === '@study/web' &&
-        name === '@study/server' &&
-        subpath !== '' &&
-        subpath !== '/client'
-      ) {
+      } else if (unsafeBrowserExport(name, subpath)) {
         context.report({
           node,
           message: '@study/web must use browser-safe @study/server root or client exports.'

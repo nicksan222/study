@@ -1,10 +1,11 @@
 import { fileURLToPath } from 'node:url';
 
 import mdx from '@astrojs/mdx';
+import tailwindcss from '@tailwindcss/vite';
 // The Study website: the landing page and the docs, in English (/) and Italian (/it/),
 // built to static files for GitHub Pages under /study.
 //
-// Docs pages that show captures of the app are MDX, so a plain Markdown image can render
+// Docs pages that show the app are MDX, so a plain Markdown image can render
 // through an Astro component: `![alt](shot:name "caption")` and `![alt](clip:name "caption")`
 // stay ordinary Markdown to write and translate, while `Media.astro` picks the capture in
 // the page's language and the reader's theme and makes its sizes at build time, which a
@@ -44,8 +45,16 @@ export default defineConfig({
   integrations: [mdx({ remarkPlugins: [remarkDocsMedia] })],
   // The logo masters, fonts and icons are the app's own files, outside this folder.
   vite: {
+    plugins: [tailwindcss()],
     resolve: {
-      alias: { '#brand': fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)) }
+      alias: {
+        '#brand': fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)),
+        // Only the static preview build replaces this data hook; production stays untouched.
+        '#web/lib/study-client/workspace-preferences.queries.ts': fileURLToPath(
+          new URL('./src/previews/workspace-preferences.ts', import.meta.url)
+        ),
+        '#web': fileURLToPath(new URL('../web/src', import.meta.url))
+      }
     },
     server: { fs: { allow: ['../..'] } }
   }

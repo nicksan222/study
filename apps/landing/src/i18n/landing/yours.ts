@@ -16,8 +16,8 @@ export const yoursEn = {
     },
     local: {
       title: 'Your library stays here',
-      body: 'Everything lives in one database on your computer. Transcription and search run here too, and their two models download only when you install them. The audio of your recordings',
-      never: 'never leaves',
+      body: 'Your notes, sources and documents live on your computer. You choose the material for each task. Work that needs a model runs on',
+      never: 'your ChatGPT plan',
       end: '.'
     },
     plan: {
@@ -46,8 +46,8 @@ export const yoursIt: Shape<typeof yoursEn> = {
     },
     local: {
       title: 'La tua libreria resta qui',
-      body: 'Tutto vive in un unico database sul tuo computer. Anche trascrizione e ricerca girano qui, e i loro due modelli si scaricano solo quando li installi. L’audio delle tue registrazioni',
-      never: 'non esce mai',
+      body: 'Appunti, fonti e documenti vivono sul tuo computer. Scegli tu il materiale per ogni attività. Il lavoro che richiede un modello usa',
+      never: 'il tuo piano ChatGPT',
       end: '.'
     },
     plan: {

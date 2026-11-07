@@ -27,8 +27,8 @@ type Diagnostic = {
 };
 
 function writeManifests(directory: string, manifests: Record<string, unknown>): void {
-  for (const name of ['contracts', 'ui', 'theme', 'localization', 'db', 'ai', 'server']) {
-    const workspace = name === 'server' ? 'apps' : 'packages';
+  for (const name of ['contracts', 'ui', 'theme', 'localization', 'db', 'ai', 'server', 'web']) {
+    const workspace = ['server', 'web'].includes(name) ? 'apps' : 'packages';
     const path = join(directory, workspace, name, 'package.json');
 
     mkdirSync(dirname(path), { recursive: true });

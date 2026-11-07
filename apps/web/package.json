@@ -6,6 +6,10 @@
   "imports": {
     "#web/*": "./src/*"
   },
+  "exports": {
+    "./feature-previews": "./src/feature-previews/index.tsx",
+    "./feature-previews/catalog": "./src/feature-previews/catalog.ts"
+  },
   "scripts": {
     "dev": "vp dev",
     "build": "vp build",

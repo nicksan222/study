@@ -3,8 +3,7 @@ name: Landing
 # Builds the website in apps/landing/ (Astro, static) and publishes it to GitHub Pages at
 # https://nicksan222.github.io/study/, so astro.config sets `base: '/study'`.
 #
-# It builds no Rust: the captures of the app the site shows are committed, so a deploy takes
-# about a minute. The Captures workflow makes them again, by hand, in a pull request.
+# It builds no Rust. The root workspace supplies the real app components used in previews.
 on:
   push:
     branches: [main]
@@ -30,6 +29,15 @@ jobs:
         uses: taiki-e/install-action@v2
         with:
           tool: just@1.40.0
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26.8.2
+          cache: npm
+      - name: Install shared preview dependencies
+        env:
+          ONNXRUNTIME_NODE_INSTALL: skip
+        run: npm ci
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:

@@ -4,7 +4,7 @@
 
 .landing {
   display: grid;
-  gap: clamp(var(--s-8), 8.25vw, 126px);
+  gap: clamp(var(--s-7), 5vw, 72px);
 }
 
 /* Notebook tabs: a section's tint on its tiles and icon chips. */
@@ -143,4 +143,33 @@ svg[data-mark] .pass {
 }
 svg[data-ink-hidden] {
   display: none;
+}
+
+/* The app's primary blue anchors the main action; amber remains the notebook's ink. */
+.button-brand {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.button-brand:hover {
+  background: color-mix(in oklab, var(--primary) 88%, var(--ink));
+}
+
+.landing-details {
+  margin-top: calc(-1 * var(--s-5));
+}
+.landing-detail {
+  border-top: 1px solid var(--line);
+}
+.landing-detail > summary {
+  padding: 18px 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.landing-detail > summary:hover {
+  color: var(--ink);
+}
+.landing-detail > .frame {
+  padding: var(--s-6) 0;
 }

@@ -4,6 +4,8 @@
 // practice question, a flashcard), which writes itself out; it cycles until touched. The margin
 // note's arrow and the timestamp's ring are anchored marks (`data-ink-scope`, see ink.ts).
 import Icon from '../Icon.astro';
+import Logo from '../Logo.astro';
+import { downloadButton } from './app-preview';
 import { pen } from '../rough';
 import { chars, words } from './text';
 import { t } from '#landing/i18n/strings.ts';
@@ -36,6 +38,13 @@ const heroNext = heroWords.pop();
 
 <section class="hero frame" aria-labelledby="hero-title" data-ink-scope>
   <div class="hero-copy">
+    <div class="hero-emblem"><Logo size={72} /></div>
+    <div class="hero-orbit" aria-hidden="true">
+      <span class="orbit orbit-note tint-blue"><Icon name="notebook-text" size={28} /></span>
+      <span class="orbit orbit-document tint-green"><Icon name="file-text" size={25} /></span>
+      <span class="orbit orbit-practice tint-purple"><Icon name="graduation-cap" size={28} /></span>
+      <span class="orbit orbit-diagram tint-orange"><Icon name="workflow" size={25} /></span>
+    </div>
     <h1 id="hero-title">
       {heroWords.join(' ')}{' '}<span class="hero-tail"
         >{heroNext}{' '}<span class="hl-word"
@@ -54,13 +63,10 @@ const heroNext = heroWords.pop();
         ></span
       >
     </h1>
-    <p class="hero-lead">{s.hero.lead}</p>
+    <p class="hero-lead">{s.heroLead}</p>
     <div class="hero-actions">
-      <a class="button button-highlighter button-large" href="#download" data-download>
-        <span data-download-label>{s.hero.download}</span>
-        <Icon name="arrow-right" />
-      </a>
-      <a class="button button-ghost button-large hero-other" href="#download">{s.hero.other}</a>
+      <Fragment set:html={downloadButton(s.hero.download)} />
+      <a class="button button-ghost button-large" href="#workflow">{s.explore}<Icon name="chevron-down" /></a>
     </div>
     <p class="hero-terms">{s.hero.terms}<span class="hero-other-inline"> <a href="#download">{s.hero.other}</a></span></p>
   </div>
@@ -217,20 +223,32 @@ const heroNext = heroWords.pop();
 </script>
 
 <style>
-  /* The first viewport: five columns of headline beside the passage. */
+  /* A centered introduction, followed by the original interactive notebook. */
   .hero {
     position: relative;
     display: grid;
-    grid-template-columns: 5fr 7fr;
+    grid-template-columns: 1fr;
     gap: var(--s-8);
     align-items: start;
-    padding-top: clamp(84px, 11vh, 120px);
+    padding-top: clamp(40px, 6vh, 72px);
   }
   .hero-copy {
-    padding-top: var(--s-3);
+    position: relative;
+    width: 100%;
+    text-align: center;
+    padding: 0 130px;
   }
+  .hero-emblem { display: flex; justify-content: center; margin-bottom: var(--s-5); }
+  .hero-orbit { position: absolute; inset: 0; pointer-events: none; }
+  .orbit { position: absolute; display: grid; place-items: center; width: 68px; height: 68px; border-radius: 18px; background: var(--t-bg); color: var(--t-ink); border: 1px solid color-mix(in oklab, var(--t-ink) 15%, transparent); }
+  .orbit-note { left: 4%; top: 20%; rotate: -12deg; }
+  .orbit-document { right: 6%; top: 4%; rotate: 10deg; }
+  .orbit-practice { right: 1%; bottom: 10%; rotate: -9deg; }
+  .orbit-diagram { left: 9%; bottom: 0; rotate: 9deg; width: 55px; height: 55px; }
   h1 {
-    font-size: clamp(44px, 5.4vw, 68px);
+    max-width: 850px;
+    margin-inline: auto;
+    font-size: clamp(44px, 5.4vw, 72px);
     line-height: 1.02;
     letter-spacing: -0.035em;
     text-wrap: balance;
@@ -282,7 +300,8 @@ const heroNext = heroWords.pop();
     }
   }
   .hero-lead {
-    max-width: 30ch;
+    max-width: 57ch;
+    margin-inline: auto;
     margin-top: var(--s-5);
     color: var(--ink-2);
     font-size: clamp(18px, 1.5vw, 20px);
@@ -292,6 +311,7 @@ const heroNext = heroWords.pop();
   .hero-actions {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: var(--s-2);
     margin-top: var(--s-6);
   }
@@ -314,6 +334,17 @@ const heroNext = heroWords.pop();
   /* The margin note sits above the passage's top edge, its arrow landing on the first phrase. */
   .hero-stage {
     position: relative;
+    width: 100%;
+    max-width: 1060px;
+    margin: var(--s-5) auto 0;
+  }
+  @media (min-width: 900px) {
+    .pass { display: grid; grid-template-columns: 1.15fr 1fr; column-gap: var(--s-7); }
+    .pass-source, .pass-text, .pass-hint { grid-column: 1; }
+    .pass-source { grid-row: 1; }
+    .pass-text { grid-row: 2; }
+    .pass-hint { grid-row: 3; }
+    .pass .made { grid-column: 2; grid-row: 1 / 4; margin-top: 0; }
   }
   .hero-note {
     position: absolute;
@@ -529,16 +560,21 @@ const heroNext = heroWords.pop();
     }
   }
   @media (max-width: 899px) {
+    .hero-copy { padding: 0 50px; }
+    .orbit { width: 44px; height: 44px; border-radius: 12px; }
+    .orbit-note { left: 0; top: 15%; }
+    .orbit-document { right: 0; top: 0; }
+    .orbit-diagram, .orbit-practice { display: none; }
     .hero {
       grid-template-columns: 1fr;
       gap: var(--s-6);
       padding-top: clamp(var(--s-7), 8vh, var(--s-9));
     }
     .hero-lead {
-      max-width: 40ch;
+      max-width: 52ch;
     }
     h1 {
-      max-width: 14ch;
+      max-width: 18ch;
     }
     .pass-text {
       max-width: 64ch;
@@ -558,7 +594,14 @@ const heroNext = heroWords.pop();
       margin-bottom: var(--s-3);
     }
   }
+  @media (max-width: 600px) {
+    .hero-stage { display: none; }
+  }
   @media (max-width: 480px) {
+    .hero-copy { padding: 0; }
+    .hero-orbit { display: none; }
+    .hero-emblem { margin-bottom: var(--s-5); }
+    .hero-actions { flex-direction: column; align-items: center; }
     .hero {
       gap: var(--s-5);
       padding-top: var(--s-6);

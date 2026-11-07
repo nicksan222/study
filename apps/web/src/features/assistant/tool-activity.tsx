@@ -23,35 +23,21 @@ export function AssistantToolActivity({ message }: { message: ChatMessage }) {
   const model = useToolActivity(message);
   const { t } = useI18n();
   const [open, setOpen] = useState<boolean>();
-  const running = model.tools.some((tool) => tool.status === 'running');
-  const failed = model.tools.some((tool) => tool.status === 'failed');
-  const stopped = model.tools.some((tool) => tool.status === 'cancelled');
-  const label = running
-    ? 'AssistantActivityRunning'
-    : failed
-      ? 'AssistantActivityFailed'
-      : stopped
-        ? 'AssistantActivityStopped'
-        : 'AssistantActivityCompleted';
-  const Icon = running ? Circle : failed ? CircleAlert : stopped ? X : Check;
+  const summary = activitySummary(model.tools);
+  const running = summary.status === 'running';
+  const Icon = summary.Icon;
 
-  if (!model.tools.length)
-    return model.error ? (
-      <ToolActivity.Note>
-        {t('AssistantActivityUnavailable')}{' '}
-        <RetryButton size="sm" variant="ghost-muted" label={t('Retry')} onClick={model.retry} />
-      </ToolActivity.Note>
-    ) : null;
+  if (!model.tools.length) return <ActivityRetry failed={model.error} retry={model.retry} />;
 
   return (
     <Trace aria-label={t('AssistantActivity')}>
       <TraceCollapsible open={open ?? running} onOpenChange={setOpen}>
         <TraceCollapsibleTrigger>
-          <TraceLine status={running ? 'running' : failed ? 'error' : undefined}>
+          <TraceLine status={summary.status}>
             <TraceIcon>
               <Icon />
             </TraceIcon>
-            <TraceTitle>{t(label, { count: model.tools.length })}</TraceTitle>
+            <TraceTitle>{t(summary.label, { count: model.tools.length })}</TraceTitle>
           </TraceLine>
         </TraceCollapsibleTrigger>
         <TraceCollapsibleContent keepMounted>
@@ -63,20 +49,37 @@ export function AssistantToolActivity({ message }: { message: ChatMessage }) {
                 details={<AssistantToolDetails tool={tool} />}
               />
             ))}
-            {model.error && (
-              <ToolActivity.Note>
-                {t('AssistantActivityUnavailable')}{' '}
-                <RetryButton
-                  size="sm"
-                  variant="ghost-muted"
-                  label={t('Retry')}
-                  onClick={model.retry}
-                />
-              </ToolActivity.Note>
-            )}
+            <ActivityRetry failed={model.error} retry={model.retry} />
           </Trace>
         </TraceCollapsibleContent>
       </TraceCollapsible>
     </Trace>
+  );
+}
+
+/** In-progress calls take precedence over terminal failures and cancellations. */
+function activitySummary(tools: ReturnType<typeof useToolActivity>['tools']) {
+  if (tools.some((tool) => tool.status === 'running'))
+    return { label: 'AssistantActivityRunning', Icon: Circle, status: 'running' } as const;
+
+  if (tools.some((tool) => tool.status === 'failed'))
+    return { label: 'AssistantActivityFailed', Icon: CircleAlert, status: 'error' } as const;
+
+  if (tools.some((tool) => tool.status === 'cancelled'))
+    return { label: 'AssistantActivityStopped', Icon: X, status: undefined } as const;
+
+  return { label: 'AssistantActivityCompleted', Icon: Check, status: undefined } as const;
+}
+
+function ActivityRetry({ failed, retry }: { failed: boolean; retry: () => void }) {
+  const { t } = useI18n();
+
+  if (!failed) return null;
+
+  return (
+    <ToolActivity.Note>
+      {t('AssistantActivityUnavailable')}{' '}
+      <RetryButton size="sm" variant="ghost-muted" label={t('Retry')} onClick={retry} />
+    </ToolActivity.Note>
   );
 }

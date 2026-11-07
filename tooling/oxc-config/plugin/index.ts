@@ -24,6 +24,7 @@ import effectScopedFibers from './rules/effect-scoped-fibers.ts';
 import effectTryPromise from './rules/effect-try-promise.ts';
 import effectV4Api from './rules/effect-v4-api.ts';
 import featureOrchestration from './rules/feature-orchestration.ts';
+import featurePreviewBoundary from './rules/feature-preview-boundary.ts';
 import harnessBoundary from './rules/harness-boundary.ts';
 import metricCardinality from './rules/metric-cardinality.ts';
 import nativeClock from './rules/native-clock.ts';
@@ -101,6 +102,7 @@ export default definePlugin({
     'effect-v4-api': effectV4Api,
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
+    'feature-preview-boundary': featurePreviewBoundary,
     'no-deep-relative-imports': noDeepRelativeImports,
     'theme-colors': themeRule,
     'shared-ui-variants': sharedUiVariants,

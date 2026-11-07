@@ -132,6 +132,7 @@ export const lint = {
     'study/library-ownership': 'error',
     'study/browser-boundary': 'error',
     'study/package-boundary': 'error',
+    'study/feature-preview-boundary': 'error',
     'study/theme-colors': 'error',
     'study/shared-ui-variants': 'error',
     'study/shared-ui-patterns': 'error',

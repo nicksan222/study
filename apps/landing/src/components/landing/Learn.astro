@@ -3,7 +3,7 @@
 // try (a cited answer, a graded question, a flashcard, a hand-drawn diagram) beside a capture
 // of the real thing.
 import Icon from '../Icon.astro';
-import Shot from '../Shot.astro';
+import AppPreview from '../AppPreview.astro';
 import { pen } from '../rough';
 import { chars, draw, esc, keyed, pressed, words } from './text';
 import { href, t } from '#landing/i18n/strings.ts';
@@ -59,43 +59,7 @@ const around = (line: string, phrase: string) => {
   return at < 0 ? [line, '', ''] : [line.slice(0, at), phrase, line.slice(at + phrase.length)];
 };
 
-const cardQuote = around(s.transcript[1], p.p3);
-
 const phaseQuote = around(s.transcript[0], p.p1);
-
-// Captures are cropped in the app's own points (each page is 1440 by 900), so its text stays
-// readable: one crop for wide screens and a tighter one (`m`) for narrow ones. A target is a
-// box on the page, in the same points, that an anchored mark circles or brackets.
-type Box = { x: number; y: number; w: number; h: number };
-
-const crop = (d: Box, m: Box = d) =>
-  `--dx:${d.x};--dy:${d.y};--dw:${d.w};--dh:${d.h};--mx:${m.x};--my:${m.y};--mw:${m.w};--mh:${m.h}`;
-
-// How wide the whole page renders inside a crop, for `sizes`: the crop scales its box up to
-// fill a panel column, at most 1.25 times the app's size. On wide screens a panel is the
-// frame (1200px) less its padding (2 × 48px) and the columns' gap (24px), split 5 to 7; on
-// narrower ones the crop takes no more than the viewport.
-const panel = 1200 - 2 * 48 - 24;
-
-const sizes = (column: 5 | 7, d: Box, m: Box = d) =>
-  `(min-width: 1101px) ${Math.round((1440 / d.w) * Math.min((panel * column) / 12, d.w * 1.25))}px, ` +
-  `${Math.round((1440 / m.w) * 100)}vw`;
-
-const spot = ({ x, y, w, h }: Box) => `--tx:${x};--ty:${y};--tw:${w};--th:${h}`;
-
-const crops = {
-  passage: { x: 1052, y: 262, w: 372, h: 341 },
-  graded: { x: 356, y: 566, w: 702, h: 254 },
-  gradedNarrow: { x: 368, y: 724, w: 340, h: 96 },
-  ratings: { x: 360, y: 466, w: 698, h: 52 },
-  ratingsNarrow: { x: 536, y: 466, w: 346, h: 52 },
-};
-
-const spots = {
-  passage: { x: 1064, y: 406, w: 346, h: 190 },
-  correct: { x: 382, y: 731, w: 86, h: 32 },
-  good: { x: 712, y: 474, w: 165, h: 36 },
-};
 
 // The diagram, laid out on a 560 by 320 sheet.
 const phaseX = [10, 152, 294, 436];
@@ -176,16 +140,7 @@ const diagram = {
               }
             </div>
           </div>
-          <figure class="shot">
-            <div class="crop-wrap" data-ink-scope>
-              <div class="crop" style={crop(crops.passage)}>
-                <Shot name="citation" lang={lang} alt={s.answers.shotAlt} sizes={sizes(5, crops.passage)} />
-                <span class="spot" id="learn-passage-spot" style={spot(spots.passage)}></span>
-              </div>
-              <svg class="ink-mark" data-mark="bracket" data-to="#learn-passage-spot" aria-hidden="true"></svg>
-            </div>
-            <figcaption>{s.answers.caption}</figcaption>
-          </figure>
+          <AppPreview feature="source" lang={lang} label={s.previewLabels.source} caption={s.previewLabels.caption} />
         </div>
         <svg class="ink-arrow" data-arrow data-from="#learn-answers-note" data-to="#learn-answer" data-bow="0.3" aria-hidden="true"></svg>
         <svg class="ink-arrow" data-arrow data-from="#learn-answers-tap" data-to="#learn-chip-2" data-bow="-0.3" aria-hidden="true"></svg>
@@ -236,16 +191,7 @@ const diagram = {
               </div>
             </div>
           </div>
-          <figure class="shot">
-            <div class="crop-wrap" data-ink-scope>
-              <div class="crop crop-cut" style={crop(crops.graded, crops.gradedNarrow)}>
-                <Shot name="graded" lang={lang} alt={s.quiz.shotAlt} sizes={sizes(7, crops.graded, crops.gradedNarrow)} />
-                <span class="spot" id="learn-correct-spot" style={spot(spots.correct)}></span>
-              </div>
-              <svg class="ink-mark" data-mark="ring" data-to="#learn-correct-spot" aria-hidden="true"></svg>
-            </div>
-            <figcaption>{s.quiz.caption}</figcaption>
-          </figure>
+          <AppPreview feature="quiz" lang={lang} label={s.previewLabels.quiz} caption={s.previewLabels.caption} />
         </div>
         <svg class="ink-arrow" data-arrow data-from="#learn-quiz-note" data-to="#learn-quiz-question" data-bow="0.3" aria-hidden="true"></svg>
       </div>
@@ -294,27 +240,11 @@ const diagram = {
             </p>
           </div>
           <div class="side">
-            <figure class="shot shot-wide">
-              <div class="crop-wrap" data-ink-scope>
-                <div class="crop" style={crop(crops.ratings, crops.ratingsNarrow)}>
-                  <Shot name="flashcard" lang={lang} alt={s.card.shotAlt} sizes={sizes(7, crops.ratings, crops.ratingsNarrow)} />
-                  <span class="spot" id="learn-good-spot" style={spot(spots.good)}></span>
-                </div>
-                <svg class="ink-mark" data-mark="ring" data-to="#learn-good-spot" aria-hidden="true"></svg>
-              </div>
-              <figcaption>{s.card.caption}</figcaption>
-            </figure>
-            <div class="from" data-ink>
-              <p class="paper-head"><Icon name="video" size={14} />{p.source}</p>
-              <p class="from-note"><span class="hand hand-note" id="learn-card-from" style="--r:-2deg" data-type="hand" set:html={words(s.card.from)} /></p>
-              <p class="from-text">
-                {cardQuote[0]}<span class="wash" id="learn-card-phrase">{cardQuote[1]}</span>{cardQuote[2]}
-              </p>
-            </div>
+            <AppPreview feature="flashcards" lang={lang} label={s.previewLabels.flashcards} caption={s.previewLabels.caption} />
+
           </div>
         </div>
         <svg class="ink-arrow" data-arrow data-from="#learn-card-note" data-to="#learn-card" data-bow="0.3" aria-hidden="true"></svg>
-        <svg class="ink-arrow" data-arrow data-from="#learn-card-from" data-to="#learn-card-phrase" data-bow="0.3" aria-hidden="true"></svg>
       </div>
 
       <div class="panel tint-pink" id="diagram" data-ink-later data-ink-scope>
@@ -689,7 +619,7 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     line-height: 1.55;
   }
   .stage {
-    margin-top: var(--s-7);
+    margin-top: var(--s-5);
   }
   .tabs {
     display: flex;
@@ -760,7 +690,7 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
   .panel {
     display: grid;
     align-content: start;
-    padding: clamp(var(--s-5), 3.4vw, var(--s-7));
+    padding: clamp(var(--s-5), 2.2vw, var(--s-6));
     border-radius: var(--r-xl);
     background: var(--t-bg);
     scroll-margin-top: 7rem;
@@ -820,7 +750,7 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
   .panel-body {
     display: grid;
     gap: var(--s-5);
-    margin-top: var(--s-7);
+    margin-top: var(--s-5);
   }
   .body-7 {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
@@ -851,55 +781,6 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     .shot-wide {
       display: none;
     }
-  }
-
-  /* A capture, cropped to the part that proves the point, at no less than the app's size. */
-  .shot {
-    gap: var(--s-3);
-    margin: 0;
-  }
-  .crop-wrap {
-    width: 100%;
-  }
-  .crop {
-    --x: var(--dx);
-    --y: var(--dy);
-    --w: var(--dw);
-    --h: var(--dh);
-    position: relative;
-    overflow: hidden;
-    max-width: calc(var(--w) * 1.25px);
-    margin-inline: auto;
-    aspect-ratio: var(--w) / var(--h);
-    border-radius: var(--r-lg);
-    background: var(--canvas);
-  }
-  .crop :global(picture) {
-    position: absolute;
-    inset: 0;
-  }
-  .crop :global(img) {
-    position: absolute;
-    max-width: none;
-    height: auto;
-    width: calc(1440 / var(--w) * 100%);
-    left: calc(var(--x) / var(--w) * -100%);
-    top: calc(var(--y) / var(--h) * -100%);
-  }
-  /* What a mark circles, in the capture's own points. */
-  .spot {
-    position: absolute;
-    left: calc((var(--tx) - var(--x)) / var(--w) * 100%);
-    top: calc((var(--ty) - var(--y)) / var(--h) * 100%);
-    width: calc(var(--tw) / var(--w) * 100%);
-    height: calc(var(--th) / var(--h) * 100%);
-    pointer-events: none;
-  }
-  .shot figcaption {
-    color: var(--ink-3);
-    font-size: 13px;
-    line-height: 1.45;
-    text-align: center;
   }
 
   .time {
@@ -1311,18 +1192,6 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     text-anchor: start;
   }
 
-  /* Narrower: tighter crops, cut where a line runs on. */
-  @media (max-width: 1100px) {
-    .crop {
-      --x: var(--mx);
-      --y: var(--my);
-      --w: var(--mw);
-      --h: var(--mh);
-    }
-    .crop-cut {
-      mask-image: linear-gradient(to right, #000 78%, transparent);
-    }
-  }
   /* Narrow: one column, and the stage follows the open panel's height. */
   @media (max-width: 900px) {
     .panel-head,

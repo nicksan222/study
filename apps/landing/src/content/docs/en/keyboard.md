@@ -1,81 +1,46 @@
 ---
 title: Keyboard shortcuts
-description: The keys Study responds to, on macOS, Linux and Windows.
-section: more
-order: 4
+description: Save notes, find sessions and review cards from the keyboard.
+section: reference
+order: 2
 ---
 
-These are the keys Study responds to. Where macOS uses Cmd, Linux and Windows use Ctrl; the tables say so where they differ.
+On macOS use Cmd where the tables say Cmd/Ctrl; on Linux and Windows use Ctrl. Tab and Shift Tab move between controls, and the focused control keeps its usual keyboard behavior.
 
-## Anywhere in the app
+## Sidebar search
 
-| Action            | macOS              | Linux and Windows |
-| ----------------- | ------------------ | ----------------- |
-| Open search       | Cmd K              | Ctrl K            |
-| Open settings     | Cmd ,              | Ctrl ,            |
-| Full screen       | F11, or Ctrl Cmd F | F11               |
-| Make text larger  | Cmd + or Cmd =     | Ctrl + or Ctrl =  |
-| Make text smaller | Cmd −              | Ctrl −            |
-| Reset text size   | Cmd 0              | Ctrl 0            |
+| Action                              | Keys       |
+| ----------------------------------- | ---------- |
+| Reveal the sidebar and focus search | Cmd/Ctrl K |
+| Clear the sidebar search field      | Esc        |
 
-The text size keys work even while you're typing in a field. Esc closes an open alert.
+## Session composer
 
-## Search
+| Action                   | Keys           |
+| ------------------------ | -------------- |
+| Save a note              | Cmd/Ctrl Enter |
+| Paste from the clipboard | Cmd/Ctrl V     |
 
-| Action                   | Key     |
-| ------------------------ | ------- |
-| Move through results     | ↑ and ↓ |
-| Open the selected result | Enter   |
-| Close search             | Esc     |
+The writing settings can also make Enter save a note. With that preference enabled, Shift Enter keeps a new line. The **Save note** action remains available beside the composer.
 
-## Sessions
+## Flashcard review
 
-| Action                               | macOS            | Linux and Windows |
-| ------------------------------------ | ---------------- | ----------------- |
-| Send a note                          | Enter            | Enter             |
-| Paste files or an image              | Cmd V            | Ctrl V            |
-| Leave the text box                   | Esc              | Esc               |
-| Move to the next or previous control | Tab or Shift Tab | Tab or Shift Tab  |
-| Move through the @study menu         | ↑ and ↓          | ↑ and ↓           |
-| Insert the mention                   | Enter or Tab     | Enter or Tab      |
-| Close the @study menu                | Esc              | Esc               |
-| Step through a message's versions    | ← and →          | ← and →           |
-| Cancel an edit                       | Esc              | Esc               |
+| Action                                         | Keys         |
+| ---------------------------------------------- | ------------ |
+| Reveal the answer                              | Space        |
+| Rate Again, Hard, Good or Easy after revealing | 1, 2, 3 or 4 |
 
-## Flashcards
+Shortcuts do not interrupt text entry in an editable field. You can also use the visible reveal and rating buttons.
 
-In a review:
+## Quiz questions
 
-| Action                  | Key            |
-| ----------------------- | -------------- |
-| Show the answer         | Space or Enter |
-| Again, Hard, Good, Easy | 1, 2, 3, 4     |
+| Action                                                      | Keys           |
+| ----------------------------------------------------------- | -------------- |
+| Choose a numbered option when the question supports choices | Its number     |
+| Submit a valid answer to a non-open question                | Enter          |
+| Submit a written open answer                                | Cmd/Ctrl Enter |
+| Add a line in a written open answer                         | Enter          |
 
-When browsing a set:
+Matching questions use their visible controls rather than the numbered-choice shortcut. Use **Next** to continue after feedback.
 
-| Action                         | Key     |
-| ------------------------------ | ------- |
-| Turn the card over, then go on | Space   |
-| Previous or next card          | ← and → |
-
-## Practice
-
-| Action                       | Key                       |
-| ---------------------------- | ------------------------- |
-| Pick a choice                | Its letter, or its number |
-| Send a written answer        | Enter                     |
-| New line in a written answer | Shift Enter               |
-| Next question                | Enter or Space            |
-
-## Diagrams
-
-| Action              | macOS               | Linux and Windows   |
-| ------------------- | ------------------- | ------------------- |
-| Move around         | Arrow keys, or drag | Arrow keys, or drag |
-| Zoom in             | + or =              | + or =              |
-| Zoom out            | − or _              | − or _              |
-| Zoom with the mouse | Cmd and scroll      | Ctrl and scroll     |
-| Actual size         | 0                   | 0                   |
-| Fit to view         | F, or double-click  | F, or double-click  |
-
-For more on each of these, see [sessions](../sessions/), [flashcards](../flashcards/), [practice](../practice/) and [diagrams](../notes-and-diagrams/).
+See [sessions](../sessions/), [flashcards](../flashcards/) and [practice](../practice/) for the full workflows.

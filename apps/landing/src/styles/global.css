@@ -29,38 +29,36 @@
 :root {
   color-scheme: light dark;
 
-  --canvas: #ffffff;
-  --sidebar: #f3f3f3;
-  --raised: #ffffff;
-  --fill: #f3f3f3;
-  --hover: #ededed;
-  --selected: #e7e7e7;
-  --line: #e4e4e4;
-  --ink: #111111;
-  --ink-2: #4f4f4f;
-  --ink-3: #686868;
-  --hl-ink: #806200;
-  --hl-wash: #fff0a1;
-  --hl-fill: #f2d24b;
-  --on-hl: #1a1600;
+  --raised: var(--surface-raised);
+  --fill: var(--accent);
+  --hover: var(--accent);
+  --selected: var(--input);
+  --line: var(--border);
+  --ink: var(--foreground);
+  --ink-2: color-mix(in oklab, var(--foreground) 78%, var(--canvas));
+  --ink-3: color-mix(in oklab, var(--foreground) 68%, var(--canvas));
+  --hl-ink: #886108;
+  --hl-wash: var(--search-match-background);
+  --hl-fill: var(--search-match-active-background);
+  --on-hl: var(--search-match-active-foreground);
   --shadow: 0 8px 24px rgb(0 0 0 / 0.08);
 
-  /* Notebook tabs: one soft tint per story section, on its tile and icon chip only. */
-  --blue-bg: #ebf3f8;
-  --blue-chip: #d3e5ef;
-  --blue-ink: #24516e;
-  --green-bg: #edf4ee;
-  --green-chip: #d5e9d8;
-  --green-ink: #2c5a37;
-  --orange-bg: #fbf0e4;
-  --orange-chip: #f7dcc2;
-  --orange-ink: #7a4519;
-  --purple-bg: #f4f0f8;
-  --purple-chip: #e3d8ee;
-  --purple-ink: #57397a;
-  --pink-bg: #faeff4;
-  --pink-chip: #f2d6e3;
-  --pink-ink: #7d3256;
+  /* Notebook washes use the app’s identity accents in either appearance. */
+  --blue-bg: color-mix(in oklab, var(--identity-blue) 9%, var(--canvas));
+  --blue-chip: color-mix(in oklab, var(--identity-blue) 20%, var(--canvas));
+  --blue-ink: var(--identity-blue);
+  --green-bg: color-mix(in oklab, var(--identity-green) 9%, var(--canvas));
+  --green-chip: color-mix(in oklab, var(--identity-green) 20%, var(--canvas));
+  --green-ink: var(--identity-green);
+  --orange-bg: color-mix(in oklab, var(--identity-orange) 9%, var(--canvas));
+  --orange-chip: color-mix(in oklab, var(--identity-orange) 20%, var(--canvas));
+  --orange-ink: var(--identity-orange);
+  --purple-bg: color-mix(in oklab, var(--identity-violet) 9%, var(--canvas));
+  --purple-chip: color-mix(in oklab, var(--identity-violet) 20%, var(--canvas));
+  --purple-ink: var(--identity-violet);
+  --pink-bg: color-mix(in oklab, var(--identity-pink) 9%, var(--canvas));
+  --pink-chip: color-mix(in oklab, var(--identity-pink) 20%, var(--canvas));
+  --pink-ink: var(--identity-pink);
 
   --font: 'Inter', system-ui, sans-serif;
   --font-hand: 'Excalifont', 'Inter', system-ui, sans-serif;
@@ -90,35 +88,9 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --canvas: #1a1a1a;
-    --sidebar: #0e0e0e;
-    --raised: #222222;
-    --fill: #222222;
-    --hover: #262626;
-    --selected: #2e2e2e;
-    --line: #2c2c2c;
-    --ink: #ececec;
-    --ink-2: #ababab;
-    --ink-3: #858585;
-    --hl-ink: #f2d24b;
-    --hl-wash: #3b3416;
-    --shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+    --hl-ink: #e0c270;
 
-    --blue-bg: #1b252c;
-    --blue-chip: #23394a;
-    --blue-ink: #a9cde3;
-    --green-bg: #1c261f;
-    --green-chip: #25392b;
-    --green-ink: #a8d3b1;
-    --orange-bg: #2a2219;
-    --orange-chip: #45311f;
-    --orange-ink: #eec39c;
-    --purple-bg: #241f2b;
-    --purple-chip: #392d48;
-    --purple-ink: #cfb8ea;
-    --pink-bg: #2a1e24;
-    --pink-chip: #45293a;
-    --pink-ink: #ebb5cd;
+    --shadow: 0 8px 24px rgb(0 0 0 / 0.45);
   }
 }
 

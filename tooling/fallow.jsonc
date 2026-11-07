@@ -97,6 +97,10 @@
         "patterns": ["apps/server/src/runtime/**"]
       },
       {
+        "name": "web-previews",
+        "patterns": ["apps/web/src/feature-previews/**"]
+      },
+      {
         "name": "web",
         "patterns": ["apps/web/src/**", "apps/web/index.html"]
       },
@@ -163,12 +167,16 @@
         ]
       },
       {
+        "from": "web-previews",
+        "allow": ["web", "contracts", "ui", "localization", "theme"]
+      },
+      {
         "from": "web",
         "allow": ["server-client", "contracts", "ui", "localization", "theme"]
       },
       {
         "from": "landing",
-        "allow": ["theme", "localization"]
+        "allow": ["theme", "localization", "ui", "contracts", "web-previews"]
       },
       {
         "from": "tests",
@@ -184,6 +192,7 @@
           "server-features",
           "server-runtime",
           "web",
+          "web-previews",
           "landing",
           "tooling"
         ]
@@ -202,6 +211,7 @@
           "server-features",
           "server-runtime",
           "web",
+          "web-previews",
           "landing",
           "tooling"
         ]
@@ -212,7 +222,16 @@
     }
   },
   // Compile-only contracts and the subprocess-only fixture are entry points.
+  // Vite aliases the reader's production hook to this exact build-only fixture export.
+  "ignoreExports": [
+    {
+      "file": "apps/landing/src/previews/workspace-preferences.ts",
+      "exports": ["useWorkspacePreferences"]
+    }
+  ],
   "entry": [
+    // The web package also exposes fixture views; its HTML application remains a runtime root.
+    "apps/web/src/main.tsx",
     "packages/localization/test/api.types.ts",
     "packages/testing/test/api.types.ts",
     "packages/testing/test/vitest.types.ts",

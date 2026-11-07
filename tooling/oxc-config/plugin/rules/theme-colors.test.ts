@@ -94,3 +94,26 @@ testStable('theme colors rule covers template values, SVG fills and named arbitr
     JSON.stringify(diagnostics)
   );
 });
+
+testStable(
+  'shared feature previews retain semantic app colors while landing art stays independent',
+  () => {
+    const diagnostics = lintRule(
+      'theme-colors',
+      {
+        'apps/web/src/feature-previews/index.tsx':
+          'export const view = <div className="bg-stone-50" style={{ color: "#abc" }} />;',
+        'apps/web/src/feature-previews/semantic.tsx':
+          'export const view = <div className="bg-background text-foreground" />;',
+        'apps/landing/src/components/Notebook.tsx':
+          'export const view = <div style={{ color: "#abc" }} />;'
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(
+      diagnostics.every(({ filename }) => filename.endsWith('/feature-previews/index.tsx'))
+    );
+  }
+);

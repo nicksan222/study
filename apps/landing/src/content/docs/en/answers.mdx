@@ -1,55 +1,29 @@
 ---
 title: Answers and citations
-description: How @study answers a note from your own files, and how to check where each claim came from.
-section: learn
+description: Ask about your study material and inspect the evidence behind an answer.
+section: capture
 order: 3
-shot: citation
-shotAlt: A cited source open in the Library, with the passage highlighted.
+shot: docs-source
+shotAlt: The cell-biology.txt source open in Study.
+shotCaption: Study running with sample biology material.
 ---
 
-When a note mentions **@study**, Study answers it from your own material and shows where each part of the answer came from. You can open any citation and read the passage it rests on.
+A useful answer should help you understand your own material and let you check its evidence. In a [session](../sessions/), use **Ask Study** for an explicit request or choose **Answer** on a saved question.
 
-## Asking
+## Questions and notes
 
-Write your question in a [session](../sessions/) and mention **@study** anywhere in the note. Notes without the mention get no reply, so you can write freely and ask only when you want to.
+You can mark an entry as a question or as a note. Automatic answers are a workspace preference; you can keep them off and request an answer yourself. You do not need to add an `@study` mention to every question.
 
-![A question drafted with @study in the session composer.](shot:study-question 'Mention @study anywhere in your note to ask a question.')
+Answers run through your ChatGPT connection. A missing connection or failed operation is shown beside the work that needs attention. Keep the question and its selected source material clear before retrying.
 
-Study waits until the files attached to that note have been read, then answers. If something is missing, the answer waits and says why, for example **Waiting for ChatGPT sign-in**. Answers run on your ChatGPT plan.
+## Check the source
 
-## Where an answer looks
+When an answer includes citations, use them to inspect the passage it relies on. A citation identifies a source and a location, such as a PDF page, a recording time or a text range. Read the surrounding material, not just the quoted phrase.
 
-An answer draws first on the files in the session you're in, all of them. Then it adds the most related passages from the rest of the project. Files outside the project are not used.
+If the passage does not support the answer, trust the source and investigate the discrepancy. A citation is a way to check a claim, not a guarantee that the claim is correct.
 
-Because answers come from your files, the better your sources, the better the answers. If a file was read wrongly, fix its text with **Correct this text** in **File details**, and later answers use your version.
+## Keep revisions in view
 
-## Reading citations
+Notes, answers and authored documents have version identities. When reviewing an earlier result or comparing changes, check which version you are reading. Your own edits and proposed rewrites should be reviewed before you use the result as study material.
 
-Each claim that rests on a passage carries a small numbered chip, such as [1] or [2]. Under the answer, **Sources** lists every cited file with the place the passage comes from.
-
-Places are written the way you'd look them up:
-
-| Source             | Place                                   |
-| ------------------ | --------------------------------------- |
-| PDF or picture     | `p. 3`                                  |
-| Recording or video | `4:05–4:40`, or `1:02:03` for long ones |
-| Text or code       | `lines 12–18`                           |
-| Slides             | `slide 4`                               |
-| Word document      | `¶ 2`                                   |
-| Web page           | `#section`, when the part is known      |
-
-## Opening a citation
-
-Select a chip or a source to open it. The Library opens the file at the cited place, with the passage highlighted among the surrounding text. Return to the session to continue reading the answer.
-
-![Selecting a citation chip under an answer opens the cited passage, highlighted in the transcript.](clip:citation-open 'Select a citation to read the passage it rests on.')
-
-Use this to check an answer before you rely on it. If the passage doesn't say what the answer claims, trust the passage.
-
-## Changing an answer
-
-Answers keep their versions, as your notes do. **Regenerate** asks for a new answer, **AI edit** rewrites the current one with **Improve**, **Summarize** or your own instruction, and **Versions** moves between them. See [sessions](../sessions/#edit-and-compare-versions).
-
-## Citations elsewhere
-
-Answers aren't the only place with citations. [Flashcards](../flashcards/), the [diagram](../notes-and-diagrams/) and [practice](../practice/) questions also list their **Sources**, so you can always go back to the page or moment something came from.
+When you are ready to collect what you learned, [turn saved sessions into a document](../documents/) and use that document for [practice](../practice/).

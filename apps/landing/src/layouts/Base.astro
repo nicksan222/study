@@ -1,6 +1,7 @@
 ---
 // Every page's frame: the head, the slim bar (wordmark, Docs, GitHub, language, Download)
 // and the footer. `path` is the page's address without its language, for the switch.
+import '@study/ui/theme.css';
 import '../styles/global.css';
 import Logo from '../components/Logo.astro';
 import Icon from '../components/Icon.astro';
@@ -31,6 +32,14 @@ const ogImage = new URL(href(lang, 'og.png'), Astro.site);
 <html lang={lang}>
   <head>
     <meta charset="utf-8" />
+    <script is:inline>
+      const appearance = matchMedia('(prefers-color-scheme: dark)');
+
+      const syncAppearance = () => document.documentElement.classList.toggle('dark', appearance.matches);
+
+      syncAppearance();
+      appearance.addEventListener('change', syncAppearance);
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
@@ -41,8 +50,8 @@ const ogImage = new URL(href(lang, 'og.png'), Astro.site);
     <link rel="icon" href={href('en', 'favicon.svg')} type="image/svg+xml" />
     <link rel="apple-touch-icon" href={href('en', 'apple-touch-icon.png')} />
     <!-- The page's --canvas in each theme (global.css), which a meta tag cannot read. -->
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#fcfcfc" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16161f" media="(prefers-color-scheme: dark)" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />

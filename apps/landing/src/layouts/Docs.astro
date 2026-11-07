@@ -35,6 +35,8 @@ const title = doc ? `${doc.data.title} · ${s.docs.title} · Study` : `${s.docs.
 
 const description = doc ? doc.data.description : s.docs.lead;
 
+const shotAlt = doc?.data.shotAlt ?? doc?.data.title ?? '';
+
 const homeCurrent = () => doc ? undefined : 'page';
 
 const pageCurrent = (d: Doc) => slug(d) === current ? 'page' : undefined;
@@ -79,9 +81,10 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
             <h1>{doc.data.title}</h1>
             <p class="lead">{doc.data.description}</p>
             {doc.data.shot && (
-              <div class="shot">
-                <Shot name={doc.data.shot} lang={lang} alt={doc.data.shotAlt ?? doc.data.title} sizes="(min-width: 1100px) 760px, 100vw" loading="eager" />
-              </div>
+              <figure class="shot">
+                <Shot name={doc.data.shot} lang={lang} alt={shotAlt} sizes="(min-width: 1100px) 760px, 100vw" loading="eager" />
+                {doc.data.shotCaption && <figcaption>{doc.data.shotCaption}</figcaption>}
+              </figure>
             )}
             <div class="prose">
               <slot />
@@ -113,6 +116,7 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
             {sections.map((section) => (
               <section class="index-group">
                 <h2>{s.docs.sections[section]}</h2>
+                <p class="index-intro">{s.docs.sectionDescriptions[section]}</p>
                 <ul>
                   {all
                     .filter((d) => d.data.section === section)
@@ -231,6 +235,12 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
     border-radius: var(--r-xl);
     background: var(--fill);
   }
+  .shot figcaption {
+    margin-top: var(--s-3);
+    color: var(--ink-3);
+    font-size: 14px;
+    line-height: 1.5;
+  }
   .shot :global(img) {
     width: 100%;
     border-radius: var(--r-lg);
@@ -325,7 +335,7 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
   .prose :global(figure.media) {
     margin: var(--s-6) 0;
   }
-  .prose :global(figure.media > picture),
+  .prose :global(figure.media > .shot-link),
   .prose :global(figure.media > video) {
     padding: clamp(6px, 1vw, 12px);
     border-radius: var(--r-xl);
@@ -340,7 +350,7 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
     display: block;
     border-radius: var(--r-lg);
   }
-  .prose :global(figure.media > picture) {
+  .prose :global(figure.media > .shot-link) {
     display: block;
   }
   .prose :global(figure.media figcaption) {
@@ -397,6 +407,13 @@ const link = (d: Doc) => href(lang, `docs/${slug(d)}/`);
   .index-group h2 {
     font-size: 20px;
     letter-spacing: -0.012em;
+  }
+  .index-intro {
+    margin-top: var(--s-2);
+    max-width: var(--measure);
+    color: var(--ink-2);
+    font-size: 15px;
+    line-height: 1.5;
   }
   .index-group ul {
     display: grid;

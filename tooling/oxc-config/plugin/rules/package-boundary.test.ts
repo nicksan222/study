@@ -21,7 +21,9 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
       'apps/web/src/absolute.ts': `import '${root}packages/ai/src/index.ts';\n`,
       'apps/web/src/dynamic.ts': "export const db = import('../../../packages/db/src/index.ts');\n",
       'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
-      'apps/landing/src/bad.ts': "import '@study/ui/button';\n",
+      'apps/landing/src/bad.ts': "import '@study/server/client';\n",
+      'apps/landing/src/good.ts':
+        "import '@study/ui/button';\nimport '@study/localization/landing';\n",
       'tooling/seed/index.ts': "import '@study/localization';\n",
       'packages/ai/src/good.ts': "import '@study/localization';\n",
       'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
@@ -41,7 +43,7 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
   ).toStrictEqual(
     [
-      ['packages/ui/src/app.ts', '@study/ui cannot depend on @study/web; use its owning layer.'],
+      ['packages/ui/src/app.ts', '@study/web is not a public package export.'],
       ['packages/ui/src/bad.ts', '@study/ui cannot depend on @study/server; use its owning layer.'],
       [
         'packages/localization/src/bad.ts',
@@ -73,7 +75,10 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
         'apps/desktop/src/bad.ts',
         '@study/desktop cannot depend on @study/server; use its owning layer.'
       ],
-      ['apps/landing/src/bad.ts', 'study-landing cannot depend on @study/ui; use its owning layer.']
+      [
+        'apps/landing/src/bad.ts',
+        'study-landing cannot depend on @study/server; use its owning layer.'
+      ]
     ].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
   );
 });
@@ -253,3 +258,31 @@ testStable(
     assert.ok(diagnostics[0]?.filename.endsWith('/server.ts'));
   }
 );
+
+testStable('landing consumes only the explicit feature preview export from web', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'apps/landing/src/good.ts': "export { FeaturePreview } from '@study/web/feature-previews';",
+      'apps/landing/src/catalog.ts':
+        "export { previewFeatures } from '@study/web/feature-previews/catalog';",
+      'apps/landing/src/root.ts': "import '@study/web';",
+      'apps/landing/src/private.ts': "import '@study/web/features/quiz';",
+      'apps/landing/src/relative.ts': "import '../../web/src/feature-previews/index.tsx';"
+    },
+    true,
+    {
+      web: {
+        './feature-previews': './src/feature-previews/index.tsx',
+        './feature-previews/catalog': './src/feature-previews/catalog.ts',
+        './features/quiz': './src/features/quiz/index.ts'
+      }
+    }
+  );
+
+  expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toStrictEqual([
+    'private.ts',
+    'relative.ts',
+    'root.ts'
+  ]);
+});

@@ -29,25 +29,16 @@ Su **macOS** apri il `.dmg` e trascina Study in Applicazioni. Study richiede mac
 
 Su **Windows** avvia l'installer `.exe` e segui i passaggi.
 
-## Strumenti facoltativi
+## Collega l'area di lavoro
 
-Due strumenti da riga di comando ampliano ciò che Study sa leggere. Per iniziare non ti serve nessuno dei due.
-
-- **yt-dlp** permette a Study di prendere l'audio di un link di YouTube e trascriverlo. Study gli chiede solo l'audio, quindi non serve altro.
-- **FFmpeg** è l'ultima risorsa per i formati di registrazione insoliti, come AMR o WMA. I formati comuni come MP3, M4A, WAV e l'audio della maggior parte dei video si leggono senza.
-
-Installali con il gestore di pacchetti del tuo sistema, così Study li trova nel percorso.
-
-## Cosa funziona dove
-
-Study svolge il lavoro dei modelli sul tuo piano ChatGPT, quindi la prima volta che lo apri accedi con un account ChatGPT Plus o Pro. Due cose invece funzionano sul tuo computer: la trascrizione delle registrazioni e la ricerca per significato. Ognuna richiede un modello che scarichi dall'app, solo quando lo decidi tu. [Primi passi](../first-steps/) ti accompagna in questo, e [privacy](../privacy/) spiega cosa va dove.
+Puoi iniziare salvando appunti. Collega ChatGPT da **Impostazioni** quando vuoi risposte, trasformazioni dei documenti o esercitazioni generate. [Primi passi](../first-steps/) spiega il percorso sessione → documento → esercitazioni; [privacy](../privacy/) descrive l'archiviazione locale e cosa inviano le richieste ai modelli.
 
 ## Aggiornamenti
 
-Study non si aggiorna da solo a tua insaputa. Per cercare una nuova versione apri **Impostazioni › Aggiornamenti** e scegli **Cerca aggiornamenti**. Se ce n'è una, **Installa e riavvia** la scarica e apre la nuova versione. Gli aggiornamenti sono firmati, e Study controlla la firma prima di installarli.
+Scarica l'ultima versione compatibile dalla pagina delle release del progetto su GitHub e installala per la tua piattaforma. Salva il lavoro e chiudi Study prima di sostituire l'applicazione installata.
 
-Un aggiornamento sostituisce solo l'app. Il database, i tuoi file e i modelli che hai scaricato restano dove sono, e le attività in background riprendono dopo il riavvio.
+Conserva un backup del materiale importante usando la sezione dei dati in **Impostazioni**. Aggiornare l'applicazione e ripristinare un backup dell'area di lavoro sono operazioni distinte.
 
 ## Disinstallare
 
-Rimuovi l'app come faresti con qualsiasi altra sul tuo sistema. I tuoi dati stanno in una cartella separata, che [privacy](../privacy/) indica per ogni piattaforma. Elimina anche quella se non vuoi lasciare niente.
+Rimuovi l'app come qualsiasi altra applicazione sul tuo sistema. I dati salvati sono separati dall'installazione. Vedi [privacy](../privacy/) per i backup e la rimozione del lavoro salvato.

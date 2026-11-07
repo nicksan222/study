@@ -1,0 +1,32 @@
+---
+import Icon from '../Icon.astro';
+import { t } from '#landing/i18n/strings.ts';
+import type { Lang } from '#landing/i18n/strings.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const c = t(lang).capabilities;
+
+const icons = ['notebook-text', 'file-text', 'circle-question-mark', 'list-checks', 'workflow', 'folder-open'];
+---
+<details class="capabilities landing-detail">
+  <summary>{c.title}</summary>
+  <div class="capability-list">
+    {c.items.map((item, i) => <article>
+      <Icon name={icons[i]} size={20} />
+      <div><h3>{item.title}</h3><p>{item.body}</p></div>
+    </article>)}
+  </div>
+</details>
+<style>
+  .capability-list { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-6) var(--s-8); padding: var(--s-6) 0; }
+  article { display: grid; grid-template-columns: 24px 1fr; gap: var(--s-3); align-items: start; }
+  article > :global(svg) { margin-top: 3px; color: var(--primary); }
+  h3 { font-size: 17px; letter-spacing: -.02em; line-height: 1.35; }
+  article p { color: var(--ink-2); font-size: 14px; margin-top: var(--s-2); line-height: 1.65; }
+  @media(max-width: 700px) { .capability-list { grid-template-columns: 1fr; } }
+</style>

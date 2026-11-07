@@ -3,11 +3,12 @@
 // The landing's sections keep their copy in landing/<section>.ts, spread in here so `t(lang)`
 // stays the one way in; nav, meta, footer and the docs' chrome stay in this file.
 
+import { landingCopy } from '@study/localization/landing';
+
 import * as download from './landing/download';
 import * as hero from './landing/hero';
 import * as learn from './landing/learn';
 import * as lecture from './landing/lecture';
-import * as material from './landing/material';
 import * as yours from './landing/yours';
 
 export type Lang = 'en' | 'it';
@@ -50,7 +51,7 @@ const en = {
   },
   ...lecture.lectureEn,
   ...hero.heroEn,
-  ...material.materialEn,
+  ...landingCopy.en,
   ...learn.learnEn,
   ...yours.yoursEn,
   ...download.downloadEn,
@@ -62,8 +63,9 @@ const en = {
   },
   docs: {
     title: 'Docs',
-    lead: 'How each part of Study works, one page per feature.',
-    sections: { start: 'Get started', learn: 'Learn with Study', more: 'More' },
+    lead: landingCopy.en.docsNavigation.lead,
+    sections: landingCopy.en.docsNavigation.sections,
+    sectionDescriptions: landingCopy.en.docsNavigation.descriptions,
     menu: 'Docs menu',
     close: 'Close',
     next: 'Next',
@@ -74,13 +76,11 @@ const en = {
   }
 } as const;
 
-export type Shape<T> = {
-  [K in keyof T]: T[K] extends string
-    ? string
-    : T[K] extends readonly string[]
-      ? readonly string[]
-      : Shape<T[K]>;
-};
+export type Shape<T> = T extends string
+  ? string
+  : T extends readonly (infer Item)[]
+    ? readonly Shape<Item>[]
+    : { [K in keyof T]: Shape<T[K]> };
 
 const it: Shape<typeof en> = {
   otherLang: 'English',
@@ -93,7 +93,7 @@ const it: Shape<typeof en> = {
   },
   ...lecture.lectureIt,
   ...hero.heroIt,
-  ...material.materialIt,
+  ...landingCopy.it,
   ...learn.learnIt,
   ...yours.yoursIt,
   ...download.downloadIt,
@@ -105,8 +105,9 @@ const it: Shape<typeof en> = {
   },
   docs: {
     title: 'Guida',
-    lead: 'Come funziona ogni parte di Study, una pagina per funzione.',
-    sections: { start: 'Per iniziare', learn: 'Studiare con Study', more: 'Altro' },
+    lead: landingCopy.it.docsNavigation.lead,
+    sections: landingCopy.it.docsNavigation.sections,
+    sectionDescriptions: landingCopy.it.docsNavigation.descriptions,
     menu: 'Menu della guida',
     close: 'Chiudi',
     next: 'Successiva',

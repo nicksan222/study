@@ -1,0 +1,58 @@
+---
+import { FeaturePreview, previewFeatures } from '@study/web/feature-previews';
+import type { PreviewFeature } from '@study/web/feature-previews';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import '@study/ui/styles.css';
+import type { Lang } from '#landing/i18n/strings.ts';
+import { t } from '#landing/i18n/strings.ts';
+
+export function getStaticPaths() {
+  return ['en', 'it'].flatMap((lang) => previewFeatures.map((feature) => ({ params: { lang, feature } })));
+}
+
+const lang = Astro.params.lang as Lang;
+
+const feature = Astro.params.feature as PreviewFeature;
+
+const s = t(lang);
+
+const html = renderToStaticMarkup(createElement(FeaturePreview, {
+  feature,
+  locale: lang === 'it' ? 'italian' : 'english',
+  fixture: {
+    title: s.workflow.titleSample,
+    intro: s.workflow.intro,
+    heading: s.workflow.heading,
+    paragraph: s.workflow.paragraph,
+    transcript: s.transcript,
+    question: s.quiz.question,
+    choices: s.quiz.choices,
+    cardFront: s.became.card.front,
+    cardBack: s.became.card.back
+  }
+}));
+---
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>{s.workflow.titleSample}</title>
+  </head>
+  <body><main inert set:html={html} /></body>
+</html>
+<script>
+  const host = window.parent.document.documentElement;
+
+  const sync = () => document.documentElement.classList.toggle('dark', host.classList.contains('dark'));
+
+  sync();
+  new MutationObserver(sync).observe(host, { attributes: true, attributeFilter: ['class'] });
+</script>
+<style is:global>
+  html { background: var(--background); color: var(--foreground); font: 14px/1.5 -apple-system, BlinkMacSystemFont, 'Inter Variable', 'Segoe UI', system-ui, sans-serif; }
+  body { margin: 0; }
+  main { padding: 24px; }
+</style>

@@ -1,47 +1,40 @@
 ---
 title: Settings
-description: A tour of Study's settings, from language and look to models and what runs on each kind of file.
-section: more
-order: 3
-shot: settings
-shotAlt: General settings, with language, theme and text size controls.
+description: Adjust the workspace, connect ChatGPT and choose how you write, read and practise.
+section: reference
+order: 4
 ---
 
-Open **Settings** from the sidebar, or press Ctrl , (Cmd , on macOS). Settings are in two groups, **General** and **AI**. Changes are saved as you make them.
+Open **Settings** from the sidebar. Its navigation separates appearance, writing, reading, AI, practice and data. Use the settings search to find the relevant section.
 
-## General
+## Language and appearance
 
-**Language** switches Study between English and Italiano. A preview shows how menus, file sizes and times will look.
+Choose English or Italiano in the general settings. Appearance includes the color scheme, theme library, text size, contrast and panel animation controls. Choose the settings that make the workspace comfortable to read.
 
-**Appearance** offers **Light**, with bright surfaces for daylight, and **Dark**, with dim surfaces for focused study. **Text size** makes everything larger or smaller, from 75% to 200%. Ctrl + and Ctrl − (Cmd on macOS) do the same from anywhere in the app.
+Sidebar settings adjust density, time display and document counts. These controls change how the workspace is presented, rather than changing your study content.
 
-![Settings › Appearance, with the Light and Dark themes and the text size.](shot:settings-appearance 'Pick a theme and a text size.')
+## Writing and reading
 
-**Updates** has **Check for updates**. When a new version is available, **Install and restart** installs it and restarts Study; save your work first. If you're recording, finish first. See [install](../install/#updates).
+Writing settings include autosave timing, editor font size, spellcheck and whether Enter saves a note. Ctrl Enter (Cmd Enter on macOS) saves from the session composer regardless of the Enter preference.
 
-**Processing** sets what Study does with each kind of file:
+Reading settings include reader font size and the default export format. Some numeric preferences have a **Save** action; use it to confirm the value and check any validation or save feedback.
 
-- a table of every kind of source, with the columns **Reading**, **Tidying**, **Search** and **Study material**, where you turn each step on or off. See [sources](../sources/#changing-what-runs).
-- **Skip small talk and logistics before writing**: a fast model leaves out small talk, logistics and noise before study material or practice questions are written, so all of your lectures fit, not a sample.
-- **New flashcards a day**: a large new set comes in over several days, so reviews stay manageable. Cards you've already learned still come back when due.
+## ChatGPT and AI behavior
 
-## AI
+The account section lets you sign in with ChatGPT or sign out. Complete browser sign-in when prompted, then return to Study.
 
-**Overview** shows every AI feature at a glance: what it's for, where it runs, and whether it's **Ready**, **Needs sign-in** or **Not downloaded**. **Set up** takes you to what's missing.
+Model settings select the model for each task tier. Instructions customize the available agents' rules. AI behavior includes automatic session titles, automatic answers to questions and the default level of detail.
 
-**Language models** is where you connect your ChatGPT plan.
+Usage shows recorded model activity. Performance controls how much work can run in parallel and how much can wait in the queue.
 
-![Settings › Language models: sign-in with ChatGPT, and the model for quick, everyday and demanding tasks.](shot:settings-models 'Sign in with your plan, and choose a model for each kind of task.')
+## Practice defaults
 
-- **Sign in with ChatGPT**, and **Sign out** when you want to disconnect.
-- **Manage usage** opens your ChatGPT usage settings in the browser.
-- **Test connection** sends one small request to check that everything works.
-- Under **Models by task**, three tiers: **Quick tasks** names sessions and leaves out small talk; **Everyday tasks** reads PDFs and pictures, corrects transcripts, answers @study, writes study material and practice questions, and grades answers; **Demanding tasks** draws diagrams. Each tier runs on the model recommended for it unless you pick another.
+Flashcard settings control how many new cards can enter your daily reviews. Quiz settings include question count, question types, shuffling, options per question and difficulty. Review these defaults when you want future practice to use a different format.
 
-**Transcription** turns recordings into text on your computer. Here you download the model, about 670 MB, and set **Model copies**, from 1 to 4. Each copy uses about 2 GB of memory and transcribes in parallel. The spoken language is detected on its own.
+See [practice](../practice/) and [flashcards](../flashcards/) for how to use the resulting material.
 
-**This computer** shows what Study found and measured about your computer, such as cores and memory, and **Where models run**: for search and for transcription, whether this computer runs them, or why not. You can **Measure again** after a hardware change. The search model, about 135 MB, is downloaded here.
+## Subjects and data
 
-## Where settings are kept
+Subject settings manage subject details. Data settings let you create a backup, inspect saved backups and import a backup. Review the preview and confirmation before restoring or removing data.
 
-Settings are stored in the same database as your work, in your data folder. See [privacy](../privacy/#where-your-data-lives).
+If a setting fails to load or save, use its retry action and check the reported result. Closing the dialog does not prove that a pending change was saved.

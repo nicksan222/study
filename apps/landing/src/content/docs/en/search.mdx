@@ -1,57 +1,26 @@
 ---
 title: Search
-description: Find projects, sessions, files and passages by their words or by what they mean.
-section: learn
-order: 8
-shot: search
-shotAlt: Search open over the app, with results grouped into projects, sessions, files and passages.
+description: Find saved work from the sidebar and keep the current subject in view.
+section: reference
+order: 1
 ---
 
-Search looks through everything you've put into Study: projects, sessions, your files and what's inside them, and your messages. It matches the words you type and, once its model is installed, what they mean.
+Search is part of the sidebar. Press Ctrl K (Cmd K on macOS) to reveal the sidebar when needed and focus its search field. Type a name or words from the material you want to find.
 
-## Open search
+## Know the scope
 
-Press Ctrl K, or Cmd K on macOS, from anywhere in the app. A box opens that says **Search projects, sessions, and files…**. Start typing; results appear as you go.
+Within a subject workspace, sidebar search is scoped to that subject's sessions and notebook messages. Global navigation can search across subjects and other searchable saved material.
 
-| Key     | What it does             |
-| ------- | ------------------------ |
-| ↑ and ↓ | Move through the results |
-| Enter   | Open the selected result |
-| Esc     | Close search             |
+Some sidebar sections have their own lists and filters. Use the search provided by the section you are in, and check the selected subject before assuming something is missing.
 
-![Search opens with Ctrl K, and results appear and narrow as a word is typed.](clip:search-typing 'Results appear as you type.')
+## Open a result
 
-## What you get back
+Select a result to open the item it belongs to. A session result opens the session; source and document results open their readers. Practice material and question results retain the relevant saved material version.
 
-Results come in groups:
+Press Esc in the sidebar search field to clear the search. If searching fails, the sidebar shows an error rather than presenting an empty list as a successful search.
 
-- **Projects**, by name
-- **Sessions**, by title
-- **Files**, by name
-- **In your files**, passages inside your files that match
-- **Messages**, your notes and the answers in your sessions
+## If you cannot find something
 
-Opening a file or a passage shows that file: beside its session if it was attached to one, otherwise in the Library. A message opens its session.
+Try a distinctive word or the item's title. Confirm that the note was saved, that the source has readable content and that you are searching the right subject. A stored original file does not guarantee that every passage has been read or made searchable.
 
-## Words and meaning
-
-Study searches in two ways at once and combines the results.
-
-- **By words**, it finds passages that contain what you typed. This works from the start.
-- **By meaning**, it finds passages about the same thing even when they use other words, or another language. A search for "cell energy" can find a passage about mitochondria and ATP.
-
-Search by meaning needs a small model that runs on your computer. It's a multilingual model of about 135 MB, and it never sends your text anywhere. Download it in **Settings › This computer**. Until you do, search shows **Not installed: search matches words only**, and everything else keeps working.
-
-After you install the model, Study prepares your existing files in the background. While it does, search says **Preparing search by meaning; showing exact matches for now.** New files are prepared as they're read. You can follow the work in [Activity](../background-work/), under **Search by meaning**.
-
-## What gets searched
-
-A file shows up inside **In your files** once Study has read it, which for a recording means once it's transcribed. Files Study can't read are still found by name. See [sources](../sources/) for which kinds are read.
-
-Each kind of source can be left out of the search index, or of search by meaning, in **Settings › Processing** under **Search**.
-
-If a file's text is wrong, fix it with **Correct this text** in **File details**. Search uses your correction.
-
-## Search and answers
-
-[Answers](../answers/) use the same index to find related passages across a project. A source that search can find well is one that answers can draw on well, so installing the search model also helps @study find what you mean.
+Search helps you return to saved work. When checking an [answer](../answers/), open its cited evidence directly and read the surrounding material.

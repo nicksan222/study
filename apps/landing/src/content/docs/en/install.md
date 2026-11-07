@@ -29,25 +29,16 @@ On **macOS**, open the `.dmg` and drag Study into Applications. Study needs macO
 
 On **Windows**, run the `.exe` installer and follow its steps.
 
-## Optional tools
+## Connect your workspace
 
-Two command-line tools add to what Study can read. You don't need either to get started.
-
-- **yt-dlp** lets Study take the sound of a YouTube link and transcribe it. Study asks it for the audio only, so this needs nothing else.
-- **FFmpeg** is a last resort for unusual recording formats, such as AMR or WMA. Common formats like MP3, M4A, WAV and the sound of most videos are read without it.
-
-Install them with your system's package manager, so Study can find them on your path.
-
-## What runs where
-
-Study does its model work on your ChatGPT plan, so you sign in with a ChatGPT Plus or Pro account the first time you open it. Two things run on your computer instead: transcribing recordings, and search by meaning. Each needs a model that you download from inside the app, only when you choose to. [First steps](../first-steps/) walks through this, and [privacy](../privacy/) says what goes where.
+You can start by saving notes. Connect ChatGPT from **Settings** when you want answers, document transformations or generated practice. [First steps](../first-steps/) walks through the session → document → practice workflow; [privacy](../privacy/) explains local storage and what model requests send.
 
 ## Updates
 
-Study doesn't update itself behind your back. To look for a new version, open **Settings › Updates** and choose **Check for updates**. If one is available, **Install and restart** downloads it and opens the new version. Updates are signed, and Study checks the signature before installing.
+Download the latest compatible release from the project's GitHub releases page and install it for your platform. Save your work and close Study before replacing the installed application.
 
-An update replaces only the app. Your database, your files and the models you downloaded stay where they are, and background work picks up again after the restart.
+Keep a backup of important material using the data section in **Settings**. Updating the application and restoring a workspace backup are separate operations.
 
 ## Uninstall
 
-Remove the app the way you'd remove any other on your system. Your data lives in a separate folder, which [privacy](../privacy/) lists for each platform. Delete that folder too if you want nothing left behind.
+Remove the app the way you would remove another application on your system. Saved application data is separate from the installation. See [privacy](../privacy/) for backups and removing saved work.

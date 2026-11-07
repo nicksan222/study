@@ -1,10 +1,9 @@
 ---
-// A docs page's picture or clip, written in its Markdown as an image:
+// Committed app screenshots and recordings in docs Markdown:
 // `![What it shows](shot:search "Caption")` for a still and `![…](clip:search-typing "…")`
 // for a clip. The docs pages render every Markdown image through this, so the alt text and
 // the caption are translated with the page, and the capture comes in the page's language and
-// the reader's theme. Anything else written as an image fails the build: the docs show only
-// captures of the app.
+// the reader's theme.
 import Clip from './Clip.astro';
 import Shot from './Shot.astro';
 import type { Lang } from '../i18n/strings';

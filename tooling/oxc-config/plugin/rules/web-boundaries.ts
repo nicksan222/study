@@ -68,7 +68,9 @@ export default defineRule({
         const entrypoint = ['main.tsx', 'routeTree.gen.ts'].includes(current);
         const owned =
           current.includes('/') &&
-          ['app', 'routes', 'pages', 'features', 'lib', 'assets'].includes(layer);
+          ['app', 'routes', 'pages', 'features', 'feature-previews', 'lib', 'assets'].includes(
+            layer
+          );
 
         if (!entrypoint && !owned)
           report(
@@ -94,16 +96,23 @@ export default defineRule({
   }
 });
 
+function privateFeatureImport(layer: string, domain: string | undefined, target: string): boolean {
+  if (layer === 'feature-previews') return false;
+
+  const [targetLayer, targetDomain] = target.split('/');
+  const featureImport =
+    targetLayer === 'features' && (layer !== 'features' || domain !== targetDomain);
+
+  return featureImport && target.split('/').length > 2 && !/^features\/[^/]+\/index$/.test(target);
+}
+
 function violatesOwnership(layer: string, domain: string | undefined, target: string): boolean {
   const [targetLayer, targetDomain] = target.split('/');
   const upward = upwardImport(layer, targetLayer);
   const crossPage = layer === 'pages' && targetLayer === 'pages' && domain !== targetDomain;
-  const featureImport =
-    targetLayer === 'features' && (layer !== 'features' || domain !== targetDomain);
-  const privateFeature =
-    featureImport && target.split('/').length > 2 && !/^features\/[^/]+\/index$/.test(target);
+  const previewImport = targetLayer === 'feature-previews' && layer !== 'feature-previews';
 
-  return upward || crossPage || privateFeature;
+  return upward || crossPage || privateFeatureImport(layer, domain, target) || previewImport;
 }
 
 function rawClient(source: string): boolean {

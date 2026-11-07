@@ -1,57 +1,38 @@
 ---
 title: Privacy e dati
-description: Cosa resta sul tuo computer, cosa va al tuo piano ChatGPT, e dove Study tiene i tuoi file.
-section: more
-order: 2
+description: Comprendi l'archiviazione locale, cosa viene inviato a ChatGPT e come conservare un backup.
+section: reference
+order: 5
 ---
 
-Study lavora in locale. Progetti, sessioni, file e registrazioni stanno in un unico database sul tuo computer. Non esiste un account Study né un server Study. Quando un'attività ha bisogno di un modello linguistico, Study la manda al tuo piano ChatGPT, e solo quello che serve a quell'attività.
+Study conserva l'area di lavoro salvata in un database SQLite sul tuo computer. Materie, sessioni, documenti ed esercitazioni salvate appartengono a quell'area locale. L'app desktop esegue un proprio processo server privato per l'interfaccia e i servizi dell'applicazione.
 
-## Cosa usa il tuo piano ChatGPT
+## Cosa va a ChatGPT
 
-Queste attività vengono mandate a ChatGPT, con l'account con cui hai effettuato l'accesso:
+Quando richiedi lavoro ai modelli, Study usa la connessione a ChatGPT configurata. Secondo l'attività, le richieste possono contenere fonti, appunti salvati, testo dei documenti selezionati, istruzioni o una risposta a un'esercitazione.
 
-- leggere le pagine dei PDF e le immagini
-- correggere le trascrizioni
-- dare un nome alle sessioni
-- rispondere agli appunti che menzionano @study
-- scrivere flashcard e schemi
-- scrivere le domande delle esercitazioni e correggere le tue risposte
+Alcuni esempi sono leggere materiale sorgente supportato, rispondere a una domanda, trasformare sessioni in un documento, generare esercitazioni e valutare risposte scritte. Il contenuto necessario a queste operazioni lascia l'area locale per essere elaborato dal fornitore.
 
-Ogni richiesta porta il testo o le pagine che servono a quell'attività, per esempio i passaggi da cui cita una risposta. Valgono i termini e i limiti di utilizzo del piano, come in ChatGPT. Puoi uscire in qualsiasi momento da **Impostazioni › Modelli linguistici** con **Esci**.
+Usa **Impostazioni** per controllare l'account collegato e disconnetterti quando vuoi. Al lavoro inviato tramite il piano si applicano il suo accesso e i suoi limiti di utilizzo.
 
-## Cosa gira sul tuo computer
+## Contenuto locale e rete
 
-Due cose non lasciano mai il tuo computer:
+Salvare un appunto è un'azione distinta dal chiedere una risposta o una trasformazione. Controlla il materiale selezionato prima di avviare il lavoro dei modelli, soprattutto se contiene informazioni personali o sensibili.
 
-- **La trascrizione.** Le registrazioni diventano testo grazie a un modello vocale che gira in locale. Da scaricare pesa circa 670 MB e usa circa 2 GB di memoria per ogni copia in funzione. **Copie del modello** in **Impostazioni › Trascrizione** decide quante ne girano insieme.
-- **La ricerca per significato.** Un modello multilingue di circa 135 MB trasforma il tuo testo in qualcosa che la ricerca può confrontare. Vedi [ricerca](../search/).
+Anche recuperare un link usa la rete per contattare la fonte fornita. L'archiviazione locale non implica che ogni operazione sia offline. Controlla lo stato senza dare per scontato che un file conservato sia stato elaborato in locale.
 
-L'audio delle tue registrazioni resta sul tuo computer. Viene inviata solo la trascrizione, se lasci attiva **Correggi le trascrizioni con l'IA**.
+## Dove stanno i dati
 
-## Download
+L'app desktop usa la cartella dei dati dell'applicazione prevista dal sistema operativo. Il nome predefinito del database è `study.sqlite`. Gli ambienti di sviluppo e quelli configurati esplicitamente possono usare una posizione diversa.
 
-Study non scarica niente di sua iniziativa. I due modelli locali arrivano da Hugging Face, e solo quando scegli di installarli, durante il tour di benvenuto o in **Impostazioni › Questo computer**. Gli aggiornamenti dell'app si scaricano solo quando scegli **Installa e riavvia**.
+Usa i comandi per dati e backup dell'app invece di affidarti a percorsi di una guida precedente. File originali, materiale estratto e documenti hanno ruoli distinti; controlla cosa contiene un backup prima di ripristinarlo.
 
-## Altri usi della rete
+## Conserva un backup
 
-- **Aggiungi link** scarica la pagina web che gli dai, direttamente dal tuo computer.
-- Per un link di YouTube, Study esegue yt-dlp sul tuo computer per prenderne l'audio.
+Apri **Impostazioni** e trova la sezione dei dati. Crea un backup, controlla quelli salvati o importa un file `.studybackup`. Rivedi l'anteprima del ripristino e la conferma prima di sostituire dati.
 
-## Dove stanno i tuoi dati
+Un backup locale sullo stesso computer aiuta il recupero, ma conservarne un'altra copia esportata altrove protegge dalla perdita del computer. Conserva i backup in modo adeguato alla sensibilità dei contenuti.
 
-Study tiene il database e il suo log in una cartella, e i modelli scaricati in un'altra.
+## Rimuovere l'app
 
-| Piattaforma | Database e log                         | Modelli                              |
-| ----------- | -------------------------------------- | ------------------------------------ |
-| Linux       | `~/.local/share/study/`                | `~/.cache/study/models/`             |
-| macOS       | `~/Library/Application Support/Study/` | `~/Library/Caches/Study/models/`     |
-| Windows     | `%LOCALAPPDATA%\Study\data\`           | `%LOCALAPPDATA%\Study\cache\models\` |
-
-Su Linux, `XDG_DATA_HOME` e `XDG_CACHE_HOME` spostano queste cartelle se le hai impostate.
-
-La cartella dei dati contiene `study.sqlite3`, il database, e `diagnostics.log`, un log che può aiutare quando qualcosa va storto. Su Linux e macOS la cartella è accessibile solo dal tuo account utente.
-
-## Conservare o eliminare
-
-Per fare un backup del tuo lavoro, copia la cartella dei dati mentre Study è chiuso. Per eliminare tutto, chiudi Study ed elimina entrambe le cartelle. Aggiornare l'app non le tocca mai.
+Disinstallare l'applicazione ed eliminare i dati salvati sono azioni distinte. Prima crea un backup di ciò che ti serve. Usa i comandi dei dati disponibili e la posizione dei dati dell'applicazione del sistema operativo quando intendi rimuovere anche il lavoro salvato.
