@@ -170,6 +170,11 @@ export const setActiveVersionInputSchema = Schema.Struct({
   versionId: versionIdSchema
 });
 
+export const mergeSessionsInputSchema = Schema.Struct({
+  sessionIds: Schema.Array(sessionIdSchema).check(Schema.isBetweenLength(2, 20)),
+  intentKey: Schema.String.check(Schema.isBetweenLength(1, 200))
+});
+
 export const renameSessionInputSchema = Schema.Struct({
   id: sessionIdSchema,
   title: Schema.String
@@ -186,6 +191,11 @@ export const transformSuggestionInputSchema = Schema.Struct({
 });
 
 export const ConversationsRpc = RpcGroup.make(
+  Rpc.make('mergeSessions', {
+    payload: mergeSessionsInputSchema,
+    success: sessionSchema,
+    error: failureSchema
+  }),
   Rpc.make('newAssistantSession', {
     payload: assistantChatStartSchema,
     success: sessionSchema,

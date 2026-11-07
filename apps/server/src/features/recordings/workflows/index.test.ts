@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sql } from '@study/db';
+import { eq, sql } from '@study/db';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -232,6 +232,44 @@ for (const deleteCommittedMessage of [false, true])
 
             if (!deleteCommittedMessage)
               assert.strictEqual(messages.items[0]?.recordedIn, result.sourceId);
+
+            if (!deleteCommittedMessage) {
+              const conversations = yield* Conversations;
+              const other = yield* conversations.createSession({ title: 'Merge partner' });
+              const merged = yield* conversations.mergeSessions({
+                sessionIds: [pending.session.id, other.id],
+                intentKey: 'recording-merge'
+              });
+              const copied = context.db.orm
+                .select()
+                .from(tables.recordings)
+                .where(eq(tables.recordings.session_id, merged.id))
+                .get()!;
+
+              expect(copied.id).not.toBe(pending.post.recordingId);
+              expect((yield* recordings.recording(copied.id)).samples).toBe(3n);
+              expect((yield* recordings.recordings({ limit: 100 })).items).toHaveLength(0);
+              expect(
+                (yield* Effect.flip(recordings.appendRecording({ id: copied.id, samples: [1] })))
+                  .kind
+              ).toBe('invalid_input');
+              expect((yield* Effect.flip(recordings.deleteRecording(copied.id))).kind).toBe(
+                'invalid_input'
+              );
+              expect(
+                (yield* Effect.flip(
+                  recordings.postRecording({
+                    session: merged.id,
+                    recording: copied.id,
+                    name: 'duplicate.wav'
+                  })
+                )).kind
+              ).toBe('invalid_input');
+              expect(
+                (yield* conversations.thread({ sessionId: merged.id, limit: 100 })).items[0]
+                  ?.recordedIn
+              ).toBe(result.sourceId);
+            }
 
             yield* (yield* Projects).deleteProject({ id: pending.project.id });
             assert.strictEqual(

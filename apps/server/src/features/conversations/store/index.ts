@@ -50,6 +50,7 @@ const row = (
   id: value.id,
   title: value.title,
   titleSource: value.title_source,
+  archivedAt: value.archived_at,
   createdAt: value.created_at,
   updatedAt: value.updated_at
 });
@@ -156,6 +157,7 @@ export const SessionStore = defineStore({
                     .where(
                       and(
                         eq(sessions.title_source, 'provisional'),
+                        sql`${sessions.archived_at} IS NULL`,
                         eq(sessions.mode, mode),
                         sql`json_array_length(${sessions.selection}) = 0`,
                         sql`NOT EXISTS (SELECT 1 FROM ${messages} WHERE ${messages.session_id} = ${sessions.id})`,

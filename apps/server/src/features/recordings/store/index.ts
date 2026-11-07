@@ -79,6 +79,9 @@ function makeHelpers({ db }: StoreResources) {
 
   function mutable(id: typeof recordingIdSchema.Type) {
     required(recording(id));
+    const row = db.orm.select().from(recordings).where(eq(recordings.id, id)).get();
+
+    if (row?.sealed_at !== null) throw new StudyError('invalid_input', 'Recording is sealed');
 
     if (
       db.orm
@@ -123,6 +126,7 @@ export const RecordingStore = defineStore({
               .from(recordings)
               .where(
                 and(
+                  sql`${recordings.sealed_at} IS NULL`,
                   before === undefined ? undefined : lt(recordings.id, before),
                   sql`NOT EXISTS (SELECT 1 FROM recording_posts p WHERE p.recording_id = ${recordings.id} AND p.message_id IS NOT NULL)`
                 )
@@ -202,7 +206,7 @@ export const RecordingPostStore = defineStore({
   name: 'study/RecordingPostStore',
   entity: { singular: 'recordingPost', plural: 'recordingPosts' },
   make: ({ db, clock }) => {
-    const { recording, post } = makeHelpers({ db, clock });
+    const { recording, post, mutable } = makeHelpers({ db, clock });
 
     return {
       queries: {
@@ -239,6 +243,7 @@ export const RecordingPostStore = defineStore({
               return post(existing.request_id);
             }
 
+            mutable(input.recording);
             required(db.orm.select().from(sessions).where(eq(sessions.id, input.session)).get());
             const chunks = db.orm
               .select({ pcm: recording_chunks.pcm })

@@ -243,6 +243,32 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
       (await run(Effect.flatMap(Conversations, (c) => c.session(invalid.session.id)))).title ===
         'Valid retry'
     );
+    const mergeFirst = await make();
+    const mergeSecond = await make();
+    const merged = await run(
+      Effect.flatMap(Conversations, (c) =>
+        c.mergeSessions({
+          sessionIds: [mergeFirst.session.id, mergeSecond.session.id],
+          intentKey: 'title-merge'
+        })
+      )
+    );
+    const mergeEvent = decodeEvent(
+      context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
+    );
+
+    assert.ok(
+      mergeEvent.type === 'ConversationTitleRequested',
+      'merge must queue the existing title workflow'
+    );
+    output = 'Combined Biology';
+    await execute(mergeEvent, 'merged-title');
+    expect((await run(Effect.flatMap(Conversations, (c) => c.session(merged.id)))).title).toBe(
+      'Combined Biology'
+    );
+    expect(
+      (await run(Effect.flatMap(Conversations, (c) => c.session(mergeFirst.session.id)))).archivedAt
+    ).not.toBeNull();
   } finally {
     await auth.dispose();
     context.close();

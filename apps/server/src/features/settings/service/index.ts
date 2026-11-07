@@ -49,11 +49,13 @@ import {
   defaultConcurrencySettings,
   defaultAppearancePreferences
 } from '@study/contracts/settings/types';
+import type { UsageQuery } from '@study/contracts/settings/usage';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
 import { defineService } from '#server/platform/definitions/define-service';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
+import { UsageStore } from '#server/platform/observability/usage-store';
 
 type Preferences = Record<string, JsonValue>;
 
@@ -83,8 +85,10 @@ const llmSettings = (v: Preferences): LlmSettings => {
 
 const make = Effect.gen(function* () {
   const store = yield* useStore(SettingsStore);
+  const usage = yield* useStore(UsageStore);
 
   return {
+    usage: (query: UsageQuery) => usage.usageReport(query),
     agentRules: () =>
       store.preference('agent-rules').pipe(
         Effect.map((values) => {

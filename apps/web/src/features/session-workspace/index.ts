@@ -16,3 +16,5 @@ export { startDraftsOptions, startDraftKey, dismissStartDraft } from './start-dr
 export { startDraftOptions, startFilesOptions, creationFlowOptions } from './start.queries';
 
 export { useRegenerateSessionTitle } from './session-title.queries';
+
+export { SessionMergeDialog } from './merge';

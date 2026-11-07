@@ -19,6 +19,7 @@ import { errorKindSchema } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import { llmSettingsSchema } from '@study/contracts/settings/schemas';
 import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { UsageRecord } from '@study/contracts/settings/usage';
 import type { Context } from 'effect';
 import { Clock, Effect, Exit, Metric, References } from 'effect';
 
@@ -68,6 +69,20 @@ const aiAdmission = Metric.counter('study.ai.admission');
 const activeAi = Metric.gauge('study.ai.active');
 
 const aiRetry = Metric.counter('study.ai.retry');
+
+const tokenMetrics = {
+  input: Metric.counter('study.ai.tokens.input'),
+  cacheRead: Metric.counter('study.ai.tokens.cache_read'),
+  cacheWrite: Metric.counter('study.ai.tokens.cache_write'),
+  output: Metric.counter('study.ai.tokens.output'),
+  reasoning: Metric.counter('study.ai.tokens.reasoning')
+};
+
+/** Subset counters stay separate: cache is included in input, reasoning in output. */
+export const recordAiTokens = (usage: UsageRecord) =>
+  Effect.forEach(Object.entries(tokenMetrics), ([key, metric]) =>
+    recordMetric(Metric.update(metric, usage[key as keyof typeof tokenMetrics]))
+  ).pipe(Effect.asVoid);
 
 const configurationWait = Metric.counter('study.configuration.wait');
 
@@ -227,4 +242,10 @@ export function observeSyncOperation<A>(
 export const recordSearchReconciliationRetry = (errorKind: ErrorKind) =>
   Effect.logWarning('search.reconciliation.retry').pipe(
     Effect.annotateLogs(safeMetadata({ errorKind }))
+  );
+
+/** Report accounting failure without retaining the call payload or ambient metadata. */
+export const recordUsageFailure = () =>
+  Effect.logWarning('usage.record.failure').pipe(
+    Effect.provideService(References.CurrentLogAnnotations, {})
   );

@@ -35,6 +35,7 @@ const sessions = [1n, 2n, 3n].map((id) =>
     id,
     title: 'Session ' + id,
     titleSource: 'user',
+    archivedAt: null,
     projectIds: [],
     createdAt: 1n,
     updatedAt: 2n
@@ -547,4 +548,43 @@ testStable('opens the conversion dialog from a row without navigating or settlin
   expect(within(dialog).getByText('Session 1')).toBeVisible();
   expect(within(dialog).queryByText('Session 2')).not.toBeInTheDocument();
   expect(router.state.location.pathname).toBe('/');
+});
+
+testStable('offers merge only after selecting at least two sessions', async () => {
+  api.settings.mockResolvedValue({ settledDocumentThreshold: 1 });
+  api.summaries.mockResolvedValue({ items: [] });
+  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  caches.push(cache);
+  const route = createRootRoute({
+    component: () => (
+      <RichSidebarSessions
+        sessions={sessions}
+        subjects={[]}
+        project={undefined}
+        selectedSession={null}
+      />
+    )
+  });
+  const router = createRouter({
+    routeTree: route,
+    history: createMemoryHistory({ initialEntries: ['/'] })
+  });
+
+  render(
+    <QueryClientProvider client={cache}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
+  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Session 1' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectSessions' }));
+  expect(screen.getByRole('button', { name: 'SessionMerge' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Session 2' }));
+  expect(screen.getByRole('button', { name: 'SessionMerge' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'SessionMerge' }));
+  const dialog = await screen.findByRole('dialog');
+
+  expect(within(dialog).getByText('SessionMergeHelp')).toBeInTheDocument();
+  expect(within(dialog).getByText('Session 1')).toBeInTheDocument();
+  expect(within(dialog).getByText('Session 2')).toBeInTheDocument();
 });

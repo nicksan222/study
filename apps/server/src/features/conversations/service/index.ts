@@ -183,6 +183,7 @@ function normalizeAsk(input: typeof askInputSchema.Type) {
 
 import { makeAssistantConversations } from './assistant.ts';
 import { ensureSession, notebookSession } from './ensure-session.ts';
+import { mergeSessions } from './merge.ts';
 
 export const Conversations = defineService(
   'study/Conversations',
@@ -459,6 +460,7 @@ export const Conversations = defineService(
 
           return snapshot;
         }),
+      mergeSessions,
       titleSnapshot: titles.titleSnapshot,
       createUntitledSession: (input: typeof createUntitledSessionInputSchema.Type) =>
         Effect.gen(function* () {

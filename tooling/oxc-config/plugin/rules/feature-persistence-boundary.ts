@@ -36,6 +36,7 @@ const groups: Record<string, string[]> = {
     'session_retired_intents',
     'session_run_contexts',
     'session_deletions',
+    'session_merges',
     'session_sidebar_preferences',
     'session_deletion_correlations'
   ],
@@ -100,6 +101,7 @@ const groups: Record<string, string[]> = {
   themes: ['themes'],
   'settings,auth,themes': ['preferences'],
   readonly: [
+    'ai_usage',
     'document_assets',
     'codes_source_origin',
     'codes_source_kind',

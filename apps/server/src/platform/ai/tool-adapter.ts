@@ -16,6 +16,7 @@
 
 import type { agentUpdateSchema } from '@study/contracts/ai/progress';
 import { StudyError } from '@study/contracts/errors';
+import type { UsageRecord } from '@study/contracts/settings/usage';
 import { dynamicTool } from 'ai';
 import { Cause, Effect, Exit, Option, Schema } from 'effect';
 import type { Context, Tracer } from 'effect';
@@ -163,4 +164,19 @@ function toolFailureKind(cause: Cause.Cause<StudyError>) {
   const failure = Cause.findErrorOption(cause);
 
   return Option.isSome(failure) ? failure.value.kind : ('internal' as const);
+}
+
+/** Accounting uses its explicit dependencies, independently of workflow publication fences and cancellation. */
+export function adaptUsageRecorder(
+  record: (usage: UsageRecord) => Effect.Effect<void>,
+  span: Tracer.Span,
+  annotations: Readonly<Record<string, unknown>>
+) {
+  return (usage: UsageRecord) =>
+    Effect.runPromise(
+      record(usage).pipe(
+        Effect.annotateLogs(safeMetadata(annotations)),
+        Effect.withParentSpan(span)
+      )
+    );
 }

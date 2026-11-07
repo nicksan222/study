@@ -14,10 +14,16 @@ import {
   materialSettingsSchema,
   reviewSettingsSchema
 } from './schemas.ts';
+import { usageQuerySchema, usageReportSchema } from './usage.ts';
 
 const saved = Schema.Struct({});
 
 export const SettingsRpc = RpcGroup.make(
+  Rpc.make('usage', {
+    payload: usageQuerySchema,
+    success: usageReportSchema,
+    error: failureSchema
+  }),
   Rpc.make('agentRules', { payload: {}, success: agentRulesSchema, error: failureSchema }),
   Rpc.make('saveAgentRules', { payload: agentRulesSchema, success: saved, error: failureSchema }),
   Rpc.make('quizSettings', { payload: {}, success: quizSettingsSchema, error: failureSchema }),
