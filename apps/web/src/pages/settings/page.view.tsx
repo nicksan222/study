@@ -15,7 +15,12 @@ import {
   FileText,
   Sparkles,
   Gauge,
-  ListChecks
+  ListChecks,
+  ChartNoAxesColumn,
+  TextCursorInput,
+  ListOrdered,
+  Link2,
+  Binary
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -129,7 +134,7 @@ const sections = [
   {
     id: 'usage',
     label: 'UsageTitle',
-    Icon: Gauge,
+    Icon: ChartNoAxesColumn,
     keywords: ['UsageTokens', 'UsageProvider', 'UsageAgents']
   },
   {
@@ -163,6 +168,30 @@ const sections = [
     ]
   },
   {
+    id: 'fill_blank',
+    label: 'PracticeFillBlank',
+    Icon: TextCursorInput,
+    keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
+  },
+  {
+    id: 'ordering',
+    label: 'PracticeOrdering',
+    Icon: ListOrdered,
+    keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
+  },
+  {
+    id: 'matching',
+    label: 'PracticeMatching',
+    Icon: Link2,
+    keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
+  },
+  {
+    id: 'true_false',
+    label: 'PracticeTrueFalse',
+    Icon: Binary,
+    keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
+  },
+  {
     id: 'projects',
     label: 'ProjectSettingsTitle',
     Icon: Folder,
@@ -182,6 +211,22 @@ const sections = [
 }[];
 
 export type SettingsSectionId = (typeof sections)[number]['id'];
+
+const navigationGroups = [
+  {
+    label: 'SettingsGroupWorkspace',
+    ids: ['general', 'appearance', 'sidebar', 'writing', 'reading']
+  },
+  {
+    label: 'SettingsAi',
+    ids: ['account', 'models', 'instructions', 'automation', 'usage', 'performance']
+  },
+  {
+    label: 'Practice',
+    ids: ['flashcards', 'quizzes', 'fill_blank', 'ordering', 'matching', 'true_false']
+  },
+  { label: 'SettingsGroupLibrary', ids: ['projects', 'data'] }
+] as const satisfies readonly { label: StaticMessageKey; ids: readonly SettingsSectionId[] }[];
 
 /** Composes settings navigation and passes subject identity and committed deletion outcomes to its section. */
 export function PageView({
@@ -255,16 +300,19 @@ function SettingsNavigation({
   onSectionChange: (section: SettingsSectionId) => void;
 }) {
   const { t } = useI18n();
-  const items = sections.map((item) => ({
-    id: item.id,
-    label: t(item.label),
-    icon: <item.Icon aria-hidden="true" />
+  const groups = navigationGroups.map((group) => ({
+    label: t(group.label),
+    items: group.ids.map((id) => {
+      const item = sections.find((item) => item.id === id)!;
+
+      return { id: item.id, label: t(item.label), icon: <item.Icon aria-hidden="true" /> };
+    })
   }));
 
   return (
     <Settings.Navigation
       label={t('Settings')}
-      items={items}
+      groups={groups}
       value={section}
       onValueChange={onSectionChange}
     />
@@ -345,7 +393,11 @@ function SectionContent({
     performance: <PerformanceSettings />,
     usage: <UsageSettings />,
     flashcards: <StudySettings />,
-    quizzes: <QuizSettings />
+    quizzes: <QuizSettings />,
+    fill_blank: <QuizSettings kind="fill_blank" />,
+    ordering: <QuizSettings kind="ordering" />,
+    matching: <QuizSettings kind="matching" />,
+    true_false: <QuizSettings kind="true_false" />
   } satisfies Record<SettingsSectionId, ReactNode>;
 
   return content[section];

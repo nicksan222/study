@@ -106,3 +106,29 @@ testStable('persists new quiz choice count and difficulty in study settings', as
     })
   );
 });
+
+testStable('saves matching defaults independently of quiz defaults', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+  clients.push(client);
+  render(
+    <QueryClientProvider client={client}>
+      <QuizSettings kind="matching" />
+    </QueryClientProvider>
+  );
+  const difficulty = await screen.findByRole('combobox', { name: 'QuizDifficulty' });
+
+  await waitFor(() => expect(difficulty).toBeEnabled());
+  const user = userEvent.setup();
+
+  await user.click(difficulty);
+  await user.click(await screen.findByRole('option', { name: 'QuizDifficultyChallenging' }));
+  await waitFor(() =>
+    expect(api.save).toHaveBeenCalledWith({
+      ...defaultQuizSettings,
+      practice: { matching: { questionCount: 10, difficulty: 'challenging' } }
+    })
+  );
+  expect(screen.queryByRole('combobox', { name: 'QuizQuestionKind' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: 'QuizGenerateChoices' })).not.toBeInTheDocument();
+});

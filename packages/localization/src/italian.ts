@@ -2064,6 +2064,12 @@ export const italian = Object.freeze({
   ProblemGone: 'Ciò su cui stava lavorando è stato eliminato.',
   ProblemUnknown: 'Qualcosa è andato storto. Riprova; se succede ancora, i dettagli dicono di più.',
   SettingsGeneral: 'Generali',
+  SettingsGroupWorkspace: 'Spazio di lavoro',
+  SettingsGroupLibrary: 'Libreria',
+  PracticeSettingsIntro:
+    'Queste preferenze si applicano alla generazione di questo tipo di esercizio. Gli altri tipi mantengono le proprie impostazioni.',
+  PracticeSettingsQuestionCount: 'Domande per esercizio',
+  PracticeSettingsQuestionCountHelp: 'Quante domande generare per questo tipo di esercizio.',
   SettingsAi: 'IA',
   Language: 'Lingua',
   LanguageDescription: 'Scegli la lingua usata in Study.',

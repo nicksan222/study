@@ -151,7 +151,7 @@ testStable('shows only working interface controls and saves their committed valu
   expect(screen.getByRole('slider', { name: 'Text size' })).toBeInTheDocument();
 });
 
-testStable('orders a single settings list and shows relevant cross-section search results', () => {
+testStable('groups settings navigation and shows relevant cross-section search results', () => {
   const onSectionChange = vi.fn();
   const { rerender } = render(
     <PageView open onClose={vi.fn()} model={appearanceModel()} onSectionChange={onSectionChange} />
@@ -176,11 +176,24 @@ testStable('orders a single settings list and shows relevant cross-section searc
     'Performance',
     'Flashcards',
     'Quizzes',
+    'Fill in the blank',
+    'Put in order',
+    'Matching',
+    'True or false',
     'Subjects',
     'Data & backups'
   ]);
-  expect(within(navigation).queryByRole('heading')).not.toBeInTheDocument();
-  expect(labels).toHaveLength(15);
+  expect(
+    within(navigation)
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent)
+  ).toEqual(['Workspace', 'AI', 'Practice', 'Library']);
+  const icons = within(navigation)
+    .getAllByRole('button')
+    .map((button) => button.querySelector('svg')?.innerHTML);
+
+  expect(new Set(icons).size).toBe(labels.length);
+  expect(labels).toHaveLength(19);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'

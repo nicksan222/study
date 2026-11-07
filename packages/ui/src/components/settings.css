@@ -441,6 +441,7 @@
     gap: 0.5rem;
   }
   .settings-navigation-item svg {
+    flex-shrink: 0;
     width: 1rem;
     height: 1rem;
   }
@@ -594,7 +595,19 @@
 .settings-nav {
   display: flex;
   flex-direction: column;
+  gap: 1rem;
+}
+.settings-nav-group {
+  display: flex;
+  flex-direction: column;
   gap: 0.25rem;
+}
+.settings-nav-group-title {
+  margin: 0;
+  padding: 0.25rem 0.625rem;
+  color: var(--contrast-sidebar-muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 .settings-nav .settings-navigation-item {
   width: 100%;
@@ -641,6 +654,17 @@
   .settings-nav {
     flex-direction: row;
     width: max-content;
+  }
+  .settings-nav-group {
+    flex-direction: row;
+    align-items: center;
+  }
+  .settings-nav-group-title {
+    display: none;
+  }
+  .settings-nav-group + .settings-nav-group {
+    border-inline-start: 1px solid var(--contrast-border);
+    padding-inline-start: 1rem;
   }
   .settings-nav .settings-navigation-item {
     width: auto;

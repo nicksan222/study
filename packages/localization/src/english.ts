@@ -2019,6 +2019,12 @@ export const english = Object.freeze({
   ProblemGone: 'What this was working on has been deleted.',
   ProblemUnknown: 'Something went wrong. Try again; if it keeps happening, the details say more.',
   SettingsGeneral: 'General',
+  SettingsGroupWorkspace: 'Workspace',
+  SettingsGroupLibrary: 'Library',
+  PracticeSettingsIntro:
+    'These defaults apply when generating this type of practice. Other practice types keep their own settings.',
+  PracticeSettingsQuestionCount: 'Questions per practice',
+  PracticeSettingsQuestionCountHelp: 'How many questions to generate for this practice type.',
   SettingsAi: 'AI',
   Language: 'Language',
   LanguageDescription: 'Choose the language used throughout Study.',

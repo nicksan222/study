@@ -326,10 +326,21 @@ testStable(
 
 for (const [kind, label] of [
   ['fill_blank', en.PracticeFillBlank],
-  ['matching', en.PracticeMatching]
+  ['matching', en.PracticeMatching],
+  ['ordering', en.PracticeOrdering],
+  ['true_false', en.PracticeTrueFalse]
 ] as const)
-  testStable(`generates ${kind} practice with a typed kind and saved difficulty`, async () => {
+  testStable(`generates ${kind} practice with its independent defaults`, async () => {
     const rpc = rpcFixture();
+
+    rpc['settings.quizSettings'].mockReturnValue(
+      Effect.succeed({
+        ...defaultQuizSettings,
+        questionCount: 3,
+        choiceCount: 2,
+        practice: { [kind]: { questionCount: 7, difficulty: 'challenging' } }
+      })
+    );
     const user = userEvent.setup();
 
     mountLibraryRoute('/practice/41?project=1', rpc);
@@ -345,10 +356,10 @@ for (const [kind, label] of [
           title: label,
           autoTitle: true,
           quizConfig: {
-            questionCount: 3,
+            questionCount: 7,
             choiceCount: 2,
             questionKind: kind,
-            difficulty: 'balanced'
+            difficulty: 'challenging'
           }
         })
       )
