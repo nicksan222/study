@@ -28,6 +28,7 @@ import {
   material_diagram_versions,
   material_flashcard_entries,
   material_quiz_choices,
+  material_quiz_ordering_items,
   material_quiz_questions,
   project_materials
 } from '@study/db/schema';
@@ -89,6 +90,7 @@ function targetFilter(input: SearchProjectionPageInput) {
 }
 
 /** Project only current published materials and questions while keeping hidden answer metadata private. */
+/** Projects visible material text without exposing private quiz answer metadata. */
 export function makeMaterialSearchProjections({ db }: StoreResources) {
   /** Fetch project membership once for the distinct material identities in this page. */
   const membershipsFor = (rows: readonly MaterialRow[]) => {
@@ -106,6 +108,7 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
     return memberships;
   };
   /** Collect visible choice text in presentation order without indexing correctness metadata. */
+  /** Adds ordering text alphabetically so search records reveal no canonical positions. */
   const choicesFor = (ids: readonly QuizQuestionId[]) => {
     const choices = new Map<QuizQuestionId, string[]>();
 
@@ -118,6 +121,14 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
       .orderBy(asc(material_quiz_choices.question_id), asc(material_quiz_choices.position))
       .all())
       append(choices, choice.question_id, choice.text);
+
+    for (const item of db.orm
+      .select()
+      .from(material_quiz_ordering_items)
+      .where(inArray(material_quiz_ordering_items.question_id, ids))
+      .orderBy(asc(material_quiz_ordering_items.text))
+      .all())
+      append(choices, item.question_id, item.text);
 
     return choices;
   };

@@ -20,10 +20,10 @@ testStable(
 
     try {
       for (const name of readdirSync(migrations)) {
-        if (name < '20261107130459_true-false-practice')
+        if (name < '20261107154928_true-false-practice')
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
 
-        if (name <= '20261107130459_true-false-practice')
+        if (name <= '20261107154928_true-false-practice')
           cpSync(join(migrations, name), join(current, name), { recursive: true });
       }
 

@@ -13,12 +13,15 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type { QuizOrderingItemId } from '@study/contracts/ids';
 import type { MaterialVersionId, QuizAttemptId } from '@study/contracts/ids';
 import type { QuizQuestionId, QuizChoiceId } from '@study/contracts/ids';
+import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
 import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
 import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -28,7 +31,7 @@ import { matchingView } from './matching.ts';
 
 export { unixSeconds as now } from '#server/platform/time/index';
 
-/** Read canonical questions and derive learner-safe attempt views from persisted state. */
+/** Reads attempt snapshots while keeping canonical answers private until completion. */
 export function makeQuiz(resources: StoreResources) {
   const { db } = resources;
 
@@ -133,7 +136,64 @@ export function makeQuiz(resources: StoreResources) {
       : 0;
   }
 
-  /** Hide answer keys until completion and include deterministic per-pair matching results afterward. */
+  /** Loads the private canonical sequence for validation and completed results. */
+  function orderingItems(questionId: QuizQuestionId) {
+    return db.orm
+      .select()
+      .from(s.material_quiz_ordering_items)
+      .where(eq(s.material_quiz_ordering_items.question_id, questionId))
+      .orderBy(asc(s.material_quiz_ordering_items.position))
+      .all();
+  }
+
+  /** Awards one point only for a complete, valid permutation in canonical order. */
+  function orderingScore(questionId: QuizQuestionId, selected: readonly QuizOrderingItemId[]) {
+    const correct = orderingItems(questionId);
+
+    if (
+      selected.length !== correct.length ||
+      new Set(selected).size !== selected.length ||
+      selected.some((id) => !correct.some((item) => item.id === id))
+    )
+      invalid('invalid ordering permutation');
+
+    return correct.every((item, index) => item.id === selected[index]) ? 1 : 0;
+  }
+
+  /** Read the stable ordering presentation without exposing the canonical sequence. */
+  function orderingView(
+    q: ReturnType<typeof attemptQuestions>[number],
+    response: typeof s.material_quiz_responses.$inferSelect | undefined,
+    attemptId: QuizAttemptId
+  ) {
+    const items = orderingItems(q.id);
+    const presentation = db.orm
+      .select()
+      .from(s.material_quiz_attempt_ordering_items)
+      .where(
+        and(
+          eq(s.material_quiz_attempt_ordering_items.attempt_id, attemptId),
+          eq(s.material_quiz_attempt_ordering_items.question_id, q.id)
+        )
+      )
+      .orderBy(asc(s.material_quiz_attempt_ordering_items.position))
+      .all();
+
+    return {
+      id: q.id,
+      position: q.position,
+      prompt: q.prompt,
+      kind: 'ordering' as const,
+      items: presentation.map((entry) => {
+        const item = requireRow(items.find((item) => item.id === entry.item_id));
+
+        return { id: item.id, text: item.text };
+      }),
+      answer: response ? Schema.decodeUnknownSync(orderingAnswerJsonSchema)(response.answer) : null
+    };
+  }
+
+  /** Restores stable presentation and learner responses without leaking in-progress answers. */
   function attemptView(attemptId: QuizAttemptId) {
     const attempt = attemptRow(attemptId);
     const version = published(attempt.version_id, 'quiz');
@@ -209,10 +269,12 @@ export function makeQuiz(resources: StoreResources) {
         prompt: q.prompt
       };
 
+      if (q.kind === 'ordering') return orderingView(q, response, attemptId);
+
       if (q.kind === 'matching')
         return {
           ...base,
-          ...matchingView(q.matching_pairs!, q.matching_order ?? [], response?.answer ?? null)
+          ...matchingView(q.matching_pairs!, q.matching_order ?? [], storedResponse(response))
         };
 
       if (isTextQuestionKind(q.kind))
@@ -283,8 +345,15 @@ export function makeQuiz(resources: StoreResources) {
         explanation: question.explanation,
         score: response?.score ?? null,
         feedback: response?.feedback ?? null,
-        grading: gradingState(response)
+        grading: responseGrading(response)
       };
+
+      if (item.kind === 'ordering')
+        return {
+          ...item,
+          ...result,
+          correctItemIds: orderingItems(item.id).map((item) => item.id)
+        };
 
       if (item.kind === 'matching')
         return {
@@ -346,13 +415,19 @@ export function makeQuiz(resources: StoreResources) {
     attemptQuestions,
     choices,
     choiceScore,
+    orderingScore,
     attemptView
   };
 }
 
-/** Distinguish missing answers from answers whose durable text grade is still pending. */
-function gradingState(response: typeof s.material_quiz_responses.$inferSelect | undefined) {
+/** Distinguishes unanswered responses from pending and settled grades. */
+function responseGrading(response: typeof s.material_quiz_responses.$inferSelect | undefined) {
   if (!response) return 'unanswered' as const;
 
   return response.score === null ? ('ungraded' as const) : ('graded' as const);
+}
+
+/** Return the persisted structured answer, keeping unanswered questions explicit. */
+function storedResponse(response: typeof s.material_quiz_responses.$inferSelect | undefined) {
+  return response?.answer ?? null;
 }

@@ -268,15 +268,17 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
           key: String(question.id),
           prompt: question.prompt,
           detail: t(
-            question.kind === 'matching'
-              ? 'PracticeMatching'
-              : question.kind === 'true_false'
-                ? 'PracticeTrueFalse'
-                : question.kind === 'fill_blank'
-                  ? 'PracticeFillBlank'
-                  : question.kind === 'open'
-                    ? 'QuestionOpen'
-                    : 'QuestionChoice'
+            question.kind === 'ordering'
+              ? 'PracticeOrdering'
+              : question.kind === 'matching'
+                ? 'PracticeMatching'
+                : question.kind === 'true_false'
+                  ? 'PracticeTrueFalse'
+                  : question.kind === 'fill_blank'
+                    ? 'PracticeFillBlank'
+                    : question.kind === 'open'
+                      ? 'QuestionOpen'
+                      : 'QuestionChoice'
           )
         }))}
       />
@@ -292,6 +294,11 @@ function savedAnswer(
   const answer = question.answer;
 
   if (!answer) return null;
+
+  if (answer.type === 'ordering' && question.kind === 'ordering')
+    return answer.itemIds
+      .map((id) => question.items.find((item) => item.id === id)?.text ?? '')
+      .join(' → ');
 
   if (answer.type === 'open') return answer.answer;
 

@@ -1,6 +1,7 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, randomBytes } from 'node:crypto';
 
 import { matchingTermIdSchema, matchingDefinitionIdSchema } from '@study/contracts/ids';
+import { quizOrderingItemIdSchema } from '@study/contracts/ids';
 import { materialContentInputSchema } from '@study/contracts/materials/schemas';
 import { eq } from '@study/db';
 import {
@@ -13,6 +14,7 @@ import {
   material_quiz_versions,
   material_quiz_questions,
   material_quiz_choices,
+  material_quiz_ordering_items,
   material_quiz_open_answers,
   material_diagram_versions
 } from '@study/db/schema';
@@ -87,7 +89,21 @@ function seedQuiz(
       .returning()
       .get();
 
-    if ('referenceAnswer' in value) {
+    if (value.kind === 'ordering') {
+      db.orm
+        .insert(material_quiz_ordering_items)
+        .values(
+          value.items.map((item, position) => ({
+            id: Schema.decodeUnknownSync(quizOrderingItemIdSchema)(
+              randomBytes(8).readBigUInt64BE() & 0x7fffffffffffffffn || 1n
+            ),
+            question_id: question.id,
+            position: BigInt(position),
+            text: item.text
+          }))
+        )
+        .run();
+    } else if ('referenceAnswer' in value) {
       db.orm
         .insert(material_quiz_open_answers)
         .values({

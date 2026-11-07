@@ -8,7 +8,8 @@ import {
   materialVersionIdSchema,
   quizAttemptIdSchema,
   quizChoiceIdSchema,
-  quizQuestionIdSchema
+  quizQuestionIdSchema,
+  quizOrderingItemIdSchema
 } from '../ids.ts';
 
 export const learningIdSchema = Schema.BigInt.check(
@@ -22,6 +23,18 @@ export const learningTimeSchema = Schema.BigInt.check(
 export const learningVerdictSchema = Schema.Literals(['correct', 'partly', 'incorrect']);
 
 export const learningRatingSchema = Schema.Literals(['again', 'hard', 'good', 'easy']);
+
+const orderingAnswerSchema = Schema.Struct({
+  type: Schema.Literal('ordering'),
+  itemIds: Schema.mutable(Schema.Array(quizOrderingItemIdSchema)).check(
+    Schema.isBetweenLength(2, 10),
+    Schema.makeFilter((ids) => new Set(ids).size === ids.length)
+  )
+});
+
+export const orderingAnswerJsonSchema = Schema.fromJsonString(
+  Schema.toCodecJson(orderingAnswerSchema)
+);
 
 export const matchingAssociationsSchema = Schema.mutable(
   Schema.Array(
@@ -46,6 +59,7 @@ const matchingAnswerSchema = Schema.Struct({
 
 export const quizAnswerSchema = Schema.Union([
   matchingAnswerSchema,
+  orderingAnswerSchema,
   Schema.Struct({
     type: Schema.Literal('open'),
     answer: Schema.String.pipe(
@@ -127,6 +141,15 @@ const choiceAttemptQuestionFields = {
   )
 };
 
+const orderingAttemptQuestionFields = {
+  ...quizAttemptQuestionFields,
+  kind: Schema.Literal('ordering'),
+  items: Schema.mutable(
+    Schema.Array(Schema.Struct({ id: quizOrderingItemIdSchema, text: Schema.String }))
+  ),
+  answer: Schema.NullOr(orderingAnswerSchema)
+};
+
 const matchingAttemptQuestionFields = {
   ...quizAttemptQuestionFields,
   kind: Schema.Literal('matching'),
@@ -141,6 +164,7 @@ const matchingAttemptQuestionFields = {
 
 const quizAttemptInProgressQuestionSchema = Schema.Union([
   Schema.Struct(matchingAttemptQuestionFields),
+  Schema.Struct(orderingAttemptQuestionFields),
   Schema.Struct({
     ...openAttemptQuestionFields
   }),
@@ -163,6 +187,11 @@ const quizQuestionResultFields = {
 };
 
 const quizAttemptCompletedQuestionSchema = Schema.Union([
+  Schema.Struct({
+    ...orderingAttemptQuestionFields,
+    ...quizQuestionResultFields,
+    correctItemIds: Schema.mutable(Schema.Array(quizOrderingItemIdSchema))
+  }),
   Schema.Struct({
     ...matchingAttemptQuestionFields,
     ...quizQuestionResultFields,

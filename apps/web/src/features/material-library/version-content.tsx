@@ -71,23 +71,16 @@ function QuestionPreview({
     <Practice.PreviewItem>
       <Practice.ProgressHeading>
         <span>{questionNumber(locale, index + 1)}</span>
-        <span>
-          {t(
-            question.kind === 'matching'
-              ? 'PracticeMatching'
-              : question.kind === 'true_false'
-                ? 'PracticeTrueFalse'
-                : question.kind === 'fill_blank'
-                  ? 'PracticeFillBlank'
-                  : question.kind === 'open'
-                    ? 'QuestionOpen'
-                    : 'QuestionChoice'
-          )}
-        </span>
+        <span>{t(questionLabel(question.kind))}</span>
       </Practice.ProgressHeading>
       <Practice.Prompt>{question.prompt}</Practice.Prompt>
       <Practice.Answers aria-label={t('RightAnswer')}>
-        {question.kind === 'matching' ? (
+        {question.kind === 'ordering' ? (
+          <Practice.Ordering
+            label={t('RightAnswer')}
+            items={question.items.map((item) => ({ key: String(item.id), text: item.text }))}
+          />
+        ) : question.kind === 'matching' ? (
           question.pairs.map((pair) => (
             <Practice.MatchingRow key={pair.termId}>
               <span>{pair.term}</span>
@@ -130,4 +123,19 @@ function QuestionPreview({
       </Practice.Explanation>
     </Practice.PreviewItem>
   );
+}
+
+/** Name every persisted question variant in material previews. */
+function questionLabel(kind: Quiz['content']['questions'][number]['kind']) {
+  const labels = {
+    ordering: 'PracticeOrdering',
+    matching: 'PracticeMatching',
+    true_false: 'PracticeTrueFalse',
+    fill_blank: 'PracticeFillBlank',
+    open: 'QuestionOpen',
+    single_choice: 'QuestionChoice',
+    multiple_choice: 'QuestionChoice'
+  } as const;
+
+  return labels[kind];
 }

@@ -1882,6 +1882,13 @@ export const english = Object.freeze({
     'Your first attempt starts here. You can leave and come back whenever you need.',
   PracticeViewResults: 'View results',
   PracticeResume: 'Continue quiz',
+  PracticeOrdering: 'Put in order',
+  PracticeOrderingHelp:
+    'Arrange events or process steps from your documents in the correct sequence.',
+  PracticeOrderingHint:
+    'Use Move up and Move down to arrange every step. The whole sequence must be correct to earn the point.',
+  PracticeMoveUp: 'Move up',
+  PracticeMoveDown: 'Move down',
   PracticeMatching: 'Matching',
   PracticeMatchingHelp: 'Connect terms from your documents to their definitions.',
   PracticeMatchingHint: 'Match every term to a definition. Each definition can be used once.',

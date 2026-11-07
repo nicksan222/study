@@ -13,9 +13,11 @@
  */
 
 import type { attemptInputSchema } from '@study/contracts/learning/rpc';
+import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
 import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
@@ -25,56 +27,74 @@ import { now, makeQuiz } from './quiz.ts';
 
 type Input = typeof attemptInputSchema.Type;
 
-/** Finalize attempt snapshots after revalidating deterministic answer scores. */
+/** Finalizes attempts after validating and settling their objective responses. */
 export function makeFinishQuiz(resources: StoreResources) {
   const { db, clock } = resources;
-  const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
-  /** Recompute structured scores before committing the immutable completed attempt. */
+  const { attemptRow, attemptView, choiceScore, orderingScore, attemptQuestions } =
+    makeQuiz(resources);
+
+  /** Settle one committed response before publishing the completed attempt. */
+  function settleResponse(
+    q: ReturnType<typeof attemptQuestions>[number],
+    attemptId: Input['attemptId']
+  ) {
+    const where = and(
+      eq(s.material_quiz_responses.attempt_id, attemptId),
+      eq(s.material_quiz_responses.question_id, q.id)
+    );
+    const response = db.orm.select().from(s.material_quiz_responses).where(where).get();
+
+    if (!response) return;
+
+    const selected = db.orm
+      .select()
+      .from(s.material_quiz_selections)
+      .where(
+        and(
+          eq(s.material_quiz_selections.attempt_id, attemptId),
+          eq(s.material_quiz_selections.question_id, q.id)
+        )
+      )
+      .all();
+
+    if (q.kind === 'ordering') {
+      const answer = Schema.decodeUnknownSync(orderingAnswerJsonSchema)(response.answer);
+
+      if (selected.length) invalid('malformed ordering response');
+
+      db.orm
+        .update(s.material_quiz_responses)
+        .set({ score: orderingScore(q.id, answer.itemIds), feedback: null })
+        .where(where)
+        .run();
+    } else if (q.kind === 'matching') {
+      const score = matchingScore(q.matching_pairs!, decodeAssociations(response.answer));
+
+      db.orm.update(s.material_quiz_responses).set({ score, feedback: null }).where(where).run();
+    } else if (isTextQuestionKind(q.kind)) {
+      if (!response.answer?.trim() || selected.length) invalid('malformed open response');
+    } else {
+      const score = choiceScore(
+        q,
+        selected.map((c) => c.choice_id)
+      );
+
+      db.orm
+        .update(s.material_quiz_responses)
+        .set({
+          score,
+          feedback: null
+        })
+        .where(where)
+        .run();
+    }
+  }
+
+  /** Revalidates saved permutations before publishing immutable completed results. */
   const finishQuiz = (input: Input) => {
     const a = attemptRow(input.attemptId, true);
 
-    for (const q of attemptQuestions(a.id)) {
-      const where = and(
-        eq(s.material_quiz_responses.attempt_id, a.id),
-        eq(s.material_quiz_responses.question_id, q.id)
-      );
-      const response = db.orm.select().from(s.material_quiz_responses).where(where).get();
-
-      if (!response) continue;
-
-      const selected = db.orm
-        .select()
-        .from(s.material_quiz_selections)
-        .where(
-          and(
-            eq(s.material_quiz_selections.attempt_id, a.id),
-            eq(s.material_quiz_selections.question_id, q.id)
-          )
-        )
-        .all();
-
-      if (q.kind === 'matching') {
-        const score = matchingScore(q.matching_pairs!, decodeAssociations(response.answer));
-
-        db.orm.update(s.material_quiz_responses).set({ score, feedback: null }).where(where).run();
-      } else if (isTextQuestionKind(q.kind)) {
-        if (!response.answer?.trim() || selected.length) invalid('malformed open response');
-      } else {
-        const score = choiceScore(
-          q,
-          selected.map((c) => c.choice_id)
-        );
-
-        db.orm
-          .update(s.material_quiz_responses)
-          .set({
-            score,
-            feedback: null
-          })
-          .where(where)
-          .run();
-      }
-    }
+    for (const q of attemptQuestions(a.id)) settleResponse(q, a.id);
 
     db.orm
       .update(s.material_quiz_attempts)

@@ -68,7 +68,15 @@ export const quizSettingsSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   questionOrder: Schema.Literals(['source', 'shuffle']),
   shuffleChoices: Schema.Boolean,
-  questionKind: Schema.Literals(['all', 'choice', 'open', 'fill_blank', 'matching', 'true_false']),
+  questionKind: Schema.Literals([
+    'all',
+    'choice',
+    'open',
+    'fill_blank',
+    'ordering',
+    'matching',
+    'true_false'
+  ]),
   choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })).pipe(
     Schema.withDecodingDefault(Effect.succeed(4))
   ),

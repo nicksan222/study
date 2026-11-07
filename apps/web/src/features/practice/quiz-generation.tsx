@@ -18,6 +18,7 @@ import {
   Layers,
   SlidersHorizontal,
   ChevronDown,
+  ListOrdered,
   TextCursorInput
 } from 'lucide-react';
 import type { SetStateAction } from 'react';
@@ -119,7 +120,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const { t } = useI18n();
   const client = useQueryClient();
   const [kind, setKind] = useState<
-    'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false'
+    'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false' | 'ordering'
   >('quiz');
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
@@ -137,6 +138,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const titleKey = {
     quiz: 'SidebarQuiz',
     flashcards: 'Flashcards',
+    ordering: 'PracticeOrdering',
     fill_blank: 'PracticeFillBlank',
     matching: 'PracticeMatching',
     true_false: 'PracticeTrueFalse'
@@ -226,6 +228,14 @@ function GenerationPanel({
                 <TextCursorInput aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
+                label={t('PracticeOrdering')}
+                selected={model.kind === 'ordering'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('ordering')}
+              >
+                <ListOrdered aria-hidden="true" />
+              </Settings.Choice>
+              <Settings.Choice
                 label={t('PracticeMatching')}
                 selected={model.kind === 'matching'}
                 disabled={model.busy}
@@ -244,6 +254,9 @@ function GenerationPanel({
             </Settings.ChoiceGroup>
             {model.kind === 'matching' && (
               <Settings.Intro>{t('PracticeMatchingHelp')}</Settings.Intro>
+            )}
+            {model.kind === 'ordering' && (
+              <Settings.Intro>{t('PracticeOrderingHelp')}</Settings.Intro>
             )}
             {model.kind === 'fill_blank' && (
               <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>

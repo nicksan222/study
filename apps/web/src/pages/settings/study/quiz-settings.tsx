@@ -77,6 +77,7 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
             { value: 'choice', label: t('QuestionChoice') },
             { value: 'open', label: t('QuestionOpen') },
             { value: 'fill_blank', label: t('PracticeFillBlank') },
+            { value: 'ordering', label: t('PracticeOrdering') },
             { value: 'matching', label: t('PracticeMatching') },
             { value: 'true_false', label: t('PracticeTrueFalse') }
           ]}
@@ -86,6 +87,7 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
               value === 'choice' ||
               value === 'open' ||
               value === 'fill_blank' ||
+              value === 'ordering' ||
               value === 'matching' ||
               value === 'true_false'
             )

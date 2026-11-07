@@ -5,7 +5,8 @@ import type {
   MaterialVersionId,
   QuizAttemptId,
   QuizChoiceId,
-  QuizQuestionId
+  QuizQuestionId,
+  QuizOrderingItemId
 } from '@study/contracts/ids';
 import type { matchingPairsSchema } from '@study/contracts/materials/schemas';
 
@@ -57,7 +58,15 @@ export const material_quiz_questions = defineTable({
     version_id: integer().$type<MaterialVersionId>().notNull(),
     position: integer().$type<bigint>().notNull(),
     kind: text({
-      enum: ['true_false', 'single_choice', 'multiple_choice', 'open', 'fill_blank', 'matching']
+      enum: [
+        'true_false',
+        'single_choice',
+        'multiple_choice',
+        'open',
+        'fill_blank',
+        'ordering',
+        'matching'
+      ]
     }).notNull(),
     prompt: text().notNull(),
     explanation: text().notNull(),
@@ -72,7 +81,7 @@ export const material_quiz_questions = defineTable({
     uniqueIndex('material_quiz_questions_kind').on(t.id, t.kind),
     check(
       'material_quiz_questions_values',
-      sql`typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))`
+      sql`typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))`
     )
   ]
 );
@@ -295,15 +304,7 @@ export const material_quiz_attempt_choices = defineTable({
       t.question_id,
       t.position
     ),
-    foreignKey({
-      columns: [t.attempt_id, t.question_id],
-      foreignColumns: [
-        material_quiz_attempt_questions.attempt_id,
-        material_quiz_attempt_questions.question_id
-      ]
-    })
-      .onDelete('cascade')
-      .onUpdate('restrict'),
+    attemptQuestionReference(t),
     choiceQuestionReference(t),
     check(
       'material_quiz_attempt_choices_position_check',
@@ -322,7 +323,15 @@ export const material_quiz_responses = defineTable({
     version_id: integer().$type<MaterialVersionId>().notNull(),
     question_id: integer().$type<QuizQuestionId>().notNull(),
     question_kind: text({
-      enum: ['true_false', 'single_choice', 'multiple_choice', 'open', 'fill_blank', 'matching']
+      enum: [
+        'true_false',
+        'single_choice',
+        'multiple_choice',
+        'open',
+        'fill_blank',
+        'ordering',
+        'matching'
+      ]
     }).notNull(),
     answer: text(),
     score: real(),
@@ -341,7 +350,7 @@ export const material_quiz_responses = defineTable({
     index('material_quiz_responses_question_kind_fk').on(t.question_id, t.question_kind),
     check(
       'material_quiz_responses_values',
-      sql`question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL))`
+      sql`question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank','ordering') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL))`
     )
   ]
 );
@@ -441,4 +450,83 @@ function flashcardsKind() {
   return text({ enum: ['flashcards'] })
     .notNull()
     .default('flashcards');
+}
+
+export const material_quiz_ordering_items = defineTable({
+  role: 'contributes',
+  entity: 'question'
+})(
+  'material_quiz_ordering_items',
+  {
+    id: integer().$type<QuizOrderingItemId>().primaryKey(),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
+    question_kind: text({ enum: ['ordering'] })
+      .notNull()
+      .default('ordering'),
+    position: integer().$type<bigint>().notNull(),
+    text: text().notNull()
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.question_id, t.question_kind],
+      foreignColumns: [material_quiz_questions.id, material_quiz_questions.kind]
+    })
+      .onDelete('cascade')
+      .onUpdate('restrict'),
+    uniqueIndex('material_quiz_ordering_items_question').on(t.id, t.question_id),
+    uniqueIndex('material_quiz_ordering_items_position').on(t.question_id, t.position),
+    uniqueIndex('material_quiz_ordering_items_text').on(t.question_id, t.text),
+    check(
+      'material_quiz_ordering_items_values',
+      sql`id > 0 AND question_kind='ordering' AND typeof(position)='integer' AND position >= 0 AND position < 10 AND length(trim(text))>0`
+    )
+  ]
+);
+
+export const material_quiz_attempt_ordering_items = defineTable({
+  role: 'internal',
+  reason: 'Stable shuffled ordering items for each attempt'
+})(
+  'material_quiz_attempt_ordering_items',
+  {
+    attempt_id: integer().$type<QuizAttemptId>().notNull(),
+    question_id: integer().$type<QuizQuestionId>().notNull(),
+    item_id: integer().$type<QuizOrderingItemId>().notNull(),
+    position: integer().$type<bigint>().notNull()
+  },
+  (t) => [
+    primaryKey({ columns: [t.attempt_id, t.item_id] }),
+    uniqueIndex('material_quiz_attempt_ordering_items_position').on(
+      t.attempt_id,
+      t.question_id,
+      t.position
+    ),
+    attemptQuestionReference(t),
+    foreignKey({
+      columns: [t.item_id, t.question_id],
+      foreignColumns: [material_quiz_ordering_items.id, material_quiz_ordering_items.question_id]
+    })
+      .onDelete('cascade')
+      .onUpdate('restrict'),
+    check(
+      'material_quiz_attempt_ordering_items_values',
+      sql`typeof(position)='integer' AND position >= 0 AND position < 10`
+    )
+  ]
+);
+
+/** Keeps presentation rows scoped to questions selected by the owning attempt. */
+function attemptQuestionReference(t: {
+  attempt_id: AnySQLiteColumn;
+  question_id: AnySQLiteColumn;
+}) {
+  return foreignKey({
+    columns: [t.attempt_id, t.question_id],
+    foreignColumns: [
+      material_quiz_attempt_questions.attempt_id,
+      material_quiz_attempt_questions.question_id
+    ]
+  })
+    .onDelete('cascade')
+    .onUpdate('restrict');
 }

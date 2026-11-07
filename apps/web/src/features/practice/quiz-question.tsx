@@ -1,4 +1,9 @@
-import type { MatchingTermId, MatchingDefinitionId, QuizChoiceId } from '@study/contracts/ids';
+import type {
+  MatchingTermId,
+  MatchingDefinitionId,
+  QuizChoiceId,
+  QuizOrderingItemId
+} from '@study/contracts/ids';
 import type {
   quizAnswerSchema,
   quizAttemptInProgressSchema
@@ -49,7 +54,8 @@ export function QuizQuestion({
   const [associations, setAssociations] = useState(
     question.answer?.type === 'matching' ? question.answer.associations : []
   );
-  const valid = validAnswer(question, text, selected, associations);
+  const [order, setOrder] = useState(() => initialOrder(question));
+  const valid = validAnswer(question, text, selected, associations, order);
 
   function associate(termId: MatchingTermId, definitionId: MatchingDefinitionId) {
     setAssociations((previous) => [
@@ -62,18 +68,7 @@ export function QuizQuestion({
   function send() {
     if (!valid || pending) return;
 
-    submit(
-      question.kind === 'matching'
-        ? {
-            type: 'matching',
-            associations: question.terms.map((term) =>
-              associations.find((a) => a.termId === term.id)!
-            )
-          }
-        : !('choices' in question)
-          ? { type: 'open', answer: text.trim() }
-          : { type: 'choice', choiceIds: selected }
-    );
+    submit(answerValue(question, text, selected, associations, order));
   }
 
   return (
@@ -112,40 +107,26 @@ export function QuizQuestion({
         </Practice.Prompt>
         <Practice.Muted>{t(questionHint(question.kind))}</Practice.Muted>
         <Practice.Answers disabled={pending} aria-labelledby="practice-question">
-          {question.kind === 'matching' ? (
-            <MatchingAnswers
-              question={question}
-              pending={pending}
-              associations={associations}
-              associate={associate}
-              clear={(termId) =>
-                setAssociations((previous) => previous.filter((a) => a.termId !== termId))
-              }
-            />
-          ) : !('choices' in question) ? (
-            <TextAnswer kind={question.kind} text={text} setText={setText} send={send} />
-          ) : (
-            question.choices.map((choice, index) => (
-              <Practice.ChoiceOption
-                key={String(choice.id)}
-                text={
-                  question.kind === 'true_false'
-                    ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
-                    : choice.text
-                }
-                number={index + 1}
-                selected={selected.includes(choice.id)}
-                type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
-                name="answer"
-                value={String(choice.id)}
-                onChange={() =>
-                  setSelected((previous) =>
-                    toggleChoice(previous, choice.id, question.kind !== 'multiple_choice')
-                  )
-                }
-              />
-            ))
-          )}
+          <AnswerEditor
+            question={question}
+            pending={pending}
+            text={text}
+            setText={setText}
+            selected={selected}
+            select={(id) =>
+              setSelected((previous) =>
+                toggleChoice(previous, id, question.kind !== 'multiple_choice')
+              )
+            }
+            associations={associations}
+            associate={associate}
+            clear={(termId) =>
+              setAssociations((previous) => previous.filter((a) => a.termId !== termId))
+            }
+            order={order}
+            setOrder={setOrder}
+            send={send}
+          />
         </Practice.Answers>
         {error}
       </Practice.StageBody>
@@ -172,6 +153,8 @@ function toggleChoice(previous: QuizChoiceId[], id: QuizChoiceId, single: boolea
 }
 
 function questionHint(kind: Question['kind']) {
+  if (kind === 'ordering') return 'PracticeOrderingHint';
+
   if (kind === 'matching') return 'PracticeMatchingHint';
 
   if (kind === 'true_false') return 'PracticeTrueFalseHint';
@@ -233,8 +216,11 @@ function validAnswer(
   question: Question,
   text: string,
   selected: QuizChoiceId[],
-  associations: Extract<Answer, { type: 'matching' }>['associations']
+  associations: Extract<Answer, { type: 'matching' }>['associations'],
+  order: QuizOrderingItemId[]
 ) {
+  if (question.kind === 'ordering') return order.length === question.items.length;
+
   if (question.kind === 'matching')
     return (
       associations.length === question.terms.length &&
@@ -331,4 +317,137 @@ function TextAnswer({
       }}
     />
   );
+}
+
+/** Restore the committed learner sequence or the independently shuffled presentation. */
+function initialOrder(question: Question): QuizOrderingItemId[] {
+  return question.kind === 'ordering'
+    ? (question.answer?.itemIds ?? question.items.map((item) => item.id))
+    : [];
+}
+
+/** Encode each editor variant through the canonical answer contract. */
+function answerValue(
+  question: Question,
+  text: string,
+  selected: QuizChoiceId[],
+  associations: Extract<Answer, { type: 'matching' }>['associations'],
+  order: QuizOrderingItemId[]
+): Answer {
+  if (question.kind === 'ordering') return { type: 'ordering', itemIds: order };
+
+  if (question.kind === 'matching')
+    return {
+      type: 'matching',
+      associations: question.terms.map((term) => associations.find((a) => a.termId === term.id)!)
+    };
+
+  return 'choices' in question
+    ? { type: 'choice', choiceIds: selected }
+    : { type: 'open', answer: text.trim() };
+}
+
+/** Localize canonical truth tokens while preserving source-authored choice text. */
+function choiceText(t: ReturnType<typeof useI18n>['t'], kind: Question['kind'], text: string) {
+  return kind === 'true_false' ? t(text === 'true' ? 'PracticeTrue' : 'PracticeFalse') : text;
+}
+
+/** Present choice responses independently from structured answer editors. */
+function ChoiceAnswers({
+  question,
+  selected,
+  select
+}: {
+  question: Extract<Question, { choices: unknown }>;
+  selected: QuizChoiceId[];
+  select: (id: QuizChoiceId) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {question.choices.map((choice, index) => (
+        <Practice.ChoiceOption
+          key={String(choice.id)}
+          text={choiceText(t, question.kind, choice.text)}
+          number={index + 1}
+          selected={selected.includes(choice.id)}
+          type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
+          name="answer"
+          value={String(choice.id)}
+          onChange={() => select(choice.id)}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Dispatch each answer editor without nesting independent interaction variants. */
+function AnswerEditor({
+  question,
+  pending,
+  text,
+  setText,
+  selected,
+  select,
+  associations,
+  associate,
+  clear,
+  order,
+  setOrder,
+  send
+}: {
+  question: Question;
+  pending: boolean;
+  text: string;
+  setText: (text: string) => void;
+  selected: QuizChoiceId[];
+  select: (id: QuizChoiceId) => void;
+  associations: Extract<Answer, { type: 'matching' }>['associations'];
+  associate: (termId: MatchingTermId, definitionId: MatchingDefinitionId) => void;
+  clear: (termId: MatchingTermId) => void;
+  order: QuizOrderingItemId[];
+  setOrder: (update: (previous: QuizOrderingItemId[]) => QuizOrderingItemId[]) => void;
+  send: () => void;
+}) {
+  const { t } = useI18n();
+
+  if (question.kind === 'ordering')
+    return (
+      <Practice.Ordering
+        label={t('YourAnswer')}
+        items={order.map((id) => ({
+          key: String(id),
+          text: question.items.find((item) => item.id === id)!.text
+        }))}
+        disabled={pending}
+        moveUpLabel={t('PracticeMoveUp')}
+        moveDownLabel={t('PracticeMoveDown')}
+        move={(index, direction) =>
+          setOrder((previous) => {
+            const next = [...previous];
+
+            [next[index], next[index + direction]] = [next[index + direction]!, next[index]!];
+
+            return next;
+          })
+        }
+      />
+    );
+
+  if (question.kind === 'matching')
+    return (
+      <MatchingAnswers
+        question={question}
+        pending={pending}
+        associations={associations}
+        associate={associate}
+        clear={clear}
+      />
+    );
+
+  if ('choices' in question)
+    return <ChoiceAnswers question={question} selected={selected} select={select} />;
+
+  return <TextAnswer kind={question.kind} text={text} setText={setText} send={send} />;
 }

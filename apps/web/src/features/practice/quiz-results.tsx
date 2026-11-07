@@ -11,6 +11,7 @@ import { useState, useId } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { MatchingReview } from './matching-review';
+import { OrderingResult } from './ordering-result';
 
 type Completed = typeof quizAttemptCompletedSchema.Type;
 
@@ -227,7 +228,9 @@ function ResultAnswers({
 
   return (
     <>
-      {question.kind === 'matching' ? (
+      {question.kind === 'ordering' ? (
+        <OrderingResult question={question} />
+      ) : question.kind === 'matching' ? (
         <MatchingReview question={question} />
       ) : !('choices' in question) ? (
         <Practice.OpenAnswers>

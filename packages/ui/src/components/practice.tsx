@@ -1,10 +1,12 @@
-import { Check, X, CircleMinus, Clock3, Minus } from 'lucide-react';
+import { ArrowUp, ArrowDown, Check, X, CircleMinus, Clock3, Minus } from 'lucide-react';
 import { useId } from 'react';
 import type { ReactNode, ComponentProps } from 'react';
 
+import { Button } from './button';
 import { semanticPart } from './semantic-part';
 
 export const Practice = {
+  Ordering,
   MatchingRow: semanticPart('div', 'study-practice-matching-row'),
   MatchingReview: semanticPart('div', 'study-practice-matching-review'),
   OutlineItems,
@@ -112,6 +114,68 @@ function ChoiceOption({
       {status && <Practice.MutedText>{status}</Practice.MutedText>}
       {selected && (tone === 'incorrect' ? <X aria-hidden="true" /> : <Check aria-hidden="true" />)}
     </Practice.Choice>
+  );
+}
+
+/** Displays a stable keyed sequence with optional keyboard-accessible movement controls. */
+function Ordering({
+  items,
+  move,
+  moveUpLabel,
+  moveDownLabel,
+  disabled,
+  label
+}: {
+  items: readonly { key: string; text: string }[];
+  move?: (index: number, direction: -1 | 1) => void;
+  moveUpLabel?: string;
+  moveDownLabel?: string;
+  disabled?: boolean;
+  label: string;
+}) {
+  const id = useId();
+
+  return (
+    <ol
+      className="study-practice-ordering"
+      aria-label={label}
+      aria-live={move ? 'polite' : undefined}
+    >
+      {items.map((item, index) => (
+        <li key={item.key}>
+          <span className="study-practice-ordering-number" aria-hidden="true">
+            {index + 1}
+          </span>
+          <span id={`${id}-${item.key}`}>{item.text}</span>
+          {move && (
+            <div className="study-practice-ordering-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={moveUpLabel}
+                aria-describedby={`${id}-${item.key}`}
+                disabled={disabled || index === 0}
+                onClick={() => move(index, -1)}
+              >
+                <ArrowUp aria-hidden="true" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={moveDownLabel}
+                aria-describedby={`${id}-${item.key}`}
+                disabled={disabled || index === items.length - 1}
+                onClick={() => move(index, 1)}
+              >
+                <ArrowDown aria-hidden="true" />
+              </Button>
+            </div>
+          )}
+        </li>
+      ))}
+    </ol>
   );
 }
 

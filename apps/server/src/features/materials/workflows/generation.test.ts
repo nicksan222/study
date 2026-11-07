@@ -13,6 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
@@ -297,7 +298,8 @@ testStable(
       const generate = async (
         kind: 'flashcards' | 'quiz' | 'diagram',
         content: unknown,
-        failure?: 'publication' | 'validation'
+        failure?: 'publication' | 'validation',
+        quizConfig?: (typeof materialGenerationInputSchema.Type)['quizConfig']
       ) => {
         await Effect.runPromise(
           Effect.flatMap(Materials, (m) =>
@@ -305,7 +307,8 @@ testStable(
               projectId: doc.projectId,
               title: kind,
               kind,
-              inputs: [doc.input]
+              inputs: [doc.input],
+              quizConfig
             })
           ).pipe(Effect.provide(domain()))
         );
@@ -493,6 +496,12 @@ testStable(
             referenceAnswer: 'alpha'
           },
           {
+            kind: 'ordering',
+            prompt: 'Order the captured process.',
+            explanation: 'alpha evidence [1]',
+            items: [{ text: 'Initial stage' }, { text: 'Final stage' }]
+          },
+          {
             kind: 'matching',
             prompt: 'Match the captured terms.',
             explanation: 'alpha [1]',
@@ -512,12 +521,31 @@ testStable(
 
       assertQuizQuestionShapes();
 
+      await generate(
+        'quiz',
+        {
+          kind: 'quiz',
+          questions: [
+            { kind: 'open', prompt: 'Explain [1]', explanation: 'alpha', referenceAnswer: 'alpha' },
+            {
+              kind: 'ordering',
+              prompt: 'Order the process.',
+              explanation: 'alpha evidence [1]',
+              items: [{ text: 'Initial stage' }, { text: 'Final stage' }]
+            }
+          ]
+        },
+        undefined,
+        { questionCount: 2, choiceCount: 2, questionKind: 'mixed', difficulty: 'balanced' }
+      );
+      expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
+
       function assertQuizQuestionShapes() {
         assert.ok(quiz.content.kind === 'quiz');
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open, blank, matching, boolean] = quiz.content.questions;
+        const [single, multiple, open, blank, ordering, matching, boolean] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -535,6 +563,11 @@ testStable(
         assert.ok(open.referenceAnswer === 'alpha');
         assert.ok(blank?.kind === 'fill_blank');
         assert.equal(blank.referenceAnswer, 'alpha');
+        assert.ok(ordering?.kind === 'ordering');
+        assert.deepEqual(
+          ordering.items.map((item) => item.text),
+          ['Initial stage', 'Final stage']
+        );
         assert.ok(matching);
         assert.ok(matching.kind === 'matching');
         assert.deepEqual(

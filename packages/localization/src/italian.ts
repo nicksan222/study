@@ -1929,6 +1929,12 @@ export const italian = Object.freeze({
     'Il tuo primo tentativo parte da qui. Puoi fermarti e riprendere quando vuoi.',
   PracticeViewResults: 'Vedi i risultati',
   PracticeResume: 'Continua il quiz',
+  PracticeOrdering: 'Metti in ordine',
+  PracticeOrderingHelp: 'Disponi eventi o fasi tratti dai tuoi documenti nella sequenza corretta.',
+  PracticeOrderingHint:
+    'Usa Sposta su e Sposta giù per ordinare tutte le fasi. La sequenza deve essere interamente corretta per ottenere il punto.',
+  PracticeMoveUp: 'Sposta su',
+  PracticeMoveDown: 'Sposta giù',
   PracticeMatching: 'Abbinamenti',
   PracticeMatchingHelp: 'Abbina i termini dei tuoi documenti alle rispettive definizioni.',
   PracticeMatchingHint:
