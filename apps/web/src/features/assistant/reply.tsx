@@ -49,6 +49,7 @@ function ReplyText({ model }: { model: ReplyModel }) {
           <Loading label={t(model.needsSignIn ? 'AssistantSignIn' : 'AssistantThinking')} />
         )
       )}
+      <ToolStatus model={model} />
       {model.reconnecting && (
         <Notebook.Status role="status">{t('AgentStreamReconnecting')}</Notebook.Status>
       )}
@@ -77,4 +78,20 @@ function ReplyFailure({ model }: { model: ReplyModel }) {
       }
     />
   );
+}
+
+function ToolStatus({ model }: { model: ReplyModel }) {
+  const { t } = useI18n();
+  const tool = model.run?.tools.at(-1);
+
+  if (!tool) return null;
+
+  const labels = {
+    running: 'AgentToolRunning',
+    completed: 'AgentToolCompleted',
+    failed: 'AgentToolFailed',
+    cancelled: 'AgentToolFailed'
+  } as const;
+
+  return <Notebook.Status role="status">{t(labels[tool.status])}</Notebook.Status>;
 }

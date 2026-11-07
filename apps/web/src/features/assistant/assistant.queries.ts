@@ -10,6 +10,7 @@ import {
   skipToken
 } from '@tanstack/react-query';
 
+import { loadAppearance } from '#web/lib/study-client/operations.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 export const assistantKey = ['assistant'] as const;
@@ -104,4 +105,11 @@ export const assistantAuthOptions = (enabled: boolean) =>
     queryFn: ({ signal }) => request((rpc) => rpc['auth.status']({}), signal),
     enabled,
     refetchInterval: 3000
+  });
+
+export const assistantAppearanceOptions = () =>
+  queryOptions({
+    queryKey: ['appearance'],
+    queryFn: ({ signal }) => loadAppearance(signal),
+    staleTime: 0
   });

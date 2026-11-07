@@ -1,10 +1,13 @@
 import type { MessageId } from '@study/contracts/ids';
 import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 
 import { useAgentProgress } from '#web/features/agent-progress/index.tsx';
+import { applyAppearance } from '#web/lib/appearance.ts';
 
 import {
+  assistantAppearanceOptions,
   assistantAuthOptions,
   assistantExecutionOptions,
   assistantKey,
@@ -16,6 +19,30 @@ import {
 export function useReply(requestId: string, messageId: MessageId) {
   const cache = useQueryClient();
   const progress = useAgentProgress({ correlationId: requestId });
+  const observedTools = useRef(new Set<string>());
+  const completedTools = progress.runs.flatMap((run) =>
+    run.tools.filter((tool) => tool.status === 'completed')
+  );
+  const toolRevision = completedTools.map((tool) => tool.toolCallId).join('|');
+
+  useEffect(() => {
+    const fresh = completedTools.filter((tool) => !observedTools.current.has(tool.toolCallId));
+
+    if (!fresh.length) return;
+
+    for (const tool of fresh) observedTools.current.add(tool.toolCallId);
+
+    void cache.invalidateQueries({ predicate: (query) => query.queryKey[0] !== assistantKey[0] });
+
+    if (
+      fresh.some((tool) => tool.toolName.startsWith('update_') || tool.toolName.includes('theme'))
+    )
+      void cache
+        .fetchQuery(assistantAppearanceOptions())
+        .then(applyAppearance)
+        .catch(() => {});
+  }, [cache, completedTools, toolRevision]);
+
   const work = useQuery(assistantExecutionOptions(requestId));
   const execution = work.data?.items[0];
   const outcome = replyOutcome(execution);

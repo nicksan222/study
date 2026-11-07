@@ -577,7 +577,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     }
   }
 
-  function retirePending(message: typeof messages.$inferSelect) {
+  function retirePending(message: typeof messages.$inferSelect, preserveShell = false) {
     const pending = db.orm
       .select()
       .from(message_versions)
@@ -589,7 +589,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       )
       .all();
 
-    for (const version of pending) discardPending(message, version);
+    for (const version of pending) discardPending(message, version, preserveShell);
   }
 
   function prepareReply(input: typeof replyRequestInputSchema.Type) {
@@ -1297,7 +1297,7 @@ export const ReplyStore = defineStore({
 
             if (!message) throw new StudyError('not_found', 'message not found');
 
-            retirePending(message);
+            retirePending(message, true);
           }
         }),
         requestTarget: storeMutation({
@@ -1322,7 +1322,7 @@ export const ReplyStore = defineStore({
             if (input.origin === 'instruction' && instruction === null)
               throw new StudyError('invalid_input', 'invalid instruction');
 
-            retirePending(message);
+            retirePending(message, true);
 
             return snapshot(
               { sessionId: message.session_id, requestId: input.requestId, context: input.context },

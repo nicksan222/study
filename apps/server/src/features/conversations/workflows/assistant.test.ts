@@ -23,6 +23,8 @@ import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { Conversations } from '#server/features/conversations/index';
+import { settingsTools } from '#server/features/conversations/tools/settings';
+import { subjectTools } from '#server/features/conversations/tools/subjects';
 import { Documents } from '#server/features/documents/index';
 import { Sources } from '#server/features/sources/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
@@ -37,7 +39,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { conversationReplyHandler, conversationReplyWorkflow } from './index.ts';
 
 testStable(
-  'Assistant uses durable tool-free replies, retains history across reopen and stays out of notebooks',
+  'Assistant uses durable capability-guided replies, retains history across reopen and stays out of notebooks',
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
@@ -50,6 +52,41 @@ testStable(
 
       bodies.push(body);
       response.writeHead(200, { 'content-type': 'text/event-stream' });
+
+      if (bodies.length <= 3) {
+        const call = {
+          type: 'function_call',
+          id: `item${bodies.length}`,
+          call_id: `call${bodies.length}`,
+          name:
+            bodies.length === 1
+              ? 'create_subject'
+              : bodies.length === 2
+                ? 'read_subject'
+                : 'update_review_settings',
+          arguments:
+            bodies.length === 1
+              ? '{"name":"Biology"}'
+              : bodies.length === 2
+                ? '{"id":"1"}'
+                : '{"newCardsPerDay":12}'
+        };
+
+        for (const event of [
+          { type: 'response.output_item.added', output_index: 0, item: call },
+          {
+            type: 'response.output_item.done',
+            output_index: 0,
+            item: { ...call, status: 'completed' }
+          },
+          { type: 'response.completed', response: {} }
+        ])
+          response.write(`data: ${JSON.stringify(event)}\n\n`);
+
+        response.end();
+
+        return;
+      }
 
       for (const event of [
         { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
@@ -162,14 +199,33 @@ testStable(
       expect(new Set(agents)).toStrictEqual(new Set(['assistant']));
 
       for (const body of bodies) {
-        expect(JSON.parse(body).tools ?? []).toHaveLength(0);
+        expect(JSON.parse(body).tools ?? []).toHaveLength(23);
+
+        for (const tool of JSON.parse(body).tools) expect(tool.parameters.type).toBe('object');
+
         expect(body).toContain('Use concrete examples.');
-        expect(body).toContain('You have no tools');
+        expect(body).toContain('Available capabilities');
+        expect(body).toContain('create_subject');
       }
 
-      expect(bodies[1]).toContain('Explain gravity.');
-      expect(bodies[1]).toContain('Hello **learner**. Index array[0], then consider [1].');
-      expect(bodies[1]).toContain('What did I ask?');
+      const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          expect(
+            (yield* subjectTools.list_subjects.execute({ limit: 100 }, environment)).items.map(
+              (subject) => subject.name
+            )
+          ).toStrictEqual(['Biology']);
+          expect(
+            (yield* settingsTools.read_settings.execute({}, environment)).review.newCardsPerDay
+          ).toBe(12);
+        }).pipe(Effect.provideService(Database, { store: context }))
+      );
+      expect(bodies[2]).toContain('function_call_output');
+      expect(bodies.at(-1)).toContain('Explain gravity.');
+      expect(bodies.at(-1)).toContain('Hello **learner**. Index array[0], then consider [1].');
+      expect(bodies.at(-1)).toContain('What did I ask?');
       expect(
         context.db.orm
           .select()

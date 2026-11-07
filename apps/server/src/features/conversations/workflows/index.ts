@@ -210,7 +210,7 @@ export const conversationReplyHandler = ({
                   },
                   options
                 )
-          ).pipe(Effect.provideService(Agents, agentServices));
+          ).pipe(Effect.provideService(Agents, agentServices), Effect.provide(Settings.layer));
           const citations =
             mode === ConversationMode.Assistant
               ? []

@@ -31,18 +31,35 @@ export interface AgentEnvironment {
   ) => Effect.Effect<readonly CitationEvidence[], StudyError>;
 }
 
+export interface ToolWiki {
+  when: string;
+  examples: readonly [string, ...string[]];
+  limits: string;
+}
+
+const toolDeclaration = Symbol('AgentTool');
+
 export interface AgentTool<
   Input extends Schema.ConstraintDecoder<unknown> = Schema.ConstraintDecoder<unknown>,
-  Output = unknown
+  Output = unknown,
+  Requirements = never
 > {
+  readonly [toolDeclaration]: true;
   description: string;
+  wiki: ToolWiki;
   input: Input;
-  execute(input: Input['Type'], environment: AgentEnvironment): Effect.Effect<Output, StudyError>;
+  output: Schema.ConstraintCodec<Output, unknown, never, never>;
+  mutates: boolean;
+  execute(
+    input: Input['Type'],
+    environment: AgentEnvironment
+  ): Effect.Effect<Output, StudyError, Requirements>;
 }
 
 export interface AgentDefinition<
   Input extends Schema.ConstraintDecoder<unknown>,
-  Output extends Schema.ConstraintDecoder<unknown>
+  Output extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never
 > {
   id: string;
   input: Input;
@@ -52,16 +69,36 @@ export interface AgentDefinition<
   customRules: readonly [AgentRule, ...AgentRule[]];
   instructions: string | ((language: string) => string);
   prompt: (input: Input['Type']) => string | ModelMessage[];
-  tools?: Record<string, AgentTool>;
+  tools?: Record<string, AgentTool<Schema.ConstraintDecoder<unknown>, unknown, Requirements>>;
   mode?: 'text' | 'object';
 }
 
 export function defineAgent<
   Input extends Schema.ConstraintDecoder<unknown>,
   Output extends Schema.ConstraintDecoder<unknown>,
-  Definition extends AgentDefinition<Input, Output>
->(definition: Definition & AgentDefinition<Input, Output>): Definition {
+  Requirements,
+  Definition extends AgentDefinition<Input, Output, Requirements>
+>(definition: Definition & AgentDefinition<Input, Output, Requirements>): Definition {
   if (!/^[a-z][a-z0-9-]*$/.test(definition.id)) throw new RangeError('Invalid agent id');
 
   return definition;
+}
+
+/** Bind execution to the exact decoded input and validated result schemas. */
+export function defineTool<
+  Input extends Schema.ConstraintDecoder<object>,
+  Output extends Schema.ConstraintCodec<unknown, unknown, never, never>,
+  Requirements
+>(definition: {
+  description: string;
+  wiki: ToolWiki;
+  input: Input;
+  output: Output;
+  mutates: boolean;
+  execute(
+    input: NoInfer<Input['Type']>,
+    environment: AgentEnvironment
+  ): Effect.Effect<NoInfer<Output['Type']>, StudyError, Requirements>;
+}): AgentTool<Input, Output['Type'], Requirements> {
+  return { ...definition, [toolDeclaration]: true };
 }

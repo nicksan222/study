@@ -15,9 +15,9 @@
  */
 
 import type { agentUpdateSchema } from '@study/contracts/ai/progress';
-import type { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts/errors';
 import { dynamicTool } from 'ai';
-import { Cause, Effect, Exit } from 'effect';
+import { Cause, Effect, Exit, Schema } from 'effect';
 import type { Context, Tracer } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
@@ -28,12 +28,12 @@ import { safeMetadata } from '#server/platform/observability/index';
  * Restore the captured Effect context for provider-invoked tools and forward cancellation.
  * When progress is enabled, publish tool identity and outcome around the actual execution.
  */
-export function adaptTool(
-  definition: AgentTool,
+export function adaptTool<Requirements>(
+  definition: AgentTool<Schema.ConstraintDecoder<unknown>, unknown, Requirements>,
   environment: AgentEnvironment,
   span: Tracer.Span,
   annotations: Readonly<Record<string, unknown>>,
-  context: Context.Context<never>,
+  context: Context.Context<Requirements>,
   progress?: {
     name: string;
     emit: (event: typeof agentUpdateSchema.Type) => Effect.Effect<void, StudyError>;
@@ -41,7 +41,7 @@ export function adaptTool(
 ) {
   return dynamicTool({
     description: definition.description,
-    inputSchema: standardSchema(definition.input),
+    inputSchema: standardSchema(Schema.toEncoded(Schema.toCodecJson(definition.input))),
     execute: (input, options) => {
       const toolEnvironment: AgentEnvironment = {
         ...environment,
@@ -55,7 +55,21 @@ export function adaptTool(
 
           if (progress) yield* progress.emit({ type: 'tool-start', ...identity });
 
-          return yield* definition.execute(input, toolEnvironment).pipe(
+          const decoded = yield* Schema.decodeUnknownEffect(Schema.toCodecJson(definition.input))(
+            input
+          ).pipe(
+            Effect.mapError(
+              (cause) => new StudyError('invalid_input', 'Invalid tool input', { cause })
+            )
+          );
+
+          return yield* definition.execute(decoded, toolEnvironment).pipe(
+            Effect.flatMap(Schema.encodeUnknownEffect(Schema.toCodecJson(definition.output))),
+            Effect.mapError((error) =>
+              error instanceof StudyError
+                ? error
+                : new StudyError('internal', 'Invalid tool result', { cause: error })
+            ),
             Effect.tap(() =>
               progress
                 ? progress.emit({ type: 'tool-finish', ...identity, outcome: 'success' })
@@ -85,11 +99,11 @@ export function adaptTool(
 }
 
 /** Bridge a scoped request check to the provider's last cancellable HTTP boundary. */
-export function adaptRequestCheck(
+export function adaptRequestCheck<Requirements>(
   check: Effect.Effect<void, StudyError>,
   span: Tracer.Span,
   annotations: Readonly<Record<string, unknown>>,
-  context: Context.Context<never>
+  context: Context.Context<Requirements>
 ) {
   return (signal: AbortSignal | undefined) =>
     Effect.runPromiseWith(context)(
