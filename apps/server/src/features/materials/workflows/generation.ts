@@ -293,6 +293,8 @@ function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undef
   if (!config) return '';
 
   const kinds = {
+    true_false:
+      'only true_false statements, with boolean isTrue and an explanation that corrects any false statement',
     mixed: 'any combination of choice, open and fill_blank questions',
     choice: 'only choice questions (single_choice or multiple_choice)',
     open: 'only open questions',

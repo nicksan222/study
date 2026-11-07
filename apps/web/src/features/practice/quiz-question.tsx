@@ -77,7 +77,7 @@ export function QuizQuestion({
         if (choice) {
           event.preventDefault();
           setSelected((previous) =>
-            toggleChoice(previous, choice.id, question.kind === 'single_choice')
+            toggleChoice(previous, choice.id, question.kind !== 'multiple_choice')
           );
         }
       }}
@@ -122,7 +122,11 @@ export function QuizQuestion({
             question.choices.map((choice, index) => (
               <Practice.ChoiceOption
                 key={String(choice.id)}
-                text={choice.text}
+                text={
+                  question.kind === 'true_false'
+                    ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                    : choice.text
+                }
                 number={index + 1}
                 selected={selected.includes(choice.id)}
                 type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
@@ -130,7 +134,7 @@ export function QuizQuestion({
                 value={String(choice.id)}
                 onChange={() =>
                   setSelected((previous) =>
-                    toggleChoice(previous, choice.id, question.kind === 'single_choice')
+                    toggleChoice(previous, choice.id, question.kind !== 'multiple_choice')
                   )
                 }
               />
@@ -161,6 +165,8 @@ function toggleChoice(previous: QuizChoiceId[], id: QuizChoiceId, single: boolea
 }
 
 function questionHint(kind: Question['kind']) {
+  if (kind === 'true_false') return 'PracticeTrueFalseHint';
+
   if (kind === 'fill_blank') return 'PracticeFillBlankHint';
 
   if (kind === 'open') return 'PracticeOpenHint';

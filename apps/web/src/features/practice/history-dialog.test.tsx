@@ -82,8 +82,14 @@ function summary(attempt: typeof quizAttemptSchema.Type) {
   };
 }
 
-function mount(empty = false) {
+function mount(empty = false, italian = false) {
   const rpc = materialRpc();
+
+  if (italian)
+    rpc['settings.appSettings'].mockReturnValue(
+      Effect.succeed({ language: 2, appearance: 2, zoomPercent: 100, onboarded: true })
+    );
+
   const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
     ...learningVersion(102n),
     kind: 'quiz',
@@ -127,11 +133,13 @@ function mount(empty = false) {
   return { ...mountLibraryRoute('/practice/41', transport), rpc: transport };
 }
 
-async function openHistory(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: en.PracticeActions }));
-  await user.click(screen.getByRole('button', { name: en.PracticeAttempts }));
+async function openHistory(user: ReturnType<typeof userEvent.setup>, italian = false) {
+  const copy = italian ? catalogs.italian : en;
 
-  return screen.findByRole('dialog', { name: en.PracticeAttempts });
+  await user.click(await screen.findByRole('button', { name: copy.PracticeActions }));
+  await user.click(screen.getByRole('button', { name: copy.PracticeAttempts }));
+
+  return screen.findByRole('dialog', { name: copy.PracticeAttempts });
 }
 
 testStable(
@@ -208,3 +216,59 @@ testStable(
     expect(rpc['learning.attempt']).not.toHaveBeenCalled();
   }
 );
+
+testStable('saved true or false history uses localized radio controls', async () => {
+  const { rpc } = mount();
+
+  rpc['learning.attempt'].mockReturnValue(
+    Effect.succeed(
+      Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+        ...initial,
+        questions: [
+          {
+            ...choice,
+            kind: 'true_false',
+            prompt: 'ATP carries energy.',
+            choices: [
+              { id: 5n, position: 0n, text: 'true' },
+              { id: 6n, position: 1n, text: 'false' }
+            ]
+          }
+        ]
+      })
+    )
+  );
+  const dialog = await openHistory(userEvent.setup());
+
+  expect(await within(dialog).findByRole('radio', { name: /True/ })).toBeChecked();
+  expect(within(dialog).getByRole('radio', { name: /False/ })).toBeDisabled();
+  expect(within(dialog).queryByRole('checkbox')).toBeNull();
+});
+
+testStable('saved true or false history uses Italian radio controls', async () => {
+  const { rpc } = mount(false, true);
+
+  rpc['learning.attempt'].mockReturnValue(
+    Effect.succeed(
+      Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+        ...initial,
+        questions: [
+          {
+            ...choice,
+            kind: 'true_false',
+            prompt: 'ATP carries energy.',
+            choices: [
+              { id: 5n, position: 0n, text: 'true' },
+              { id: 6n, position: 1n, text: 'false' }
+            ]
+          }
+        ]
+      })
+    )
+  );
+  const dialog = await openHistory(userEvent.setup(), true);
+
+  expect(await within(dialog).findByRole('radio', { name: /Vero/ })).toBeChecked();
+  expect(within(dialog).getByRole('radio', { name: /Falso/ })).toBeDisabled();
+  expect(within(dialog).queryByRole('checkbox')).toBeNull();
+});
