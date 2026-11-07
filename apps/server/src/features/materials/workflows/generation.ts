@@ -289,11 +289,14 @@ function checkGeneratedLimits(
   return Effect.void;
 }
 
+/** Constrain generation to the saved count, question kind and difficulty. */
 function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undefined) {
   if (!config) return '';
 
   const kinds = {
-    mixed: 'any combination of choice, open and fill_blank questions',
+    mixed: 'any combination of choice, open, fill_blank and matching questions',
+    matching:
+      'only matching questions with 2 to 8 distinct term/definition pairs from the selected documents; each definition must match exactly one term. Never disclose associations in the prompt; cite evidence in the explanation',
     choice: 'only choice questions (single_choice or multiple_choice)',
     open: 'only open questions',
     fill_blank:

@@ -8,6 +8,8 @@ import {
   projectIdSchema,
   quizQuestionIdSchema,
   quizChoiceIdSchema,
+  matchingTermIdSchema,
+  matchingDefinitionIdSchema,
   sessionIdSchema
 } from '../ids.ts';
 import { contentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
@@ -24,7 +26,7 @@ export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diag
 export const quizGenerationConfigSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })),
-  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank']),
+  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank', 'matching']),
   difficulty: Schema.Literals(['easy', 'balanced', 'challenging'])
 });
 
@@ -123,7 +125,37 @@ const openQuestionInputSchema = Schema.Struct({
   referenceAnswer: nonemptySchema
 });
 
+const matchingPairInputSchema = Schema.Struct({ term: nonemptySchema, definition: nonemptySchema });
+
+export const matchingPairsSchema = Schema.mutable(
+  Schema.Array(
+    Schema.Struct({
+      termId: matchingTermIdSchema,
+      definitionId: matchingDefinitionIdSchema,
+      term: nonemptySchema,
+      definition: nonemptySchema
+    })
+  )
+).check(Schema.isBetweenLength(2, 8));
+
+const matchingQuestionInputSchema = Schema.Struct({
+  kind: Schema.Literal('matching'),
+  prompt: nonemptySchema,
+  explanation: nonemptySchema,
+  pairs: Schema.mutable(Schema.Array(matchingPairInputSchema)).check(Schema.isBetweenLength(2, 8))
+}).check(
+  Schema.makeFilter(({ pairs }) => {
+    const normalize = (value: string) => value.trim().normalize('NFKC').toLowerCase();
+
+    return (
+      new Set(pairs.map((p) => normalize(p.term))).size === pairs.length &&
+      new Set(pairs.map((p) => normalize(p.definition))).size === pairs.length
+    );
+  })
+);
+
 export const materialQuestionInputSchema = Schema.Union([
+  matchingQuestionInputSchema,
   singleChoiceInputSchema,
   multipleChoiceInputSchema,
   openQuestionInputSchema,
@@ -228,6 +260,13 @@ const quizContentDetailSchema = Schema.Struct({
   questions: Schema.mutable(
     Schema.Array(
       Schema.Union([
+        Schema.Struct({
+          id: quizQuestionIdSchema,
+          kind: Schema.Literal('matching'),
+          prompt: Schema.String,
+          explanation: Schema.String,
+          pairs: matchingPairsSchema
+        }),
         Schema.Struct({
           id: quizQuestionIdSchema,
           kind: Schema.Literal('single_choice'),

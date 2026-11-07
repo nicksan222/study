@@ -13,6 +13,7 @@ import { Settings } from '@study/ui/settings';
 import { Textarea } from '@study/ui/textarea';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Link2,
   GraduationCap,
   Layers,
   SlidersHorizontal,
@@ -113,10 +114,11 @@ function GenerationDialog({
   );
 }
 
+/** Build document-grounded generation requests using the selected kind and saved preferences. */
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank'>('quiz');
+  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank' | 'matching'>('quiz');
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
@@ -133,18 +135,19 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const titleKey = {
     quiz: 'SidebarQuiz',
     flashcards: 'Flashcards',
-    fill_blank: 'PracticeFillBlank'
+    fill_blank: 'PracticeFillBlank',
+    matching: 'PracticeMatching'
   } as const;
   const configuredQuestionKind =
     configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
-  const questionKind = kind === 'fill_blank' ? kind : configuredQuestionKind;
+  const questionKind = kind === 'fill_blank' || kind === 'matching' ? kind : configuredQuestionKind;
   const create = () => {
     if (hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
         title: t(titleKey[kind]),
         autoTitle: true,
-        kind: kind === 'fill_blank' ? 'quiz' : kind,
+        kind: kind === 'fill_blank' || kind === 'matching' ? 'quiz' : kind,
         instruction: instruction.trim() || undefined,
         inputs: inputs.filter((input) => input.kind === 'document'),
         quizConfig:
@@ -177,6 +180,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
 
 type GenerationModel = ReturnType<typeof useGeneration>;
 
+/** Offer localized practice modes alongside the selected source documents. */
 function GenerationPanel({
   projectId,
   accepted
@@ -217,7 +221,18 @@ function GenerationPanel({
               >
                 <TextCursorInput aria-hidden="true" />
               </Settings.Choice>
+              <Settings.Choice
+                label={t('PracticeMatching')}
+                selected={model.kind === 'matching'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('matching')}
+              >
+                <Link2 aria-hidden="true" />
+              </Settings.Choice>
             </Settings.ChoiceGroup>
+            {model.kind === 'matching' && (
+              <Settings.Intro>{t('PracticeMatchingHelp')}</Settings.Intro>
+            )}
             {model.kind === 'fill_blank' && (
               <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>
             )}

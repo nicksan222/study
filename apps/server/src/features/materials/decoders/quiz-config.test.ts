@@ -80,3 +80,26 @@ testStable('blank-only generation rejects other kinds and ignores the choice cou
     assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([blank, choice]))
   );
 });
+
+testStable(
+  'matching-only generation preserves exact question counts and excludes other kinds',
+  () => {
+    const matching = {
+      kind: 'matching' as const,
+      prompt: 'Match',
+      explanation: 'Evidence [1]',
+      pairs: [
+        { term: 'A', definition: 'a' },
+        { term: 'B', definition: 'b' }
+      ]
+    };
+    const configured = { ...config, questionKind: 'matching' as const };
+
+    assert.doesNotThrow(() => assertQuizConfig(configured, quiz([matching, matching])));
+    assert.throws(() => assertQuizConfig(configured, quiz([matching])));
+    assert.throws(() => assertQuizConfig(configured, quiz([matching, open])));
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([matching, choice]))
+    );
+  }
+);

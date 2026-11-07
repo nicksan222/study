@@ -8,9 +8,8 @@ import { assert } from 'vite-plus/test';
 
 import { Db, sql } from '../src/index.ts';
 
-testStable(
-  'blank migration preserves populated quiz attempts and all existing trigger guards',
-  () => {
+for (const cutoff of ['20261107121957_fill-blank-practice', '20261107132029_matching-practice'])
+  testStable(`${cutoff} preserves populated quiz attempts and all existing trigger guards`, () => {
     const folder = mkdtempSync(join(tmpdir(), 'study-blank-migration-'));
     const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
     const previous = join(folder, 'migrations');
@@ -19,7 +18,7 @@ testStable(
 
     try {
       for (const name of readdirSync(migrations))
-        if (name < '20261107121957_fill-blank-practice')
+        if (name < cutoff)
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
 
       connection = Db.open(path, previous);
@@ -52,7 +51,15 @@ testStable(
         'material_quiz_responses',
         'material_quiz_selections'
       ];
-      const before = tables.map((table) => db.all(sql.raw(`SELECT * FROM ${table}`)));
+      const columns = tables.map((table) =>
+        db
+          .all<{ name: string }>(sql.raw(`PRAGMA table_info(${table})`))
+          .map((column) => column.name)
+          .join(',')
+      );
+      const before = tables.map((table, i) =>
+        db.all(sql.raw(`SELECT ${columns[i]} FROM ${table}`))
+      );
       const triggers = db.all(
         sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`
       );
@@ -61,13 +68,18 @@ testStable(
       connection = undefined;
       connection = Db.open(path);
       assert.deepEqual(
-        tables.map((table) => connection!.orm.all(sql.raw(`SELECT * FROM ${table}`))),
+        tables.map((table, i) =>
+          connection!.orm.all(sql.raw(`SELECT ${columns[i]} FROM ${table}`))
+        ),
         before
       );
-      assert.deepEqual(
-        connection.orm.all(sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`),
-        triggers
+      const afterTriggers = connection.orm.all<{ name: string }>(
+        sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`
       );
+
+      for (const trigger of triggers as { name: string }[])
+        assert.ok(afterTriggers.some((row) => row.name === trigger.name));
+
       assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
       assert.throws(() =>
         connection!.orm.run(sql`UPDATE material_quiz_responses SET score=0 WHERE attempt_id=1`)
@@ -79,5 +91,4 @@ testStable(
       connection?.close();
       rmSync(folder, { recursive: true, force: true });
     }
-  }
-);
+  });

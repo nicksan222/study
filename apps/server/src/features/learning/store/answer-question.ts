@@ -20,13 +20,28 @@ import * as s from '@study/db/schema';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
 
+import { encodeAssociations, matchingScore } from './matching.ts';
 import { makeQuiz } from './quiz.ts';
 
 type Input = typeof answerQuestionInputSchema.Type;
 
+/** Build transactional answer writes that enforce attempt ownership and answer kinds. */
 export function makeAnswerQuestion(resources: StoreResources) {
   const { db } = resources;
   const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+
+  /** Grade structured answers deterministically while leaving text answers to the durable grader. */
+  function answerScore(
+    question: typeof s.material_quiz_questions.$inferSelect,
+    answer: Input['answer']
+  ) {
+    if (answer.type === 'matching')
+      return matchingScore(question.matching_pairs!, answer.associations);
+
+    return answer.type === 'choice' ? choiceScore(question, answer.choiceIds) : null;
+  }
+
+  /** Validate the active attempt, then atomically replace its saved learner response. */
   const answerQuestion = (input: Input, practiceSlotId?: string) => {
     const practice = db.orm
       .select({
@@ -45,9 +60,12 @@ export function makeAnswerQuestion(resources: StoreResources) {
 
     if (!q) invalid('question does not belong to attempt selection');
 
-    if (isTextQuestionKind(q.kind) !== (input.answer.type === 'open')) invalid('wrong answer kind');
+    const expected =
+      q.kind === 'matching' ? 'matching' : isTextQuestionKind(q.kind) ? 'open' : 'choice';
 
-    const score = input.answer.type === 'choice' ? choiceScore(q, input.answer.choiceIds) : null;
+    if (input.answer.type !== expected) invalid('wrong answer kind');
+
+    const score = answerScore(q, input.answer);
 
     db.orm
       .delete(s.material_quiz_selections)
@@ -63,7 +81,7 @@ export function makeAnswerQuestion(resources: StoreResources) {
       version_id: a.version_id,
       question_id: q.id,
       question_kind: q.kind,
-      answer: input.answer.type === 'open' ? input.answer.answer : null,
+      answer: storedAnswer(input.answer),
       score,
       feedback: null
     };
@@ -99,4 +117,11 @@ export function makeAnswerQuestion(resources: StoreResources) {
   return {
     answerQuestion
   };
+}
+
+/** Serialize matching associations without treating them as free text answers. */
+function storedAnswer(answer: Input['answer']) {
+  if (answer.type === 'matching') return encodeAssociations(answer.associations);
+
+  return answer.type === 'open' ? answer.answer : null;
 }

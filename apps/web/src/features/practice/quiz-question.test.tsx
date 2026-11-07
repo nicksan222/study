@@ -121,3 +121,63 @@ testStable('confirming an IME composition does not submit a blank answer', () =>
   fireEvent.keyDown(input, { key: 'Enter', isComposing: false });
   expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: '日本語' });
 });
+
+testStable(
+  'matching restores associations and supports keyboard selection without submitting from a select',
+  async () => {
+    const submit = vi.fn();
+    const termA = '11111111-1111-4111-8111-111111111111';
+    const termB = '22222222-2222-4222-8222-222222222222';
+    const definitionA = '33333333-3333-4333-8333-333333333333';
+    const definitionB = '44444444-4444-4444-8444-444444444444';
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'matching',
+          prompt: 'Match cell components.',
+          terms: [
+            { id: termA, text: 'Nucleus' },
+            { id: termB, text: 'Ribosome' }
+          ],
+          definitions: [
+            { id: definitionB, text: 'Builds proteins' },
+            { id: definitionA, text: 'Stores DNA' }
+          ],
+          answer: {
+            type: 'matching',
+            associations: [
+              { termId: termA, definitionId: definitionB },
+              { termId: termB, definitionId: definitionA }
+            ]
+          }
+        }
+      ]
+    }).questions[0]!;
+    const user = userEvent.setup();
+
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    const nucleus = screen.getByRole('combobox', { name: 'Nucleus' });
+    const ribosome = screen.getByRole('combobox', { name: 'Ribosome' });
+
+    expect(nucleus).toHaveTextContent('Builds proteins');
+    expect(ribosome).toHaveTextContent('Stores DNA');
+    nucleus.focus();
+    await user.keyboard('{Enter}');
+    expect(submit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('option', { name: 'Stores DNA' }));
+    expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
+    await user.click(ribosome);
+    await user.click(screen.getByRole('option', { name: 'Builds proteins' }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
+    expect(submit).toHaveBeenCalledExactlyOnceWith({
+      type: 'matching',
+      associations: [
+        { termId: termA, definitionId: definitionA },
+        { termId: termB, definitionId: definitionB }
+      ]
+    });
+  }
+);

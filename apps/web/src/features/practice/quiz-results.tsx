@@ -11,6 +11,8 @@ import { useState, useId } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { MatchingReview } from './matching-review';
+
 type Completed = typeof quizAttemptCompletedSchema.Type;
 
 type Question = Completed['questions'][number];
@@ -130,6 +132,7 @@ export function QuizResults({
   );
 }
 
+/** Show the question verdict, variant review and explanation in the shared Results layout. */
 function ResultQuestion({
   question,
   index,
@@ -157,7 +160,56 @@ function ResultQuestion({
           <Practice.Prompt>{question.prompt}</Practice.Prompt>
         </>
       )}
-      {!('choices' in question) ? (
+      <ResultAnswers question={question} selected={selected} />
+      {question.feedback && <Practice.Muted>{question.feedback}</Practice.Muted>}
+      <Practice.Explanation>
+        <Practice.MutedText>{t('PracticeArchiveExplanation')}</Practice.MutedText>
+        <p>{question.explanation}</p>
+      </Practice.Explanation>
+    </Practice.Preview>
+  );
+}
+
+function verdict(question: Question) {
+  if (question.score === null) return question.answer ? 'PracticeUngraded' : 'PracticeUnanswered';
+
+  if (question.score === 1) return 'VerdictCorrect';
+
+  return question.score === 0 ? 'VerdictIncorrect' : 'VerdictPartly';
+}
+
+function OverallScore({ attempt }: { attempt: Completed }) {
+  const { t, locale } = useI18n();
+
+  if (attempt.scoring.score === null)
+    return <Practice.MutedText>{t('PracticeGradingPending')}</Practice.MutedText>;
+
+  return (
+    <Practice.Score>
+      {new Intl.NumberFormat(locale === 'italian' ? 'it' : 'en', {
+        style: 'percent',
+        maximumFractionDigits: 0
+      }).format(attempt.scoring.score)}
+      <span>{t('PracticeScore')}</span>
+    </Practice.Score>
+  );
+}
+
+/** Route completed matching, text and choice questions to their respective review presentation. */
+function ResultAnswers({
+  question,
+  selected
+}: {
+  question: Question;
+  selected: Extract<Question['answer'], { type: 'choice' }>['choiceIds'];
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {question.kind === 'matching' ? (
+        <MatchingReview question={question} />
+      ) : !('choices' in question) ? (
         <Practice.OpenAnswers>
           <div>
             <Practice.Muted>{t('YourAnswer')}</Practice.Muted>
@@ -210,36 +262,6 @@ function ResultQuestion({
           ))}
         </Practice.Answers>
       )}
-      {question.feedback && <Practice.Muted>{question.feedback}</Practice.Muted>}
-      <Practice.Explanation>
-        <Practice.MutedText>{t('PracticeArchiveExplanation')}</Practice.MutedText>
-        <p>{question.explanation}</p>
-      </Practice.Explanation>
-    </Practice.Preview>
-  );
-}
-
-function verdict(question: Question) {
-  if (question.score === null) return question.answer ? 'PracticeUngraded' : 'PracticeUnanswered';
-
-  if (question.score === 1) return 'VerdictCorrect';
-
-  return question.score === 0 ? 'VerdictIncorrect' : 'VerdictPartly';
-}
-
-function OverallScore({ attempt }: { attempt: Completed }) {
-  const { t, locale } = useI18n();
-
-  if (attempt.scoring.score === null)
-    return <Practice.MutedText>{t('PracticeGradingPending')}</Practice.MutedText>;
-
-  return (
-    <Practice.Score>
-      {new Intl.NumberFormat(locale === 'italian' ? 'it' : 'en', {
-        style: 'percent',
-        maximumFractionDigits: 0
-      }).format(attempt.scoring.score)}
-      <span>{t('PracticeScore')}</span>
-    </Practice.Score>
+    </>
   );
 }

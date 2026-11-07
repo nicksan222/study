@@ -254,6 +254,7 @@ export function OperationError({ retry }: { retry?: () => void }) {
   );
 }
 
+/** Identify each canonical question kind without presenting its answer key. */
 function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
 
@@ -266,11 +267,13 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
           key: String(question.id),
           prompt: question.prompt,
           detail: t(
-            question.kind === 'fill_blank'
-              ? 'PracticeFillBlank'
-              : question.kind === 'open'
-                ? 'QuestionOpen'
-                : 'QuestionChoice'
+            question.kind === 'matching'
+              ? 'PracticeMatching'
+              : question.kind === 'fill_blank'
+                ? 'PracticeFillBlank'
+                : question.kind === 'open'
+                  ? 'QuestionOpen'
+                  : 'QuestionChoice'
           )
         }))}
       />
@@ -278,6 +281,7 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   );
 }
 
+/** Summarize the learner response, including readable saved matching associations. */
 function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]) {
   const answer = question.answer;
 
@@ -285,7 +289,16 @@ function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questi
 
   if (answer.type === 'open') return answer.answer;
 
-  if (!('choices' in question)) return null;
+  if (question.kind === 'matching' && answer.type === 'matching')
+    return question.terms
+      .map((term) => {
+        const selected = answer.associations.find((a) => a.termId === term.id);
+
+        return `${term.text}: ${question.definitions.find((d) => d.id === selected?.definitionId)?.text ?? ''}`;
+      })
+      .join('; ');
+
+  if (!('choices' in question) || answer.type !== 'choice') return null;
 
   return question.choices
     .filter((choice) => answer.choiceIds.includes(choice.id))

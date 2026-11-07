@@ -31,6 +31,7 @@ const json = (value: unknown) =>
 const csvCell = (s: string) =>
   '"' + (/^(?:\s*[=+@-]|[\t\r\n])/.test(s) ? "'" : '') + s.replaceAll('"', '""') + '"';
 
+/** Export the exact version, preserving matching associations within the existing byte budget. */
 export function serializeMaterialVersion(
   version: MaterialVersionDetailDto,
   format: typeof learningExportFormatSchema.Type,
@@ -66,7 +67,9 @@ export function serializeMaterialVersion(
           q.kind,
           q.prompt,
           q.explanation,
-          'referenceAnswer' in q ? q.referenceAnswer : json(q.choices)
+          'referenceAnswer' in q
+            ? q.referenceAnswer
+            : json(q.kind === 'matching' ? q.pairs : q.choices)
         ])
       ];
     else throw new StudyError('unsupported', 'CSV requires flashcards or quiz content');

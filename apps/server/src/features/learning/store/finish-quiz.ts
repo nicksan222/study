@@ -20,13 +20,16 @@ import * as s from '@study/db/schema';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
 
+import { decodeAssociations, matchingScore } from './matching.ts';
 import { now, makeQuiz } from './quiz.ts';
 
 type Input = typeof attemptInputSchema.Type;
 
+/** Finalize attempt snapshots after revalidating deterministic answer scores. */
 export function makeFinishQuiz(resources: StoreResources) {
   const { db, clock } = resources;
   const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  /** Recompute structured scores before committing the immutable completed attempt. */
   const finishQuiz = (input: Input) => {
     const a = attemptRow(input.attemptId, true);
 
@@ -50,7 +53,11 @@ export function makeFinishQuiz(resources: StoreResources) {
         )
         .all();
 
-      if (isTextQuestionKind(q.kind)) {
+      if (q.kind === 'matching') {
+        const score = matchingScore(q.matching_pairs!, decodeAssociations(response.answer));
+
+        db.orm.update(s.material_quiz_responses).set({ score, feedback: null }).where(where).run();
+      } else if (isTextQuestionKind(q.kind)) {
         if (!response.answer?.trim() || selected.length) invalid('malformed open response');
       } else {
         const score = choiceScore(

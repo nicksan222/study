@@ -174,6 +174,7 @@ export function makeReads(resources: StoreResources) {
     };
   }
 
+  /** Reconstruct complete version content, including matching keys for material review and export. */
   function readQuiz(
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'quiz' }> {
@@ -225,6 +226,9 @@ export function makeReads(resources: StoreResources) {
       .all()
       .map((q) => {
         const questionBase = { id: q.id, prompt: q.prompt, explanation: q.explanation };
+
+        if (q.kind === 'matching')
+          return { ...questionBase, kind: q.kind, pairs: required(q.matching_pairs) };
 
         if (isTextQuestionKind(q.kind))
           return {

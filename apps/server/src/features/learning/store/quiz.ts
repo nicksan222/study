@@ -23,8 +23,12 @@ import * as s from '@study/db/schema';
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
+
+import { matchingView } from './matching.ts';
+
 export { unixSeconds as now } from '#server/platform/time/index';
 
+/** Read canonical questions and derive learner-safe attempt views from persisted state. */
 export function makeQuiz(resources: StoreResources) {
   const { db } = resources;
 
@@ -69,12 +73,14 @@ export function makeQuiz(resources: StoreResources) {
       .all();
   }
 
+  /** Read the attempt selection and its saved matching order, retaining older quiz snapshots. */
   function attemptQuestions(attemptId: QuizAttemptId) {
     const attempt = attemptRow(attemptId);
     const selected = db.orm
       .select({
         question: s.material_quiz_questions,
-        position: s.material_quiz_attempt_questions.position
+        position: s.material_quiz_attempt_questions.position,
+        matching_order: s.material_quiz_attempt_questions.matching_order
       })
       .from(s.material_quiz_attempt_questions)
       .innerJoin(
@@ -86,8 +92,12 @@ export function makeQuiz(resources: StoreResources) {
       .all();
 
     return selected.length
-      ? selected.map(({ question, position }) => ({ ...question, position }))
-      : questions(attempt.version_id);
+      ? selected.map(({ question, position, matching_order }) => ({
+          ...question,
+          position,
+          matching_order
+        }))
+      : questions(attempt.version_id).map((question) => ({ ...question, matching_order: null }));
   }
 
   function choices(questionId: QuizQuestionId) {
@@ -122,6 +132,7 @@ export function makeQuiz(resources: StoreResources) {
       : 0;
   }
 
+  /** Hide answer keys until completion and include deterministic per-pair matching results afterward. */
   function attemptView(attemptId: QuizAttemptId) {
     const attempt = attemptRow(attemptId);
     const version = published(attempt.version_id, 'quiz');
@@ -197,6 +208,12 @@ export function makeQuiz(resources: StoreResources) {
         prompt: q.prompt
       };
 
+      if (q.kind === 'matching')
+        return {
+          ...base,
+          ...matchingView(q.matching_pairs!, q.matching_order ?? [], response?.answer ?? null)
+        };
+
       if (isTextQuestionKind(q.kind))
         return {
           ...base,
@@ -265,12 +282,23 @@ export function makeQuiz(resources: StoreResources) {
         explanation: question.explanation,
         score: response?.score ?? null,
         feedback: response?.feedback ?? null,
-        grading: !response
-          ? ('unanswered' as const)
-          : response.score === null
-            ? ('ungraded' as const)
-            : ('graded' as const)
+        grading: gradingState(response)
       };
+
+      if (item.kind === 'matching')
+        return {
+          ...item,
+          ...result,
+          pairs: question.matching_pairs!.map((pair) => ({
+            termId: pair.termId,
+            definitionId: pair.definitionId,
+            score: item.answer?.associations.some(
+              (a) => a.termId === pair.termId && a.definitionId === pair.definitionId
+            )
+              ? 1
+              : 0
+          }))
+        };
 
       if (!('choices' in item))
         return {
@@ -319,4 +347,11 @@ export function makeQuiz(resources: StoreResources) {
     choiceScore,
     attemptView
   };
+}
+
+/** Distinguish missing answers from answers whose durable text grade is still pending. */
+function gradingState(response: typeof s.material_quiz_responses.$inferSelect | undefined) {
+  if (!response) return 'unanswered' as const;
+
+  return response.score === null ? ('ungraded' as const) : ('graded' as const);
 }

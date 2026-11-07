@@ -1712,7 +1712,7 @@ export const italian = Object.freeze({
   PracticeOverallResults: 'Risultati complessivi',
   PracticeGenerate: 'Genera esercizi',
   PracticeGenerateHelp:
-    'Crea quiz, flashcard o frasi da completare dai tuoi documenti. Sono tutti selezionati; deseleziona quelli che vuoi escludere.',
+    'Crea materiale per esercitarti dai tuoi documenti. Sono tutti selezionati; deseleziona quelli che vuoi escludere.',
   PracticeGenerateKind: 'Cosa vuoi creare?',
   PracticeGeneratePrompt: 'Su cosa concentrarsi? (facoltativo)',
   PracticeGeneratePromptHint:
@@ -1766,6 +1766,11 @@ export const italian = Object.freeze({
     'Il tuo primo tentativo parte da qui. Puoi fermarti e riprendere quando vuoi.',
   PracticeViewResults: 'Vedi i risultati',
   PracticeResume: 'Continua il quiz',
+  PracticeMatching: 'Abbinamenti',
+  PracticeMatchingHelp: 'Abbina i termini dei tuoi documenti alle rispettive definizioni.',
+  PracticeMatchingHint:
+    'Abbina ogni termine a una definizione. Usa ogni definizione una sola volta.',
+  PracticeMatchingChoose: 'Scegli una definizione',
   PracticeFillBlank: 'Completa la frase',
   PracticeFillBlankHelp: 'Ripassa i concetti chiave completando frasi tratte dai tuoi documenti.',
   PracticeFillBlankHint:

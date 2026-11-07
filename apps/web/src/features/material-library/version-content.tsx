@@ -57,6 +57,7 @@ export function MaterialVersionContent({ version }: { version: MaterialVersionDe
   );
 }
 
+/** Render canonical material answers, including term-definition pairs, for version review. */
 function QuestionPreview({
   question,
   index
@@ -72,17 +73,26 @@ function QuestionPreview({
         <span>{questionNumber(locale, index + 1)}</span>
         <span>
           {t(
-            question.kind === 'fill_blank'
-              ? 'PracticeFillBlank'
-              : question.kind === 'open'
-                ? 'QuestionOpen'
-                : 'QuestionChoice'
+            question.kind === 'matching'
+              ? 'PracticeMatching'
+              : question.kind === 'fill_blank'
+                ? 'PracticeFillBlank'
+                : question.kind === 'open'
+                  ? 'QuestionOpen'
+                  : 'QuestionChoice'
           )}
         </span>
       </Practice.ProgressHeading>
       <Practice.Prompt>{question.prompt}</Practice.Prompt>
       <Practice.Answers aria-label={t('RightAnswer')}>
-        {!('choices' in question) ? (
+        {question.kind === 'matching' ? (
+          question.pairs.map((pair) => (
+            <Practice.MatchingRow key={pair.termId}>
+              <span>{pair.term}</span>
+              <p>{pair.definition}</p>
+            </Practice.MatchingRow>
+          ))
+        ) : !('choices' in question) ? (
           <Textarea readOnly aria-label={t('RightAnswer')} value={question.referenceAnswer} />
         ) : (
           question.choices.map((choice, position) => (
