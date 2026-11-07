@@ -1,0 +1,38 @@
+.ui-generation-preview {
+  min-width: 0;
+  padding-block: 0.75rem;
+}
+.ui-generation-preview-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.ui-generation-preview-text {
+  max-width: 72ch;
+  margin-block: 0.75rem 0;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  line-height: 1.7;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ui-generation-preview-text [data-stream-word] {
+  animation: generation-word-arrive 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes generation-word-arrive {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-generation-preview-text [data-stream-word] {
+    animation: none;
+  }
+}

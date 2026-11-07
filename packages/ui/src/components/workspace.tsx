@@ -256,6 +256,7 @@ export const WorkspaceWork = {
   Row: part('li', 'ui-workspace-work-row'),
   Copy: part('div', 'ui-workspace-work-copy'),
   Status: part('span', 'ui-workspace-work-status'),
+  Progress: part('div', 'ui-workspace-work-progress'),
   Empty: part('p', 'ui-workspace-work-empty'),
   Error: part('div', 'ui-workspace-work-error')
 };

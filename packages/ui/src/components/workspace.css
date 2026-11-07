@@ -328,6 +328,10 @@
   grid-column: 1 / -1;
   font-size: 0.8125rem;
 }
+.ui-workspace-work-progress {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
 .ui-workspace-work-error p {
   margin: 0;
 }

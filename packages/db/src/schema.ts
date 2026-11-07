@@ -10,6 +10,7 @@ export * from './schema/material-content.ts';
 export * from './schema/learning-content.ts';
 export * from './schema/themes.ts';
 export * from './schema/workflows.ts';
+export * from './schema/workflow-agent-progress.ts';
 export * from './schema/workflow-events.ts';
 export * from './schema/source-processing.ts';
 export * from './schema/workflow-configuration.ts';

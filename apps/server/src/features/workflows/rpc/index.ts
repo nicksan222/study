@@ -25,6 +25,9 @@ export const WorkflowsRpcLive = defineRpc(
     const workflows = yield* Workflows;
 
     return {
+      'workflows.agentProgress': (input) => workflows.agentProgress(input),
+      'workflows.subscribeAgentProgress': (input) =>
+        Stream.unwrap(workflows.subscribeAgentProgress(input)),
       'workflows.execution': ({ id }) => workflows.execution(id),
       'workflows.findExecution': ({ id }) => workflows.findExecution(id),
       'workflows.executions': (input) => workflows.executions(input),

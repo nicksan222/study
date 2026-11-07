@@ -110,6 +110,7 @@ const groups: Record<string, string[]> = {
     'workflow_retired_executions',
     'workflow_executions',
     'workflow_activities',
+    'workflow_agent_progress',
     'workflow_deferreds',
     'workflow_clocks',
     'workflow_events',

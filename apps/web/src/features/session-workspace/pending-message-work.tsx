@@ -7,6 +7,7 @@ import { X } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { AgentProgress } from '../agent-progress';
 import type { MessageWorkTarget } from './message-work-details';
 import { sessionWorkKey, stopSessionWorkOptions } from './session-pending-work.queries';
 import { executionOptions, provenanceOptions, sessionKey } from './session-workspace.queries';
@@ -66,6 +67,7 @@ function PendingRequestWork({
           )
         }
       />
+      {execution && !stopping && <AgentProgress executionId={execution.id} />}
       {work.error && <SessionReadError error={work.error} retry={() => void work.refetch()} />}
       {cancel.isError && (
         <ErrorState
