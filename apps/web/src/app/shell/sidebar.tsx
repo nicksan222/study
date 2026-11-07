@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 
 import { DocumentsSidebar } from '#web/features/authored-documents/index.ts';
 import { LibraryList } from '#web/features/library/index.ts';
+import { PracticeSidebarGenerations } from '#web/features/practice/index.ts';
 import type { SidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 
@@ -58,12 +59,21 @@ export function Sidebar(props: SidebarProps) {
 
 function PracticePanel({ model, ready }: PanelProps) {
   return (
-    <LibraryList
-      subjects={model.subjects}
-      project={model.project}
-      blocked={Boolean(model.requestedProject) && !ready}
-      ready={model.subjectState === 'ready'}
-      query={model.query}
-    />
+    <>
+      <PracticeSidebarGenerations
+        key={String(model.project)}
+        project={model.project}
+        subjects={model.subjects}
+        query={model.query}
+        enabled={ready}
+      />
+      <LibraryList
+        subjects={model.subjects}
+        project={model.project}
+        blocked={Boolean(model.requestedProject) && !ready}
+        ready={model.subjectState === 'ready'}
+        query={model.query}
+      />
+    </>
   );
 }

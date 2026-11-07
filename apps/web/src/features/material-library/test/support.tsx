@@ -119,6 +119,9 @@ export function materialRpc() {
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
     'documents.exportFile': vi.fn<StudyClient['documents.exportFile']>(),
     'documents.exportVersion': vi.fn<StudyClient['documents.exportVersion']>(),
+    'materials.activeMaterialGenerations': vi
+      .fn<StudyClient['materials.activeMaterialGenerations']>()
+      .mockReturnValue(Effect.succeed([])),
     'materials.materials': vi
       .fn<StudyClient['materials.materials']>()
       .mockReturnValue(Effect.succeed({ items: [summary()], nextCursor: null })),

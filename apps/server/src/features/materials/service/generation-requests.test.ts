@@ -603,3 +603,56 @@ testStable(
     }
   }
 );
+
+testStable(
+  'active practice generations recover across reads and exclude cancelled and other subjects',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const projects = yield* Projects;
+          const materials = yield* Materials;
+          const project = yield* projects.createProject({ name: 'Practice' });
+          const other = yield* projects.createProject({ name: 'Other' });
+          const doc = yield* createEvidence({ projectId: project.id, title: 'Evidence' });
+          const otherDoc = yield* createEvidence({ projectId: other.id, title: 'Other evidence' });
+          const request = yield* materials.requestMaterialGeneration({
+            projectId: project.id,
+            title: 'Quiz',
+            kind: 'quiz',
+            inputs: [{ kind: 'document', versionId: doc.version.id }]
+          });
+          const otherRequest = yield* materials.requestMaterialGeneration({
+            projectId: other.id,
+            title: 'Cards',
+            kind: 'flashcards',
+            inputs: [{ kind: 'document', versionId: otherDoc.version.id }]
+          });
+
+          expect(
+            (yield* materials.activeMaterialGenerations({ projectId: project.id })).map(
+              (item) => item.id
+            )
+          ).toEqual([request.id]);
+          expect(
+            (yield* materials.activeMaterialGenerations({})).map((item) => item.id).sort()
+          ).toEqual([request.id, otherRequest.id].sort());
+          yield* materials.cancelMaterialGeneration({ requestId: request.id });
+          expect(yield* materials.activeMaterialGenerations({ projectId: project.id })).toEqual([]);
+          expect((yield* materials.activeMaterialGenerations({})).map((item) => item.id)).toEqual([
+            otherRequest.id
+          ]);
+        }).pipe(Effect.provide(services))
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

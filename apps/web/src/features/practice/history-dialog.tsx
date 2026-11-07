@@ -37,16 +37,48 @@ export function AttemptsAction({ id }: { id: MaterialId }) {
         <span>{t('PracticeAttempts')}</span>
         <ArrowUpRight aria-hidden="true" />
       </DialogTrigger>
-      <Surface.Popup
-        contentLayout="fill"
-        keepMounted
-        closeLabel={t('Close')}
-        bottomStickOnMobile={false}
-      >
-        <Surface.Title>{t('PracticeAttempts')}</Surface.Title>
-        <AttemptsPanel id={id} open={open} close={() => setOpen(false)} />
-      </Surface.Popup>
+      <AttemptsPopup id={id} open={open} onOpenChange={setOpen} />
     </Dialog>
+  );
+}
+
+export function AttemptsDialog({
+  id,
+  open,
+  onOpenChange
+}: {
+  id: MaterialId;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <AttemptsPopup id={id} open={open} onOpenChange={onOpenChange} />
+    </Dialog>
+  );
+}
+
+function AttemptsPopup({
+  id,
+  open,
+  onOpenChange
+}: {
+  id: MaterialId;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Surface.Popup
+      contentLayout="fill"
+      keepMounted
+      closeLabel={t('Close')}
+      bottomStickOnMobile={false}
+    >
+      <Surface.Title>{t('PracticeAttempts')}</Surface.Title>
+      <AttemptsPanel id={id} open={open} close={() => onOpenChange(false)} />
+    </Surface.Popup>
   );
 }
 
