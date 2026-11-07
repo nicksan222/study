@@ -40,6 +40,15 @@ function isEligible(
   return row.projectIds.some((id) => scope.projectIds.includes(id));
 }
 
+/** Filter each SQL page before fingerprinting without retaining unrelated projection text. */
+function* eligibleProjections(
+  rows: Iterable<SearchProjection>,
+  input: SemanticSearchInput,
+  scope: SearchScope
+) {
+  for (const row of rows) if (isEligible(row, input, scope)) yield row;
+}
+
 /** Choose each entity’s closest chunk with deterministic ordering before applying the result limit. */
 function bestHits(
   ranked: readonly { key: string; distance: number }[],
@@ -87,9 +96,12 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
   }
 
   /** Delete removed, superseded, or incompatible excerpts before inference can fail or be interrupted. */
-  function purge(rows: readonly SearchProjection[]) {
+  function purge(rows: Iterable<SearchProjection>) {
     const live = new Map(
-      searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row.fingerprint])
+      Array.from(
+        searchEntities(rows, model.maxChunkingInputLength),
+        (row) => [row.target, row.fingerprint] as const
+      )
     );
     const stale = persisted().filter(
       (row) =>
@@ -148,10 +160,13 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
   function publish(
     batch: readonly SearchRecord[],
     vectors: readonly Float32Array[],
-    rows: readonly SearchProjection[]
+    rows: Iterable<SearchProjection>
   ) {
     const live = new Map(
-      searchEntities(rows, model.maxChunkingInputLength).map((row) => [row.target, row.fingerprint])
+      Array.from(
+        searchEntities(rows, model.maxChunkingInputLength),
+        (row) => [row.target, row.fingerprint] as const
+      )
     );
     let count = 0;
 
@@ -198,14 +213,14 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     input: SemanticSearchInput,
     scope: SearchScope,
     query: Float32Array,
-    rows: readonly SearchProjection[]
+    rows: Iterable<SearchProjection>
   ) {
     const vector = vectorBuffer(query, model.dimensions);
     const live = new Map(
-      searchEntities(
-        rows.filter((row) => isEligible(row, input, scope)),
-        model.maxChunkingInputLength
-      ).map((row) => [row.target, row])
+      Array.from(
+        searchEntities(eligibleProjections(rows, input, scope), model.maxChunkingInputLength),
+        (row) => [row.target, row] as const
+      )
     );
 
     if (!live.size) return [];

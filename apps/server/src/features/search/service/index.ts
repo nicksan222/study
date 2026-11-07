@@ -18,7 +18,7 @@ import type {
   SearchProjectionPageInput,
   SearchTarget
 } from '@study/contracts/search/schemas';
-import { Effect } from 'effect';
+import { Effect, Option, Stream } from 'effect';
 
 import { Conversations } from '#server/features/conversations/index';
 import { Documents } from '#server/features/documents/index';
@@ -56,13 +56,12 @@ export const Search = defineService(
     const registryStore = registry.store;
     const readColumns: ProjectionReader = (tx, input) =>
       tx.store(registryStore).searchProjectionPages(input);
-    /** Collect current feature projections in stable SQL pages, narrowing publication checks to their targets. */
-    const read = (
+
+    /** Consume SQL pages inside the transaction without retaining the entire corpus text. */
+    function* read(
       tx: Transaction,
       targets?: readonly SearchTarget[]
-    ): readonly SearchProjection[] => {
-      const rows: SearchProjection[] = [];
-
+    ): Generator<SearchProjection> {
       for (const entry of registry.projections) {
         if (
           targets &&
@@ -79,19 +78,18 @@ export const Search = defineService(
         for (;;) {
           const page = reader(tx, { offset, limit: 1000, kind: entry.kind, targets });
 
-          rows.push(...page.items);
+          yield* page.items;
 
           if (page.next === null) break;
 
           offset = page.next;
         }
       }
+    }
 
-      return rows;
-    };
     /** Read visibility and mutate the index within the same synchronous database transaction. */
     const commit = <A>(
-      work: (rows: readonly SearchProjection[]) => A,
+      work: (rows: Iterable<SearchProjection>) => A,
       beforePublish?: () => void,
       targets?: readonly SearchTarget[]
     ) =>
@@ -100,11 +98,27 @@ export const Search = defineService(
 
         return work(read(tx, targets));
       });
+    /** Read one bounded page; publication later revalidates its targets in a transaction. */
+    const readPage = (kind: string, reader: ProjectionReader, offset: number) =>
+      storage.transaction((tx) => {
+        const page = reader(tx, { offset, limit: 1000, kind });
+
+        return [[page.items], Option.fromNullishOr(page.next)] as const;
+      });
+    // Concurrent additions or offset shifts are recovered by the next reconciliation pass.
+    const pages = Stream.fromIterable(registry.projections).pipe(
+      Stream.flatMap((entry) => {
+        const reader =
+          entry.projection === 'feature' ? featureReaders.get(entry.kind)! : readColumns;
+
+        return Stream.paginate(0, (offset) => readPage(entry.kind, reader, offset));
+      })
+    );
     /** Keep publication fences configurable without registering a runtime worker or agent. */
     const makeIndex = (beforePublish?: () => void) =>
       storage.open({
         model: configuration.model,
-        snapshot: () => commit((rows) => rows),
+        pages,
         commit: (work, targets) => commit(work, beforePublish, targets)
       });
     const index = makeIndex();

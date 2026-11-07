@@ -46,10 +46,10 @@ function fingerprint(row: SearchProjection, target: string, maximum: number): st
 }
 
 /** Validate unique targets and derive visibility-sensitive fingerprints before chunking or ranking. */
-export function searchEntities(rows: readonly SearchProjection[], maximum: number) {
+export function* searchEntities(rows: Iterable<SearchProjection>, maximum: number) {
   const identities = new Set<string>();
 
-  return rows.map((row) => {
+  for (const row of rows) {
     const target = encodeTarget(row.target);
 
     if (identities.has(target))
@@ -57,7 +57,7 @@ export function searchEntities(rows: readonly SearchProjection[], maximum: numbe
 
     identities.add(target);
 
-    return {
+    yield {
       kind: row.target.type === 'registered' ? row.target.entity : row.target.type,
       target,
       fingerprint: fingerprint(row, target, maximum),
@@ -65,10 +65,11 @@ export function searchEntities(rows: readonly SearchProjection[], maximum: numbe
       text: [row.title, row.text].filter(Boolean).join('\n').trim(),
       projection: row
     };
-  });
+  }
 }
 
-export type SearchEntity = ReturnType<typeof searchEntities>[number];
+export type SearchEntity =
+  ReturnType<typeof searchEntities> extends Generator<infer Entity> ? Entity : never;
 
 /** Associate one ordered chunk with its original entity and stable per-entity ordinal. */
 export function searchRecord(entity: SearchEntity, text: string, ordinal: number) {

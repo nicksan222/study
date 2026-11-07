@@ -16,7 +16,7 @@ import type { SearchProjection } from '@study/contracts/search/schemas';
 import { semantic_search_entries } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Effect } from 'effect';
+import { Effect, Stream } from 'effect';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 
@@ -48,6 +48,39 @@ const project = (n: bigint, text: string): SearchProjection => ({
   text,
   projectIds: [id(n)],
   revision: text
+});
+
+testStable('reconciliation publishes a bounded page before reading the next page', async () => {
+  const location = createTestDatabase();
+  const db = location.open();
+  const rows = Array.from({ length: 1001 }, (_, n) => project(BigInt(n + 1), 'planet ' + n));
+  let readLastPage = false;
+  const pages = Stream.fromIterable([rows.slice(0, 1000), rows.slice(1000)]).pipe(
+    Stream.tap((page) =>
+      Effect.sync(() => {
+        if (page.length === 1) {
+          expect(db.orm.select().from(semantic_search_entries).all().length).toBeGreaterThan(0);
+          readLastPage = true;
+        }
+      })
+    )
+  );
+
+  try {
+    const index = makeSemanticIndex({ db, model, read: () => rows, pages });
+
+    expect(await Effect.runPromise(index.reconcile())).toStrictEqual({
+      embedded: 1001,
+      removed: 0
+    });
+    expect(readLastPage).toBe(true);
+    expect(
+      await Effect.runPromise(index.search({ query: 'planet', limit: 1 }, { type: 'all' }))
+    ).toHaveLength(1);
+  } finally {
+    db.close();
+    location.cleanup();
+  }
 });
 
 testStable(

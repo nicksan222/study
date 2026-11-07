@@ -31,7 +31,7 @@ import { textWindows } from './text-windows.ts';
 import type { EmbeddingModel, SearchScope } from './types.ts';
 
 type SearchCommit = <A>(
-  work: (rows: readonly SearchProjection[]) => A,
+  work: (rows: Iterable<SearchProjection>) => A,
   targets?: readonly SearchTarget[]
 ) => Effect.Effect<A, StudyError>;
 
@@ -40,16 +40,16 @@ export function makeSemanticIndex(options: {
   db: Db;
   model: EmbeddingModel;
   read?: () => readonly SearchProjection[];
-  snapshot?: () => Effect.Effect<readonly SearchProjection[], StudyError>;
+  pages?: Stream.Stream<readonly SearchProjection[], StudyError>;
   commit?: SearchCommit;
   beforePublish?: () => void;
 }) {
   const { db, model } = options;
   const sync = <A>(work: () => A) => Effect.try({ try: work, catch: normalizeError });
-  const snapshot = options.snapshot ?? (() => sync(() => options.read!()));
+  const pages = options.pages ?? Stream.fromEffect(sync(() => options.read!()));
   const commit: SearchCommit =
     options.commit ??
-    (<A>(work: (rows: readonly SearchProjection[]) => A) =>
+    (<A>(work: (rows: Iterable<SearchProjection>) => A) =>
       sync(() =>
         db.transaction(() => {
           options.beforePublish?.();
@@ -96,9 +96,10 @@ export function makeSemanticIndex(options: {
   function reconcile() {
     return Effect.gen(function* () {
       const removed = yield* commit(store.purge);
-      const desired = yield* snapshot();
-      const entities = yield* sync(() => searchEntities(desired, model.maxChunkingInputLength));
-      const embedded = yield* Stream.fromIterable(entities).pipe(
+      const embedded = yield* pages.pipe(
+        Stream.flatMap((rows) =>
+          Stream.fromIterable(searchEntities(rows, model.maxChunkingInputLength))
+        ),
         Stream.flatMap(entityRecords),
         Stream.grouped(200),
         Stream.mapEffect((records) => sync(() => store.changed(records))),
