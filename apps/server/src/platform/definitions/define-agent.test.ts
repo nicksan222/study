@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { AgentRule } from '@study/contracts/settings/schemas';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { assert } from 'vite-plus/test';
@@ -22,6 +23,7 @@ testStable('defineAgent preserves schemas and rejects invalid identifiers', () =
   const input = Schema.Struct({ prompt: Schema.String });
   const definition = defineAgent({
     id: 'reply',
+    customRules: [AgentRule.Replies],
     input,
     output: Schema.String,
     model: 'tiny',
@@ -31,4 +33,27 @@ testStable('defineAgent preserves schemas and rejects invalid identifiers', () =
 
   assert.strictEqual(definition.input, input);
   assert.throws(() => defineAgent({ ...definition, id: '' }), RangeError);
+});
+
+testStable('agent declarations require a nonempty selection of known user rules', () => {
+  const valid = {
+    id: 'test',
+    input: Schema.String,
+    output: Schema.String,
+    model: 'tiny' as const,
+    instructions: 'Test',
+    prompt: (input: string) => input
+  };
+
+  // @ts-expect-error every declaration must select user rules
+  defineAgent(valid);
+  // @ts-expect-error empty selections cannot silently bypass user preferences
+  defineAgent({ ...valid, customRules: [] });
+  // @ts-expect-error raw strings cannot stand in for typed rule selections
+  defineAgent({ ...valid, customRules: ['replies'] });
+
+  assert.deepEqual(
+    defineAgent({ ...valid, customRules: [AgentRule.Quizzes, AgentRule.Titles] }).customRules,
+    [AgentRule.Quizzes, AgentRule.Titles]
+  );
 });

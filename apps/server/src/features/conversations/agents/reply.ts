@@ -14,12 +14,14 @@
  */
 
 import { replyInputSchema, replyOutputSchema } from '@study/contracts/ai/reply';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const replyAgent = defineAgent({
   id: 'reply',
+  customRules: [AgentRule.Replies],
   input: replyInputSchema,
   output: replyOutputSchema,
   model: 'medium',

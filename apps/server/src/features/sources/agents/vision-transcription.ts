@@ -16,11 +16,13 @@ import {
   visionTranscriptionInputSchema,
   visionTranscriptionOutputSchema
 } from '@study/contracts/ai/vision-transcription';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const visionTranscriptionAgent = defineAgent({
   id: 'vision-transcription',
+  customRules: [AgentRule.Transcription],
   input: visionTranscriptionInputSchema,
   output: visionTranscriptionOutputSchema,
   model: 'medium',

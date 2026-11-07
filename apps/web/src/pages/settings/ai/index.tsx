@@ -1,8 +1,8 @@
-import { AiSettingsView, AiAccountSettingsView } from './ai.view';
+import { AiModelSettingsView, AiAccountSettingsView } from './ai.view';
 import { useAiSettings } from './use-ai-settings';
 
-export function AiSettings() {
-  return <AiSettingsView model={useAiSettings()} />;
+export function AiModelSettings() {
+  return <AiModelSettingsView model={useAiSettings()} />;
 }
 
 /** Shares the complete sign-in lifecycle without exposing model tuning during first run. */

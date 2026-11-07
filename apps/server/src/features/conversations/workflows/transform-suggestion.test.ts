@@ -15,6 +15,7 @@
 import { createServer } from 'node:http';
 
 import { StudyRpc } from '@study/contracts/rpc';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -114,6 +115,7 @@ testStable(
             return Effect.succeed(model);
           },
           language: Effect.succeed('en'),
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         }),
         workflowEngineLayer(context)

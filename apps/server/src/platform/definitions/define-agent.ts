@@ -17,7 +17,7 @@
 
 import type { sourceEvidenceSchema } from '@study/contracts/ai/sources';
 import type { StudyError } from '@study/contracts/errors';
-import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { AgentRule, ModelTier } from '@study/contracts/settings/schemas';
 import type { ModelMessage } from 'ai';
 import type { Effect, Schema } from 'effect';
 
@@ -48,6 +48,8 @@ export interface AgentDefinition<
   input: Input;
   output: Output;
   model: ModelTier;
+  /** Every agent explicitly selects at least one user preference category. */
+  customRules: readonly [AgentRule, ...AgentRule[]];
   instructions: string | ((language: string) => string);
   prompt: (input: Input['Type']) => string | ModelMessage[];
   tools?: Record<string, AgentTool>;

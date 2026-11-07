@@ -14,11 +14,15 @@
  */
 
 import { SettingsRpc } from '@study/contracts/settings/rpc';
-import { defaultWorkspacePreferences, defaultQuizSettings } from '@study/contracts/settings/types';
+import {
+  defaultAgentRules,
+  defaultWorkspacePreferences,
+  defaultQuizSettings
+} from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Deferred, Effect, Fiber, Layer } from 'effect';
+import { Deferred, Effect, Exit, Fiber, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
@@ -45,6 +49,23 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(SettingsRpc, { flatten: true });
 
+          expect(yield* client('settings.agentRules', {})).toStrictEqual(defaultAgentRules);
+          const rules = {
+            ...defaultAgentRules,
+            documents: 'Keep worked examples.',
+            titles: 'Use descriptive titles.'
+          };
+
+          yield* client('settings.saveAgentRules', rules);
+          expect(yield* client('settings.agentRules', {})).toStrictEqual(rules);
+          expect(
+            Exit.isFailure(
+              yield* Effect.exit(
+                client('settings.saveAgentRules', { ...rules, documents: 'x'.repeat(8001) })
+              )
+            )
+          ).toBe(true);
+          expect(yield* client('settings.agentRules', {})).toStrictEqual(rules);
           expect(yield* client('settings.workspacePreferences', {})).toStrictEqual(
             defaultWorkspacePreferences
           );
@@ -87,6 +108,8 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
           assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
           expect([...SettingsRpc.requests.keys()].sort()).toStrictEqual(
             [
+              'settings.agentRules',
+              'settings.saveAgentRules',
               'settings.quizSettings',
               'settings.saveQuizSettings',
               'settings.workspacePreferences',

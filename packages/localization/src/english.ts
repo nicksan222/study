@@ -1,5 +1,47 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  SettingsSidebar: 'Sidebar',
+  SettingsAiBehavior: 'AI behavior',
+  SettingsPerformance: 'Performance',
+  SettingsQuizzes: 'Quizzes',
+
+  AgentRulesTitle: 'Custom instructions',
+  AgentRulesIntro:
+    'Choose a task and describe how Study should work. Save your changes to apply them to future runs. Leave a field empty to use the defaults. Your preferences supplement the task instructions; required formats and source accuracy still apply.',
+  AgentRulesTask: 'Task',
+  AgentRulesDocuments: 'Documents',
+  AgentRulesDocumentsHelp:
+    'Guide document generation and rewrites: structure, headings, tone and level of detail. For example: start with an overview and keep worked examples.',
+  AgentRulesTitles: 'Titles',
+  AgentRulesTitlesHelp:
+    'Guide automatically generated session and study material titles. For example: use concise, descriptive titles without emojis.',
+  AgentRulesReplies: 'Answers',
+  AgentRulesRepliesHelp:
+    'Guide answers to your questions. For example: explain the reasoning, then give a practical example.',
+  AgentRulesQuizzes: 'Quizzes',
+  AgentRulesQuizzesHelp:
+    'Guide newly generated quiz questions. For example: focus on applying concepts rather than recalling definitions.',
+  AgentRulesFlashcards: 'Flashcards',
+  AgentRulesFlashcardsHelp:
+    'Guide newly generated flashcards. For example: test one concept per card and keep answers concise.',
+  AgentRulesDiagrams: 'Diagrams',
+  AgentRulesDiagramsHelp:
+    'Guide newly generated diagrams. For example: group related concepts and label connections clearly.',
+  AgentRulesGrading: 'Feedback and grading',
+  AgentRulesGradingHelp:
+    'Guide feedback on practice answers. For example: explain missing concepts and suggest what to review.',
+  AgentRulesTranscription: 'Reading images and PDFs',
+  AgentRulesTranscriptionHelp:
+    'Guide how images and PDFs are transcribed. For example: retain paragraph breaks and mathematical notation faithfully.',
+  AgentRulesQuestionDetection: 'Question detection',
+  AgentRulesQuestionDetectionHelp:
+    'Guide when a saved note is classified as a question. For example: treat requests to explain a concept as questions.',
+  AgentRulesPlaceholder: 'Add your preferences for this task…',
+  AgentRulesUseDefault: 'Use default',
+  AgentRulesSaved: 'Custom instructions saved.',
+  AgentRulesSaveFailed:
+    'Could not save your instructions. Your edits are still here. Try saving again.',
+  AgentRulesLoadFailed: 'Could not load your custom instructions. Try again.',
   SessionConversionFailed: 'Text conversion failed',
   SessionConversionFailedHelp:
     'Your original note is kept. Retry the saved conversion or discard the failed attempt.',

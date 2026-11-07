@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { ComponentProps } from 'react';
 
 import { NumberControl } from './number-control';
@@ -5,6 +6,7 @@ import { RangeControl } from './range-control';
 import { SelectControl } from './select-control';
 import { SettingsRow } from './settings-group';
 import { SwitchControl } from './switch-control';
+import { Textarea } from './textarea';
 
 type RowCopy = { title: string; description?: string; controlLabel?: string };
 
@@ -61,5 +63,30 @@ export function RangeRow({
     <SettingsRow title={title} description={description}>
       <RangeControl {...control} label={controlLabel} />
     </SettingsRow>
+  );
+}
+
+/** Long-form preferences keep a full-width editor and its help text together. */
+export function TextareaRow({
+  title,
+  description,
+  controlLabel = title,
+  ...control
+}: RowCopy & Omit<ComponentProps<typeof Textarea>, 'aria-label' | 'aria-describedby' | 'id'>) {
+  const id = useId();
+
+  return (
+    <div className="settings-row settings-textarea-row">
+      <div className="settings-row-copy">
+        <label htmlFor={id}>{title}</label>
+        {description && <p id={`${id}-help`}>{description}</p>}
+      </div>
+      <Textarea
+        {...control}
+        id={id}
+        aria-label={controlLabel}
+        aria-describedby={description ? `${id}-help` : undefined}
+      />
+    </div>
   );
 }

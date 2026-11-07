@@ -22,6 +22,7 @@ import { agentRunIdSchema } from '@study/contracts/ai/progress';
 import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts/ai/progress';
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { AgentRules } from '@study/contracts/settings/types';
 import { streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
 import {
@@ -47,6 +48,7 @@ import type { AgentDefinition, AgentEnvironment } from '#server/platform/definit
 import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
+  rules: Effect.Effect<AgentRules, StudyError>;
   model: (tier: ModelTier) => Effect.Effect<LanguageModelV3, StudyError>;
   observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
 }
@@ -136,6 +138,17 @@ export function streamAgent<
     const model = yield* service.model(definition.model);
     const language =
       typeof service.language === 'string' ? service.language : yield* service.language;
+    const rules = yield* service.rules;
+    const instructions =
+      typeof definition.instructions === 'function'
+        ? definition.instructions(language)
+        : definition.instructions;
+    const customRules = [...new Set(definition.customRules)]
+      .map((rule) => rules[rule.key].trim())
+      .filter(Boolean);
+    const system = customRules.length
+      ? `${instructions}\n\nUser preferences (apply where compatible with the task, required output format and source fidelity):\n${customRules.join('\n\n')}`
+      : instructions;
     const span = yield* Effect.currentSpan;
     const annotations = yield* References.CurrentLogAnnotations;
     const callbackContext = yield* Effect.context<never>();
@@ -195,10 +208,7 @@ export function streamAgent<
                 return streamText({
                   onError: () => {},
                   model: checkedModel,
-                  system:
-                    typeof definition.instructions === 'function'
-                      ? definition.instructions(language)
-                      : definition.instructions,
+                  system,
                   ...(typeof prompt === 'string' ? { prompt } : { messages: prompt }),
                   tools,
                   stopWhen: stepCountIs(steps),
