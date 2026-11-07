@@ -64,7 +64,21 @@ export const workspacePreferencesSchema = Schema.Struct({
   expandDocuments: Schema.Boolean
 });
 
+/** Generation defaults for each specialized practice mode. */
+const practiceGenerationSettingsSchema = Schema.Struct({
+  questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
+  difficulty: Schema.Literals(['easy', 'balanced', 'challenging'])
+});
+
 export const quizSettingsSchema = Schema.Struct({
+  practice: Schema.optional(
+    Schema.Struct({
+      fill_blank: Schema.optional(practiceGenerationSettingsSchema),
+      ordering: Schema.optional(practiceGenerationSettingsSchema),
+      matching: Schema.optional(practiceGenerationSettingsSchema),
+      true_false: Schema.optional(practiceGenerationSettingsSchema)
+    })
+  ),
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   questionOrder: Schema.Literals(['source', 'shuffle']),
   shuffleChoices: Schema.Boolean,
