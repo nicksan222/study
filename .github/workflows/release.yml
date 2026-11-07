@@ -123,9 +123,6 @@ jobs:
       - name: Build signed Tauri bundles and updater assets
         id: build
         uses: tauri-apps/tauri-action@v0
-        env:
-          # linuxdeploy's bundled strip predates modern native dependency ELF sections.
-          NO_STRIP: 'true'
         with:
           projectPath: apps/desktop
           tauriScript: npx --no-install tauri

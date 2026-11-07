@@ -54,7 +54,7 @@ sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-d
 ```
 
 Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` picks the version) and
-[just](https://github.com/casey/just), Node 26 for build tooling and Bun 1.4.2 for the application runtime. Run `npm ci` and
+[just](https://github.com/casey/just), Node 26 for build tooling and Bun 1.4.4 for the application runtime. Run `npm ci` and
 `bun install --cwd apps/landing --frozen-lockfile`, then `just check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the

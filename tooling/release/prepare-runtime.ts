@@ -45,7 +45,15 @@ for (const folder of [
 
 execFileSync(
   process.execPath,
-  ['install', '--production', '--frozen-lockfile', '--ignore-scripts', '--filter', '@study/server'],
+  [
+    'install',
+    '--production',
+    '--frozen-lockfile',
+    '--ignore-scripts',
+    '--filter',
+    '@study/server',
+    ...(process.platform === 'linux' ? ['--libc', 'glibc'] : [])
+  ],
   {
     cwd: server,
     stdio: 'inherit'

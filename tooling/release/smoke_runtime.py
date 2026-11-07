@@ -9,6 +9,12 @@ import tempfile
 from urllib.parse import urlparse
 
 source = Path(sys.argv[1]).resolve()
+if sys.platform.startswith("linux"):
+    for manifest in (source / "server/node_modules").rglob("package.json"):
+        libc = json.loads(manifest.read_text()).get("libc", [])
+        if libc == ["musl"]:
+            raise RuntimeError(f"glibc runtime includes a musl-only package: {manifest}")
+
 with tempfile.TemporaryDirectory() as temporary:
     runtime = Path(temporary) / "runtime"
     runtime.mkdir()
