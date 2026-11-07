@@ -1,12 +1,11 @@
 import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, check } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, integer, text, check } from '../schema-builder.ts';
 import { cleanupAttemptColumns } from './column-types.ts';
 import { materials, material_versions } from './material-versions.ts';
 
 /** Durable explicit intent; stores identities and policy only, never a payload audit copy. */
-export const material_history_prunes = sqliteTable(
+export const material_history_prunes = defineTable({ role: 'contributes', entity: 'material' })(
   'material_history_prunes',
   {
     operation_id: text().primaryKey(),
@@ -36,18 +35,24 @@ export const material_history_prunes = sqliteTable(
 );
 
 /** Permanent exact-version barrier; the original immutable identity remains in version history. */
-export const material_history_members = sqliteTable('material_history_members', {
-  version_id: integer()
-    .$type<MaterialVersionId>()
-    .primaryKey()
-    .references(() => material_versions.id),
-  operation_id: text()
-    .notNull()
-    .references(() => material_history_prunes.operation_id)
-});
+export const material_history_members = defineTable({ role: 'contributes', entity: 'material' })(
+  'material_history_members',
+  {
+    version_id: integer()
+      .$type<MaterialVersionId>()
+      .primaryKey()
+      .references(() => material_versions.id),
+    operation_id: text()
+      .notNull()
+      .references(() => material_history_prunes.operation_id)
+  }
+);
 
 /** Exact captured request ownership is independent of whole-Material deletion membership. */
-export const material_history_requests = sqliteTable('material_history_requests', {
+export const material_history_requests = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})('material_history_requests', {
   request_id: text().primaryKey(),
   operation_id: text()
     .notNull()

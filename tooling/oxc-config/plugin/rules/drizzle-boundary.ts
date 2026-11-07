@@ -5,7 +5,16 @@ import { requireBindings } from '../require-bindings.ts';
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
-    if (/\/packages\/db\//.test(context.filename.replaceAll('\\', '/'))) return {};
+    const filename = context.filename.replaceAll('\\', '/');
+
+    // Only connection ownership, the schema facade, and definition metadata touch Drizzle directly.
+    if (
+      /\/packages\/db\/(?:src\/(?:db|index|schema-builder|table)\.ts|drizzle\.config\.ts)$/.test(
+        filename
+      ) ||
+      /\/packages\/db\/test\//.test(filename)
+    )
+      return {};
 
     function source(node: any): string | undefined {
       if (node?.type === 'Literal' && typeof node.value === 'string') return node.value;
@@ -28,7 +37,7 @@ export default defineRule({
       context.report({
         node,
         message:
-          'Import Drizzle through @study/db; only packages/db may depend directly on drizzle-orm or drizzle-kit.'
+          'Import Drizzle through @study/db or the schema-builder facade; schema tables must use defineTable with an explicit search policy.'
       });
     }
 

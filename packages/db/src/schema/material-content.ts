@@ -1,10 +1,9 @@
 import type { MaterialVersionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, foreignKey, check } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, integer, text, foreignKey, check } from '../schema-builder.ts';
 import { material_versions } from './material-versions.ts';
 
-export const material_diagram_versions = sqliteTable(
+export const material_diagram_versions = defineTable({ role: 'contributes', entity: 'material' })(
   'material_diagram_versions',
   {
     version_id: integer().$type<MaterialVersionId>().primaryKey(),

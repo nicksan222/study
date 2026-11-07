@@ -1,12 +1,14 @@
 import type { SessionId, StudyDocumentVersionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { sqliteTable, text, integer, index, check } from 'drizzle-orm/sqlite-core';
 
+import { defineTable, sql, text, integer, index, check } from '../schema-builder.ts';
 import { sessions } from './conversations.ts';
 import { study_document_versions } from './study-documents.ts';
 
 /** Durable authored work intent. Publication receipts live in the authored version owner. */
-export const study_document_transform_requests = sqliteTable(
+export const study_document_transform_requests = defineTable({
+  role: 'internal',
+  reason: 'Private operational state outside searchable published content'
+})(
   'study_document_transform_requests',
   {
     id: text().primaryKey(),

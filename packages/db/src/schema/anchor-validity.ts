@@ -1,5 +1,5 @@
-import { sql } from 'drizzle-orm';
-import type { SQL, SQLWrapper } from 'drizzle-orm';
+import { sql } from '../schema-builder.ts';
+import type { SQL, SQLWrapper } from '../schema-builder.ts';
 
 /** SQLite counterpart of the canonical anchored-document shape. */
 export function validAnchor(a: SQLWrapper): SQL {

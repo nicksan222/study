@@ -1,4 +1,4 @@
-import { customType, integer, text } from 'drizzle-orm/sqlite-core';
+import { customType, integer, text } from '../schema-builder.ts';
 
 /** node:sqlite returns integers as bigint on Study connections, including booleans. */
 export const sqliteBoolean = customType<{ data: boolean; driverData: number | bigint }>({

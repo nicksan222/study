@@ -4,12 +4,11 @@ import {
   studyDocumentIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
-  projectIdSchema,
   quizQuestionIdSchema,
-  sessionIdSchema,
   sourceIdSchema
 } from '../ids.ts';
 import { materialKindSchema } from '../materials/schemas.ts';
+import { projectSearchTargetSchema, sessionSearchTargetSchema } from '../search/targets.ts';
 import { anchorSchema } from '../sources/schemas.ts';
 import { sourceKinds } from '../sources/sniff.ts';
 
@@ -47,14 +46,8 @@ export const searchHitSchema = Schema.Struct({
   excerpt: Schema.optional(Schema.String),
   fileKind: Schema.optional(Schema.Literals(sourceKinds)),
   target: Schema.Union([
-    Schema.Struct({
-      type: Schema.Literal('project'),
-      id: projectIdSchema
-    }),
-    Schema.Struct({
-      type: Schema.Literal('session'),
-      sessionId: sessionIdSchema
-    }),
+    projectSearchTargetSchema,
+    sessionSearchTargetSchema,
     Schema.Struct({ type: Schema.Literal('document'), documentId: studyDocumentIdSchema }),
     materialSearchTargetSchema,
     Schema.Struct({

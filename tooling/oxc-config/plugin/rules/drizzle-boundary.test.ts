@@ -22,8 +22,10 @@ testStable('Drizzle imports and exports belong exclusively to the database packa
     true
   );
 
-  assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => !filename.includes('/packages/db/')));
+  assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
+  assert.ok(
+    diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/schema/items.ts'))
+  );
 });
 
 testStable('Drizzle require calls respect lexical bindings and createRequire aliases', () => {
@@ -40,8 +42,8 @@ testStable('Drizzle require calls respect lexical bindings and createRequire ali
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/server/src/bad.ts')));
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/require.ts')));
 });
 
 testStable('Drizzle namespace createRequire and global loader forms stay behind the facade', () => {
@@ -70,6 +72,39 @@ testStable('TypeScript CommonJS import declarations cannot bypass the database f
     true
   );
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics[0]?.filename.endsWith('/apps/server/src/direct.cts'));
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts')));
 });
+
+testStable(
+  'schema declarations cannot bypass mandatory table metadata through raw Drizzle imports',
+  () => {
+    const diagnostics = lintRule(
+      'drizzle-boundary',
+      {
+        'packages/db/src/schema/bypass.ts': `
+      import { sqliteTable as raw } from 'drizzle-orm/sqlite-core';
+      import * as sqlite from 'drizzle-orm/sqlite-core';
+      export { sqliteTable } from 'drizzle-orm/sqlite-core';
+      const rawModule = import('drizzle-orm/sqlite-core');
+      type Builder = import('drizzle-orm/sqlite-core').SQLiteTable;
+      require('drizzle-orm/sqlite-core');
+    `,
+        'packages/db/src/schema/good.ts':
+          "import { defineTable, integer, text } from '../schema-builder.ts';",
+        'packages/db/src/table.ts': "import { sqliteTable } from 'drizzle-orm/sqlite-core';",
+        'packages/db/src/schema-builder.ts':
+          "export { integer, text } from 'drizzle-orm/sqlite-core';",
+        'packages/db/src/escape.ts': "export * from 'drizzle-orm/sqlite-core';"
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
+    assert.ok(
+      diagnostics.every(
+        ({ filename }) => filename.endsWith('/bypass.ts') || filename.endsWith('/escape.ts')
+      )
+    );
+  }
+);

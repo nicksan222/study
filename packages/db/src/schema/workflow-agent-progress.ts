@@ -1,10 +1,11 @@
-import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
-
+import { sql, check, index, integer, defineTable, text } from '../schema-builder.ts';
 import { workflow_executions } from './workflows.ts';
 
 /** Reconnectable generation previews, fenced by the owning workflow activity lease. */
-export const workflow_agent_progress = sqliteTable(
+export const workflow_agent_progress = defineTable({
+  role: 'internal',
+  reason: 'Durable agent progress is scoped to workflow executions.'
+})(
   'workflow_agent_progress',
   {
     run_id: text().primaryKey(),

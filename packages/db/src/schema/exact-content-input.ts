@@ -1,8 +1,7 @@
 import type { ContentSnapshotId, SourceId, StudyDocumentVersionId } from '@study/contracts/ids';
-import { sql } from 'drizzle-orm';
-import { check, foreignKey, integer, text, primaryKey } from 'drizzle-orm/sqlite-core';
-import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 
+import { sql, check, foreignKey, integer, text, primaryKey } from '../schema-builder.ts';
+import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { source_extraction_revisions } from './source-processing.ts';
 import { study_document_versions } from './study-documents.ts';
 
