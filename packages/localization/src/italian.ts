@@ -1,6 +1,19 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  AssistantIntro: 'Ragioniamo insieme, impariamo qualcosa o sviluppiamo un’idea.',
+  AssistantEmptyDescription:
+    'Fai una domanda o condividi ciò su cui stai lavorando. La conversazione viene salvata su questo dispositivo.',
+  AssistantThinking: 'Sto pensando…',
+  AssistantLoading: 'Caricamento della conversazione…',
+  AssistantEarlier: 'Messaggi precedenti',
+  AssistantReplyFailed: 'L’Assistente non ha potuto completare la risposta.',
+  AssistantStopped: 'Risposta interrotta.',
+  AssistantSignIn: 'Accedi da Impostazioni → Account ChatGPT, poi riprova.',
+  AssistantActionFailed: 'Impossibile completare l’azione. Riprova.',
+  AssistantStop: 'Interrompi risposta',
+  AssistantLoadFailed: 'Impossibile caricare o inviare la conversazione. La bozza è ancora qui.',
+
   SettingsSidebar: 'Barra laterale',
   SettingsAiBehavior: 'Comportamento IA',
   SettingsPerformance: 'Prestazioni',
@@ -99,14 +112,12 @@ export const italian = Object.freeze({
   QuizGenerateCancelled: 'Generazione degli esercizi annullata.',
   QuizOpenGenerated: 'Apri il nuovo quiz',
   QuizGenerateReady: 'Gli esercizi sono pronti.',
-  StudyChatTitle: 'Chat di Study',
-  StudyChatPreview:
-    'Anteprima · Le risposte IA non sono attive. I messaggi restano fino al ricaricamento.',
+  Assistant: 'Assistente',
   StudyChatMessage: 'Messaggio',
   StudyChatPlaceholder: 'Scrivi un messaggio…',
   StudyChatSendHint: 'Invio per inviare · Maiusc + Invio per andare a capo',
   StudyChatEmptyTitle: 'Inizia una conversazione',
-  StudyChatEmptyDescription: 'I tuoi messaggi appariranno qui. Study non può ancora rispondere.',
+
   DesktopUpdateAvailable: 'Study {version} è disponibile',
   DesktopUpdateConsent: 'Termina il lavoro in corso prima di installare. Study si riavvierà.',
   DesktopUpdateInstall: 'Installa e riavvia',

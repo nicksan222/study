@@ -32,6 +32,7 @@ import type { sessionDeletionSchema } from '@study/contracts/conversations/delet
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { transformSuggestionInputSchema } from '@study/contracts/conversations/rpc';
 import type {
+  assistantAskInputSchema,
   createSessionInputSchema,
   createUntitledSessionInputSchema,
   updateMessageDescriptionInputSchema,
@@ -57,6 +58,7 @@ import type {
   reanswerInputSchema,
   rewriteMessageInputSchema
 } from '@study/contracts/conversations/schemas';
+import { ConversationMode } from '@study/contracts/conversations/schemas';
 import type { sessionWorkInputSchema } from '@study/contracts/conversations/work';
 import type * as editing from '@study/contracts/documents/editing';
 import type {
@@ -71,6 +73,10 @@ import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
 import { SessionArchiveStore } from '#server/features/conversations/store/archive';
+import {
+  AssistantSessionStore,
+  SessionModeStore
+} from '#server/features/conversations/store/assistant';
 import { ConversationBackupStore } from '#server/features/conversations/store/backup';
 import {
   SessionContextStore,
@@ -181,6 +187,7 @@ export const Conversations = defineService(
     const readReplyWakeStore = yield* useStore(ReplyWakeStore);
 
     const store = yield* useStore(SessionStore);
+    const modes = yield* useStore(SessionModeStore);
     const summaries = yield* useStore(SessionSummaryStore);
 
     const titles = yield* useStore(TitleStore);
@@ -189,7 +196,84 @@ export const Conversations = defineService(
 
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
+    const assistantSession = () =>
+      transaction((tx) => {
+        const existing = tx.store(AssistantSessionStore).findAssistantSession();
+
+        return Option.isSome(existing)
+          ? tx.store(SessionStore).session(existing.value)
+          : tx.store(SessionStore).createSession({
+              title: text('english', 'Assistant'),
+              titleSource: 'user',
+              mode: ConversationMode.Assistant
+            });
+      });
+
+    const ask = (input: typeof askInputSchema.Type) =>
+      transaction((tx) => {
+        const normalized = normalizeAsk(input);
+        const askDigest = impactToken(normalized);
+        const intent = {
+          sessionId: input.sessionId,
+          threadRoot: input.threadRoot,
+          intentKey: input.intentKey,
+          instruction: normalized.instruction,
+          preferences: normalized.preferences,
+          askDigest
+        };
+        const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
+
+        if (Option.isSome(existing)) {
+          const context = existing.value;
+          const previous = tx
+            .store(ReplyRequestStore)
+            .findReplyRequest({ requestId: context.requestId });
+          const note = context.messages.find((item) => item.messageId === context.throughMessageId);
+
+          if (Option.isNone(previous) || !note || note.role !== 'user')
+            throw new StudyError('not_found', 'Captured Ask is unavailable');
+
+          for (const target of context.inputs) assertCapturedTarget(tx, target);
+
+          return {
+            ...previous.value,
+            userMessageId: note.messageId,
+            userVersionId: note.versionId
+          };
+        }
+
+        const selection = tx
+          .store(SessionSelectionStore)
+          .sessionSelection({ sessionId: input.sessionId });
+
+        if (selection.revision !== input.expectedSelectionRevision)
+          throw new StudyError('invalid_input', 'Session selection changed');
+
+        if (tx.store(SessionModeStore).sessionMode(input.sessionId) === ConversationMode.Assistant)
+          retireAssistantReplies(tx, input.sessionId);
+
+        tx.store(ReplyStore).prepareReply(input);
+        const note = postMessage(tx, input);
+        const context = captureContext(
+          tx,
+          { ...intent, throughMessageId: note.id },
+          randomUUID(),
+          true
+        );
+        const result = tx
+          .store(ReplyStore)
+          .requestReply({ ...input, requestId: context.requestId, context });
+
+        emitReplyRequest(tx, result, 'reply');
+
+        retainExplicitQuestionAnswer(tx, note, result);
+
+        return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
+      });
+
     return {
+      sessionMode: modes.sessionMode,
+      assistantSession,
       /** A manual question mark commits its answer request with the classification. */
       setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
         transaction((tx) => {
@@ -548,65 +632,12 @@ export const Conversations = defineService(
             throw error;
           }
         }),
-      ask: (input: typeof askInputSchema.Type) =>
-        transaction((tx) => {
-          const normalized = normalizeAsk(input);
-          const askDigest = impactToken(normalized);
-          const intent = {
-            sessionId: input.sessionId,
-            threadRoot: input.threadRoot,
-            intentKey: input.intentKey,
-            instruction: normalized.instruction,
-            preferences: normalized.preferences,
-            askDigest
-          };
-          const existing = tx.store(SessionContextIntentStore).findSessionContextIntent(intent);
+      ask,
+      assistantAsk: (input: typeof assistantAskInputSchema.Type) =>
+        Effect.gen(function* () {
+          const session = yield* assistantSession();
 
-          if (Option.isSome(existing)) {
-            const context = existing.value;
-            const previous = tx
-              .store(ReplyRequestStore)
-              .findReplyRequest({ requestId: context.requestId });
-            const note = context.messages.find(
-              (item) => item.messageId === context.throughMessageId
-            );
-
-            if (Option.isNone(previous) || !note || note.role !== 'user')
-              throw new StudyError('not_found', 'Captured Ask is unavailable');
-
-            for (const target of context.inputs) assertCapturedTarget(tx, target);
-
-            return {
-              ...previous.value,
-              userMessageId: note.messageId,
-              userVersionId: note.versionId
-            };
-          }
-
-          const selection = tx
-            .store(SessionSelectionStore)
-            .sessionSelection({ sessionId: input.sessionId });
-
-          if (selection.revision !== input.expectedSelectionRevision)
-            throw new StudyError('invalid_input', 'Session selection changed');
-
-          tx.store(ReplyStore).prepareReply(input);
-          const note = postMessage(tx, input);
-          const context = captureContext(
-            tx,
-            { ...intent, throughMessageId: note.id },
-            randomUUID(),
-            true
-          );
-          const result = tx
-            .store(ReplyStore)
-            .requestReply({ ...input, requestId: context.requestId, context });
-
-          emitReplyRequest(tx, result, 'reply');
-
-          retainExplicitQuestionAnswer(tx, note, result);
-
-          return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
+          return yield* ask({ ...input, sessionId: session.id, expectedSelectionRevision: 0n });
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
         transaction((tx) => {
@@ -1185,6 +1216,9 @@ const deletionEventTypes = [
 
 /** Schedules replay-safe detection only when the saved note is eligible. */
 function scheduleQuestion(tx: Transaction, message: ChatMessage, reclassify = false) {
+  if (tx.store(SessionModeStore).sessionMode(message.sessionId) === ConversationMode.Assistant)
+    return;
+
   const versionId = message.activeVersionId;
 
   if (!versionId || !questionEligible(message)) return;
@@ -1314,4 +1348,26 @@ function questionEligible(message: ChatMessage) {
     message.question?.origin !== 'manual' &&
     !!text.trim()
   );
+}
+
+/** A terminal unsuccessful run no longer blocks the next Assistant turn. */
+function retireAssistantReplies(tx: Transaction, sessionId: SessionId) {
+  for (const message of tx.store(MessageStore).messages({ sessionId, limit: 100 })) {
+    if (message.role !== 'assistant' || !message.activeVersionId) continue;
+
+    const provenance = tx
+      .store(ReplyVersionStore)
+      .replyVersion({ sessionId, messageId: message.id, versionId: message.activeVersionId });
+
+    if (provenance.state !== 'available') continue;
+
+    const receipt = {
+      sessionId,
+      messageId: message.id,
+      versionId: message.activeVersionId,
+      requestId: provenance.requestId
+    };
+
+    if (questionAnswerRetryable(tx, receipt)) tx.store(ReplyStore).abandonReply(receipt);
+  }
 }

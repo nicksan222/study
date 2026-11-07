@@ -191,7 +191,7 @@ testStable.each(['text', undefined] as const)(
     ).toBeVisible();
     expect(screen.queryByRole('heading', { name: 'A quick thought' })).toBeNull();
     expect(screen.queryByRole('link', { name: 'a link' })).toBeNull();
-    expect(view.container.querySelector('.session-desk-document')).toBeNull();
+    expect(view.container.querySelector('.workspace-desk-document')).toBeNull();
     expect(screen.queryByRole('button', { name: 'SessionOpenPage' })).toBeNull();
     expect(onOpen).not.toHaveBeenCalled();
   }
@@ -280,7 +280,7 @@ testStable(
     await within(view.container.querySelector('.session-history')!).findByText(
       'Before the document'
     );
-    const items = view.container.querySelectorAll('.session-entry, .session-desk-document');
+    const items = view.container.querySelectorAll('.session-entry, .workspace-desk-document');
 
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent('Before the document');

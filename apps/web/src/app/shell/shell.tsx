@@ -1,4 +1,3 @@
-import { ChatDrawerTrigger, createChatDrawerHandle } from '@study/ui/chat-drawer';
 import { Shell as PageShell } from '@study/ui/shell';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { useQuery } from '@tanstack/react-query';
@@ -12,7 +11,6 @@ import { DefaultContextMenu } from './default-context-menu';
 import { DesktopUpdates } from './desktop-updates';
 import { Sidebar } from './sidebar';
 import { useSidebarContext } from './sidebar-context.queries';
-import { StudyChat } from './study-chat';
 
 /** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
 function useShellNavigation(sessions: boolean, practice: boolean) {
@@ -76,7 +74,15 @@ function ShellHeader({
 }) {
   const { t } = useI18n();
 
-  if (header === 'workspace') return null;
+  if (header === 'workspace')
+    return visible ? null : (
+      <SidebarUI.Toggle
+        placement="reveal"
+        label={t('ToggleSidebar')}
+        expanded={false}
+        onClick={onToggle}
+      />
+    );
 
   if (!sessions) return <SidebarUI.Topbar parent={t('AppName')} title={title} />;
 
@@ -106,17 +112,17 @@ function usePageLayout(sessions: boolean, documents: boolean, workspace: boolean
 /** Selects the session layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
-  const [chatHandle] = useState(createChatDrawerHandle);
   const matches = useMatches();
   const metadata = matches.at(-1)?.staticData ?? {};
   const title = metadata.title ?? 'Home';
   const sessions = title === 'Sessions';
+  const notebook = ['Sessions', 'Assistant'].includes(title);
   const layout = usePageLayout(
     sessions,
     metadata.section === 'documents',
     metadata.header === 'workspace'
   );
-  const navigation = useShellNavigation(sessions, metadata.section === 'practice');
+  const navigation = useShellNavigation(notebook, metadata.section === 'practice');
   const context = useSidebarContext({
     title,
     section: metadata.section ?? 'sessions',
@@ -130,7 +136,7 @@ export function Shell() {
       <DesktopUpdates />
       <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
         <SidebarUI.Frame
-          variant={sessions ? 'session-entry' : 'default'}
+          variant={notebook ? 'session-entry' : 'default'}
           data-entry-navigation={navigation.open}
           collapsed={navigation.collapsed}
           defaultWidth={288}
@@ -142,7 +148,6 @@ export function Shell() {
         >
           {navigation.visible && (
             <Sidebar
-              chat={<ChatDrawerTrigger handle={chatHandle} label={t('StudyChatTitle')} />}
               metadata={{
                 title,
                 section: metadata.section ?? 'sessions',
@@ -156,7 +161,7 @@ export function Shell() {
           <SidebarUI.Main>
             <ShellHeader
               header={metadata.header}
-              sessions={sessions}
+              sessions={notebook}
               visible={navigation.visible}
               title={t(title)}
               onToggle={navigation.toggle}
@@ -167,7 +172,6 @@ export function Shell() {
           </SidebarUI.Main>
         </SidebarUI.Frame>
       </DefaultContextMenu>
-      <StudyChat handle={chatHandle} />
     </>
   );
 }

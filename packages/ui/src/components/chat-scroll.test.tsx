@@ -6,7 +6,7 @@ import { ChatConversation } from './chat';
 
 function Conversation({ count = 2, first = 'first' }: { count?: number; first?: string }) {
   return (
-    <div className="session-desk-notebook">
+    <div className="workspace-desk-notebook">
       <div data-notebook-scroll-host>
         <ChatConversation
           label="Notebook"

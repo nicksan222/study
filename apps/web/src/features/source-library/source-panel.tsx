@@ -5,8 +5,8 @@ import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { StatusMessage } from '@study/ui/status-message';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 

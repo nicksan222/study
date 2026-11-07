@@ -1,7 +1,7 @@
 import { sessionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, vi } from 'vite-plus/test';

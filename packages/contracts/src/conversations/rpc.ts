@@ -99,6 +99,11 @@ const sessionPageSchema = Schema.Struct({
 
 const sessionIdInputSchema = Schema.Struct({ id: sessionIdSchema });
 
+export const assistantAskInputSchema = Schema.Struct({
+  text: Schema.String.check(Schema.isBetweenLength(1, 100000)),
+  intentKey: Schema.String.check(Schema.isBetweenLength(1, 200))
+});
+
 export const createSessionInputSchema = Schema.Struct({
   project: Schema.optional(projectIdSchema),
   title: Schema.String
@@ -317,6 +322,12 @@ export const ConversationsRpc = RpcGroup.make(
     success: sessionSchema,
     error: failureSchema
   }),
+  Rpc.make('assistantAsk', {
+    payload: assistantAskInputSchema,
+    success: askResultSchema,
+    error: failureSchema
+  }),
+  Rpc.make('assistantSession', { payload: {}, success: sessionSchema, error: failureSchema }),
   Rpc.make('session', {
     payload: sessionIdInputSchema,
     success: sessionSchema,

@@ -28,6 +28,7 @@ import {
   replyVersionSchema,
   pendingReplyAttachmentSchema
 } from '@study/contracts/conversations/schemas';
+import { ConversationMode } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { conversationGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
@@ -984,6 +985,14 @@ export const ReplyStore = defineStore({
                 invalid();
             }
 
+            const {
+              row,
+              result: snapshot,
+              session,
+              target,
+              version
+            } = replyContext(input.requestId);
+
             validatePublicationInput();
 
             function validatePublicationInput() {
@@ -997,6 +1006,12 @@ export const ReplyStore = defineStore({
                 markers.add(citation.marker);
               }
 
+              if (session?.mode === ConversationMode.Assistant) {
+                if (input.citations.length) invalid();
+
+                return;
+              }
+
               const references = new Set(
                 Array.from(input.text.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
               );
@@ -1007,14 +1022,6 @@ export const ReplyStore = defineStore({
               )
                 invalid();
             }
-
-            const {
-              row,
-              result: snapshot,
-              session,
-              target,
-              version
-            } = replyContext(input.requestId);
 
             assertPublicationIdentity();
 

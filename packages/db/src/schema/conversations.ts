@@ -1,4 +1,4 @@
-import { messageFormats } from '@study/contracts/conversations/schemas';
+import { conversationModes, messageFormats } from '@study/contracts/conversations/schemas';
 import type {
   MessageId,
   PartId,
@@ -199,6 +199,7 @@ export const sessions = sqliteTable(
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
     title: text().notNull(),
+    mode: text({ enum: conversationModes }).notNull().default('notebook'),
     selection_revision: integer().$type<bigint>().notNull().default(0n),
     selection: text().notNull().default('[]'),
     context_revision: integer().$type<bigint>().notNull().default(0n),
@@ -210,7 +211,12 @@ export const sessions = sqliteTable(
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
-  () => [check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`)]
+  (t) => [
+    check('sessions_check_1', sql`length(trim(title)) > 0 AND length(title) <= 200`),
+    uniqueIndex('sessions_assistant_unique')
+      .on(t.mode)
+      .where(sql`${t.mode} = 'assistant'`)
+  ]
 );
 
 export const conversation_reply_requests = sqliteTable(

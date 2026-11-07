@@ -20,6 +20,7 @@ import type {
 } from '@study/contracts/conversations/context';
 import { runPreferencesSchema } from '@study/contracts/conversations/context';
 import {
+  ConversationMode,
   publishReplyInputSchema,
   replySnapshotSchema
 } from '@study/contracts/conversations/schemas';
@@ -38,6 +39,7 @@ import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
 import { Effect, Result, Schema } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 
+import { assistantAgent } from '#server/features/conversations/agents/assistant';
 import { replyAgent } from '#server/features/conversations/agents/reply';
 import { rewriteAgent } from '#server/features/conversations/agents/rewrite';
 import { Conversations } from '#server/features/conversations/service/index';
@@ -185,8 +187,9 @@ export const conversationReplyHandler = ({
             language: preferences.language ?? agents.language,
             searchSources: (query: string) => Effect.sync(() => catalog.search(query))
           };
+          const mode = yield* conversations.sessionMode(snapshot.sessionId);
           const text = yield* (
-            snapshot.generation && snapshot.generation.origin !== 'answer'
+            isRewrite(mode, snapshot)
               ? generateAgent(
                   rewriteAgent,
                   {
@@ -201,40 +204,26 @@ export const conversationReplyHandler = ({
                   options
                 )
               : generateAgent(
-                  replyAgent,
+                  replyAgentForMode(mode),
                   {
-                    messages: snapshot.messages
-                      .map((message) => ({
-                        role: message.role,
-                        content: message.text
-                      }))
-                      .concat(
-                        snapshot.context
-                          ? [
-                              {
-                                role: 'user' as const,
-                                content:
-                                  snapshot.context.instruction +
-                                  '\nPreferences: ' +
-                                  JSON.stringify(preferences)
-                              }
-                            ]
-                          : []
-                      )
+                    messages: replyMessages(mode, snapshot, preferences)
                   },
                   options
                 )
           ).pipe(Effect.provideService(Agents, agentServices));
-          const citations = yield* Effect.try({
-            try: () =>
-              catalog
-                .citations(text)
-                .map(({ reference, ...citation }) => ({ ...citation, ...reference })),
-            catch: (error) =>
-              error instanceof StudyError
-                ? error
-                : new StudyError('invalid_input', 'Invalid citations', { cause: error })
-          });
+          const citations =
+            mode === ConversationMode.Assistant
+              ? []
+              : yield* Effect.try({
+                  try: () =>
+                    catalog
+                      .citations(text)
+                      .map(({ reference, ...citation }) => ({ ...citation, ...reference })),
+                  catch: (error) =>
+                    error instanceof StudyError
+                      ? error
+                      : new StudyError('invalid_input', 'Invalid citations', { cause: error })
+                });
 
           return { requestId: event.requestId, text, citations };
         })
@@ -436,4 +425,43 @@ function replyOperation(snapshot: typeof replySnapshotSchema.Type) {
   return snapshot.generation?.origin === undefined || snapshot.generation.origin === 'answer'
     ? 'reply'
     : 'rewrite';
+}
+
+function isRewrite(
+  mode: ConversationMode,
+  snapshot: typeof replySnapshotSchema.Type
+): snapshot is typeof replySnapshotSchema.Type & {
+  generation: NonNullable<(typeof replySnapshotSchema.Type)['generation']> & {
+    origin: 'improve' | 'summarize' | 'instruction';
+  };
+} {
+  return (
+    mode !== ConversationMode.Assistant &&
+    snapshot.generation !== undefined &&
+    snapshot.generation.origin !== 'answer'
+  );
+}
+
+function replyAgentForMode(mode: ConversationMode) {
+  return mode === ConversationMode.Assistant ? assistantAgent : replyAgent;
+}
+
+function replyMessages(
+  mode: ConversationMode,
+  snapshot: typeof replySnapshotSchema.Type,
+  preferences: typeof runPreferencesSchema.Type
+) {
+  const messages = snapshot.messages.map((message) => ({
+    role: message.role,
+    content: message.text
+  }));
+
+  if (mode === ConversationMode.Assistant || !snapshot.context) return messages;
+
+  return messages.concat([
+    {
+      role: 'user',
+      content: snapshot.context.instruction + '\nPreferences: ' + JSON.stringify(preferences)
+    }
+  ]);
 }

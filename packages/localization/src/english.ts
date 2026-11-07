@@ -1,5 +1,18 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  AssistantIntro: 'Think it through, learn something new, or work on an idea together.',
+  AssistantEmptyDescription:
+    'Ask a question or share what you are working on. Your conversation is saved on this device.',
+  AssistantThinking: 'Thinking…',
+  AssistantLoading: 'Loading your conversation…',
+  AssistantEarlier: 'Earlier messages',
+  AssistantReplyFailed: 'The Assistant could not finish its reply.',
+  AssistantStopped: 'Reply stopped.',
+  AssistantSignIn: 'Sign in under Settings → ChatGPT account, then retry.',
+  AssistantActionFailed: 'That action could not be completed. Try again.',
+  AssistantStop: 'Stop reply',
+  AssistantLoadFailed: 'Could not load or send this conversation. Your draft is still here.',
+
   SettingsSidebar: 'Sidebar',
   SettingsAiBehavior: 'AI behavior',
   SettingsPerformance: 'Performance',
@@ -99,13 +112,12 @@ export const english = Object.freeze({
   QuizGenerateCancelled: 'Quiz creation cancelled.',
   QuizOpenGenerated: 'Open new quiz',
   QuizGenerateReady: 'Your practice is ready.',
-  StudyChatTitle: 'Study chat',
-  StudyChatPreview: 'Preview · AI replies are not enabled. Messages are kept until you reload.',
+  Assistant: 'Assistant',
   StudyChatMessage: 'Message',
   StudyChatPlaceholder: 'Write a message…',
   StudyChatSendHint: 'Enter to send · Shift + Enter for a new line',
   StudyChatEmptyTitle: 'Start a conversation',
-  StudyChatEmptyDescription: 'Your messages will appear here. Study cannot reply yet.',
+
   DesktopUpdateAvailable: 'Study {version} is available',
   DesktopUpdateConsent: 'Finish your current work before installing. Study will restart.',
   DesktopUpdateInstall: 'Install and restart',

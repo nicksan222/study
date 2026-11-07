@@ -17,7 +17,11 @@ import {
   renameSessionInputSchema,
   sessionPageInputSchema
 } from '@study/contracts/conversations/rpc';
-import { sessionSchema } from '@study/contracts/conversations/schemas';
+import {
+  ConversationMode,
+  conversationModeSchema,
+  sessionSchema
+} from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { sessionIdSchema } from '@study/contracts/ids';
 import { and, desc, eq, lt, or, sql } from '@study/db';
@@ -35,6 +39,8 @@ import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
+
+const resolvedMode = (mode: ConversationMode | undefined) => mode ?? ConversationMode.Notebook;
 
 const row = (
   value: typeof sessions.$inferSelect,
@@ -94,6 +100,7 @@ export const SessionStore = defineStore({
               .from(sessions)
               .where(
                 and(
+                  eq(sessions.mode, ConversationMode.Notebook),
                   input.project === undefined
                     ? undefined
                     : input.project === null
@@ -120,10 +127,12 @@ export const SessionStore = defineStore({
         createSession: storeMutation({
           input: Schema.Struct({
             ...createSessionInputSchema.fields,
-            titleSource: Schema.Literals(['user', 'provisional'])
+            titleSource: Schema.Literals(['user', 'provisional']),
+            mode: Schema.optional(conversationModeSchema)
           }),
           output: sessionSchema,
           run: (input) => {
+            const mode = resolvedMode(input.mode);
             const title = input.title.trim();
 
             if (!title || [...title].length > 200)
@@ -147,6 +156,7 @@ export const SessionStore = defineStore({
                     .where(
                       and(
                         eq(sessions.title_source, 'provisional'),
+                        eq(sessions.mode, mode),
                         sql`json_array_length(${sessions.selection}) = 0`,
                         sql`NOT EXISTS (SELECT 1 FROM ${messages} WHERE ${messages.session_id} = ${sessions.id})`,
                         sql`NOT EXISTS (SELECT 1 FROM ${recordings} WHERE ${recordings.session_id} = ${sessions.id})`,
@@ -188,6 +198,7 @@ export const SessionStore = defineStore({
               .values({
                 title,
                 title_source: input.titleSource,
+                mode: mode,
                 created_at: now,
                 updated_at: now
               })
