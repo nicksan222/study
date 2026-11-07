@@ -36,6 +36,7 @@ function useQuizSettings() {
   };
 }
 
+/** Edits persisted quiz defaults while preventing changes during preference loading or saving. */
 function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings> }) {
   const { t } = useI18n();
   const config = model.configuration;
@@ -74,10 +75,11 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
           options={[
             { value: 'all', label: t('QuizKindAll') },
             { value: 'choice', label: t('QuestionChoice') },
-            { value: 'open', label: t('QuestionOpen') }
+            { value: 'open', label: t('QuestionOpen') },
+            { value: 'fill_blank', label: t('PracticeFillBlank') }
           ]}
           onValueChange={(value) => {
-            if (value === 'all' || value === 'choice' || value === 'open')
+            if (value === 'all' || value === 'choice' || value === 'open' || value === 'fill_blank')
               model.update({ questionKind: value });
           }}
         />

@@ -323,3 +323,33 @@ testStable(
     expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledTimes(1);
   }
 );
+
+testStable(
+  'generates fill-in-the-blank practice with a typed kind and saved difficulty',
+  async () => {
+    const rpc = rpcFixture();
+    const user = userEvent.setup();
+
+    mountLibraryRoute('/practice/41?project=1', rpc);
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+    const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+    await user.click(within(dialog).getByRole('radio', { name: 'Fill in the blank' }));
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+    await waitFor(() =>
+      expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          kind: 'quiz',
+          title: 'Fill in the blank',
+          autoTitle: true,
+          quizConfig: {
+            questionCount: 3,
+            choiceCount: 2,
+            questionKind: 'fill_blank',
+            difficulty: 'balanced'
+          }
+        })
+      )
+    );
+  }
+);

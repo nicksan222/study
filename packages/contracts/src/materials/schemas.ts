@@ -24,7 +24,7 @@ export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diag
 export const quizGenerationConfigSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })),
-  questionKind: Schema.Literals(['mixed', 'choice', 'open']),
+  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank']),
   difficulty: Schema.Literals(['easy', 'balanced', 'challenging'])
 });
 
@@ -126,8 +126,27 @@ const openQuestionInputSchema = Schema.Struct({
 export const materialQuestionInputSchema = Schema.Union([
   singleChoiceInputSchema,
   multipleChoiceInputSchema,
-  openQuestionInputSchema
+  openQuestionInputSchema,
+  Schema.Struct({
+    kind: Schema.Literal('fill_blank'),
+    prompt: nonemptySchema.check(
+      Schema.makeFilter((prompt) => {
+        const blanks = prompt.match(/_{4,}/g);
+
+        return blanks?.length === 1 && blanks[0] === '____';
+      })
+    ),
+    explanation: nonemptySchema,
+    referenceAnswer: nonemptySchema
+  })
 ]);
+
+/** Narrows question kinds whose learner response and reference answer are text rather than choice identities. */
+export function isTextQuestionKind(
+  kind: (typeof materialQuestionInputSchema.Type)['kind']
+): kind is 'open' | 'fill_blank' {
+  return kind === 'open' || kind === 'fill_blank';
+}
 
 const optionalIdSchema = Schema.optional(materialCardIdSchema);
 
@@ -243,6 +262,13 @@ const quizContentDetailSchema = Schema.Struct({
         Schema.Struct({
           id: quizQuestionIdSchema,
           kind: Schema.Literal('open'),
+          prompt: Schema.String,
+          explanation: Schema.String,
+          referenceAnswer: Schema.String
+        }),
+        Schema.Struct({
+          id: quizQuestionIdSchema,
+          kind: Schema.Literal('fill_blank'),
           prompt: Schema.String,
           explanation: Schema.String,
           referenceAnswer: Schema.String

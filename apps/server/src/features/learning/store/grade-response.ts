@@ -13,6 +13,7 @@
  */
 
 import type { gradeResponseInputSchema } from '@study/contracts/learning/rpc';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -26,6 +27,7 @@ type Input = typeof gradeResponseInputSchema.Type;
 export function makeGradeResponse(resources: StoreResources) {
   const { db } = resources;
   const { attemptRow, attemptView, attemptQuestions } = makeQuiz(resources);
+  /** Stores a text grade for a selected response; a completed response can receive its first grade only once. */
   const settleGrade = (input: Input) => {
     const a = attemptRow(input.attemptId);
 
@@ -38,7 +40,7 @@ export function makeGradeResponse(resources: StoreResources) {
     );
     const response = db.orm.select().from(s.material_quiz_responses).where(where).get();
 
-    if (!response || response.question_kind !== 'open' || !response.answer?.trim())
+    if (!response || !isTextQuestionKind(response.question_kind) || !response.answer?.trim())
       invalid('open response required');
 
     if (a.status === 'completed' && response.score !== null)

@@ -54,7 +54,7 @@ export const material_quiz_questions = defineTable({
     id: integer().$type<QuizQuestionId>().primaryKey({ autoIncrement: true }),
     version_id: integer().$type<MaterialVersionId>().notNull(),
     position: integer().$type<bigint>().notNull(),
-    kind: text({ enum: ['single_choice', 'multiple_choice', 'open'] }).notNull(),
+    kind: text({ enum: ['single_choice', 'multiple_choice', 'open', 'fill_blank'] }).notNull(),
     prompt: text().notNull(),
     explanation: text().notNull()
   },
@@ -67,7 +67,7 @@ export const material_quiz_questions = defineTable({
     uniqueIndex('material_quiz_questions_kind').on(t.id, t.kind),
     check(
       'material_quiz_questions_values',
-      sql`typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','open') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0`
+      sql`typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','open','fill_blank') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))`
     )
   ]
 );
@@ -102,7 +102,7 @@ export const material_quiz_open_answers = defineTable({ role: 'contributes', ent
   'material_quiz_open_answers',
   {
     question_id: integer().$type<QuizQuestionId>().primaryKey(),
-    kind: text({ enum: ['open'] })
+    kind: text({ enum: ['open', 'fill_blank'] })
       .notNull()
       .default('open'),
     reference_answer: text().notNull()
@@ -116,7 +116,7 @@ export const material_quiz_open_answers = defineTable({ role: 'contributes', ent
       .onUpdate('restrict'),
     check(
       'material_quiz_open_answers_values',
-      sql`kind = 'open' AND length(trim(reference_answer)) > 0`
+      sql`kind IN ('open','fill_blank') AND length(trim(reference_answer)) > 0`
     )
   ]
 );
@@ -315,7 +315,9 @@ export const material_quiz_responses = defineTable({
     attempt_id: integer().$type<QuizAttemptId>().notNull(),
     version_id: integer().$type<MaterialVersionId>().notNull(),
     question_id: integer().$type<QuizQuestionId>().notNull(),
-    question_kind: text({ enum: ['single_choice', 'multiple_choice', 'open'] }).notNull(),
+    question_kind: text({
+      enum: ['single_choice', 'multiple_choice', 'open', 'fill_blank']
+    }).notNull(),
     answer: text(),
     score: real(),
     feedback: text()
@@ -333,7 +335,7 @@ export const material_quiz_responses = defineTable({
     index('material_quiz_responses_question_kind_fk').on(t.question_id, t.question_kind),
     check(
       'material_quiz_responses_values',
-      sql`question_kind IN ('single_choice','multiple_choice','open') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind = 'open' AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind IN ('single_choice','multiple_choice') AND answer IS NULL))`
+      sql`question_kind IN ('single_choice','multiple_choice','open','fill_blank') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind IN ('single_choice','multiple_choice') AND answer IS NULL))`
     )
   ]
 );

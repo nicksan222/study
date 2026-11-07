@@ -30,6 +30,7 @@ import {
   retryPracticeQuestionInputSchema
 } from '@study/contracts/learning/rpc';
 import { quizAttemptSchema } from '@study/contracts/learning/schemas';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { and, desc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -381,7 +382,7 @@ function makePractice(resources: StoreResources) {
     if (
       !version ||
       questions.length !== 1 ||
-      (questions[0]!.kind === 'open') !== (row.kind === 'open')
+      (row.kind === 'open' ? questions[0]!.kind !== 'open' : isTextQuestionKind(questions[0]!.kind))
     )
       invalid('invalid practice quiz publication');
 
@@ -697,6 +698,7 @@ export const PracticeControlStore = defineStore({
   }
 });
 
+/** Compares retry payloads with the committed answer, treating choice selections as an unordered set. */
 function sameAnswer(
   previous: (typeof quizAttemptSchema.Type)['questions'][number]['answer'],
   answer: (typeof answerPracticeQuestionInputSchema.Type)['answer']

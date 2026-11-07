@@ -57,6 +57,7 @@ export function MaterialVersionContent({ version }: { version: MaterialVersionDe
   );
 }
 
+/** Shows an authored question and its correct response without exposing editable practice controls. */
 function QuestionPreview({
   question,
   index
@@ -70,11 +71,19 @@ function QuestionPreview({
     <Practice.PreviewItem>
       <Practice.ProgressHeading>
         <span>{questionNumber(locale, index + 1)}</span>
-        <span>{t(question.kind === 'open' ? 'QuestionOpen' : 'QuestionChoice')}</span>
+        <span>
+          {t(
+            question.kind === 'fill_blank'
+              ? 'PracticeFillBlank'
+              : question.kind === 'open'
+                ? 'QuestionOpen'
+                : 'QuestionChoice'
+          )}
+        </span>
       </Practice.ProgressHeading>
       <Practice.Prompt>{question.prompt}</Practice.Prompt>
       <Practice.Answers aria-label={t('RightAnswer')}>
-        {question.kind === 'open' ? (
+        {!('choices' in question) ? (
           <Textarea readOnly aria-label={t('RightAnswer')} value={question.referenceAnswer} />
         ) : (
           question.choices.map((choice, position) => (

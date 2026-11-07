@@ -242,6 +242,7 @@ function SavedAttempt({ attempt, close }: { attempt: InProgress; close: () => vo
   );
 }
 
+/** Previews a saved response without revealing correctness or allowing edits to an unfinished attempt. */
 function SavedQuestion({ question }: { question: Question }) {
   const { t } = useI18n();
   const label = 'history-question-' + String(question.id);
@@ -254,7 +255,7 @@ function SavedQuestion({ question }: { question: Question }) {
         {t(question.answer ? 'PracticeAnswerRecorded' : 'PracticeUnanswered')}
       </Practice.Muted>
       <Practice.Answers aria-labelledby={label}>
-        {question.kind === 'open' ? (
+        {!('choices' in question) ? (
           <Textarea
             aria-label={t('YourAnswer')}
             readOnly

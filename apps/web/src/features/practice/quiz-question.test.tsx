@@ -1,7 +1,7 @@
 import { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
@@ -67,4 +67,57 @@ testStable('keeps open answers editable and submits trimmed text', async () => {
   );
   await user.keyboard('{Control>}{Enter}{/Control}');
   expect(submit).toHaveBeenCalledWith({ type: 'open', answer: 'Exactly two divisors.' });
+});
+
+testStable(
+  'blank answers restore saved text and submit with Enter without leaking the answer',
+  async () => {
+    const submit = vi.fn();
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'fill_blank',
+          prompt: 'A prime has ____ divisors.',
+          answer: { type: 'open', answer: 'three' }
+        }
+      ]
+    }).questions[0]!;
+    const user = userEvent.setup();
+
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    const input = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
+
+    expect(input).toHaveValue('three');
+    await user.clear(input);
+    expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
+    await user.type(input, '  two  {Enter}');
+    expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: 'two' });
+  }
+);
+
+testStable('confirming an IME composition does not submit a blank answer', () => {
+  const submit = vi.fn();
+  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+    ...attempt,
+    questions: [
+      {
+        id: 4n,
+        position: 0n,
+        kind: 'fill_blank',
+        prompt: 'The word is ____.',
+        answer: { type: 'open', answer: '日本語' }
+      }
+    ]
+  }).questions[0]!;
+
+  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+  const input = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
+
+  expect(fireEvent.keyDown(input, { key: 'Enter', isComposing: true })).toBe(true);
+  expect(submit).not.toHaveBeenCalled();
+  fireEvent.keyDown(input, { key: 'Enter', isComposing: false });
+  expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: '日本語' });
 });

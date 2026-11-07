@@ -13,6 +13,7 @@
  */
 
 import type { attemptInputSchema } from '@study/contracts/learning/rpc';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -26,6 +27,7 @@ type Input = typeof attemptInputSchema.Type;
 export function makeFinishQuiz(resources: StoreResources) {
   const { db, clock } = resources;
   const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  /** Validates saved responses and completes the attempt while leaving text grades available for later settlement. */
   const finishQuiz = (input: Input) => {
     const a = attemptRow(input.attemptId, true);
 
@@ -49,7 +51,7 @@ export function makeFinishQuiz(resources: StoreResources) {
         )
         .all();
 
-      if (q.kind === 'open') {
+      if (isTextQuestionKind(q.kind)) {
         if (!response.answer?.trim() || selected.length) invalid('malformed open response');
       } else {
         const score = choiceScore(

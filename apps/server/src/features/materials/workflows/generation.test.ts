@@ -485,7 +485,13 @@ testStable(
               { text: 'c', isCorrect: false }
             ]
           },
-          { kind: 'open', prompt: 'Explain [1]', explanation: 'alpha', referenceAnswer: 'alpha' }
+          { kind: 'open', prompt: 'Explain [1]', explanation: 'alpha', referenceAnswer: 'alpha' },
+          {
+            kind: 'fill_blank',
+            prompt: 'The captured my_value is ____.',
+            explanation: 'alpha [1]',
+            referenceAnswer: 'alpha'
+          }
         ]
       });
 
@@ -496,10 +502,7 @@ testStable(
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open] = quiz.content.questions;
-
-        assert.ok(single?.kind === 'single_choice');
-        assert.ok(multiple?.kind === 'multiple_choice');
+        const [single, multiple, open, blank] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -515,6 +518,8 @@ testStable(
           false
         ]);
         assert.ok(open.referenceAnswer === 'alpha');
+        assert.ok(blank?.kind === 'fill_blank');
+        assert.equal(blank.referenceAnswer, 'alpha');
       }
 
       await generate(

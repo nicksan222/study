@@ -53,6 +53,7 @@ function seedCards(
   }
 }
 
+/** Creates fixture questions and their typed reference answers or choice rows within the seed transaction. */
 function seedQuiz(
   { db }: ProjectHarness,
   content: Extract<Content, { kind: 'quiz' }>,
@@ -73,11 +74,12 @@ function seedQuiz(
       .returning()
       .get();
 
-    if (value.kind === 'open') {
+    if ('referenceAnswer' in value) {
       db.orm
         .insert(material_quiz_open_answers)
         .values({
           question_id: question.id,
+          kind: value.kind,
           reference_answer: value.referenceAnswer
         })
         .run();

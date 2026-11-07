@@ -308,7 +308,7 @@ for (const mode of [
             const attempt = yield* client['learning.attempt']({ attemptId: first.attemptId });
             const question = attempt.questions[0]!;
 
-            assert.ok(!(question.kind === 'open'), 'expected choice');
+            assert.ok('choices' in question, 'expected choice');
 
             const input = {
               slotId: first.slotId,

@@ -4,11 +4,12 @@ import type {
   quizAttemptInProgressSchema
 } from '@study/contracts/learning/schemas';
 import { Button } from '@study/ui/button';
+import { Input } from '@study/ui/input';
 import { NextButton, PreviousButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { Textarea } from '@study/ui/textarea';
 import { useState, useEffect, useRef } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, KeyboardEvent } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -16,6 +17,7 @@ type Question = (typeof quizAttemptInProgressSchema.Type)['questions'][number];
 
 type Answer = typeof quizAnswerSchema.Type;
 
+/** Restores a saved response and submits valid typed answers, preserving multiline entry and IME composition. */
 export function QuizQuestion({
   question,
   pending,
@@ -43,13 +45,14 @@ export function QuizQuestion({
   const [selected, setSelected] = useState(
     question.answer?.type === 'choice' ? question.answer.choiceIds : []
   );
-  const valid = question.kind === 'open' ? text.trim().length > 0 : selected.length > 0;
+  const valid = !('choices' in question) ? text.trim().length > 0 : selected.length > 0;
 
+  /** Trims text answers and submits a single valid response while no save is pending. */
   function send() {
     if (!valid || pending) return;
 
     submit(
-      question.kind === 'open'
+      !('choices' in question)
         ? { type: 'open', answer: text.trim() }
         : { type: 'choice', choiceIds: selected }
     );
@@ -58,6 +61,8 @@ export function QuizQuestion({
   return (
     <Practice.Question
       onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing) return;
+
         if (event.target instanceof HTMLButtonElement) return;
 
         if (event.key === 'Enter' && question.kind !== 'open') {
@@ -67,8 +72,7 @@ export function QuizQuestion({
           return;
         }
 
-        if (pending || question.kind === 'open' || event.metaKey || event.ctrlKey || event.altKey)
-          return;
+        if (pending || !('choices' in question) || hasModifier(event)) return;
 
         const choice = question.choices[Number(event.key) - 1];
 
@@ -90,7 +94,19 @@ export function QuizQuestion({
         </Practice.Prompt>
         <Practice.Muted>{t(questionHint(question.kind))}</Practice.Muted>
         <Practice.Answers disabled={pending} aria-labelledby="practice-question">
-          {question.kind === 'open' ? (
+          {question.kind === 'fill_blank' ? (
+            <Practice.ShortAnswer>
+              <label htmlFor="practice-answer">{t('YourAnswer')}</label>
+              <Input
+                id="practice-answer"
+                value={text}
+                maxLength={100000}
+                placeholder={t('PracticeFillBlankPlaceholder')}
+                autoComplete="off"
+                onChange={(event) => setText(event.target.value)}
+              />
+            </Practice.ShortAnswer>
+          ) : question.kind === 'open' ? (
             <Textarea
               aria-label={t('YourAnswer')}
               value={text}
@@ -136,6 +152,11 @@ export function QuizQuestion({
   );
 }
 
+/** Keeps browser and application shortcuts out of numeric choice selection. */
+function hasModifier(event: KeyboardEvent) {
+  return event.metaKey || event.ctrlKey || event.altKey;
+}
+
 function toggleChoice(previous: QuizChoiceId[], id: QuizChoiceId, single: boolean) {
   if (single) return [id];
 
@@ -143,6 +164,8 @@ function toggleChoice(previous: QuizChoiceId[], id: QuizChoiceId, single: boolea
 }
 
 function questionHint(kind: Question['kind']) {
+  if (kind === 'fill_blank') return 'PracticeFillBlankHint';
+
   if (kind === 'open') return 'PracticeOpenHint';
 
   return kind === 'multiple_choice' ? 'PracticeMultipleHint' : 'PracticeSingleHint';

@@ -48,6 +48,7 @@ export function Quiz({ version, projectId, title }: QuizSetupProps) {
   return <QuizStart version={version} projectId={projectId} title={title} />;
 }
 
+/** Counts questions matching saved preferences and starts an attempt against the selected immutable version. */
 function QuizStart({ version, projectId, title }: QuizSetupProps) {
   const search = useSearch({ from: '__root__' });
   const navigate = useNavigate();
@@ -73,9 +74,9 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
       ? version.content.questions.filter(
           (question) =>
             configuration.questionKind === 'all' ||
-            (configuration.questionKind === 'open'
-              ? question.kind === 'open'
-              : question.kind !== 'open')
+            (configuration.questionKind === 'choice'
+              ? question.kind === 'single_choice' || question.kind === 'multiple_choice'
+              : question.kind === configuration.questionKind)
         ).length
       : 0;
   const count = Math.min(available, configuration.questionCount);
@@ -254,6 +255,7 @@ export function OperationError({ retry }: { retry?: () => void }) {
   );
 }
 
+/** Lists the authored prompts and their localized question kinds before practice starts. */
 function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
 
@@ -265,13 +267,20 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
         items={version.content.questions.map((question) => ({
           key: String(question.id),
           prompt: question.prompt,
-          detail: t(question.kind === 'open' ? 'QuestionOpen' : 'QuestionChoice')
+          detail: t(
+            question.kind === 'fill_blank'
+              ? 'PracticeFillBlank'
+              : question.kind === 'open'
+                ? 'QuestionOpen'
+                : 'QuestionChoice'
+          )
         }))}
       />
     </Practice.Outline>
   );
 }
 
+/** Returns saved text or selected choice labels for review, leaving unanswered questions empty. */
 function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]) {
   const answer = question.answer;
 
@@ -279,7 +288,7 @@ function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questi
 
   if (answer.type === 'open') return answer.answer;
 
-  if (question.kind === 'open') return null;
+  if (!('choices' in question)) return null;
 
   return question.choices
     .filter((choice) => answer.choiceIds.includes(choice.id))

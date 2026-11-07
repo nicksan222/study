@@ -13,6 +13,7 @@
  */
 
 import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -26,6 +27,7 @@ type Input = typeof answerQuestionInputSchema.Type;
 export function makeAnswerQuestion(resources: StoreResources) {
   const { db } = resources;
   const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  /** Records a typed answer only for a selected question and its owning practice slot; choice scores are computed immediately. */
   const answerQuestion = (input: Input, practiceSlotId?: string) => {
     const practice = db.orm
       .select({
@@ -44,7 +46,7 @@ export function makeAnswerQuestion(resources: StoreResources) {
 
     if (!q) invalid('question does not belong to attempt selection');
 
-    if ((q.kind === 'open') !== (input.answer.type === 'open')) invalid('wrong answer kind');
+    if (isTextQuestionKind(q.kind) !== (input.answer.type === 'open')) invalid('wrong answer kind');
 
     const score = input.answer.type === 'choice' ? choiceScore(q, input.answer.choiceIds) : null;
 

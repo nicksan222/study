@@ -352,6 +352,7 @@
 /* Practice shares the notebook header, context card and dialog controls. */
 .groam-shell-page-body:has(> .ui-workspace[data-variant='practice']) {
   container-type: inline-size;
+  container-name: practice-workspace;
 }
 
 .ui-workspace[data-variant='practice'] {
@@ -381,7 +382,7 @@
 .ui-workspace[data-variant='practice']:has(> .ui-workspace-card[hidden]) {
   grid-template-columns: minmax(0, 1fr);
 }
-@container (max-width: 959px) {
+@container practice-workspace (max-width: 959px) {
   .ui-workspace[data-variant='practice'] {
     grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 3rem auto minmax(0, 1fr);

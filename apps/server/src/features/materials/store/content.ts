@@ -52,6 +52,7 @@ export function makeContent({ db: store }: StoreResources) {
       .run();
   }
 
+  /** Stores quiz questions with either typed reference answers or choices under the owning draft version. */
   function insertQuiz(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'quiz' }>
@@ -77,10 +78,11 @@ export function makeContent({ db: store }: StoreResources) {
         .returning()
         .get();
 
-      if (q.kind === 'open')
+      if ('referenceAnswer' in q)
         db.insert(s.material_quiz_open_answers)
           .values({
             question_id: row.id,
+            kind: q.kind,
             reference_answer: q.referenceAnswer
           })
           .run();

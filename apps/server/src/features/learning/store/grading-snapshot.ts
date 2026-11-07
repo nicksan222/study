@@ -16,6 +16,7 @@ import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -57,6 +58,7 @@ export function makeGradingSnapshot(resources: StoreResources) {
       return stale();
   }
 
+  /** Loads the submitted text and reference answer only when the event identity and answer hash still match. */
   function gradingSnapshot(event: QuizAnswerSubmitted, allowGraded = false) {
     const stale = () => {
       throw new StudyError('invalid_input', 'stale quiz grade');
@@ -103,8 +105,8 @@ export function makeGradingSnapshot(resources: StoreResources) {
 
     if (
       !row ||
-      row.question.kind !== 'open' ||
-      row.response.question_kind !== 'open' ||
+      !isTextQuestionKind(row.question.kind) ||
+      row.response.question_kind !== row.question.kind ||
       !row.response.answer?.trim() ||
       !row.reference.reference_answer.trim() ||
       (!allowGraded && row.response.score !== null)
