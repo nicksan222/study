@@ -260,6 +260,7 @@ function MatchingAnswers({
         <Practice.MatchingRow key={term.id}>
           <span>{term.text}</span>
           <SelectControl
+            optionText="wrap"
             label={term.text}
             value={associations.find((a) => a.termId === term.id)?.definitionId ?? ''}
             disabled={pending}

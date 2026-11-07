@@ -7,14 +7,17 @@ export interface SelectControlProps {
   options: readonly { value: string; label: string }[];
   onValueChange: (value: string) => void;
   disabled?: boolean;
+  optionText?: 'truncate' | 'wrap';
 }
 
+/** Renders a labelled keyboard select with optional wrapping for portalled option text. */
 export function SelectControl({
   label,
   value,
   options,
   onValueChange,
-  disabled
+  disabled,
+  optionText = 'truncate'
 }: SelectControlProps) {
   return (
     <Select.Root
@@ -38,7 +41,7 @@ export function SelectControl({
           alignItemWithTrigger={false}
           sideOffset={4}
         >
-          <Select.Popup className="study-select-popup">
+          <Select.Popup className="study-select-popup" data-option-text={optionText}>
             <Select.ScrollUpArrow className="study-select-scroll-arrow" aria-hidden="true">
               <ChevronUp size={16} />
             </Select.ScrollUpArrow>

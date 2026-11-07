@@ -140,6 +140,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.study-select-popup[data-option-text='wrap'] .study-select-value {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+
 .study-select-icon {
   display: inline-flex;
   flex: none;
