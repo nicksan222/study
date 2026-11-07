@@ -167,8 +167,15 @@ jobs:
         run: ${{ matrix.command }}
 
   server_tests:
-    name: 🧪 Server tests
+    name: 🧪 Server tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      # RAM-backed real files preserve WAL, locking, backup and process-restart coverage.
+      TMPDIR: /dev/shm
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -185,7 +192,7 @@ jobs:
         run: npm ci --no-fund --no-audit
       - name: 🧪 Test server, AI, database and localization
         timeout-minutes: 10
-        run: npm run server:test
+        run: npm run server:test -- --shard=${{ matrix.shard }}/2
 
   integrations:
     name: 🔌 Real integration tests

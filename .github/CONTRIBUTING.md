@@ -10,11 +10,19 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build, generated database drift,
-  tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates, with independent jobs for Oxlint/formatting/Fallow, web checks,
+  tooling tests, server package checks, and the website's Bun type check. CI runs these gates, with independent jobs for Oxlint/formatting/Fallow, web checks,
   tooling tests, server tests, real integrations, and native/package checks. JavaScript jobs
   skip the Rust and Linux GUI setup. The required `Test and build` check requires every job. Package gates continue after
   earlier failures, and run summaries list their outcomes. The web build reuses its earlier
   type check.
+- CI also requires real integrations (`bun run integrations:e2e`, with Docker) and the
+  packaged-runtime smoke test (`bun run desktop:runtime`, then
+  `python3 tooling/release/smoke_runtime.py target/desktop-runtime`). These are additional
+  gates beyond `just check`.
+- **CI splits server tests into two disjoint shards**, each retaining two Vitest workers.
+  Server fixtures use `/dev/shm` for RAM-backed
+  temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
+  tests use the normal temporary directory; each test still owns its database.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
   can't write the Italian, say so in the pull request.
 - **Report a vulnerability privately**, as [SECURITY.md](SECURITY.md) says, never in an
