@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "270ef802-5918-4d59-a35a-6e0e89bf5a23",
+  "id": "b2829818-a704-487b-a146-6b76183526e2",
   "prevIds": [
-    "396a7dcb-47f6-4b9d-b326-816486b6fccb"
+    "4a43d818-7498-4fbf-9596-beaaa3a604cc"
   ],
   "ddl": [
     {
@@ -56,6 +56,10 @@
     },
     {
       "name": "session_deletions",
+      "entityType": "tables"
+    },
+    {
+      "name": "session_merges",
       "entityType": "tables"
     },
     {
@@ -163,6 +167,10 @@
       "entityType": "tables"
     },
     {
+      "name": "material_quiz_attempt_ordering_items",
+      "entityType": "tables"
+    },
+    {
       "name": "material_quiz_attempt_questions",
       "entityType": "tables"
     },
@@ -176,6 +184,10 @@
     },
     {
       "name": "material_quiz_open_answers",
+      "entityType": "tables"
+    },
+    {
+      "name": "material_quiz_ordering_items",
       "entityType": "tables"
     },
     {
@@ -428,6 +440,10 @@
     },
     {
       "name": "semantic_search_entries",
+      "entityType": "tables"
+    },
+    {
+      "name": "ai_usage",
       "entityType": "tables"
     },
     {
@@ -1142,6 +1158,16 @@
     },
     {
       "table": "recordings",
+      "name": "sealed_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
       "name": "started_at",
       "type": "integer",
       "notNull": true,
@@ -1251,6 +1277,36 @@
       "entityType": "columns"
     },
     {
+      "table": "session_merges",
+      "name": "intent_key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_merges",
+      "name": "session_ids",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_merges",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "session_run_contexts",
       "name": "request_id",
       "type": "text",
@@ -1347,6 +1403,16 @@
       "notNull": true,
       "autoincrement": false,
       "default": "'notebook'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "archived_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
       "generated": null,
       "entityType": "columns"
     },
@@ -2511,6 +2577,46 @@
       "entityType": "columns"
     },
     {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "attempt_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "item_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "material_quiz_attempt_questions",
       "name": "attempt_id",
       "type": "integer",
@@ -2545,6 +2651,16 @@
       "name": "position",
       "type": "integer",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_attempt_questions",
+      "name": "matching_order",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -2691,6 +2807,56 @@
       "entityType": "columns"
     },
     {
+      "table": "material_quiz_ordering_items",
+      "name": "id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "question_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "question_kind",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'ordering'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "position",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "text",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "material_quiz_questions",
       "name": "id",
       "type": "integer",
@@ -2745,6 +2911,16 @@
       "name": "explanation",
       "type": "text",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "material_quiz_questions",
+      "name": "matching_pairs",
+      "type": "text",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -5971,6 +6147,126 @@
       "entityType": "columns"
     },
     {
+      "table": "ai_usage",
+      "name": "id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "runId",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "agent",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "provider",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "model",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "timestamp",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "input",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "cacheRead",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "cacheWrite",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "output",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "reasoning",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "incomplete",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "sources",
       "name": "sources_sha256_idx",
       "columns": [
@@ -6693,6 +6989,28 @@
       "entityType": "indexes"
     },
     {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "material_quiz_attempt_ordering_items_position",
+      "columns": [
+        {
+          "value": "attempt_id",
+          "isExpression": false
+        },
+        {
+          "value": "question_id",
+          "isExpression": false
+        },
+        {
+          "value": "position",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "material_quiz_attempt_questions",
       "name": "material_quiz_attempt_questions_position",
       "columns": [
@@ -6770,6 +7088,60 @@
         },
         {
           "value": "question_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "material_quiz_ordering_items_question",
+      "columns": [
+        {
+          "value": "id",
+          "isExpression": false
+        },
+        {
+          "value": "question_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "material_quiz_ordering_items_position",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        },
+        {
+          "value": "position",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "material_quiz_ordering_items_text",
+      "columns": [
+        {
+          "value": "question_id",
+          "isExpression": false
+        },
+        {
+          "value": "text",
           "isExpression": false
         }
       ],
@@ -7659,6 +8031,20 @@
       "entityType": "indexes"
     },
     {
+      "table": "ai_usage",
+      "name": "ai_usage_timestamp",
+      "columns": [
+        {
+          "value": "timestamp",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "source_blobs",
       "name": "fk_source_blobs_source_id_sources_id_fk",
       "columns": [
@@ -8045,6 +8431,21 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "session_merges",
+      "name": "fk_session_merges_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "nameExplicit": false,
       "entityType": "fks"
     },
@@ -8463,6 +8864,40 @@
       "entityType": "fks"
     },
     {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "fk_material_quiz_attempt_ordering_items_attempt_id_question_id_material_quiz_attempt_questions_attempt_id_question_id_fk",
+      "columns": [
+        "attempt_id",
+        "question_id"
+      ],
+      "tableTo": "material_quiz_attempt_questions",
+      "columnsTo": [
+        "attempt_id",
+        "question_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "fk_material_quiz_attempt_ordering_items_item_id_question_id_material_quiz_ordering_items_id_question_id_fk",
+      "columns": [
+        "item_id",
+        "question_id"
+      ],
+      "tableTo": "material_quiz_ordering_items",
+      "columnsTo": [
+        "id",
+        "question_id"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
       "table": "material_quiz_attempt_questions",
       "name": "fk_material_quiz_attempt_questions_attempt_id_version_id_material_quiz_attempts_id_version_id_fk",
       "columns": [
@@ -8534,6 +8969,23 @@
       "columns": [
         "question_id",
         "kind"
+      ],
+      "tableTo": "material_quiz_questions",
+      "columnsTo": [
+        "id",
+        "kind"
+      ],
+      "onUpdate": "RESTRICT",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "fk_material_quiz_ordering_items_question_id_question_kind_material_quiz_questions_id_kind_fk",
+      "columns": [
+        "question_id",
+        "question_kind"
       ],
       "tableTo": "material_quiz_questions",
       "columnsTo": [
@@ -10190,6 +10642,16 @@
       "entityType": "pks"
     },
     {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "material_quiz_attempt_ordering_items_pk",
+      "columns": [
+        "attempt_id",
+        "item_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "material_quiz_attempt_questions",
       "name": "material_quiz_attempt_questions_pk",
       "columns": [
@@ -10584,6 +11046,15 @@
       "entityType": "pks"
     },
     {
+      "table": "session_merges",
+      "name": "session_merges_pk",
+      "columns": [
+        "intent_key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "session_run_contexts",
       "name": "session_run_contexts_pk",
       "columns": [
@@ -10804,6 +11275,15 @@
       "name": "material_quiz_open_answers_pk",
       "columns": [
         "question_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "material_quiz_ordering_items",
+      "name": "material_quiz_ordering_items_pk",
+      "columns": [
+        "id"
       ],
       "nameExplicit": false,
       "entityType": "pks"
@@ -11124,6 +11604,15 @@
       "entityType": "pks"
     },
     {
+      "table": "ai_usage",
+      "name": "ai_usage_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "conversation_question_answers",
       "name": "conversation_question_answers_request_id_unique",
       "columns": [
@@ -11304,6 +11793,12 @@
       "table": "session_deletions",
       "name": "session_deletion_state_check",
       "value": "\"attempt\" >= 1 AND \"status\" IN ('pending','failed','completed') AND ((\"status\" = 'completed') = (\"completed_at\" IS NOT NULL)) AND ((\"status\" = 'failed') = (\"error_kind\" IS NOT NULL))",
+      "entityType": "checks"
+    },
+    {
+      "table": "session_merges",
+      "name": "session_merges_ids_json",
+      "value": "json_valid(\"session_ids\")",
       "entityType": "checks"
     },
     {
@@ -11535,6 +12030,12 @@
       "entityType": "checks"
     },
     {
+      "table": "material_quiz_attempt_ordering_items",
+      "name": "material_quiz_attempt_ordering_items_values",
+      "value": "typeof(position)='integer' AND position >= 0 AND position < 10",
+      "entityType": "checks"
+    },
+    {
       "table": "material_quiz_attempt_questions",
       "name": "material_quiz_attempt_questions_position_check",
       "value": "typeof(position) = 'integer' AND position >= 0",
@@ -11559,15 +12060,21 @@
       "entityType": "checks"
     },
     {
+      "table": "material_quiz_ordering_items",
+      "name": "material_quiz_ordering_items_values",
+      "value": "id > 0 AND question_kind='ordering' AND typeof(position)='integer' AND position >= 0 AND position < 10 AND length(trim(text))>0",
+      "entityType": "checks"
+    },
+    {
       "table": "material_quiz_questions",
       "name": "material_quiz_questions_values",
-      "value": "typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))",
+      "value": "typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))",
       "entityType": "checks"
     },
     {
       "table": "material_quiz_responses",
       "name": "material_quiz_responses_values",
-      "value": "question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL))",
+      "value": "question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank','ordering') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL))",
       "entityType": "checks"
     },
     {
@@ -12006,6 +12513,12 @@
       "table": "semantic_search_entries",
       "name": "semantic_search_vector_size",
       "value": "\"dimensions\">0 AND length(\"embedding\")=\"dimensions\"*4",
+      "entityType": "checks"
+    },
+    {
+      "table": "ai_usage",
+      "name": "ai_usage_counts",
+      "value": "\"input\" >= 0 AND \"cacheRead\" >= 0 AND \"cacheWrite\" >= 0 AND \"output\" >= 0 AND \"reasoning\" >= 0 AND \"cacheRead\" + \"cacheWrite\" <= \"input\" AND \"reasoning\" <= \"output\"",
       "entityType": "checks"
     }
   ],

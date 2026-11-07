@@ -58,8 +58,7 @@ DROP TRIGGER "material_quiz_responses_completed_update";
 DROP TRIGGER "material_selection_single_insert";
 --> statement-breakpoint
 DROP TRIGGER "material_selection_single_update";
---> statement-breakpoint
-ALTER TABLE `material_quiz_attempt_questions` ADD `matching_order` text;--> statement-breakpoint
+--> statement-breakpointALTER TABLE `material_quiz_attempt_questions` ADD `matching_order` text;--> statement-breakpoint
 ALTER TABLE `material_quiz_questions` ADD `matching_pairs` text;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_material_quiz_questions` (

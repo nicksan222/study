@@ -1,11 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "396a7dcb-47f6-4b9d-b326-816486b6fccb",
+  "id": "b3adb354-b915-47ab-baa7-5684c7ff7ed2",
   "prevIds": [
-    "06b90aed-817d-4ade-b614-ed2ba36e578b",
-    "295dd4fb-50ae-4cb6-ac72-f309055ce024",
-    "5f0b8883-b919-437b-a8e2-8d83ead4c3b8"
+    "434cc4ce-5184-4504-82b3-db2cc01267d9"
   ],
   "ddl": [
     {
@@ -58,6 +56,10 @@
     },
     {
       "name": "session_deletions",
+      "entityType": "tables"
+    },
+    {
+      "name": "session_merges",
       "entityType": "tables"
     },
     {
@@ -430,6 +432,10 @@
     },
     {
       "name": "semantic_search_entries",
+      "entityType": "tables"
+    },
+    {
+      "name": "ai_usage",
       "entityType": "tables"
     },
     {
@@ -1144,6 +1150,16 @@
     },
     {
       "table": "recordings",
+      "name": "sealed_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
       "name": "started_at",
       "type": "integer",
       "notNull": true,
@@ -1253,6 +1269,36 @@
       "entityType": "columns"
     },
     {
+      "table": "session_merges",
+      "name": "intent_key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_merges",
+      "name": "session_ids",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "session_merges",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "session_run_contexts",
       "name": "request_id",
       "type": "text",
@@ -1349,6 +1395,16 @@
       "notNull": true,
       "autoincrement": false,
       "default": "'notebook'",
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "archived_at",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
       "generated": null,
       "entityType": "columns"
     },
@@ -5973,6 +6029,126 @@
       "entityType": "columns"
     },
     {
+      "table": "ai_usage",
+      "name": "id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "runId",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "agent",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "provider",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "model",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "timestamp",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "input",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "cacheRead",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "cacheWrite",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "output",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "reasoning",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "incomplete",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "sources",
       "name": "sources_sha256_idx",
       "columns": [
@@ -7661,6 +7837,20 @@
       "entityType": "indexes"
     },
     {
+      "table": "ai_usage",
+      "name": "ai_usage_timestamp",
+      "columns": [
+        {
+          "value": "timestamp",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
       "table": "source_blobs",
       "name": "fk_source_blobs_source_id_sources_id_fk",
       "columns": [
@@ -8047,6 +8237,21 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "session_merges",
+      "name": "fk_session_merges_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
       "nameExplicit": false,
       "entityType": "fks"
     },
@@ -10586,6 +10791,15 @@
       "entityType": "pks"
     },
     {
+      "table": "session_merges",
+      "name": "session_merges_pk",
+      "columns": [
+        "intent_key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "session_run_contexts",
       "name": "session_run_contexts_pk",
       "columns": [
@@ -11126,6 +11340,15 @@
       "entityType": "pks"
     },
     {
+      "table": "ai_usage",
+      "name": "ai_usage_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "conversation_question_answers",
       "name": "conversation_question_answers_request_id_unique",
       "columns": [
@@ -11306,6 +11529,12 @@
       "table": "session_deletions",
       "name": "session_deletion_state_check",
       "value": "\"attempt\" >= 1 AND \"status\" IN ('pending','failed','completed') AND ((\"status\" = 'completed') = (\"completed_at\" IS NOT NULL)) AND ((\"status\" = 'failed') = (\"error_kind\" IS NOT NULL))",
+      "entityType": "checks"
+    },
+    {
+      "table": "session_merges",
+      "name": "session_merges_ids_json",
+      "value": "json_valid(\"session_ids\")",
       "entityType": "checks"
     },
     {
@@ -12008,6 +12237,12 @@
       "table": "semantic_search_entries",
       "name": "semantic_search_vector_size",
       "value": "\"dimensions\">0 AND length(\"embedding\")=\"dimensions\"*4",
+      "entityType": "checks"
+    },
+    {
+      "table": "ai_usage",
+      "name": "ai_usage_counts",
+      "value": "\"input\" >= 0 AND \"cacheRead\" >= 0 AND \"cacheWrite\" >= 0 AND \"output\" >= 0 AND \"reasoning\" >= 0 AND \"cacheRead\" + \"cacheWrite\" <= \"input\" AND \"reasoning\" <= \"output\"",
       "entityType": "checks"
     }
   ],

@@ -1,4 +1,4 @@
--- Retain every existing guard while Drizzle rebuilds the question and response tables.
+-- Preserve publication, history, search and answer guards across the generated table rebuilds.
 DROP TRIGGER "catalog_native_material_delete";
 --> statement-breakpoint
 DROP TRIGGER "catalog_native_material_update";
@@ -58,42 +58,22 @@ DROP TRIGGER "material_quiz_responses_completed_update";
 DROP TRIGGER "material_selection_single_insert";
 --> statement-breakpoint
 DROP TRIGGER "material_selection_single_update";
---> statement-breakpoint
-DROP TRIGGER "material_matching_pairs_insert";
---> statement-breakpoint
-DROP TRIGGER "material_matching_answer_insert";
---> statement-breakpoint
-DROP TRIGGER "material_matching_order_insert";
---> statement-breakpoint
-DROP TRIGGER "material_matching_pairs_update";
---> statement-breakpoint
-DROP TRIGGER "material_matching_answer_update";
---> statement-breakpoint
-DROP TRIGGER "material_matching_order_update";
---> statement-breakpoint
-DROP TRIGGER "material_matching_order_immutable";
---> statement-breakpoint
-CREATE TABLE `material_quiz_attempt_ordering_items` (
-	`attempt_id` integer NOT NULL,
+--> statement-breakpointPRAGMA foreign_keys=OFF;--> statement-breakpoint
+CREATE TABLE `__new_material_quiz_choices` (
+	`id` integer PRIMARY KEY AUTOINCREMENT,
 	`question_id` integer NOT NULL,
-	`item_id` integer NOT NULL,
-	`position` integer NOT NULL,
-	CONSTRAINT `material_quiz_attempt_ordering_items_pk` PRIMARY KEY(`attempt_id`, `item_id`),
-	CONSTRAINT `fk_material_quiz_attempt_ordering_items_attempt_id_question_id_material_quiz_attempt_questions_attempt_id_question_id_fk` FOREIGN KEY (`attempt_id`,`question_id`) REFERENCES `material_quiz_attempt_questions`(`attempt_id`,`question_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT `fk_material_quiz_attempt_ordering_items_item_id_question_id_material_quiz_ordering_items_id_question_id_fk` FOREIGN KEY (`item_id`,`question_id`) REFERENCES `material_quiz_ordering_items`(`id`,`question_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT "material_quiz_attempt_ordering_items_values" CHECK(typeof(position)='integer' AND position >= 0 AND position < 10)
-);
---> statement-breakpoint
-CREATE TABLE `material_quiz_ordering_items` (
-	`id` integer PRIMARY KEY,
-	`question_id` integer NOT NULL,
-	`question_kind` text DEFAULT 'ordering' NOT NULL,
+	`question_kind` text NOT NULL,
 	`position` integer NOT NULL,
 	`text` text NOT NULL,
-	CONSTRAINT `fk_material_quiz_ordering_items_question_id_question_kind_material_quiz_questions_id_kind_fk` FOREIGN KEY (`question_id`,`question_kind`) REFERENCES `material_quiz_questions`(`id`,`kind`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT "material_quiz_ordering_items_values" CHECK(id > 0 AND question_kind='ordering' AND typeof(position)='integer' AND position >= 0 AND position < 10 AND length(trim(text))>0)
+	`is_correct` integer DEFAULT false NOT NULL,
+	CONSTRAINT `fk_material_quiz_choices_question_id_question_kind_material_quiz_questions_id_kind_fk` FOREIGN KEY (`question_id`,`question_kind`) REFERENCES `material_quiz_questions`(`id`,`kind`) ON UPDATE RESTRICT ON DELETE CASCADE,
+	CONSTRAINT "material_quiz_choices_values" CHECK(question_kind IN ('single_choice','multiple_choice','true_false') AND typeof(position) = 'integer' AND position >= 0 AND length(trim(text)) > 0 AND is_correct IN (0,1))
 );
 --> statement-breakpoint
+INSERT INTO `__new_material_quiz_choices`(`id`, `question_id`, `question_kind`, `position`, `text`, `is_correct`) SELECT `id`, `question_id`, `question_kind`, `position`, `text`, `is_correct` FROM `material_quiz_choices`;--> statement-breakpoint
+DROP TABLE `material_quiz_choices`;--> statement-breakpoint
+ALTER TABLE `__new_material_quiz_choices` RENAME TO `material_quiz_choices`;--> statement-breakpoint
+PRAGMA foreign_keys=ON;--> statement-breakpoint
 PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_material_quiz_questions` (
 	`id` integer PRIMARY KEY AUTOINCREMENT,
@@ -102,12 +82,11 @@ CREATE TABLE `__new_material_quiz_questions` (
 	`kind` text NOT NULL,
 	`prompt` text NOT NULL,
 	`explanation` text NOT NULL,
-	`matching_pairs` text,
 	CONSTRAINT `fk_material_quiz_questions_version_id_material_quiz_versions_version_id_fk` FOREIGN KEY (`version_id`) REFERENCES `material_quiz_versions`(`version_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT "material_quiz_questions_values" CHECK(typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4)))
+	CONSTRAINT "material_quiz_questions_values" CHECK(typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4)))
 );
 --> statement-breakpoint
-INSERT INTO `__new_material_quiz_questions`(`id`, `version_id`, `position`, `kind`, `prompt`, `explanation`, `matching_pairs`) SELECT `id`, `version_id`, `position`, `kind`, `prompt`, `explanation`, `matching_pairs` FROM `material_quiz_questions`;--> statement-breakpoint
+INSERT INTO `__new_material_quiz_questions`(`id`, `version_id`, `position`, `kind`, `prompt`, `explanation`) SELECT `id`, `version_id`, `position`, `kind`, `prompt`, `explanation` FROM `material_quiz_questions`;--> statement-breakpoint
 DROP TABLE `material_quiz_questions`;--> statement-breakpoint
 ALTER TABLE `__new_material_quiz_questions` RENAME TO `material_quiz_questions`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
@@ -124,22 +103,20 @@ CREATE TABLE `__new_material_quiz_responses` (
 	CONSTRAINT `fk_material_quiz_responses_attempt_id_version_id_material_quiz_attempts_id_version_id_fk` FOREIGN KEY (`attempt_id`,`version_id`) REFERENCES `material_quiz_attempts`(`id`,`version_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
 	CONSTRAINT `fk_material_quiz_responses_question_id_version_id_material_quiz_questions_id_version_id_fk` FOREIGN KEY (`question_id`,`version_id`) REFERENCES `material_quiz_questions`(`id`,`version_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
 	CONSTRAINT `fk_material_quiz_responses_question_id_question_kind_material_quiz_questions_id_kind_fk` FOREIGN KEY (`question_id`,`question_kind`) REFERENCES `material_quiz_questions`(`id`,`kind`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT "material_quiz_responses_values" CHECK(question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching','ordering') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank','ordering') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL)))
+	CONSTRAINT "material_quiz_responses_values" CHECK(question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL)))
 );
 --> statement-breakpoint
 INSERT INTO `__new_material_quiz_responses`(`attempt_id`, `version_id`, `question_id`, `question_kind`, `answer`, `score`, `feedback`) SELECT `attempt_id`, `version_id`, `question_id`, `question_kind`, `answer`, `score`, `feedback` FROM `material_quiz_responses`;--> statement-breakpoint
 DROP TABLE `material_quiz_responses`;--> statement-breakpoint
 ALTER TABLE `__new_material_quiz_responses` RENAME TO `material_quiz_responses`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
+CREATE UNIQUE INDEX `material_quiz_choices_position` ON `material_quiz_choices` (`question_id`,`position`);--> statement-breakpoint
+CREATE UNIQUE INDEX `material_quiz_choices_question` ON `material_quiz_choices` (`id`,`question_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `material_quiz_questions_position` ON `material_quiz_questions` (`version_id`,`position`);--> statement-breakpoint
 CREATE UNIQUE INDEX `material_quiz_questions_version` ON `material_quiz_questions` (`id`,`version_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `material_quiz_questions_kind` ON `material_quiz_questions` (`id`,`kind`);--> statement-breakpoint
 CREATE INDEX `material_quiz_responses_question_version_fk` ON `material_quiz_responses` (`question_id`,`version_id`);--> statement-breakpoint
-CREATE INDEX `material_quiz_responses_question_kind_fk` ON `material_quiz_responses` (`question_id`,`question_kind`);--> statement-breakpoint
-CREATE UNIQUE INDEX `material_quiz_attempt_ordering_items_position` ON `material_quiz_attempt_ordering_items` (`attempt_id`,`question_id`,`position`);--> statement-breakpoint
-CREATE UNIQUE INDEX `material_quiz_ordering_items_question` ON `material_quiz_ordering_items` (`id`,`question_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `material_quiz_ordering_items_position` ON `material_quiz_ordering_items` (`question_id`,`position`);--> statement-breakpoint
-CREATE UNIQUE INDEX `material_quiz_ordering_items_text` ON `material_quiz_ordering_items` (`question_id`,`text`);
+CREATE INDEX `material_quiz_responses_question_kind_fk` ON `material_quiz_responses` (`question_id`,`question_kind`);
 --> statement-breakpoint
 CREATE TRIGGER catalog_native_material_delete BEFORE DELETE ON materials BEGIN DELETE FROM catalog_fts WHERE kind='material' AND target_id=old.id; DELETE FROM catalog_fts WHERE kind='question' AND target_id IN (SELECT q.id FROM material_quiz_questions q JOIN material_versions v ON v.id=q.version_id WHERE v.material_id=old.id); END;
 --> statement-breakpoint
@@ -236,8 +213,7 @@ CREATE TRIGGER material_publish_quiz BEFORE UPDATE OF status ON material_version
 WHEN new.status='published' AND new.kind='quiz' AND (
       NOT EXISTS(SELECT 1 FROM material_quiz_questions WHERE version_id=new.id)
       OR EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=new.id AND (
-        (q.kind='ordering' AND (SELECT count(*) FROM material_quiz_ordering_items i WHERE i.question_id=q.id) NOT BETWEEN 2 AND 10)
-        OR (q.kind='true_false' AND ((SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id) != 2 OR NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.text='true') OR NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.text='false')))
+        (q.kind='true_false' AND ((SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id) != 2 OR NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.text='true') OR NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.text='false')))
         OR (q.kind IN ('open','fill_blank') AND NOT EXISTS(SELECT 1 FROM material_quiz_open_answers a WHERE a.question_id=q.id))
         OR (q.kind IN ('single_choice','multiple_choice','true_false') AND (
           (SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id) NOT BETWEEN 2 AND 100
@@ -320,115 +296,3 @@ CREATE TRIGGER material_selection_single_update BEFORE UPDATE ON material_quiz_s
 WHEN (SELECT question_kind FROM material_quiz_responses WHERE attempt_id=new.attempt_id AND question_id=new.question_id) IN ('single_choice','true_false')
           AND EXISTS(SELECT 1 FROM material_quiz_selections s WHERE s.attempt_id=new.attempt_id AND s.question_id=new.question_id AND (s.attempt_id != old.attempt_id OR s.question_id != old.question_id OR s.choice_id != old.choice_id))
 BEGIN SELECT RAISE(ABORT, 'single choice answers may select exactly one choice'); END;
---> statement-breakpoint
-CREATE TRIGGER material_quiz_ordering_items_delete_draft BEFORE DELETE ON material_quiz_ordering_items
-WHEN ((EXISTS(SELECT 1 FROM material_versions v WHERE v.id=(SELECT version_id FROM material_quiz_questions WHERE id=old.question_id) AND v.status='published')) AND NOT (EXISTS(SELECT 1 FROM material_deletion_members dm JOIN material_deletions d ON d.material_id=dm.deletion_id WHERE dm.material_id=(SELECT material_id FROM material_versions WHERE id=(SELECT version_id FROM material_quiz_questions WHERE id=OLD.question_id)) AND d.status IN ('pending','failed')))) AND NOT (EXISTS(SELECT 1 FROM material_history_members h JOIN material_history_prunes p ON p.operation_id=h.operation_id WHERE h.version_id=(SELECT version_id FROM material_quiz_questions WHERE id=OLD.question_id) AND p.status IN ('pending','failed')))
-BEGIN SELECT RAISE(ABORT, 'published material content is immutable'); END;
---> statement-breakpoint
-CREATE TRIGGER material_quiz_ordering_items_insert_draft BEFORE INSERT ON material_quiz_ordering_items
-WHEN EXISTS(SELECT 1 FROM material_versions v WHERE v.id=(SELECT version_id FROM material_quiz_questions WHERE id=new.question_id) AND v.status='published')
-BEGIN SELECT RAISE(ABORT, 'published material content is immutable'); END;
---> statement-breakpoint
-CREATE TRIGGER material_quiz_ordering_items_update_draft BEFORE UPDATE ON material_quiz_ordering_items
-WHEN EXISTS(SELECT 1 FROM material_versions v WHERE v.id=(SELECT version_id FROM material_quiz_questions WHERE id=old.question_id) AND v.status='published') OR EXISTS(SELECT 1 FROM material_versions v WHERE v.id=(SELECT version_id FROM material_quiz_questions WHERE id=new.question_id) AND v.status='published')
-BEGIN SELECT RAISE(ABORT, 'published material content is immutable'); END;
---> statement-breakpoint
-CREATE TRIGGER material_ordering_response_insert BEFORE INSERT ON material_quiz_responses
-WHEN NEW.question_kind='ordering' AND (CASE WHEN json_valid(NEW.answer) THEN
-  json_extract(NEW.answer,'$.type') IS NOT 'ordering'
-  OR json_type(NEW.answer,'$.itemIds') IS NOT 'array'
-  OR json_array_length(NEW.answer,'$.itemIds') != (SELECT count(*) FROM material_quiz_ordering_items WHERE question_id=NEW.question_id)
-  OR (SELECT count(DISTINCT value) FROM json_each(NEW.answer,'$.itemIds')) != json_array_length(NEW.answer,'$.itemIds')
-  OR EXISTS(SELECT 1 FROM json_each(NEW.answer,'$.itemIds') j WHERE j.type != 'text' OR NOT EXISTS(SELECT 1 FROM material_quiz_ordering_items i WHERE i.question_id=NEW.question_id AND CAST(i.id AS TEXT)=j.value))
-  ELSE 1 END)
-BEGIN SELECT RAISE(ABORT, 'invalid ordering permutation'); END;
---> statement-breakpoint
-CREATE TRIGGER material_ordering_response_update BEFORE UPDATE ON material_quiz_responses
-WHEN NEW.question_kind='ordering' AND (CASE WHEN json_valid(NEW.answer) THEN
-  json_extract(NEW.answer,'$.type') IS NOT 'ordering'
-  OR json_type(NEW.answer,'$.itemIds') IS NOT 'array'
-  OR json_array_length(NEW.answer,'$.itemIds') != (SELECT count(*) FROM material_quiz_ordering_items WHERE question_id=NEW.question_id)
-  OR (SELECT count(DISTINCT value) FROM json_each(NEW.answer,'$.itemIds')) != json_array_length(NEW.answer,'$.itemIds')
-  OR EXISTS(SELECT 1 FROM json_each(NEW.answer,'$.itemIds') j WHERE j.type != 'text' OR NOT EXISTS(SELECT 1 FROM material_quiz_ordering_items i WHERE i.question_id=NEW.question_id AND CAST(i.id AS TEXT)=j.value))
-  ELSE 1 END)
-BEGIN SELECT RAISE(ABORT, 'invalid ordering permutation'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_pairs_insert BEFORE INSERT ON material_quiz_questions
-WHEN NEW.kind='matching' AND (
-  json_type(NEW.matching_pairs) != 'array'
-  OR EXISTS(SELECT 1 FROM json_each(NEW.matching_pairs) p WHERE
-    coalesce(json_type(p.value,'$.termId'),'') != 'text' OR length(json_extract(p.value,'$.termId')) != 36
-    OR coalesce(json_type(p.value,'$.definitionId'),'') != 'text' OR length(json_extract(p.value,'$.definitionId')) != 36
-    OR coalesce(json_type(p.value,'$.term'),'') != 'text' OR length(trim(json_extract(p.value,'$.term'))) = 0
-    OR coalesce(json_type(p.value,'$.definition'),'') != 'text' OR length(trim(json_extract(p.value,'$.definition'))) = 0)
-  OR (SELECT count(DISTINCT json_extract(value,'$.termId')) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR (SELECT count(DISTINCT json_extract(value,'$.definitionId')) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR (SELECT count(DISTINCT lower(trim(json_extract(value,'$.term')))) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR (SELECT count(DISTINCT lower(trim(json_extract(value,'$.definition')))) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR EXISTS(SELECT 1 FROM json_each(NEW.matching_pairs) t JOIN json_each(NEW.matching_pairs) d ON json_extract(t.value,'$.termId')=json_extract(d.value,'$.definitionId'))
-)
-BEGIN SELECT RAISE(ABORT, 'matching pairs require distinct identities, terms and definitions'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_answer_insert BEFORE INSERT ON material_quiz_responses
-WHEN NEW.question_kind='matching' AND (
-  NOT EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.id=NEW.question_id AND q.kind='matching' AND json_array_length(q.matching_pairs)=json_array_length(NEW.answer))
-  OR json_type(NEW.answer) != 'array'
-  OR (SELECT count(DISTINCT json_extract(value,'$.termId')) FROM json_each(NEW.answer)) != json_array_length(NEW.answer)
-  OR (SELECT count(DISTINCT json_extract(value,'$.definitionId')) FROM json_each(NEW.answer)) != json_array_length(NEW.answer)
-  OR EXISTS(SELECT 1 FROM json_each(NEW.answer) a WHERE
-    NOT EXISTS(SELECT 1 FROM material_quiz_questions q, json_each(q.matching_pairs) p WHERE q.id=NEW.question_id AND json_extract(p.value,'$.termId')=json_extract(a.value,'$.termId'))
-    OR NOT EXISTS(SELECT 1 FROM material_quiz_questions q, json_each(q.matching_pairs) p WHERE q.id=NEW.question_id AND json_extract(p.value,'$.definitionId')=json_extract(a.value,'$.definitionId')))
-)
-BEGIN SELECT RAISE(ABORT, 'matching answers require a complete question-owned permutation'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_order_insert BEFORE INSERT ON material_quiz_attempt_questions
-WHEN (SELECT kind FROM material_quiz_questions WHERE id=NEW.question_id)='matching' AND (
-  NEW.matching_order IS NULL OR NOT json_valid(NEW.matching_order)
-  OR json_type(NEW.matching_order) != 'array'
-  OR json_array_length(NEW.matching_order) != (SELECT json_array_length(matching_pairs) FROM material_quiz_questions WHERE id=NEW.question_id)
-  OR (SELECT count(DISTINCT value) FROM json_each(NEW.matching_order)) != json_array_length(NEW.matching_order)
-  OR EXISTS(SELECT 1 FROM json_each(NEW.matching_order) o WHERE NOT EXISTS(SELECT 1 FROM material_quiz_questions q, json_each(q.matching_pairs) p WHERE q.id=NEW.question_id AND json_extract(p.value,'$.definitionId')=o.value))
-)
-BEGIN SELECT RAISE(ABORT, 'matching attempt order must contain every definition exactly once'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_pairs_update BEFORE UPDATE ON material_quiz_questions
-WHEN NEW.kind='matching' AND (
-  json_type(NEW.matching_pairs) != 'array'
-  OR EXISTS(SELECT 1 FROM json_each(NEW.matching_pairs) p WHERE
-    coalesce(json_type(p.value,'$.termId'),'') != 'text' OR length(json_extract(p.value,'$.termId')) != 36
-    OR coalesce(json_type(p.value,'$.definitionId'),'') != 'text' OR length(json_extract(p.value,'$.definitionId')) != 36
-    OR coalesce(json_type(p.value,'$.term'),'') != 'text' OR length(trim(json_extract(p.value,'$.term'))) = 0
-    OR coalesce(json_type(p.value,'$.definition'),'') != 'text' OR length(trim(json_extract(p.value,'$.definition'))) = 0)
-  OR (SELECT count(DISTINCT json_extract(value,'$.termId')) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR (SELECT count(DISTINCT json_extract(value,'$.definitionId')) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR (SELECT count(DISTINCT lower(trim(json_extract(value,'$.term')))) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR (SELECT count(DISTINCT lower(trim(json_extract(value,'$.definition')))) FROM json_each(NEW.matching_pairs)) != json_array_length(NEW.matching_pairs)
-  OR EXISTS(SELECT 1 FROM json_each(NEW.matching_pairs) t JOIN json_each(NEW.matching_pairs) d ON json_extract(t.value,'$.termId')=json_extract(d.value,'$.definitionId'))
-)
-BEGIN SELECT RAISE(ABORT, 'matching pairs require distinct identities, terms and definitions'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_answer_update BEFORE UPDATE ON material_quiz_responses
-WHEN NEW.question_kind='matching' AND (
-  NOT EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.id=NEW.question_id AND q.kind='matching' AND json_array_length(q.matching_pairs)=json_array_length(NEW.answer))
-  OR json_type(NEW.answer) != 'array'
-  OR (SELECT count(DISTINCT json_extract(value,'$.termId')) FROM json_each(NEW.answer)) != json_array_length(NEW.answer)
-  OR (SELECT count(DISTINCT json_extract(value,'$.definitionId')) FROM json_each(NEW.answer)) != json_array_length(NEW.answer)
-  OR EXISTS(SELECT 1 FROM json_each(NEW.answer) a WHERE
-    NOT EXISTS(SELECT 1 FROM material_quiz_questions q, json_each(q.matching_pairs) p WHERE q.id=NEW.question_id AND json_extract(p.value,'$.termId')=json_extract(a.value,'$.termId'))
-    OR NOT EXISTS(SELECT 1 FROM material_quiz_questions q, json_each(q.matching_pairs) p WHERE q.id=NEW.question_id AND json_extract(p.value,'$.definitionId')=json_extract(a.value,'$.definitionId')))
-)
-BEGIN SELECT RAISE(ABORT, 'matching answers require a complete question-owned permutation'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_order_update BEFORE UPDATE ON material_quiz_attempt_questions
-WHEN (SELECT kind FROM material_quiz_questions WHERE id=NEW.question_id)='matching' AND (
-  NEW.matching_order IS NULL OR NOT json_valid(NEW.matching_order)
-  OR json_type(NEW.matching_order) != 'array'
-  OR json_array_length(NEW.matching_order) != (SELECT json_array_length(matching_pairs) FROM material_quiz_questions WHERE id=NEW.question_id)
-  OR (SELECT count(DISTINCT value) FROM json_each(NEW.matching_order)) != json_array_length(NEW.matching_order)
-  OR EXISTS(SELECT 1 FROM json_each(NEW.matching_order) o WHERE NOT EXISTS(SELECT 1 FROM material_quiz_questions q, json_each(q.matching_pairs) p WHERE q.id=NEW.question_id AND json_extract(p.value,'$.definitionId')=o.value))
-)
-BEGIN SELECT RAISE(ABORT, 'matching attempt order must contain every definition exactly once'); END;
---> statement-breakpoint
-CREATE TRIGGER material_matching_order_immutable BEFORE UPDATE OF matching_order ON material_quiz_attempt_questions
-WHEN OLD.matching_order IS NOT NULL AND NEW.matching_order IS NOT OLD.matching_order
-BEGIN SELECT RAISE(ABORT, 'matching attempt definition order is immutable'); END;

@@ -9,9 +9,9 @@ import { assert } from 'vite-plus/test';
 import { Db, sql } from '../src/index.ts';
 
 for (const cutoff of [
-  '20261107121957_fill-blank-practice',
-  '20261107132029_matching-practice',
-  '20261107141857_ordering-practice'
+  '20261107154846_fill-blank-practice',
+  '20261107154929_matching-practice',
+  '20261107155014_ordering-practice'
 ])
   testStable(`${cutoff} preserves populated quiz attempts and all existing trigger guards`, () => {
     const folder = mkdtempSync(join(tmpdir(), 'study-blank-migration-'));
@@ -28,6 +28,7 @@ for (const cutoff of [
       connection = Db.open(path, previous);
       const db = connection.orm;
       const statements = [
+        "INSERT INTO ai_usage(id,runId,agent,provider,model,timestamp,input,cacheRead,cacheWrite,output,reasoning,incomplete) VALUES('call','run','reply','chatgpt','test',1,10,2,0,5,1,0)",
         "INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'quiz','Recall',1,1)",
         "INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'quiz',1,1)",
         'INSERT INTO material_quiz_versions(version_id) VALUES(1)',
@@ -46,6 +47,7 @@ for (const cutoff of [
       for (const statement of statements) db.run(sql.raw(statement));
 
       const tables = [
+        'ai_usage',
         'material_quiz_questions',
         'material_quiz_open_answers',
         'material_quiz_choices',

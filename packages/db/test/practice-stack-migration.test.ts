@@ -8,7 +8,7 @@ import { assert } from 'vite-plus/test';
 
 import { Db, sql } from '../src/index.ts';
 
-for (const cutoff of ['20261107132029_matching-practice', '20261107141857_ordering-practice'])
+for (const cutoff of ['20261107154929_matching-practice', '20261107155014_ordering-practice'])
   testStable(`${cutoff} retains earlier question kinds, references and boolean guards`, () => {
     const folder = mkdtempSync(join(tmpdir(), 'study-practice-stack-'));
     const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
