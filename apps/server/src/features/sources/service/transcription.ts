@@ -13,7 +13,11 @@
 
 import { Effect } from 'effect';
 
-import { installModelAssets, validateModelAssets } from '#server/platform/ai/model-assets';
+import {
+  installModelAssets,
+  modelInstallationRevision,
+  validateModelAssets
+} from '#server/platform/ai/model-assets';
 import { transcribeAudio } from '#server/platform/ai/speech/local';
 import { vozModel } from '#server/platform/ai/speech/model';
 
@@ -27,6 +31,8 @@ export const transcriptionModelStatus = (path: string) =>
 
 export const installTranscriptionModel = (path: string) =>
   installModelAssets(path, vozModel).pipe(Effect.as({ installed: true }));
+
+export const transcriptionModelRevision = (path: string) => modelInstallationRevision(path);
 
 export const transcribeSourceAudio = (path: string, bytes: Uint8Array) =>
   transcribeAudio(path, bytes);

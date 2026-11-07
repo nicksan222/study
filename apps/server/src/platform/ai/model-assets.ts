@@ -29,6 +29,24 @@ export interface ModelAssets {
   }[];
 }
 
+/** Atomic install receipts are a cheap durable configuration fingerprint for waiting work. */
+export const modelInstallationRevision = (directory: string) =>
+  Effect.tryPromise({
+    try: async () => {
+      try {
+        const receipt = await stat(join(directory, 'installation.json'), { bigint: true });
+
+        return `${receipt.mtimeNs}:${receipt.size}`;
+      } catch (cause) {
+        if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return 'missing';
+
+        throw cause;
+      }
+    },
+    catch: (cause) =>
+      new StudyError('internal', 'Model installation receipt could not be read', { cause })
+  });
+
 /** Check pinned file size and SHA-256, treating only absent files as a cache miss. */
 async function matches(
   path: string,

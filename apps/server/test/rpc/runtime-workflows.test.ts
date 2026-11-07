@@ -164,8 +164,8 @@ testStable(
               projectId: null
             });
             yield* client['sources.createSource']({
-              name: 'unsupported.wav',
-              bytes: new TextEncoder().encode('RIFF0000WAVE'),
+              name: 'unsupported.doc',
+              bytes: new TextEncoder().encode('Legacy document'),
               projectId: null
             });
 

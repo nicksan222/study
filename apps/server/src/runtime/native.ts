@@ -119,6 +119,7 @@ export function nativeLayers(
     WorkflowConfiguration,
     Effect.gen(function* () {
       const settings = yield* Settings;
+      const sources = yield* Sources;
 
       const account = yield* Auth;
 
@@ -129,9 +130,10 @@ export function nativeLayers(
           const publicAccount = yield* account.publicAccount();
 
           const credentialGeneration = yield* account.credentialGeneration();
+          const localModels = yield* sources.transcriptionModelRevision();
 
           return createHash('sha256')
-            .update(JSON.stringify({ llm, publicAccount, credentialGeneration }))
+            .update(JSON.stringify({ llm, publicAccount, credentialGeneration, localModels }))
             .digest('hex');
         })
       };

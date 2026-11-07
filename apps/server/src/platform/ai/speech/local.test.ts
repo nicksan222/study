@@ -58,3 +58,17 @@ testStable(
     }
   }
 );
+
+testStable(
+  'malformed WAV input is a terminal input failure rather than a configuration wait',
+  async () => {
+    const directory = resolve('target/speech-model/voz');
+
+    await Effect.runPromise(installModelAssets(directory, vozModel));
+    const failure = await Effect.runPromise(
+      Effect.flip(transcribeAudio(directory, new TextEncoder().encode('RIFF0000WAVE')))
+    );
+
+    expect(failure.kind).toBe('invalid_input');
+  }
+);

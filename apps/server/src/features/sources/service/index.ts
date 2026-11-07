@@ -87,6 +87,7 @@ import { validateLink } from '#server/platform/http/index';
 import {
   installTranscriptionModel,
   transcriptionModelStatus,
+  transcriptionModelRevision,
   transcribeSourceAudio
 } from './transcription.ts';
 
@@ -135,6 +136,7 @@ export const Sources = defineService(
     return {
       installTranscriptionModel: () => installTranscriptionModel(speechDirectory),
       transcriptionModelStatus: () => transcriptionModelStatus(speechDirectory),
+      transcriptionModelRevision: () => transcriptionModelRevision(speechDirectory),
       transcribeAudio: (bytes: Uint8Array) => transcribeSourceAudio(speechDirectory, bytes),
       conversionStrategies: () =>
         Effect.flatMap(Settings, (settings) => settings.language()).pipe(

@@ -25,6 +25,7 @@ import { assert, expect } from 'vite-plus/test';
 import { Conversations } from '#server/features/conversations/index';
 import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/service/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -40,13 +41,24 @@ for (const deleteCommittedMessage of [false, true])
       const location = createTestDatabase();
       let context = new ServerContext(location.open());
       const services = () =>
-        Layer.mergeAll(Projects.layer, Conversations.layer, Sources.layer, Recordings.layer).pipe(
-          Layer.provideMerge(Layer.succeed(Database, { store: context }))
-        );
+        Layer.mergeAll(
+          Projects.layer,
+          Conversations.layer,
+          Sources.layer,
+          Recordings.layer,
+          Settings.layer
+        ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
       try {
         const pending = await Effect.runPromise(
           Effect.gen(function* () {
+            const settings = yield* Settings;
+
+            yield* settings.saveWorkspacePreferences({
+              ...(yield* settings.workspacePreferences()),
+              autoTranscribeAudio: true
+            });
+
             const projects = yield* Projects;
             const conversations = yield* Conversations;
             const recordings = yield* Recordings;

@@ -33,6 +33,7 @@ import {
   recordingPostHandler,
   recordingPostWorkflow
 } from '#server/features/recordings/workflows/index';
+import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -54,6 +55,13 @@ testStable(
 
       const post = await Effect.runPromise(
         Effect.gen(function* () {
+          const settings = yield* Settings;
+
+          yield* settings.saveWorkspacePreferences({
+            ...(yield* settings.workspacePreferences()),
+            autoTranscribeAudio: true
+          });
+
           const recordings = yield* Recordings;
 
           const recording = yield* recordings.createRecording(saved.session.id);

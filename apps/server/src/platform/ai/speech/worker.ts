@@ -41,25 +41,41 @@ globalThis.fetch = async (request) => {
   return new Response(await readFile(join(input.directory, file)));
 };
 
-const decoded = decodeWav(input.bytes);
+function decodeInput() {
+  const decoded = decodeWav(input.bytes);
 
-if (
-  decoded.sampleRate < 8000 ||
-  decoded.sampleRate > 192000 ||
-  decoded.channels > 32 ||
-  decoded.samples.length / decoded.channels / decoded.sampleRate > 3600 ||
-  !decoded.samples.every(Number.isFinite)
-)
-  throw new Error('WAV exceeds supported sample rate, channel count or duration');
+  if (
+    decoded.sampleRate < 8000 ||
+    decoded.sampleRate > 192000 ||
+    decoded.channels > 32 ||
+    decoded.samples.length === 0 ||
+    decoded.samples.length / decoded.channels / decoded.sampleRate > 3600 ||
+    !decoded.samples.every(Number.isFinite)
+  )
+    throw new Error('Unsupported WAV parameters');
 
-const samples = resampleLinear(
-  mixdownMono(decoded.samples, decoded.channels),
-  decoded.sampleRate,
-  16000
-);
+  return resampleLinear(mixdownMono(decoded.samples, decoded.channels), decoded.sampleRate, 16000);
+}
 
-const voz = await Voz.load({ ort, modelBaseUrl: base, cache: false, webnn: false });
+async function transcribe() {
+  let samples: Float32Array;
 
-const result = await voz.transcribe(samples);
+  try {
+    samples = decodeInput();
+  } catch {
+    parentPort?.postMessage({ error: 'invalid_input' });
 
-parentPort?.postMessage(Schema.decodeUnknownSync(transcriptSchema)(result));
+    return;
+  }
+
+  try {
+    const voz = await Voz.load({ ort, modelBaseUrl: base, cache: false, webnn: false });
+    const result = await voz.transcribe(samples);
+
+    parentPort?.postMessage(Schema.decodeUnknownSync(transcriptSchema)(result));
+  } catch {
+    parentPort?.postMessage({ error: 'model_unavailable' });
+  }
+}
+
+await transcribe();

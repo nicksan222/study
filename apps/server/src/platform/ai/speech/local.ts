@@ -18,7 +18,7 @@ import { Effect, Schema, Semaphore } from 'effect';
 import { validateModelAssets } from '#server/platform/ai/model-assets';
 
 import { vozModel } from './model.ts';
-import { transcriptSchema } from './protocol.ts';
+import { speechFailureSchema, transcriptSchema } from './protocol.ts';
 
 const capacity = Semaphore.makeUnsafe(1);
 
@@ -26,6 +26,11 @@ export const transcribeAudio = (directory: string, bytes: Uint8Array) =>
   capacity.withPermit(
     Effect.scoped(
       Effect.gen(function* () {
+        if (bytes.byteLength > 32 * 1024 * 1024)
+          return yield* Effect.fail(
+            new StudyError('invalid_input', 'Audio exceeds the source size limit')
+          );
+
         yield* validateModelAssets(directory, vozModel);
         const worker = yield* Effect.acquireRelease(
           Effect.try({
@@ -58,6 +63,10 @@ export const transcribeAudio = (directory: string, bytes: Uint8Array) =>
                 signal.removeEventListener('abort', abort);
 
                 if (error) reject(error);
+                else if (Schema.is(speechFailureSchema)(value))
+                  reject(
+                    new StudyError(value.error, 'Speech input validation or model inference failed')
+                  );
                 else {
                   try {
                     resolve(Schema.decodeUnknownSync(transcriptSchema)(value));
