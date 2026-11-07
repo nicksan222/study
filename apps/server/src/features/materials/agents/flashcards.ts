@@ -14,6 +14,7 @@
 
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';
@@ -27,6 +28,7 @@ export const flashcardsAgent = defineAgent({
   tools: { sources: sourcesTool },
   mode: 'object',
   id: 'flashcards',
+  customRules: [AgentRule.Flashcards],
   output: materialFlashcardsContentInputSchema,
   model: 'medium',
   instructions: (language) => `${instructions(language)} Produce at most 50 useful flashcards.`

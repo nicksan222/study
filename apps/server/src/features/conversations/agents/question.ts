@@ -15,11 +15,13 @@ import {
   questionClassificationSchema,
   questionInputSchema
 } from '@study/contracts/conversations/schemas';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const questionAgent = defineAgent({
   id: 'question',
+  customRules: [AgentRule.QuestionDetection],
   input: questionInputSchema,
   output: questionClassificationSchema,
   model: 'tiny',

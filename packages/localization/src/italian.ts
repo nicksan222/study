@@ -1,6 +1,48 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  SettingsSidebar: 'Barra laterale',
+  SettingsAiBehavior: 'Comportamento IA',
+  SettingsPerformance: 'Prestazioni',
+  SettingsQuizzes: 'Quiz',
+
+  AgentRulesTitle: 'Istruzioni personalizzate',
+  AgentRulesIntro:
+    'Scegli un’attività e descrivi come deve lavorare Study. Salva le modifiche per applicarle alle esecuzioni future. Lascia un campo vuoto per usare le impostazioni predefinite. Le tue preferenze integrano le istruzioni dell’attività; i formati richiesti e la fedeltà alle fonti restano validi.',
+  AgentRulesTask: 'Attività',
+  AgentRulesDocuments: 'Documenti',
+  AgentRulesDocumentsHelp:
+    'Guida la generazione e la riscrittura dei documenti: struttura, titoli, tono e livello di dettaglio. Ad esempio: inizia con una panoramica e conserva gli esempi svolti.',
+  AgentRulesTitles: 'Titoli',
+  AgentRulesTitlesHelp:
+    'Guida i titoli generati automaticamente per sessioni e materiale di studio. Ad esempio: usa titoli brevi e descrittivi, senza emoji.',
+  AgentRulesReplies: 'Risposte',
+  AgentRulesRepliesHelp:
+    'Guida le risposte alle tue domande. Ad esempio: spiega il ragionamento, poi fornisci un esempio pratico.',
+  AgentRulesQuizzes: 'Quiz',
+  AgentRulesQuizzesHelp:
+    'Guida la generazione delle domande dei quiz. Ad esempio: concentrati sull’applicazione dei concetti invece che sul ricordo delle definizioni.',
+  AgentRulesFlashcards: 'Flashcard',
+  AgentRulesFlashcardsHelp:
+    'Guida la generazione delle flashcard. Ad esempio: verifica un solo concetto per scheda e mantieni le risposte concise.',
+  AgentRulesDiagrams: 'Diagrammi',
+  AgentRulesDiagramsHelp:
+    'Guida la generazione dei diagrammi. Ad esempio: raggruppa i concetti correlati e descrivi chiaramente i collegamenti.',
+  AgentRulesGrading: 'Feedback e valutazione',
+  AgentRulesGradingHelp:
+    'Guida il feedback sulle risposte agli esercizi. Ad esempio: spiega i concetti mancanti e suggerisci cosa ripassare.',
+  AgentRulesTranscription: 'Lettura di immagini e PDF',
+  AgentRulesTranscriptionHelp:
+    'Guida la trascrizione di immagini e PDF. Ad esempio: conserva fedelmente paragrafi e notazione matematica.',
+  AgentRulesQuestionDetection: 'Rilevamento delle domande',
+  AgentRulesQuestionDetectionHelp:
+    'Guida la classificazione delle note salvate come domande. Ad esempio: considera domande le richieste di spiegare un concetto.',
+  AgentRulesPlaceholder: 'Aggiungi le tue preferenze per questa attività…',
+  AgentRulesUseDefault: 'Usa predefinite',
+  AgentRulesSaved: 'Istruzioni personalizzate salvate.',
+  AgentRulesSaveFailed:
+    'Impossibile salvare le istruzioni. Le modifiche sono ancora qui. Prova a salvare di nuovo.',
+  AgentRulesLoadFailed: 'Impossibile caricare le istruzioni personalizzate. Riprova.',
   SessionConversionFailed: 'Conversione del testo non riuscita',
   SessionConversionFailedHelp:
     'La nota originale è conservata. Riprova la conversione salvata o elimina il tentativo non riuscito.',

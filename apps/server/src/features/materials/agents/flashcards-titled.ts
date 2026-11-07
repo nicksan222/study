@@ -13,6 +13,7 @@
 
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
@@ -21,6 +22,7 @@ import { titleInstructions } from './generated-title.ts';
 
 export const flashcardsTitledAgent = defineAgent({
   id: 'flashcards-titled',
+  customRules: [AgentRule.Flashcards, AgentRule.Titles],
   input: promptInputSchema,
   output: titledFlashcardsGenerationOutputSchema,
   model: 'medium',

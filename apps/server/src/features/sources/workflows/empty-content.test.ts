@@ -16,6 +16,7 @@
 import { readFile } from 'node:fs/promises';
 
 import type { ContentSnapshotId } from '@study/contracts/ids';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -70,6 +71,7 @@ for (const [name, text] of [
         agentsLayer({
           model: () => Effect.succeed(model),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         }),
         workflowEngineLayer(context)
