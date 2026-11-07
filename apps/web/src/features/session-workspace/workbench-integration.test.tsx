@@ -225,7 +225,7 @@ testStable(
     await waitFor(() => expect(card).not.toBeVisible());
     fireEvent.click(screen.getByRole('button', { name: 'SessionDockBelow' }));
     await waitFor(() =>
-      expect(view.container.querySelector('.session-desk')).toHaveAttribute('data-dock', 'bottom')
+      expect(view.container.querySelector('.workspace-desk')).toHaveAttribute('data-dock', 'bottom')
     );
     expect(screen.getByRole('button', { name: 'SessionDockBelow' })).toHaveAttribute(
       'aria-pressed',
@@ -233,7 +233,7 @@ testStable(
     );
     fireEvent.click(screen.getByRole('button', { name: 'SessionDockBeside' }));
     await waitFor(() =>
-      expect(view.container.querySelector('.session-desk')).toHaveAttribute('data-dock', 'side')
+      expect(view.container.querySelector('.workspace-desk')).toHaveAttribute('data-dock', 'side')
     );
     fireEvent.click(screen.getByRole('button', { name: 'SessionActions' }));
     await waitFor(() => expect(card).toBeVisible());

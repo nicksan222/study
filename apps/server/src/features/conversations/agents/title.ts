@@ -13,11 +13,13 @@
  */
 
 import { titleInputSchema, titleOutputSchema } from '@study/contracts/ai/title';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const titleAgent = defineAgent({
   id: 'title',
+  customRules: [AgentRule.Titles],
   input: titleInputSchema,
   output: titleOutputSchema,
   model: 'tiny',

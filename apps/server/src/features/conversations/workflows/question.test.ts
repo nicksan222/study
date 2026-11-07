@@ -15,6 +15,7 @@
 import { createServer } from 'node:http';
 
 import { conversationQuestionRequestedSchema } from '@study/contracts/events';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -89,6 +90,7 @@ testStable(
             return Effect.succeed(model);
           },
           language: 'english',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         }),
         workflowEngineLayer(context),

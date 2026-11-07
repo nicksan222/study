@@ -154,6 +154,9 @@ jobs:
           node-version: 26.8.2
           cache: npm
       - name: 📦 Install workspace dependencies
+        # CPU binaries are bundled; CI does not need the optional CUDA download.
+        env:
+          ONNXRUNTIME_NODE_INSTALL: skip
         run: npm ci --no-fund --no-audit
       - name: 🧪 Test server, AI, database and localization
         timeout-minutes: 10

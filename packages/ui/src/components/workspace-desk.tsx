@@ -33,13 +33,13 @@ function Root({
 }) {
   return (
     <div
-      className="session-desk"
+      className="workspace-desk"
       data-open={open || undefined}
       data-expanded={(open && expanded) || undefined}
       data-dock={dock}
       data-card-open={(!open && cardOpen) || undefined}
     >
-      <div className="session-desk-layout">{children}</div>
+      <div className="workspace-desk-layout">{children}</div>
     </div>
   );
 }
@@ -52,7 +52,7 @@ function Notebook({ children }: { children: ReactNode }) {
   useLayoutEffect(() => {
     const pane = root.current;
     const viewport = pane?.querySelector<HTMLElement>('[data-notebook-scroll-host]');
-    const composer = pane?.querySelector<HTMLElement>('.session-desk-floating-composer');
+    const composer = pane?.querySelector<HTMLElement>('.workspace-desk-floating-composer');
 
     if (!pane || !viewport || !composer) return;
 
@@ -82,7 +82,7 @@ function Notebook({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div ref={root} className="session-desk-notebook">
+    <div ref={root} className="workspace-desk-notebook">
       {children}
     </div>
   );
@@ -90,14 +90,14 @@ function Notebook({ children }: { children: ReactNode }) {
 
 function ScrollArea({ children }: { children: ReactNode }) {
   return (
-    <div className="session-desk-scroll" data-notebook-scroll-host>
+    <div className="workspace-desk-scroll" data-notebook-scroll-host>
       {children}
     </div>
   );
 }
 
 function NavigationHost() {
-  return <div className="session-desk-navigation-host" data-notebook-navigation-host />;
+  return <div className="workspace-desk-navigation-host" data-notebook-navigation-host />;
 }
 
 /** Uses native tab semantics and keyboard navigation while keeping close controls separate from tab buttons. */
@@ -143,15 +143,15 @@ function Panel({
 
   return (
     <Tabs.Root
-      className="session-desk-panel"
+      className="workspace-desk-panel"
       value={active}
       onValueChange={(value) => {
         if (typeof value === 'string') onSelect(value);
       }}
     >
-      <div className="session-desk-tab-header">
+      <div className="workspace-desk-tab-header">
         <Button
-          className="session-desk-back"
+          className="workspace-desk-back"
           variant="ghost-muted"
           size="icon-sm"
           aria-label={hideLabel}
@@ -160,10 +160,10 @@ function Panel({
         >
           <ArrowLeft size={16} aria-hidden="true" />
         </Button>
-        <Tabs.List className="session-desk-tabs" aria-label={closeLabel}>
+        <Tabs.List className="workspace-desk-tabs" aria-label={closeLabel}>
           {tabs.map((tab) => (
             <div
-              className="session-desk-tab"
+              className="workspace-desk-tab"
               key={tab.id}
               ref={tab.id === active ? activeTab : undefined}
             >
@@ -191,7 +191,7 @@ function Panel({
         >
           <Plus size={16} aria-hidden="true" />
         </Button>
-        <div className="session-desk-panel-controls">
+        <div className="workspace-desk-panel-controls">
           <Button
             variant="ghost-muted"
             size="icon-sm"
@@ -212,7 +212,7 @@ function Panel({
           </Button>
         </div>
       </div>
-      <Tabs.Panel className="session-desk-tab-panel" value={active}>
+      <Tabs.Panel className="workspace-desk-tab-panel" value={active}>
         {children}
       </Tabs.Panel>
     </Tabs.Root>
@@ -244,20 +244,20 @@ function DocumentCard({
     <button
       ref={card}
       title={openLabel}
-      className="session-desk-document"
+      className="workspace-desk-document"
       type="button"
       data-active={active || undefined}
       onClick={onOpen}
     >
-      <span className="session-desk-document-icon">
+      <span className="workspace-desk-document-icon">
         <FileText size={20} aria-hidden="true" />
       </span>
-      <span className="session-desk-document-copy">
-        <span className="session-desk-document-title">{title}</span>
-        {preview && <span className="session-desk-document-preview">{preview}</span>}
-        {meta && <span className="session-desk-document-meta">{meta}</span>}
+      <span className="workspace-desk-document-copy">
+        <span className="workspace-desk-document-title">{title}</span>
+        {preview && <span className="workspace-desk-document-preview">{preview}</span>}
+        {meta && <span className="workspace-desk-document-meta">{meta}</span>}
       </span>
-      <span className="session-desk-document-open" aria-hidden="true">
+      <span className="workspace-desk-document-open" aria-hidden="true">
         <ArrowUpRight size={16} />
       </span>
     </button>
@@ -278,7 +278,7 @@ export function AttachmentIcon({
 }) {
   return (
     <span
-      className="session-desk-attachment-icon"
+      className="workspace-desk-attachment-icon"
       data-tone={tone}
       data-size={size}
       aria-hidden="true"
@@ -308,14 +308,14 @@ function AttachmentCard({
     render,
     props: mergeProps<'a'>(
       {
-        className: 'session-desk-attachment-row',
+        className: 'workspace-desk-attachment-row',
         title: name,
         children: (
           <>
             <AttachmentIcon tone={tone}>{icon}</AttachmentIcon>
-            <span className="session-desk-attachment-copy">
-              <span className="session-desk-attachment-name">{name}</span>
-              <span className="session-desk-attachment-meta">{meta}</span>
+            <span className="workspace-desk-attachment-copy">
+              <span className="workspace-desk-attachment-name">{name}</span>
+              <span className="workspace-desk-attachment-meta">{meta}</span>
             </span>
             <ChevronRight size={14} aria-hidden="true" />
           </>
@@ -326,33 +326,33 @@ function AttachmentCard({
   });
 
   return (
-    <div className="session-desk-attachment">
-      {preview && <div className="session-desk-attachment-preview">{preview}</div>}
+    <div className="workspace-desk-attachment">
+      {preview && <div className="workspace-desk-attachment-preview">{preview}</div>}
       {link}
     </div>
   );
 }
 
-export const SessionDeskSurface = {
+export const WorkspaceDeskSurface = {
   Root,
   Panel,
   DocumentCard,
   AttachmentCard,
-  Attachments: part('div', 'session-desk-attachments'),
-  QuickText: part('div', 'session-desk-quick-text'),
-  Board: part('div', 'session-desk-board'),
-  BoardBody: part('div', 'session-desk-board-body'),
+  Attachments: part('div', 'workspace-desk-attachments'),
+  QuickText: part('div', 'workspace-desk-quick-text'),
+  Board: part('div', 'workspace-desk-board'),
+  BoardBody: part('div', 'workspace-desk-board-body'),
   Notebook,
   ScrollArea,
   NavigationHost,
-  NotebookLayout: part('div', 'session-desk-notebook-layout'),
-  FloatingComposer: part('div', 'session-desk-floating-composer'),
-  LayoutControls: part('div', 'session-desk-layout-controls'),
-  Drafts: part('div', 'session-desk-drafts'),
-  Header: part('header', 'session-desk-header'),
-  HeaderTitle: part('span', 'session-desk-header-title'),
-  Editor: part('section', 'session-desk-editor'),
+  NotebookLayout: part('div', 'workspace-desk-notebook-layout'),
+  FloatingComposer: part('div', 'workspace-desk-floating-composer'),
+  LayoutControls: part('div', 'workspace-desk-layout-controls'),
+  Drafts: part('div', 'workspace-desk-drafts'),
+  Header: part('header', 'workspace-desk-header'),
+  HeaderTitle: part('span', 'workspace-desk-header-title'),
+  Editor: part('section', 'workspace-desk-editor'),
   DocumentPage: part('div', 'document-editor-page'),
-  SaveStatus: part('span', 'session-desk-save-status'),
-  Recovery: part('section', 'session-desk-recovery')
+  SaveStatus: part('span', 'workspace-desk-save-status'),
+  Recovery: part('section', 'workspace-desk-recovery')
 };

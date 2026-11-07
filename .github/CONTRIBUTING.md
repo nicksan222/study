@@ -21,6 +21,9 @@ Thank you for helping with Study.
 
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
+CI dependency installation sets `ONNXRUNTIME_NODE_INSTALL=skip` to avoid optional CUDA
+downloads. The package’s bundled CPU runtime remains available for the checks.
+
 ## Set up
 
 ### In the devcontainer (recommended)

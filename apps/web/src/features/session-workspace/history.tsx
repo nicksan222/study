@@ -7,10 +7,10 @@ import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dial
 import { DialogDismissButton } from '@study/ui/dialog-form-actions';
 import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { Notebook } from '@study/ui/session-workspace';
 import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceSurface } from '@study/ui/workspace';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { History as HistoryIcon } from 'lucide-react';
 import { useState } from 'react';

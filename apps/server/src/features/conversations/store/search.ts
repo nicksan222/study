@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { ConversationMode } from '@study/contracts/conversations/schemas';
 import type { ProjectId, SessionId } from '@study/contracts/ids';
 import type { SearchProjection, SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { and, asc, eq, inArray, sql } from '@study/db';
@@ -25,7 +26,10 @@ type ConversationEntry = Omit<SearchProjection, 'projectIds'> & { sessionId: Ses
 
 /** Project visible sessions and completed active message versions with canonical navigation targets. */
 export function makeConversationSearchProjections({ db }: StoreResources) {
-  const visible = sql`NOT EXISTS (SELECT 1 FROM session_deletions d WHERE d.session_id = ${sessions.id})`;
+  const visible = and(
+    eq(sessions.mode, ConversationMode.Notebook),
+    sql`NOT EXISTS (SELECT 1 FROM session_deletions d WHERE d.session_id = ${sessions.id})`
+  );
   /** Page nondeleted session identities and titles without loading conversation contents. */
   const sessionEntries = (input: SearchProjectionPageInput): ConversationEntry[] => {
     const entries: ConversationEntry[] = [];

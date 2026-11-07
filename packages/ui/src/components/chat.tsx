@@ -106,7 +106,7 @@ export function ChatConversation({
       viewportRef.current = node;
       setOverlay(
         node
-          ?.closest('.session-desk-notebook')
+          ?.closest('.workspace-desk-notebook')
           ?.querySelector<HTMLElement>('[data-notebook-navigation-host]') ?? null
       );
     },
@@ -190,7 +190,7 @@ export function ChatMessageText({
   renderText?: (text: string) => ReactNode;
 }) {
   return (
-    <p data-slot="chat-message-text" className="session-desk-quick-text chat-message-text">
+    <p data-slot="chat-message-text" className="workspace-desk-quick-text chat-message-text">
       {renderText ? renderText(text) : text}
     </p>
   );

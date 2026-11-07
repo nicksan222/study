@@ -1,7 +1,10 @@
+import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';
+
+import { LanguageProvider } from '#web/lib/i18n.tsx';
 
 import { PageView } from './page.view';
 
@@ -159,9 +162,24 @@ testStable('orders a single settings list and shows relevant cross-section searc
     .getAllByRole('button')
     .map((button) => button.getAttribute('aria-label'));
 
-  expect(labels.slice(0, 5)).toEqual(['General', 'Appearance', 'Writing', 'Study', 'AI']);
+  expect(labels).toEqual([
+    'General',
+    'Appearance',
+    'Sidebar',
+    'Writing',
+    'Reading & exports',
+    'ChatGPT account',
+    'Models by task',
+    'Custom instructions',
+    'AI behavior',
+    'Performance',
+    'Flashcards',
+    'Quizzes',
+    'Subjects',
+    'Data & backups'
+  ]);
   expect(within(navigation).queryByRole('heading')).not.toBeInTheDocument();
-  expect(labels).toHaveLength(7);
+  expect(labels).toHaveLength(14);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'
@@ -192,10 +210,14 @@ testStable('orders a single settings list and shows relevant cross-section searc
 });
 
 testStable.each([
-  ['Concurrent', 'AI', 'ai'],
-  ['Sidebar spacing', 'General', 'general'],
-  ['export', 'Study', 'study']
-] as const)('finds %s under its consolidated %s section', (search, label, section) => {
+  ['Concurrent', 'Performance', 'performance'],
+  ['Sidebar spacing', 'Sidebar', 'sidebar'],
+  ['export', 'Reading & exports', 'reading'],
+  ['Custom instructions', 'Custom instructions', 'instructions'],
+  ['Questions per quiz', 'Quizzes', 'quizzes'],
+  ['New cards per day', 'Flashcards', 'flashcards'],
+  ['Automatic session titles', 'AI behavior', 'automation']
+] as const)('finds %s under its focused %s section', (search, label, section) => {
   const onSectionChange = vi.fn();
 
   render(
@@ -212,3 +234,28 @@ testStable.each([
   fireEvent.click(within(matches).getByRole('button', { name: label }));
   expect(onSectionChange).toHaveBeenCalledWith(section);
 });
+
+testStable.each(['english', 'italian'] as const)(
+  'finds automatic answers in the dedicated behavior section in %s',
+  (locale) => {
+    const onSectionChange = vi.fn();
+    const copy = catalogs[locale];
+
+    render(
+      <LanguageProvider locale={locale}>
+        <PageView
+          open
+          onClose={vi.fn()}
+          model={appearanceModel()}
+          search={copy.WorkspaceAutoAnswerQuestions}
+          onSectionChange={onSectionChange}
+        />
+      </LanguageProvider>
+    );
+    const matches = screen.getByRole('region', { name: copy.SettingsSearchMatches });
+
+    fireEvent.click(within(matches).getByRole('button', { name: copy.SettingsAiBehavior }));
+    expect(onSectionChange).toHaveBeenCalledWith('automation');
+    expect(within(matches).getAllByRole('button')).toHaveLength(1);
+  }
+);

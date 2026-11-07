@@ -27,21 +27,7 @@ export function AiAccountSettingsView({
 
   return (
     <>
-      {model.loading && <Loading label={t('LoadingSettings')} />}
-      {model.error && (
-        <Settings.Status
-          action={
-            <RetryButton
-              variant="outline"
-              onClick={model.retry}
-              disabled={model.pending}
-              label={t('Retry')}
-            />
-          }
-        >
-          {t(model.signInUnsupported ? 'AiSettingsSignInLocalOnly' : 'AiSettingsFailed')}
-        </Settings.Status>
-      )}
+      <AiSettingsStatus model={model} />
       {model.data && (
         <>
           <Settings.Section title={showHeading ? t('AiSettingsAccount') : undefined}>
@@ -92,7 +78,7 @@ function AccountActions({ model }: { model: AiSettingsModel }) {
   );
 }
 
-export function AiSettingsView({ model }: { model: AiSettingsModel }) {
+export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
   const { t } = useI18n();
   const options = [
     { value: '', label: t('AiSettingsDefaultModel') },
@@ -103,7 +89,7 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
 
   return (
     <>
-      <AiAccountSettingsView model={model} />
+      <AiSettingsStatus model={model} />
       {model.data && (
         <Settings.Section title={t('AiSettingsModels')}>
           <Settings.Group>
@@ -126,6 +112,31 @@ export function AiSettingsView({ model }: { model: AiSettingsModel }) {
             ))}
           </Settings.Group>
         </Settings.Section>
+      )}
+    </>
+  );
+}
+
+/** Both focused sections retain loading, save errors and recovery without coupling their controls. */
+function AiSettingsStatus({ model }: { model: AiSettingsModel }) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {model.loading && <Loading label={t('LoadingSettings')} />}
+      {model.error && (
+        <Settings.Status
+          action={
+            <RetryButton
+              variant="outline"
+              onClick={model.retry}
+              disabled={model.pending}
+              label={t('Retry')}
+            />
+          }
+        >
+          {t(model.signInUnsupported ? 'AiSettingsSignInLocalOnly' : 'AiSettingsFailed')}
+        </Settings.Status>
       )}
     </>
   );

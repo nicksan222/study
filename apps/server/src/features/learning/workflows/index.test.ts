@@ -18,6 +18,7 @@ import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
 
 import { failureSchema } from '@study/contracts/errors';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -122,6 +123,7 @@ testStable(
         agentsLayer({
           model: () => Effect.succeed(model),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
         }),
         workflowEngineLayer(context)

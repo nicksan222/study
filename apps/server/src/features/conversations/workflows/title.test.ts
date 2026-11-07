@@ -15,6 +15,7 @@
 
 import { createServer } from 'node:http';
 
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -100,6 +101,7 @@ testStable('title workflow checkpoints and fences stale and renamed sessions', a
       agentsLayer({
         model: () => Effect.succeed(model),
         language: Effect.succeed('en'),
+        rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
       }),
       workflowEngineLayer(context)

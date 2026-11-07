@@ -10,6 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { AgentRule } from '@study/contracts/settings/schemas';
 import {
   textConversionInputSchema,
   textConversionOutputSchema
@@ -19,6 +20,7 @@ import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const textConversionAgent = defineAgent({
   id: 'text-conversion',
+  customRules: [AgentRule.Documents],
   input: textConversionInputSchema,
   output: textConversionOutputSchema,
   model: 'tiny',

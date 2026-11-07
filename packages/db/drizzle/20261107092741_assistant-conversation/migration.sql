@@ -1,0 +1,2 @@
+ALTER TABLE `sessions` ADD `mode` text DEFAULT 'notebook' NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `sessions_assistant_unique` ON `sessions` (`mode`) WHERE "sessions"."mode" = 'assistant';

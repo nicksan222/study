@@ -13,20 +13,24 @@ export function GenerationWatcher({ id, settled }: { id: string; settled: (id: s
   const state = useQuery(quizGenerationOptions(id));
   const notified = useRef(false);
   const ready = state.data?.resultVersionId != null;
+  const cancelled = state.data?.cancelled;
   const failed = state.data?.errorKind != null;
 
   useEffect(() => {
-    if (notified.current || (!ready && !failed)) return;
+    if (notified.current || (!ready && !failed && !cancelled)) return;
 
     notified.current = true;
     void cache.invalidateQueries({ queryKey: ['materials'] });
     void cache.invalidateQueries({ queryKey: ['library', 'practice'] });
-    toastManager.add({
-      title: t(ready ? 'QuizGenerateReady' : 'QuizGenerateError'),
-      type: ready ? 'success' : 'error'
-    });
+
+    if (!cancelled)
+      toastManager.add({
+        title: t(ready ? 'QuizGenerateReady' : 'QuizGenerateError'),
+        type: ready ? 'success' : 'error'
+      });
+
     settled(id);
-  }, [cache, ready, failed, t, id, settled]);
+  }, [cache, ready, failed, cancelled, t, id, settled]);
 
   return <AgentProgress correlationId={id} />;
 }

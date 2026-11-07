@@ -126,7 +126,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     ...quizGenerationMutationOptions(),
     onSuccess: (result) => {
       accepted(result.id);
-      void client.invalidateQueries({ queryKey: ['materials', 'library'] });
+      void client.invalidateQueries({ queryKey: ['materials', 'active-generations'] });
     }
   });
   const busy = start.isPending;

@@ -1,4 +1,4 @@
-import { messageFormats } from '@study/contracts/conversations/schemas';
+import { conversationModes, messageFormats } from '@study/contracts/conversations/schemas';
 import type {
   MessageId,
   PartId,
@@ -216,6 +216,7 @@ export const sessions = defineTable({
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
     title: text().notNull(),
+    mode: text({ enum: conversationModes }).notNull().default('notebook'),
     selection_revision: integer().$type<bigint>().notNull().default(0n),
     selection: text().notNull().default('[]'),
     context_revision: integer().$type<bigint>().notNull().default(0n),
