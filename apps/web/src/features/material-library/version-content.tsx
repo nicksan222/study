@@ -103,7 +103,9 @@ function QuestionPreview({
               disabled
               readOnly
               aria-label={
-                choice.text +
+                (question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text) +
                 '. ' +
                 t(choice.isCorrect ? 'ReaderCorrectAnswer' : 'PracticeArchiveOtherOption')
               }

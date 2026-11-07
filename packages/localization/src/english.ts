@@ -1664,7 +1664,7 @@ export const english = Object.freeze({
   PracticeOverallResults: 'Overall results',
   PracticeGenerate: 'Generate practice',
   PracticeGenerateHelp:
-    'Create quizzes, flashcards or fill-in-the-blank exercises from your documents. All documents are selected; deselect any you want to leave out.',
+    'Create practice exercises and flashcards from your documents. All documents are selected; deselect any you want to leave out.',
   PracticeGenerateKind: 'What would you like to create?',
   PracticeGeneratePrompt: 'What should it focus on? (optional)',
   PracticeGeneratePromptHint:

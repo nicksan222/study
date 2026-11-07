@@ -6,6 +6,8 @@ import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
+import { LanguageProvider } from '#web/lib/i18n.tsx';
+
 import { QuizQuestion } from './quiz-question';
 
 const attempt = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
@@ -148,4 +150,31 @@ testStable('true or false restores a single radio response and uses localized la
   expect(screen.getByRole('radio', { name: /False/ })).not.toBeChecked();
   await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
   expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'choice', choiceIds: [5n] });
+});
+
+testStable('Italian true or false controls localize canonical truth tokens', () => {
+  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+    ...attempt,
+    questions: [
+      {
+        id: 4n,
+        position: 0n,
+        kind: 'true_false',
+        prompt: 'ATP trasporta energia.',
+        answer: null,
+        choices: [
+          { id: 5n, position: 0n, text: 'true' },
+          { id: 6n, position: 1n, text: 'false' }
+        ]
+      }
+    ]
+  }).questions[0]!;
+
+  render(
+    <LanguageProvider locale="italian">
+      <QuizQuestion question={question} pending={false} submit={() => {}} last />
+    </LanguageProvider>
+  );
+  expect(screen.getByRole('radio', { name: /Vero/ })).toBeInTheDocument();
+  expect(screen.getByRole('radio', { name: /Falso/ })).toBeInTheDocument();
 });

@@ -15,7 +15,7 @@ import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { testStable } from '@study/testing/vitest';
 import { assert } from 'vite-plus/test';
 
-import { assertQuizConfig } from './question-spec.ts';
+import { assertQuizConfig, assertQuestionSpec } from './question-spec.ts';
 
 const open = { kind: 'open' as const, prompt: 'Q', explanation: 'E', referenceAnswer: 'A' };
 
@@ -90,6 +90,9 @@ testStable(
       explanation: 'Energy carrier',
       isTrue: true
     };
+
+    assert.throws(() => assertQuestionSpec({ count: 1, kind: 'choice' }, quiz([question])));
+    assert.throws(() => assertQuestionSpec({ count: 1, kind: 'open' }, quiz([question])));
     const booleanConfig = { ...config, questionKind: 'true_false' as const, choiceCount: 6 };
 
     assert.doesNotThrow(() => assertQuizConfig(booleanConfig, quiz([question, question])));

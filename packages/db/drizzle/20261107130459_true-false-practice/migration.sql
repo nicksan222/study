@@ -184,7 +184,7 @@ WHEN OLD.version_id IS NULL AND NEW.version_id IS NOT NULL AND (
       AND json_extract(r.payload, '$.questionSpec.count') = 1 AND json_extract(r.payload, '$.questionSpec.kind') = NEW.kind
       AND json_extract(r.payload, '$.inputs') = json(NEW.inputs)
       AND (SELECT COUNT(*) FROM material_quiz_questions q WHERE q.version_id = v.id) = 1
-      AND NOT EXISTS (SELECT 1 FROM material_quiz_questions q WHERE q.version_id = v.id AND ((NEW.kind = 'open' AND q.kind != 'open') OR (NEW.kind = 'choice' AND q.kind NOT IN ('single_choice','multiple_choice','true_false'))))
+      AND NOT EXISTS (SELECT 1 FROM material_quiz_questions q WHERE q.version_id = v.id AND ((NEW.kind = 'open' AND q.kind != 'open') OR (NEW.kind = 'choice' AND q.kind NOT IN ('single_choice','multiple_choice'))))
   )
 )
 BEGIN SELECT RAISE(ABORT, 'practice publication does not match its slot'); END;

@@ -488,6 +488,12 @@ testStable(
             prompt: 'The captured my_value is ____.',
             explanation: 'alpha [1]',
             referenceAnswer: 'alpha'
+          },
+          {
+            kind: 'true_false',
+            prompt: 'The captured value is alpha.',
+            isTrue: true,
+            explanation: 'alpha [1]'
           }
         ]
       });
@@ -499,7 +505,7 @@ testStable(
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open, blank] = quiz.content.questions;
+        const [single, multiple, open, blank, boolean] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -517,6 +523,14 @@ testStable(
         assert.ok(open.referenceAnswer === 'alpha');
         assert.ok(blank?.kind === 'fill_blank');
         assert.equal(blank.referenceAnswer, 'alpha');
+        assert.ok(boolean?.kind === 'true_false');
+        assert.deepEqual(
+          boolean.choices.map((choice) => [choice.text, choice.isCorrect]),
+          [
+            ['true', true],
+            ['false', false]
+          ]
+        );
       }
 
       await generate(

@@ -1712,7 +1712,7 @@ export const italian = Object.freeze({
   PracticeOverallResults: 'Risultati complessivi',
   PracticeGenerate: 'Genera esercizi',
   PracticeGenerateHelp:
-    'Crea quiz, flashcard o frasi da completare dai tuoi documenti. Sono tutti selezionati; deseleziona quelli che vuoi escludere.',
+    'Crea esercizi e flashcard dai tuoi documenti. Sono tutti selezionati; deseleziona quelli che vuoi escludere.',
   PracticeGenerateKind: 'Cosa vuoi creare?',
   PracticeGeneratePrompt: 'Su cosa concentrarsi? (facoltativo)',
   PracticeGeneratePromptHint:
