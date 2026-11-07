@@ -12,7 +12,13 @@ import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
 import { Textarea } from '@study/ui/textarea';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GraduationCap, Layers, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import {
+  GraduationCap,
+  Layers,
+  SlidersHorizontal,
+  ChevronDown,
+  TextCursorInput
+} from 'lucide-react';
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 
@@ -110,7 +116,7 @@ function GenerationDialog({
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const [kind, setKind] = useState<'quiz' | 'flashcards'>('quiz');
+  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank'>('quiz');
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
@@ -124,22 +130,29 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   });
   const busy = start.isPending;
   const hasSources = documents.isSuccess && inputs.length > 0 && inputs.length <= 20;
+  const titleKey = {
+    quiz: 'SidebarQuiz',
+    flashcards: 'Flashcards',
+    fill_blank: 'PracticeFillBlank'
+  } as const;
+  const configuredQuestionKind =
+    configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
+  const questionKind = kind === 'fill_blank' ? kind : configuredQuestionKind;
   const create = () => {
     if (hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
-        title: t(kind === 'quiz' ? 'SidebarQuiz' : 'Flashcards'),
+        title: t(titleKey[kind]),
         autoTitle: true,
-        kind,
+        kind: kind === 'fill_blank' ? 'quiz' : kind,
         instruction: instruction.trim() || undefined,
         inputs: inputs.filter((input) => input.kind === 'document'),
         quizConfig:
-          kind === 'quiz'
+          kind !== 'flashcards'
             ? {
                 questionCount: configuration.questionCount,
                 choiceCount: configuration.choiceCount,
-                questionKind:
-                  configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind,
+                questionKind,
                 difficulty: configuration.difficulty
               }
             : undefined
@@ -196,7 +209,18 @@ function GenerationPanel({
               >
                 <Layers aria-hidden="true" />
               </Settings.Choice>
+              <Settings.Choice
+                label={t('PracticeFillBlank')}
+                selected={model.kind === 'fill_blank'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('fill_blank')}
+              >
+                <TextCursorInput aria-hidden="true" />
+              </Settings.Choice>
             </Settings.ChoiceGroup>
+            {model.kind === 'fill_blank' && (
+              <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>
+            )}
           </Settings.Section>
           <Practice.Customize>
             <Practice.CustomizeSummary>

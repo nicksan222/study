@@ -13,6 +13,7 @@
  */
 
 import type { attemptInputSchema } from '@study/contracts/learning/rpc';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -49,7 +50,7 @@ export function makeFinishQuiz(resources: StoreResources) {
         )
         .all();
 
-      if (q.kind === 'open') {
+      if (isTextQuestionKind(q.kind)) {
         if (!response.answer?.trim() || selected.length) invalid('malformed open response');
       } else {
         const score = choiceScore(

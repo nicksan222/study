@@ -73,9 +73,9 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
       ? version.content.questions.filter(
           (question) =>
             configuration.questionKind === 'all' ||
-            (configuration.questionKind === 'open'
-              ? question.kind === 'open'
-              : question.kind !== 'open')
+            (configuration.questionKind === 'choice'
+              ? question.kind === 'single_choice' || question.kind === 'multiple_choice'
+              : question.kind === configuration.questionKind)
         ).length
       : 0;
   const count = Math.min(available, configuration.questionCount);
@@ -265,7 +265,13 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
         items={version.content.questions.map((question) => ({
           key: String(question.id),
           prompt: question.prompt,
-          detail: t(question.kind === 'open' ? 'QuestionOpen' : 'QuestionChoice')
+          detail: t(
+            question.kind === 'fill_blank'
+              ? 'PracticeFillBlank'
+              : question.kind === 'open'
+                ? 'QuestionOpen'
+                : 'QuestionChoice'
+          )
         }))}
       />
     </Practice.Outline>
@@ -279,7 +285,7 @@ function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questi
 
   if (answer.type === 'open') return answer.answer;
 
-  if (question.kind === 'open') return null;
+  if (!('choices' in question)) return null;
 
   return question.choices
     .filter((choice) => answer.choiceIds.includes(choice.id))

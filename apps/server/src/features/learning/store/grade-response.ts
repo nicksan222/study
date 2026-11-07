@@ -13,6 +13,7 @@
  */
 
 import type { gradeResponseInputSchema } from '@study/contracts/learning/rpc';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -38,7 +39,7 @@ export function makeGradeResponse(resources: StoreResources) {
     );
     const response = db.orm.select().from(s.material_quiz_responses).where(where).get();
 
-    if (!response || response.question_kind !== 'open' || !response.answer?.trim())
+    if (!response || !isTextQuestionKind(response.question_kind) || !response.answer?.trim())
       invalid('open response required');
 
     if (a.status === 'completed' && response.score !== null)

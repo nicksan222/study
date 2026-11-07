@@ -107,6 +107,7 @@ const quizAttemptInProgressQuestionSchema = Schema.Union([
   Schema.Struct({
     ...openAttemptQuestionFields
   }),
+  Schema.Struct({ ...openAttemptQuestionFields, kind: Schema.Literal('fill_blank') }),
   Schema.Struct({
     ...choiceAttemptQuestionFields,
     choices: Schema.mutable(
@@ -117,21 +118,28 @@ const quizAttemptInProgressQuestionSchema = Schema.Union([
   })
 ]);
 
+const quizQuestionResultFields = {
+  explanation: Schema.String,
+  score: Schema.NullOr(Schema.Number),
+  feedback: Schema.NullOr(Schema.String),
+  grading: Schema.Literals(['unanswered', 'ungraded', 'graded'])
+};
+
 const quizAttemptCompletedQuestionSchema = Schema.Union([
   Schema.Struct({
     ...openAttemptQuestionFields,
-    explanation: Schema.String,
-    score: Schema.NullOr(Schema.Number),
-    feedback: Schema.NullOr(Schema.String),
-    grading: Schema.Literals(['unanswered', 'ungraded', 'graded']),
+    ...quizQuestionResultFields,
+    referenceAnswer: Schema.NullOr(Schema.String)
+  }),
+  Schema.Struct({
+    ...openAttemptQuestionFields,
+    kind: Schema.Literal('fill_blank'),
+    ...quizQuestionResultFields,
     referenceAnswer: Schema.NullOr(Schema.String)
   }),
   Schema.Struct({
     ...choiceAttemptQuestionFields,
-    explanation: Schema.String,
-    score: Schema.NullOr(Schema.Number),
-    feedback: Schema.NullOr(Schema.String),
-    grading: Schema.Literals(['unanswered', 'ungraded', 'graded']),
+    ...quizQuestionResultFields,
     choices: Schema.mutable(
       Schema.Array(
         Schema.Struct({

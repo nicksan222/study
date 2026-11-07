@@ -67,3 +67,16 @@ testStable('generation validates exact counts and every question kind and choice
   );
   assert.doesNotThrow(() => assertQuizConfig(undefined, quiz([choice])));
 });
+
+testStable('blank-only generation rejects other kinds and ignores the choice count', () => {
+  const blank = { ...open, kind: 'fill_blank' as const, prompt: 'A prime has ____ divisors.' };
+  const blanks = { ...config, questionKind: 'fill_blank' as const };
+
+  assert.doesNotThrow(() => assertQuizConfig(blanks, quiz([blank, blank])));
+  assert.doesNotThrow(() => assertQuizConfig(config, quiz([blank, choice])));
+  assert.throws(() => assertQuizConfig(blanks, quiz([blank, open])));
+  assert.throws(() => assertQuizConfig({ ...config, questionKind: 'open' }, quiz([blank, open])));
+  assert.throws(() =>
+    assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([blank, choice]))
+  );
+});

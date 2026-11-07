@@ -48,9 +48,9 @@ export function makeStartQuiz(resources: StoreResources) {
       (question) =>
         !configuration ||
         configuration.questionKind === 'all' ||
-        (configuration.questionKind === 'open'
-          ? question.kind === 'open'
-          : question.kind !== 'open')
+        (configuration.questionKind === 'choice'
+          ? question.kind === 'single_choice' || question.kind === 'multiple_choice'
+          : question.kind === configuration.questionKind)
     );
 
     if (configuration?.questionOrder === 'shuffle') selected = shuffled(selected);

@@ -77,10 +77,11 @@ export function makeContent({ db: store }: StoreResources) {
         .returning()
         .get();
 
-      if (q.kind === 'open')
+      if ('referenceAnswer' in q)
         db.insert(s.material_quiz_open_answers)
           .values({
             question_id: row.id,
+            kind: q.kind,
             reference_answer: q.referenceAnswer
           })
           .run();

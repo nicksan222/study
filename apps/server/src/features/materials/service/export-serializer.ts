@@ -66,7 +66,7 @@ export function serializeMaterialVersion(
           q.kind,
           q.prompt,
           q.explanation,
-          q.kind === 'open' ? q.referenceAnswer : json(q.choices)
+          'referenceAnswer' in q ? q.referenceAnswer : json(q.choices)
         ])
       ];
     else throw new StudyError('unsupported', 'CSV requires flashcards or quiz content');

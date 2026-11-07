@@ -293,9 +293,11 @@ function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undef
   if (!config) return '';
 
   const kinds = {
-    mixed: 'any combination of choice and open questions',
+    mixed: 'any combination of choice, open and fill_blank questions',
     choice: 'only choice questions (single_choice or multiple_choice)',
-    open: 'only open questions'
+    open: 'only open questions',
+    fill_blank:
+      'only fill_blank questions with exactly one ____ marker in each prompt and a short referenceAnswer containing the missing word or phrase'
   };
   const difficulties = {
     easy: 'direct recall and foundational understanding',

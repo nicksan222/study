@@ -222,7 +222,7 @@ function SavedQuestion({ question }: { question: Question }) {
         {t(question.answer ? 'PracticeAnswerRecorded' : 'PracticeUnanswered')}
       </Practice.Muted>
       <Practice.Answers aria-labelledby={label}>
-        {question.kind === 'open' ? (
+        {!('choices' in question) ? (
           <Textarea
             aria-label={t('YourAnswer')}
             readOnly

@@ -197,6 +197,34 @@
   border: 0;
 }
 
+.study-practice-short-answer {
+  display: grid;
+  gap: 0.625rem;
+  width: 100%;
+  max-width: 40rem;
+}
+
+.study-practice-short-answer > label {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 550;
+}
+
+.study-practice-short-answer > [data-slot='input-control'] {
+  border: 1px solid var(--border);
+}
+
+.study-practice-short-answer:has(input:focus-visible) > [data-slot='input-control'] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.study-practice-short-answer input {
+  height: 3rem;
+  padding-inline: 1rem;
+  font-size: 1rem;
+}
+
 .study-practice-choice {
   position: relative;
   display: flex;

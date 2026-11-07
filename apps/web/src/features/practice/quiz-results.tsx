@@ -157,7 +157,7 @@ function ResultQuestion({
           <Practice.Prompt>{question.prompt}</Practice.Prompt>
         </>
       )}
-      {question.kind === 'open' ? (
+      {!('choices' in question) ? (
         <Practice.OpenAnswers>
           <div>
             <Practice.Muted>{t('YourAnswer')}</Practice.Muted>

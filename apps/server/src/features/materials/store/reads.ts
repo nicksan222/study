@@ -20,6 +20,7 @@ import type {
   QuizChoiceId,
   QuizQuestionId
 } from '@study/contracts/ids';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import {
   materialCreatorSchema,
   materialKindSchema,
@@ -225,7 +226,7 @@ export function makeReads(resources: StoreResources) {
       .map((q) => {
         const questionBase = { id: q.id, prompt: q.prompt, explanation: q.explanation };
 
-        if (q.kind === 'open')
+        if (isTextQuestionKind(q.kind))
           return {
             ...questionBase,
             kind: q.kind,

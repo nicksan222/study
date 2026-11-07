@@ -681,7 +681,7 @@ testStable(
             assert.strictEqual(attempt.practiceSlotId, ready.slotId);
             const question = attempt.questions[0]!;
 
-            assert.ok(!(question.kind === 'open'), 'wrong question kind');
+            assert.ok('choices' in question, 'wrong question kind');
 
             assert.ok(
               (yield* Effect.flip(

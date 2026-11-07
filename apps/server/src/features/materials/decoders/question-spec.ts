@@ -44,10 +44,13 @@ export function assertQuizConfig(
   if (
     content.kind !== 'quiz' ||
     content.questions.length !== config.questionCount ||
-    content.questions.some((question) =>
-      question.kind === 'open'
-        ? config.questionKind === 'choice'
-        : config.questionKind === 'open' || question.choices.length !== config.choiceCount
+    content.questions.some(
+      (question) =>
+        (config.questionKind !== 'mixed' &&
+          (config.questionKind === 'choice'
+            ? question.kind !== 'single_choice' && question.kind !== 'multiple_choice'
+            : question.kind !== config.questionKind)) ||
+        ('choices' in question && question.choices.length !== config.choiceCount)
     )
   )
     throw new StudyError('invalid_input', 'Generated quiz does not match quiz configuration');

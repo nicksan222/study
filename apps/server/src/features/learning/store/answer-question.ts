@@ -13,6 +13,7 @@
  */
 
 import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -44,7 +45,7 @@ export function makeAnswerQuestion(resources: StoreResources) {
 
     if (!q) invalid('question does not belong to attempt selection');
 
-    if ((q.kind === 'open') !== (input.answer.type === 'open')) invalid('wrong answer kind');
+    if (isTextQuestionKind(q.kind) !== (input.answer.type === 'open')) invalid('wrong answer kind');
 
     const score = input.answer.type === 'choice' ? choiceScore(q, input.answer.choiceIds) : null;
 

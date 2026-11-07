@@ -15,6 +15,8 @@
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId, QuizAttemptId } from '@study/contracts/ids';
 import type { QuizQuestionId, QuizChoiceId } from '@study/contracts/ids';
+import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
+import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -187,7 +189,7 @@ export function makeQuiz(resources: StoreResources) {
       );
     }
 
-    const items = snapshot.map((q) => {
+    const items: (typeof quizAttemptInProgressSchema.Type)['questions'] = snapshot.map((q) => {
       const response = responseByQuestion.get(q.id);
       const base = {
         id: q.id,
@@ -195,7 +197,7 @@ export function makeQuiz(resources: StoreResources) {
         prompt: q.prompt
       };
 
-      if (q.kind === 'open')
+      if (isTextQuestionKind(q.kind))
         return {
           ...base,
           kind: q.kind,
@@ -270,7 +272,7 @@ export function makeQuiz(resources: StoreResources) {
             : ('graded' as const)
       };
 
-      if (item.kind === 'open')
+      if (!('choices' in item))
         return {
           ...item,
           ...result,

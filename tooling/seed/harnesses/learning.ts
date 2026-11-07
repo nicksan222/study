@@ -73,11 +73,12 @@ function seedQuiz(
       .returning()
       .get();
 
-    if (value.kind === 'open') {
+    if ('referenceAnswer' in value) {
       db.orm
         .insert(material_quiz_open_answers)
         .values({
           question_id: question.id,
+          kind: value.kind,
           reference_answer: value.referenceAnswer
         })
         .run();

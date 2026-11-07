@@ -51,6 +51,7 @@ export const Practice = {
   Content: semanticPart('div', 'study-practice-content'),
   Question: semanticPart('form', 'study-practice-question'),
   Answers: semanticPart('fieldset', 'study-practice-answers'),
+  ShortAnswer: semanticPart('div', 'study-practice-short-answer'),
   Choice: semanticPart('label', 'study-practice-choice'),
   ChoiceLetterText: semanticPart('span', 'study-practice-choice-letter'),
   Results: semanticPart('section', 'study-practice-results'),
