@@ -1766,6 +1766,11 @@ export const italian = Object.freeze({
     'Il tuo primo tentativo parte da qui. Puoi fermarti e riprendere quando vuoi.',
   PracticeViewResults: 'Vedi i risultati',
   PracticeResume: 'Continua il quiz',
+  PracticeTrueFalse: 'Vero o falso',
+  PracticeTrueFalseHelp: 'Decidi se le affermazioni tratte dai tuoi documenti sono vere o false.',
+  PracticeTrueFalseHint: 'Scegli vero o falso per questa affermazione.',
+  PracticeTrue: 'Vero',
+  PracticeFalse: 'Falso',
   PracticeFillBlank: 'Completa la frase',
   PracticeFillBlankHelp: 'Ripassa i concetti chiave completando frasi tratte dai tuoi documenti.',
   PracticeFillBlankHint:

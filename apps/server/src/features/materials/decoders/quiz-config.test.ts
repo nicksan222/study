@@ -80,3 +80,23 @@ testStable('blank-only generation rejects other kinds and ignores the choice cou
     assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([blank, choice]))
   );
 });
+
+testStable(
+  'boolean generation enforces its exact kind and count independently of choice preferences',
+  () => {
+    const question = {
+      kind: 'true_false' as const,
+      prompt: 'ATP carries energy.',
+      explanation: 'Energy carrier',
+      isTrue: true
+    };
+    const booleanConfig = { ...config, questionKind: 'true_false' as const, choiceCount: 6 };
+
+    assert.doesNotThrow(() => assertQuizConfig(booleanConfig, quiz([question, question])));
+    assert.throws(() => assertQuizConfig(booleanConfig, quiz([question])));
+    assert.throws(() => assertQuizConfig(booleanConfig, quiz([question, choice])));
+    assert.throws(() =>
+      assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([question, question]))
+    );
+  }
+);

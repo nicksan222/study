@@ -86,7 +86,13 @@ export function makeContent({ db: store }: StoreResources) {
           })
           .run();
       else
-        q.choices.forEach((choice, j) =>
+        (q.kind === 'true_false'
+          ? [
+              { text: 'true', isCorrect: q.isTrue },
+              { text: 'false', isCorrect: !q.isTrue }
+            ]
+          : q.choices
+        ).forEach((choice, j) =>
           db
             .insert(s.material_quiz_choices)
             .values({

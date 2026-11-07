@@ -121,3 +121,31 @@ testStable('confirming an IME composition does not submit a blank answer', () =>
   fireEvent.keyDown(input, { key: 'Enter', isComposing: false });
   expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: '日本語' });
 });
+
+testStable('true or false restores a single radio response and uses localized labels', async () => {
+  const submit = vi.fn();
+  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+    ...attempt,
+    questions: [
+      {
+        id: 4n,
+        position: 0n,
+        kind: 'true_false',
+        prompt: 'ATP carries energy.',
+        answer: { type: 'choice', choiceIds: [6n] },
+        choices: [
+          { id: 5n, position: 0n, text: 'true' },
+          { id: 6n, position: 1n, text: 'false' }
+        ]
+      }
+    ]
+  }).questions[0]!;
+  const user = userEvent.setup();
+
+  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+  expect(screen.getByRole('radio', { name: /False/ })).toBeChecked();
+  await user.click(screen.getByRole('radio', { name: /True/ }));
+  expect(screen.getByRole('radio', { name: /False/ })).not.toBeChecked();
+  await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
+  expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'choice', choiceIds: [5n] });
+});

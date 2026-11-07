@@ -1719,6 +1719,11 @@ export const english = Object.freeze({
     'Your first attempt starts here. You can leave and come back whenever you need.',
   PracticeViewResults: 'View results',
   PracticeResume: 'Continue quiz',
+  PracticeTrueFalse: 'True or false',
+  PracticeTrueFalseHelp: 'Decide whether statements from your documents are true or false.',
+  PracticeTrueFalseHint: 'Choose true or false for this statement.',
+  PracticeTrue: 'True',
+  PracticeFalse: 'False',
   PracticeFillBlank: 'Fill in the blank',
   PracticeFillBlankHelp: 'Recall key terms by completing sentences from your documents.',
   PracticeFillBlankHint:
