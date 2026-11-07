@@ -1,7 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
+import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { AiButton } from '@study/ui/ai-button';
 import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
@@ -19,7 +19,8 @@ import {
   SlidersHorizontal,
   ChevronDown,
   ListOrdered,
-  TextCursorInput
+  TextCursorInput,
+  Binary
 } from 'lucide-react';
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
@@ -125,7 +126,11 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
-  const configuration = preferences.data ?? defaultQuizSettings;
+  const saved = preferences.data ?? defaultQuizSettings;
+  const configuration =
+    kind === 'quiz' || kind === 'flashcards'
+      ? saved
+      : { ...saved, ...practiceGenerationSettings(saved, kind) };
   const start = useMutation({
     ...quizGenerationMutationOptions(),
     onSuccess: (result) => {
@@ -249,7 +254,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('true_false')}
               >
-                <GraduationCap aria-hidden="true" />
+                <Binary aria-hidden="true" />
               </Settings.Choice>
             </Settings.ChoiceGroup>
             {model.kind === 'matching' && (

@@ -52,7 +52,8 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
           questionCount: 3,
           questionOrder: 'shuffle' as const,
           shuffleChoices: false,
-          questionKind: 'open' as const
+          questionKind: 'open' as const,
+          practice: { matching: { questionCount: 4, difficulty: 'challenging' as const } }
         };
 
         yield* settings.saveQuizSettings(quiz);
@@ -61,6 +62,15 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
           (yield* Effect.flip(settings.saveQuizSettings({ ...quiz, questionCount: 0 }))).kind,
           'invalid_input'
         );
+        expect(yield* settings.quizSettings()).toStrictEqual(quiz);
+        const invalidPractice = yield* Effect.flip(
+          settings.saveQuizSettings({
+            ...quiz,
+            practice: { matching: { questionCount: 11, difficulty: 'easy' } }
+          })
+        );
+
+        expect(invalidPractice.kind).toBe('invalid_input');
         expect(yield* settings.quizSettings()).toStrictEqual(quiz);
 
         expect(yield* settings.appSettings()).toStrictEqual({

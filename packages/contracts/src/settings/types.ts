@@ -103,6 +103,8 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
 
 export type QuizSettings = typeof quizSettingsSchema.Type;
 
+export type SpecializedPracticeKind = keyof NonNullable<QuizSettings['practice']>;
+
 export const defaultQuizSettings: QuizSettings = {
   questionCount: 10,
   questionOrder: 'source',
@@ -125,3 +127,13 @@ export const defaultAgentRules: AgentRules = {
   transcription: '',
   questionDetection: ''
 };
+
+/** Unsaved modes inherit the existing generation defaults until customized. */
+export function practiceGenerationSettings(settings: QuizSettings, kind: SpecializedPracticeKind) {
+  return (
+    settings.practice?.[kind] ?? {
+      questionCount: settings.questionCount,
+      difficulty: settings.difficulty
+    }
+  );
+}

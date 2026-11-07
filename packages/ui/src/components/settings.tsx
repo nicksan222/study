@@ -87,29 +87,34 @@ type NavigationItem<Id extends string> = { id: Id; label: string; icon: ReactNod
 
 function Navigation<Id extends string>({
   label,
-  items,
+  groups,
   value,
   onValueChange
 }: {
   label: string;
-  items: readonly NavigationItem<Id>[];
+  groups: readonly { label: string; items: readonly NavigationItem<Id>[] }[];
   value: Id;
   onValueChange: (id: Id) => void;
 }) {
   return (
     <nav className="settings-nav" aria-label={label}>
-      {items.map((item) => (
-        <button
-          type="button"
-          key={item.id}
-          className="settings-navigation-item"
-          aria-label={item.label}
-          aria-current={item.id === value ? 'page' : undefined}
-          onClick={() => onValueChange(item.id)}
-        >
-          {item.icon}
-          <span>{item.label}</span>
-        </button>
+      {groups.map((group) => (
+        <section className="settings-nav-group" aria-label={group.label} key={group.label}>
+          <h3 className="settings-nav-group-title">{group.label}</h3>
+          {group.items.map((item) => (
+            <button
+              type="button"
+              key={item.id}
+              className="settings-navigation-item"
+              aria-label={item.label}
+              aria-current={item.id === value ? 'page' : undefined}
+              onClick={() => onValueChange(item.id)}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </section>
       ))}
     </nav>
   );
