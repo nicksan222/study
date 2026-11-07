@@ -1,4 +1,5 @@
-import { createContext, useContext, useState } from 'react';
+import type { SessionId } from '@study/contracts/ids';
+import { createContext, useContext, useState, useRef } from 'react';
 import type { Dispatch, SetStateAction, ReactNode } from 'react';
 
 interface AssistantDraft {
@@ -7,21 +8,77 @@ interface AssistantDraft {
 }
 
 const Draft = createContext<{
-  draft: AssistantDraft;
-  setDraft: Dispatch<SetStateAction<AssistantDraft>>;
+  takeNewChatKey: () => string;
+  clearNewChatKey: () => void;
+  clearSentDraft: (id: SessionId, text: string) => void;
+  selectedId: SessionId | undefined;
+  setSelectedId: Dispatch<SetStateAction<SessionId | undefined>>;
+  drafts: ReadonlyMap<string, AssistantDraft>;
+  setDrafts: Dispatch<SetStateAction<ReadonlyMap<string, AssistantDraft>>>;
 } | null>(null);
 
-/** Retains unsent text and uncertain request identity across page navigation. History lives in SQLite. */
+/** Drafts and uncertain send identities belong to the selected conversation. */
 export function AssistantProvider({ children }: { children: ReactNode }) {
-  const [draft, setDraft] = useState<AssistantDraft>({ text: '' });
+  const newChatKey = useRef<string | undefined>(undefined);
+  const [selectedId, setSelectedId] = useState<SessionId>();
+  const [drafts, setDrafts] = useState<ReadonlyMap<string, AssistantDraft>>(new Map());
 
-  return <Draft value={{ draft, setDraft }}>{children}</Draft>;
+  return (
+    <Draft
+      value={{
+        selectedId,
+        setSelectedId,
+        drafts,
+        setDrafts,
+        takeNewChatKey: () => (newChatKey.current ??= crypto.randomUUID()),
+        clearSentDraft: (id, text) =>
+          setDrafts((current) => {
+            const key = String(id);
+
+            return current.get(key)?.text.trim() === text
+              ? new Map(current).set(key, { text: '' })
+              : current;
+          }),
+        clearNewChatKey: () => {
+          newChatKey.current = undefined;
+        }
+      }}
+    >
+      {children}
+    </Draft>
+  );
 }
 
-export function useAssistantDraft() {
-  const draft = useContext(Draft);
+export function useAssistantSelection() {
+  const state = useContext(Draft);
 
-  if (!draft) throw new Error('Assistant requires its draft provider');
+  if (!state) throw new Error('Assistant requires its draft provider');
 
-  return draft;
+  return {
+    selectedId: state.selectedId,
+    select: state.setSelectedId,
+    takeNewChatKey: state.takeNewChatKey,
+    clearNewChatKey: state.clearNewChatKey,
+    clearSentDraft: state.clearSentDraft
+  };
+}
+
+export function useAssistantDraft(sessionId?: SessionId) {
+  const state = useContext(Draft);
+
+  if (!state) throw new Error('Assistant requires its draft provider');
+
+  const key = sessionId?.toString() ?? 'latest';
+
+  return {
+    selectedId: state.selectedId,
+    select: state.setSelectedId,
+    draft: state.drafts.get(key) ?? { text: '' },
+    setDraft: (change: SetStateAction<AssistantDraft>) =>
+      state.setDrafts((current) => {
+        const value = current.get(key) ?? { text: '' };
+
+        return new Map(current).set(key, typeof change === 'function' ? change(value) : change);
+      })
+  };
 }

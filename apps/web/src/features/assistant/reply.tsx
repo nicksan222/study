@@ -46,7 +46,15 @@ function ReplyText({ model }: { model: ReplyModel }) {
         <RichNoteContent value={model.run.text} streaming={model.run.status === 'running'} />
       ) : (
         !model.failed && (
-          <Loading label={t(model.needsSignIn ? 'AssistantSignIn' : 'AssistantThinking')} />
+          <Loading
+            label={t(
+              model.needsSignIn
+                ? 'AssistantSignIn'
+                : model.compacting
+                  ? 'AssistantCompacting'
+                  : 'AssistantThinking'
+            )}
+          />
         )
       )}
       <ToolStatus model={model} />
@@ -87,10 +95,10 @@ function ToolStatus({ model }: { model: ReplyModel }) {
   if (!tool) return null;
 
   const labels = {
-    running: 'AgentToolRunning',
-    completed: 'AgentToolCompleted',
-    failed: 'AgentToolFailed',
-    cancelled: 'AgentToolFailed'
+    running: 'AssistantToolRunning',
+    completed: 'AssistantToolCompleted',
+    failed: 'AssistantToolFailed',
+    cancelled: 'AssistantToolFailed'
   } as const;
 
   return <Notebook.Status role="status">{t(labels[tool.status])}</Notebook.Status>;

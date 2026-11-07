@@ -14,6 +14,7 @@
 import { createServer } from 'node:http';
 
 import { ConversationMode } from '@study/contracts/conversations/schemas';
+import type { MessageId } from '@study/contracts/ids';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -53,23 +54,24 @@ testStable(
       bodies.push(body);
       response.writeHead(200, { 'content-type': 'text/event-stream' });
 
-      if (bodies.length <= 3) {
+      const requestBody = JSON.parse(body);
+      const toolStep = (requestBody.input ?? []).filter(
+        (item: { type: string }) => item.type === 'function_call_output'
+      ).length;
+
+      if (
+        requestBody.tools?.some((tool: { name: string }) => tool.name === 'create_subject') &&
+        toolStep < 3
+      ) {
         const call = {
           type: 'function_call',
-          id: `item${bodies.length}`,
-          call_id: `call${bodies.length}`,
-          name:
-            bodies.length === 1
-              ? 'create_subject'
-              : bodies.length === 2
-                ? 'read_subject'
-                : 'update_review_settings',
-          arguments:
-            bodies.length === 1
-              ? '{"name":"Biology"}'
-              : bodies.length === 2
-                ? '{"id":"1"}'
-                : '{"newCardsPerDay":12}'
+          id: `item${toolStep}`,
+          call_id: `call${toolStep}`,
+          ...[
+            { name: 'create_subject', arguments: '{"name":"Biology"}' },
+            { name: 'read_subject', arguments: '{"id":"1"}' },
+            { name: 'update_review_settings', arguments: '{"newCardsPerDay":12}' }
+          ][toolStep]!
         };
 
         for (const event of [
@@ -118,14 +120,17 @@ testStable(
       Layer.mergeAll(Conversations.layer, Sources.layer, Documents.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const execute = async (text: string, key: string) => {
+    const execute = async (text: string, key: string, retryMessageId?: MessageId) => {
       const asked = await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Conversations;
           const input = { text, intentKey: key };
-          const asked = yield* c.assistantAsk(input);
+          const asked = yield* retryMessageId === undefined
+            ? c.assistantAsk(input)
+            : c.reanswer({ messageId: retryMessageId });
 
-          expect(yield* c.assistantAsk(input)).toStrictEqual(asked);
+          if (retryMessageId === undefined)
+            expect(yield* c.assistantAsk(input)).toStrictEqual(asked);
 
           return asked;
         }).pipe(Effect.provide(domain()))
@@ -194,12 +199,13 @@ testStable(
         }).pipe(Effect.provide(domain()))
       );
 
-      await execute('Explain gravity.', 'assistant-first');
+      const firstReply = await execute('Explain gravity.', 'assistant-first');
+
       await execute('What did I ask?', 'assistant-second');
       expect(new Set(agents)).toStrictEqual(new Set(['assistant']));
 
       for (const body of bodies) {
-        expect(JSON.parse(body).tools ?? []).toHaveLength(23);
+        expect(JSON.parse(body).tools ?? []).toHaveLength(43);
 
         for (const tool of JSON.parse(body).tools) expect(tool.parameters.type).toBe('object');
 
@@ -233,6 +239,57 @@ testStable(
           .all()
           .some((event) => decodeEvent(event.payload).type === 'ConversationQuestionRequested')
       ).toBe(false);
+      await Effect.runPromise(
+        settingsTools.update_review_settings
+          .execute({ newCardsPerDay: 20 }, environment)
+          .pipe(Effect.provideService(Database, { store: context }))
+      );
+      await execute('unused', 'assistant-retried', firstReply.messageId);
+      expect(context.db.orm.select().from(s.assistant_tool_receipts).all()).toHaveLength(6);
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          expect(
+            (yield* settingsTools.read_settings.execute({}, environment)).review.newCardsPerDay
+          ).toBe(20);
+        }).pipe(Effect.provideService(Database, { store: context }))
+      );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+
+          for (const text of ['a'.repeat(90000), 'b'.repeat(70000), 'c'.repeat(60000)])
+            yield* c.postMessage({ sessionId: session.id, text, requestReply: false });
+        }).pipe(Effect.provide(domain()))
+      );
+      const compactedReply = await execute('Continue after compaction.', 'assistant-compacted');
+
+      expect(agents).toContain('assistant-compaction');
+      expect(bodies.some((body) => body.includes('a'.repeat(90000)))).toBe(true);
+      expect(bodies.at(-1)).toContain('Summary of earlier conversation');
+      expect(bodies.at(-1)).not.toContain('a'.repeat(90000));
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+
+          expect(
+            (yield* c.assistantContext({ sessionId: session.id })).estimatedTokens
+          ).toBeLessThan(21000);
+          expect(yield* c.assistantMemory(session.id)).not.toBeNull();
+        }).pipe(Effect.provide(domain()))
+      );
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+
+          for (const text of ['d'.repeat(90000), 'e'.repeat(70000)])
+            yield* c.postMessage({ sessionId: session.id, text, requestReply: false });
+        }).pipe(Effect.provide(domain()))
+      );
+      await execute('A later question.', 'assistant-later-compaction');
+      const compactedRuns = agents.filter((id) => id === 'assistant-compaction').length;
+
+      await execute('unused', 'assistant-retrospective', compactedReply.messageId);
+      expect(agents.filter((id) => id === 'assistant-compaction')).toHaveLength(compactedRuns);
       context.close();
       context = new ServerContext(location.open());
       await Effect.runPromise(
@@ -240,7 +297,7 @@ testStable(
           const c = yield* Conversations;
 
           expect((yield* c.assistantSession()).id).toBe(session.id);
-          expect((yield* c.thread({ sessionId: session.id, limit: 30 })).items).toHaveLength(4);
+          expect((yield* c.thread({ sessionId: session.id, limit: 30 })).items).toHaveLength(13);
         }).pipe(Effect.provide(domain()))
       );
     } finally {
@@ -345,3 +402,84 @@ testStable('Assistant bounds model context while retaining older persisted messa
     location.cleanup();
   }
 });
+
+testStable('Assistant chats retain separate histories and replay new-chat intents', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const domain = Conversations.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const c = yield* Conversations;
+        const first = yield* c.assistantSession();
+        const second = yield* c.newAssistantSession({ key: 'new-chat' });
+
+        expect(second.id).not.toBe(first.id);
+        expect(yield* c.newAssistantSession({ key: 'new-chat' })).toStrictEqual(second);
+        expect((yield* c.assistantSession()).id).toBe(second.id);
+        yield* c.assistantAsk({
+          sessionId: first.id,
+          text: 'First chat only',
+          intentKey: 'first-only'
+        });
+        yield* c.assistantAsk({
+          sessionId: second.id,
+          text: 'Second chat only',
+          intentKey: 'second-only'
+        });
+        expect(
+          (yield* c.thread({ sessionId: first.id, limit: 30 })).items[0]?.versions[0]?.text
+        ).toBe('First chat only');
+        expect(
+          (yield* c.thread({ sessionId: second.id, limit: 30 })).items[0]?.versions[0]?.text
+        ).toBe('Second chat only');
+        const page = yield* c.assistantChats({ limit: 1 });
+
+        expect(page.items[0]?.id).toBe(second.id);
+        expect((yield* c.assistantChats({ limit: 1, before: page.next! })).items[0]?.id).toBe(
+          first.id
+        );
+        expect((yield* c.sessions({ limit: 100 })).items).toHaveLength(0);
+      }).pipe(Effect.provide(domain))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});
+
+testStable(
+  'Assistant retries an unfinished first reply while retaining its message identity',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+
+    try {
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const c = yield* Conversations;
+          const first = yield* c.assistantAsk({
+            text: 'Retry this question',
+            intentKey: 'retry-question'
+          });
+          const retried = yield* c.reanswer({ messageId: first.messageId });
+
+          expect(retried.messageId).toBe(first.messageId);
+          expect(retried.requestId).not.toBe(first.requestId);
+          expect((yield* c.thread({ sessionId: first.sessionId, limit: 30 })).items).toHaveLength(
+            2
+          );
+        }).pipe(
+          Effect.provide(Conversations.layer),
+          Effect.provideService(Database, { store: context })
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

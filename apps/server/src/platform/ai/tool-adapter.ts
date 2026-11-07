@@ -39,10 +39,13 @@ export function adaptTool<Requirements>(
     emit: (event: typeof agentUpdateSchema.Type) => Effect.Effect<void, StudyError>;
   }
 ) {
+  let ordinal = 0;
+
   return dynamicTool({
     description: definition.description,
     inputSchema: standardSchema(Schema.toEncoded(Schema.toCodecJson(definition.input))),
     execute: (input, options) => {
+      const callOrdinal = ++ordinal;
       const toolEnvironment: AgentEnvironment = {
         ...environment,
         searchSources: (query, signal) =>
@@ -63,7 +66,35 @@ export function adaptTool<Requirements>(
             )
           );
 
-          return yield* definition.execute(decoded, toolEnvironment).pipe(
+          const execute = definition.execute(decoded, toolEnvironment).pipe(
+            Effect.flatMap(Schema.encodeUnknownEffect(Schema.toCodecJson(definition.output))),
+            Effect.flatMap(Schema.decodeUnknownEffect(Schema.Json)),
+            Effect.mapError((cause) =>
+              cause instanceof StudyError
+                ? cause
+                : new StudyError('internal', 'Invalid tool result', { cause })
+            ),
+            Effect.provideContext(context)
+          );
+          const jsonInput = yield* Schema.decodeUnknownEffect(Schema.Json)(input).pipe(
+            Effect.mapError(
+              (cause) => new StudyError('invalid_input', 'Invalid JSON tool input', { cause })
+            )
+          );
+          const result = environment.runTool
+            ? environment.runTool(
+                {
+                  name: progress?.name ?? '',
+                  ordinal: callOrdinal,
+                  input: jsonInput,
+                  mutates: definition.mutates
+                },
+                execute
+              )
+            : execute;
+
+          return yield* result.pipe(
+            Effect.flatMap(Schema.decodeUnknownEffect(Schema.toCodecJson(definition.output))),
             Effect.flatMap(Schema.encodeUnknownEffect(Schema.toCodecJson(definition.output))),
             Effect.mapError((error) =>
               error instanceof StudyError

@@ -15,10 +15,10 @@ import { request } from '#web/lib/study-client/request.ts';
 
 export const assistantKey = ['assistant'] as const;
 
-export const assistantSessionOptions = () =>
+export const assistantSessionOptions = (id?: SessionId) =>
   queryOptions({
-    queryKey: [...assistantKey, 'session'],
-    queryFn: ({ signal }) => request((rpc) => rpc['conversations.assistantSession']({}), signal)
+    queryKey: [...assistantKey, 'session', id?.toString()],
+    queryFn: ({ signal }) => request((rpc) => rpc['conversations.assistantSession']({ id }), signal)
   });
 
 export const assistantThreadOptions = (sessionId?: SessionId) =>
@@ -112,4 +112,34 @@ export const assistantAppearanceOptions = () =>
     queryKey: ['appearance'],
     queryFn: ({ signal }) => loadAppearance(signal),
     staleTime: 0
+  });
+
+export const assistantChatsOptions = () =>
+  infiniteQueryOptions({
+    queryKey: [...assistantKey, 'chats'],
+    initialPageParam: undefined as SessionId | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      request(
+        (rpc) => rpc['conversations.assistantChats']({ limit: 30, before: pageParam }),
+        signal
+      ),
+    getNextPageParam: (page) => page.next ?? undefined
+  });
+
+export const newAssistantChatOptions = () =>
+  mutationOptions({
+    mutationFn: (key: string) =>
+      request((rpc) => rpc['conversations.newAssistantSession']({ key })),
+    retry: false
+  });
+
+export const assistantContextOptions = (sessionId?: SessionId) =>
+  queryOptions({
+    queryKey: [...assistantKey, 'context', sessionId?.toString()],
+    queryFn:
+      sessionId === undefined
+        ? skipToken
+        : ({ signal }) =>
+            request((rpc) => rpc['conversations.assistantContext']({ sessionId }), signal),
+    refetchInterval: 1000
   });

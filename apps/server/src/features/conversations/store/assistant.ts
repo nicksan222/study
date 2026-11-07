@@ -12,7 +12,7 @@
 
 import { ConversationMode, conversationModeSchema } from '@study/contracts/conversations/schemas';
 import { sessionIdSchema } from '@study/contracts/ids';
-import { eq } from '@study/db';
+import { desc, eq } from '@study/db';
 import { sessions } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
@@ -51,6 +51,7 @@ export const AssistantSessionStore = defineStore({
               .select({ id: sessions.id })
               .from(sessions)
               .where(eq(sessions.mode, ConversationMode.Assistant))
+              .orderBy(desc(sessions.id))
               .get()?.id
           )
       })

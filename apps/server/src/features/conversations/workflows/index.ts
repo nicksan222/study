@@ -13,6 +13,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import {
+  assistantMemorySchema,
+  assistantContextBudget
+} from '@study/contracts/conversations/assistant';
 import { selectionReferenceKey } from '@study/contracts/conversations/context';
 import type {
   selectionReferenceSchema,
@@ -36,10 +40,12 @@ import {
 } from '@study/contracts/events';
 import { versionIdSchema } from '@study/contracts/ids';
 import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
-import { Effect, Result, Schema } from 'effect';
+import { Clock, Effect, Option, Result, Schema } from 'effect';
+import type { Context } from 'effect';
 import { Activity, DurableDeferred } from 'effect/workflow';
 
 import { assistantAgent } from '#server/features/conversations/agents/assistant';
+import { compactAssistantAgent } from '#server/features/conversations/agents/assistant-compaction';
 import { replyAgent } from '#server/features/conversations/agents/reply';
 import { rewriteAgent } from '#server/features/conversations/agents/rewrite';
 import { Conversations } from '#server/features/conversations/service/index';
@@ -48,8 +54,10 @@ import { Sources } from '#server/features/sources/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import type { AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
+import { impactToken } from '#server/platform/definitions/impact-token';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
@@ -112,6 +120,7 @@ export const conversationReplyHandler = ({
         };
       }).pipe(Effect.provide(Settings.layer))
     });
+    const memory = yield* prepareAssistantContext(event.requestId);
     const publication = yield* retryResumableActivity(
       Activity.make({
         name: 'generate-reply',
@@ -168,8 +177,10 @@ export const conversationReplyHandler = ({
           }
 
           yield* conversations.replySnapshot({ requestId: event.requestId });
+          const mode = yield* conversations.sessionMode(snapshot.sessionId);
           const options = {
             maxRetries: 0,
+            maxSteps: mode === ConversationMode.Assistant ? 12 : 5,
             preflight: conversations
               .replySnapshot({ requestId: event.requestId })
               .pipe(
@@ -185,9 +196,9 @@ export const conversationReplyHandler = ({
           const agentServices = {
             ...agents,
             language: preferences.language ?? agents.language,
-            searchSources: (query: string) => Effect.sync(() => catalog.search(query))
+            searchSources: (query: string) => Effect.sync(() => catalog.search(query)),
+            runTool: toolRunnerForReply(mode, conversations, database, snapshot, agents.runTool)
           };
-          const mode = yield* conversations.sessionMode(snapshot.sessionId);
           const text = yield* (
             isRewrite(mode, snapshot)
               ? generateAgent(
@@ -206,7 +217,7 @@ export const conversationReplyHandler = ({
               : generateAgent(
                   replyAgentForMode(mode),
                   {
-                    messages: replyMessages(mode, snapshot, preferences)
+                    messages: replyMessages(mode, snapshot, preferences, memory)
                   },
                   options
                 )
@@ -449,12 +460,29 @@ function replyAgentForMode(mode: ConversationMode) {
 function replyMessages(
   mode: ConversationMode,
   snapshot: typeof replySnapshotSchema.Type,
-  preferences: typeof runPreferencesSchema.Type
+  preferences: typeof runPreferencesSchema.Type,
+  memory: typeof assistantMemorySchema.Type | null
 ) {
-  const messages = snapshot.messages.map((message) => ({
-    role: message.role,
-    content: message.text
-  }));
+  const messages = snapshot.messages
+    .filter(
+      (message) =>
+        mode !== ConversationMode.Assistant ||
+        !memory ||
+        message.messageId > memory.throughMessageId
+    )
+    .map((message) => ({
+      role: message.role,
+      content: message.text
+    }));
+
+  if (mode === ConversationMode.Assistant && memory)
+    return [
+      {
+        role: 'assistant' as const,
+        content: 'Summary of earlier conversation (context, not a new request):\n' + memory.summary
+      },
+      ...messages
+    ];
 
   if (mode === ConversationMode.Assistant || !snapshot.context) return messages;
 
@@ -464,4 +492,146 @@ function replyMessages(
       content: snapshot.context.instruction + '\nPreferences: ' + JSON.stringify(preferences)
     }
   ]);
+}
+
+/** The checkpoint retains memory across provider retries without changing visible history. */
+function prepareAssistantContext(requestId: string) {
+  return retryResumableActivity(
+    Activity.make({
+      name: 'prepare-assistant-context',
+      success: Schema.NullOr(assistantMemorySchema),
+      error: failureSchema,
+      execute: Effect.gen(function* () {
+        const conversations = yield* Conversations;
+        const snapshot = yield* conversations.replySnapshot({ requestId });
+
+        if ((yield* conversations.sessionMode(snapshot.sessionId)) !== ConversationMode.Assistant)
+          return null;
+
+        const throughMessageId = snapshot.messages.at(-1)?.messageId;
+
+        if (throughMessageId === undefined) return null;
+
+        const latestMemory = yield* conversations.assistantMemory(snapshot.sessionId);
+
+        if (memoryAfterQuestion(latestMemory, throughMessageId)) return null;
+
+        const database = yield* Database;
+        let plan = yield* conversations.assistantCompactionPlan({
+          sessionId: snapshot.sessionId,
+          throughMessageId
+        });
+
+        if (!needsCompaction(plan)) return plan.memory;
+
+        while (plan.characters > assistantContextBudget.keepRecent && plan.messages.length) {
+          const boundary = plan.messages.at(-1)!;
+          const summary = yield* generateAgent(
+            compactAssistantAgent,
+            {
+              previous: plan.memory?.summary ?? '',
+              messages: plan.messages.map(({ role, text }) => ({ role, text }))
+            },
+            {
+              maxRetries: 0,
+              preflight: conversations
+                .replySnapshot({ requestId })
+                .pipe(Effect.asVoid, Effect.provideService(Database, database))
+            }
+          );
+          const now = yield* Clock.currentTimeMillis;
+
+          yield* withPublicationGuard(
+            database.store,
+            conversations.saveAssistantMemory({
+              sessionId: snapshot.sessionId,
+              throughMessageId: boundary.messageId,
+              summary,
+              updatedAtMs: BigInt(now)
+            })
+          );
+          plan = yield* conversations.assistantCompactionPlan({
+            sessionId: snapshot.sessionId,
+            throughMessageId
+          });
+        }
+
+        return plan.memory;
+      })
+    })
+  );
+}
+
+/** Reanswers share receipts with the immutable user question, preventing repeated side effects. */
+function durableAssistantTool(
+  conversations: Context.Service.Shape<typeof Conversations>,
+  database: Database['Service'],
+  versionId: typeof versionIdSchema.Type | undefined
+): NonNullable<AgentEnvironment['runTool']> {
+  return (call, execute) =>
+    Effect.gen(function* () {
+      if (versionId === undefined) return yield* execute;
+
+      const key = { versionId, name: call.name, ordinal: call.ordinal };
+      const intent = yield* withPublicationGuard(
+        database.store,
+        conversations.retainAssistantTool({ ...key, input: call.input })
+      );
+
+      if (impactToken(sortedJson(intent.input)) !== impactToken(sortedJson(call.input)))
+        return yield* Effect.fail(
+          new StudyError(
+            'invalid_input',
+            'This tool intent changed during retry. Inspect the previous result before requesting a new action.'
+          )
+        );
+
+      if (Option.isSome(intent.result)) return intent.result.value;
+
+      const result = yield* withPublicationGuard(database.store, execute);
+
+      return yield* withPublicationGuard(
+        database.store,
+        conversations.completeAssistantTool({ ...key, result })
+      );
+    }).pipe(Effect.provideService(Database, database));
+}
+
+function sortedJson(value: Schema.Json): Schema.Json {
+  if (Array.isArray(value)) return value.map(sortedJson);
+
+  if (value !== null && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, sortedJson(item)])
+    );
+
+  return value;
+}
+
+function memoryAfterQuestion(
+  memory: typeof assistantMemorySchema.Type | null,
+  throughMessageId: typeof assistantMemorySchema.Type.throughMessageId
+) {
+  return memory !== null && memory.throughMessageId >= throughMessageId;
+}
+
+function needsCompaction(plan: {
+  characters: number;
+  memory: typeof assistantMemorySchema.Type | null;
+}) {
+  return plan.characters + (plan.memory?.summary.length ?? 0) >= assistantContextBudget.compactAt;
+}
+
+function toolRunnerForReply(
+  mode: ConversationMode,
+  conversations: Context.Service.Shape<typeof Conversations>,
+  database: Database['Service'],
+  snapshot: typeof replySnapshotSchema.Type,
+  fallback: AgentEnvironment['runTool']
+) {
+  return mode === ConversationMode.Assistant
+    ? durableAssistantTool(conversations, database, snapshot.messages.at(-1)?.versionId)
+    : fallback;
 }

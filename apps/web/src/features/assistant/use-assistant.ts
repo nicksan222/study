@@ -1,22 +1,47 @@
 import type { ChatMessage } from '@study/contracts/conversations/messages';
 import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import {
   assistantAskOptions,
+  assistantChatsOptions,
+  assistantContextOptions,
+  newAssistantChatOptions,
   assistantExecutionOptions,
   assistantKey,
   assistantReplyOptions,
   assistantSessionOptions,
   assistantThreadOptions
 } from './assistant.queries';
-import { useAssistantDraft } from './conversation';
+import { useAssistantDraft, useAssistantSelection } from './conversation';
 
 /** Reads committed history and keeps idempotent sends recoverable after transport failures. */
 export function useAssistant() {
   const cache = useQueryClient();
-  const { draft, setDraft } = useAssistantDraft();
-  const session = useQuery(assistantSessionOptions());
+  const { selectedId, select, takeNewChatKey, clearNewChatKey, clearSentDraft } =
+    useAssistantSelection();
+  const session = useQuery(assistantSessionOptions(selectedId));
+  const { draft, setDraft } = useAssistantDraft(session.data?.id);
+
+  useEffect(() => {
+    if (selectedId !== undefined || !session.data) return;
+
+    cache.setQueryData(assistantSessionOptions(session.data.id).queryKey, session.data);
+    select(session.data.id);
+  }, [cache, select, selectedId, session.data]);
+  const chats = useInfiniteQuery(assistantChatsOptions());
+  const context = useQuery(assistantContextOptions(session.data?.id));
+  const createChat = useMutation({
+    ...newAssistantChatOptions(),
+    onSuccess: (created) => {
+      clearNewChatKey();
+      mutation.reset();
+      select(created.id);
+
+      return cache.invalidateQueries({ queryKey: assistantKey });
+    }
+  });
   const history = useInfiniteQuery(assistantThreadOptions(session.data?.id));
   const messages = [
     ...new Map(
@@ -35,7 +60,7 @@ export function useAssistant() {
   const mutation = useMutation({
     ...assistantAskOptions(),
     onSuccess: (_result, input) => {
-      setDraft((current) => (current.text.trim() === input.text ? { text: '' } : current));
+      if (input.sessionId !== undefined) clearSentDraft(input.sessionId, input.text);
 
       return cache.invalidateQueries({ queryKey: assistantKey });
     },
@@ -43,6 +68,18 @@ export function useAssistant() {
   });
 
   return {
+    chats,
+    context,
+    createChat,
+    selectChat: (id: NonNullable<typeof selectedId>) => {
+      mutation.reset();
+      select(id);
+    },
+    newChat: () => {
+      if (createChat.isPending) return;
+
+      createChat.mutate(takeNewChatKey());
+    },
     messages,
     pending,
     requestId,
@@ -68,7 +105,7 @@ export function useAssistant() {
       const intentKey = draft.intent?.text === text ? draft.intent.key : crypto.randomUUID();
 
       setDraft({ ...draft, intent: { text, key: intentKey } });
-      mutation.mutate({ text, intentKey });
+      mutation.mutate({ text, intentKey, sessionId: session.data?.id });
 
       return true;
     }

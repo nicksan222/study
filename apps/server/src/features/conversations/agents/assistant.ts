@@ -15,6 +15,8 @@
 import { replyInputSchema, replyOutputSchema } from '@study/contracts/ai/reply';
 import { AgentRule } from '@study/contracts/settings/schemas';
 
+import { documentTools } from '#server/features/conversations/tools/documents';
+import { sessionTools } from '#server/features/conversations/tools/sessions';
 import { settingsTools } from '#server/features/conversations/tools/settings';
 import { subjectTools } from '#server/features/conversations/tools/subjects';
 import { themeTools } from '#server/features/conversations/tools/themes';
@@ -27,7 +29,7 @@ export const assistantAgent = defineAgent({
   output: replyOutputSchema,
   model: 'smart',
   customRules: [AgentRule.Replies],
-  tools: { ...settingsTools, ...themeTools, ...subjectTools },
+  tools: { ...settingsTools, ...themeTools, ...subjectTools, ...documentTools, ...sessionTools },
   prompt: ({ messages }) => [...messages],
   instructions: (
     language

@@ -17,6 +17,9 @@ import { Page } from '#web/pages/assistant/page.tsx';
 
 const api = vi.hoisted(() => ({
   session: vi.fn(),
+  chats: vi.fn(),
+  context: vi.fn(),
+  newChat: vi.fn(),
   thread: vi.fn(),
   ask: vi.fn<
     (input: typeof assistantAskInputSchema.Type) => Promise<typeof askResultSchema.Type>
@@ -32,6 +35,9 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: object) => Effect.Effect<unknown, unknown>) => {
     const rpc = {
       'conversations.assistantSession': api.session,
+      'conversations.assistantChats': api.chats,
+      'conversations.assistantContext': api.context,
+      'conversations.newAssistantSession': api.newChat,
       'conversations.thread': api.thread,
       'conversations.assistantAsk': api.ask,
       'conversations.replyVersion': api.provenance,
@@ -102,14 +108,31 @@ beforeEach(() => {
   vi.clearAllMocks();
   let messages: ChatMessage[] = [];
 
-  api.session.mockResolvedValue(
+  api.session.mockImplementation(async (input) =>
     Schema.decodeUnknownSync(sessionSchema)({
-      id: 91n,
+      id: input.id ?? 91n,
       projectIds: [],
       title: 'Assistant',
       titleSource: 'user',
       createdAt: 1n,
       updatedAt: 1n
+    })
+  );
+  api.chats.mockResolvedValue({ items: [], next: null });
+  api.context.mockResolvedValue({
+    estimatedTokens: 8000,
+    maxTokens: 50000,
+    autoCompact: true,
+    lastCompactedAtMs: null
+  });
+  api.newChat.mockResolvedValue(
+    Schema.decodeUnknownSync(sessionSchema)({
+      id: 92n,
+      projectIds: [],
+      title: 'Assistant',
+      titleSource: 'user',
+      createdAt: 2n,
+      updatedAt: 2n
     })
   );
   api.thread.mockImplementation(async () => ({ items: messages, next: null }));

@@ -52,7 +52,10 @@ export function useReply(requestId: string, messageId: MessageId) {
   const stop = useMutation({ ...stopAssistantReplyOptions(), onSuccess: refresh });
 
   return {
-    run: progress.runs.at(-1),
+    run: progress.runs.findLast((run) => run.agentId === 'assistant'),
+    compacting: progress.runs.some(
+      (run) => run.agentId === 'assistant-compaction' && run.status === 'running'
+    ),
     needsSignIn: account.data?.signedIn === false,
     reconnecting: progress.connection !== 'connected',
     ...outcome,

@@ -73,10 +73,7 @@ import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
 import { SessionArchiveStore } from '#server/features/conversations/store/archive';
-import {
-  AssistantSessionStore,
-  SessionModeStore
-} from '#server/features/conversations/store/assistant';
+import { SessionModeStore } from '#server/features/conversations/store/assistant';
 import { ConversationBackupStore } from '#server/features/conversations/store/backup';
 import {
   SessionContextStore,
@@ -179,6 +176,9 @@ function normalizeAsk(input: typeof askInputSchema.Type) {
   };
 }
 
+import { makeAssistantConversations } from './assistant.ts';
+import { ensureSession, notebookSession } from './ensure-session.ts';
+
 export const Conversations = defineService(
   'study/Conversations',
   Effect.gen(function* () {
@@ -196,18 +196,8 @@ export const Conversations = defineService(
 
     const retainedContexts = yield* useStore(RetainedSessionContextStore);
 
-    const assistantSession = () =>
-      transaction((tx) => {
-        const existing = tx.store(AssistantSessionStore).findAssistantSession();
-
-        return Option.isSome(existing)
-          ? tx.store(SessionStore).session(existing.value)
-          : tx.store(SessionStore).createSession({
-              title: text('english', 'Assistant'),
-              titleSource: 'user',
-              mode: ConversationMode.Assistant
-            });
-      });
+    const assistant = yield* makeAssistantConversations;
+    const { assistantSession } = assistant;
 
     const ask = (input: typeof askInputSchema.Type) =>
       transaction((tx) => {
@@ -273,7 +263,7 @@ export const Conversations = defineService(
 
     return {
       sessionMode: modes.sessionMode,
-      assistantSession,
+      ...assistant,
       /** A manual question mark commits its answer request with the classification. */
       setMessageKind: (input: typeof setMessageKindInputSchema.Type) =>
         transaction((tx) => {
@@ -633,11 +623,27 @@ export const Conversations = defineService(
           }
         }),
       ask,
+      ensureSession,
+      notebookSession,
       assistantAsk: (input: typeof assistantAskInputSchema.Type) =>
         Effect.gen(function* () {
-          const session = yield* assistantSession();
+          const session = yield* assistantSession({ id: input.sessionId });
 
-          return yield* ask({ ...input, sessionId: session.id, expectedSelectionRevision: 0n });
+          const result = yield* ask({
+            ...input,
+            sessionId: session.id,
+            expectedSelectionRevision: 0n
+          });
+
+          if (session.title === text('english', 'Assistant'))
+            yield* transaction((tx) =>
+              tx.store(SessionStore).renameSession({
+                id: session.id,
+                title: [...input.text.trim()].slice(0, 80).join('')
+              })
+            );
+
+          return result;
         }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
         transaction((tx) => {

@@ -24,6 +24,10 @@ import type { Effect, Schema } from 'effect';
 export type CitationEvidence = typeof sourceEvidenceSchema.Type;
 
 export interface AgentEnvironment {
+  runTool?: (
+    call: { name: string; ordinal: number; input: Schema.Json; mutates: boolean },
+    execute: Effect.Effect<Schema.Json, StudyError>
+  ) => Effect.Effect<Schema.Json, StudyError>;
   language: string | Effect.Effect<string, StudyError>;
   searchSources: (
     query: string,

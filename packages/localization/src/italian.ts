@@ -1,6 +1,15 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  AssistantHistory: 'Cronologia chat',
+  AssistantNewChat: 'Nuova chat',
+  AssistantOlderChats: 'Chat precedenti',
+  AssistantContextUsage:
+    'Contesto stimato: {used} / {max} token. La compattazione automatica è attiva; i messaggi precedenti vengono riassunti quando necessario.',
+  AssistantCompacting: 'Compattazione del contesto precedente…',
+  AssistantToolRunning: 'Uso di uno strumento di Study…',
+  AssistantToolCompleted: 'Azione completata',
+  AssistantToolFailed: 'Impossibile completare l’azione',
   AssistantIntro: 'Ragioniamo insieme, impariamo qualcosa o sviluppiamo un’idea.',
   AssistantEmptyDescription:
     'Fai una domanda o condividi ciò su cui stai lavorando. La conversazione viene salvata su questo dispositivo.',

@@ -1,5 +1,14 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  AssistantHistory: 'Chat history',
+  AssistantNewChat: 'New chat',
+  AssistantOlderChats: 'Older chats',
+  AssistantContextUsage:
+    'Estimated context: {used} / {max} tokens. Auto compact is on; earlier messages are summarized when needed.',
+  AssistantCompacting: 'Compacting earlier context…',
+  AssistantToolRunning: 'Using a Study tool…',
+  AssistantToolCompleted: 'Action completed',
+  AssistantToolFailed: 'Action could not be completed',
   AssistantIntro: 'Think it through, learn something new, or work on an idea together.',
   AssistantEmptyDescription:
     'Ask a question or share what you are working on. Your conversation is saved on this device.',
