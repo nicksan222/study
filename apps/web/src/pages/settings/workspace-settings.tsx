@@ -72,6 +72,7 @@ function PreferenceSection({
 
 type BooleanField =
   | 'autoTranscribeAudio'
+  | 'detectSourceLanguage'
   | 'spellcheck'
   | 'submitOnEnter'
   | 'autoTitleSessions'
@@ -269,6 +270,11 @@ export function ReadingSettings() {
           { value: 'aid_json', label: 'WorkspaceDocumentJson' },
           { value: 'csv', label: 'ExportCsv' }
         ]}
+      />
+      <PreferenceToggle
+        field="detectSourceLanguage"
+        title="DetectSourceLanguage"
+        description="DetectSourceLanguageHelp"
       />
     </PreferenceSection>
   );

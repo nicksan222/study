@@ -100,3 +100,11 @@ export function secondsTaken(locale: Locale, seconds: number): string {
 export function withSize(value: number | bigint | string, size: string): string {
   return `${value} (${size})`;
 }
+
+/** Localized names for schema-validated ISO source language metadata. */
+export function languageName(locale: Locale, code: string): string {
+  return (
+    new Intl.DisplayNames([locale === 'italian' ? 'it' : 'en'], { type: 'language' }).of(code) ??
+    code
+  );
+}

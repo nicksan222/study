@@ -90,6 +90,7 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   defaultExportFormat: 'markdown',
   defaultAiDetail: 'balanced',
   autoTranscribeAudio: false,
+  detectSourceLanguage: true,
   autoTitleSessions: false,
   autoAnswerQuestions: false,
   textConversionMode: 'manual',

@@ -265,7 +265,14 @@ export const sourceIngestionHandler = ({
       })
     );
 
-    return yield* publishSource(event, document);
+    const enriched = yield* Activity.make({
+      name: 'detect-source-language',
+      success: documentSchema,
+      error: failureSchema,
+      execute: sources.detectLanguage(document)
+    });
+
+    return yield* publishSource(event, enriched);
   }).pipe(noticeSourceFailure(event));
 
 export const sourceIngestionRegistration = defineWorkflowHandler(sourceIngestionWorkflow, {

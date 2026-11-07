@@ -73,6 +73,7 @@ testStable(
         'capital of italy is rome'
       );
       expect(extraction!.document.meta.extractor).toBe('transcription');
+      expect(extraction!.document.meta.language).toBe('en');
       expect(extraction!.document.blocks[0]!.anchor.type).toBe('time');
     } finally {
       await app.close();

@@ -1,6 +1,7 @@
 import type { StudyDocument } from '@study/contracts/documents/types';
 import type { SourceId, SessionId, ContentSnapshotId } from '@study/contracts/ids';
 import type { documentSchema, Source } from '@study/contracts/sources/schemas';
+import { languageName } from '@study/localization';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -143,6 +144,7 @@ export function SourcePanel({
         }}
         retire={() => setSelected(undefined)}
       />
+      <SourceLanguage language={state.data?.document.meta.language} />
       <SourceHistory sourceId={sourceId} onSelect={setSelected} />
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
       <MaterialLibrary.VersionToolbar>
@@ -197,5 +199,17 @@ function SourceCopyAction({
     <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
       {t(pending ? 'SessionSaving' : 'DocumentEditCopy')}
     </Button>
+  );
+}
+
+function SourceLanguage({ language }: { language?: string | null }) {
+  const { t, locale } = useI18n();
+
+  if (!language) return null;
+
+  return (
+    <MaterialLibrary.VersionMeta>
+      {t('DetectedSourceLanguage', { language: languageName(locale, language) })}
+    </MaterialLibrary.VersionMeta>
   );
 }

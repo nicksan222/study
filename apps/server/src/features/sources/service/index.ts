@@ -84,6 +84,7 @@ import {
 import { pageById } from '#server/platform/definitions/page-by-id';
 import { validateLink } from '#server/platform/http/index';
 
+import { withDetectedLanguage } from './language.ts';
 import {
   installTranscriptionModel,
   transcriptionModelStatus,
@@ -134,6 +135,13 @@ export const Sources = defineService(
     };
 
     return {
+      detectLanguage: (document: Document) =>
+        Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+          Effect.flatMap((preferences) =>
+            withDetectedLanguage(document, preferences.detectSourceLanguage)
+          ),
+          Effect.provide(Settings.layer)
+        ),
       installTranscriptionModel: () => installTranscriptionModel(speechDirectory),
       transcriptionModelStatus: () => transcriptionModelStatus(speechDirectory),
       transcriptionModelRevision: () => transcriptionModelRevision(speechDirectory),

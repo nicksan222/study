@@ -1,6 +1,11 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  DetectSourceLanguage: 'Rileva la lingua delle fonti',
+  DetectSourceLanguageHelp:
+    'Identifica la lingua dei nuovi testi su questo computer. I risultati incerti restano sconosciuti.',
+  DetectedSourceLanguage: 'Lingua rilevata: {language}',
+
   LocalTranscriptionModel: 'Modello di riconoscimento vocale',
   TranscribeAgain: 'Trascrivi di nuovo',
   AutoTranscribeAudioHelp:

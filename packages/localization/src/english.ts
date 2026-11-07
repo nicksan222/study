@@ -1,5 +1,10 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  DetectSourceLanguage: 'Detect source language',
+  DetectSourceLanguageHelp:
+    'Identify the language of new source text on this computer. Uncertain results stay unknown.',
+  DetectedSourceLanguage: 'Detected language: {language}',
+
   LocalTranscriptionModel: 'Speech recognition model',
   TranscribeAgain: 'Transcribe again',
   AutoTranscribeAudioHelp:

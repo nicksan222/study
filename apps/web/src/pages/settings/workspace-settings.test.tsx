@@ -9,6 +9,7 @@ import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
 import {
   AiWritingSettings,
   AudioTranscriptionSettings,
+  ReadingSettings,
   WritingSettings
 } from './workspace-settings';
 
@@ -53,7 +54,7 @@ afterEach(() => {
   caches.length = 0;
 });
 
-function mount(ai: boolean | 'audio' = false) {
+function mount(ai: boolean | 'audio' | 'reading' = false) {
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   });
@@ -61,7 +62,9 @@ function mount(ai: boolean | 'audio' = false) {
   caches.push(cache);
   render(
     <QueryClientProvider client={cache}>
-      {ai === 'audio' ? (
+      {ai === 'reading' ? (
+        <ReadingSettings />
+      ) : ai === 'audio' ? (
         <AudioTranscriptionSettings />
       ) : ai ? (
         <AiWritingSettings />
@@ -237,3 +240,25 @@ testStable('automatic transcription is opt-in and persists the enabled preferenc
   );
   await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
 });
+
+testStable(
+  'source language detection can be disabled without changing other preferences',
+  async () => {
+    api.save.mockImplementation(async (value) => {
+      api.read.mockResolvedValue(value);
+
+      return value;
+    });
+    mount('reading');
+    const toggle = await screen.findByRole('switch', { name: 'DetectSourceLanguage' });
+
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await userEvent.click(toggle);
+    await waitFor(() =>
+      expect(api.save).toHaveBeenCalledWith(
+        expect.objectContaining({ detectSourceLanguage: false })
+      )
+    );
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'));
+  }
+);

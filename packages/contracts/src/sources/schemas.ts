@@ -222,6 +222,7 @@ export const blockSchema = Schema.Struct({
 );
 
 const documentMetaSchema = Schema.Struct({
+  language: Schema.optional(Schema.NullOr(Schema.String.check(Schema.isPattern(/^[a-z]{2,3}$/)))),
   extractor: Schema.NullOr(Schema.String),
   extractorVersion: natural,
   provider: Schema.NullOr(Schema.String),

@@ -40,6 +40,7 @@
         "@ai-sdk/openai": "3.0.132",
         "@ai-sdk/provider": "3.0.19",
         "@desert-ant-labs/core": "4.3.0",
+        "@desert-ant-labs/tongue": "4.3.0",
         "@desert-ant-labs/voz": "4.3.0",
         "@effect/platform-node": "4.0.7",
         "@huggingface/transformers": "4.3.2",
@@ -292,6 +293,8 @@
     "@csstools/css-tokenizer": ["@csstools/css-tokenizer@4.0.2", "", {}, "sha512-OoKoR0f76dCY666JlcbhmVTs2drYj1GUXZTYTcbUgJjh9Nv41aFfZ21bPQTERm5+L5cBDo466NltB2lplS5GBw=="],
 
     "@desert-ant-labs/core": ["@desert-ant-labs/core@4.3.0", "", { "peerDependencies": { "@litertjs/core": ">=2.1.0", "koffi": ">=2.16.3 <3 || >=3.1.2" }, "optionalPeers": ["@litertjs/core", "koffi"] }, "sha512-dhSSiL6rHYFfFVTMIa8c6cEfMY74vFYy13UozCCVEfzhRur9Mo6OCieRgHB7LvdUtHKrRGLFakGP0VWxRwJiog=="],
+
+    "@desert-ant-labs/tongue": ["@desert-ant-labs/tongue@4.3.0", "", {}, "sha512-nkQFWNCH8T5SSL5FX9xX1ElneNtuUgu4xBf83dpX6vbcMucmqm8FMfgDwzdAae6wwTlgO5YN3Bpkm6Uq7O7tWA=="],
 
     "@desert-ant-labs/voz": ["@desert-ant-labs/voz@4.3.0", "", { "dependencies": { "@bjorn3/browser_wasi_shim": "^0.3.0", "@desert-ant-labs/core": "^4.3.0", "mediabunny": "^1.59.0" }, "peerDependencies": { "onnxruntime-web": ">=1.23.0" }, "optionalPeers": ["onnxruntime-web"] }, "sha512-4CFL2DTSv9K9D6OSP9hV5xVxwRBKUNx6IJJKmwMYu/dEmFSPv60+aUd0SCMg7JCJPZLNF9lyb0NfKGzZwOnfTg=="],
 
