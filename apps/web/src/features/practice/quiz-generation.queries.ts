@@ -29,3 +29,19 @@ export const generationDocumentsOptions = (projectId?: ProjectId) =>
     queryKey: ['documents', 'generation', projectId?.toString()],
     queryFn: ({ signal }) => listPracticeDocuments(projectId, signal)
   });
+
+export const activeGenerationsOptions = (projectId?: ProjectId, enabled = true) =>
+  queryOptions({
+    queryKey: ['materials', 'active-generations', projectId?.toString()],
+    queryFn: ({ signal }) =>
+      request((client) => client['materials.activeMaterialGenerations']({ projectId }), signal),
+    enabled,
+    refetchInterval: (query) => (query.state.data?.length ? 2000 : 15000),
+    refetchOnWindowFocus: 'always'
+  });
+
+export const cancelGenerationOptions = (requestId: string) =>
+  mutationOptions({
+    mutationFn: () =>
+      request((client) => client['materials.cancelMaterialGeneration']({ requestId }))
+  });

@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
+import type { ProjectId } from '@study/contracts/ids';
 import type { resolvedContentInputSchema } from '@study/contracts/inputs';
 import { contentInputKey } from '@study/contracts/inputs';
 import {
@@ -25,7 +26,7 @@ import {
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
 import { validBlockTextRange } from '@study/contracts/sources/document';
-import { desc, eq } from '@study/db';
+import { and, desc, eq, isNull, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -122,6 +123,45 @@ export function makeGeneration(resources: StoreResources) {
     exact.insertInputs({ kind: 'request', id: value.requestId }, request.inputs);
 
     return { id: value.requestId, ...request };
+  }
+
+  function activeGenerations(value: { projectId?: ProjectId }) {
+    return db.orm
+      .select({ id: s.material_generation_requests.id })
+      .from(s.material_generation_requests)
+      .where(
+        and(
+          eq(s.material_generation_requests.cancelled, false),
+          isNull(s.material_generation_requests.result_version_id),
+          sql`${s.material_generation_requests.payload} != '{}'`,
+          value.projectId
+            ? eq(s.material_generation_requests.project_id, value.projectId)
+            : undefined
+        )
+      )
+      .orderBy(
+        desc(s.material_generation_requests.created_at),
+        desc(s.material_generation_requests.id)
+      )
+      .all()
+      .filter(
+        (row) =>
+          !db.orm
+            .select({ id: s.material_history_requests.request_id })
+            .from(s.material_history_requests)
+            .where(eq(s.material_history_requests.request_id, row.id))
+            .get() &&
+          !db.orm
+            .select({ id: s.material_deletion_requests.request_id })
+            .from(s.material_deletion_requests)
+            .where(eq(s.material_deletion_requests.request_id, row.id))
+            .get()
+      )
+      .map((row) => required(readGeneration(row.id)))
+      .filter(
+        (request) =>
+          request.errorKind === null && (request.kind === 'quiz' || request.kind === 'flashcards')
+      );
   }
 
   function readGeneration(requestId: string) {
@@ -577,6 +617,7 @@ export function makeGeneration(resources: StoreResources) {
   }
 
   return {
+    activeGenerations,
     cancelGeneration,
     generationContext,
     prepareGenerationRetry,
