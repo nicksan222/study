@@ -92,10 +92,32 @@ export function makeSemanticIndex(options: {
     });
   }
 
+  /** Finish bounded stale-cache cleanup before starting inference; each batch rechecks current content. */
+  function purgeStale() {
+    return Effect.gen(function* () {
+      let after: string | undefined;
+      let removed = 0;
+
+      for (;;) {
+        const page = yield* sync(() => store.reconciliationPage(after));
+
+        if (!page.length) return removed;
+
+        const targets = [
+          ...new Map(page.map((row) => [row.target, row.projection.target])).values()
+        ];
+        const keys = page.map((row) => row.key);
+
+        removed += yield* commit((rows) => store.purge(keys, rows), targets);
+        after = page.at(-1)!.key;
+      }
+    });
+  }
+
   /** Purge stale excerpts before inference, then publish bounded, restartable batches. */
   function reconcile() {
     return Effect.gen(function* () {
-      const removed = yield* commit(store.purge);
+      const removed = yield* purgeStale();
       const embedded = yield* pages.pipe(
         Stream.flatMap((rows) =>
           Stream.fromIterable(searchEntities(rows, model.maxChunkingInputLength))

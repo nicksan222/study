@@ -76,6 +76,38 @@ function targetedCommit(
     );
 }
 
+testStable('reconciliation purges bounded target batches before failed inference', async () => {
+  const location = createTestDatabase();
+  const db = location.open();
+  const original = Array.from({ length: 450 }, (_, n) => project(BigInt(n + 1), 'planet ' + n));
+  const rows = [project(4n, 'updated painting'), ...original.slice(4)];
+  const windows: number[] = [];
+
+  try {
+    await Effect.runPromise(makeSemanticIndex({ db, model, read: () => original }).reconcile());
+    const index = makeSemanticIndex({
+      db,
+      model: { ...model, embedPassages: () => Effect.fail(new StudyError('transient', 'busy')) },
+      read: () => rows,
+      commit: targetedCommit(db, rows, windows)
+    });
+    const result = await Effect.runPromise(Effect.result(index.reconcile()));
+
+    expect(result._tag).toBe('Failure');
+    expect(windows.length).toBeGreaterThan(1);
+    expect(Math.max(...windows)).toBeLessThanOrEqual(200);
+    const retained = db.orm.select().from(semantic_search_entries).all();
+
+    expect(retained).toHaveLength(446);
+    expect(
+      retained.some((row) => ['planet 0', 'planet 1', 'planet 2', 'planet 3'].includes(row.title))
+    ).toBe(false);
+  } finally {
+    db.close();
+    location.cleanup();
+  }
+});
+
 testStable(
   'search revalidates cached rows after ranking before filling its result limit',
   async () => {
