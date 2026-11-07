@@ -172,6 +172,7 @@ testStable('orders a single settings list and shows relevant cross-section searc
     'Models by task',
     'Custom instructions',
     'AI behavior',
+    'AI usage',
     'Performance',
     'Flashcards',
     'Quizzes',
@@ -179,7 +180,7 @@ testStable('orders a single settings list and shows relevant cross-section searc
     'Data & backups'
   ]);
   expect(within(navigation).queryByRole('heading')).not.toBeInTheDocument();
-  expect(labels).toHaveLength(14);
+  expect(labels).toHaveLength(15);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'

@@ -26,6 +26,7 @@ export const SettingsRpcLive = defineRpc(
     const admission = yield* AiAdmission;
 
     return {
+      'settings.usage': (input) => settings.usage(input),
       'settings.agentRules': () => settings.agentRules(),
       'settings.saveAgentRules': (input) => settings.saveAgentRules(input),
       'settings.quizSettings': () => settings.quizSettings(),

@@ -36,3 +36,5 @@ export * from './schema/reply-source-inputs.ts';
 
 export * from './schema/assistant.ts';
 export * from './schema/semantic-search.ts';
+
+export * from './schema/ai-usage.ts';
