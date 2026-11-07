@@ -199,6 +199,8 @@ export const recordings = defineTable({
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<RecordingId>(),
     session_id: sessionReference(),
+    /** Copied audio is a sealed snapshot, independent of the original posting workflow. */
+    sealed_at: integer().$type<bigint>(),
     started_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
@@ -217,6 +219,7 @@ export const sessions = defineTable({
     id: integer().primaryKey({ autoIncrement: true }).$type<SessionId>(),
     title: text().notNull(),
     mode: text({ enum: conversationModes }).notNull().default('notebook'),
+    archived_at: integer().$type<bigint>(),
     selection_revision: integer().$type<bigint>().notNull().default(0n),
     selection: text().notNull().default('[]'),
     context_revision: integer().$type<bigint>().notNull().default(0n),
@@ -354,3 +357,17 @@ export const conversation_question_answers = defineTable({
     .notNull()
     .references(() => messages.id, { onDelete: 'cascade' })
 });
+
+/** A committed manual merge can be recovered after a lost RPC response. */
+export const session_merges = defineTable({
+  role: 'internal',
+  reason: 'Idempotent manual session merge receipts'
+})(
+  'session_merges',
+  {
+    intent_key: text().primaryKey(),
+    session_ids: text().notNull(),
+    session_id: sessionReference()
+  },
+  (t) => [check('session_merges_ids_json', sql`json_valid(${t.session_ids})`)]
+);

@@ -362,6 +362,7 @@ testStable.each(['materials', 'sessions'] as const)(
       projectIds: [project.id],
       title: 'Discussion',
       titleSource: 'user',
+      archivedAt: null,
       createdAt: 1n,
       updatedAt: 1n
     });
@@ -470,6 +471,7 @@ testStable(
       projectIds: [],
       title: 'Available discussion',
       titleSource: 'user',
+      archivedAt: null,
       createdAt: 1n,
       updatedAt: 1n
     });

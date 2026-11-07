@@ -41,6 +41,7 @@ testStable(
       title,
       projectIds: [project],
       titleSource: 'user',
+      archivedAt: null,
       createdAt: 1n,
       updatedAt: 1n
     });

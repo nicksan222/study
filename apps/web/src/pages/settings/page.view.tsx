@@ -34,6 +34,7 @@ import { PerformanceSettings } from './performance';
 import { StudySettings } from './study';
 import { QuizSettings } from './study/quiz-settings';
 import { ColorScheme, ThemeLibrary } from './theme-library';
+import { UsageSettings } from './usage';
 import type { AppearanceModel } from './use-page';
 import {
   AiWritingSettings,
@@ -124,6 +125,12 @@ const sections = [
       'WorkspaceAutoTitles',
       'WorkspaceAutoAnswerQuestions'
     ]
+  },
+  {
+    id: 'usage',
+    label: 'UsageTitle',
+    Icon: Gauge,
+    keywords: ['UsageTokens', 'UsageProvider', 'UsageAgents']
   },
   {
     id: 'performance',
@@ -336,6 +343,7 @@ function SectionContent({
     instructions: <AgentRulesSettings />,
     automation: <AiWritingSettings />,
     performance: <PerformanceSettings />,
+    usage: <UsageSettings />,
     flashcards: <StudySettings />,
     quizzes: <QuizSettings />
   } satisfies Record<SettingsSectionId, ReactNode>;

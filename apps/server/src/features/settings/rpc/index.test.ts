@@ -49,6 +49,8 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
         Effect.gen(function* () {
           const client = yield* RpcTest.makeClient(SettingsRpc, { flatten: true });
 
+          expect((yield* client('settings.usage', { days: 30 })).totals.requests).toBe(0);
+
           expect(yield* client('settings.agentRules', {})).toStrictEqual(defaultAgentRules);
           const rules = {
             ...defaultAgentRules,
@@ -108,6 +110,7 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
           assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
           expect([...SettingsRpc.requests.keys()].sort()).toStrictEqual(
             [
+              'settings.usage',
               'settings.agentRules',
               'settings.saveAgentRules',
               'settings.quizSettings',

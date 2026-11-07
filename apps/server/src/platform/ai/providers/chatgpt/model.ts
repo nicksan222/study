@@ -247,15 +247,6 @@ export function createChatGptModel({
             return;
           }
 
-          if (
-            item.value.type === 'finish' &&
-            ['error', 'length', 'content-filter'].includes(item.value.finishReason.unified)
-          ) {
-            controller.error(new ChatGptRequestError('transient'));
-
-            return;
-          }
-
           controller.enqueue(
             item.value.type === 'error'
               ? { type: 'error', error: new ChatGptRequestError('transient') }
@@ -339,8 +330,7 @@ export function createChatGptModel({
         else if (part.type === 'finish') finish = part;
       }
 
-      if (!finish || ['error', 'length', 'content-filter'].includes(finish.finishReason.unified))
-        throw new Error('ChatGPT response incomplete or failed');
+      if (!finish) throw new Error('ChatGPT response incomplete or failed');
 
       return {
         content,

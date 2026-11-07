@@ -100,11 +100,17 @@ async function peer(
   }
 }
 
-function service(base: string, auth: AuthManager, observe?: AgentsConfig['observe']) {
+function service(
+  base: string,
+  auth: AuthManager,
+  observe?: AgentsConfig['observe'],
+  recordUsage?: AgentsConfig['recordUsage']
+) {
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
 
   return layer({
     observe,
+    recordUsage,
     model: () => Effect.succeed(model),
     language: 'en',
     rules: Effect.succeed(defaultAgentRules),
@@ -1032,3 +1038,81 @@ testStable(
     );
   }
 );
+
+testStable('records provider usage even when an agent rejects the generated output', async () => {
+  const records: Array<{ input: number; output: number; incomplete: boolean }> = [];
+  const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
+    Effect.sync(() => {
+      records.push(record);
+    });
+
+  await peer(
+    (_req, res) => send(res, 'not valid JSON'),
+    async (base, auth) => {
+      const exit = await Effect.runPromise(
+        Effect.exit(
+          generateAgent(objectDefinition, 'count').pipe(
+            Effect.provide(service(base, auth, undefined, recordUsage))
+          )
+        )
+      );
+
+      expect(exit._tag).toBe('Failure');
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({ input: 0, output: 0, incomplete: true });
+    }
+  );
+});
+
+testStable('retains provider-reported tokens when ChatGPT truncates a response', async () => {
+  const records: Array<{ input: number; output: number }> = [];
+  const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
+    Effect.sync(() => {
+      records.push(record);
+    });
+
+  await peer(
+    (_req, res) => {
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+
+      for (const event of [
+        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
+        { type: 'response.output_text.delta', item_id: 'm', delta: 'Partial answer' },
+        {
+          type: 'response.incomplete',
+          response: {
+            incomplete_details: { reason: 'max_output_tokens' },
+            usage: {
+              input_tokens: 100,
+              output_tokens: 20,
+              input_tokens_details: { cached_tokens: 80 },
+              output_tokens_details: { reasoning_tokens: 5 }
+            }
+          }
+        }
+      ])
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+      res.end();
+    },
+    async (base, auth) => {
+      const exit = await Effect.runPromise(
+        Effect.exit(
+          generateAgent(definition, 'cells').pipe(
+            Effect.provide(service(base, auth, undefined, recordUsage))
+          )
+        )
+      );
+
+      expect(exit._tag).toBe('Failure');
+      expect(records).toHaveLength(1);
+      expect(records[0]).toMatchObject({
+        input: 100,
+        output: 20,
+        cacheRead: 80,
+        reasoning: 5,
+        incomplete: false
+      });
+    }
+  );
+});

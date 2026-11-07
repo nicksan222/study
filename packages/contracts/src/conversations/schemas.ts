@@ -42,6 +42,7 @@ export const sessionSchema = Schema.Struct({
   id: sessionIdSchema,
   title: Schema.String,
   titleSource: titleSourceSchema,
+  archivedAt: Schema.NullOr(Schema.BigInt),
   createdAt: Schema.BigInt,
   updatedAt: Schema.BigInt
 });

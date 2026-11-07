@@ -33,6 +33,7 @@
     "./projects/types": "./src/projects/types.ts",
     "./recordings/rpc": "./src/recordings/rpc.ts",
     "./recordings/schemas": "./src/recordings/schemas.ts",
+    "./settings/usage": "./src/settings/usage.ts",
     "./settings": "./src/settings/index.ts",
     "./settings/schemas": "./src/settings/schemas.ts",
     "./settings/types": "./src/settings/types.ts",
