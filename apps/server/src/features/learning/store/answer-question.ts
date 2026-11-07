@@ -13,9 +13,11 @@
  */
 
 import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
+import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
 import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
@@ -24,9 +26,26 @@ import { makeQuiz } from './quiz.ts';
 
 type Input = typeof answerQuestionInputSchema.Type;
 
+/** Validates attempt ownership and records typed learner responses atomically. */
 export function makeAnswerQuestion(resources: StoreResources) {
   const { db } = resources;
-  const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  const { attemptRow, attemptView, choiceScore, orderingScore, attemptQuestions } =
+    makeQuiz(resources);
+
+  /** Serializes ordering answers and deterministically scores objective question kinds. */
+  function scoredAnswer(q: typeof s.material_quiz_questions.$inferSelect, answer: Input['answer']) {
+    if (answer.type === 'ordering')
+      return {
+        answer: Schema.encodeSync(orderingAnswerJsonSchema)(answer),
+        score: orderingScore(q.id, answer.itemIds)
+      };
+
+    if (answer.type === 'open') return { answer: answer.answer, score: null };
+
+    return { answer: null, score: choiceScore(q, answer.choiceIds) };
+  }
+
+  /** Rejects mismatched answer kinds and foreign or incomplete permutations before commit. */
   const answerQuestion = (input: Input, practiceSlotId?: string) => {
     const practice = db.orm
       .select({
@@ -45,9 +64,11 @@ export function makeAnswerQuestion(resources: StoreResources) {
 
     if (!q) invalid('question does not belong to attempt selection');
 
-    if (isTextQuestionKind(q.kind) !== (input.answer.type === 'open')) invalid('wrong answer kind');
-
-    const score = input.answer.type === 'choice' ? choiceScore(q, input.answer.choiceIds) : null;
+    if (
+      (q.kind === 'ordering') !== (input.answer.type === 'ordering') ||
+      isTextQuestionKind(q.kind) !== (input.answer.type === 'open')
+    )
+      invalid('wrong answer kind');
 
     db.orm
       .delete(s.material_quiz_selections)
@@ -63,8 +84,7 @@ export function makeAnswerQuestion(resources: StoreResources) {
       version_id: a.version_id,
       question_id: q.id,
       question_kind: q.kind,
-      answer: input.answer.type === 'open' ? input.answer.answer : null,
-      score,
+      ...scoredAnswer(q, input.answer),
       feedback: null
     };
 

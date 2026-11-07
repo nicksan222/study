@@ -134,3 +134,65 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
     location.cleanup();
   }
 });
+
+testStable(
+  'native ordering RPC keeps answers private and restores the committed sequence',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const services = Learning.layer.pipe(
+      Layer.provideMerge(Settings.layer),
+      Layer.provideMerge(Materials.layer),
+      Layer.provideMerge(Documents.layer),
+      Layer.provideMerge(Layer.succeed(Database, { store: context }))
+    );
+    const handlers = LearningRpcLive.pipe(Layer.provideMerge(services));
+
+    try {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const material = yield* (yield* Materials).create({
+              title: 'RPC sequence',
+              publish: true,
+              content: {
+                kind: 'quiz',
+                questions: [
+                  {
+                    kind: 'ordering',
+                    prompt: 'Order',
+                    explanation: 'First A, then B.',
+                    items: [{ text: 'A' }, { text: 'B' }]
+                  }
+                ]
+              }
+            });
+            const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
+            const attempt = yield* client('learning.startQuiz', { versionId: material.version.id });
+            const question = attempt.questions[0]!;
+
+            assert.ok(question.kind === 'ordering');
+            assert.ok(!('correctItemIds' in question));
+            const itemIds = question.items.map((item) => item.id).reverse();
+
+            yield* client('learning.answerQuestion', {
+              attemptId: attempt.id,
+              questionId: question.id,
+              answer: { type: 'ordering', itemIds }
+            });
+            const saved = yield* client('learning.attempt', { attemptId: attempt.id });
+
+            assert.deepEqual(saved.questions[0]!.answer, { type: 'ordering', itemIds });
+            const completed = yield* client('learning.finishQuiz', { attemptId: attempt.id });
+
+            assert.ok(completed.questions[0]!.kind === 'ordering');
+            assert.equal(completed.questions[0]!.correctItemIds.length, 2);
+          }).pipe(Effect.provide(handlers))
+        )
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

@@ -11,6 +11,8 @@ import { useState, useId } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { OrderingResult } from './ordering-result';
+
 type Completed = typeof quizAttemptCompletedSchema.Type;
 
 type Question = Completed['questions'][number];
@@ -130,6 +132,7 @@ export function QuizResults({
   );
 }
 
+/** Selects the result renderer while preserving shared verdict and explanation presentation. */
 function ResultQuestion({
   question,
   index,
@@ -142,7 +145,7 @@ function ResultQuestion({
   showHeading: boolean;
 }) {
   const { t, locale } = useI18n();
-  const selected = question.answer?.type === 'choice' ? question.answer.choiceIds : [];
+  const selected = selectedChoices(question);
 
   return (
     <Practice.Preview>
@@ -157,7 +160,9 @@ function ResultQuestion({
           <Practice.Prompt>{question.prompt}</Practice.Prompt>
         </>
       )}
-      {!('choices' in question) ? (
+      {question.kind === 'ordering' ? (
+        <OrderingResult question={question} />
+      ) : !('choices' in question) ? (
         <Practice.OpenAnswers>
           <div>
             <Practice.Muted>{t('YourAnswer')}</Practice.Muted>
@@ -242,4 +247,9 @@ function OverallScore({ attempt }: { attempt: Completed }) {
       <span>{t('PracticeScore')}</span>
     </Practice.Score>
   );
+}
+
+/** Reads selected choice identities without interpreting ordering responses as choices. */
+function selectedChoices(question: Question) {
+  return question.answer?.type === 'choice' ? question.answer.choiceIds : [];
 }

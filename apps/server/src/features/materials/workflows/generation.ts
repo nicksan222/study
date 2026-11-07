@@ -294,6 +294,8 @@ function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undef
 
   const kinds = {
     mixed: 'any combination of choice, open and fill_blank questions',
+    ordering:
+      'only ordering questions with 2 to 10 distinct steps or events in canonical chronological or process order in items; ground the sequence in selected documents, put citations in explanation and do not number items',
     choice: 'only choice questions (single_choice or multiple_choice)',
     open: 'only open questions',
     fill_blank:

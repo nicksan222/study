@@ -75,10 +75,17 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
             { value: 'all', label: t('QuizKindAll') },
             { value: 'choice', label: t('QuestionChoice') },
             { value: 'open', label: t('QuestionOpen') },
-            { value: 'fill_blank', label: t('PracticeFillBlank') }
+            { value: 'fill_blank', label: t('PracticeFillBlank') },
+            { value: 'ordering', label: t('PracticeOrdering') }
           ]}
           onValueChange={(value) => {
-            if (value === 'all' || value === 'choice' || value === 'open' || value === 'fill_blank')
+            if (
+              value === 'all' ||
+              value === 'choice' ||
+              value === 'open' ||
+              value === 'fill_blank' ||
+              value === 'ordering'
+            )
               model.update({ questionKind: value });
           }}
         />

@@ -828,7 +828,7 @@
 .study-generation-brief .settings-section + .settings-section {
   margin-top: 2rem;
 }
-.study-generation-brief .settings-grid {
+.study-generation-brief [role='radiogroup'] > .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .study-generation-brief .settings-choice {
@@ -848,6 +848,7 @@
 .study-generation-brief .settings-selected {
   outline: none;
   border-color: transparent;
+  background: var(--accent);
 }
 .study-generation-brief .settings-choice:focus-visible {
   outline: none;
@@ -1100,4 +1101,37 @@
   .study-practice-preview .study-practice-prompt {
     font-size: 1.25rem;
   }
+}
+
+.study-practice-ordering {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.study-practice-ordering > li {
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  background: var(--muted);
+  overflow-wrap: anywhere;
+}
+.study-practice-ordering-number {
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.study-practice-ordering-actions {
+  display: flex;
+  gap: 0.25rem;
+}
+.study-practice-ordering-actions button:focus,
+.study-practice-ordering-actions button:active {
+  outline: none;
+  border-color: transparent;
+  box-shadow: none;
+  background: var(--accent);
 }

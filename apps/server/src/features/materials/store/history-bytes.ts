@@ -19,7 +19,9 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 /** Logical stored UTF-8 body bytes, excluding SQLite row/index overhead and retained copies. */
 
+/** Counts feature-owned text bodies before history retention scrubs their content. */
 export function makeHistoryBodyBytes({ db }: StoreResources) {
+  /** Includes ordering step text in logical history-retention byte accounting. */
   function quizPayloads(ids: readonly MaterialVersionId[]) {
     const payloads: (string | null)[] = [];
 
@@ -29,6 +31,13 @@ export function makeHistoryBodyBytes({ db }: StoreResources) {
       .where(inArray(s.material_quiz_questions.version_id, [...ids]))
       .all()) {
       payloads.push(q.prompt, q.explanation);
+
+      for (const item of db.orm
+        .select()
+        .from(s.material_quiz_ordering_items)
+        .where(eq(s.material_quiz_ordering_items.question_id, q.id))
+        .all())
+        payloads.push(item.text);
 
       for (const c of db.orm
         .select()

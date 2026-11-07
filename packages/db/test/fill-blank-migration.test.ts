@@ -59,7 +59,13 @@ testStable(
 
       connection.close();
       connection = undefined;
-      connection = Db.open(path);
+      const throughBlank = join(folder, 'through-blank');
+
+      for (const name of readdirSync(migrations))
+        if (name <= '20261107121957_fill-blank-practice')
+          cpSync(join(migrations, name), join(throughBlank, name), { recursive: true });
+
+      connection = Db.open(path, throughBlank);
       assert.deepEqual(
         tables.map((table) => connection!.orm.all(sql.raw(`SELECT * FROM ${table}`))),
         before

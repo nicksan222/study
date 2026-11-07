@@ -1,4 +1,4 @@
-import type { QuizChoiceId } from '@study/contracts/ids';
+import type { QuizChoiceId, QuizOrderingItemId } from '@study/contracts/ids';
 import type {
   quizAnswerSchema,
   quizAttemptInProgressSchema
@@ -17,6 +17,7 @@ type Question = (typeof quizAttemptInProgressSchema.Type)['questions'][number];
 
 type Answer = typeof quizAnswerSchema.Type;
 
+/** Restores saved answers and submits accessible practice controls through one typed contract. */
 export function QuizQuestion({
   question,
   pending,
@@ -40,20 +41,15 @@ export function QuizQuestion({
   useEffect(() => {
     prompt.current?.focus();
   }, [question.id]);
-  const [text, setText] = useState(question.answer?.type === 'open' ? question.answer.answer : '');
-  const [selected, setSelected] = useState(
-    question.answer?.type === 'choice' ? question.answer.choiceIds : []
-  );
-  const valid = !('choices' in question) ? text.trim().length > 0 : selected.length > 0;
+  const [text, setText] = useState(() => initialAnswer(question).text);
+  const [selected, setSelected] = useState(() => initialAnswer(question).selected);
+  const [order, setOrder] = useState(() => initialAnswer(question).order);
+  const valid = answerValid(question, text, selected, order);
 
   function send() {
     if (!valid || pending) return;
 
-    submit(
-      !('choices' in question)
-        ? { type: 'open', answer: text.trim() }
-        : { type: 'choice', choiceIds: selected }
-    );
+    submit(answerValue(question, text, selected, order));
   }
 
   return (
@@ -92,7 +88,27 @@ export function QuizQuestion({
         </Practice.Prompt>
         <Practice.Muted>{t(questionHint(question.kind))}</Practice.Muted>
         <Practice.Answers disabled={pending} aria-labelledby="practice-question">
-          {question.kind === 'fill_blank' ? (
+          {question.kind === 'ordering' ? (
+            <Practice.Ordering
+              label={t('YourAnswer')}
+              items={order.map((id) => ({
+                key: String(id),
+                text: question.items.find((item) => item.id === id)!.text
+              }))}
+              disabled={pending}
+              moveUpLabel={t('PracticeMoveUp')}
+              moveDownLabel={t('PracticeMoveDown')}
+              move={(index, direction) =>
+                setOrder((previous) => {
+                  const next = [...previous];
+
+                  [next[index], next[index + direction]] = [next[index + direction]!, next[index]!];
+
+                  return next;
+                })
+              }
+            />
+          ) : question.kind === 'fill_blank' ? (
             <Practice.ShortAnswer>
               <label htmlFor="practice-answer">{t('YourAnswer')}</label>
               <Input
@@ -160,7 +176,10 @@ function toggleChoice(previous: QuizChoiceId[], id: QuizChoiceId, single: boolea
   return previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id];
 }
 
+/** Chooses localized interaction and scoring guidance for each question kind. */
 function questionHint(kind: Question['kind']) {
+  if (kind === 'ordering') return 'PracticeOrderingHint';
+
   if (kind === 'fill_blank') return 'PracticeFillBlankHint';
 
   if (kind === 'open') return 'PracticeOpenHint';
@@ -211,4 +230,49 @@ function QuestionFooter({
       ></NextButton>
     </Practice.StageFooter>
   );
+}
+
+/** Initializes editable state from the committed response or the attempt presentation. */
+function initialAnswer(question: Question): {
+  text: string;
+  selected: QuizChoiceId[];
+  order: QuizOrderingItemId[];
+} {
+  if (question.kind === 'ordering')
+    return {
+      text: '',
+      selected: [],
+      order: question.answer?.itemIds ?? question.items.map((item) => item.id)
+    };
+
+  if (question.answer?.type === 'open')
+    return { text: question.answer.answer, selected: [], order: [] };
+
+  return { text: '', selected: question.answer?.choiceIds ?? [], order: [] };
+}
+
+/** Enables submission only when the current answer has the required shape. */
+function answerValid(
+  question: Question,
+  text: string,
+  selected: readonly QuizChoiceId[],
+  order: readonly QuizOrderingItemId[]
+) {
+  if (question.kind === 'ordering') return order.length === question.items.length;
+
+  return 'choices' in question ? selected.length > 0 : text.trim().length > 0;
+}
+
+/** Converts editable state into the canonical discriminated answer contract. */
+function answerValue(
+  question: Question,
+  text: string,
+  selected: QuizChoiceId[],
+  order: QuizOrderingItemId[]
+): Answer {
+  if (question.kind === 'ordering') return { type: 'ordering', itemIds: order };
+
+  return 'choices' in question
+    ? { type: 'choice', choiceIds: selected }
+    : { type: 'open', answer: text.trim() };
 }

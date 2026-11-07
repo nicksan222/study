@@ -121,3 +121,42 @@ testStable('confirming an IME composition does not submit a blank answer', () =>
   fireEvent.keyDown(input, { key: 'Enter', isComposing: false });
   expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'open', answer: '日本語' });
 });
+
+testStable(
+  'ordering restores saved permutations and moves steps with keyboard buttons',
+  async () => {
+    const submit = vi.fn();
+    const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+      ...attempt,
+      questions: [
+        {
+          id: 4n,
+          position: 0n,
+          kind: 'ordering',
+          prompt: 'Order the stages.',
+          items: [
+            { id: 9n, text: 'Third' },
+            { id: 7n, text: 'First' },
+            { id: 8n, text: 'Second' }
+          ],
+          answer: { type: 'ordering', itemIds: [7n, 9n, 8n] }
+        }
+      ]
+    }).questions[0]!;
+    const user = userEvent.setup();
+
+    render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+    expect(screen.getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      expect.stringContaining('First'),
+      expect.stringContaining('Third'),
+      expect.stringContaining('Second')
+    ]);
+    const move = screen.getAllByRole('button', { name: catalogs.english.PracticeMoveUp })[2]!;
+
+    move.focus();
+    await user.keyboard('{Enter}');
+    expect(submit).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: catalogs.english.SubmitAnswer }));
+    expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'ordering', itemIds: [7n, 8n, 9n] });
+  }
+);

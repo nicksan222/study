@@ -17,6 +17,7 @@ import {
   Layers,
   SlidersHorizontal,
   ChevronDown,
+  ListOrdered,
   TextCursorInput
 } from 'lucide-react';
 import type { SetStateAction } from 'react';
@@ -113,10 +114,11 @@ function GenerationDialog({
   );
 }
 
+/** Submits the selected practice kind with saved counts, difficulty and document inputs. */
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank'>('quiz');
+  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank' | 'ordering'>('quiz');
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
@@ -133,18 +135,19 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const titleKey = {
     quiz: 'SidebarQuiz',
     flashcards: 'Flashcards',
+    ordering: 'PracticeOrdering',
     fill_blank: 'PracticeFillBlank'
   } as const;
   const configuredQuestionKind =
     configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
-  const questionKind = kind === 'fill_blank' ? kind : configuredQuestionKind;
+  const questionKind = kind === 'fill_blank' || kind === 'ordering' ? kind : configuredQuestionKind;
   const create = () => {
     if (hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
         title: t(titleKey[kind]),
         autoTitle: true,
-        kind: kind === 'fill_blank' ? 'quiz' : kind,
+        kind: kind === 'fill_blank' || kind === 'ordering' ? 'quiz' : kind,
         instruction: instruction.trim() || undefined,
         inputs: inputs.filter((input) => input.kind === 'document'),
         quizConfig:
@@ -177,6 +180,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
 
 type GenerationModel = ReturnType<typeof useGeneration>;
 
+/** Keeps practice-kind selection and its guidance separate from source selection. */
 function GenerationPanel({
   projectId,
   accepted
@@ -217,7 +221,18 @@ function GenerationPanel({
               >
                 <TextCursorInput aria-hidden="true" />
               </Settings.Choice>
+              <Settings.Choice
+                label={t('PracticeOrdering')}
+                selected={model.kind === 'ordering'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('ordering')}
+              >
+                <ListOrdered aria-hidden="true" />
+              </Settings.Choice>
             </Settings.ChoiceGroup>
+            {model.kind === 'ordering' && (
+              <Settings.Intro>{t('PracticeOrderingHelp')}</Settings.Intro>
+            )}
             {model.kind === 'fill_blank' && (
               <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>
             )}

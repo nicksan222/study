@@ -30,7 +30,6 @@ import {
   retryPracticeQuestionInputSchema
 } from '@study/contracts/learning/rpc';
 import { quizAttemptSchema } from '@study/contracts/learning/schemas';
-import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { and, desc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -337,6 +336,7 @@ function makePractice(resources: StoreResources) {
     return row;
   }
 
+  /** Publishes only the exact choice or open kind captured by an endless-practice slot. */
   function publish(slotId: string, versionId: MaterialVersionId) {
     const row = db.orm.select().from(slots).where(eq(slots.id, slotId)).get();
 
@@ -382,7 +382,9 @@ function makePractice(resources: StoreResources) {
     if (
       !version ||
       questions.length !== 1 ||
-      (row.kind === 'open' ? questions[0]!.kind !== 'open' : isTextQuestionKind(questions[0]!.kind))
+      (row.kind === 'open'
+        ? questions[0]!.kind !== 'open'
+        : !['single_choice', 'multiple_choice'].includes(questions[0]!.kind))
     )
       invalid('invalid practice quiz publication');
 

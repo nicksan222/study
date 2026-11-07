@@ -1664,7 +1664,7 @@ export const english = Object.freeze({
   PracticeOverallResults: 'Overall results',
   PracticeGenerate: 'Generate practice',
   PracticeGenerateHelp:
-    'Create quizzes, flashcards or fill-in-the-blank exercises from your documents. All documents are selected; deselect any you want to leave out.',
+    'Create practice exercises from your documents. All documents are selected; deselect any you want to leave out.',
   PracticeGenerateKind: 'What would you like to create?',
   PracticeGeneratePrompt: 'What should it focus on? (optional)',
   PracticeGeneratePromptHint:
@@ -1719,6 +1719,13 @@ export const english = Object.freeze({
     'Your first attempt starts here. You can leave and come back whenever you need.',
   PracticeViewResults: 'View results',
   PracticeResume: 'Continue quiz',
+  PracticeOrdering: 'Put in order',
+  PracticeOrderingHelp:
+    'Arrange events or process steps from your documents in the correct sequence.',
+  PracticeOrderingHint:
+    'Use Move up and Move down to arrange every step. The whole sequence must be correct to earn the point.',
+  PracticeMoveUp: 'Move up',
+  PracticeMoveDown: 'Move down',
   PracticeFillBlank: 'Fill in the blank',
   PracticeFillBlankHelp: 'Recall key terms by completing sentences from your documents.',
   PracticeFillBlankHint:

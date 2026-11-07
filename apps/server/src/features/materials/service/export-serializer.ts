@@ -31,6 +31,7 @@ const json = (value: unknown) =>
 const csvCell = (s: string) =>
   '"' + (/^(?:\s*[=+@-]|[\t\r\n])/.test(s) ? "'" : '') + s.replaceAll('"', '""') + '"';
 
+/** Exports exact canonical material content within the shared byte budget. */
 export function serializeMaterialVersion(
   version: MaterialVersionDetailDto,
   format: typeof learningExportFormatSchema.Type,
@@ -66,7 +67,11 @@ export function serializeMaterialVersion(
           q.kind,
           q.prompt,
           q.explanation,
-          'referenceAnswer' in q ? q.referenceAnswer : json(q.choices)
+          'referenceAnswer' in q
+            ? q.referenceAnswer
+            : q.kind === 'ordering'
+              ? json(q.items)
+              : json(q.choices)
         ])
       ];
     else throw new StudyError('unsupported', 'CSV requires flashcards or quiz content');

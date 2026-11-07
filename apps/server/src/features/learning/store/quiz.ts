@@ -13,18 +13,22 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type { QuizOrderingItemId } from '@study/contracts/ids';
 import type { MaterialVersionId, QuizAttemptId } from '@study/contracts/ids';
 import type { QuizQuestionId, QuizChoiceId } from '@study/contracts/ids';
+import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
 import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
 import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, asc, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
 export { unixSeconds as now } from '#server/platform/time/index';
 
+/** Reads attempt snapshots while keeping canonical answers private until completion. */
 export function makeQuiz(resources: StoreResources) {
   const { db } = resources;
 
@@ -122,6 +126,31 @@ export function makeQuiz(resources: StoreResources) {
       : 0;
   }
 
+  /** Loads the private canonical sequence for validation and completed results. */
+  function orderingItems(questionId: QuizQuestionId) {
+    return db.orm
+      .select()
+      .from(s.material_quiz_ordering_items)
+      .where(eq(s.material_quiz_ordering_items.question_id, questionId))
+      .orderBy(asc(s.material_quiz_ordering_items.position))
+      .all();
+  }
+
+  /** Awards one point only for a complete, valid permutation in canonical order. */
+  function orderingScore(questionId: QuizQuestionId, selected: readonly QuizOrderingItemId[]) {
+    const correct = orderingItems(questionId);
+
+    if (
+      selected.length !== correct.length ||
+      new Set(selected).size !== selected.length ||
+      selected.some((id) => !correct.some((item) => item.id === id))
+    )
+      invalid('invalid ordering permutation');
+
+    return correct.every((item, index) => item.id === selected[index]) ? 1 : 0;
+  }
+
+  /** Restores stable presentation and learner responses without leaking in-progress answers. */
   function attemptView(attemptId: QuizAttemptId) {
     const attempt = attemptRow(attemptId);
     const version = published(attempt.version_id, 'quiz');
@@ -197,6 +226,34 @@ export function makeQuiz(resources: StoreResources) {
         prompt: q.prompt
       };
 
+      if (q.kind === 'ordering') {
+        const items = orderingItems(q.id);
+        const presentation = db.orm
+          .select()
+          .from(s.material_quiz_attempt_ordering_items)
+          .where(
+            and(
+              eq(s.material_quiz_attempt_ordering_items.attempt_id, attemptId),
+              eq(s.material_quiz_attempt_ordering_items.question_id, q.id)
+            )
+          )
+          .orderBy(asc(s.material_quiz_attempt_ordering_items.position))
+          .all();
+
+        return {
+          ...base,
+          kind: q.kind,
+          items: presentation.map((entry) => {
+            const item = requireRow(items.find((item) => item.id === entry.item_id));
+
+            return { id: item.id, text: item.text };
+          }),
+          answer: response
+            ? Schema.decodeUnknownSync(orderingAnswerJsonSchema)(response.answer)
+            : null
+        };
+      }
+
       if (isTextQuestionKind(q.kind))
         return {
           ...base,
@@ -265,12 +322,15 @@ export function makeQuiz(resources: StoreResources) {
         explanation: question.explanation,
         score: response?.score ?? null,
         feedback: response?.feedback ?? null,
-        grading: !response
-          ? ('unanswered' as const)
-          : response.score === null
-            ? ('ungraded' as const)
-            : ('graded' as const)
+        grading: responseGrading(response)
       };
+
+      if (item.kind === 'ordering')
+        return {
+          ...item,
+          ...result,
+          correctItemIds: orderingItems(item.id).map((item) => item.id)
+        };
 
       if (!('choices' in item))
         return {
@@ -317,6 +377,14 @@ export function makeQuiz(resources: StoreResources) {
     attemptQuestions,
     choices,
     choiceScore,
+    orderingScore,
     attemptView
   };
+}
+
+/** Distinguishes unanswered responses from pending and settled grades. */
+function responseGrading(response: typeof s.material_quiz_responses.$inferSelect | undefined) {
+  if (!response) return 'unanswered' as const;
+
+  return response.score === null ? ('ungraded' as const) : ('graded' as const);
 }

@@ -13,9 +13,11 @@
  */
 
 import type { attemptInputSchema } from '@study/contracts/learning/rpc';
+import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
 import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';
@@ -24,9 +26,12 @@ import { now, makeQuiz } from './quiz.ts';
 
 type Input = typeof attemptInputSchema.Type;
 
+/** Finalizes attempts after validating and settling their objective responses. */
 export function makeFinishQuiz(resources: StoreResources) {
   const { db, clock } = resources;
-  const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  const { attemptRow, attemptView, choiceScore, orderingScore, attemptQuestions } =
+    makeQuiz(resources);
+  /** Revalidates saved permutations before publishing immutable completed results. */
   const finishQuiz = (input: Input) => {
     const a = attemptRow(input.attemptId, true);
 
@@ -50,7 +55,17 @@ export function makeFinishQuiz(resources: StoreResources) {
         )
         .all();
 
-      if (isTextQuestionKind(q.kind)) {
+      if (q.kind === 'ordering') {
+        const answer = Schema.decodeUnknownSync(orderingAnswerJsonSchema)(response.answer);
+
+        if (selected.length) invalid('malformed ordering response');
+
+        db.orm
+          .update(s.material_quiz_responses)
+          .set({ score: orderingScore(q.id, answer.itemIds), feedback: null })
+          .where(where)
+          .run();
+      } else if (isTextQuestionKind(q.kind)) {
         if (!response.answer?.trim() || selected.length) invalid('malformed open response');
       } else {
         const score = choiceScore(

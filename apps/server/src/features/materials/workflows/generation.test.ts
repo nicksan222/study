@@ -488,6 +488,12 @@ testStable(
             prompt: 'The captured my_value is ____.',
             explanation: 'alpha [1]',
             referenceAnswer: 'alpha'
+          },
+          {
+            kind: 'ordering',
+            prompt: 'Order the captured process.',
+            explanation: 'alpha evidence [1]',
+            items: [{ text: 'Initial stage' }, { text: 'Final stage' }]
           }
         ]
       });
@@ -499,7 +505,7 @@ testStable(
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open, blank] = quiz.content.questions;
+        const [single, multiple, open, blank, ordering] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -517,6 +523,11 @@ testStable(
         assert.ok(open.referenceAnswer === 'alpha');
         assert.ok(blank?.kind === 'fill_blank');
         assert.equal(blank.referenceAnswer, 'alpha');
+        assert.ok(ordering?.kind === 'ordering');
+        assert.deepEqual(
+          ordering.items.map((item) => item.text),
+          ['Initial stage', 'Final stage']
+        );
       }
 
       await generate(

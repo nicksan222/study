@@ -80,3 +80,20 @@ testStable('blank-only generation rejects other kinds and ignores the choice cou
     assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([blank, choice]))
   );
 });
+
+testStable('ordering-only generation enforces exact kind and count without choice options', () => {
+  const ordering = {
+    kind: 'ordering' as const,
+    prompt: 'Order',
+    explanation: 'E',
+    items: [{ text: 'A' }, { text: 'B' }]
+  };
+  const settings = { ...config, questionKind: 'ordering' as const };
+
+  assert.doesNotThrow(() => assertQuizConfig(settings, quiz([ordering, ordering])));
+  assert.throws(() => assertQuizConfig(settings, quiz([ordering, open])));
+  assert.throws(() => assertQuizConfig(settings, quiz([ordering])));
+  assert.throws(() =>
+    assertQuizConfig({ ...config, questionKind: 'choice' }, quiz([ordering, choice]))
+  );
+});

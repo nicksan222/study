@@ -51,6 +51,7 @@ export function required<T>(value: T | null | undefined): T {
   return value;
 }
 
+/** Reads exact material versions while preserving each canonical question variant. */
 export function makeReads(resources: StoreResources) {
   const store = resources.db;
 
@@ -174,6 +175,7 @@ export function makeReads(resources: StoreResources) {
     };
   }
 
+  /** Reconstructs canonical quiz bodies for material inspection and export. */
   function readQuiz(
     base: ReturnType<typeof readVersionBase>
   ): Extract<MaterialVersionDetailDto, { kind: 'quiz' }> {
@@ -225,6 +227,19 @@ export function makeReads(resources: StoreResources) {
       .all()
       .map((q) => {
         const questionBase = { id: q.id, prompt: q.prompt, explanation: q.explanation };
+
+        if (q.kind === 'ordering')
+          return {
+            ...questionBase,
+            kind: q.kind,
+            items: store.orm
+              .select()
+              .from(s.material_quiz_ordering_items)
+              .where(eq(s.material_quiz_ordering_items.question_id, q.id))
+              .orderBy(asc(s.material_quiz_ordering_items.position))
+              .all()
+              .map((item) => ({ id: item.id, text: item.text }))
+          };
 
         if (isTextQuestionKind(q.kind))
           return {

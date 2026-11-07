@@ -15,6 +15,7 @@
 import { randomInt } from 'node:crypto';
 
 import type { startQuizInputSchema } from '@study/contracts/learning/rpc';
+import { eq } from '@study/db';
 import * as s from '@study/db/schema';
 
 import { requireRow } from '#server/platform/database/rows';
@@ -37,9 +38,38 @@ function shuffled<T>(items: readonly T[]): T[] {
   return result;
 }
 
+/** Creates durable attempt selections and independently shuffled ordering presentations. */
 export function makeStartQuiz(resources: StoreResources) {
   const { db, clock } = resources;
   const { attemptView, published, questions, choices } = makeQuiz(resources);
+
+  /** Stores one presentation shuffle regardless of the choice-shuffle preference. */
+  function snapshotOrdering(
+    question: ReturnType<typeof questions>[number],
+    attemptId: (typeof s.material_quiz_attempts.$inferSelect)['id']
+  ) {
+    if (question.kind !== 'ordering') return;
+
+    const items = db.orm
+      .select()
+      .from(s.material_quiz_ordering_items)
+      .where(eq(s.material_quiz_ordering_items.question_id, question.id))
+      .all();
+
+    db.orm
+      .insert(s.material_quiz_attempt_ordering_items)
+      .values(
+        shuffled(items).map((item, position) => ({
+          attempt_id: attemptId,
+          question_id: question.id,
+          item_id: item.id,
+          position: BigInt(position)
+        }))
+      )
+      .run();
+  }
+
+  /** Captures the configured question selection and presentation atomically. */
   const startQuiz = (input: Input) => {
     published(input.versionId, 'quiz');
 
@@ -84,6 +114,8 @@ export function makeStartQuiz(resources: StoreResources) {
       .run();
 
     for (const question of selected) {
+      snapshotOrdering(question, row.id);
+
       const options = choices(question.id);
       const ordered = configuration?.shuffleChoices ? shuffled(options) : options;
 

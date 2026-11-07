@@ -353,3 +353,30 @@ testStable(
     );
   }
 );
+
+testStable('generates ordering practice with a typed kind and saved difficulty', async () => {
+  const rpc = rpcFixture();
+  const user = userEvent.setup();
+
+  mountLibraryRoute('/practice/41?project=1', rpc);
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+  await user.click(within(dialog).getByRole('radio', { name: 'Put in order' }));
+  await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+  await waitFor(() =>
+    expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        kind: 'quiz',
+        title: 'Put in order',
+        autoTitle: true,
+        quizConfig: {
+          questionCount: 3,
+          choiceCount: 2,
+          questionKind: 'ordering',
+          difficulty: 'balanced'
+        }
+      })
+    )
+  );
+});

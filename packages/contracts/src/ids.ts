@@ -77,3 +77,7 @@ export const studyDocumentAnnotationIdSchema = positiveId.pipe(
 );
 
 export type StudyDocumentAnnotationId = typeof studyDocumentAnnotationIdSchema.Type;
+
+export const quizOrderingItemIdSchema = positiveId.pipe(Schema.brand('QuizOrderingItemId'));
+
+export type QuizOrderingItemId = typeof quizOrderingItemIdSchema.Type;

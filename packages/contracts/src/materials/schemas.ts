@@ -8,6 +8,7 @@ import {
   projectIdSchema,
   quizQuestionIdSchema,
   quizChoiceIdSchema,
+  quizOrderingItemIdSchema,
   sessionIdSchema
 } from '../ids.ts';
 import { contentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
@@ -24,7 +25,7 @@ export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diag
 export const quizGenerationConfigSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })),
-  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank']),
+  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank', 'ordering']),
   difficulty: Schema.Literals(['easy', 'balanced', 'challenging'])
 });
 
@@ -124,6 +125,15 @@ const openQuestionInputSchema = Schema.Struct({
 });
 
 export const materialQuestionInputSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal('ordering'),
+    prompt: nonemptySchema,
+    explanation: nonemptySchema,
+    items: Schema.mutable(Schema.Array(Schema.Struct({ text: nonemptySchema }))).check(
+      Schema.isBetweenLength(2, 10),
+      Schema.makeFilter((items) => new Set(items.map((item) => item.text)).size === items.length)
+    )
+  }),
   singleChoiceInputSchema,
   multipleChoiceInputSchema,
   openQuestionInputSchema,
@@ -141,6 +151,7 @@ export const materialQuestionInputSchema = Schema.Union([
   })
 ]);
 
+/** Narrows model-graded text questions without treating other objective kinds as choices. */
 export function isTextQuestionKind(
   kind: (typeof materialQuestionInputSchema.Type)['kind']
 ): kind is 'open' | 'fill_blank' {
@@ -228,6 +239,15 @@ const quizContentDetailSchema = Schema.Struct({
   questions: Schema.mutable(
     Schema.Array(
       Schema.Union([
+        Schema.Struct({
+          id: quizQuestionIdSchema,
+          kind: Schema.Literal('ordering'),
+          prompt: Schema.String,
+          explanation: Schema.String,
+          items: Schema.mutable(
+            Schema.Array(Schema.Struct({ id: quizOrderingItemIdSchema, text: Schema.String }))
+          )
+        }),
         Schema.Struct({
           id: quizQuestionIdSchema,
           kind: Schema.Literal('single_choice'),

@@ -10,14 +10,19 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { randomBytes } from 'node:crypto';
+
 import { StudyError } from '@study/contracts/errors';
+import { quizOrderingItemIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { and, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
+/** Persists canonical version bodies and removes them only within owned transactions. */
 export function makeContent({ db: store }: StoreResources) {
   function insertContent(
     version: typeof s.material_versions.$inferSelect,
@@ -52,6 +57,7 @@ export function makeContent({ db: store }: StoreResources) {
       .run();
   }
 
+  /** Assigns opaque random ordering identities independently of canonical positions. */
   function insertQuiz(
     version: typeof s.material_versions.$inferSelect,
     c: Extract<MaterialContentInput, { kind: 'quiz' }>
@@ -77,7 +83,20 @@ export function makeContent({ db: store }: StoreResources) {
         .returning()
         .get();
 
-      if ('referenceAnswer' in q)
+      if (q.kind === 'ordering')
+        db.insert(s.material_quiz_ordering_items)
+          .values(
+            q.items.map((item, position) => ({
+              id: Schema.decodeUnknownSync(quizOrderingItemIdSchema)(
+                randomBytes(8).readBigUInt64BE() & 0x7fffffffffffffffn || 1n
+              ),
+              question_id: row.id,
+              position: BigInt(position),
+              text: item.text
+            }))
+          )
+          .run();
+      else if ('referenceAnswer' in q)
         db.insert(s.material_quiz_open_answers)
           .values({
             question_id: row.id,
@@ -153,6 +172,7 @@ export function makeContent({ db: store }: StoreResources) {
     });
   }
 
+  /** Removes dependent content while retaining the version identity and its ownership guards. */
   function removeContent(id: MaterialVersionId) {
     const db = store.orm;
 
@@ -168,6 +188,9 @@ export function makeContent({ db: store }: StoreResources) {
       .from(s.material_quiz_questions)
       .where(eq(s.material_quiz_questions.version_id, id))
       .all()) {
+      db.delete(s.material_quiz_ordering_items)
+        .where(eq(s.material_quiz_ordering_items.question_id, q.id))
+        .run();
       db.delete(s.material_quiz_choices).where(eq(s.material_quiz_choices.question_id, q.id)).run();
       db.delete(s.material_quiz_open_answers)
         .where(eq(s.material_quiz_open_answers.question_id, q.id))

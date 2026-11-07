@@ -254,6 +254,7 @@ export function OperationError({ retry }: { retry?: () => void }) {
   );
 }
 
+/** Labels each canonical question kind in the pre-attempt outline. */
 function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
 
@@ -266,11 +267,13 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
           key: String(question.id),
           prompt: question.prompt,
           detail: t(
-            question.kind === 'fill_blank'
-              ? 'PracticeFillBlank'
-              : question.kind === 'open'
-                ? 'QuestionOpen'
-                : 'QuestionChoice'
+            question.kind === 'ordering'
+              ? 'PracticeOrdering'
+              : question.kind === 'fill_blank'
+                ? 'PracticeFillBlank'
+                : question.kind === 'open'
+                  ? 'QuestionOpen'
+                  : 'QuestionChoice'
           )
         }))}
       />
@@ -278,14 +281,20 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   );
 }
 
+/** Summarizes saved permutations in learner order for the attempt review step. */
 function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]) {
   const answer = question.answer;
 
   if (!answer) return null;
 
+  if (answer.type === 'ordering' && question.kind === 'ordering')
+    return answer.itemIds
+      .map((id) => question.items.find((item) => item.id === id)?.text ?? '')
+      .join(' → ');
+
   if (answer.type === 'open') return answer.answer;
 
-  if (!('choices' in question)) return null;
+  if (!('choices' in question) || answer.type !== 'choice') return null;
 
   return question.choices
     .filter((choice) => answer.choiceIds.includes(choice.id))

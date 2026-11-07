@@ -57,6 +57,7 @@ export function MaterialVersionContent({ version }: { version: MaterialVersionDe
   );
 }
 
+/** Renders the canonical answer for explicit material-version inspection. */
 function QuestionPreview({
   question,
   index
@@ -72,17 +73,24 @@ function QuestionPreview({
         <span>{questionNumber(locale, index + 1)}</span>
         <span>
           {t(
-            question.kind === 'fill_blank'
-              ? 'PracticeFillBlank'
-              : question.kind === 'open'
-                ? 'QuestionOpen'
-                : 'QuestionChoice'
+            question.kind === 'ordering'
+              ? 'PracticeOrdering'
+              : question.kind === 'fill_blank'
+                ? 'PracticeFillBlank'
+                : question.kind === 'open'
+                  ? 'QuestionOpen'
+                  : 'QuestionChoice'
           )}
         </span>
       </Practice.ProgressHeading>
       <Practice.Prompt>{question.prompt}</Practice.Prompt>
       <Practice.Answers aria-label={t('RightAnswer')}>
-        {!('choices' in question) ? (
+        {question.kind === 'ordering' ? (
+          <Practice.Ordering
+            label={t('RightAnswer')}
+            items={question.items.map((item) => ({ key: String(item.id), text: item.text }))}
+          />
+        ) : !('choices' in question) ? (
           <Textarea readOnly aria-label={t('RightAnswer')} value={question.referenceAnswer} />
         ) : (
           question.choices.map((choice, position) => (
