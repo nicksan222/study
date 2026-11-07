@@ -91,7 +91,7 @@ function open(directory: string) {
       if (!texts.length) return Effect.succeed([]);
 
       return client.perform(
-        texts.map((text) => `${prefix}: ${text}`),
+        { operation: prefix, texts: texts.map((text) => `${prefix}: ${text}`) },
         (message) => {
           const vectors = readVectors(message, texts.length);
 

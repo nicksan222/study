@@ -42,9 +42,12 @@ const chunkRequest = Schema.is(
 );
 
 const embeddingRequest = Schema.is(
-  Schema.Array(
-    Schema.String.check(Schema.isMaxLength(embeddingLimits.embeddingInputLength + 9))
-  ).check(Schema.isMaxLength(embeddingLimits.batchSize))
+  Schema.Struct({
+    operation: Schema.Literals(['query', 'passage']),
+    texts: Schema.Array(
+      Schema.String.check(Schema.isMaxLength(embeddingLimits.embeddingInputLength + 9))
+    ).check(Schema.isMinLength(1), Schema.isMaxLength(embeddingLimits.batchSize))
+  })
 );
 
 /** Measure tokens with the installed model tokenizer rather than approximating from characters. */
@@ -109,8 +112,8 @@ port.on('message', async (input: unknown) => {
 
   if (
     !embeddingRequest(input) ||
-    !input.length ||
-    input.some((text) => tokenCount(text) > embeddingLimits.tokens)
+    (input.operation === 'passage' &&
+      input.texts.some((text) => tokenCount(text) > embeddingLimits.tokens))
   ) {
     port.postMessage({ error: 'invalid_input' });
 
@@ -118,14 +121,16 @@ port.on('message', async (input: unknown) => {
   }
 
   try {
-    const result = await extractor([...input], { pooling: 'mean', normalize: true });
+    // FeatureExtractionPipeline tokenizes with truncation:true at the pinned 512-token context.
+    // Queries may use that tokenizer-aware truncation; passages must fit without losing content.
+    const result = await extractor([...input.texts], { pooling: 'mean', normalize: true });
     const data = result.data;
 
     if (!(data instanceof Float32Array)) throw new TypeError('Unexpected embedding representation');
 
     const vectors = new Float32Array(data);
 
-    port.postMessage({ vectors, count: input.length }, [vectors.buffer]);
+    port.postMessage({ vectors, count: input.texts.length }, [vectors.buffer]);
   } catch {
     port.postMessage({ error: 'internal' });
   }

@@ -45,6 +45,26 @@ const featureReaders: ReadonlyMap<string, ProjectionReader> = new Map([
   ['document', Documents.searchProjectionsInTransaction]
 ]);
 
+/** Yield one kind's SQL pages synchronously while its transaction view remains valid. */
+function* readPages(
+  tx: Transaction,
+  reader: ProjectionReader,
+  kind: string,
+  targets?: readonly SearchTarget[]
+) {
+  let offset = 0;
+
+  for (;;) {
+    const page = reader(tx, { offset, limit: 1000, kind, targets });
+
+    yield* page.items;
+
+    if (page.next === null) break;
+
+    offset = page.next;
+  }
+}
+
 export const Search = defineService(
   'study/Search',
   Effect.gen(function* () {
@@ -67,32 +87,22 @@ export const Search = defineService(
       return reader;
     };
 
-    /** Consume SQL pages inside the transaction without retaining the entire corpus text. */
+    /** Consume bounded target batches inside the transaction, keeping SQLite parameter counts bounded. */
     function* read(
       tx: Transaction,
       targets?: readonly SearchTarget[]
     ): Generator<SearchProjection> {
       for (const entry of registry.projections) {
-        if (
-          targets &&
-          !targets.some(
-            (target) => (target.type === 'registered' ? target.entity : target.type) === entry.kind
-          )
-        )
-          continue;
+        const requested = targets?.filter(
+          (target) => (target.type === 'registered' ? target.entity : target.type) === entry.kind
+        );
+
+        if (requested?.length === 0) continue;
 
         const reader = readerFor(entry);
-        let offset = 0;
 
-        for (;;) {
-          const page = reader(tx, { offset, limit: 1000, kind: entry.kind, targets });
-
-          yield* page.items;
-
-          if (page.next === null) break;
-
-          offset = page.next;
-        }
+        for (let start = 0; start < (requested?.length ?? 1); start += 200)
+          yield* readPages(tx, reader, entry.kind, requested?.slice(start, start + 200));
       }
     }
 

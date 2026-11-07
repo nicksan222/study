@@ -27,6 +27,41 @@ import { embeddingModel, installEmbeddingModel } from './model.ts';
 const modelDirectory = resolve('target/embedding-model');
 
 testStable(
+  'local query embeddings truncate dense valid queries while rejecting oversized passages',
+  async () => {
+    await Effect.runPromise(installEmbeddingModel(modelDirectory));
+    const query = Array.from({ length: 2000 }, (_, index) =>
+      String.fromCodePoint(0x4e00 + index)
+    ).join('');
+    const tokenizer = await AutoTokenizer.from_pretrained(modelDirectory, {
+      local_files_only: true
+    });
+
+    expect(
+      tokenizer(`query: ${query}`, { truncation: false, return_tensor: false }).input_ids.length
+    ).toBeGreaterThan(512);
+
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const model = yield* LocalEmbeddings.open(modelDirectory);
+          const vector = yield* model.embedQuery(query);
+
+          expect(vector).toHaveLength(384);
+          expect(vector.every(Number.isFinite)).toBe(true);
+          expect(cosine(vector, vector)).toBeCloseTo(1, 4);
+          const passage = yield* Effect.result(model.embedPassages([query]));
+
+          expect(passage._tag).toBe('Failure');
+
+          if (passage._tag === 'Failure') expect(passage.failure.kind).toBe('invalid_input');
+        })
+      )
+    );
+  }
+);
+
+testStable(
   'token-aware local passage chunks cover dense Unicode without silent model truncation',
   async () => {
     await Effect.runPromise(installEmbeddingModel(modelDirectory));
