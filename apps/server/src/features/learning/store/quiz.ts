@@ -105,7 +105,8 @@ export function makeQuiz(resources: StoreResources) {
   ) {
     if (
       !selected.length ||
-      (question.kind === 'single_choice' && selected.length !== 1) ||
+      ((question.kind === 'single_choice' || question.kind === 'true_false') &&
+        selected.length !== 1) ||
       new Set(selected).size !== selected.length
     )
       invalid('invalid choice cardinality');

@@ -24,7 +24,7 @@ export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diag
 export const quizGenerationConfigSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
   choiceCount: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: 6 })),
-  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank']),
+  questionKind: Schema.Literals(['mixed', 'choice', 'open', 'fill_blank', 'true_false']),
   difficulty: Schema.Literals(['easy', 'balanced', 'challenging'])
 });
 
@@ -124,6 +124,12 @@ const openQuestionInputSchema = Schema.Struct({
 });
 
 export const materialQuestionInputSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal('true_false'),
+    prompt: nonemptySchema,
+    explanation: nonemptySchema,
+    isTrue: Schema.Boolean
+  }),
   singleChoiceInputSchema,
   multipleChoiceInputSchema,
   openQuestionInputSchema,
@@ -229,6 +235,21 @@ const quizContentDetailSchema = Schema.Struct({
   questions: Schema.mutable(
     Schema.Array(
       Schema.Union([
+        Schema.Struct({
+          id: quizQuestionIdSchema,
+          kind: Schema.Literal('true_false'),
+          prompt: Schema.String,
+          explanation: Schema.String,
+          choices: Schema.mutable(
+            Schema.Array(
+              Schema.Struct({
+                id: quizChoiceIdSchema,
+                text: Schema.String,
+                isCorrect: Schema.Boolean
+              })
+            )
+          )
+        }),
         Schema.Struct({
           id: quizQuestionIdSchema,
           kind: Schema.Literal('single_choice'),

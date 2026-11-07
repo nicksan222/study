@@ -828,7 +828,7 @@
 .study-generation-brief .settings-section + .settings-section {
   margin-top: 2rem;
 }
-.study-generation-brief .settings-grid {
+.study-generation-brief [role='radiogroup'] > .settings-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 .study-generation-brief .settings-choice {

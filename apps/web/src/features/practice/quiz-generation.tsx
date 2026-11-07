@@ -117,7 +117,7 @@ function GenerationDialog({
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
-  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank'>('quiz');
+  const [kind, setKind] = useState<'quiz' | 'flashcards' | 'fill_blank' | 'true_false'>('quiz');
   const [instruction, setInstruction] = useState('');
   const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
   const preferences = useQuery(quizSettingsOptions());
@@ -134,19 +134,20 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const titleKey = {
     quiz: 'SidebarQuiz',
     flashcards: 'Flashcards',
-    fill_blank: 'PracticeFillBlank'
+    fill_blank: 'PracticeFillBlank',
+    true_false: 'PracticeTrueFalse'
   } as const;
   const configuredQuestionKind =
     configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
-  const questionKind = kind === 'fill_blank' ? kind : configuredQuestionKind;
-  /** Starts generation only after source selection and saved preferences are ready; blank practice remains a quiz material. */
+  const questionKind = kind !== 'quiz' && kind !== 'flashcards' ? kind : configuredQuestionKind;
+  /** Starts generation after sources and preferences are ready; specialized practice remains a quiz material. */
   const create = () => {
     if (hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
         title: t(titleKey[kind]),
         autoTitle: true,
-        kind: kind === 'fill_blank' ? 'quiz' : kind,
+        kind: kind === 'flashcards' ? 'flashcards' : 'quiz',
         instruction: instruction.trim() || undefined,
         inputs: inputs.filter((input) => input.kind === 'document'),
         quizConfig:
@@ -220,9 +221,20 @@ function GenerationPanel({
               >
                 <TextCursorInput aria-hidden="true" />
               </Settings.Choice>
+              <Settings.Choice
+                label={t('PracticeTrueFalse')}
+                selected={model.kind === 'true_false'}
+                disabled={model.busy}
+                onSelect={() => model.setKind('true_false')}
+              >
+                <GraduationCap aria-hidden="true" />
+              </Settings.Choice>
             </Settings.ChoiceGroup>
             {model.kind === 'fill_blank' && (
               <Settings.Intro>{t('PracticeFillBlankHelp')}</Settings.Intro>
+            )}
+            {model.kind === 'true_false' && (
+              <Settings.Intro>{t('PracticeTrueFalseHelp')}</Settings.Intro>
             )}
           </Settings.Section>
           <Practice.Customize>

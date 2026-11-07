@@ -84,7 +84,13 @@ function seedQuiz(
         })
         .run();
     } else {
-      for (const [index, option] of value.choices.entries()) {
+      for (const [index, option] of (value.kind === 'true_false'
+        ? [
+            { text: 'true', isCorrect: value.isTrue },
+            { text: 'false', isCorrect: !value.isTrue }
+          ]
+        : value.choices
+      ).entries()) {
         db.orm
           .insert(material_quiz_choices)
           .values({

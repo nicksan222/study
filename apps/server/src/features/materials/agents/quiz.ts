@@ -32,5 +32,5 @@ export const quizAgent = defineAgent({
   output: materialQuizContentInputSchema,
   model: 'medium',
   instructions: (language) =>
-    `${instructions(language)} Produce at most 10 questions. For single choice mark exactly one correct choice; for multiple choice mark every correct choice. For fill_blank questions, put exactly one literal ____ marker in a meaningful sentence and provide only the missing word or short phrase in referenceAnswer; keep citations in the explanation so they do not reveal the answer. Include explanations and cite sources in question text or explanations.`
+    `${instructions(language)} Produce at most 10 questions. For true_false, write a meaningful source-grounded statement and set isTrue to its boolean truth value; do not generate choices. Explain and correct false statements in the explanation. For single choice mark exactly one correct choice; for multiple choice mark every correct choice. For fill_blank questions, put exactly one literal ____ marker in a meaningful sentence and provide only the missing word or short phrase in referenceAnswer; keep citations in the explanation so they do not reveal the answer. Include explanations and cite sources in question text or explanations.`
 });

@@ -267,9 +267,13 @@ function SavedQuestion({ question }: { question: Question }) {
             <Practice.ChoiceOption
               key={String(choice.id)}
               number={number + 1}
-              text={choice.text}
+              text={
+                question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text
+              }
               selected={selected.includes(choice.id)}
-              type={question.kind === 'single_choice' ? 'radio' : 'checkbox'}
+              type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
               name={label}
               value={String(choice.id)}
               readOnly

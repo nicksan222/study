@@ -268,11 +268,13 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
           key: String(question.id),
           prompt: question.prompt,
           detail: t(
-            question.kind === 'fill_blank'
-              ? 'PracticeFillBlank'
-              : question.kind === 'open'
-                ? 'QuestionOpen'
-                : 'QuestionChoice'
+            question.kind === 'true_false'
+              ? 'PracticeTrueFalse'
+              : question.kind === 'fill_blank'
+                ? 'PracticeFillBlank'
+                : question.kind === 'open'
+                  ? 'QuestionOpen'
+                  : 'QuestionChoice'
           )
         }))}
       />
@@ -280,8 +282,11 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   );
 }
 
-/** Returns saved text or selected choice labels for review, leaving unanswered questions empty. */
-function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]) {
+/** Returns localized saved text or selected choice labels for review, leaving unanswered questions empty. */
+function savedAnswer(
+  t: ReturnType<typeof useI18n>['t'],
+  question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]
+) {
   const answer = question.answer;
 
   if (!answer) return null;
@@ -292,7 +297,11 @@ function savedAnswer(question: (typeof quizAttemptInProgressSchema.Type)['questi
 
   return question.choices
     .filter((choice) => answer.choiceIds.includes(choice.id))
-    .map((choice) => choice.text)
+    .map((choice) =>
+      question.kind === 'true_false'
+        ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+        : choice.text
+    )
     .join(', ');
 }
 
@@ -324,7 +333,7 @@ function QuizFinish({
               <div>
                 <small>{questionNumber(locale, position + 1)}</small>
                 <h3>{item.prompt}</h3>
-                <p>{savedAnswer(item) ?? t('PracticeUnanswered')}</p>
+                <p>{savedAnswer(t, item) ?? t('PracticeUnanswered')}</p>
               </div>
               <Button
                 variant="ghost"
