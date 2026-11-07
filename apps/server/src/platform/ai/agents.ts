@@ -20,11 +20,12 @@ import { randomUUID } from 'node:crypto';
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { agentRunIdSchema } from '@study/contracts/ai/progress';
 import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts/ai/progress';
+import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError, isRetryable } from '@study/contracts/errors';
 import type { ModelTier } from '@study/contracts/settings/schemas';
 import type { AgentRules } from '@study/contracts/settings/types';
 import type { UsageRecord } from '@study/contracts/settings/usage';
-import { streamText, Output, stepCountIs } from 'ai';
+import { APICallError, streamText, Output, stepCountIs } from 'ai';
 import type { Cause } from 'effect';
 import {
   Cause as EffectCause,
@@ -42,8 +43,8 @@ import {
 import { makeAdmission } from '#server/platform/ai/admission';
 import type { Admission } from '#server/platform/ai/admission';
 import { batchAgentProgress } from '#server/platform/ai/progress';
-import { ChatGptRequestError, withRequestCheck } from '#server/platform/ai/providers/chatgpt/model';
-import { adaptProviderTool } from '#server/platform/ai/providers/chatgpt/tools';
+import { withRequestCheck } from '#server/platform/ai/providers/request-check';
+import { adaptProviderTool } from '#server/platform/ai/providers/tools';
 import { standardSchema } from '#server/platform/ai/schema';
 import { adaptTool, adaptRequestCheck, adaptUsageRecorder } from '#server/platform/ai/tool-adapter';
 import { withUsageTracking } from '#server/platform/ai/usage';
@@ -91,8 +92,21 @@ export type AgentProgress<A> = typeof agentUpdateSchema.Type | { type: 'complete
 function failure(error: unknown): StudyError {
   if (error instanceof StudyError) return error;
 
-  if (error instanceof ChatGptRequestError)
-    return new StudyError(error.kind, 'Model request failed', { cause: error });
+  if (APICallError.isInstance(error)) {
+    const kinds: Readonly<Record<number, ErrorKind>> = {
+      400: 'invalid_input',
+      401: 'auth',
+      402: 'config',
+      403: 'auth',
+      404: 'model_unavailable',
+      405: 'unsupported',
+      422: 'invalid_input',
+      429: 'rate_limited'
+    };
+    const kind = kinds[error.statusCode ?? 0] ?? (error.isRetryable ? 'transient' : 'config');
+
+    return new StudyError(kind, 'Model request failed');
+  }
 
   return new StudyError('transient', 'Agent request failed', { cause: error });
 }
@@ -156,7 +170,14 @@ export function streamAgent<
     const baseSystem = customRules.length
       ? `${instructions}\n\nUser preferences (apply where compatible with the task, required output format and source fidelity):\n${customRules.join('\n\n')}`
       : instructions;
-    const wiki = Object.entries(definition.tools ?? {}).map(
+    const hasFunctionTools = Object.values(definition.tools ?? {}).some(
+      (tool) => !('provider' in tool)
+    );
+    const availableTools = Object.entries(definition.tools ?? {}).filter(
+      ([, tool]) =>
+        !('provider' in tool) || adaptProviderTool(model, tool, hasFunctionTools) !== undefined
+    );
+    const wiki = availableTools.map(
       ([name, tool]) =>
         `${name} (${tool.mutates ? 'changes local data' : 'read only'}): ${tool.description}\nWhen: ${tool.wiki.when}\nExamples: ${tool.wiki.examples.join(' | ')}\nLimits: ${tool.wiki.limits}`
     );
@@ -213,10 +234,10 @@ export function streamAgent<
               try: () => {
                 const prompt = definition.prompt(validated);
                 const tools = Object.fromEntries(
-                  Object.entries(definition.tools ?? {}).map(([name, value]) => [
+                  availableTools.map(([name, value]) => [
                     name,
                     'provider' in value
-                      ? adaptProviderTool(value)
+                      ? adaptProviderTool(model, value, hasFunctionTools)!
                       : adaptTool(value, service, span, annotations, callbackContext, {
                           name,
                           emit

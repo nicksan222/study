@@ -54,7 +54,10 @@ import {
 import { Agents } from '#server/platform/ai/agents';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
+import { createApiKeyModel } from '#server/platform/ai/providers/api-key-model';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
+import { getApiKeyProvider } from '#server/platform/ai/providers/registry';
+import { adaptCredentialReader } from '#server/platform/ai/tool-adapter';
 import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -142,6 +145,7 @@ export function nativeLayers(
     Agents,
     Effect.gen(function* () {
       const settings = yield* Settings;
+      const auth = yield* Auth;
 
       const aiAdmission = yield* AiAdmission;
 
@@ -158,18 +162,27 @@ export function nativeLayers(
         language: settings.language(),
         rules: settings.agentRules(),
         model: (tier) =>
-          settings
-            .model(tier)
-            .pipe(
-              Effect.map((modelId) =>
-                createChatGptModel({ auth: manager, modelId, fetch: request })
-              )
-            ),
+          settings.model(tier).pipe(
+            Effect.flatMap(({ provider, modelId }): ReturnType<Agents['Service']['model']> =>
+              typeof provider === 'string'
+                ? Effect.try({
+                    try: () =>
+                      createApiKeyModel(
+                        getApiKeyProvider(provider),
+                        modelId,
+                        adaptCredentialReader(auth.apiKey(provider)),
+                        request
+                      ),
+                    catch: () => new StudyError('config', 'Could not initialize AI provider')
+                  })
+                : Effect.succeed(createChatGptModel({ auth: manager, modelId, fetch: request }))
+            )
+          ),
         searchSources: () =>
           Effect.fail(new StudyError('unsupported', 'Source search is not configured'))
       };
     })
-  ).pipe(Layer.provide(Layer.mergeAll(services, admission)));
+  ).pipe(Layer.provide(Layer.mergeAll(allServices, admission)));
 
   const shared = Layer.mergeAll(allServices, session, agents, configuration, admission).pipe(
     Layer.provideMerge(Layer.succeed(Logger.LogToStderr, true))

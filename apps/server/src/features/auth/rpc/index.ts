@@ -24,6 +24,8 @@ export const AuthRpcLive = defineRpc(
     const auth = yield* Auth;
 
     return {
+      'auth.providers': () => auth.providers(),
+      'auth.saveApiKey': (input) => auth.saveApiKey(input),
       'auth.status': () => auth.status(),
       'auth.publicAccount': () => auth.publicAccount(),
       'auth.startSignIn': (input) => auth.startSignIn(input),

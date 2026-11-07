@@ -76,7 +76,7 @@ export const english = Object.freeze({
   UsageTokens: 'Tokens',
   UsageShare: 'Share',
   UsageExplanation:
-    'Tracks provider-reported usage in Study from now on, including tool steps and retries that report tokens. Interrupted calls without usage are unavailable. Cached tokens are part of input; reasoning is part of output. This is not account-wide usage or your ChatGPT plan limit.',
+    'Tracks provider-reported usage in Study from now on, including tool steps and retries that report tokens. Interrupted calls without usage are unavailable. Cached tokens are part of input; reasoning is part of output. This is not account-wide usage or a provider billing statement.',
 
   AssistantHistory: 'Chat history',
   AssistantNewChat: 'New chat',
@@ -164,7 +164,7 @@ export const english = Object.freeze({
   AssistantEarlier: 'Earlier messages',
   AssistantReplyFailed: 'The Assistant could not finish its reply.',
   AssistantStopped: 'Reply stopped.',
-  AssistantSignIn: 'Sign in under Settings → ChatGPT account, then retry.',
+  AssistantSignIn: 'Connect a provider under Settings → AI providers, then retry.',
   AssistantActionFailed: 'That action could not be completed. Try again.',
   AssistantStop: 'Stop reply',
   AssistantLoadFailed: 'Could not load or send this conversation. Your draft is still here.',
@@ -215,11 +215,11 @@ export const english = Object.freeze({
   SessionConversionFailedHelp:
     'Your original note is kept. Retry the saved conversion or discard the failed attempt.',
   SessionDiscardConversion: 'Discard conversion',
-  ConversionChatGpt: 'ChatGPT',
+  ConversionChatGpt: 'AI text conversion',
   SessionConvertText: 'Convert to text',
   WorkspaceConversionMode: 'Text conversion',
   WorkspaceConversionModeHelp:
-    'Create a cleaned text version of multi-line notes and PDF attachments after saving. Original versions are kept. Documents are sent to ChatGPT.',
+    'Create a cleaned text version of multi-line notes and PDF attachments after saving. Original versions are kept. Documents are sent to the provider selected for the task.',
   WorkspaceConversionManual: 'Manual',
   WorkspaceConversionAutomatic: 'Automatic',
   WorkspaceConversionStrategy: 'Conversion method',
@@ -440,7 +440,7 @@ export const english = Object.freeze({
   DocumentsMergeInstruction: 'Instructions (optional)',
   DocumentsMerging: 'Merging documents…',
   DocumentsMergeSetup:
-    'Sign in to ChatGPT in Settings, then retry the merge. Your originals are still available.',
+    'Connect an AI provider in Settings, then retry the merge. Your originals are still available.',
   DocumentsMergeInputsChanged:
     'A selected document changed or is unavailable. Cancel this merge and select the current documents.',
   DocumentsMergeFailed: 'The merge could not finish. Your originals are still available.',
@@ -1184,14 +1184,16 @@ export const english = Object.freeze({
   SessionNoteUncertain:
     'This note may already be saved. Review the notebook before sending it again. No automatic retry was made.',
   SessionReviewedHistory: 'I reviewed the notebook; keep my draft',
-  SessionAuthError: 'Sign in to ChatGPT in Settings, then retry this request. Your draft is kept.',
+  SessionAuthError:
+    'Check the selected AI provider’s connection or API key in Settings, then retry. Your draft is kept.',
   SessionConflict:
     'The request no longer matches the saved state. Your changes are kept; review the selection before submitting again.',
   SessionRequestError:
     'The request could not be confirmed. Your draft is kept. Retry only the same submitted request, or refresh its status.',
   SessionThinking: 'Thinking…',
   SessionPending: 'Request accepted; waiting for a result.',
-  SessionWaiting: 'Work is waiting. Check ChatGPT access in Settings if it does not continue.',
+  SessionWaiting:
+    'Work is waiting. Check the selected AI provider in Settings if it does not continue.',
   SessionCompleted: 'Work completed',
   SessionCancelled: 'Work cancelled',
   SessionCancelling: 'Cancellation requested',
@@ -1353,7 +1355,7 @@ export const english = Object.freeze({
   ReaderOmitMarkup: 'Unsupported markup',
   LibraryPrevious: 'Return to previous browse view',
 
-  AiSettingsAccount: 'ChatGPT account',
+  AiSettingsAccount: 'AI providers',
   AiSettingsChatGpt: 'ChatGPT',
   AiSettingsPlanDescription: 'Connect your ChatGPT account to run AI tasks on your plan.',
   AiSettingsConnected: 'Connected',
@@ -1365,14 +1367,27 @@ export const english = Object.freeze({
   AiSettingsCancelSignIn: 'Cancel sign-in',
   AiSettingsWaiting: 'Waiting for ChatGPT sign-in.',
   AiSettingsFailed: 'Could not update AI settings. Retry to check your connection and try again.',
+  AiSettingsProvider: 'Provider',
+  AiSettingsCredentialsIntro:
+    'Connect an account or save an API key, then choose which tasks use it under Models by task.',
+  AiSettingsApiProviders: 'API providers',
+  AiSettingsApiProvidersDescription:
+    'Optional: use your own API keys. Requests are billed by the selected provider. Keys stay in your local database and are excluded from backups.',
+  AiSettingsProviderBrand: '{provider}',
+  AiSettingsApiKey: 'API key',
+  AiSettingsSaveKey: 'Save key',
+  AiSettingsRemoveKey: 'Remove key',
+  AiSettingsKeySaved: 'Key saved. Enter a new key to replace it.',
+  AiSettingsKeyMissing: 'No key saved.',
+  AiSettingsModel: 'Model',
   AiSettingsModels: 'Models by task',
   AiSettingsDefaultModel: 'Use default',
   AiSettingsTiny: 'Quick tasks',
-  AiSettingsTinyDescription: 'Default: GPT-6 Luna.',
+  AiSettingsTinyDescription: 'For titles and other short tasks.',
   AiSettingsMedium: 'Everyday tasks',
-  AiSettingsMediumDescription: 'Default: GPT-6.1 Sol.',
+  AiSettingsMediumDescription: 'For answers and everyday study tasks.',
   AiSettingsSmart: 'Complex tasks',
-  AiSettingsSmartDescription: 'Default: GPT-6 Astra.',
+  AiSettingsSmartDescription: 'For reasoning and complex study material.',
   AiSettingsLuna: 'GPT-6 Luna',
   AiSettingsSol: 'GPT-6.1 Sol',
   AiSettingsAstra: 'GPT-6 Astra',
@@ -1510,9 +1525,9 @@ export const english = Object.freeze({
   OnboardingReplayHint: 'A quick introduction. You can skip or replay it anytime.',
   OnboardingReplayDescription: 'Take a quick look at sessions, study tools and how to get started.',
   OnboardingSaveFailed: 'Your progress could not be saved. Try again to finish the welcome.',
-  OnboardingConnectTitle: 'Connect your ChatGPT',
+  OnboardingConnectTitle: 'Connect an AI provider',
   OnboardingConnectDescription:
-    'Sign in with your ChatGPT plan to ask questions and create study material. You can also do this later in Settings.',
+    'Connect an account or add an API key to ask questions and create study material. You can also do this later in Settings.',
   OnboardingLanguageIntro: 'Choose the language you feel at home in.',
   OnboardingAppearanceIntro: 'Use your system setting, or pick light or dark.',
   OnboardingWelcomeSimple: 'A calm place for your notes, your material and everything you learn.',
@@ -1563,13 +1578,12 @@ export const english = Object.freeze({
   OnboardingNotesHint: 'Only a note that mentions @study gets an answer.',
   OnboardingAiTitle: 'Where AI runs',
   OnboardingAiIntro:
-    'Study reads, writes and answers with your ChatGPT plan. Only listening to recordings and searching run here, privately, once their models are downloaded.',
+    'Study reads, writes and answers with your selected AI provider. Local features run on this computer.',
   OnboardingAiDownload: 'Download what runs here',
   OnboardingAiDownloading: 'Downloading models… this can take a while.',
   OnboardingAiDownloaded: 'Everything that runs here is downloaded.',
-  OnboardingAiChatGpt:
-    'Sign in with ChatGPT Plus or Pro: reading your files, study material and answers run on your plan.',
-  OnboardingAiChatGptReady: 'The language models run on your ChatGPT plan.',
+  OnboardingAiChatGpt: 'Connect a provider and choose a model for each kind of task in Settings.',
+  OnboardingAiChatGptReady: 'Language models use the provider selected for each task.',
   OnboardingAiWaitForModels:
     'When you continue, what runs here downloads in the background, and you can start studying meanwhile.',
   OnboardingAiLater: 'You can change any of this later in Settings, under AI.',
@@ -1716,7 +1730,7 @@ export const english = Object.freeze({
   VersionFailed: 'Failed',
   VersionNew: 'New version',
   StopVersion: 'Stop the new version',
-  VersionWaitingSignIn: 'Waiting for ChatGPT sign-in',
+  VersionWaitingSignIn: 'Waiting for an AI provider connection',
   VersionSignIn: 'Sign in',
   RewriteInstructionHint: 'Enter to run',
   AiEdit: 'AI edit',
@@ -2036,7 +2050,7 @@ export const english = Object.freeze({
   StopJob: 'Stop',
   RetryJob: 'Try again',
   JobActionError: 'Could not change this task. Try again.',
-  SetupSignIn: 'Sign in to ChatGPT',
+  SetupSignIn: 'Connect a provider',
   SetupAction: 'Set up',
   StageFetch: 'Fetching a link',
   StageTranscription: 'Transcription',
@@ -2060,7 +2074,8 @@ export const english = Object.freeze({
   ActivityWorking: 'Working',
   ActivityWriting: 'Writing',
   ActivityChecking: 'Checking',
-  ProblemSignIn: "ChatGPT didn't accept your sign-in. Sign in again in Settings.",
+  ProblemSignIn:
+    'The selected provider rejected your credentials. Check its connection or API key in Settings.',
   ProblemConnection:
     "Couldn't reach the online service. Check your internet connection and try again.",
   ProblemBusy: 'The online service is busy right now. Try again in a minute.',
@@ -2167,10 +2182,10 @@ export const english = Object.freeze({
   AiSetUp: 'Set up',
   AiOpen: 'Open',
   AiPrivacyNote:
-    'Transcription and search run on this computer, and what they read never leaves it. Everything else goes to your ChatGPT plan, and only what each task needs.',
-  SetupLlmTitle: 'Connect your ChatGPT plan',
+    'Local features run on this computer. AI tasks send only the material they need to your selected provider.',
+  SetupLlmTitle: 'Connect an AI provider',
   SetupLlmBody:
-    'Study writes diagrams, flashcards and answers with your ChatGPT plan. Sign in once and it covers everything.',
+    'Connect an account or enter an API key, then choose models for diagrams, flashcards and answers.',
   SetupTranscriptionTitle: 'Download the transcription model',
   SetupTranscriptionBody:
     'Recordings turn into text on this computer and never leave it. The model downloads once.',
@@ -2183,24 +2198,22 @@ export const english = Object.freeze({
   CountError: 'Use a whole number of model copies, from 1 to 4.',
   TestConnection: 'Test connection',
   TestingConnection: 'Testing connection…',
-  ConnectionOk: 'Connected. ChatGPT accepted a test request.',
-  ConnectionFailed:
-    'ChatGPT did not accept the test. Check that you are signed in and the model names.',
+  ConnectionOk: 'Connected. The provider accepted a test request.',
+  ConnectionFailed: 'The provider did not accept the test. Check its credentials and model ID.',
   ModelInstalled: 'Installed',
   DownloadModel: 'Download model',
   DownloadingModel: 'Downloading model…',
   ModelDownloadError: 'Could not download the model. Check your connection and try again.',
   Transcription: 'Transcription',
   TranscriptionDescription:
-    'Study turns lectures and recordings into text on this computer; your ChatGPT plan then corrects what it heard.',
+    'Study turns recordings into text and uses your selected AI provider for any transcript correction.',
   TranscriptionMenuSubtitle: 'Speech-to-text on this computer',
   TranscriptionLoadError: 'Could not load the transcription settings. Try again.',
   ModelCopiesHint: 'Each copy uses about 2 GB of memory and transcribes in parallel.',
   LocalModelReady: 'The model is downloaded and ready.',
   LocalModelMissing: 'The model has not been downloaded yet.',
   Llm: 'Language models',
-  LlmDescription:
-    'Study runs on your ChatGPT plan: sign in, then choose the model for each kind of task.',
+  LlmDescription: 'Connect a provider, then choose the model for each kind of task.',
   LlmMenuSubtitle: 'Models for each kind of task',
   LlmLoadError: 'Could not load the language model settings. Try again.',
   LlmProviderChatGpt: 'Your ChatGPT plan',

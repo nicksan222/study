@@ -10,9 +10,36 @@ export const appSettingsSchema = Schema.Struct({
   onboarded: Schema.Boolean
 });
 
-export const tierSetupSchema = Schema.Struct({
-  provider: Schema.Literal(1),
-  model: Schema.optional(Schema.Literals([1, 2, 3]))
+/** Provider modules register IDs; the service checks membership before saving or requesting. */
+const apiKeyProviderIdSchema = Schema.String.check(Schema.isPattern(/^[a-z][a-z0-9-]{0,63}$/));
+
+const modelIdSchema = Schema.String.check(
+  Schema.isMinLength(1),
+  Schema.isMaxLength(200),
+  Schema.isPattern(/^\S+$/)
+);
+
+export const tierSetupSchema = Schema.Union([
+  Schema.Struct({
+    provider: Schema.Literal(1),
+    model: Schema.optional(Schema.Literals([1, 2, 3]))
+  }),
+  Schema.Struct({ provider: apiKeyProviderIdSchema, model: Schema.optional(modelIdSchema) })
+]);
+
+export const apiKeyInputSchema = Schema.Struct({
+  provider: apiKeyProviderIdSchema,
+  apiKey: Schema.NullOr(
+    Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(8192), Schema.isPattern(/^\S+$/))
+  )
+});
+
+export const aiProviderSchema = Schema.Struct({
+  id: apiKeyProviderIdSchema,
+  name: Schema.String,
+  models: Schema.Array(modelIdSchema),
+  defaults: Schema.Struct({ tiny: modelIdSchema, medium: modelIdSchema, smart: modelIdSchema }),
+  configured: Schema.Boolean
 });
 
 export const llmSettingsSchema = Schema.Struct({

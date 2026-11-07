@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Converts PDF pages and pasted text with the signed in ChatGPT provider.            │
+ * │ @file Converts PDF pages and pasted text with the configured AI model provider.          │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Prepares faithful transcription inputs and validates ordered page outputs.             │

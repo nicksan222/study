@@ -1,4 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
+import type { apiKeyInputSchema } from '@study/contracts/settings/schemas';
 import type { LlmSettings } from '@study/contracts/settings/types';
 import { isTauri } from '@tauri-apps/api/core';
 import { Effect } from 'effect';
@@ -12,9 +13,10 @@ export const loadAiSettings = (signal?: AbortSignal) =>
       Effect.all(
         {
           status: client['auth.status']({}),
+          providers: client['auth.providers']({}),
           settings: client['settings.llmSettings']({})
         },
-        { concurrency: 2 }
+        { concurrency: 3 }
       ),
     signal
   );
@@ -56,3 +58,7 @@ export const signOutChatGpt = () => request((client) => client['auth.signOut']({
 
 export const saveAiSettings = (settings: LlmSettings) =>
   request((client) => client['settings.saveLlmSettings'](settings));
+
+/** Keys are write-only over RPC; settings queries return only configured status. */
+export const saveProviderApiKey = (input: typeof apiKeyInputSchema.Type) =>
+  request((client) => client['auth.saveApiKey'](input));

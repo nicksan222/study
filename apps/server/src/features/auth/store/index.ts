@@ -26,6 +26,8 @@ const scope = 'private.chatgpt';
 
 const key = 'account';
 
+const providerScope = 'private.ai-providers';
+
 function makeHelpers({ db }: StoreResources) {
   function replaceGeneration() {
     const value = JSON.stringify(randomUUID());
@@ -94,7 +96,7 @@ export const AuthStore = defineStore({
           run: () => {
             db.orm
               .delete(preferences)
-              .where(sql`${preferences.scope} = ${scope}`)
+              .where(sql`${preferences.scope} IN (${scope}, ${providerScope})`)
               .run();
           }
         }),
@@ -168,10 +170,68 @@ export const AuthBackupStore = defineStore({
           !db.orm
             .select()
             .from(preferences)
-            .where(sql`${preferences.scope} = ${scope}`)
+            .where(sql`${preferences.scope} IN (${scope}, ${providerScope})`)
             .get()
       })
     },
     mutations: {}
   })
+});
+
+/** Private provider credentials share the account's durable generation fence. */
+export const ApiKeyStore = defineStore({
+  name: 'study/ApiKeyStore',
+  entity: { singular: 'apiKeys', plural: 'apiKeySets' },
+  make: ({ db, clock }) => {
+    const { replaceGeneration } = makeHelpers({ db, clock });
+
+    return {
+      queries: {
+        apiKeys: storeQuery({
+          role: 'required',
+          input: Schema.Void,
+          output: Schema.Record(Schema.String, Schema.String),
+          run: () =>
+            Object.fromEntries(
+              db.orm
+                .select()
+                .from(preferences)
+                .where(sql`${preferences.scope} = ${providerScope}`)
+                .all()
+                .map((row) => [
+                  row.key,
+                  Schema.decodeUnknownSync(Schema.String)(JSON.parse(row.value))
+                ])
+            )
+        })
+      },
+      mutations: {
+        saveApiKey: storeMutation({
+          input: Schema.Struct({ provider: Schema.String, apiKey: Schema.NullOr(Schema.String) }),
+          output: Schema.Void,
+          run: ({ provider, apiKey }) => {
+            if (apiKey === null) {
+              db.orm
+                .delete(preferences)
+                .where(
+                  sql`${preferences.scope} = ${providerScope} AND ${preferences.key} = ${provider}`
+                )
+                .run();
+            } else {
+              db.orm
+                .insert(preferences)
+                .values({ scope: providerScope, key: provider, value: JSON.stringify(apiKey) })
+                .onConflictDoUpdate({
+                  target: [preferences.scope, preferences.key],
+                  set: { value: JSON.stringify(apiKey) }
+                })
+                .run();
+            }
+
+            replaceGeneration();
+          }
+        })
+      }
+    };
+  }
 });

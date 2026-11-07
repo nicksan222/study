@@ -1,17 +1,13 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Adapts the signed-in ChatGPT plan to the AI SDK LanguageModelV3 interface. It      │
- * │ supplies OAuth tokens, checks request preflight, and validates streamed Responses        │
- * │ termination.                                                                             │
+ * │ @file Adapts the signed in ChatGPT plan to AI SDK with OAuth and validated streaming.    │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Exports ChatGptRequestError, ChatGptModel, withRequestCheck, ChatGptModelOptions,      │
- * │   createChatGptModel. It supplies OAuth tokens, checks request preflight, and validates  │
- * │   streamed Responses termination.                                                        │
+ * │ - Supplies tokens, request ownership checks and native provider capabilities.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ ChatGptSession and model construction consume this provider API; OAuth transport uses    │
- * │ platform/http and persisted credentials remain in Auth-owned storage.                    │
+ * │ ChatGPT session management owns live credentials; feature agents consume the shared SDK  │
+ * │ interface.                                                                               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -27,13 +23,14 @@ import { StudyError } from '@study/contracts/errors';
 import type { Clock } from 'effect';
 
 import type { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
+import { chatGptTools } from '#server/platform/ai/providers/chatgpt/tools';
 import { streamingFetch } from '#server/platform/http/index';
 
-export class ChatGptRequestError extends Error {
+class ChatGptRequestError extends StudyError {
   readonly kind: 'auth' | 'rate_limited' | 'transient' | 'unsupported';
 
   constructor(kind: 'auth' | 'rate_limited' | 'transient' | 'unsupported') {
-    super(`ChatGPT request failed (${kind})`);
+    super(kind, `ChatGPT request failed (${kind})`);
     this.name = 'ChatGptRequestError';
     this.kind = kind;
   }
@@ -118,18 +115,8 @@ function requireTerminal(response: Response): Response {
 type RequestCheck = (signal: AbortSignal | undefined) => Promise<void>;
 
 export interface ChatGptModel extends LanguageModelV3 {
+  providerTools: typeof chatGptTools;
   withRequestCheck(check: RequestCheck): ChatGptModel;
-}
-
-function supportsRequestCheck(model: LanguageModelV3): model is ChatGptModel {
-  return 'withRequestCheck' in model && typeof model.withRequestCheck === 'function';
-}
-
-export function withRequestCheck(model: LanguageModelV3, check: RequestCheck): LanguageModelV3 {
-  if (!supportsRequestCheck(model))
-    throw new StudyError('unsupported', 'Model does not support request preflight');
-
-  return model.withRequestCheck(check);
 }
 
 export interface ChatGptModelOptions {
@@ -268,6 +255,7 @@ export function createChatGptModel({
   return {
     specificationVersion: 'v3',
     provider: 'chatgpt',
+    providerTools: chatGptTools,
     withRequestCheck: (check) =>
       createChatGptModel({
         auth,

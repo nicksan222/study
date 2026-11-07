@@ -26,6 +26,7 @@ import { AuthManager, SignIn } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { transaction } from '#server/platform/definitions/define-store';
 
 testStable('auth uses private SQLite account and guards refresh rotation', async () => {
   const location = createTestDatabase();
@@ -308,6 +309,49 @@ testStable('cancelling during listener acquisition releases the acquired listene
     release();
     SignIn.start = original;
     await manager.dispose();
+    context.close();
+    location.cleanup();
+  }
+});
+
+testStable('API keys stay private and persist independently', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
+  const layer = Auth.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context })),
+    Layer.provide(Layer.succeed(ChatGptSession, { manager, issuer: 'http://localhost' }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const auth = yield* Auth;
+        const before = yield* auth.credentialGeneration();
+
+        yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'test-secret' });
+        expect(yield* auth.apiKey('anthropic')).toBe('test-secret');
+        expect(yield* auth.credentialGeneration()).not.toBe(before);
+        const catalog = yield* auth.providers();
+
+        expect(catalog.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
+        expect(JSON.stringify(catalog)).not.toContain('test-secret');
+        expect(
+          (yield* Effect.flip(auth.saveApiKey({ provider: 'unknown', apiKey: 'test' }))).kind
+        ).toBe('invalid_input');
+        expect(
+          (yield* Effect.flip(auth.saveApiKey({ provider: 'anthropic', apiKey: ' ' }))).kind
+        ).toBe('invalid_input');
+        expect(yield* transaction(Auth.validateBackup)).toBe(false);
+        yield* transaction(Auth.sanitizeBackup);
+        expect(yield* transaction(Auth.validateBackup)).toBe(true);
+        expect((yield* auth.providers()).every((provider) => !provider.configured)).toBe(true);
+        yield* auth.saveApiKey({ provider: 'anthropic', apiKey: 'replacement-secret' });
+        yield* auth.saveApiKey({ provider: 'anthropic', apiKey: null });
+        expect((yield* Effect.flip(auth.apiKey('anthropic'))).kind).toBe('auth');
+      }).pipe(Effect.provide(layer), Effect.scoped)
+    );
+  } finally {
     context.close();
     location.cleanup();
   }

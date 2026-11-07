@@ -18,6 +18,7 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
+import { StudyError } from '@study/contracts/errors';
 import { AgentRule } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
@@ -763,7 +764,7 @@ testStable('rejects invalid request limits before making a provider request', as
   );
 });
 
-testStable('preserves the provider error kind and cause after retries are exhausted', async () => {
+testStable('preserves the typed provider error after retries are exhausted', async () => {
   await peer(
     (_req, res) => {
       res.writeHead(429).end();
@@ -774,7 +775,7 @@ testStable('preserves the provider error kind and cause after retries are exhaus
       );
 
       assert.ok(error.kind === 'rate_limited');
-      assert.ok((error.cause as { name: string }).name === 'ChatGptRequestError');
+      assert.strictEqual(error.name, 'ChatGptRequestError');
     }
   );
 });
@@ -824,41 +825,42 @@ testStable(
   }
 );
 
-testStable(
-  'a model without request checks fails in the typed lane before provider work',
-  async () => {
-    let calls = 0;
+testStable('generic model request checks fail in the typed lane before provider work', async () => {
+  let calls = 0;
 
-    await peer(
-      (_req, res) => {
-        calls++;
-        send(res, 'unexpected');
-      },
-      async (base, auth) => {
-        const { withRequestCheck: _check, ...model } = createChatGptModel({
-          auth,
-          modelId: 'test',
-          baseUrl: base
-        });
-        const failure = await Effect.runPromise(
-          Effect.flip(generateAgent(definition, 'question', { preflight: Effect.void })).pipe(
-            Effect.provide(
-              layer({
-                model: () => Effect.succeed(model),
-                language: 'en',
-                rules: Effect.succeed(defaultAgentRules),
-                searchSources: () => Effect.succeed([])
-              })
-            )
+  await peer(
+    (_req, res) => {
+      calls++;
+      send(res, 'unexpected');
+    },
+    async (base, auth) => {
+      const { withRequestCheck: _check, ...model } = createChatGptModel({
+        auth,
+        modelId: 'test',
+        baseUrl: base
+      });
+      const failure = await Effect.runPromise(
+        Effect.flip(
+          generateAgent(definition, 'question', {
+            preflight: Effect.fail(new StudyError('cancelled', 'Ownership lost'))
+          })
+        ).pipe(
+          Effect.provide(
+            layer({
+              model: () => Effect.succeed(model),
+              language: 'en',
+              rules: Effect.succeed(defaultAgentRules),
+              searchSources: () => Effect.succeed([])
+            })
           )
-        );
+        )
+      );
 
-        assert.ok(failure.kind === 'unsupported');
-        assert.strictEqual(calls, 0);
-      }
-    );
-  }
-);
+      assert.ok(failure.kind === 'cancelled');
+      assert.strictEqual(calls, 0);
+    }
+  );
+});
 
 testStable('slow consumers receive all large deltas and the validated completion', async () => {
   const delta = 'x'.repeat(4096);

@@ -89,7 +89,7 @@ testStable('explains sign-in failures and retries the same Assistant message', a
     versionId: 3n
   });
   mountAssistant();
-  expect(await screen.findByText(/Sign in under Settings/)).toBeInTheDocument();
+  expect(await screen.findByText(/Connect a provider under Settings/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(api.reanswer).toHaveBeenCalledWith({ messageId: 2n }));
 });

@@ -73,8 +73,15 @@ testStable('auth RPC exposes only public account and operations', async () => {
             email: null,
             sharing: true
           });
+          yield* client('auth.saveApiKey', { provider: 'anthropic', apiKey: 'rpc-secret' });
+          const providers = yield* client('auth.providers', {});
+
+          expect(providers.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
+          expect(JSON.stringify(providers)).not.toContain('rpc-secret');
           expect([...AuthRpc.requests.keys()].sort()).toStrictEqual(
             [
+              'auth.providers',
+              'auth.saveApiKey',
               'auth.status',
               'auth.publicAccount',
               'auth.startSignIn',

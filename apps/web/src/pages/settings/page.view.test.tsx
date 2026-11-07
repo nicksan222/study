@@ -168,7 +168,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
     'Sidebar',
     'Writing',
     'Reading & exports',
-    'ChatGPT account',
+    'AI providers',
     'Models by task',
     'Custom instructions',
     'AI behavior',

@@ -2,6 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
+import { aiProviderSchema, apiKeyInputSchema } from '../settings/schemas.ts';
 import {
   publicAccountSchema,
   signInAttemptSchema,
@@ -10,6 +11,16 @@ import {
 } from './schemas.ts';
 
 export const AuthRpc = RpcGroup.make(
+  Rpc.make('providers', {
+    payload: {},
+    success: Schema.Array(aiProviderSchema),
+    error: failureSchema
+  }),
+  Rpc.make('saveApiKey', {
+    payload: apiKeyInputSchema,
+    success: Schema.Void,
+    error: failureSchema
+  }),
   Rpc.make('status', { payload: {}, success: signInStatusSchema, error: failureSchema }),
   Rpc.make('publicAccount', {
     payload: {},

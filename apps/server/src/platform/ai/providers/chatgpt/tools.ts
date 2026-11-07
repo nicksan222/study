@@ -12,11 +12,4 @@
 
 import { openai } from '@ai-sdk/openai';
 
-import type { ProviderTool } from '#server/platform/definitions/define-agent';
-
-export function adaptProviderTool(definition: ProviderTool) {
-  switch (definition.provider) {
-    case 'openai.web_search':
-      return openai.tools.webSearch({});
-  }
-}
+export const chatGptTools = { web_search: openai.tools.webSearch({}) };

@@ -16,12 +16,19 @@
 import { randomUUID } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
-import { Effect, Exit, Option, Scope } from 'effect';
+import { apiKeyInputSchema } from '@study/contracts/settings/schemas';
+import { Effect, Exit, Option, Scope, Schema } from 'effect';
 
-import { AuthBackupStore, AuthGenerationStore, AuthStore } from '#server/features/auth/store/index';
+import {
+  ApiKeyStore,
+  AuthBackupStore,
+  AuthGenerationStore,
+  AuthStore
+} from '#server/features/auth/store/index';
 import { acquireSignIn, decodeAccount, encodeAccount } from '#server/platform/ai/auth/index';
 import type { Account, SignIn } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
+import { getApiKeyProvider, providerCatalog } from '#server/platform/ai/providers/registry';
 import { defineService } from '#server/platform/definitions/define-service';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
@@ -55,6 +62,7 @@ function* makeAuth() {
   const { manager, issuer, hostId, request } = yield* ChatGptSession;
 
   const store = yield* useStore(AuthStore);
+  const keysStore = yield* useStore(ApiKeyStore);
 
   const read = () =>
     store
@@ -236,6 +244,32 @@ function* makeAuth() {
       Effect.gen(function* () {
         closing = true;
         yield* cancel();
+      }),
+    providers: () =>
+      keysStore
+        .apiKeys(undefined)
+        .pipe(
+          Effect.map((keys) =>
+            providerCatalog().map((provider) => ({ ...provider, configured: !!keys[provider.id] }))
+          )
+        ),
+    apiKey: (provider: string) =>
+      Effect.gen(function* () {
+        yield* Effect.try({ try: () => getApiKeyProvider(provider), catch: authFailure });
+        const keys = yield* keysStore.apiKeys(undefined);
+        const key = keys[provider];
+
+        return key
+          ? key
+          : yield* Effect.fail(new StudyError('auth', 'AI provider API key is missing'));
+      }),
+    saveApiKey: (input: typeof apiKeyInputSchema.Type) =>
+      Effect.gen(function* () {
+        if (!Schema.is(apiKeyInputSchema)(input))
+          return yield* Effect.fail(invalid('Invalid API key'));
+
+        yield* Effect.try({ try: () => getApiKeyProvider(input.provider), catch: authFailure });
+        yield* transaction((tx) => tx.store(ApiKeyStore).saveApiKey(input));
       }),
     credentialGeneration: () => readAuthGenerationStore.credentialGeneration(undefined),
     status,

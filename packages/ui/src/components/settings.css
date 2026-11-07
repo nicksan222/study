@@ -885,3 +885,16 @@
   justify-content: flex-end;
   margin-top: 0.75rem;
 }
+
+.settings-inline-form {
+  width: 18rem;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.settings-inline-form > [data-slot='input-control'] {
+  flex: 1 1 8rem;
+  width: 8rem;
+}

@@ -395,6 +395,7 @@ function Status({ children, action }: { children: ReactNode; action?: ReactNode 
 
 export const Settings = {
   Actions: semanticPart('div', 'settings-actions settings-form-actions'),
+  Form: semanticPart('form', 'settings-inline-form'),
   Intro: semanticPart('p', 'settings-intro'),
   Feedback: semanticPart('p', 'settings-feedback'),
   Item,
