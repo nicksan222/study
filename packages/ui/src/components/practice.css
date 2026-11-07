@@ -849,7 +849,6 @@
   background: var(--accent);
   outline: none;
   border-color: transparent;
-  background: var(--accent);
 }
 .study-generation-brief .settings-choice:focus-visible {
   outline: none;
