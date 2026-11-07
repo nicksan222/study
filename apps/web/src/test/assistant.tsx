@@ -25,6 +25,7 @@ const api = vi.hoisted(() => ({
     (input: typeof assistantAskInputSchema.Type) => Promise<typeof askResultSchema.Type>
   >(),
   provenance: vi.fn(),
+  progress: vi.fn(),
   executions: vi.fn(),
   subscribe: vi.fn(),
   reanswer: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
       'conversations.thread': api.thread,
       'conversations.assistantAsk': api.ask,
       'conversations.replyVersion': api.provenance,
+      'workflows.agentProgress': api.progress,
       'conversations.reanswer': api.reanswer,
       'workflows.executions': api.executions,
       'workflows.cancelExecution': api.cancel,
@@ -136,6 +138,7 @@ beforeEach(() => {
     })
   );
   api.thread.mockImplementation(async () => ({ items: messages, next: null }));
+  api.progress.mockResolvedValue([]);
   api.provenance.mockResolvedValue({ state: 'available', requestId: 'reply' });
   api.executions.mockResolvedValue({ items: [], next: null });
   api.subscribe.mockImplementation(() => new Promise(() => {}));

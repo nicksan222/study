@@ -17,7 +17,7 @@
 import type { agentUpdateSchema } from '@study/contracts/ai/progress';
 import { StudyError } from '@study/contracts/errors';
 import { dynamicTool } from 'ai';
-import { Cause, Effect, Exit, Schema } from 'effect';
+import { Cause, Effect, Exit, Option, Schema } from 'effect';
 import type { Context, Tracer } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
@@ -52,11 +52,12 @@ export function adaptTool<Requirements>(
           environment.searchSources(query, signal ?? options.abortSignal)
       };
 
+      const identity = { toolCallId: options.toolCallId, toolName: progress?.name ?? '' };
+
       return Effect.runPromiseWith(context)(
         Effect.gen(function* () {
-          const identity = { toolCallId: options.toolCallId, toolName: progress?.name ?? '' };
-
-          if (progress) yield* progress.emit({ type: 'tool-start', ...identity });
+          if (progress)
+            yield* progress.emit({ type: 'tool-start', ...identity, input: toolDetail(input) });
 
           const decoded = yield* Schema.decodeUnknownEffect(Schema.toCodecJson(definition.input))(
             input
@@ -100,25 +101,31 @@ export function adaptTool<Requirements>(
               error instanceof StudyError
                 ? error
                 : new StudyError('internal', 'Invalid tool result', { cause: error })
-            ),
-            Effect.tap(() =>
-              progress
-                ? progress.emit({ type: 'tool-finish', ...identity, outcome: 'success' })
-                : Effect.void
-            ),
-            Effect.onExit((exit) =>
-              progress && Exit.isFailure(exit)
-                ? progress
-                    .emit({
-                      type: 'tool-finish',
-                      ...identity,
-                      outcome: Cause.hasInterruptsOnly(exit.cause) ? 'cancelled' : 'failure'
-                    })
-                    .pipe(Effect.ignore)
-                : Effect.void
             )
           );
         }).pipe(
+          Effect.onExit((exit) =>
+            progress && Exit.isFailure(exit)
+              ? progress
+                  .emit({
+                    type: 'tool-finish',
+                    ...identity,
+                    outcome: toolFailureKind(exit.cause) === 'cancelled' ? 'cancelled' : 'failure',
+                    errorKind: toolFailureKind(exit.cause)
+                  })
+                  .pipe(Effect.ignore)
+              : Effect.void
+          ),
+          Effect.tap((output) =>
+            progress
+              ? progress.emit({
+                  type: 'tool-finish',
+                  ...identity,
+                  outcome: 'success',
+                  output: toolDetail(output)
+                })
+              : Effect.void
+          ),
           Effect.annotateLogs(safeMetadata(annotations)),
           Effect.withParentSpan(span),
           Effect.withSpan('agent.tool')
@@ -141,4 +148,19 @@ export function adaptRequestCheck<Requirements>(
       check.pipe(Effect.annotateLogs(safeMetadata(annotations)), Effect.withParentSpan(span)),
       { signal }
     );
+}
+
+/** Presentation previews are bounded; the canonical tool result remains schema validated. */
+function toolDetail(value: unknown) {
+  const text = JSON.stringify(value, null, 2) ?? '';
+
+  return { text: text.slice(0, 12000), truncated: text.length > 12000 };
+}
+
+function toolFailureKind(cause: Cause.Cause<StudyError>) {
+  if (Cause.hasInterruptsOnly(cause)) return 'cancelled' as const;
+
+  const failure = Cause.findErrorOption(cause);
+
+  return Option.isSome(failure) ? failure.value.kind : ('internal' as const);
 }

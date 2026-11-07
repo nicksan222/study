@@ -75,7 +75,8 @@
     "./conversations/work": "./src/conversations/work.ts",
     "./conversations/archive": "./src/conversations/archive.ts",
     "./conversations/assistant": "./src/conversations/assistant.ts",
-    "./ai/compaction": "./src/ai/compaction.ts"
+    "./ai/compaction": "./src/ai/compaction.ts",
+    "./ai/assistant-tools": "./src/ai/assistant-tools.ts"
   },
   "dependencies": {
     "effect": "4.0.7"

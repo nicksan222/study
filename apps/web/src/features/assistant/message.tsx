@@ -6,6 +6,7 @@ import { RichNoteContent } from '@study/ui/rich-note';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AssistantReply } from './reply';
+import { AssistantToolActivity } from './tool-activity';
 
 const roleLabels = { user: 'SessionContextYou', assistant: 'Assistant' } as const;
 
@@ -19,22 +20,37 @@ export function AssistantMessage({
 }) {
   const { t } = useI18n();
   const version = message.versions.find((version) => version.id === message.activeVersionId);
-  const pending = message.role === 'assistant' && version?.status !== 'complete';
 
   return (
     <ChatMessage data-role={message.role} aria-label={t(roleLabels[message.role])}>
       <ChatEntryLabel>{t(roleLabels[message.role])}</ChatEntryLabel>
-      {pending ? (
-        requestId ? (
-          <AssistantReply requestId={requestId} messageId={message.id} />
-        ) : (
-          <Loading label={t('AssistantThinking')} />
-        )
-      ) : message.role === 'assistant' ? (
-        <RichNoteContent value={version?.text ?? ''} />
+      {message.role === 'assistant' ? (
+        <>
+          <AssistantToolActivity message={message} />
+          <AssistantBody message={message} requestId={requestId} />
+        </>
       ) : (
         <ChatMessageText text={version?.text ?? ''} />
       )}
     </ChatMessage>
+  );
+}
+
+function AssistantBody({
+  message,
+  requestId
+}: {
+  message: ConversationMessage;
+  requestId?: string;
+}) {
+  const { t } = useI18n();
+  const version = message.versions.find((version) => version.id === message.activeVersionId);
+
+  if (version?.status === 'complete') return <RichNoteContent value={version.text} />;
+
+  return requestId ? (
+    <AssistantReply requestId={requestId} messageId={message.id} />
+  ) : (
+    <Loading label={t('AssistantThinking')} />
   );
 }

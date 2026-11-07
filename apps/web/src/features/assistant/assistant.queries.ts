@@ -143,3 +143,22 @@ export const assistantContextOptions = (sessionId?: SessionId) =>
             request((rpc) => rpc['conversations.assistantContext']({ sessionId }), signal),
     refetchInterval: 1000
   });
+
+/** Completed tool activity remains inspectable from the authoritative workflow snapshot. */
+export const assistantToolProgressOptions = (requestId?: string, pending = false) =>
+  queryOptions({
+    queryKey: [...assistantKey, 'tool-progress', requestId],
+    queryFn: requestId
+      ? ({ signal }) =>
+          request((rpc) => rpc['workflows.agentProgress']({ correlationId: requestId }), signal)
+      : skipToken,
+    refetchInterval: (query) => {
+      if (!query.state.data?.length) return pending ? 1000 : false;
+
+      return query.state.data.some((run) =>
+        ['running', 'suspended', 'cancelling'].includes(run.executionStatus)
+      )
+        ? 500
+        : false;
+    }
+  });
