@@ -56,6 +56,9 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { transaction } from '#server/platform/definitions/define-store';
+import { recordAiTokens, recordUsageFailure } from '#server/platform/observability/index';
+import { UsageStore } from '#server/platform/observability/usage-store';
 import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { WorkflowControl } from '#server/platform/workflows/control';
@@ -141,6 +144,13 @@ export function nativeLayers(
 
       return {
         observe: observeAgentProgress(store),
+        now: () => store.clock.currentTimeMillisUnsafe(),
+        recordUsage: (record) =>
+          transaction((tx) => tx.store(UsageStore).record(record)).pipe(
+            Effect.provideService(Database, { store }),
+            Effect.andThen(recordAiTokens(record)),
+            Effect.catchCause(() => recordUsageFailure())
+          ),
         admission: withAdmissionSettings(aiAdmission, settings.concurrencySettings()),
         language: settings.language(),
         rules: settings.agentRules(),

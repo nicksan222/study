@@ -1,6 +1,38 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  UsageTitle: 'Utilizzo IA',
+  UsageProvider: 'Provider',
+  UsageAllProviders: 'Tutti i provider',
+  UsagePeriod: 'Periodo',
+  UsagePastDay: 'Ultime 24 ore',
+  UsageDays: '{count} giorni',
+  UsageRefresh: 'Aggiorna utilizzo',
+  UsageLoading: 'Caricamento utilizzo…',
+  UsageError: 'Impossibile caricare i dati di utilizzo.',
+  UsageIncomplete:
+    'Alcune chiamate non hanno riportato tutti i token. I totali potrebbero essere incompleti.',
+  UsageEmpty:
+    'Nessun utilizzo registrato in questo periodo. Usa le funzioni IA di Study per iniziare a monitorare i token qui.',
+  UsageProcessed: 'Token elaborati',
+  UsageActivity: '{requests} richieste · {runs} esecuzioni agente',
+  UsageDaily: 'Token elaborati al giorno · UTC',
+  UsageInput: 'Input non in cache',
+  UsageCacheRead: 'Lettura cache',
+  UsageCacheWrite: 'Scrittura cache',
+  UsageOutput: 'Output',
+  UsageReasoning: 'Ragionamento · incluso nell’output',
+  UsageCacheRate: 'Input servito dalla cache',
+  UsageBreakdown: 'Dettaglio',
+  UsageModels: 'Modello',
+  UsageAgents: 'Agente / attività',
+  UsageByDay: 'Giorno · UTC',
+  UsageRequests: 'Richieste',
+  UsageTokens: 'Token',
+  UsageShare: 'Quota',
+  UsageExplanation:
+    'Registra da ora l’utilizzo riportato dai provider in Study, inclusi i passaggi degli strumenti e i tentativi che riportano token. Le chiamate interrotte senza dati non sono disponibili. La cache è inclusa nell’input; il ragionamento nell’output. Non rappresenta l’utilizzo dell’intero account o il limite del piano ChatGPT.',
+
   AssistantHistory: 'Cronologia chat',
   AssistantNewChat: 'Nuova chat',
   AssistantOlderChats: 'Chat precedenti',
