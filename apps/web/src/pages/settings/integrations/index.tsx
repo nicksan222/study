@@ -199,7 +199,9 @@ function ImportDetail({ model, run }: { model: Model; run: Run }) {
           onValueChange={model.setProject}
         />
       )}
-      {run.status === 'cancelled' && <Settings.Intro>{t('IntegrationCancelHelp')}</Settings.Intro>}
+      {run.status === 'cancelled' && run.attempt > 0 && (
+        <Settings.Intro>{t('IntegrationCancelHelp')}</Settings.Intro>
+      )}
       {run.items.some((item) => item.status === 'conflict') && (
         <Settings.Intro>{t('IntegrationConflictHelp')}</Settings.Intro>
       )}
@@ -303,7 +305,7 @@ function ImportActions({ model, run, selected }: { model: Model; run: Run; selec
           }
         />
       )}
-      {run.status === 'cancelled' && (
+      {run.status === 'cancelled' && run.attempt > 0 && (
         <Button variant="outline" disabled={model.busy} onClick={() => model.act(run, 'retry')}>
           {t('IntegrationResume')}
         </Button>

@@ -13,6 +13,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { StudyRpc } from '@study/contracts/rpc';
+import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
@@ -355,6 +356,72 @@ testStable(
         const conversations = yield* Conversations;
 
         expect((yield* conversations.sessions({ limit: 100 })).items).toHaveLength(0);
+      }),
+      { signal: AbortSignal.timeout(20000) }
+    );
+  }
+);
+
+testStable('a cancelled preview cannot bypass import confirmation through retry', async (t) => {
+  const fixture = await createStudyTest(t);
+
+  await fixture.run(
+    Effect.gen(function* () {
+      const service = yield* Integrations;
+      const preview = yield* service.previewImport(input());
+      const cancelled = yield* service.cancelImport({ id: preview.id });
+
+      expect(cancelled.attempt).toBe(0);
+      expect((yield* Effect.flip(service.retryImport({ id: preview.id }))).kind).toBe(
+        'invalid_input'
+      );
+      expect((yield* service.import({ id: preview.id })).status).toBe('cancelled');
+      expect((yield* (yield* Conversations).sessions({ limit: 100 })).items).toHaveLength(0);
+    })
+  );
+});
+
+testStable(
+  'a finish failure preserves imported items and retries without republishing documents',
+  async (t) => {
+    const fixture = await createStudyTest(t);
+
+    fixture.store.db.orm.run(
+      sql`CREATE TRIGGER reject_import_completion BEFORE UPDATE OF state ON integration_imports WHEN json_extract(NEW.state, '$.status') = 'completed' BEGIN SELECT RAISE(ABORT, 'injected finish failure'); END`
+    );
+    await fixture.app.workers.start();
+    await fixture.run(
+      Effect.gen(function* () {
+        const service = yield* Integrations;
+        const preview = yield* service.previewImport(input());
+
+        yield* service.startImport({ id: preview.id, excludedKeys: [] });
+        let failed = yield* service.import({ id: preview.id });
+
+        while (failed.status === 'running') {
+          yield* Effect.sleep('20 millis');
+          failed = yield* service.import({ id: preview.id });
+        }
+
+        expect(failed.status).toBe('failed');
+        expect(failed.items.map((item) => item.status)).toEqual(['imported', 'imported']);
+        fixture.store.db.orm.run(sql`DROP TRIGGER reject_import_completion`);
+        yield* service.retryImport({ id: preview.id });
+        let retried = yield* service.import({ id: preview.id });
+
+        while (retried.status === 'running') {
+          yield* Effect.sleep('20 millis');
+          retried = yield* service.import({ id: preview.id });
+        }
+
+        expect(retried.status).toBe('completed');
+        expect(retried.items.map((item) => item.sessionId)).toEqual(
+          failed.items.map((item) => item.sessionId)
+        );
+        expect(
+          (yield* (yield* Documents).documents({ limit: 100, archived: false })).items
+        ).toHaveLength(2);
+        expect((yield* (yield* Conversations).sessions({ limit: 100 })).items).toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );

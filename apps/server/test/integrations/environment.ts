@@ -13,12 +13,12 @@
 import { randomUUID } from 'node:crypto';
 import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { GenericContainer, getContainerRuntimeClient } from 'testcontainers';
 
 /** Copy authored input only; never mount a checkout, host dependencies, credentials or test state. */
-async function buildContext() {
+export async function buildContext(root = process.cwd()) {
   const directory = await mkdtemp(join(tmpdir(), 'study-integrations-image-'));
   const files = [
     'package.json',
@@ -36,10 +36,10 @@ async function buildContext() {
       const target = join(directory, path);
 
       await mkdir(dirname(target), { recursive: true });
-      await cp(resolve(path), target, {
+      await cp(resolve(root, path), target, {
         recursive: true,
-        filter: (path) =>
-          !path
+        filter: (source) =>
+          !relative(root, source)
             .split(sep)
             .some(
               (part) =>

@@ -175,7 +175,7 @@ export const Integrations = defineService(
         transaction((tx) => {
           const state = tx.store(IntegrationImportsStore).integrationImport(input.id);
 
-          if (state.status !== 'failed' && state.status !== 'cancelled')
+          if ((state.status !== 'failed' && state.status !== 'cancelled') || state.attempt === 0)
             throw new StudyError('invalid_input', 'Import is not retryable');
 
           return requestImport(tx, {

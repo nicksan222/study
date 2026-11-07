@@ -65,6 +65,8 @@ export const integrationImportRegistration = defineWorkflowHandler(integrationIm
           );
 
           if (!result) return yield* integrations.import(input);
+
+          key = undefined;
         }
 
         yield* activity('finish-import', integrations.settleImport({ ...input, errorKind: null }));
