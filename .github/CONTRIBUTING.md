@@ -10,8 +10,9 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build, generated database drift,
-  tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates, with server tests in a parallel Node-only job. The required
-  `Test and build` check passes only when both jobs succeed. Package gates continue after
+  tooling tests, server package checks, and the website's Bun type check. CI runs equivalent gates, with independent jobs for Oxlint/formatting/Fallow, web checks,
+  tooling tests, server tests, real integrations, and native/package checks. JavaScript jobs
+  skip the Rust and Linux GUI setup. The required `Test and build` check requires every job. Package gates continue after
   earlier failures, and run summaries list their outcomes. The web build reuses its earlier
   type check.
 - **Every visible word comes from `@study/localization`, in English and Italian.** If you
@@ -86,7 +87,10 @@ shared policies from `tooling/oxc-config`; these apply to server, frontend, test
 Run `npm run format` to format, `npm run format:check` to check formatting, and `npm run lint`
 for the combined format/lint gate with warnings denied.
 The Vite+ pipeline uses syntax-only lint analysis, React stability rules and package-manifest
-sorting; dedicated TypeScript checks and Study's architecture rules remain required. Server tests keep the actual Node
+sorting; dedicated TypeScript checks and Study's architecture rules remain required. Database test fixtures lazily copy an empty database migrated once per test module, then
+open it through the regular `Db.open` path. Each test still owns a private file with WAL,
+foreign keys and recursive triggers; custom migration folders always run their own migrations.
+Server tests keep the actual Node
 runtime (`npm run server:test`) with one result per test. Passing server test files hide
 stdout, stderr and fixture diagnostics; a failing file prints its captured output alongside
 assertion details. Console events are file-scoped, so diagnostics include the whole failing

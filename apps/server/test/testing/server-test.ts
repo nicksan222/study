@@ -57,9 +57,9 @@ function resources(state: TestState): TestResources {
     openApp: async (options = {}) =>
       manageResource(
         state,
-        await App.open({ ...options, path: options.path ?? state.database.path })
+        await App.open({ ...options, path: options.path ?? state.database.prepare() })
       ),
-    openDb: (path = state.database.path) => manageResource(state, Db.open(path))
+    openDb: (path) => manageResource(state, path ? Db.open(path) : state.database.open())
   };
 }
 
