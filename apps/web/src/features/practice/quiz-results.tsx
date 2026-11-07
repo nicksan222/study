@@ -4,7 +4,6 @@ import { Button } from '@study/ui/button';
 import { NextButton, PreviousButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { SelectionSurface as Surface } from '@study/ui/selection';
-import { Textarea } from '@study/ui/textarea';
 import { Link, useSearch } from '@tanstack/react-router';
 import { RotateCcw } from 'lucide-react';
 import { useState, useId } from 'react';
@@ -17,6 +16,7 @@ type Completed = typeof quizAttemptCompletedSchema.Type;
 
 type Question = Completed['questions'][number];
 
+/** Reviews persisted completed answers on the page or in history, preserving question navigation and pending scores. */
 export function QuizResults({
   attempt,
   presentation = 'page'
@@ -148,14 +148,16 @@ function ResultQuestion({
   const selected = selectedChoices(question);
 
   return (
-    <Practice.Preview>
+    <Practice.Preview data-results="true">
       {showHeading && (
         <>
-          <Practice.ProgressHeading>
+          <Practice.ProgressHeading role="status" aria-live="polite">
             <span>
               {questionNumber(locale, index + 1)} · {reviewProgress(locale, index + 1, total)}
             </span>
-            <span>{t(verdict(question))}</span>
+            <Practice.ResultVerdict tone={verdictTone(question)}>
+              {t(verdict(question))}
+            </Practice.ResultVerdict>
           </Practice.ProgressHeading>
           <Practice.Prompt>{question.prompt}</Practice.Prompt>
         </>
@@ -164,26 +166,14 @@ function ResultQuestion({
         <OrderingResult question={question} />
       ) : !('choices' in question) ? (
         <Practice.OpenAnswers>
-          <div>
-            <Practice.Muted>{t('YourAnswer')}</Practice.Muted>
-            <Textarea
-              readOnly
-              aria-label={t('YourAnswer')}
-              value={
-                question.answer?.type === 'open'
-                  ? (question.answer.answer ?? t('PracticeUnanswered'))
-                  : t('PracticeUnanswered')
-              }
-            />
-          </div>
-          <div>
-            <Practice.Muted>{t('RightAnswer')}</Practice.Muted>
-            <Textarea
-              readOnly
-              aria-label={t('RightAnswer')}
-              value={question.referenceAnswer ?? t('PracticeUngraded')}
-            />
-          </div>
+          <Practice.AnswerComparison label={t('YourAnswer')}>
+            {question.answer?.type === 'open' && question.answer.answer?.trim()
+              ? question.answer.answer
+              : t('PracticeUnanswered')}
+          </Practice.AnswerComparison>
+          <Practice.AnswerComparison label={t('RightAnswer')}>
+            {question.referenceAnswer ?? t('PracticeUngraded')}
+          </Practice.AnswerComparison>
         </Practice.OpenAnswers>
       ) : (
         <Practice.Answers aria-label={t('YourAnswer')}>
@@ -215,15 +205,30 @@ function ResultQuestion({
           ))}
         </Practice.Answers>
       )}
-      {question.feedback && <Practice.Muted>{question.feedback}</Practice.Muted>}
+      {question.feedback && (
+        <Practice.ResultNote>
+          <h3>{t('PracticeFeedback')}</h3>
+          <p>{question.feedback}</p>
+        </Practice.ResultNote>
+      )}
       <Practice.Explanation>
-        <Practice.MutedText>{t('PracticeArchiveExplanation')}</Practice.MutedText>
+        <h3>{t('PracticeArchiveExplanation')}</h3>
         <p>{question.explanation}</p>
       </Practice.Explanation>
     </Practice.Preview>
   );
 }
 
+/** Maps persisted grading state to a semantic tone without inferring a score for unanswered responses. */
+function verdictTone(question: Question) {
+  if (question.score === null) return question.answer ? 'pending' : 'unanswered';
+
+  if (question.score === 1) return 'correct';
+
+  return question.score === 0 ? 'incorrect' : 'partial';
+}
+
+/** Chooses localized verdict copy from the stored score and answer presence. */
 function verdict(question: Question) {
   if (question.score === null) return question.answer ? 'PracticeUngraded' : 'PracticeUnanswered';
 
@@ -232,11 +237,14 @@ function verdict(question: Question) {
   return question.score === 0 ? 'VerdictIncorrect' : 'VerdictPartly';
 }
 
+/** Displays a percentage only when the attempt exposes a score; otherwise identifies pending scoring. */
 function OverallScore({ attempt }: { attempt: Completed }) {
   const { t, locale } = useI18n();
 
   if (attempt.scoring.score === null)
-    return <Practice.MutedText>{t('PracticeGradingPending')}</Practice.MutedText>;
+    return (
+      <Practice.ResultVerdict tone="pending">{t('PracticeScorePending')}</Practice.ResultVerdict>
+    );
 
   return (
     <Practice.Score>

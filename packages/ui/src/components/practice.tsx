@@ -1,4 +1,4 @@
-import { ArrowUp, ArrowDown, Check, X } from 'lucide-react';
+import { ArrowUp, ArrowDown, Check, X, CircleMinus, Clock3, Minus } from 'lucide-react';
 import { useId } from 'react';
 import type { ReactNode, ComponentProps } from 'react';
 
@@ -9,6 +9,9 @@ export const Practice = {
   Ordering,
   OutlineItems,
   ChoiceOption,
+  AnswerComparison,
+  ResultVerdict,
+  ResultNote: semanticPart('div', 'study-practice-result-note'),
   OpenAnswers: semanticPart('div', 'study-practice-open-answers'),
   Preview: semanticPart('section', 'study-practice-preview'),
   PreviewItems: semanticPart('ol', 'study-practice-preview-items'),
@@ -171,5 +174,41 @@ function Ordering({
         </li>
       ))}
     </ol>
+  );
+}
+
+/** Presents content-sized read-only answer text with an explicit accessible label. */
+function AnswerComparison({ label, children }: { label: string; children: ReactNode }) {
+  const labelId = useId();
+
+  return (
+    <div className="study-practice-answer-comparison" role="group" aria-labelledby={labelId}>
+      <h3 id={labelId}>{label}</h3>
+      <p>{children}</p>
+    </div>
+  );
+}
+
+/** Pairs a semantic verdict tone with an icon and caller-supplied localized text. */
+function ResultVerdict({
+  tone,
+  children
+}: {
+  tone: 'correct' | 'incorrect' | 'partial' | 'pending' | 'unanswered';
+  children: ReactNode;
+}) {
+  const Icon = {
+    correct: Check,
+    incorrect: X,
+    partial: CircleMinus,
+    pending: Clock3,
+    unanswered: Minus
+  }[tone];
+
+  return (
+    <span className="study-practice-result-verdict" data-tone={tone}>
+      <Icon aria-hidden="true" />
+      {children}
+    </span>
   );
 }

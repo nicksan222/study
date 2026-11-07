@@ -81,6 +81,30 @@ testStable(
       assert.throws(() =>
         connection!.orm.run(sql`UPDATE material_quiz_questions SET prompt='Changed' WHERE id=1`)
       );
+      const next = connection.orm;
+
+      next.run(
+        sql`INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(2,1,'quiz',2,1)`
+      );
+      next.run(sql`INSERT INTO material_quiz_versions(version_id) VALUES(2)`);
+      next.run(
+        sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(10,2,0,'fill_blank','ATP is made in the ____.','Energy')`
+      );
+      next.run(
+        sql`INSERT INTO material_quiz_open_answers(question_id,kind,reference_answer) VALUES(10,'fill_blank','mitochondria')`
+      );
+      assert.deepEqual(
+        next.all(
+          sql`SELECT kind, reference_answer FROM material_quiz_open_answers WHERE question_id=10`
+        ),
+        [{ kind: 'fill_blank', reference_answer: 'mitochondria' }]
+      );
+      assert.throws(() =>
+        next.run(
+          sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(11,2,1,'fill_blank','____ and ____','Energy')`
+        )
+      );
+      assert.deepEqual(next.all(sql`PRAGMA foreign_key_check`), []);
     } finally {
       connection?.close();
       rmSync(folder, { recursive: true, force: true });

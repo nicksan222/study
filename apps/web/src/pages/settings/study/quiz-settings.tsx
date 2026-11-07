@@ -36,6 +36,7 @@ function useQuizSettings() {
   };
 }
 
+/** Edits persisted quiz defaults while preventing changes during preference loading or saving. */
 function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings> }) {
   const { t } = useI18n();
   const config = model.configuration;
