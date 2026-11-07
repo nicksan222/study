@@ -67,12 +67,12 @@ rm /tmp/gh.deb
 gh pr create --help | grep -q -- --attach
 SH
 
-# Bun builds and serves the website in apps/landing.
+# Bun runs the application server, runtime staging and landing website.
 RUN <<'SH'
 set -eu
 case "$(uname -m)" in
-  aarch64) arch=aarch64; checksum=54328bbc2d9c8e0c9f892c544d66c57a83b84139e34909e5ee81758f1ac8fda7 ;;
-  x86_64) arch=x64; checksum=36368faef7527875d5ffa52e53cd48021741f2a83eb6208a8dd64068d422a913 ;;
+  aarch64) arch=aarch64; checksum=baa6bb36f51d6e58561e02bbea825038a9df454f673d6d776e8bbf86f8c7850e ;;
+  x86_64) arch=x64; checksum=bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c ;;
   *) echo "Unsupported Bun architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-${arch}.zip"
