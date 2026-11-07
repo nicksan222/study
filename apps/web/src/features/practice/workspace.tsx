@@ -28,19 +28,13 @@ export function PracticeWorkspace({
   }, []);
 
   return (
-    <WorkspaceCard.Provider defaultOpen={false}>
+    <WorkspaceCard.Provider open={open} onOpenChange={setOpen}>
       <WorkspaceSurface.Root ref={workspace} variant="practice">
         <Sidebar.Topbar parent={parent ?? t('AppName')} title={title}>
-          <WorkspaceCard.Toggle label={t('PracticeActions')} open={open} onOpenChange={setOpen} />
+          <WorkspaceCard.Toggle label={t('PracticeActions')} />
         </Sidebar.Topbar>
         <WorkspaceSurface.Body>{children}</WorkspaceSurface.Body>
-        <WorkspaceCard.Root
-          aria-label={t('PracticeActions')}
-          hidden={!open}
-          onDismiss={() => setOpen(false)}
-        >
-          {actions}
-        </WorkspaceCard.Root>
+        <WorkspaceCard.Root aria-label={t('PracticeActions')}>{actions}</WorkspaceCard.Root>
       </WorkspaceSurface.Root>
     </WorkspaceCard.Provider>
   );
