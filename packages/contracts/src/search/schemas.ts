@@ -79,7 +79,7 @@ export const semanticSearchHitSchema = Schema.Struct({
   distance: Schema.Number
 });
 
-const searchEntityCatalogSchema = Schema.Array(
+export const searchEntityCatalogSchema = Schema.Array(
   Schema.Struct({
     kind: Schema.String,
     description: Schema.String,

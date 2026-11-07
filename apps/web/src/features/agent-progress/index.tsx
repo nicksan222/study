@@ -97,3 +97,5 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
     </>
   );
 }
+
+export { useAgentProgress } from './use-agent-progress';

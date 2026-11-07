@@ -95,12 +95,13 @@ function failure(error: unknown): StudyError {
 /** Consume the agent stream and return only its schema-validated completion value. */
 export function generateAgent<
   I extends Schema.ConstraintDecoder<unknown>,
-  O extends Schema.ConstraintDecoder<unknown>
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never
 >(
-  definition: AgentDefinition<I, O>,
+  definition: AgentDefinition<I, O, Requirements>,
   input: I['Type'],
   options: AgentOptions = {}
-): Effect.Effect<O['Type'], StudyError, Agents> {
+): Effect.Effect<O['Type'], StudyError, Agents | Requirements> {
   return Stream.runLast(streamAgent(definition, input, options)).pipe(
     Effect.flatMap((event) => {
       const last = Option.getOrUndefined(event);
@@ -120,12 +121,13 @@ export function generateAgent<
  */
 export function streamAgent<
   I extends Schema.ConstraintDecoder<unknown>,
-  O extends Schema.ConstraintDecoder<unknown>
+  O extends Schema.ConstraintDecoder<unknown>,
+  Requirements = never
 >(
-  definition: AgentDefinition<I, O>,
+  definition: AgentDefinition<I, O, Requirements>,
   input: I['Type'],
   options: AgentOptions = {}
-): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents> {
+): Stream.Stream<AgentProgress<O['Type']>, StudyError, Agents | Requirements> {
   /** Capture one run identity and preserve its scoped ownership through all observations. */
   function* runAgentStream(queue: Queue.Queue<AgentProgress<O['Type']>, StudyError | Cause.Done>) {
     const service = yield* Agents;
@@ -146,12 +148,19 @@ export function streamAgent<
     const customRules = [...new Set(definition.customRules)]
       .map((rule) => rules[rule.key].trim())
       .filter(Boolean);
-    const system = customRules.length
+    const baseSystem = customRules.length
       ? `${instructions}\n\nUser preferences (apply where compatible with the task, required output format and source fidelity):\n${customRules.join('\n\n')}`
       : instructions;
+    const wiki = Object.entries(definition.tools ?? {}).map(
+      ([name, tool]) =>
+        `${name} (${tool.mutates ? 'changes local data' : 'read only'}): ${tool.description}\nWhen: ${tool.wiki.when}\nExamples: ${tool.wiki.examples.join(' | ')}\nLimits: ${tool.wiki.limits}`
+    );
+    const system = wiki.length
+      ? `${baseSystem}\n\nAvailable capabilities (use this guide when explaining what you can do):\n${wiki.join('\n\n')}`
+      : baseSystem;
     const span = yield* Effect.currentSpan;
     const annotations = yield* References.CurrentLogAnnotations;
-    const callbackContext = yield* Effect.context<never>();
+    const callbackContext = yield* Effect.context<Requirements>();
     const run = {
       runId: agentRunIdSchema.make(randomUUID()),
       agentId: definition.id,
@@ -316,7 +325,7 @@ export function streamAgent<
       );
   }
 
-  return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents>(
+  return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents | Requirements>(
     (queue) =>
       Effect.gen(() => runAgentStream(queue)).pipe(
         Effect.mapError(failure),

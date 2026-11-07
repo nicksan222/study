@@ -13,7 +13,7 @@ export function useSidebarContext(metadata: PageMetadata) {
   const resolve = metadata.sidebar?.owner;
   const options = routeOwnerOptions(resolve, params, matched);
   const owner = useQuery({
-    ...(options ?? { queryKey: ['sidebar', 'unowned-route'] }),
+    ...(options ?? { queryKey: ['sidebar', 'unowned-route'], queryFn: async () => null }),
     enabled: options !== undefined
   });
   const ready = !resolve || (matched && owner.isSuccess);

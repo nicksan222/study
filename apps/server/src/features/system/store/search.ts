@@ -12,6 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { ConversationMode } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import type {
   ContentSnapshotId,
@@ -130,7 +131,7 @@ export function makeSearch({ db }: StoreResources) {
   ) {
     if (kinds.includes('message')) {
       const rows = db.orm.all(
-        sql`SELECT m.id,m.session_id,NULL AS project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN sessions s ON s.id=m.session_id WHERE message_fts MATCH ${expression} AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=s.id AND ps.project_id=${project})) ORDER BY rank LIMIT ${limit}`
+        sql`SELECT m.id,m.session_id,NULL AS project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN sessions s ON s.id=m.session_id WHERE message_fts MATCH ${expression} AND s.mode = ${ConversationMode.Notebook} AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=s.id AND ps.project_id=${project})) ORDER BY rank LIMIT ${limit}`
       );
 
       for (const r of rows)
@@ -162,7 +163,7 @@ export function makeSearch({ db }: StoreResources) {
         sql`SELECT kind,target_id,project_id,text,bm25(catalog_fts) AS rank FROM catalog_fts WHERE catalog_fts MATCH ${expression} AND kind IN (${sql.join(
           catalog.map((kind) => sql`${kind}`),
           sql`, `
-        )}) AND (kind NOT IN ('material','question') OR EXISTS(SELECT 1 FROM materials m WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND EXISTS(SELECT 1 FROM material_versions v WHERE v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id=m.id AND latest.status='published') AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND (catalog_fts.kind='material' AND m.id=CAST(target_id AS INTEGER) OR catalog_fts.kind='question' AND EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=v.id AND q.id=CAST(target_id AS INTEGER)))))) AND (${project} IS NULL OR
+        )}) AND (kind != 'session' OR EXISTS(SELECT 1 FROM sessions s WHERE s.id=CAST(target_id AS INTEGER) AND s.mode=${ConversationMode.Notebook})) AND (kind NOT IN ('material','question') OR EXISTS(SELECT 1 FROM materials m WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND EXISTS(SELECT 1 FROM material_versions v WHERE v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id=m.id AND latest.status='published') AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND (catalog_fts.kind='material' AND m.id=CAST(target_id AS INTEGER) OR catalog_fts.kind='question' AND EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=v.id AND q.id=CAST(target_id AS INTEGER)))))) AND (${project} IS NULL OR
  (kind='material' AND EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='question' AND EXISTS(SELECT 1 FROM project_materials pm JOIN material_versions v ON v.material_id=pm.material_id JOIN material_quiz_questions q ON q.version_id=v.id WHERE q.id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='session' AND EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=CAST(target_id AS INTEGER) AND ps.project_id=${project})) OR
@@ -271,7 +272,7 @@ export function makeSearch({ db }: StoreResources) {
       .select({ id: table.id, projectId: scope, text: label })
       .from(table)
       .where(
-        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
+        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND ${kind === 'session' ? sql`${schema.sessions.mode} = ${ConversationMode.Notebook}` : sql`1`} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
       )
       .limit(limit)
       .all();

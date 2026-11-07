@@ -30,6 +30,7 @@ import {
   replyVersionSchema,
   pendingReplyAttachmentSchema
 } from '@study/contracts/conversations/schemas';
+import { ConversationMode } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { conversationGenerationRequestedSchema } from '@study/contracts/events';
 import { sourceIdSchema } from '@study/contracts/ids';
@@ -625,8 +626,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     }
   }
 
-  /** Discards active drafts while retaining failed conversion inputs for explicit recovery. */
-  function retirePending(message: typeof messages.$inferSelect) {
+  function retirePending(message: typeof messages.$inferSelect, preserveShell = false) {
     const pending = db.orm
       .select()
       .from(message_versions)
@@ -638,7 +638,7 @@ function makeHelpers({ db, clock }: StoreResources) {
       )
       .all();
 
-    for (const version of pending) discardPending(message, version);
+    for (const version of pending) discardPending(message, version, preserveShell);
   }
 
   /** Blocks overlapping active work and ignores failed conversions when preparing a new reply. */
@@ -1075,11 +1075,20 @@ export const ReplyStore = defineStore({
                 invalid();
             }
 
-            /** Bounds output and validates citations while preserving literal numbered text in conversions. */
+            const {
+              row,
+              result: snapshot,
+              session,
+              target,
+              version
+            } = replyContext(input.requestId);
+
+            validatePublicationInput();
+
             function validatePublicationInput() {
               if (!input.text.trim() || [...input.text].length > 100_000) invalid();
 
-              if (snapshot.generation?.conversion) {
+              if (allowsLiteralReferences(snapshot, session?.mode)) {
                 if (input.citations.length) invalid();
 
                 return;
@@ -1103,16 +1112,6 @@ export const ReplyStore = defineStore({
               )
                 invalid();
             }
-
-            const {
-              row,
-              result: snapshot,
-              session,
-              target,
-              version
-            } = replyContext(input.requestId);
-
-            validatePublicationInput();
 
             assertPublicationIdentity();
 
@@ -1390,7 +1389,7 @@ export const ReplyStore = defineStore({
 
             if (!message) throw new StudyError('not_found', 'message not found');
 
-            retirePending(message);
+            retirePending(message, true);
           }
         }),
         requestConversion: storeMutation({
@@ -1501,7 +1500,7 @@ export const ReplyStore = defineStore({
             if (input.origin === 'instruction' && instruction === null)
               throw new StudyError('invalid_input', 'invalid instruction');
 
-            retirePending(message);
+            retirePending(message, true);
 
             return snapshot(
               { sessionId: message.session_id, requestId: input.requestId, context: input.context },
@@ -1770,4 +1769,12 @@ function replySelectionMatches(
     (version.status === 'pending' || version.status === 'writing') &&
     replyVersionSelection(target, version, result)
   );
+}
+
+/** Ungrounded chat and faithful conversions preserve bracketed text without invented citations. */
+function allowsLiteralReferences(
+  snapshot: typeof replySnapshotSchema.Type,
+  mode: ConversationMode | undefined
+) {
+  return mode === ConversationMode.Assistant || snapshot.generation?.conversion !== undefined;
 }

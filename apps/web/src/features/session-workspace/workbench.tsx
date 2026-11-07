@@ -1,7 +1,7 @@
 import type { SessionId, StudyDocumentId, SourceId } from '@study/contracts/ids';
 import { Loading } from '@study/ui/loading';
-import { SessionDeskSurface as Desk } from '@study/ui/session-desk';
 import { WorkspaceSurface } from '@study/ui/workspace';
+import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '#web/lib/i18n.tsx';

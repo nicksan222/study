@@ -78,6 +78,8 @@ export const Projects = defineService(
       project: store.project,
       findProject: store.findProject,
       projects: (input: typeof projectPageInputSchema.Type) => pageById(store.projects, input),
+      ensureProject: (input: typeof createProjectInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).ensureProject({ name: nameOf(input.name) })),
       createProject: (input: typeof createProjectInputSchema.Type) =>
         transaction((tx) => tx.store(ProjectsStore).createProject({ name: nameOf(input.name) })),
       renameProject: (input: typeof renameProjectInputSchema.Type) =>
