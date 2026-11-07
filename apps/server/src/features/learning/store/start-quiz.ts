@@ -40,6 +40,7 @@ function shuffled<T>(items: readonly T[]): T[] {
 export function makeStartQuiz(resources: StoreResources) {
   const { db, clock } = resources;
   const { attemptView, published, questions, choices } = makeQuiz(resources);
+  /** Snapshots the configured question subset and choice order from a published version for a stable attempt. */
   const startQuiz = (input: Input) => {
     published(input.versionId, 'quiz');
 

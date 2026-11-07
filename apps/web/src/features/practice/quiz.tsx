@@ -48,6 +48,7 @@ export function Quiz({ version, projectId, title }: QuizSetupProps) {
   return <QuizStart version={version} projectId={projectId} title={title} />;
 }
 
+/** Counts questions matching saved preferences and starts an attempt against the selected immutable version. */
 function QuizStart({ version, projectId, title }: QuizSetupProps) {
   const search = useSearch({ from: '__root__' });
   const navigate = useNavigate();
@@ -254,6 +255,7 @@ export function OperationError({ retry }: { retry?: () => void }) {
   );
 }
 
+/** Lists the authored prompts and their localized question kinds before practice starts. */
 function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
 
@@ -280,6 +282,7 @@ function QuizOutline({ version }: { version: MaterialVersionDetailDto }) {
   );
 }
 
+/** Returns localized saved text or selected choice labels for review, leaving unanswered questions empty. */
 function savedAnswer(
   t: ReturnType<typeof useI18n>['t'],
   question: (typeof quizAttemptInProgressSchema.Type)['questions'][number]

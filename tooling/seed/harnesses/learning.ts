@@ -53,6 +53,7 @@ function seedCards(
   }
 }
 
+/** Creates fixture questions and their typed reference answers or choice rows within the seed transaction. */
 function seedQuiz(
   { db }: ProjectHarness,
   content: Extract<Content, { kind: 'quiz' }>,

@@ -35,6 +35,7 @@ export function assertQuestionSpec(
     throw new StudyError('invalid_input', 'Generated quiz does not match question specification');
 }
 
+/** Rejects generated quizzes that violate the requested count or kind; option counts apply only to choice questions. */
 export function assertQuizConfig(
   config: (typeof materialGenerationInputSchema.Type)['quizConfig'],
   content: (typeof materialGenerationPublicationSchema.Type)['content']

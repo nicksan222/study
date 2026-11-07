@@ -27,6 +27,7 @@ type Input = typeof answerQuestionInputSchema.Type;
 export function makeAnswerQuestion(resources: StoreResources) {
   const { db } = resources;
   const { attemptRow, attemptView, choiceScore, attemptQuestions } = makeQuiz(resources);
+  /** Records a typed answer only for a selected question and its owning practice slot; choice scores are computed immediately. */
   const answerQuestion = (input: Input, practiceSlotId?: string) => {
     const practice = db.orm
       .select({

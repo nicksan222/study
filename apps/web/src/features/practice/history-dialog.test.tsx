@@ -56,7 +56,7 @@ const completed = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
   status: 'completed',
   startedAt: 2000n,
   finishedAt: 3000n,
-  scoring: { complete: true, gradedCount: 1, questionCount: 1, earned: 1, score: 1 },
+  scoring: { complete: true, gradedCount: 2, questionCount: 2, earned: 2, score: 1 },
   questions: [
     {
       ...choice,
@@ -65,6 +65,18 @@ const completed = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
       feedback: null,
       grading: 'graded',
       choices: choice.choices.map((option) => ({ ...option, isCorrect: option.id === 5n }))
+    },
+    {
+      id: 7n,
+      position: 1n,
+      kind: 'fill_blank',
+      prompt: 'Two is a ____ number.',
+      answer: { type: 'open', answer: 'prime' },
+      referenceAnswer: 'prime',
+      explanation: 'Two has exactly two divisors.',
+      score: 1,
+      feedback: null,
+      grading: 'graded'
     }
   ]
 });
@@ -192,6 +204,10 @@ testStable(
     expect(
       within(dialog).getByText('A prime number has exactly two divisors.')
     ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: en.PracticeNextQuestion }));
+    expect(within(dialog).getByRole('group', { name: en.YourAnswer })).toHaveTextContent('prime');
+    expect(within(dialog).getByRole('group', { name: en.RightAnswer })).toHaveTextContent('prime');
+    expect(within(dialog).queryByRole('textbox', { name: en.YourAnswer })).toBeNull();
     expect(within(dialog).queryByRole('link', { name: en.PracticeResume })).toBeNull();
     expect(rpc['learning.attempt']).toHaveBeenLastCalledWith({ attemptId: completed.id });
     await user.clear(within(dialog).getByRole('searchbox', { name: en.PracticeSearchAttempts }));

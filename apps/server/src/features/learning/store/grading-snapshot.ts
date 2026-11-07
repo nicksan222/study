@@ -58,6 +58,7 @@ export function makeGradingSnapshot(resources: StoreResources) {
       return stale();
   }
 
+  /** Loads the submitted text and reference answer only when the event identity and answer hash still match. */
   function gradingSnapshot(event: QuizAnswerSubmitted, allowGraded = false) {
     const stale = () => {
       throw new StudyError('invalid_input', 'stale quiz grade');
