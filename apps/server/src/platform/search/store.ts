@@ -19,7 +19,7 @@ import type {
 } from '@study/contracts/search/schemas';
 import { searchTargetSchema } from '@study/contracts/search/schemas';
 import type { Db } from '@study/db';
-import { and, eq, inArray, sql } from '@study/db';
+import { and, eq, gt, inArray, sql } from '@study/db';
 import { semantic_search_entries as entries } from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -92,7 +92,7 @@ function bestHits(
 /** Keep cached vectors subordinate to current feature visibility and model identity. */
 export function makeVectorStore(db: Db, model: EmbeddingModel) {
   /** Read cache metadata without loading embedding blobs during stale-record reconciliation. */
-  function persisted() {
+  function persisted(keys: readonly string[]) {
     return db.orm
       .select({
         key: entries.key,
@@ -102,18 +102,31 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
         dimensions: entries.dimensions
       })
       .from(entries)
+      .where(inArray(entries.key, keys))
       .all();
   }
 
+  /** Page cache identities by primary key without retaining a corpus snapshot or holding a write lock. */
+  function reconciliationPage(after?: string) {
+    return db.orm
+      .select({ key: entries.key, target: entries.target })
+      .from(entries)
+      .where(after === undefined ? undefined : gt(entries.key, after))
+      .orderBy(entries.key)
+      .limit(200)
+      .all()
+      .map((row) => ({ ...row, projection: { target: decodeTarget(row.target) } }));
+  }
+
   /** Delete removed, superseded, or incompatible excerpts before inference can fail or be interrupted. */
-  function purge(rows: Iterable<SearchProjection>) {
+  function purge(keys: readonly string[], rows: Iterable<SearchProjection>) {
     const live = new Map(
       Array.from(
         searchEntities(rows, model.maxChunkingInputLength),
         (row) => [row.target, row.fingerprint] as const
       )
     );
-    const stale = persisted().filter(
+    const stale = persisted(keys).filter(
       (row) =>
         live.get(row.target) !== row.fingerprint ||
         row.model !== model.identity ||
@@ -304,5 +317,5 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     }));
   }
 
-  return { purge, changed, publish, rank, search };
+  return { reconciliationPage, purge, changed, publish, rank, search };
 }
