@@ -1,11 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "7557f365-b6e5-45d1-86c7-153710a62c79",
+  "id": "434cc4ce-5184-4504-82b3-db2cc01267d9",
   "prevIds": [
-    "06b90aed-817d-4ade-b614-ed2ba36e578b",
-    "295dd4fb-50ae-4cb6-ac72-f309055ce024",
-    "5f0b8883-b919-437b-a8e2-8d83ead4c3b8"
+    "628a16d6-f147-4ba9-8f2d-9d463abe0185"
   ],
   "ddl": [
     {
@@ -434,6 +432,10 @@
     },
     {
       "name": "semantic_search_entries",
+      "entityType": "tables"
+    },
+    {
+      "name": "ai_usage",
       "entityType": "tables"
     },
     {
@@ -1141,6 +1143,16 @@
       "name": "session_id",
       "type": "integer",
       "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "recordings",
+      "name": "sealed_at",
+      "type": "integer",
+      "notNull": false,
       "autoincrement": false,
       "default": null,
       "generated": null,
@@ -6017,6 +6029,126 @@
       "entityType": "columns"
     },
     {
+      "table": "ai_usage",
+      "name": "id",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "runId",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "agent",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "provider",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "model",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "timestamp",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "input",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "cacheRead",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "cacheWrite",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "output",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "reasoning",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "ai_usage",
+      "name": "incomplete",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "sources",
       "name": "sources_sha256_idx",
       "columns": [
@@ -7696,6 +7828,20 @@
         },
         {
           "value": "kind",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "entityType": "indexes"
+    },
+    {
+      "table": "ai_usage",
+      "name": "ai_usage_timestamp",
+      "columns": [
+        {
+          "value": "timestamp",
           "isExpression": false
         }
       ],
@@ -11194,6 +11340,15 @@
       "entityType": "pks"
     },
     {
+      "table": "ai_usage",
+      "name": "ai_usage_pk",
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "conversation_question_answers",
       "name": "conversation_question_answers_request_id_unique",
       "columns": [
@@ -12082,6 +12237,12 @@
       "table": "semantic_search_entries",
       "name": "semantic_search_vector_size",
       "value": "\"dimensions\">0 AND length(\"embedding\")=\"dimensions\"*4",
+      "entityType": "checks"
+    },
+    {
+      "table": "ai_usage",
+      "name": "ai_usage_counts",
+      "value": "\"input\" >= 0 AND \"cacheRead\" >= 0 AND \"cacheWrite\" >= 0 AND \"output\" >= 0 AND \"reasoning\" >= 0 AND \"cacheRead\" + \"cacheWrite\" <= \"input\" AND \"reasoning\" <= \"output\"",
       "entityType": "checks"
     }
   ],

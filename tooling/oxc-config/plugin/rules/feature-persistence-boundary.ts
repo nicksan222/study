@@ -99,6 +99,7 @@ const groups: Record<string, string[]> = {
   themes: ['themes'],
   'settings,auth,themes': ['preferences'],
   readonly: [
+    'ai_usage',
     'document_assets',
     'codes_source_origin',
     'codes_source_kind',

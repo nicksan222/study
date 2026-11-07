@@ -6,4 +6,5 @@ CREATE TABLE `session_merges` (
 	CONSTRAINT "session_merges_ids_json" CHECK(json_valid("session_ids"))
 );
 --> statement-breakpoint
+ALTER TABLE `recordings` ADD `sealed_at` integer;--> statement-breakpoint
 ALTER TABLE `sessions` ADD `archived_at` integer;
