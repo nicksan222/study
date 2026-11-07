@@ -19,10 +19,12 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { testStable } from '@study/testing/vitest';
-import { Effect, Schema, Stream } from 'effect';
+import { Effect, Fiber, Schema, Stream } from 'effect';
+import { TestClock } from 'effect/testing';
 import { assert, expect } from 'vite-plus/test';
 
 import { generateAgent, layer, streamAgent } from '#server/platform/ai/agents';
+import type { AgentProgress, AgentsConfig } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { defineAgent } from '#server/platform/definitions/define-agent';
@@ -91,10 +93,11 @@ async function peer(
   }
 }
 
-function service(base: string, auth: AuthManager) {
+function service(base: string, auth: AuthManager, observe?: AgentsConfig['observe']) {
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
 
   return layer({
+    observe,
     model: () => Effect.succeed(model),
     language: 'en',
     searchSources: () => Effect.succeed([])
@@ -114,6 +117,56 @@ testStable('generates validated output through the Responses provider', async ()
   );
 });
 
+testStable('the harness publishes partial output before generation completes', async () => {
+  let finish!: () => void;
+  let sawDelta!: () => void;
+  const partial = new Promise<void>((resolve) => {
+    sawDelta = resolve;
+  });
+  const observed: string[] = [];
+  const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+    Effect.sync(() => {
+      observed.push(observation.event.type);
+
+      if (observation.event.type === 'text-delta') sawDelta();
+    });
+
+  await peer(
+    (_request, response) => {
+      response.writeHead(200, { 'content-type': 'text/event-stream' });
+      response.write(
+        `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+      );
+      response.write(
+        `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
+      );
+      finish = () =>
+        response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
+    },
+    async (base, auth) => {
+      let complete = false;
+      const running = Effect.runPromise(
+        generateAgent(definition, 'x').pipe(Effect.provide(service(base, auth, observe)))
+      ).then((text) => {
+        complete = true;
+
+        return text;
+      });
+
+      try {
+        await partial;
+        expect(complete).toBe(false);
+        expect(observed).toStrictEqual(['start', 'text-delta']);
+      } finally {
+        finish();
+      }
+
+      expect(await running).toBe('First');
+      expect(observed).toStrictEqual(['start', 'text-delta', 'complete']);
+    }
+  );
+});
+
 testStable('rejects malformed structured output', async () => {
   await peer(
     (_req, res) => send(res, '{"count":"wrong"}'),
@@ -126,6 +179,89 @@ testStable('rejects malformed structured output', async () => {
     }
   );
 });
+
+testStable(
+  'batches preview writes without delaying direct deltas or losing the final text',
+  async () => {
+    let response!: ServerResponse;
+    let sawFirst!: () => void;
+    let sawDirectBurst!: () => void;
+    const first = new Promise<void>((resolve) => {
+      sawFirst = resolve;
+    });
+    const directBurst = new Promise<void>((resolve) => {
+      sawDirectBurst = resolve;
+    });
+    const previews: string[] = [];
+    const direct: string[] = [];
+    const expected = `First${'x'.repeat(50)}`;
+    const delta = (text: string) =>
+      response.write(
+        `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: text })}\n\n`
+      );
+    const receive = (event: AgentProgress<string>) =>
+      Effect.sync(() => {
+        if (event.type !== 'text-delta') return;
+
+        direct.push(event.text);
+
+        if (direct.join('') === expected) sawDirectBurst();
+      });
+    const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+      Effect.sync(() => {
+        if (observation.event.type !== 'text-delta') return;
+
+        previews.push(observation.event.text);
+
+        if (previews.join('') === 'First') sawFirst();
+      });
+    const verify = Effect.gen(function* () {
+      const running = yield* streamAgent(definition, 'x').pipe(
+        Stream.tap(receive),
+        Stream.runLast,
+        Effect.forkChild
+      );
+
+      try {
+        yield* Effect.promise(() => first);
+
+        for (let i = 0; i < 50; i++) delta('x');
+
+        // Synchronize with real SSE delivery before advancing the preview clock.
+        yield* Effect.promise(() => directBurst);
+        expect(previews).toEqual(['First']);
+        expect(direct).toHaveLength(51);
+
+        yield* TestClock.adjust('100 millis');
+        expect(previews).toEqual(['First', 'x'.repeat(50)]);
+      } finally {
+        delta('tail');
+        response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
+        yield* Fiber.join(running);
+      }
+
+      expect(previews.join('')).toBe(`${expected}tail`);
+    });
+
+    await peer(
+      (_request, res) => {
+        response = res;
+        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        res.write(
+          `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+        );
+        delta('First');
+      },
+      (base, auth) =>
+        Effect.runPromise(
+          verify.pipe(
+            Effect.provide(service(base, auth, observe)),
+            Effect.provide(TestClock.layer())
+          )
+        )
+    );
+  }
+);
 
 testStable('executes a source tool and sends its result back to the provider', async () => {
   const bodies: string[] = [];
@@ -161,6 +297,7 @@ testStable('executes a source tool and sends its result back to the provider', a
     },
     async (base, auth) => {
       const queries: string[] = [];
+      const observed: string[] = [];
       const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
       const withTool = defineAgent({
         ...definition,
@@ -179,6 +316,10 @@ testStable('executes a source tool and sends its result back to the provider', a
         generateAgent(withTool, 'x').pipe(
           Effect.provide(
             layer({
+              observe: (observation) =>
+                Effect.sync(() => {
+                  observed.push(observation.event.type);
+                }),
               model: () => Effect.succeed(model),
               language: 'en',
               searchSources: (query) => {
@@ -194,6 +335,13 @@ testStable('executes a source tool and sends its result back to the provider', a
       assert.ok(output === 'Cells use energy.');
       expect(queries).toStrictEqual(['cell']);
       expect(bodies[1]).toMatch(/Cells use energy/);
+      expect(observed).toStrictEqual([
+        'start',
+        'tool-start',
+        'tool-finish',
+        'text-delta',
+        'complete'
+      ]);
     }
   );
 });

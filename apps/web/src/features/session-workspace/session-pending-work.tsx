@@ -11,6 +11,7 @@ import { Activity, X } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { AgentProgress } from '../agent-progress';
 import {
   sessionWorkKey,
   sessionWorkOptions,
@@ -112,6 +113,11 @@ function WorkRow({
       >
         <X size={14} aria-hidden="true" />
       </IconButton>
+      {!stopping && (
+        <WorkspaceWork.Progress>
+          <AgentProgress executionId={item.execution.id} />
+        </WorkspaceWork.Progress>
+      )}
       {cancel.isError && (
         <WorkspaceWork.Error>
           <ErrorState

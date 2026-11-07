@@ -19,6 +19,7 @@ import type { Db } from '@study/db';
 import { and, eq, getTableColumns, gt, inArray, isNull, lte, or, sql } from '@study/db';
 import {
   workflow_activities,
+  workflow_agent_progress,
   workflow_clocks,
   workflow_deferreds,
   workflow_executions,
@@ -125,33 +126,48 @@ export function workflowStore(context: ServerContext) {
 
       return undefined;
     },
+    /** Atomically claim an eligible lease and discard previews captured by replaced owners. */
     claim(id: string, owner: string) {
-      if (executionRetired(id)) return false;
+      return context.transaction(() => {
+        if (executionRetired(id)) return false;
 
-      const time = now();
+        const time = now();
 
-      return (
-        Number(
-          db
-            .update(workflow_executions)
-            .set({ owner_token: owner, status: 'running', updated_at: time })
-            .where(
-              and(
-                eq(workflow_executions.execution_id, id),
-                or(
-                  eq(workflow_executions.status, 'running'),
-                  eq(workflow_executions.status, 'suspended')
-                ),
-                or(
-                  isNull(workflow_executions.owner_token),
-                  eq(workflow_executions.owner_token, owner),
-                  lte(workflow_executions.updated_at, time - BigInt(leaseMs))
+        const claimed =
+          Number(
+            db
+              .update(workflow_executions)
+              .set({ owner_token: owner, status: 'running', updated_at: time })
+              .where(
+                and(
+                  eq(workflow_executions.execution_id, id),
+                  or(
+                    eq(workflow_executions.status, 'running'),
+                    eq(workflow_executions.status, 'suspended')
+                  ),
+                  or(
+                    isNull(workflow_executions.owner_token),
+                    eq(workflow_executions.owner_token, owner),
+                    lte(workflow_executions.updated_at, time - BigInt(leaseMs))
+                  )
                 )
               )
+              .run().changes
+          ) === 1;
+
+        // Replayed activities must not revive previews from a superseded lease.
+        if (claimed)
+          db.delete(workflow_agent_progress)
+            .where(
+              and(
+                eq(workflow_agent_progress.execution_id, id),
+                sql`${workflow_agent_progress.owner_token} <> ${owner}`
+              )
             )
-            .run().changes
-        ) === 1
-      );
+            .run();
+
+        return claimed;
+      });
     },
     renew(id: string, owner: string) {
       const time = now();
@@ -349,7 +365,12 @@ export function scrubRetiredExecution(db: Db, executionId: string) {
   )
     return;
 
-  for (const table of [workflow_activities, workflow_deferreds, workflow_clocks])
+  for (const table of [
+    workflow_activities,
+    workflow_deferreds,
+    workflow_clocks,
+    workflow_agent_progress
+  ])
     db.orm.delete(table).where(eq(table.execution_id, executionId)).run();
 
   db.orm
@@ -374,6 +395,11 @@ export function scrubRetiredCorrectionExecution(db: Db, executionId: string) {
       .get()
   )
     return;
+
+  db.orm
+    .delete(workflow_agent_progress)
+    .where(eq(workflow_agent_progress.execution_id, executionId))
+    .run();
 
   db.orm
     .update(workflow_executions)

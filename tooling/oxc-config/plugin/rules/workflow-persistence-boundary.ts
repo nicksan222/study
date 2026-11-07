@@ -8,6 +8,7 @@ const owners: Record<string, string[]> = {
   workflow_retired_executions: ['retirement'],
   workflow_executions: ['store', 'triggers'],
   workflow_activities: ['store'],
+  workflow_agent_progress: ['agent-progress', 'store'],
   workflow_deferreds: ['store'],
   workflow_clocks: ['store'],
   workflow_events: ['events'],

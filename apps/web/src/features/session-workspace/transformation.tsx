@@ -28,6 +28,7 @@ import {
 } from '#web/lib/study-client/documents.queries.ts';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
+import { AgentProgress } from '../agent-progress';
 import { ProposalReview } from '../document-editing';
 import type { SelectedSession } from './document-creation-dialog';
 import { CapturedContext } from './history';
@@ -502,6 +503,7 @@ function TransformResult({ requestId }: { requestId: string }) {
     <Notebook.TransformResult>
       {state.error && <SessionReadError error={state.error} retry={() => void state.refetch()} />}
       {active && <ExecutionStatus requestId={currentRequestId} />}
+      {active && <AgentProgress correlationId={currentRequestId} />}
       {state.data?.resultVersionId && <OutputLink id={state.data.resultVersionId} />}
       {state.data?.report && (
         <ul>

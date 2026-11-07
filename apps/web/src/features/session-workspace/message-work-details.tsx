@@ -9,6 +9,7 @@ import type { RefObject } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
+import { AgentProgress } from '../agent-progress';
 import { CapturedContext } from './captured-context';
 import { provenanceOptions } from './session-workspace.queries';
 import { ExecutionStatus, SessionReadError } from './status';
@@ -73,6 +74,7 @@ function WorkContent({ target }: { target: MessageWorkTarget }) {
       <Notebook.WorkSection>
         <Notebook.WorkHeading>{t('SessionWorkActivity')}</Notebook.WorkHeading>
         <ExecutionStatus requestId={requestId} />
+        <AgentProgress correlationId={requestId} />
       </Notebook.WorkSection>
       <Notebook.WorkSection>
         <Notebook.WorkHeading>{t('SessionContextUsed')}</Notebook.WorkHeading>
