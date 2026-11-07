@@ -500,3 +500,110 @@ testStable(
     expect(rpc['learning.reviewCard']).not.toHaveBeenCalled();
   }
 );
+
+testStable(
+  'reviews text answers as labeled read-only content and keeps multiline feedback separate',
+  async () => {
+    const rpc = practiceRpc();
+    const learnerAnswer =
+      'La membrana regola gli scambi.\nMantiene condizioni adatte alla cellula.';
+    const referenceAnswer =
+      'La membrana è selettivamente permeabile.\nControlla il passaggio delle sostanze.';
+    const result = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
+      ...completed,
+      questions: [
+        {
+          id: 7n,
+          position: 0n,
+          kind: 'open',
+          prompt: 'Spiega la funzione della membrana.',
+          answer: { type: 'open', answer: learnerAnswer },
+          referenceAnswer,
+          explanation:
+            'La permeabilità selettiva mantiene l’omeostasi.\nLe proteine regolano il trasporto.',
+          feedback: 'Hai descritto la funzione.\nPrecisa il ruolo della permeabilità selettiva.',
+          score: 0.5,
+          grading: 'graded'
+        }
+      ]
+    });
+
+    rpc['learning.attempt'].mockReturnValue(Effect.succeed(result));
+    mountLibraryRoute('/practice/41?attempt=70', rpc);
+
+    const review = await screen.findByRole('region', { name: en.PracticeResults });
+
+    expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(
+      learnerAnswer.replace('\n', ' ')
+    );
+    expect(within(review).getByRole('group', { name: en.RightAnswer })).toHaveTextContent(
+      referenceAnswer.replace('\n', ' ')
+    );
+    expect(within(review).queryByRole('textbox')).toBeNull();
+    expect(within(review).getByText(en.VerdictPartly)).toBeInTheDocument();
+    expect(within(review).getByRole('heading', { name: en.PracticeFeedback })).toBeInTheDocument();
+    expect(
+      within(review).getByRole('heading', { name: en.PracticeArchiveExplanation })
+    ).toBeInTheDocument();
+    expect(rpc['learning.answerQuestion']).not.toHaveBeenCalled();
+  }
+);
+
+testStable(
+  'distinguishes pending grading from unanswered text and preserves result navigation',
+  async () => {
+    const rpc = practiceRpc();
+    const result = Schema.decodeUnknownSync(quizAttemptCompletedSchema)({
+      ...completed,
+      scoring: { complete: false, gradedCount: 0, questionCount: 2, earned: 0, score: null },
+      questions: [
+        {
+          id: 7n,
+          position: 0n,
+          kind: 'fill_blank',
+          prompt: 'Proteins are assembled by ____.',
+          answer: { type: 'open', answer: 'ribosomes' },
+          referenceAnswer: 'ribosomes',
+          explanation: 'Ribosomes assemble proteins.',
+          feedback: null,
+          score: null,
+          grading: 'ungraded'
+        },
+        {
+          id: 8n,
+          position: 1n,
+          kind: 'open',
+          prompt: 'Explain transport.',
+          answer: null,
+          referenceAnswer: null,
+          explanation: 'Transport moves substances.',
+          feedback: null,
+          score: null,
+          grading: 'unanswered'
+        }
+      ]
+    });
+
+    rpc['learning.attempt'].mockReturnValue(Effect.succeed(result));
+    mountLibraryRoute('/practice/41?attempt=70', rpc);
+    const review = await screen.findByRole('region', { name: en.PracticeResults });
+
+    expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(
+      'ribosomes'
+    );
+    expect(within(review).getByText(en.PracticeUngraded)).toBeInTheDocument();
+    expect(within(review).queryByText('100%')).toBeNull();
+    expect(within(review).getByText(en.PracticeScorePending)).toBeInTheDocument();
+    await userEvent
+      .setup()
+      .click(within(review).getByRole('button', { name: en.PracticeNextQuestion }));
+    expect(within(review).getByRole('group', { name: en.YourAnswer })).toHaveTextContent(
+      en.PracticeUnanswered
+    );
+    expect(within(review).getByRole('group', { name: en.RightAnswer })).toHaveTextContent(
+      en.PracticeUngraded
+    );
+    expect(within(review).getByRole('button', { name: en.PracticeNextQuestion })).toBeDisabled();
+    expect(within(review).getByRole('button', { name: en.QuizPrevious })).toBeEnabled();
+  }
+);

@@ -141,6 +141,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const configuredQuestionKind =
     configuration.questionKind === 'all' ? 'mixed' : configuration.questionKind;
   const questionKind = kind === 'fill_blank' || kind === 'matching' ? kind : configuredQuestionKind;
+  /** Starts generation only when selected sources and saved preferences are ready. */
   const create = () => {
     if (hasSources && preferences.isSuccess)
       start.mutate({

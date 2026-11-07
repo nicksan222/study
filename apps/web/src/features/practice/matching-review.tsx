@@ -24,7 +24,11 @@ export function MatchingReview({ question }: { question: Question }) {
           <Practice.MatchingRow key={term.id}>
             <span>{term.text}</span>
             <Practice.MatchingReview>
-              <Practice.Muted>
+              <Practice.ResultVerdict
+                tone={
+                  correct?.score === 1 ? 'correct' : question.answer ? 'incorrect' : 'unanswered'
+                }
+              >
                 {t(
                   correct?.score === 1
                     ? 'VerdictCorrect'
@@ -32,7 +36,7 @@ export function MatchingReview({ question }: { question: Question }) {
                       ? 'VerdictIncorrect'
                       : 'PracticeUnanswered'
                 )}
-              </Practice.Muted>
+              </Practice.ResultVerdict>
               <p>
                 <Practice.MutedText>{t('YourAnswer')}: </Practice.MutedText>
                 {text(selected?.definitionId) ?? t('PracticeUnanswered')}

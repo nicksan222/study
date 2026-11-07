@@ -1676,6 +1676,8 @@ export const english = Object.freeze({
   PracticeActions: 'Practice actions',
   PracticeArchivePreview: 'Archived material preview',
   PracticeArchiveOtherOption: 'Not a correct answer',
+  PracticeScorePending: 'Score pending',
+  PracticeFeedback: 'Feedback',
   PracticeArchiveExplanation: 'Explanation',
   PracticeArchiveSearchHelp: 'Try another search to find archived quizzes and flashcards.',
   PracticeArchived: 'Archived',

@@ -48,6 +48,7 @@ export function Quiz({ version, projectId, title }: QuizSetupProps) {
   return <QuizStart version={version} projectId={projectId} title={title} />;
 }
 
+/** Counts questions matching saved preferences and starts an attempt against the selected immutable version. */
 function QuizStart({ version, projectId, title }: QuizSetupProps) {
   const search = useSearch({ from: '__root__' });
   const navigate = useNavigate();
