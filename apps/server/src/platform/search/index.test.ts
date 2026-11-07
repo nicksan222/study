@@ -50,6 +50,34 @@ const project = (n: bigint, text: string): SearchProjection => ({
   revision: text
 });
 
+testStable('search reads passage text only for its selected result keys', async () => {
+  const location = createTestDatabase();
+  const db = location.open();
+  const rows = [project(1n, 'planet winner'), project(2n, 'painting loser')];
+
+  try {
+    const index = makeSemanticIndex({ db, model, read: () => rows });
+
+    await Effect.runPromise(index.reconcile());
+    // SQLite evaluates this expression only if a query actually reads a losing excerpt.
+    db.exec(`ALTER TABLE semantic_search_entries RENAME TO test_search_entries;
+      CREATE VIEW semantic_search_entries AS
+      SELECT key,kind,target,fingerprint,model,dimensions,title,embedding,
+        CASE WHEN title='planet winner' THEN text ELSE json_extract('invalid-json','$') END AS text
+      FROM test_search_entries;`);
+    const hits = await Effect.runPromise(
+      index.search({ query: 'planet', limit: 1 }, { type: 'all' })
+    );
+
+    expect(hits).toMatchObject([
+      { target: { type: 'project', id: id(1n) }, text: 'planet winner\nplanet winner' }
+    ]);
+  } finally {
+    db.close();
+    location.cleanup();
+  }
+});
+
 testStable('reconciliation publishes a bounded page before reading the next page', async () => {
   const location = createTestDatabase();
   const db = location.open();

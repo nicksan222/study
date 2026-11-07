@@ -49,13 +49,17 @@ function* eligibleProjections(
   for (const row of rows) if (isEligible(row, input, scope)) yield row;
 }
 
+type SearchCandidate = Pick<SearchRecord, 'target' | 'title'> & {
+  readonly projection: Pick<SearchProjection, 'target'>;
+};
+
 /** Choose each entity’s closest chunk with deterministic ordering before applying the result limit. */
 function bestHits(
   ranked: readonly { key: string; distance: number }[],
-  eligible: Map<string, SearchRecord>,
+  eligible: Map<string, SearchCandidate>,
   limit: number
 ) {
-  const hits: SemanticSearchHit[] = [];
+  const hits: Array<Omit<SemanticSearchHit, 'text'> & { key: string }> = [];
   const seen = new Set<string>();
 
   for (const match of [...ranked].sort(
@@ -69,7 +73,7 @@ function bestHits(
     hits.push({
       target: row.projection.target,
       title: row.title,
-      text: row.text,
+      key: match.key,
       distance: match.distance
     });
 
@@ -219,7 +223,16 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     const live = new Map(
       Array.from(
         searchEntities(eligibleProjections(rows, input, scope), model.maxChunkingInputLength),
-        (row) => [row.target, row] as const
+        (row) =>
+          [
+            row.target,
+            {
+              target: row.target,
+              fingerprint: row.fingerprint,
+              title: row.title,
+              projection: { target: row.projection.target }
+            }
+          ] as const
       )
     );
 
@@ -229,8 +242,7 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
       .select({
         key: entries.key,
         target: entries.target,
-        fingerprint: entries.fingerprint,
-        text: entries.text
+        fingerprint: entries.fingerprint
       })
       .from(entries)
       .where(
@@ -241,14 +253,14 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
         )
       )
       .all();
-    const eligible = new Map<string, SearchRecord>();
+    const eligible = new Map<string, SearchCandidate>();
 
     for (const row of saved) {
       const entity = live.get(row.target);
 
       if (!entity || entity.fingerprint !== row.fingerprint) continue;
 
-      eligible.set(row.key, { ...entity, key: row.key, text: row.text });
+      eligible.set(row.key, entity);
     }
 
     const candidates = [...eligible.keys()];
@@ -257,7 +269,29 @@ export function makeVectorStore(db: Db, model: EmbeddingModel) {
     for (let i = 0; i < candidates.length; i += 200)
       ranked.push(...score(candidates.slice(i, i + 200), vector));
 
-    return bestHits(ranked, eligible, input.limit ?? 10);
+    const selected = bestHits(ranked, eligible, input.limit ?? 10);
+
+    if (!selected.length) return [];
+
+    // Excerpts are loaded only after scope, freshness, deduplication and the limit are applied.
+    const excerpts = new Map(
+      db.orm
+        .select({ key: entries.key, text: entries.text })
+        .from(entries)
+        .where(
+          inArray(
+            entries.key,
+            selected.map((hit) => hit.key)
+          )
+        )
+        .all()
+        .map((row) => [row.key, row.text] as const)
+    );
+
+    return selected.map(({ key, ...hit }): SemanticSearchHit => ({
+      ...hit,
+      text: excerpts.get(key)!
+    }));
   }
 
   return { purge, changed, publish, search };
