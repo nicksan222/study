@@ -19,6 +19,8 @@ import { createServer } from 'node:http';
 import type { ServerResponse } from 'node:http';
 
 import { StudyError } from '@study/contracts/errors';
+import { AgentRule } from '@study/contracts/settings/schemas';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Schema } from 'effect';
 import { assert } from 'vite-plus/test';
@@ -56,10 +58,12 @@ testStable(
       const agents = layer({
         model: () => Effect.succeed(model),
         language: 'en',
+        rules: Effect.succeed(defaultAgentRules),
         searchSources: () => Effect.succeed([])
       });
       const definition = defineAgent({
         id: 'admission-test',
+        customRules: [AgentRule.Replies],
         input: Schema.String,
         output: Schema.String,
         model: 'tiny',

@@ -1,8 +1,7 @@
 @import './components/practice.css';
 @import './components/onboarding.css';
-@import './components/session-desk.css';
+@import './components/workspace-desk.css';
 @import './components/chat.css';
-@import './components/chat-drawer.css';
 @import './components/citation.css';
 @import './components/rich-note.css';
 @import './components/material-library.css';

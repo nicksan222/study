@@ -47,6 +47,9 @@ runs:
         bun-version-file: apps/landing/package.json
     - name: 📦 Install workspace dependencies
       shell: bash
+      # CPU binaries are bundled; CI does not need the optional CUDA download.
+      env:
+        ONNXRUNTIME_NODE_INSTALL: skip
       run: npm ci
     - name: 🌍 Install landing dependencies
       shell: bash

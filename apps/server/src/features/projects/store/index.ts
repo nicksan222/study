@@ -126,6 +126,23 @@ export const ProjectsStore = defineStore({
           .run();
     };
 
+    const create = (input: typeof createInput.Type) => {
+      const timestamp = unixSeconds(clock);
+      const result = db.orm
+        .insert(projects)
+        .values({ name: input.name, created_at: timestamp, updated_at: timestamp })
+        .run();
+
+      return {
+        id: Schema.decodeUnknownSync(projectIdSchema)(BigInt(result.lastInsertRowid)),
+        name: input.name,
+        icon: automaticProjectIcon,
+        examOn: null,
+        createdAt: timestamp,
+        updatedAt: timestamp
+      };
+    };
+
     return {
       queries: {
         project: storeQuery({
@@ -176,26 +193,23 @@ export const ProjectsStore = defineStore({
           output: Schema.Void,
           run: (input) => sessionMembership(input, false)
         }),
-        createProject: storeMutation({
+        ensureProject: storeMutation({
           input: createInput,
           output: projectSchema,
           run: (input) => {
-            const timestamp = unixSeconds(clock);
-            const result = db.orm
-              .insert(projects)
-              .values({ name: input.name, created_at: timestamp, updated_at: timestamp })
-              .run();
+            const existing = db.orm
+              .select()
+              .from(projects)
+              .where(eq(projects.name, input.name))
+              .orderBy(projects.id)
+              .get();
 
-            return {
-              id: Schema.decodeUnknownSync(projectIdSchema)(BigInt(result.lastInsertRowid)),
-              name: input.name,
-              icon: automaticProjectIcon,
-              examOn: null,
-              createdAt: timestamp,
-              updatedAt: timestamp
-            };
+            if (existing) return row(existing);
+
+            return create(input);
           }
         }),
+        createProject: storeMutation({ input: createInput, output: projectSchema, run: create }),
         renameProject: storeMutation({
           input: renameInput,
           output: Schema.Boolean,

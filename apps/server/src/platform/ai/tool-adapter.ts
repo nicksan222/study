@@ -15,9 +15,9 @@
  */
 
 import type { agentUpdateSchema } from '@study/contracts/ai/progress';
-import type { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts/errors';
 import { dynamicTool } from 'ai';
-import { Cause, Effect, Exit } from 'effect';
+import { Cause, Effect, Exit, Option, Schema } from 'effect';
 import type { Context, Tracer } from 'effect';
 
 import { standardSchema } from '#server/platform/ai/schema';
@@ -28,52 +28,104 @@ import { safeMetadata } from '#server/platform/observability/index';
  * Restore the captured Effect context for provider-invoked tools and forward cancellation.
  * When progress is enabled, publish tool identity and outcome around the actual execution.
  */
-export function adaptTool(
-  definition: AgentTool,
+export function adaptTool<Requirements>(
+  definition: AgentTool<Schema.ConstraintDecoder<unknown>, unknown, Requirements>,
   environment: AgentEnvironment,
   span: Tracer.Span,
   annotations: Readonly<Record<string, unknown>>,
-  context: Context.Context<never>,
+  context: Context.Context<Requirements>,
   progress?: {
     name: string;
     emit: (event: typeof agentUpdateSchema.Type) => Effect.Effect<void, StudyError>;
   }
 ) {
+  let ordinal = 0;
+
   return dynamicTool({
     description: definition.description,
-    inputSchema: standardSchema(definition.input),
+    inputSchema: standardSchema(Schema.toEncoded(Schema.toCodecJson(definition.input))),
     execute: (input, options) => {
+      const callOrdinal = ++ordinal;
       const toolEnvironment: AgentEnvironment = {
         ...environment,
         searchSources: (query, signal) =>
           environment.searchSources(query, signal ?? options.abortSignal)
       };
 
+      const identity = { toolCallId: options.toolCallId, toolName: progress?.name ?? '' };
+
       return Effect.runPromiseWith(context)(
         Effect.gen(function* () {
-          const identity = { toolCallId: options.toolCallId, toolName: progress?.name ?? '' };
+          if (progress)
+            yield* progress.emit({ type: 'tool-start', ...identity, input: toolDetail(input) });
 
-          if (progress) yield* progress.emit({ type: 'tool-start', ...identity });
+          const decoded = yield* Schema.decodeUnknownEffect(Schema.toCodecJson(definition.input))(
+            input
+          ).pipe(
+            Effect.mapError(
+              (cause) => new StudyError('invalid_input', 'Invalid tool input', { cause })
+            )
+          );
 
-          return yield* definition.execute(input, toolEnvironment).pipe(
-            Effect.tap(() =>
-              progress
-                ? progress.emit({ type: 'tool-finish', ...identity, outcome: 'success' })
-                : Effect.void
+          const execute = definition.execute(decoded, toolEnvironment).pipe(
+            Effect.flatMap(Schema.encodeUnknownEffect(Schema.toCodecJson(definition.output))),
+            Effect.flatMap(Schema.decodeUnknownEffect(Schema.Json)),
+            Effect.mapError((cause) =>
+              cause instanceof StudyError
+                ? cause
+                : new StudyError('internal', 'Invalid tool result', { cause })
             ),
-            Effect.onExit((exit) =>
-              progress && Exit.isFailure(exit)
-                ? progress
-                    .emit({
-                      type: 'tool-finish',
-                      ...identity,
-                      outcome: Cause.hasInterruptsOnly(exit.cause) ? 'cancelled' : 'failure'
-                    })
-                    .pipe(Effect.ignore)
-                : Effect.void
+            Effect.provideContext(context)
+          );
+          const jsonInput = yield* Schema.decodeUnknownEffect(Schema.Json)(input).pipe(
+            Effect.mapError(
+              (cause) => new StudyError('invalid_input', 'Invalid JSON tool input', { cause })
+            )
+          );
+          const result = environment.runTool
+            ? environment.runTool(
+                {
+                  name: progress?.name ?? '',
+                  ordinal: callOrdinal,
+                  input: jsonInput,
+                  mutates: definition.mutates
+                },
+                execute
+              )
+            : execute;
+
+          return yield* result.pipe(
+            Effect.flatMap(Schema.decodeUnknownEffect(Schema.toCodecJson(definition.output))),
+            Effect.flatMap(Schema.encodeUnknownEffect(Schema.toCodecJson(definition.output))),
+            Effect.mapError((error) =>
+              error instanceof StudyError
+                ? error
+                : new StudyError('internal', 'Invalid tool result', { cause: error })
             )
           );
         }).pipe(
+          Effect.onExit((exit) =>
+            progress && Exit.isFailure(exit)
+              ? progress
+                  .emit({
+                    type: 'tool-finish',
+                    ...identity,
+                    outcome: toolFailureKind(exit.cause) === 'cancelled' ? 'cancelled' : 'failure',
+                    errorKind: toolFailureKind(exit.cause)
+                  })
+                  .pipe(Effect.ignore)
+              : Effect.void
+          ),
+          Effect.tap((output) =>
+            progress
+              ? progress.emit({
+                  type: 'tool-finish',
+                  ...identity,
+                  outcome: 'success',
+                  output: toolDetail(output)
+                })
+              : Effect.void
+          ),
           Effect.annotateLogs(safeMetadata(annotations)),
           Effect.withParentSpan(span),
           Effect.withSpan('agent.tool')
@@ -85,15 +137,30 @@ export function adaptTool(
 }
 
 /** Bridge a scoped request check to the provider's last cancellable HTTP boundary. */
-export function adaptRequestCheck(
+export function adaptRequestCheck<Requirements>(
   check: Effect.Effect<void, StudyError>,
   span: Tracer.Span,
   annotations: Readonly<Record<string, unknown>>,
-  context: Context.Context<never>
+  context: Context.Context<Requirements>
 ) {
   return (signal: AbortSignal | undefined) =>
     Effect.runPromiseWith(context)(
       check.pipe(Effect.annotateLogs(safeMetadata(annotations)), Effect.withParentSpan(span)),
       { signal }
     );
+}
+
+/** Presentation previews are bounded; the canonical tool result remains schema validated. */
+function toolDetail(value: unknown) {
+  const text = JSON.stringify(value, null, 2) ?? '';
+
+  return { text: text.slice(0, 12000), truncated: text.length > 12000 };
+}
+
+function toolFailureKind(cause: Cause.Cause<StudyError>) {
+  if (Cause.hasInterruptsOnly(cause)) return 'cancelled' as const;
+
+  const failure = Cause.findErrorOption(cause);
+
+  return Option.isSome(failure) ? failure.value.kind : ('internal' as const);
 }

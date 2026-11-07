@@ -247,7 +247,11 @@ function ResultAnswers({
               key={String(choice.id)}
               type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
               name={'result-' + String(question.id)}
-              text={choice.text}
+              text={
+                question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text
+              }
               number={position + 1}
               selected={selected.includes(choice.id)}
               disabled

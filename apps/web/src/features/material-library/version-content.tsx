@@ -75,11 +75,13 @@ function QuestionPreview({
           {t(
             question.kind === 'matching'
               ? 'PracticeMatching'
-              : question.kind === 'fill_blank'
-                ? 'PracticeFillBlank'
-                : question.kind === 'open'
-                  ? 'QuestionOpen'
-                  : 'QuestionChoice'
+              : question.kind === 'true_false'
+                ? 'PracticeTrueFalse'
+                : question.kind === 'fill_blank'
+                  ? 'PracticeFillBlank'
+                  : question.kind === 'open'
+                    ? 'QuestionOpen'
+                    : 'QuestionChoice'
           )}
         </span>
       </Practice.ProgressHeading>
@@ -98,7 +100,11 @@ function QuestionPreview({
           question.choices.map((choice, position) => (
             <Practice.ChoiceOption
               key={String(choice.id)}
-              text={choice.text}
+              text={
+                question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text
+              }
               number={position + 1}
               selected={choice.isCorrect}
               type={question.kind === 'multiple_choice' ? 'checkbox' : 'radio'}
@@ -107,7 +113,9 @@ function QuestionPreview({
               disabled
               readOnly
               aria-label={
-                choice.text +
+                (question.kind === 'true_false'
+                  ? t(choice.text === 'true' ? 'PracticeTrue' : 'PracticeFalse')
+                  : choice.text) +
                 '. ' +
                 t(choice.isCorrect ? 'ReaderCorrectAnswer' : 'PracticeArchiveOtherOption')
               }

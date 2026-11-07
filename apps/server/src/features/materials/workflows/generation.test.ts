@@ -13,6 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -58,6 +59,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
     agentsLayer({
       model: () => Effect.die('unexpected model'),
       language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
     })
   );
@@ -238,6 +240,7 @@ testStable(
               return model;
             }),
           language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.die('global search')
         })
       );
@@ -497,6 +500,12 @@ testStable(
               { term: 'Alpha', definition: 'First' },
               { term: 'Beta', definition: 'Second' }
             ]
+          },
+          {
+            kind: 'true_false',
+            prompt: 'The captured value is alpha.',
+            isTrue: true,
+            explanation: 'alpha [1]'
           }
         ]
       });
@@ -508,7 +517,7 @@ testStable(
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
 
-        const [single, multiple, open, blank, matching] = quiz.content.questions;
+        const [single, multiple, open, blank, matching, boolean] = quiz.content.questions;
 
         if (
           single?.kind !== 'single_choice' ||
@@ -526,12 +535,22 @@ testStable(
         assert.ok(open.referenceAnswer === 'alpha');
         assert.ok(blank?.kind === 'fill_blank');
         assert.equal(blank.referenceAnswer, 'alpha');
-        assert.ok(matching?.kind === 'matching');
+        assert.ok(matching);
+        assert.ok(matching.kind === 'matching');
         assert.deepEqual(
           matching.pairs.map((p) => [p.term, p.definition]),
           [
             ['Alpha', 'First'],
             ['Beta', 'Second']
+          ]
+        );
+        assert.ok(boolean);
+        assert.ok(boolean.kind === 'true_false');
+        assert.deepEqual(
+          boolean.choices.map((choice) => [choice.text, choice.isCorrect]),
+          [
+            ['true', true],
+            ['false', false]
           ]
         );
       }

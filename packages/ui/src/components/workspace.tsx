@@ -14,7 +14,7 @@ import {
 import type { ComponentProps, ReactNode, RefObject } from 'react';
 
 import { semanticPart as part } from './semantic-part';
-import { AttachmentIcon } from './session-desk';
+import { AttachmentIcon } from './workspace-desk';
 
 const CardContext = createContext<{
   id: string;
@@ -23,15 +23,26 @@ const CardContext = createContext<{
   trigger: RefObject<HTMLButtonElement | null>;
 } | null>(null);
 
+/** Shares panel visibility and its focus-return target, supporting controlled workspaces. */
 function Provider({
   children,
-  defaultOpen = true
+  defaultOpen = true,
+  open: controlledOpen,
+  onOpenChange
 }: {
   children: ReactNode;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const id = useId();
-  const [open, setOpen] = useState(defaultOpen);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = (nextOpen: boolean) => {
+    if (controlledOpen === undefined) setUncontrolledOpen(nextOpen);
+
+    onOpenChange?.(nextOpen);
+  };
   const trigger = useRef<HTMLButtonElement>(null);
 
   return (

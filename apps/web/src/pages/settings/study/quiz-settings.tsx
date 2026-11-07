@@ -77,7 +77,8 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
             { value: 'choice', label: t('QuestionChoice') },
             { value: 'open', label: t('QuestionOpen') },
             { value: 'fill_blank', label: t('PracticeFillBlank') },
-            { value: 'matching', label: t('PracticeMatching') }
+            { value: 'matching', label: t('PracticeMatching') },
+            { value: 'true_false', label: t('PracticeTrueFalse') }
           ]}
           onValueChange={(value) => {
             if (
@@ -85,7 +86,8 @@ function QuizSettingsPanel({ model }: { model: ReturnType<typeof useQuizSettings
               value === 'choice' ||
               value === 'open' ||
               value === 'fill_blank' ||
-              value === 'matching'
+              value === 'matching' ||
+              value === 'true_false'
             )
               model.update({ questionKind: value });
           }}

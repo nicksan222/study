@@ -7,15 +7,26 @@ export const agentRunIdSchema = Schema.String.check(Schema.isBetweenLength(1, 25
   Schema.brand('AgentRunId')
 );
 
+const agentToolDetailSchema = Schema.Struct({
+  text: Schema.String.check(Schema.isMaxLength(12000)),
+  truncated: Schema.Boolean
+});
+
 const toolIdentity = { toolCallId: Schema.String, toolName: Schema.String };
 
 export const agentUpdateSchema = Schema.Union([
   Schema.Struct({ type: Schema.Literal('text-delta'), text: Schema.String }),
-  Schema.Struct({ type: Schema.Literal('tool-start'), ...toolIdentity }),
+  Schema.Struct({
+    type: Schema.Literal('tool-start'),
+    ...toolIdentity,
+    input: Schema.optional(agentToolDetailSchema)
+  }),
   Schema.Struct({
     type: Schema.Literal('tool-finish'),
     ...toolIdentity,
-    outcome: Schema.Literals(['success', 'failure', 'cancelled'])
+    outcome: Schema.Literals(['success', 'failure', 'cancelled']),
+    output: Schema.optional(agentToolDetailSchema),
+    errorKind: Schema.optional(errorKindSchema)
   })
 ]);
 
@@ -33,7 +44,12 @@ export const agentObservationSchema = Schema.Struct({
 
 export const agentToolProgressSchema = Schema.Struct({
   ...toolIdentity,
-  status: Schema.Literals(['running', 'completed', 'failed', 'cancelled'])
+  status: Schema.Literals(['running', 'completed', 'failed', 'cancelled']),
+  input: Schema.optional(agentToolDetailSchema),
+  output: Schema.optional(agentToolDetailSchema),
+  errorKind: Schema.optional(errorKindSchema),
+  startedAtMs: Schema.optional(Schema.BigInt),
+  finishedAtMs: Schema.optional(Schema.BigInt)
 });
 
 export const agentProgressSchema = Schema.Struct({

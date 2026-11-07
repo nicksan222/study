@@ -71,7 +71,7 @@ CREATE TABLE `__new_material_quiz_questions` (
 	`explanation` text NOT NULL,
 	`matching_pairs` text,
 	CONSTRAINT `fk_material_quiz_questions_version_id_material_quiz_versions_version_id_fk` FOREIGN KEY (`version_id`) REFERENCES `material_quiz_versions`(`version_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT "material_quiz_questions_values" CHECK(typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','open','fill_blank','matching') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4)))
+	CONSTRAINT "material_quiz_questions_values" CHECK(typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4)))
 );
 --> statement-breakpoint
 INSERT INTO `__new_material_quiz_questions`(`id`, `version_id`, `position`, `kind`, `prompt`, `explanation`) SELECT `id`, `version_id`, `position`, `kind`, `prompt`, `explanation` FROM `material_quiz_questions`;--> statement-breakpoint
@@ -91,7 +91,7 @@ CREATE TABLE `__new_material_quiz_responses` (
 	CONSTRAINT `fk_material_quiz_responses_attempt_id_version_id_material_quiz_attempts_id_version_id_fk` FOREIGN KEY (`attempt_id`,`version_id`) REFERENCES `material_quiz_attempts`(`id`,`version_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
 	CONSTRAINT `fk_material_quiz_responses_question_id_version_id_material_quiz_questions_id_version_id_fk` FOREIGN KEY (`question_id`,`version_id`) REFERENCES `material_quiz_questions`(`id`,`version_id`) ON UPDATE RESTRICT ON DELETE CASCADE,
 	CONSTRAINT `fk_material_quiz_responses_question_id_question_kind_material_quiz_questions_id_kind_fk` FOREIGN KEY (`question_id`,`question_kind`) REFERENCES `material_quiz_questions`(`id`,`kind`) ON UPDATE RESTRICT ON DELETE CASCADE,
-	CONSTRAINT "material_quiz_responses_values" CHECK(question_kind IN ('single_choice','multiple_choice','open','fill_blank','matching') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice') AND answer IS NULL)))
+	CONSTRAINT "material_quiz_responses_values" CHECK(question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL)))
 );
 --> statement-breakpoint
 INSERT INTO `__new_material_quiz_responses`(`attempt_id`, `version_id`, `question_id`, `question_kind`, `answer`, `score`, `feedback`) SELECT `attempt_id`, `version_id`, `question_id`, `question_kind`, `answer`, `score`, `feedback` FROM `material_quiz_responses`;--> statement-breakpoint
@@ -175,7 +175,7 @@ WHEN OLD.version_id IS NULL AND NEW.version_id IS NOT NULL AND (
 BEGIN SELECT RAISE(ABORT, 'practice publication does not match its slot'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_attempt_complete_answers BEFORE UPDATE OF status ON material_quiz_attempts
-WHEN new.status='completed' AND EXISTS(SELECT 1 FROM material_quiz_responses r WHERE r.attempt_id=new.id AND r.question_kind IN ('single_choice','multiple_choice') AND NOT EXISTS(SELECT 1 FROM material_quiz_selections s WHERE s.attempt_id=r.attempt_id AND s.question_id=r.question_id))
+WHEN new.status='completed' AND EXISTS(SELECT 1 FROM material_quiz_responses r WHERE r.attempt_id=new.id AND r.question_kind IN ('single_choice','multiple_choice','true_false') AND NOT EXISTS(SELECT 1 FROM material_quiz_selections s WHERE s.attempt_id=r.attempt_id AND s.question_id=r.question_id))
 BEGIN SELECT RAISE(ABORT, 'choice responses require a selection before completion'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_deletion_search AFTER INSERT ON material_deletion_members BEGIN DELETE FROM catalog_fts WHERE (kind='material' AND target_id=NEW.material_id) OR (kind='question' AND target_id IN(SELECT q.id FROM material_quiz_questions q JOIN material_versions v ON v.id=q.version_id WHERE v.material_id=NEW.material_id)); END;
@@ -199,10 +199,11 @@ CREATE TRIGGER material_publish_quiz BEFORE UPDATE OF status ON material_version
 WHEN new.status='published' AND new.kind='quiz' AND (
       NOT EXISTS(SELECT 1 FROM material_quiz_questions WHERE version_id=new.id)
       OR EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=new.id AND (
-        (q.kind IN ('open','fill_blank') AND NOT EXISTS(SELECT 1 FROM material_quiz_open_answers a WHERE a.question_id=q.id))
-        OR (q.kind IN ('single_choice','multiple_choice') AND (
+        (q.kind='true_false' AND ((SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id) != 2 OR NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.text='true') OR NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.text='false')))
+        OR (q.kind IN ('open','fill_blank') AND NOT EXISTS(SELECT 1 FROM material_quiz_open_answers a WHERE a.question_id=q.id))
+        OR (q.kind IN ('single_choice','multiple_choice','true_false') AND (
           (SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id) NOT BETWEEN 2 AND 100
-          OR (q.kind='single_choice' AND (SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id AND c.is_correct=1) != 1)
+          OR (q.kind IN ('single_choice','true_false') AND (SELECT count(*) FROM material_quiz_choices c WHERE c.question_id=q.id AND c.is_correct=1) != 1)
           OR (q.kind='multiple_choice' AND NOT EXISTS(SELECT 1 FROM material_quiz_choices c WHERE c.question_id=q.id AND c.is_correct=1))
         ))
       )))
@@ -273,12 +274,12 @@ WHEN (EXISTS(SELECT 1 FROM material_quiz_attempts WHERE id=OLD.attempt_id AND st
 BEGIN SELECT RAISE(ABORT, 'completed quiz answers are immutable'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_selection_single_insert BEFORE INSERT ON material_quiz_selections
-WHEN (SELECT question_kind FROM material_quiz_responses WHERE attempt_id=new.attempt_id AND question_id=new.question_id)='single_choice'
+WHEN (SELECT question_kind FROM material_quiz_responses WHERE attempt_id=new.attempt_id AND question_id=new.question_id) IN ('single_choice','true_false')
           AND EXISTS(SELECT 1 FROM material_quiz_selections s WHERE s.attempt_id=new.attempt_id AND s.question_id=new.question_id )
 BEGIN SELECT RAISE(ABORT, 'single choice answers may select exactly one choice'); END;
 --> statement-breakpoint
 CREATE TRIGGER material_selection_single_update BEFORE UPDATE ON material_quiz_selections
-WHEN (SELECT question_kind FROM material_quiz_responses WHERE attempt_id=new.attempt_id AND question_id=new.question_id)='single_choice'
+WHEN (SELECT question_kind FROM material_quiz_responses WHERE attempt_id=new.attempt_id AND question_id=new.question_id) IN ('single_choice','true_false')
           AND EXISTS(SELECT 1 FROM material_quiz_selections s WHERE s.attempt_id=new.attempt_id AND s.question_id=new.question_id AND (s.attempt_id != old.attempt_id OR s.question_id != old.question_id OR s.choice_id != old.choice_id))
 BEGIN SELECT RAISE(ABORT, 'single choice answers may select exactly one choice'); END;
 

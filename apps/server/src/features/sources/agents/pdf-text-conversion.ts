@@ -14,6 +14,7 @@ import {
   visionTranscriptionInputSchema,
   visionTranscriptionOutputSchema
 } from '@study/contracts/ai/vision-transcription';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
@@ -21,6 +22,7 @@ import { visionTranscriptionAgent } from './vision-transcription.ts';
 
 export const pdfConversionAgent = defineAgent({
   id: 'pdf-text-conversion',
+  customRules: [AgentRule.Transcription],
   input: visionTranscriptionInputSchema,
   output: visionTranscriptionOutputSchema,
   model: 'tiny',

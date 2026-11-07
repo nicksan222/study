@@ -16,6 +16,7 @@
 
 import { createServer } from 'node:http';
 
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
@@ -98,6 +99,7 @@ testStable('Responses adapter retries 401 with rotated OAuth token and consumes 
           layer({
             model: () => Effect.succeed(model),
             language: 'en',
+            rules: Effect.succeed(defaultAgentRules),
             searchSources: () => Effect.succeed([])
           })
         )

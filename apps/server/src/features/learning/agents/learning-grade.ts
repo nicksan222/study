@@ -15,11 +15,13 @@
  */
 
 import { gradeInputSchema, gradeOutputSchema } from '@study/contracts/ai/grade';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const learningGradeAgent = defineAgent({
   id: 'learning-grade',
+  customRules: [AgentRule.Grading],
   input: gradeInputSchema,
   output: gradeOutputSchema,
   model: 'medium',

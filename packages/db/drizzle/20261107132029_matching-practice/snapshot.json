@@ -3,7 +3,7 @@
   "dialect": "sqlite",
   "id": "87aec71c-3ffb-4482-a1b9-816530eb31ef",
   "prevIds": [
-    "396a7dcb-47f6-4b9d-b326-816486b6fccb"
+    "270ef802-5918-4d59-a35a-6e0e89bf5a23"
   ],
   "ddl": [
     {
@@ -412,6 +412,18 @@
     },
     {
       "name": "conversation_reply_sources",
+      "entityType": "tables"
+    },
+    {
+      "name": "assistant_chat_starts",
+      "entityType": "tables"
+    },
+    {
+      "name": "assistant_memory",
+      "entityType": "tables"
+    },
+    {
+      "name": "assistant_tool_receipts",
       "entityType": "tables"
     },
     {
@@ -1325,6 +1337,16 @@
       "notNull": true,
       "autoincrement": false,
       "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "mode",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'notebook'",
       "generated": null,
       "entityType": "columns"
     },
@@ -5769,6 +5791,116 @@
       "entityType": "columns"
     },
     {
+      "table": "assistant_chat_starts",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_chat_starts",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "through_message_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "summary",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "updated_at_ms",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "input",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "result",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "semantic_search_entries",
       "name": "key",
       "type": "text",
@@ -9968,6 +10100,66 @@
       "entityType": "fks"
     },
     {
+      "table": "assistant_chat_starts",
+      "name": "fk_assistant_chat_starts_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "fk_assistant_memory_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "fk_assistant_memory_through_message_id_messages_id_fk",
+      "columns": [
+        "through_message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "fk_assistant_tool_receipts_version_id_message_versions_id_fk",
+      "columns": [
+        "version_id"
+      ],
+      "tableTo": "message_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
       "table": "preferences",
       "name": "preferences_pk",
       "columns": [
@@ -10288,6 +10480,17 @@
       "columns": [
         "request_id",
         "part_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "assistant_tool_receipts_pk",
+      "columns": [
+        "version_id",
+        "name",
+        "ordinal"
       ],
       "nameExplicit": false,
       "entityType": "pks"
@@ -10914,6 +11117,24 @@
       "entityType": "pks"
     },
     {
+      "table": "assistant_chat_starts",
+      "name": "assistant_chat_starts_pk",
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "assistant_memory_pk",
+      "columns": [
+        "session_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "semantic_search_entries",
       "name": "semantic_search_entries_pk",
       "columns": [
@@ -10972,6 +11193,15 @@
       "name": "session_retired_intents_request_id_unique",
       "columns": [
         "request_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "uniques"
+    },
+    {
+      "table": "assistant_chat_starts",
+      "name": "assistant_chat_starts_session_id_unique",
+      "columns": [
+        "session_id"
       ],
       "nameExplicit": false,
       "entityType": "uniques"
@@ -11339,7 +11569,7 @@
     {
       "table": "material_quiz_choices",
       "name": "material_quiz_choices_values",
-      "value": "question_kind IN ('single_choice','multiple_choice') AND typeof(position) = 'integer' AND position >= 0 AND length(trim(text)) > 0 AND is_correct IN (0,1)",
+      "value": "question_kind IN ('single_choice','multiple_choice','true_false') AND typeof(position) = 'integer' AND position >= 0 AND length(trim(text)) > 0 AND is_correct IN (0,1)",
       "entityType": "checks"
     },
     {
@@ -11351,13 +11581,13 @@
     {
       "table": "material_quiz_questions",
       "name": "material_quiz_questions_values",
-      "value": "typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','open','fill_blank','matching') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))",
+      "value": "typeof(position) = 'integer' AND typeof(position) = 'integer' AND position >= 0 AND kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching') AND length(trim(prompt)) > 0 AND length(trim(explanation)) > 0 AND ((kind = 'matching' AND matching_pairs IS NOT NULL AND json_valid(matching_pairs) AND json_array_length(matching_pairs) BETWEEN 2 AND 8) OR (kind != 'matching' AND matching_pairs IS NULL)) AND (kind != 'fill_blank' OR (instr(prompt, '_____') = 0 AND length(prompt) - length(replace(prompt, '____', '')) = 4))",
       "entityType": "checks"
     },
     {
       "table": "material_quiz_responses",
       "name": "material_quiz_responses_values",
-      "value": "question_kind IN ('single_choice','multiple_choice','open','fill_blank','matching') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice') AND answer IS NULL))",
+      "value": "question_kind IN ('single_choice','multiple_choice','true_false','open','fill_blank','matching') AND (score IS NULL OR score BETWEEN 0 AND 1) AND ((question_kind IN ('open','fill_blank') AND answer IS NOT NULL AND length(trim(answer)) > 0) OR (question_kind = 'matching' AND answer IS NOT NULL AND json_valid(answer) AND json_array_length(answer) BETWEEN 2 AND 8) OR (question_kind IN ('single_choice','multiple_choice','true_false') AND answer IS NULL))",
       "entityType": "checks"
     },
     {
@@ -11766,6 +11996,24 @@
       "table": "conversation_reply_sources",
       "name": "conversation_reply_source_identity",
       "value": "\"part_id\">0 AND \"revision\">0",
+      "entityType": "checks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "assistant_memory_summary_check",
+      "value": "length(\"summary\") BETWEEN 1 AND 16000",
+      "entityType": "checks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "assistant_tool_input_json",
+      "value": "json_valid(\"input\")",
+      "entityType": "checks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "assistant_tool_result_json",
+      "value": "\"result\" IS NULL OR json_valid(\"result\")",
       "entityType": "checks"
     },
     {

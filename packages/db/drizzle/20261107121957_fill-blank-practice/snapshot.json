@@ -3,9 +3,9 @@
   "dialect": "sqlite",
   "id": "396a7dcb-47f6-4b9d-b326-816486b6fccb",
   "prevIds": [
+    "06b90aed-817d-4ade-b614-ed2ba36e578b",
     "295dd4fb-50ae-4cb6-ac72-f309055ce024",
-    "5f0b8883-b919-437b-a8e2-8d83ead4c3b8",
-    "7b6c97c2-2150-4d3b-bfe4-dd99f5ddd1af"
+    "5f0b8883-b919-437b-a8e2-8d83ead4c3b8"
   ],
   "ddl": [
     {
@@ -414,6 +414,18 @@
     },
     {
       "name": "conversation_reply_sources",
+      "entityType": "tables"
+    },
+    {
+      "name": "assistant_chat_starts",
+      "entityType": "tables"
+    },
+    {
+      "name": "assistant_memory",
+      "entityType": "tables"
+    },
+    {
+      "name": "assistant_tool_receipts",
       "entityType": "tables"
     },
     {
@@ -1327,6 +1339,16 @@
       "notNull": true,
       "autoincrement": false,
       "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "sessions",
+      "name": "mode",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'notebook'",
       "generated": null,
       "entityType": "columns"
     },
@@ -5751,6 +5773,116 @@
       "entityType": "columns"
     },
     {
+      "table": "assistant_chat_starts",
+      "name": "key",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_chat_starts",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "session_id",
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "through_message_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "summary",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "updated_at_ms",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "version_id",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "name",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "ordinal",
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "input",
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "result",
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "entityType": "columns"
+    },
+    {
       "table": "semantic_search_entries",
       "name": "key",
       "type": "text",
@@ -9950,6 +10082,66 @@
       "entityType": "fks"
     },
     {
+      "table": "assistant_chat_starts",
+      "name": "fk_assistant_chat_starts_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "fk_assistant_memory_session_id_sessions_id_fk",
+      "columns": [
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "fk_assistant_memory_through_message_id_messages_id_fk",
+      "columns": [
+        "through_message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "fk_assistant_tool_receipts_version_id_message_versions_id_fk",
+      "columns": [
+        "version_id"
+      ],
+      "tableTo": "message_versions",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "entityType": "fks"
+    },
+    {
       "table": "preferences",
       "name": "preferences_pk",
       "columns": [
@@ -10270,6 +10462,17 @@
       "columns": [
         "request_id",
         "part_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "assistant_tool_receipts_pk",
+      "columns": [
+        "version_id",
+        "name",
+        "ordinal"
       ],
       "nameExplicit": false,
       "entityType": "pks"
@@ -10896,6 +11099,24 @@
       "entityType": "pks"
     },
     {
+      "table": "assistant_chat_starts",
+      "name": "assistant_chat_starts_pk",
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "assistant_memory_pk",
+      "columns": [
+        "session_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "pks"
+    },
+    {
       "table": "semantic_search_entries",
       "name": "semantic_search_entries_pk",
       "columns": [
@@ -10954,6 +11175,15 @@
       "name": "session_retired_intents_request_id_unique",
       "columns": [
         "request_id"
+      ],
+      "nameExplicit": false,
+      "entityType": "uniques"
+    },
+    {
+      "table": "assistant_chat_starts",
+      "name": "assistant_chat_starts_session_id_unique",
+      "columns": [
+        "session_id"
       ],
       "nameExplicit": false,
       "entityType": "uniques"
@@ -11748,6 +11978,24 @@
       "table": "conversation_reply_sources",
       "name": "conversation_reply_source_identity",
       "value": "\"part_id\">0 AND \"revision\">0",
+      "entityType": "checks"
+    },
+    {
+      "table": "assistant_memory",
+      "name": "assistant_memory_summary_check",
+      "value": "length(\"summary\") BETWEEN 1 AND 16000",
+      "entityType": "checks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "assistant_tool_input_json",
+      "value": "json_valid(\"input\")",
+      "entityType": "checks"
+    },
+    {
+      "table": "assistant_tool_receipts",
+      "name": "assistant_tool_result_json",
+      "value": "\"result\" IS NULL OR json_valid(\"result\")",
       "entityType": "checks"
     },
     {

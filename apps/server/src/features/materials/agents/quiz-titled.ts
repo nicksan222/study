@@ -13,6 +13,7 @@
 
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { titledQuizGenerationOutputSchema } from '@study/contracts/materials/schemas';
+import { AgentRule } from '@study/contracts/settings/schemas';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 
@@ -21,6 +22,7 @@ import { quizAgent } from './quiz.ts';
 
 export const quizTitledAgent = defineAgent({
   id: 'quiz-titled',
+  customRules: [AgentRule.Quizzes, AgentRule.Titles],
   input: promptInputSchema,
   output: titledQuizGenerationOutputSchema,
   model: 'medium',

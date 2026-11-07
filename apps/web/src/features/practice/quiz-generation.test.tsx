@@ -354,3 +354,30 @@ for (const [kind, label] of [
       )
     );
   });
+
+testStable('generates true or false practice with a typed kind and saved difficulty', async () => {
+  const rpc = rpcFixture();
+  const user = userEvent.setup();
+
+  mountLibraryRoute('/practice/41?project=1', rpc);
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+  await user.click(within(dialog).getByRole('radio', { name: 'True or false' }));
+  await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
+  await waitFor(() =>
+    expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({
+        kind: 'quiz',
+        title: 'True or false',
+        autoTitle: true,
+        quizConfig: {
+          questionCount: 3,
+          choiceCount: 2,
+          questionKind: 'true_false',
+          difficulty: 'balanced'
+        }
+      })
+    )
+  );
+});

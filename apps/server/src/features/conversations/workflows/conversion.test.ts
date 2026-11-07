@@ -17,6 +17,7 @@ import {
   sourceProcessingRequestedSchema,
   conversationGenerationRequestedSchema
 } from '@study/contracts/events';
+import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -74,6 +75,7 @@ function workflowServices(model: ReturnType<typeof createChatGptModel>) {
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     agentsLayer({
       language: 'english',
+      rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([]),
       model: (tier) => {
         expect(tier).toBe('tiny');

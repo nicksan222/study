@@ -96,8 +96,14 @@ function seedQuiz(
           reference_answer: value.referenceAnswer
         })
         .run();
-    } else if ('choices' in value) {
-      for (const [index, option] of value.choices.entries()) {
+    } else if (value.kind === 'true_false' || 'choices' in value) {
+      for (const [index, option] of (value.kind === 'true_false'
+        ? [
+            { text: 'true', isCorrect: value.isTrue },
+            { text: 'false', isCorrect: !value.isTrue }
+          ]
+        : value.choices
+      ).entries()) {
         db.orm
           .insert(material_quiz_choices)
           .values({

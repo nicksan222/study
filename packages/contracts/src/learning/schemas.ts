@@ -118,7 +118,7 @@ const openAttemptQuestionFields = {
 
 const choiceAttemptQuestionFields = {
   ...quizAttemptQuestionFields,
-  kind: Schema.Literals(['single_choice', 'multiple_choice']),
+  kind: Schema.Literals(['single_choice', 'multiple_choice', 'true_false']),
   answer: Schema.NullOr(
     Schema.Struct({
       type: Schema.Literal('choice'),

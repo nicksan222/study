@@ -201,6 +201,11 @@ export const MaterialsRpc = RpcGroup.make(
     success: materialDeletionSchema,
     error: failureSchema
   }),
+  Rpc.make('activeMaterialGenerations', {
+    payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+    success: Schema.Array(materialGenerationSnapshotSchema),
+    error: failureSchema
+  }),
   Rpc.make('materialGeneration', {
     payload: generationKeySchema,
     success: materialGenerationSnapshotSchema,
