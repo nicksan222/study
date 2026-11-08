@@ -41,11 +41,10 @@ import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { diagramFeedback } from '#server/platform/ai/diagram/validator';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const materialGenerationWorkflow = defineWorkflow({
@@ -83,17 +82,14 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
       })
     );
   const notifyFailure = (error: Failure) =>
-    defineActivity({
+    publicationActivity(store, {
       name: 'notify-material-generation-failed',
 
-      execute: withPublicationGuard(
-        store,
-        materials.notifyMaterialGenerationFailed({
-          requestId: event.requestId,
-          generationEventId: event.eventId,
-          errorKind: error.kind
-        })
-      )
+      execute: materials.notifyMaterialGenerationFailed({
+        requestId: event.requestId,
+        generationEventId: event.eventId,
+        errorKind: error.kind
+      })
     }).pipe(Effect.flatMap(() => Effect.fail(error)));
   const initial = yield* snapshot;
 
@@ -221,11 +217,11 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
       });
 
     const publish = (publication: typeof materialGenerationPublicationSchema.Type) =>
-      defineActivity({
+      publicationActivity(store, {
         name: 'publish-material',
         success: materialVersionIdSchema,
 
-        execute: withPublicationGuard(store, materials.publishMaterialGeneration(publication))
+        execute: materials.publishMaterialGeneration(publication)
       });
 
     let previous = '';

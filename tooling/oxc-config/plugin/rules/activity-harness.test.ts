@@ -20,3 +20,21 @@ testStable('feature activities cannot bypass the native checkpoint harness throu
     [['src/features/example/workflows/index.ts', message]]
   );
 });
+
+testStable('publication checkpoints centralize their guard wrapper', () => {
+  assertDiagnostics(
+    'activity-harness',
+    lintRule('activity-harness', {
+      'src/features/notes/workflows/bad.ts':
+        "import {defineActivity} from '#server/platform/definitions/define-activity'; import {withPublicationGuard as guard} from '#server/platform/workflows/publication'; defineActivity({name: 'x', execute: guard(context, work)});",
+      'src/features/notes/workflows/good.ts':
+        "import {publicationActivity} from '#server/platform/definitions/define-activity'; publicationActivity(context, {name: 'x', execute: work});"
+    }),
+    [
+      [
+        'src/features/notes/workflows/bad.ts',
+        'Use publicationActivity to capture publication authority inside the checkpoint.'
+      ]
+    ]
+  );
+});

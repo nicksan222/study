@@ -22,10 +22,9 @@ import { titleAgent } from '#server/features/notes/agents/title';
 import { Notes } from '#server/features/notes/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const noteTitleWorkflow = defineWorkflow({
@@ -93,11 +92,11 @@ export const noteTitleHandler = ({ event }: typeof noteTitleWorkflow.payloadSche
       })
     );
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'publish-title',
       success: titleRequestSchema,
 
-      execute: withPublicationGuard(store, notes.publishTitle(publication))
+      execute: notes.publishTitle(publication)
     });
   });
 

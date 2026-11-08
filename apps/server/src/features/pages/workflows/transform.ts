@@ -31,10 +31,9 @@ import { Pages } from '#server/features/pages/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const pageTransformWorkflow = defineWorkflow({
@@ -91,28 +90,22 @@ export const pageTransformHandler = ({ event }: typeof pageTransformWorkflow.pay
         )
       );
 
-      return yield* defineActivity({
+      return yield* publicationActivity(database.store, {
         name: 'publish-authored-document',
         success: pageVersionIdSchema,
 
-        execute: withPublicationGuard(
-          database.store,
-          request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
-        )
+        execute: request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
       });
     }).pipe(
       Effect.catch((error) =>
-        defineActivity({
+        publicationActivity(database.store, {
           name: 'record-authored-generation-failure',
 
-          execute: withPublicationGuard(
-            database.store,
-            docs.failTransform({
-              requestId: request.id,
-              eventId: event.eventId,
-              errorKind: error.kind
-            })
-          )
+          execute: docs.failTransform({
+            requestId: request.id,
+            eventId: event.eventId,
+            errorKind: error.kind
+          })
         }).pipe(Effect.andThen(Effect.fail(error)))
       )
     );

@@ -16,6 +16,9 @@ import { Effect } from 'effect';
 import type { Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
+import type { ServerContext } from '#server/platform/database/context';
+import { withPublicationGuard } from '#server/platform/workflows/publication';
+
 type Definition<S extends Schema.Constraint> = { readonly name: string; readonly success?: S };
 
 export function defineActivity<
@@ -47,4 +50,15 @@ function activityEffect<S extends Schema.Constraint, R>(
   definition: Definition<S> & { readonly execute: Effect.Effect<S['Type'], Failure, R> }
 ) {
   return Activity.make({ ...definition, error: failureSchema });
+}
+
+/** Capture publication authority inside the checkpoint, never while defining it. */
+export function publicationActivity<S extends Schema.Constraint = Schema.Void, R = never>(
+  context: ServerContext,
+  definition: Definition<S> & { readonly execute: Effect.Effect<NoInfer<S['Type']>, Failure, R> }
+) {
+  return defineActivity({
+    ...definition,
+    execute: withPublicationGuard(context, definition.execute)
+  });
 }

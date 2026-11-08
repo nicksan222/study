@@ -23,10 +23,9 @@ import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 export const recordingPostWorkflow = defineWorkflow({
   name: 'recording-post',
@@ -58,13 +57,12 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
     if (snapshot.messageId !== null)
       return yield* recordings.recordingPost({ requestId: event.requestId });
 
-    const sourceId = yield* defineActivity({
+    const sourceId = yield* publicationActivity(store, {
       name: 'import-recording',
       success: sourceIdSchema,
 
-      execute: withPublicationGuard(
-        store,
-        sources.importRecording({
+      execute: sources
+        .importRecording({
           requestId: event.requestId,
           projectId: snapshot.projectId,
           noteId: snapshot.noteId,
@@ -72,32 +70,26 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
           bytes: snapshot.bytes,
           durationMs: snapshot.durationMs
         })
-      ).pipe(Effect.map((source: typeof sourceSchema.Type) => source.id))
+        .pipe(Effect.map((source: typeof sourceSchema.Type) => source.id))
     });
-    const messageId = yield* defineActivity({
+    const messageId = yield* publicationActivity(store, {
       name: 'attach-recording',
       success: messageIdSchema,
 
-      execute: withPublicationGuard(
-        store,
-        notes.postRecordingMessage({
-          requestId: event.requestId,
-          projectId: snapshot.projectId,
-          noteId: snapshot.noteId,
-          sourceId,
-          durationMs: snapshot.durationMs
-        })
-      )
+      execute: notes.postRecordingMessage({
+        requestId: event.requestId,
+        projectId: snapshot.projectId,
+        noteId: snapshot.noteId,
+        sourceId,
+        durationMs: snapshot.durationMs
+      })
     });
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'finish-recording-post',
       success: recordingPostSchema,
 
-      execute: withPublicationGuard(
-        store,
-        recordings.finishRecordingPost({ requestId: event.requestId, sourceId, messageId })
-      )
+      execute: recordings.finishRecordingPost({ requestId: event.requestId, sourceId, messageId })
     });
   });
 

@@ -11,12 +11,16 @@
  */
 
 import { failureSchema, StudyError } from '@study/contracts/errors';
+import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Context, Effect, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert } from 'vite-plus/test';
 
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { ServerContext } from '#server/platform/database/context';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
+import { workflowEngineLayer } from '#server/platform/workflows/engine';
+import { PublicationGuard } from '#server/platform/workflows/publication';
 
 class Input extends Context.Service<Input, string>()('test/ActivityInput') {}
 
@@ -97,3 +101,50 @@ testStable(
     assert.strictEqual(result.message, 'rejected');
   }
 );
+
+testStable('publication checkpoints capture the real activity lease inside execution', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  let writes = 0;
+  const workflow = Workflow.make('publication-harness', {
+    payload: {},
+    success: Schema.Number,
+    error: failureSchema,
+    idempotencyKey: () => 'one'
+  });
+  const activity = publicationActivity(context, {
+    name: 'publish',
+    success: Schema.Number,
+    execute: Effect.gen(function* () {
+      const guard = yield* PublicationGuard;
+
+      return context.transaction(() => {
+        guard.assert(context);
+
+        return ++writes;
+      });
+    })
+  });
+
+  assert.strictEqual(writes, 0);
+
+  try {
+    const result = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const engine = yield* WorkflowEngine.WorkflowEngine;
+
+          yield* engine.register(workflow, () => activity);
+
+          return yield* engine.execute(workflow, { executionId: 'one', payload: {} });
+        }).pipe(Effect.provide(workflowEngineLayer(context)))
+      )
+    );
+
+    assert.strictEqual(result, 1);
+    assert.strictEqual(writes, 1);
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});

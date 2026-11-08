@@ -36,11 +36,10 @@ import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { fetchPage } from '#server/platform/http/index';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const sourceIngestionWorkflow = defineWorkflow({
@@ -274,13 +273,17 @@ function noticeSourceFailure(
         const sources = yield* Sources;
         const { store } = yield* Database;
 
-        yield* defineActivity({
+        yield* publicationActivity(store, {
           name: 'notice-source-failure',
           success: Schema.Void,
 
-          execute: withPublicationGuard(store, sources.noticeSourceProcessingFailure(event)).pipe(
-            Effect.catch((cause) => (cause.kind === 'not_found' ? Effect.void : Effect.fail(cause)))
-          )
+          execute: sources
+            .noticeSourceProcessingFailure(event)
+            .pipe(
+              Effect.catch((cause) =>
+                cause.kind === 'not_found' ? Effect.void : Effect.fail(cause)
+              )
+            )
         });
       }
 
@@ -297,11 +300,11 @@ function publishSource(
     const sources = yield* Sources;
     const { store } = yield* Database;
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'publish-source',
       success: contentSnapshotIdSchema,
 
-      execute: withPublicationGuard(store, sources.publishSourceDocument({ event, document }))
+      execute: sources.publishSourceDocument({ event, document })
     });
   });
 }

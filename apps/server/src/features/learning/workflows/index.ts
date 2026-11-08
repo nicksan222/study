@@ -31,10 +31,9 @@ import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const quizGradingWorkflow = defineWorkflow({
@@ -73,20 +72,17 @@ export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payload
       })
     );
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'publish-grade',
       success: quizAttemptSchema,
 
-      execute: withPublicationGuard(
-        store,
-        learning.publishGrade({
-          attemptId: event.attemptId,
-          questionId: event.questionId,
-          expectedAnswerHash: event.answerHash,
-          score: grade.verdict === 'correct' ? 1 : grade.verdict === 'partly' ? 0.5 : 0,
-          feedback: grade.feedback
-        })
-      )
+      execute: learning.publishGrade({
+        attemptId: event.attemptId,
+        questionId: event.questionId,
+        expectedAnswerHash: event.answerHash,
+        score: grade.verdict === 'correct' ? 1 : grade.verdict === 'partly' ? 0.5 : 0,
+        feedback: grade.feedback
+      })
     });
   });
 
@@ -193,19 +189,16 @@ export const practiceFailureHandler = ({
     const learning = yield* Learning;
     const { store } = yield* Database;
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'fail-practice-slot',
       success: Schema.Boolean,
 
-      execute: withPublicationGuard(
-        store,
-        learning.failPracticeSlot({
-          slotId: event.requestId,
-          projectId: event.projectId,
-          generationEventId: event.generationEventId,
-          errorKind: event.errorKind
-        })
-      )
+      execute: learning.failPracticeSlot({
+        slotId: event.requestId,
+        projectId: event.projectId,
+        generationEventId: event.generationEventId,
+        errorKind: event.errorKind
+      })
     });
   });
 
@@ -240,16 +233,13 @@ export const practicePublicationHandler = ({
     const learning = yield* Learning;
     const { store } = yield* Database;
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'publish-practice-slot',
       success: Schema.Boolean,
 
-      execute: withPublicationGuard(
-        store,
-        learning
-          .publishPracticeSlot({ slotId, versionId: event.materialVersionId })
-          .pipe(Effect.map((result) => result !== null))
-      )
+      execute: learning
+        .publishPracticeSlot({ slotId, versionId: event.materialVersionId })
+        .pipe(Effect.map((result) => result !== null))
     });
   });
 

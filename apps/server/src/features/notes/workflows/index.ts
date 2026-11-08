@@ -53,7 +53,7 @@ import { Sources } from '#server/features/sources/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import type { AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
@@ -95,14 +95,11 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
         yield* DurableDeferred.await(attachmentGate(part.sourceId, part.requestId));
     }
 
-    yield* defineActivity({
+    yield* publicationActivity(store, {
       name: 'seal-reply-attachments',
       success: replySnapshotSchema,
 
-      execute: withPublicationGuard(
-        store,
-        notes.sealReplyAttachments({ requestId: event.requestId })
-      )
+      execute: notes.sealReplyAttachments({ requestId: event.requestId })
     });
     const preferences = yield* defineActivity({
       name: 'resolve-reply-preferences',
@@ -255,11 +252,11 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
       })
     );
 
-    return yield* defineActivity({
+    return yield* publicationActivity(store, {
       name: 'publish-reply',
       success: versionIdSchema,
 
-      execute: withPublicationGuard(store, notes.publishReply(publication))
+      execute: notes.publishReply(publication)
     });
   }).pipe(
     Effect.catch((error) =>
@@ -275,11 +272,11 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
         if (conversion) {
           const { store } = yield* Database;
 
-          yield* defineActivity({
+          yield* publicationActivity(store, {
             name: 'fail-conversion',
             success: Schema.Boolean,
 
-            execute: withPublicationGuard(store, notes.failConversion(event))
+            execute: notes.failConversion(event)
           });
         }
 
@@ -293,19 +290,18 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
           const notes = yield* Notes;
           const { store } = yield* Database;
 
-          yield* defineActivity({
+          yield* publicationActivity(store, {
             name: 'retire-invalid-reply',
             success: Schema.Void,
 
-            execute: withPublicationGuard(
-              store,
-              notes.abandonReply({
+            execute: notes
+              .abandonReply({
                 requestId: event.requestId,
                 noteId: event.noteId,
                 messageId: event.messageId,
                 versionId: event.versionId
               })
-            ).pipe(Effect.asVoid)
+              .pipe(Effect.asVoid)
           });
         }
 

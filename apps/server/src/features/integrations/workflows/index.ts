@@ -17,10 +17,9 @@ import { Effect, Schema } from 'effect';
 
 import { Integrations } from '#server/features/integrations/index';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity, settleWorkflowFailure } from '#server/platform/workflows/retry';
 
 const integrationImportWorkflow = defineWorkflow({
@@ -41,13 +40,11 @@ export const integrationImportRegistration = defineWorkflowHandler(integrationIm
       let key: string | undefined;
       const activity = (name: string, execute: ReturnType<typeof integrations.reserveImport>) =>
         retryResumableActivity(
-          defineActivity({
+          publicationActivity(store, {
             name,
             success: Schema.Boolean,
 
-            execute: withPublicationGuard(store, execute).pipe(
-              Effect.map((state) => state.status === 'running')
-            )
+            execute: execute.pipe(Effect.map((state) => state.status === 'running'))
           })
         );
 
