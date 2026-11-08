@@ -268,7 +268,10 @@ Run `bun run integrations:e2e` with Docker available to test a real Obsidian imp
 Bun installs the locked dependencies and runs the classified integration tests directly.
 Testcontainers builds the shared `apps/server/test/integrations/Dockerfile` once,
 including the pinned Obsidian release, and runs each provider case in
-a fresh container. Obsidian uses Xvfb; its profile, synthetic vault and Study SQLite
+a fresh container. Release downloads use bounded retries for transient HTTP failures
+and verify their pinned checksums. CI enables `DEBUG=testcontainers:build` so image
+build failures include the underlying command output. Obsidian uses Xvfb; its profile,
+synthetic vault and Study SQLite
 database stay inside the container. No host vault or profile is mounted. Teardown
 removes containers and volumes after successful and failed commands, verifies their
 removal and removes the test image. The Testcontainers resource reaper must remain

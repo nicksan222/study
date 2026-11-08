@@ -18,7 +18,8 @@ RUN architecture="$(dpkg --print-architecture)"; \
       amd64) asset="Obsidian-${OBSIDIAN_VERSION}.AppImage"; digest="1dd8cfb593deaa644101bdb4df65b159ed7985993b6572dd25fd1363459e91cc" ;; \
       *) exit 1 ;; \
     esac; \
-    curl -fsSL "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/${asset}" -o /tmp/obsidian.AppImage \
+    curl -fsSL --retry 4 --retry-delay 2 --connect-timeout 15 --max-time 120 \
+      "https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/${asset}" -o /tmp/obsidian.AppImage \
     && echo "$digest  /tmp/obsidian.AppImage" | sha256sum --check - \
     && chmod +x /tmp/obsidian.AppImage \
     && cd /opt && /tmp/obsidian.AppImage --appimage-extract >/dev/null \

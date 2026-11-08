@@ -210,6 +210,8 @@ jobs:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile --ignore-scripts
       - name: 🔌 Run every provider in a fresh Testcontainers environment
+        env:
+          DEBUG: testcontainers:build
         run: bun run integrations:e2e
 
   check:

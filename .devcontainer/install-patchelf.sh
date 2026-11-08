@@ -11,7 +11,9 @@ esac
 
 temporary=$(mktemp -d)
 trap 'rm -rf "$temporary"' EXIT
-curl -fsSL "https://github.com/NixOS/patchelf/releases/download/0.19.3/patchelf-0.19.3-${arch}.tar.gz" -o "$temporary/patchelf.tar.gz"
+curl -fsSL --retry 4 --retry-delay 2 --connect-timeout 15 --max-time 120 \
+  "https://github.com/NixOS/patchelf/releases/download/0.19.3/patchelf-0.19.3-${arch}.tar.gz" \
+  -o "$temporary/patchelf.tar.gz"
 printf '%s  %s\n' "$checksum" "$temporary/patchelf.tar.gz" | sha256sum --check
 tar -xzf "$temporary/patchelf.tar.gz" -C "$temporary"
 mkdir -p "$prefix/bin"
