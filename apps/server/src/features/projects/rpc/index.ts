@@ -14,29 +14,21 @@
  */
 
 import { ProjectsRpc } from '@study/contracts/projects/rpc';
-import { Effect } from 'effect';
 
 import { Projects } from '#server/features/projects/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
-export const ProjectsRpcLive = defineRpc(
-  ProjectsRpc,
-  Effect.gen(function* () {
-    const projects = yield* Projects;
-
-    return {
-      'projects.addMaterial': (input) => projects.addMaterial(input),
-      'projects.removeMaterial': (input) => projects.removeMaterial(input),
-      'projects.addNote': (input) => projects.addNote(input),
-      'projects.removeNote': (input) => projects.removeNote(input),
-      'projects.project': ({ id }) => projects.project(id),
-      'projects.findProject': ({ id }) => projects.findProject(id),
-      'projects.projects': (input) => projects.projects(input),
-      'projects.createProject': (input) => projects.createProject(input),
-      'projects.renameProject': (input) => projects.renameProject(input),
-      'projects.deleteProject': (input) => projects.deleteProject(input),
-      'projects.setIcon': (input) => projects.setIcon(input),
-      'projects.setExam': (input) => projects.setExam(input)
-    };
-  })
-);
+export const ProjectsRpcLive = defineRpc(ProjectsRpc, { projects: Projects }, ({ projects }) => ({
+  'projects.addMaterial': projects.addMaterial,
+  'projects.removeMaterial': projects.removeMaterial,
+  'projects.addNote': projects.addNote,
+  'projects.removeNote': projects.removeNote,
+  'projects.project': ({ id }) => projects.project(id),
+  'projects.findProject': ({ id }) => projects.findProject(id),
+  'projects.projects': projects.projects,
+  'projects.createProject': projects.createProject,
+  'projects.renameProject': projects.renameProject,
+  'projects.deleteProject': projects.deleteProject,
+  'projects.setIcon': projects.setIcon,
+  'projects.setExam': projects.setExam
+}));

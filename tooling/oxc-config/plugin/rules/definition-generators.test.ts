@@ -19,3 +19,21 @@ testStable('service construction keeps generator wrapping in the harness', () =>
     ]
   );
 });
+
+testStable('RPC wiring uses named dependency binding and preserves shadowed functions', () => {
+  assertDiagnostics(
+    'definition-generators',
+    lintRule('definition-generators', {
+      'src/bad.ts':
+        "import {defineRpc as rpc} from '#server/platform/definitions/define-rpc'; rpc(group, handlers);",
+      'src/good.ts':
+        "import {defineRpc as rpc} from '#server/platform/definitions/define-rpc'; rpc(group, {service}, ({service}) => handlers); function f(rpc: any) { rpc(group, handlers); }"
+    }),
+    [
+      [
+        'src/bad.ts',
+        'Bind RPC dependencies through defineRpc instead of hand-written Effect acquisition.'
+      ]
+    ]
+  );
+});

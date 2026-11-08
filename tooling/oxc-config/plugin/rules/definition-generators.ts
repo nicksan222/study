@@ -14,6 +14,17 @@ export default defineRule({
     return {
       ImportDeclaration: effects.imports,
       CallExpression(node) {
+        if (
+          canonicalImport(context, node.callee, 'define-rpc', 'defineRpc') &&
+          node.arguments.length === 2
+        ) {
+          context.report({
+            node,
+            message:
+              'Bind RPC dependencies through defineRpc instead of hand-written Effect acquisition.'
+          });
+        }
+
         if (!canonicalImport(context, node.callee, 'define-service', 'defineService')) return;
 
         const make = resolveValue(context, node.arguments[1]);

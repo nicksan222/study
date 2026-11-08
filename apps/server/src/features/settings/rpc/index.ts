@@ -21,35 +21,31 @@ import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const SettingsRpcLive = defineRpc(
   SettingsRpc,
-  Effect.gen(function* () {
-    const settings = yield* Settings;
-    const admission = yield* AiAdmission;
-
-    return {
-      'settings.usage': (input) => settings.usage(input),
-      'settings.agentRules': () => settings.agentRules(),
-      'settings.saveAgentRules': (input) => settings.saveAgentRules(input),
-      'settings.quizSettings': () => settings.quizSettings(),
-      'settings.saveQuizSettings': (input) => settings.saveQuizSettings(input),
-      'settings.workspacePreferences': () => settings.workspacePreferences(),
-      'settings.saveWorkspacePreferences': (input) => settings.saveWorkspacePreferences(input),
-      'settings.sidebarSettings': () => settings.sidebarSettings(),
-      'settings.saveSidebarSettings': (input) => settings.saveSidebarSettings(input),
-      'settings.concurrencySettings': () => settings.concurrencySettings(),
-      'settings.saveConcurrencySettings': (input) =>
-        settings
-          .saveConcurrencySettings(input)
-          .pipe(Effect.andThen(admission.configure(input)), Effect.as({}), Effect.uninterruptible),
-      'settings.appearancePreferences': () => settings.appearancePreferences(),
-      'settings.saveAppearancePreferences': (input) => settings.saveAppearancePreferences(input),
-      'settings.appSettings': () => settings.appSettings(),
-      'settings.llmSettings': () => settings.llmSettings(),
-      'settings.materialSettings': () => settings.materialSettings(),
-      'settings.reviewSettings': () => settings.reviewSettings(),
-      'settings.saveAppSettings': (input) => settings.saveAppSettings(input),
-      'settings.saveLlmSettings': (input) => settings.saveLlmSettings(input),
-      'settings.saveMaterialSettings': (input) => settings.saveMaterialSettings(input),
-      'settings.saveReviewSettings': (input) => settings.saveReviewSettings(input)
-    };
+  { settings: Settings, admission: AiAdmission },
+  ({ settings, admission }) => ({
+    'settings.usage': settings.usage,
+    'settings.agentRules': () => settings.agentRules(),
+    'settings.saveAgentRules': settings.saveAgentRules,
+    'settings.quizSettings': () => settings.quizSettings(),
+    'settings.saveQuizSettings': settings.saveQuizSettings,
+    'settings.workspacePreferences': () => settings.workspacePreferences(),
+    'settings.saveWorkspacePreferences': settings.saveWorkspacePreferences,
+    'settings.sidebarSettings': () => settings.sidebarSettings(),
+    'settings.saveSidebarSettings': settings.saveSidebarSettings,
+    'settings.concurrencySettings': () => settings.concurrencySettings(),
+    'settings.saveConcurrencySettings': (input) =>
+      settings
+        .saveConcurrencySettings(input)
+        .pipe(Effect.andThen(admission.configure(input)), Effect.as({}), Effect.uninterruptible),
+    'settings.appearancePreferences': () => settings.appearancePreferences(),
+    'settings.saveAppearancePreferences': settings.saveAppearancePreferences,
+    'settings.appSettings': () => settings.appSettings(),
+    'settings.llmSettings': () => settings.llmSettings(),
+    'settings.materialSettings': () => settings.materialSettings(),
+    'settings.reviewSettings': () => settings.reviewSettings(),
+    'settings.saveAppSettings': settings.saveAppSettings,
+    'settings.saveLlmSettings': settings.saveLlmSettings,
+    'settings.saveMaterialSettings': settings.saveMaterialSettings,
+    'settings.saveReviewSettings': settings.saveReviewSettings
   })
 );
