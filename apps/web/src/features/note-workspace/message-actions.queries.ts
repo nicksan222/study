@@ -134,6 +134,7 @@ export function useMessageActions({
       if (attempt.action === 'activate') onActive();
 
       void cache.invalidateQueries({ queryKey: noteKey(message.noteId) });
+      void cache.invalidateQueries({ queryKey: ['note-work', String(message.noteId)] });
       void cache.invalidateQueries({ queryKey: ['notes'] });
     } catch (error) {
       patch({ error });

@@ -95,11 +95,39 @@ testStable('stops the exact execution safely and waits for committed cancellatio
   );
   stopping = true;
   await act(async () => resolve({ ...row.execution, status: 'cancelling', canCancel: false }));
-  expect(
-    await screen.findByRole('status', { name: 'NoteWorkReply · NoteWorkStopping' })
-  ).toBeInTheDocument();
+  expect(await screen.findByRole('status', { name: 'NoteWorkStopping' })).toBeInTheDocument();
   expect(stop).toBeDisabled();
 });
+
+testStable(
+  'shows the operation and waiting state while keeping live details collapsed',
+  async () => {
+    api.work.mockResolvedValue({
+      items: [
+        {
+          ...row,
+          kind: 'transform',
+          title: 'A long study guide title',
+          execution: { ...row.execution, status: 'suspended' }
+        }
+      ],
+      next: null
+    });
+    mount();
+    const status = await screen.findByRole('status', { name: 'NoteWorkWaiting' });
+
+    expect(status).toHaveTextContent('NoteWorkWaiting');
+    expect(status).toHaveAttribute('data-state', 'waiting');
+    expect(screen.getByText('NoteWorkTransform')).toBeVisible();
+    expect(screen.getByText('A long study guide title')).toBeVisible();
+    const summary = screen.getByText('NoteWorkDetails');
+    const details = summary.closest('details');
+
+    expect(details).not.toHaveAttribute('open');
+    fireEvent.click(summary);
+    expect(details).toHaveAttribute('open');
+  }
+);
 
 testStable(
   'uses domain cancellation for transforms and reconciles a lost response without replay',

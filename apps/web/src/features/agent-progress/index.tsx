@@ -22,7 +22,10 @@ const progressLabels = {
  * Refresh the authoritative feature queries when an observed workflow finishes or retires;
  * raw structured output stays hidden until its owning feature publishes validated results.
  */
-export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
+export function AgentProgress({
+  variant = 'inline',
+  ...input
+}: typeof agentProgressInputSchema.Type & { variant?: 'inline' | 'compact' }) {
   const { t } = useI18n();
   const cache = useQueryClient();
   const { runs } = useAgentProgress(input);
@@ -68,7 +71,12 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
                 <AgentToolCall key={tool.toolCallId} tool={settledAgentTool(tool, run)} />
               ))}
             </Trace>
-            <GenerationPreview label={t(progressLabels[run.status])} text={text} />
+            <GenerationPreview
+              label={t(progressLabels[run.status])}
+              text={text}
+              variant={variant}
+              streaming={run.status === 'running'}
+            />
           </div>
         );
       })}

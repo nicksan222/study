@@ -1,5 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
+import { AiActivity } from '@study/ui/ai-button';
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -7,7 +8,6 @@ import {
   ContextMenuItem
 } from '@study/ui/context-menu';
 import { Sidebar } from '@study/ui/sidebar';
-import { Spinner } from '@study/ui/spinner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { GraduationCap, Layers, Square } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -91,8 +91,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
               icon={<Icon aria-hidden="true" />}
               description={
                 <Sidebar.NoteActivity running>
-                  <Spinner size="xs" label={status} aria-hidden="true" />
-                  <span>{status}</span>
+                  <AiActivity label={status} state={stop.isPending ? 'stopping' : 'running'} />
                 </Sidebar.NoteActivity>
               }
               aria-label={generation.title}

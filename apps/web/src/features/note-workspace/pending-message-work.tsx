@@ -12,6 +12,7 @@ import type { MessageWorkTarget } from './message-work-details';
 import { noteWorkKey, stopNoteWorkOptions } from './note-pending-work.queries';
 import { executionOptions, provenanceOptions, noteKey } from './note-workspace.queries';
 import { NoteReadError } from './status';
+import { workActivityState } from './work-state';
 
 export function PendingMessageWork(target: MessageWorkTarget) {
   const { t } = useI18n();
@@ -42,31 +43,12 @@ function PendingRequestWork({
   target: MessageWorkTarget;
 }) {
   const { t } = useI18n();
-  const { work, cancel, execution, stopping, showCancel } = usePendingRequestWork(
-    requestId,
-    target
-  );
+  const model = usePendingRequestWork(requestId, target);
+  const { work, cancel, execution, stopping } = model;
 
   return (
     <>
-      <Thinking
-        label={t(stopping ? 'NoteWorkStopping' : 'NoteThinking')}
-        action={
-          execution &&
-          showCancel && (
-            <IconButton
-              size="icon-sm"
-              variant="ghost-muted"
-              label={t('NoteCancel')}
-
-              disabled={stopping || cancel.isError || !execution.canCancel}
-              onClick={() => cancel.mutate({ kind: 'reply', title: null, requestId, execution })}
-            >
-              <X aria-hidden="true" />
-            </IconButton>
-          )
-        }
-      />
+      <PendingWorkStatus model={model} requestId={requestId} />
       {execution && !stopping && <AgentProgress executionId={execution.id} />}
       {work.error && <NoteReadError error={work.error} retry={() => void work.refetch()} />}
       {cancel.isError && (
@@ -88,6 +70,45 @@ function PendingRequestWork({
         />
       )}
     </>
+  );
+}
+
+function PendingWorkStatus({
+  model,
+  requestId
+}: {
+  model: ReturnType<typeof usePendingRequestWork>;
+  requestId: string;
+}) {
+  const { t } = useI18n();
+  const { execution, stopping, showCancel, cancel } = model;
+  const state = workActivityState(execution, stopping);
+  const labels = {
+    stopping: 'NoteWorkStopping',
+    waiting: 'NoteWorkWaiting',
+    running: 'NoteThinking',
+    attention: 'NoteWorkAttention'
+  } as const;
+
+  return (
+    <Thinking
+      label={t(labels[state])}
+      state={state}
+      action={
+        execution &&
+        showCancel && (
+          <IconButton
+            size="icon-sm"
+            variant="ghost-muted"
+            label={t('NoteCancel')}
+            disabled={stopping || cancel.isError || !execution.canCancel}
+            onClick={() => cancel.mutate({ kind: 'reply', title: null, requestId, execution })}
+          >
+            <X aria-hidden="true" />
+          </IconButton>
+        )
+      }
+    />
   );
 }
 

@@ -1,10 +1,9 @@
 import type { MessageId } from '@study/contracts/ids';
 import { RetryButton } from '@study/ui/action-button';
+import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { RichNoteContent } from '@study/ui/rich-note';
-import { TraceLine, TraceTitle, TraceIcon } from '@study/ui/trace';
-import { LoaderCircle } from 'lucide-react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
@@ -85,12 +84,5 @@ function ReplyFailure({ model }: { model: ReplyModel }) {
 }
 
 export function AssistantThinking({ label }: { label: string }) {
-  return (
-    <TraceLine status="running" role="status">
-      <TraceIcon>
-        <LoaderCircle />
-      </TraceIcon>
-      <TraceTitle>{label}</TraceTitle>
-    </TraceLine>
-  );
+  return <AiActivity label={label} />;
 }
