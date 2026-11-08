@@ -1,15 +1,14 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport } from '../architecture-imports.ts';
-import { effectBindings, serverProduction } from '../effect-bindings.ts';
+import { featureEffectBindings } from '../effect-bindings.ts';
 
 export default defineRule({
   meta: { type: 'suggestion' },
   create(context) {
-    if (!serverProduction(context.filename) || !context.filename.includes('/src/features/'))
-      return {};
+    const effects = featureEffectBindings(context);
 
-    const effects = effectBindings(context);
+    if (!effects) return {};
 
     return {
       ImportDeclaration: effects.imports,

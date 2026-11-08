@@ -31,35 +31,34 @@ export const materialHistoryWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const materialHistoryHandler = ({
+export const materialHistoryHandler = Effect.fnUntraced(function* ({
   event
-}: typeof materialHistoryWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const materials = yield* Materials;
+}: typeof materialHistoryWorkflow.payloadSchema.Type) {
+  const materials = yield* Materials;
 
-    const { store } = yield* Database;
+  const { store } = yield* Database;
 
-    const previous = yield* materials.historyPrune({ operationId: event.operationId });
+  const previous = yield* materials.historyPrune({ operationId: event.operationId });
 
-    if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
+  if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
-    return yield* cleanupActivity(store, {
-      name: 'prune-material-history',
-      success: historyPruneSchema,
-      executions: materials.materialHistoryExecutions(event.operationId),
-      publish: materials.finishMaterialHistory({
+  return yield* cleanupActivity(store, {
+    name: 'prune-material-history',
+    success: historyPruneSchema,
+    executions: materials.materialHistoryExecutions(event.operationId),
+    publish: materials.finishMaterialHistory({
+      operationId: event.operationId,
+      attempt: event.attempt
+    }),
+    settle: (errorKind) =>
+      materials.failMaterialHistory({
         operationId: event.operationId,
+        errorKind,
         attempt: event.attempt
       }),
-      settle: (errorKind) =>
-        materials.failMaterialHistory({
-          operationId: event.operationId,
-          errorKind,
-          attempt: event.attempt
-        }),
-      failureMessage: 'Material cleanup failed'
-    });
+    failureMessage: 'Material cleanup failed'
   });
+});
 
 export const materialHistoryRegistration = defineWorkflowHandler(materialHistoryWorkflow, {
   execute: materialHistoryHandler,

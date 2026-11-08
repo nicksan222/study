@@ -9,6 +9,17 @@ export function serverProduction(filename: string): boolean {
   );
 }
 
+/** Resolve Effect syntax only for authored backend feature modules. */
+export function featureEffectBindings(context: any) {
+  if (
+    !serverProduction(context.filename) ||
+    !context.filename.replaceAll('\\', '/').includes('/src/features/')
+  )
+    return null;
+
+  return effectBindings(context);
+}
+
 export function effectProduction(filename: string): boolean {
   return serverProduction(filename) || Boolean(webFile(filename));
 }

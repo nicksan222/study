@@ -36,20 +36,19 @@ const searchReconciliationWorkflow = defineWorkflow({
 /** Creates opt-in workflow resources; constructing them never starts indexing. */
 export const searchReconciliation = defineWorkflowHandler(searchReconciliationWorkflow, {
   triggers: [],
-  execute: () =>
-    Effect.gen(function* () {
-      const database = yield* Database;
-      const service = yield* Search;
+  execute: Effect.fnUntraced(function* () {
+    const database = yield* Database;
+    const service = yield* Search;
 
-      return yield* publicationActivity(database.store, {
-        name: 'reconcile-local-search',
-        success: reconcileResultSchema,
+    return yield* publicationActivity(database.store, {
+      name: 'reconcile-local-search',
+      success: reconcileResultSchema,
 
-        execute: Effect.gen(function* () {
-          const guard = yield* PublicationGuard;
+      execute: Effect.gen(function* () {
+        const guard = yield* PublicationGuard;
 
-          return yield* service.reconcile(() => guard.assert(database.store));
-        })
-      });
-    })
+        return yield* service.reconcile(() => guard.assert(database.store));
+      })
+    });
+  })
 });

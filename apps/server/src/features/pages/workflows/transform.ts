@@ -45,71 +45,66 @@ export const pageTransformWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const pageTransformHandler = ({ event }: typeof pageTransformWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const docs = yield* Pages;
-    const notes = yield* Notes;
-    const database = yield* Database;
-    const request = yield* docs.transform({ requestId: event.requestId });
+export const pageTransformHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof pageTransformWorkflow.payloadSchema.Type) {
+  const docs = yield* Pages;
+  const notes = yield* Notes;
+  const database = yield* Database;
+  const request = yield* docs.transform({ requestId: event.requestId });
 
-    if (
-      event.causationId !== null ||
-      event.correlationId !== request.id ||
-      event.inputVersion !== 1 ||
-      event.depth !== 0
-    )
-      return yield* Effect.fail(
-        new StudyError('invalid_input', 'Page generation event identity mismatch')
-      );
+  if (
+    event.causationId !== null ||
+    event.correlationId !== request.id ||
+    event.inputVersion !== 1 ||
+    event.depth !== 0
+  )
+    return yield* Effect.fail(
+      new StudyError('invalid_input', 'Page generation event identity mismatch')
+    );
 
-    if (request.resultVersionId !== null) return request.resultVersionId;
+  if (request.resultVersionId !== null) return request.resultVersionId;
 
-    const preflight = Effect.gen(function* () {
-      const current = yield* docs.transform({ requestId: event.requestId });
+  const preflight = Effect.gen(function* () {
+    const current = yield* docs.transform({ requestId: event.requestId });
 
-      if (
-        current.cancelled ||
-        current.eventId !== event.eventId ||
-        current.resultVersionId !== null
-      )
-        return yield* Effect.fail(
-          new StudyError('cancelled', 'Page generation is no longer active')
-        );
+    if (current.cancelled || current.eventId !== event.eventId || current.resultVersionId !== null)
+      return yield* Effect.fail(new StudyError('cancelled', 'Page generation is no longer active'));
 
-      return yield* request.merge
-        ? docs.mergeContext({ requestId: request.id })
-        : notes.pageTransformContext({ requestId: request.id });
-    });
+    return yield* request.merge
+      ? docs.mergeContext({ requestId: request.id })
+      : notes.pageTransformContext({ requestId: request.id });
+  });
 
-    return yield* Effect.gen(function* () {
-      const output = yield* retryResumableActivity(
-        generateTransform(
-          request,
-          event.eventId,
-          preflight.pipe(Effect.provideService(Database, database))
-        )
-      );
-
-      return yield* publicationActivity(database.store, {
-        name: 'publish-authored-document',
-        success: pageVersionIdSchema,
-
-        execute: request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
-      });
-    }).pipe(
-      Effect.catch((error) =>
-        publicationActivity(database.store, {
-          name: 'record-authored-generation-failure',
-
-          execute: docs.failTransform({
-            requestId: request.id,
-            eventId: event.eventId,
-            errorKind: error.kind
-          })
-        }).pipe(Effect.andThen(Effect.fail(error)))
+  return yield* Effect.gen(function* () {
+    const output = yield* retryResumableActivity(
+      generateTransform(
+        request,
+        event.eventId,
+        preflight.pipe(Effect.provideService(Database, database))
       )
     );
-  });
+
+    return yield* publicationActivity(database.store, {
+      name: 'publish-authored-document',
+      success: pageVersionIdSchema,
+
+      execute: request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
+    });
+  }).pipe(
+    Effect.catch((error) =>
+      publicationActivity(database.store, {
+        name: 'record-authored-generation-failure',
+
+        execute: docs.failTransform({
+          requestId: request.id,
+          eventId: event.eventId,
+          errorKind: error.kind
+        })
+      }).pipe(Effect.andThen(Effect.fail(error)))
+    )
+  );
+});
 
 export const pageTransformRegistration = defineWorkflowHandler(pageTransformWorkflow, {
   execute: pageTransformHandler,

@@ -38,67 +38,66 @@ export const noteTitleWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const noteTitleHandler = ({ event }: typeof noteTitleWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const notes = yield* Notes;
-    const { store } = yield* Database;
-    const publication = yield* resumableActivity({
-      name: 'generate-title',
-      success: publishTitleInputSchema,
+export const noteTitleHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof noteTitleWorkflow.payloadSchema.Type) {
+  const notes = yield* Notes;
+  const { store } = yield* Database;
+  const publication = yield* resumableActivity({
+    name: 'generate-title',
+    success: publishTitleInputSchema,
 
-      execute: function* () {
-        const snapshot = yield* notes.titleSnapshot({
-          requestId: event.requestId,
-          eventId: event.eventId
-        });
+    execute: function* () {
+      const snapshot = yield* notes.titleSnapshot({
+        requestId: event.requestId,
+        eventId: event.eventId
+      });
 
-        if (
-          snapshot.noteId !== event.noteId ||
-          snapshot.contextRevision !== event.contextRevision ||
-          snapshot.title !== event.title ||
-          snapshot.titleSource !== event.titleSource ||
-          JSON.stringify(snapshot.messages, (_key, value) =>
+      if (
+        snapshot.noteId !== event.noteId ||
+        snapshot.contextRevision !== event.contextRevision ||
+        snapshot.title !== event.title ||
+        snapshot.titleSource !== event.titleSource ||
+        JSON.stringify(snapshot.messages, (_key, value) =>
+          typeof value === 'bigint' ? value.toString() : value
+        ) !==
+          JSON.stringify(event.messages, (_key, value) =>
             typeof value === 'bigint' ? value.toString() : value
-          ) !==
-            JSON.stringify(event.messages, (_key, value) =>
-              typeof value === 'bigint' ? value.toString() : value
-            )
-        )
-          return yield* Effect.fail(
-            new StudyError('invalid_input', 'Title event identity mismatch')
-          );
+          )
+      )
+        return yield* Effect.fail(new StudyError('invalid_input', 'Title event identity mismatch'));
 
-        const output = yield* generateAgent(
-          titleAgent,
-          {
-            prompt: JSON.stringify({
-              title: snapshot.title,
-              messages: snapshot.messages.map(({ role, text }) => ({ role, text }))
-            })
-          },
-          {
-            maxRetries: 0,
-            preflight: notes
-              .titleSnapshot({ requestId: event.requestId, eventId: event.eventId })
-              .pipe(Effect.asVoid)
-          }
-        );
-        const title = output.trim();
+      const output = yield* generateAgent(
+        titleAgent,
+        {
+          prompt: JSON.stringify({
+            title: snapshot.title,
+            messages: snapshot.messages.map(({ role, text }) => ({ role, text }))
+          })
+        },
+        {
+          maxRetries: 0,
+          preflight: notes
+            .titleSnapshot({ requestId: event.requestId, eventId: event.eventId })
+            .pipe(Effect.asVoid)
+        }
+      );
+      const title = output.trim();
 
-        if (!title || [...title].length > 200)
-          return yield* Effect.fail(new StudyError('invalid_input', 'invalid generated title'));
+      if (!title || [...title].length > 200)
+        return yield* Effect.fail(new StudyError('invalid_input', 'invalid generated title'));
 
-        return { requestId: event.requestId, title };
-      }
-    });
-
-    return yield* publicationActivity(store, {
-      name: 'publish-title',
-      success: titleRequestSchema,
-
-      execute: notes.publishTitle(publication)
-    });
+      return { requestId: event.requestId, title };
+    }
   });
+
+  return yield* publicationActivity(store, {
+    name: 'publish-title',
+    success: titleRequestSchema,
+
+    execute: notes.publishTitle(publication)
+  });
+});
 
 export const noteTitleRegistration = defineWorkflowHandler(noteTitleWorkflow, {
   execute: noteTitleHandler,

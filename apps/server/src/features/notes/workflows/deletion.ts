@@ -30,24 +30,25 @@ export const noteDeletionWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const noteDeletionHandler = ({ event }: typeof noteDeletionWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const notes = yield* Notes;
-    const { store } = yield* Database;
-    const previous = yield* notes.noteDeletion(event.noteId);
+export const noteDeletionHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof noteDeletionWorkflow.payloadSchema.Type) {
+  const notes = yield* Notes;
+  const { store } = yield* Database;
+  const previous = yield* notes.noteDeletion(event.noteId);
 
-    if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
+  if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
-    return yield* cleanupActivity(store, {
-      name: 'retire-session-content',
-      success: noteDeletionSchema,
-      executions: notes.noteDeletionExecutions(event.noteId),
-      publish: notes.finishNoteDeletion({ noteId: event.noteId, attempt: event.attempt }),
-      settle: (errorKind) =>
-        notes.failNoteDeletion({ noteId: event.noteId, errorKind, attempt: event.attempt }),
-      failureMessage: 'Note cleanup failed'
-    });
+  return yield* cleanupActivity(store, {
+    name: 'retire-session-content',
+    success: noteDeletionSchema,
+    executions: notes.noteDeletionExecutions(event.noteId),
+    publish: notes.finishNoteDeletion({ noteId: event.noteId, attempt: event.attempt }),
+    settle: (errorKind) =>
+      notes.failNoteDeletion({ noteId: event.noteId, errorKind, attempt: event.attempt }),
+    failureMessage: 'Note cleanup failed'
   });
+});
 
 export const noteDeletionRegistration = defineWorkflowHandler(noteDeletionWorkflow, {
   execute: noteDeletionHandler,

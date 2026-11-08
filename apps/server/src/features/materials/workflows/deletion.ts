@@ -30,33 +30,32 @@ export const materialDeletionWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const materialDeletionHandler = ({
+export const materialDeletionHandler = Effect.fnUntraced(function* ({
   event
-}: typeof materialDeletionWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const materials = yield* Materials;
-    const { store } = yield* Database;
-    const previous = yield* materials.deletion({ materialId: event.materialId });
+}: typeof materialDeletionWorkflow.payloadSchema.Type) {
+  const materials = yield* Materials;
+  const { store } = yield* Database;
+  const previous = yield* materials.deletion({ materialId: event.materialId });
 
-    if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
+  if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
-    return yield* cleanupActivity(store, {
-      name: 'retire-material-content',
-      success: materialDeletionSchema,
-      executions: materials.materialDeletionExecutions(event.materialId),
-      publish: materials.finishMaterialDeletion({
+  return yield* cleanupActivity(store, {
+    name: 'retire-material-content',
+    success: materialDeletionSchema,
+    executions: materials.materialDeletionExecutions(event.materialId),
+    publish: materials.finishMaterialDeletion({
+      materialId: event.materialId,
+      attempt: event.attempt
+    }),
+    settle: (errorKind) =>
+      materials.failMaterialDeletion({
         materialId: event.materialId,
+        errorKind,
         attempt: event.attempt
       }),
-      settle: (errorKind) =>
-        materials.failMaterialDeletion({
-          materialId: event.materialId,
-          errorKind,
-          attempt: event.attempt
-        }),
-      failureMessage: 'Material cleanup failed'
-    });
+    failureMessage: 'Material cleanup failed'
   });
+});
 
 export const materialDeletionRegistration = defineWorkflowHandler(materialDeletionWorkflow, {
   execute: materialDeletionHandler,

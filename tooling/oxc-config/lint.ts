@@ -71,6 +71,7 @@ export const lint = {
     'eslint/no-unsafe-optional-chaining': 'error',
     'eslint/no-empty-pattern': 'error',
     'unicorn/no-useless-spread': 'error',
+    'study/effect-function-harness': 'error',
     'study/service-access': 'error',
     'study/validated-mutation': 'error',
     'study/cleanup-harness': 'error',

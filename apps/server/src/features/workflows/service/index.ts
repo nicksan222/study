@@ -44,21 +44,20 @@ function* makeWorkflows() {
   const agentProgress = (input: typeof agentProgressInputSchema.Type) =>
     progressStore.agentProgress({ scope: input, limit: 100 });
 
-  const executions = (input: typeof executionsInputSchema.Type) =>
-    Effect.gen(function* () {
-      const items = yield* store.executions(input);
+  const executions = Effect.fnUntraced(function* (input: typeof executionsInputSchema.Type) {
+    const items = yield* store.executions(input);
 
-      const last = items.at(-1);
+    const last = items.at(-1);
 
-      const cursor = last ? { id: last.id, createdAtMs: last.createdAtMs } : null;
+    const cursor = last ? { id: last.id, createdAtMs: last.createdAtMs } : null;
 
-      const more =
-        cursor && items.length === input.limit
-          ? yield* store.executions({ ...input, before: cursor, limit: 1 })
-          : [];
+    const more =
+      cursor && items.length === input.limit
+        ? yield* store.executions({ ...input, before: cursor, limit: 1 })
+        : [];
 
-      return { items, next: more.length ? cursor : null };
-    });
+    return { items, next: more.length ? cursor : null };
+  });
 
   /** Seed each viewer, coalesce commit hints and periodically recover from missed hints. */
   function* watchExecutions(queue: Queue.Queue<void, Cause.Done>) {
@@ -129,36 +128,34 @@ export const Workflows = defineService('study/Workflows', makeWorkflows, {
     tx.store(WorkflowRetirementStore).scrub(ids),
   scrubRetiredCorrectionInputs: (tx: Transaction, ids: readonly string[]) =>
     tx.store(WorkflowRetirementStore).scrubCorrectionInputs(ids),
-  cancelCorrelatedExecutions: (requestId: string, workflow: string) =>
-    Effect.gen(function* () {
-      const runs = yield* transaction((tx) =>
-        correlatedExecutions(tx, requestId).filter(
-          (run) => run.workflow === workflow && run.canCancel
-        )
+  cancelCorrelatedExecutions: Effect.fnUntraced(function* (requestId: string, workflow: string) {
+    const runs = yield* transaction((tx) =>
+      correlatedExecutions(tx, requestId).filter(
+        (run) => run.workflow === workflow && run.canCancel
+      )
+    );
+
+    if (!runs.length) return;
+
+    const control = yield* Effect.serviceOption(WorkflowControl);
+
+    if (Option.isNone(control))
+      return yield* Effect.fail(
+        new StudyError('unsupported', 'Native cancellation control is unavailable')
       );
 
-      if (!runs.length) return;
+    for (const run of runs) yield* control.value.cancel({ id: run.id, mode: 'safe' });
+  }),
+  interruptRetiredExecutions: Effect.fnUntraced(function* (ids: readonly string[]) {
+    const control = yield* Effect.serviceOption(WorkflowControl);
 
-      const control = yield* Effect.serviceOption(WorkflowControl);
+    if (Option.isNone(control)) return;
 
-      if (Option.isNone(control))
-        return yield* Effect.fail(
-          new StudyError('unsupported', 'Native cancellation control is unavailable')
-        );
-
-      for (const run of runs) yield* control.value.cancel({ id: run.id, mode: 'safe' });
-    }),
-  interruptRetiredExecutions: (ids: readonly string[]) =>
-    Effect.gen(function* () {
-      const control = yield* Effect.serviceOption(WorkflowControl);
-
-      if (Option.isNone(control)) return;
-
-      for (const id of ids)
-        yield* control.value
-          .cancel({ id: Schema.decodeUnknownSync(executionIdSchema)(id), mode: 'unsafe' })
-          .pipe(Effect.ignore);
-    })
+    for (const id of ids)
+      yield* control.value
+        .cancel({ id: Schema.decodeUnknownSync(executionIdSchema)(id), mode: 'unsafe' })
+        .pipe(Effect.ignore);
+  })
 });
 
 /** Inspect native runs in a caller transaction without transferring execution ownership. */

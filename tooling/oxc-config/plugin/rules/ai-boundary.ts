@@ -175,17 +175,18 @@ export default defineRule({
       ) {
         const call = parent.parent.parent;
 
-        if (
-          call?.type === 'CallExpression' &&
-          (canonicalImport(context, call.callee, 'define-activity', 'defineActivity') ||
-            canonicalImport(context, call.callee, 'define-activity', 'resumableActivity') ||
-            effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
-              'Activity.make')
-        )
-          return true;
+        if (call?.type === 'CallExpression' && checkpointConstructor(call.callee)) return true;
       }
 
       return false;
+    }
+
+    function checkpointConstructor(callee: any): boolean {
+      return (
+        canonicalImport(context, callee, 'define-activity', 'defineActivity') ||
+        canonicalImport(context, callee, 'define-activity', 'resumableActivity') ||
+        effects.resolve(callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') === 'Activity.make'
+      );
     }
 
     function sdkAgentMethod(node: any): boolean {

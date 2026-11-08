@@ -1,6 +1,7 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport, featureRole, targetPath } from '../architecture-imports.ts';
+import { effectBindings } from '../effect-bindings.ts';
 import {
   binding,
   memberName as property,
@@ -102,6 +103,7 @@ export default defineRule({
 
     if (!info) return {};
 
+    const effects = effectBindings(context);
     const { owner, domain, index } = info;
     const expected =
       owner === 'workflow'
@@ -135,9 +137,11 @@ export default defineRule({
       return (
         owner === 'workflow' &&
         executions.has(resolved) &&
-        ['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
+        (['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(
           resolved?.type
-        )
+        ) ||
+          (resolved?.type === 'CallExpression' &&
+            effects.resolve(resolved.callee) === 'Effect.fnUntraced'))
       );
     }
 
@@ -159,6 +163,7 @@ export default defineRule({
     }
 
     return {
+      ImportDeclaration: effects.imports,
       Program(node: any) {
         if (owner !== 'workflow') return;
 

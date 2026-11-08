@@ -107,52 +107,50 @@ export const Integrations = defineService('study/Integrations', function* () {
 
   return {
     providers: () => Effect.sync(integrationProviders),
-    previewImport: (input: typeof previewIntegrationInputSchema.Type) =>
-      Effect.gen(function* () {
-        const parsed = yield* Effect.try({
-          try: () => Schema.decodeUnknownSync(previewIntegrationInputSchema)(input),
-          catch: (cause) => new StudyError('invalid_input', 'Invalid integration import', { cause })
-        });
-        const plan = yield* Effect.try({
-          try: () => {
-            const capability = integrationProvider(parsed.providerId).capabilities.import;
+    previewImport: Effect.fnUntraced(function* (input: typeof previewIntegrationInputSchema.Type) {
+      const parsed = yield* Effect.try({
+        try: () => Schema.decodeUnknownSync(previewIntegrationInputSchema)(input),
+        catch: (cause) => new StudyError('invalid_input', 'Invalid integration import', { cause })
+      });
+      const plan = yield* Effect.try({
+        try: () => {
+          const capability = integrationProvider(parsed.providerId).capabilities.import;
 
-            if (!capability)
-              throw new StudyError('unsupported', 'Provider does not support import');
+          if (!capability) throw new StudyError('unsupported', 'Provider does not support import');
 
-            return capability.plan(parsed);
-          },
-          catch: (cause) =>
-            cause instanceof StudyError
-              ? cause
-              : new StudyError('invalid_input', 'Invalid integration content', { cause })
-        });
-        const state: State = {
-          id: Schema.decodeUnknownSync(integrationImportIdSchema)(randomUUID()),
-          providerId: parsed.providerId,
-          sourceKey: parsed.sourceKey,
-          status: 'preview',
-          projectId: null,
-          attempt: 0,
-          warnings: plan.warnings,
-          errorKind: null,
-          items: plan.notes.map((note) => ({
-            key: note.key,
-            title: note.title,
-            status: 'pending',
-            noteId: null,
-            errorKind: null
-          }))
-        };
+          return capability.plan(parsed);
+        },
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('invalid_input', 'Invalid integration content', { cause })
+      });
+      const state: State = {
+        id: Schema.decodeUnknownSync(integrationImportIdSchema)(randomUUID()),
+        providerId: parsed.providerId,
+        sourceKey: parsed.sourceKey,
+        status: 'preview',
+        projectId: null,
+        attempt: 0,
+        warnings: plan.warnings,
+        errorKind: null,
+        items: plan.notes.map((note) => ({
+          key: note.key,
+          title: note.title,
+          status: 'pending',
+          noteId: null,
+          errorKind: null
+        }))
+      };
 
-        const fingerprints = importFingerprints(plan);
+      const fingerprints = importFingerprints(plan);
 
-        yield* transaction((tx) =>
-          tx.store(IntegrationImportsStore).stage({ state, plan, fingerprints })
-        );
+      yield* transaction((tx) =>
+        tx.store(IntegrationImportsStore).stage({ state, plan, fingerprints })
+      );
 
-        return state;
-      }),
+      return state;
+    }),
     import: (input: Key) => imports.integrationImport(input.id),
     imports: (input: { limit: number }) => imports.integrationImports(input),
     startImport: (input: typeof startIntegrationImportSchema.Type) =>

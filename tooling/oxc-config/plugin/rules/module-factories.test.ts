@@ -79,3 +79,14 @@ testStable(
     ).toStrictEqual(['sources/service/index.ts']);
   }
 );
+
+testStable('native generator functions must still be registered workflow handlers', () => {
+  expect(
+    lintRulePaths('module-factories', {
+      'apps/server/src/features/notes/workflows/good.ts':
+        "import {Effect as E} from 'effect'; import {defineWorkflowHandler as register} from '#server/platform/definitions/define-workflow-handler'; export const run = E.fnUntraced(function* () { yield* work; }); export const registration = register(workflow, {execute: run, triggers: []});",
+      'apps/server/src/features/notes/workflows/bad.ts':
+        "import {Effect as E} from 'effect'; export const run = E.fnUntraced(function* () { yield* work; });"
+    })
+  ).toStrictEqual(['apps/server/src/features/notes/workflows/bad.ts']);
+});

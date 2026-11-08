@@ -22,72 +22,70 @@ import { Sources } from '#server/features/sources/index';
 type ConversionContext = Parameters<Context.Service.Shape<typeof Sources>['convertDocument']>[2];
 
 /** Converts one captured note and its exact PDF revisions without reading unrelated chat. */
-export const convertCapturedMessage = (
+export const convertCapturedMessage = Effect.fnUntraced(function* (
   snapshot: typeof replySnapshotSchema.Type,
   conversion: typeof messageConversionSchema.Type,
   context: ConversionContext
-) =>
-  Effect.gen(function* () {
-    const sources = yield* Sources;
-    const strategy = yield* Effect.try({
-      try: () => Sources.conversionStrategy(conversion.strategyId),
-      catch: (cause) =>
-        cause instanceof StudyError
-          ? cause
-          : new StudyError('internal', 'Invalid conversion strategy', { cause })
-    });
-    const target = snapshot.messages.find(
-      (message) => message.versionId === conversion.baseVersionId
+) {
+  const sources = yield* Sources;
+  const strategy = yield* Effect.try({
+    try: () => Sources.conversionStrategy(conversion.strategyId),
+    catch: (cause) =>
+      cause instanceof StudyError
+        ? cause
+        : new StudyError('internal', 'Invalid conversion strategy', { cause })
+  });
+  const target = snapshot.messages.find(
+    (message) => message.versionId === conversion.baseVersionId
+  );
+
+  if (!target)
+    return yield* Effect.fail(new StudyError('invalid_input', 'Conversion input is unavailable'));
+
+  const parts: string[] = [];
+
+  if (target.text.trim() && strategy.supportedInputs.includes('text')) {
+    const document = yield* sources.convertDocument(
+      conversion.strategyId,
+      { kind: 'text', text: target.text },
+      context
     );
 
-    if (!target)
-      return yield* Effect.fail(new StudyError('invalid_input', 'Conversion input is unavailable'));
+    parts.push(document.blocks.map((block) => block.text).join('\n\n'));
+  }
 
-    const parts: string[] = [];
+  for (const attachment of target.attachments) {
+    const original = yield* sources.exportRevision({
+      sourceId: attachment.sourceId,
+      revision: attachment.revision
+    });
 
-    if (target.text.trim() && strategy.supportedInputs.includes('text')) {
-      const document = yield* sources.convertDocument(
-        conversion.strategyId,
-        { kind: 'text', text: target.text },
-        context
-      );
+    if (original.mime !== 'application/pdf' || !strategy.supportedInputs.includes('pdf')) continue;
 
-      parts.push(document.blocks.map((block) => block.text).join('\n\n'));
-    }
+    const extracted = yield* sources.extraction({
+      sourceId: attachment.sourceId,
+      revision: attachment.revision,
+      snapshotId: attachment.snapshotId
+    });
+    // Reuse the exact durable extraction instead of transcribing the same PDF twice.
+    const document =
+      extracted.document.meta.provider === conversion.strategyId
+        ? extracted.document
+        : yield* sources.convertDocument(
+            conversion.strategyId,
+            { kind: 'pdf', bytes: original.bytes },
+            context
+          );
 
-    for (const attachment of target.attachments) {
-      const original = yield* sources.exportRevision({
-        sourceId: attachment.sourceId,
-        revision: attachment.revision
-      });
+    parts.push(document.blocks.map((block) => block.text).join('\n\n'));
+  }
 
-      if (original.mime !== 'application/pdf' || !strategy.supportedInputs.includes('pdf'))
-        continue;
+  const text = parts.filter((part) => part.trim()).join('\n\n');
 
-      const extracted = yield* sources.extraction({
-        sourceId: attachment.sourceId,
-        revision: attachment.revision,
-        snapshotId: attachment.snapshotId
-      });
-      // Reuse the exact durable extraction instead of transcribing the same PDF twice.
-      const document =
-        extracted.document.meta.provider === conversion.strategyId
-          ? extracted.document
-          : yield* sources.convertDocument(
-              conversion.strategyId,
-              { kind: 'pdf', bytes: original.bytes },
-              context
-            );
+  if (!text.trim() || [...text].length > 100_000)
+    return yield* Effect.fail(
+      new StudyError('invalid_input', 'Conversion returned empty or oversized text')
+    );
 
-      parts.push(document.blocks.map((block) => block.text).join('\n\n'));
-    }
-
-    const text = parts.filter((part) => part.trim()).join('\n\n');
-
-    if (!text.trim() || [...text].length > 100_000)
-      return yield* Effect.fail(
-        new StudyError('invalid_input', 'Conversion returned empty or oversized text')
-      );
-
-    return { requestId: snapshot.requestId, text, citations: [] };
-  });
+  return { requestId: snapshot.requestId, text, citations: [] };
+});

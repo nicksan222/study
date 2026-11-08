@@ -260,8 +260,8 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
       execute: notes.publishReply(publication)
     });
   }).pipe(
-    Effect.catch((error) =>
-      Effect.gen(function* () {
+    Effect.catch(
+      Effect.fnUntraced(function* (error) {
         const notes = yield* Notes;
         const conversion = yield* notes.inspectReplySnapshot({ requestId: event.requestId }).pipe(
           Effect.match({
@@ -340,63 +340,62 @@ export const noteAttachmentWakeWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const noteAttachmentWakeHandler = ({
+export const noteAttachmentWakeHandler = Effect.fnUntraced(function* ({
   event
-}: typeof noteAttachmentWakeWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const notes = yield* Notes;
-    let after: string | undefined;
+}: typeof noteAttachmentWakeWorkflow.payloadSchema.Type) {
+  const notes = yield* Notes;
+  let after: string | undefined;
 
-    for (;;) {
-      const page = yield* notes.replyWakes({ sourceId: event.sourceId, after, limit: 100 });
+  for (;;) {
+    const page = yield* notes.replyWakes({ sourceId: event.sourceId, after, limit: 100 });
 
-      function* wakeReply(row: (typeof page)[number]) {
-        const readiness = yield* Effect.result(notes.replyReadiness({ requestId: row.requestId }));
+    function* wakeReply(row: (typeof page)[number]) {
+      const readiness = yield* Effect.result(notes.replyReadiness({ requestId: row.requestId }));
 
-        if (Result.isFailure(readiness)) {
-          if (!['invalid_input', 'not_found', 'unsupported'].includes(readiness.failure.kind))
-            return yield* Effect.fail(readiness.failure);
+      if (Result.isFailure(readiness)) {
+        if (!['invalid_input', 'not_found', 'unsupported'].includes(readiness.failure.kind))
+          return yield* Effect.fail(readiness.failure);
 
-          for (const part of row.pendingAttachments) {
-            const gate = attachmentGate(part.sourceId, part.requestId);
+        for (const part of row.pendingAttachments) {
+          const gate = attachmentGate(part.sourceId, part.requestId);
 
-            yield* DurableDeferred.fail(gate, {
-              token: DurableDeferred.tokenFromExecutionId(gate, {
-                workflow: noteReplyWorkflow,
-                executionId: row.executionId
-              }),
-              error: new StudyError('invalid_input', 'Captured attachment is unavailable')
-            });
-          }
-        } else {
-          for (const part of row.pendingAttachments) {
-            if (
-              readiness.success.some(
-                (item) => item.sourceId === part.sourceId && item.requestId === part.requestId
-              )
+          yield* DurableDeferred.fail(gate, {
+            token: DurableDeferred.tokenFromExecutionId(gate, {
+              workflow: noteReplyWorkflow,
+              executionId: row.executionId
+            }),
+            error: new StudyError('invalid_input', 'Captured attachment is unavailable')
+          });
+        }
+      } else {
+        for (const part of row.pendingAttachments) {
+          if (
+            readiness.success.some(
+              (item) => item.sourceId === part.sourceId && item.requestId === part.requestId
             )
-              continue;
+          )
+            continue;
 
-            const gate = attachmentGate(part.sourceId, part.requestId);
+          const gate = attachmentGate(part.sourceId, part.requestId);
 
-            yield* DurableDeferred.succeed(gate, {
-              token: DurableDeferred.tokenFromExecutionId(gate, {
-                workflow: noteReplyWorkflow,
-                executionId: row.executionId
-              }),
-              value: undefined
-            });
-          }
+          yield* DurableDeferred.succeed(gate, {
+            token: DurableDeferred.tokenFromExecutionId(gate, {
+              workflow: noteReplyWorkflow,
+              executionId: row.executionId
+            }),
+            value: undefined
+          });
         }
       }
-
-      for (const row of page) yield* Effect.gen(() => wakeReply(row));
-
-      if (page.length < 100) break;
-
-      after = page.at(-1)!.requestId;
     }
-  });
+
+    for (const row of page) yield* Effect.gen(() => wakeReply(row));
+
+    if (page.length < 100) break;
+
+    after = page.at(-1)!.requestId;
+  }
+});
 
 export const noteAttachmentWakeRegistration = defineWorkflowHandler(noteAttachmentWakeWorkflow, {
   execute: noteAttachmentWakeHandler,

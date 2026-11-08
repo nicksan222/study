@@ -32,16 +32,15 @@ export const PagesRpcLive = defineRpc(
         : Effect.fail(new StudyError('unsupported', 'Note service is unavailable')),
     'pages.transform': pages.transform,
     'pages.cancelTransform': pages.cancelTransform,
-    'pages.retryTransform': (v) =>
-      Effect.gen(function* () {
-        const request = yield* pages.transform(v);
+    'pages.retryTransform': Effect.fnUntraced(function* (v) {
+      const request = yield* pages.transform(v);
 
-        if (request.merge) return yield* pages.retryMerge(v);
+      if (request.merge) return yield* pages.retryMerge(v);
 
-        return yield* Option.isSome(notes)
-          ? notes.value.retryPageTransform(v)
-          : Effect.fail(new StudyError('unsupported', 'Note service is unavailable'));
-      }),
+      return yield* Option.isSome(notes)
+        ? notes.value.retryPageTransform(v)
+        : Effect.fail(new StudyError('unsupported', 'Note service is unavailable'));
+    }),
     'pages.updateMetadata': pages.updateMetadata,
     'pages.compareProposal': pages.compareProposal,
     'pages.proposal': pages.proposal,

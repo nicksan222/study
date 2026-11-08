@@ -122,17 +122,16 @@ function* makeMaterials() {
 
         return { ...request, cancelled };
       }),
-    cancelMaterialGeneration: (value: { requestId: string }) =>
-      Effect.gen(function* () {
-        const request = yield* transaction((tx) =>
-          tx.store(MaterialGenerationStore).cancelGeneration(value)
-        );
+    cancelMaterialGeneration: Effect.fnUntraced(function* (value: { requestId: string }) {
+      const request = yield* transaction((tx) =>
+        tx.store(MaterialGenerationStore).cancelGeneration(value)
+      );
 
-        if (request.resultVersionId === null)
-          yield* Workflows.cancelCorrelatedExecutions(request.id, 'material-generation/v1');
+      if (request.resultVersionId === null)
+        yield* Workflows.cancelCorrelatedExecutions(request.id, 'material-generation/v1');
 
-        return request;
-      }),
+      return request;
+    }),
     publishMaterialGeneration: (value: typeof materialGenerationPublicationSchema.Type) =>
       publicationTransaction((tx) => {
         const request = tx

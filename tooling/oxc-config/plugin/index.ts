@@ -17,6 +17,7 @@ import drizzleBoundary from './rules/drizzle-boundary.ts';
 import effectAbortSignal from './rules/effect-abort-signal.ts';
 import effectBoundedConcurrency from './rules/effect-bounded-concurrency.ts';
 import effectBoundedRetries from './rules/effect-bounded-retries.ts';
+import effectFunctionHarness from './rules/effect-function-harness.ts';
 import effectNoDiscarded from './rules/effect-no-discarded.ts';
 import effectNoNativeTimers from './rules/effect-no-native-timers.ts';
 import effectNoOrDie from './rules/effect-no-or-die.ts';
@@ -65,6 +66,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'effect-function-harness': effectFunctionHarness,
     'service-access': serviceAccess,
     'validated-mutation': validatedMutation,
     'cleanup-harness': cleanupHarness,

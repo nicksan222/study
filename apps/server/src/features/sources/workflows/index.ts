@@ -266,8 +266,8 @@ export const sourceIngestionRegistration = defineWorkflowHandler(sourceIngestion
 function noticeSourceFailure(
   event: typeof sourceProcessingRequestedSchema.Type | typeof sourceCorrectionRequestedSchema.Type
 ) {
-  return Effect.catch((error: Failure) =>
-    Effect.gen(function* () {
+  return Effect.catch(
+    Effect.fnUntraced(function* (error: Failure) {
       if (!['auth', 'config', 'model_unavailable', 'cancelled'].includes(error.kind)) {
         const sources = yield* Sources;
         const { store } = yield* Database;

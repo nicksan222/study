@@ -36,62 +36,63 @@ export const recordingPostWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const recordings = yield* Recordings;
-    const sources = yield* Sources;
-    const notes = yield* Notes;
-    const { store } = yield* Database;
-    const snapshot = yield* recordings.recordingPostSnapshot({ requestId: event.requestId });
+export const recordingPostHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof recordingPostWorkflow.payloadSchema.Type) {
+  const recordings = yield* Recordings;
+  const sources = yield* Sources;
+  const notes = yield* Notes;
+  const { store } = yield* Database;
+  const snapshot = yield* recordings.recordingPostSnapshot({ requestId: event.requestId });
 
-    if (
-      snapshot.recordingId !== event.recordingId ||
-      snapshot.noteId !== event.noteId ||
-      snapshot.projectId !== event.projectId ||
-      event.eventId !== event.requestId
-    )
-      return yield* Effect.fail(
-        new StudyError('invalid_input', 'Recording event does not match captured intent')
-      );
+  if (
+    snapshot.recordingId !== event.recordingId ||
+    snapshot.noteId !== event.noteId ||
+    snapshot.projectId !== event.projectId ||
+    event.eventId !== event.requestId
+  )
+    return yield* Effect.fail(
+      new StudyError('invalid_input', 'Recording event does not match captured intent')
+    );
 
-    if (snapshot.messageId !== null)
-      return yield* recordings.recordingPost({ requestId: event.requestId });
+  if (snapshot.messageId !== null)
+    return yield* recordings.recordingPost({ requestId: event.requestId });
 
-    const sourceId = yield* publicationActivity(store, {
-      name: 'import-recording',
-      success: sourceIdSchema,
+  const sourceId = yield* publicationActivity(store, {
+    name: 'import-recording',
+    success: sourceIdSchema,
 
-      execute: sources
-        .importRecording({
-          requestId: event.requestId,
-          projectId: snapshot.projectId,
-          noteId: snapshot.noteId,
-          name: snapshot.name,
-          bytes: snapshot.bytes,
-          durationMs: snapshot.durationMs
-        })
-        .pipe(Effect.map((source: typeof sourceSchema.Type) => source.id))
-    });
-    const messageId = yield* publicationActivity(store, {
-      name: 'attach-recording',
-      success: messageIdSchema,
-
-      execute: notes.postRecordingMessage({
+    execute: sources
+      .importRecording({
         requestId: event.requestId,
         projectId: snapshot.projectId,
         noteId: snapshot.noteId,
-        sourceId,
+        name: snapshot.name,
+        bytes: snapshot.bytes,
         durationMs: snapshot.durationMs
       })
-    });
-
-    return yield* publicationActivity(store, {
-      name: 'finish-recording-post',
-      success: recordingPostSchema,
-
-      execute: recordings.finishRecordingPost({ requestId: event.requestId, sourceId, messageId })
-    });
+      .pipe(Effect.map((source: typeof sourceSchema.Type) => source.id))
   });
+  const messageId = yield* publicationActivity(store, {
+    name: 'attach-recording',
+    success: messageIdSchema,
+
+    execute: notes.postRecordingMessage({
+      requestId: event.requestId,
+      projectId: snapshot.projectId,
+      noteId: snapshot.noteId,
+      sourceId,
+      durationMs: snapshot.durationMs
+    })
+  });
+
+  return yield* publicationActivity(store, {
+    name: 'finish-recording-post',
+    success: recordingPostSchema,
+
+    execute: recordings.finishRecordingPost({ requestId: event.requestId, sourceId, messageId })
+  });
+});
 
 export const recordingPostRegistration = defineWorkflowHandler(recordingPostWorkflow, {
   execute: recordingPostHandler,

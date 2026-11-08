@@ -120,22 +120,21 @@ export const Learning = defineService(
 
           return result;
         }),
-      stopPractice: (input: typeof practiceInputSchema.Type) =>
-        Effect.gen(function* () {
-          const current = yield* readPracticeControlStore.findPracticeControl(input);
+      stopPractice: Effect.fnUntraced(function* (input: typeof practiceInputSchema.Type) {
+        const current = yield* readPracticeControlStore.findPracticeControl(input);
 
-          if (Option.isSome(current) && current.value.enabled) {
-            yield* materials.closeGenerationScope({
-              scopeId: current.value.epoch,
-              projectId: input.projectId
-            });
-            yield* transaction((tx) =>
-              tx.store(PracticeStore).stop({ ...input, epoch: current.value.epoch })
-            );
-          }
+        if (Option.isSome(current) && current.value.enabled) {
+          yield* materials.closeGenerationScope({
+            scopeId: current.value.epoch,
+            projectId: input.projectId
+          });
+          yield* transaction((tx) =>
+            tx.store(PracticeStore).stop({ ...input, epoch: current.value.epoch })
+          );
+        }
 
-          return yield* readPracticeStore.practice(input);
-        }),
+        return yield* readPracticeStore.practice(input);
+      }),
       publishPracticeSlot: (input: typeof publishPracticeSlotInputSchema.Type) =>
         publicationTransaction((tx) => {
           return tx.store(PracticeStore).publish(input);
@@ -231,49 +230,46 @@ export const Learning = defineService(
         transaction((tx) => tx.store(AttemptStore).startQuiz(input)),
       reviewCard: (input: typeof reviewCardInputSchema.Type) =>
         transaction((tx) => tx.store(CardStore).reviewCard(input)),
-      dueCards: (input: typeof dueCardsInputSchema.Type) =>
-        Effect.gen(function* () {
-          const policy = yield* settings.reviewSettings();
+      dueCards: Effect.fnUntraced(function* (input: typeof dueCardsInputSchema.Type) {
+        const policy = yield* settings.reviewSettings();
 
-          const items = yield* cards.cards({ ...input, ...policy });
+        const items = yield* cards.cards({ ...input, ...policy });
 
-          const last = items.at(-1);
+        const last = items.at(-1);
 
-          const cursor = last ? { due: last.due, cardId: last.snapshot.card_id } : undefined;
+        const cursor = last ? { due: last.due, cardId: last.snapshot.card_id } : undefined;
 
-          const more =
-            cursor && items.length === input.limit
-              ? yield* cards.cards({ ...input, ...policy, cursor, limit: 1 })
-              : [];
+        const more =
+          cursor && items.length === input.limit
+            ? yield* cards.cards({ ...input, ...policy, cursor, limit: 1 })
+            : [];
 
-          return { items, nextCursor: more.length && cursor ? cursor : null };
-        }),
-      attempts: (input: typeof attemptsInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* attempts.attempts(input);
+        return { items, nextCursor: more.length && cursor ? cursor : null };
+      }),
+      attempts: Effect.fnUntraced(function* (input: typeof attemptsInputSchema.Type) {
+        const items = yield* attempts.attempts(input);
 
-          const last = items.at(-1);
+        const last = items.at(-1);
 
-          const more =
-            last && items.length === input.limit
-              ? yield* attempts.attempts({ ...input, cursor: last.attempt.id, limit: 1 })
-              : [];
+        const more =
+          last && items.length === input.limit
+            ? yield* attempts.attempts({ ...input, cursor: last.attempt.id, limit: 1 })
+            : [];
 
-          return { items, nextCursor: more.length && last ? last.attempt.id : null };
-        }),
-      reviewHistory: (input: typeof reviewHistoryInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* reviews.reviews(input);
+        return { items, nextCursor: more.length && last ? last.attempt.id : null };
+      }),
+      reviewHistory: Effect.fnUntraced(function* (input: typeof reviewHistoryInputSchema.Type) {
+        const items = yield* reviews.reviews(input);
 
-          const last = items.at(-1);
+        const last = items.at(-1);
 
-          const more =
-            last && items.length === input.limit
-              ? yield* reviews.reviews({ ...input, cursor: last.review.id, limit: 1 })
-              : [];
+        const more =
+          last && items.length === input.limit
+            ? yield* reviews.reviews({ ...input, cursor: last.review.id, limit: 1 })
+            : [];
 
-          return { items, nextCursor: more.length && last ? last.review.id : null };
-        })
+        return { items, nextCursor: more.length && last ? last.review.id : null };
+      })
     };
   },
   {
