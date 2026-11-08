@@ -12,6 +12,7 @@ testStable('keeps workflow constructors and memory infrastructure within their o
     lint({
       'apps/server/src/domains/a/service.ts': `import { Workflow as W, Activity, WorkflowEngine } from 'effect/workflow'; const make = W.make; make('x'); Activity.make({}); WorkflowEngine.makeUnsafe({}); WorkflowEngine.layerMemory;`,
       'apps/server/src/platform/definitions/define-workflow.ts': `import { Workflow } from 'effect/workflow'; Workflow.make('x');`,
+      'apps/server/src/platform/definitions/define-activity.ts': `import { Activity } from 'effect/workflow'; Activity.make({});`,
       'apps/server/src/platform/workflows/store.ts': `import { Activity } from 'effect/workflow'; Activity.make({});`,
       'apps/server/src/platform/workflows/engine.ts': `import { WorkflowEngine } from 'effect/workflow'; WorkflowEngine.makeUnsafe({});`,
       'apps/server/src/domains/b/service.ts': `import { Workflow } from 'effect/workflow'; function f(Workflow) { Workflow.make('x'); }`,

@@ -14,10 +14,10 @@ import { failureSchema, StudyError } from '@study/contracts/errors';
 import { integrationImportRequestedSchema } from '@study/contracts/events';
 import { integrationImportSchema } from '@study/contracts/integrations/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Integrations } from '#server/features/integrations/index';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -41,10 +41,10 @@ export const integrationImportRegistration = defineWorkflowHandler(integrationIm
       let key: string | undefined;
       const activity = (name: string, execute: ReturnType<typeof integrations.reserveImport>) =>
         retryResumableActivity(
-          Activity.make({
+          defineActivity({
             name,
             success: Schema.Boolean,
-            error: failureSchema,
+
             execute: withPublicationGuard(store, execute).pipe(
               Effect.map((state) => state.status === 'running')
             )

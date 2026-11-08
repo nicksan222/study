@@ -21,7 +21,6 @@ import type { pageTransformContextSchema } from '@study/contracts/pages/transfor
 import { transformPublicationSchema } from '@study/contracts/pages/transform';
 import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Notes } from '#server/features/notes/index';
 import { pageTransformAgent } from '#server/features/pages/agents/page-transform';
@@ -32,6 +31,7 @@ import { Pages } from '#server/features/pages/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -91,10 +91,10 @@ export const pageTransformHandler = ({ event }: typeof pageTransformWorkflow.pay
         )
       );
 
-      return yield* Activity.make({
+      return yield* defineActivity({
         name: 'publish-authored-document',
         success: pageVersionIdSchema,
-        error: failureSchema,
+
         execute: withPublicationGuard(
           database.store,
           request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
@@ -102,9 +102,9 @@ export const pageTransformHandler = ({ event }: typeof pageTransformWorkflow.pay
       });
     }).pipe(
       Effect.catch((error) =>
-        Activity.make({
+        defineActivity({
           name: 'record-authored-generation-failure',
-          error: failureSchema,
+
           execute: withPublicationGuard(
             database.store,
             docs.failTransform({
@@ -134,11 +134,11 @@ function generateTransform(
   eventId: string,
   preflight: Effect.Effect<typeof pageTransformContextSchema.Type, StudyError>
 ) {
-  return Activity.make({
+  return defineActivity({
     name: 'generate-authored-document',
     success: transformPublicationSchema,
-    error: failureSchema,
-    execute: Effect.gen(function* () {
+
+    execute: function* () {
       const context = yield* preflight;
       const agents = yield* Agents;
       const catalog = createEvidenceCatalog<{
@@ -217,6 +217,6 @@ function generateTransform(
             ? cause
             : new StudyError('invalid_input', 'Invalid Page output', { cause })
       });
-    })
+    }
   });
 }

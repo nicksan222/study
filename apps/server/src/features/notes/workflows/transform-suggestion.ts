@@ -12,16 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts/errors';
 import type { runSelectionContextSchema } from '@study/contracts/notes/context';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { titleAgent } from '#server/features/notes/agents/title';
 import { Notes } from '#server/features/notes/service/index';
 import { transformSuggestionWorkflow } from '#server/features/notes/service/transform-suggestion-definition';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 
 /** Bound both evidence channels so notes cannot crowd out source passages. */
@@ -49,11 +49,11 @@ export const transformSuggestionHandler = ({
       .noteContext({ requestId: input.contextRequestId })
       .pipe(Effect.provideService(Database, database));
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'generate-transform-suggestion',
       success: Schema.String,
-      error: failureSchema,
-      execute: Effect.gen(function* () {
+
+      execute: function* () {
         const context = yield* preflight;
 
         if (!context.messages.length && !context.inputs.length)
@@ -80,7 +80,7 @@ export const transformSuggestionHandler = ({
           return yield* Effect.fail(new StudyError('transient', 'Invalid transform suggestion'));
 
         return output;
-      })
+      }
     });
   });
 

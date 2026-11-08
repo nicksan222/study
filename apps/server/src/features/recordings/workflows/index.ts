@@ -18,12 +18,12 @@ import { messageIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import { recordingPostSchema } from '@study/contracts/recordings/schemas';
 import type { sourceSchema } from '@study/contracts/sources/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -58,10 +58,10 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
     if (snapshot.messageId !== null)
       return yield* recordings.recordingPost({ requestId: event.requestId });
 
-    const sourceId = yield* Activity.make({
+    const sourceId = yield* defineActivity({
       name: 'import-recording',
       success: sourceIdSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         sources.importRecording({
@@ -74,10 +74,10 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
         })
       ).pipe(Effect.map((source: typeof sourceSchema.Type) => source.id))
     });
-    const messageId = yield* Activity.make({
+    const messageId = yield* defineActivity({
       name: 'attach-recording',
       success: messageIdSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         notes.postRecordingMessage({
@@ -90,10 +90,10 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
       )
     });
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'finish-recording-post',
       success: recordingPostSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         recordings.finishRecordingPost({ requestId: event.requestId, sourceId, messageId })

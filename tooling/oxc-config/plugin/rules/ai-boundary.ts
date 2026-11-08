@@ -1,6 +1,12 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
+import {
+  canonicalImport,
+  featureRole,
+  moduleEdges,
+  serverPath,
+  targetPath
+} from '../architecture-imports.ts';
 import { effectBindings, serverProduction } from '../effect-bindings.ts';
 import {
   binding,
@@ -171,8 +177,9 @@ export default defineRule({
 
         if (
           call?.type === 'CallExpression' &&
-          effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
-            'Activity.make'
+          (canonicalImport(context, call.callee, 'define-activity', 'defineActivity') ||
+            effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
+              'Activity.make')
         )
           return true;
       }

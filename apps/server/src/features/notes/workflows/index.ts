@@ -39,7 +39,7 @@ import {
 } from '@study/contracts/notes/schemas';
 import { Clock, Effect, Option, Result, Schema } from 'effect';
 import type { Context } from 'effect';
-import { Activity, DurableDeferred } from 'effect/workflow';
+import { DurableDeferred } from 'effect/workflow';
 
 import { assistantAgent } from '#server/features/notes/agents/assistant';
 import { compactAssistantAgent } from '#server/features/notes/agents/assistant-compaction';
@@ -53,6 +53,7 @@ import { Sources } from '#server/features/sources/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import type { AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
@@ -94,19 +95,19 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
         yield* DurableDeferred.await(attachmentGate(part.sourceId, part.requestId));
     }
 
-    yield* Activity.make({
+    yield* defineActivity({
       name: 'seal-reply-attachments',
       success: replySnapshotSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         notes.sealReplyAttachments({ requestId: event.requestId })
       )
     });
-    const preferences = yield* Activity.make({
+    const preferences = yield* defineActivity({
       name: 'resolve-reply-preferences',
       success: runPreferencesSchema,
-      error: failureSchema,
+
       execute: Effect.gen(function* () {
         const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
         const settings = yield* Settings;
@@ -120,11 +121,11 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
     });
     const memory = yield* prepareAssistantContext(event.requestId);
     const publication = yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'generate-reply',
         success: publishReplyInputSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
 
           yield* validateReplyEvent(snapshot, event);
@@ -250,14 +251,14 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
                 });
 
           return { requestId: event.requestId, text, citations };
-        })
+        }
       })
     );
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'publish-reply',
       success: versionIdSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(store, notes.publishReply(publication))
     });
   }).pipe(
@@ -274,10 +275,10 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
         if (conversion) {
           const { store } = yield* Database;
 
-          yield* Activity.make({
+          yield* defineActivity({
             name: 'fail-conversion',
             success: Schema.Boolean,
-            error: failureSchema,
+
             execute: withPublicationGuard(store, notes.failConversion(event))
           });
         }
@@ -292,10 +293,10 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
           const notes = yield* Notes;
           const { store } = yield* Database;
 
-          yield* Activity.make({
+          yield* defineActivity({
             name: 'retire-invalid-reply',
             success: Schema.Void,
-            error: failureSchema,
+
             execute: withPublicationGuard(
               store,
               notes.abandonReply({
@@ -516,11 +517,11 @@ function replyMessages(
 /** The checkpoint retains memory across provider retries without changing visible history. */
 function prepareAssistantContext(requestId: string) {
   return retryResumableActivity(
-    Activity.make({
+    defineActivity({
       name: 'prepare-assistant-context',
       success: Schema.NullOr(assistantMemorySchema),
-      error: failureSchema,
-      execute: Effect.gen(function* () {
+
+      execute: function* () {
         const notes = yield* Notes;
         const snapshot = yield* notes.replySnapshot({ requestId });
 
@@ -575,7 +576,7 @@ function prepareAssistantContext(requestId: string) {
         }
 
         return plan.memory;
-      })
+      }
     })
   );
 }

@@ -25,7 +25,6 @@ import { materialGenerationPublicationSchema } from '@study/contracts/materials/
 import type { quizGenerationConfigSchema } from '@study/contracts/materials/schemas';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { diagramAgent } from '#server/features/materials/agents/diagram';
 import { diagramTitledAgent } from '#server/features/materials/agents/diagram-titled';
@@ -42,6 +41,7 @@ import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { diagramFeedback } from '#server/platform/ai/diagram/validator';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
@@ -83,9 +83,9 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
       })
     );
   const notifyFailure = (error: Failure) =>
-    Activity.make({
+    defineActivity({
       name: 'notify-material-generation-failed',
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         materials.notifyMaterialGenerationFailed({
@@ -114,11 +114,11 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
       `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${quizRequirements(initial.quizConfig)}${issue ? `\nPrevious diagram (data):\n${previous}\nValidation feedback: ${issue}` : ''}`;
 
     const generationActivity = (attempt: number, prompt: string) =>
-      Activity.make({
+      defineActivity({
         name: `generate-material-${attempt}`,
         success: materialGenerationPublicationSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           yield* preflight;
           const catalog = createEvidenceCatalog<{ input: ContentInput }>([]);
 
@@ -217,14 +217,14 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
             content: safeContent,
             citations
           };
-        })
+        }
       });
 
     const publish = (publication: typeof materialGenerationPublicationSchema.Type) =>
-      Activity.make({
+      defineActivity({
         name: 'publish-material',
         success: materialVersionIdSchema,
-        error: failureSchema,
+
         execute: withPublicationGuard(store, materials.publishMaterialGeneration(publication))
       });
 
@@ -237,10 +237,10 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
       );
 
       if (publication.content.kind === 'diagram') {
-        const result = yield* Activity.make({
+        const result = yield* defineActivity({
           name: `validate-material-${attempt}`,
           success: Schema.NullOr(Schema.String),
-          error: failureSchema,
+
           execute: diagramFeedback(publication.content.payload).pipe(
             Effect.map((value) => value ?? null)
           )

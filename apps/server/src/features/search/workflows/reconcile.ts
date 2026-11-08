@@ -14,10 +14,10 @@
 
 import { failureSchema } from '@study/contracts/errors';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Search } from '#server/features/search/index';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { PublicationGuard, withPublicationGuard } from '#server/platform/workflows/publication';
@@ -41,10 +41,10 @@ export const searchReconciliation = defineWorkflowHandler(searchReconciliationWo
       const database = yield* Database;
       const service = yield* Search;
 
-      return yield* Activity.make({
+      return yield* defineActivity({
         name: 'reconcile-local-search',
         success: reconcileResultSchema,
-        error: failureSchema,
+
         execute: withPublicationGuard(
           database.store,
           Effect.gen(function* () {

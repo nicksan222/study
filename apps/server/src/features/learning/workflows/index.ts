@@ -24,7 +24,6 @@ import {
 import { quizAttemptSchema } from '@study/contracts/learning/schemas';
 import { text } from '@study/localization';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { learningGradeAgent } from '#server/features/learning/agents/learning-grade';
 import { Learning } from '#server/features/learning/service/index';
@@ -32,6 +31,7 @@ import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -51,11 +51,11 @@ export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payload
     const learning = yield* Learning;
     const { store } = yield* Database;
     const grade = yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'grade-answer',
         success: gradeOutputSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           const snapshot = yield* learning.gradingSnapshot(event);
 
           return yield* generateAgent(
@@ -69,14 +69,14 @@ export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payload
             },
             { maxRetries: 0, preflight: learning.gradingSnapshot(event).pipe(Effect.asVoid) }
           );
-        })
+        }
       })
     );
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'publish-grade',
       success: quizAttemptSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         learning.publishGrade({
@@ -116,11 +116,11 @@ export const practiceSlotHandler = ({ event }: typeof practiceSlotWorkflow.paylo
     const materials = yield* Materials;
     const settings = yield* Settings;
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'request-practice-material',
       success: Schema.Boolean,
-      error: failureSchema,
-      execute: Effect.gen(function* () {
+
+      execute: function* () {
         const slot = yield* learning.practiceSlot(event.slotId);
 
         const attempt = event.generationAttempt ?? 0;
@@ -160,7 +160,7 @@ export const practiceSlotHandler = ({ event }: typeof practiceSlotWorkflow.paylo
         });
 
         return true;
-      })
+      }
     });
   });
 
@@ -193,10 +193,10 @@ export const practiceFailureHandler = ({
     const learning = yield* Learning;
     const { store } = yield* Database;
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'fail-practice-slot',
       success: Schema.Boolean,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         learning.failPracticeSlot({
@@ -240,10 +240,10 @@ export const practicePublicationHandler = ({
     const learning = yield* Learning;
     const { store } = yield* Database;
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'publish-practice-slot',
       success: Schema.Boolean,
-      error: failureSchema,
+
       execute: withPublicationGuard(
         store,
         learning

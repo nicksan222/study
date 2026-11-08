@@ -16,10 +16,10 @@ import { materialHistoryPruneRequestedSchema } from '@study/contracts/events';
 import { historyPruneSchema } from '@study/contracts/materials/history';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Materials } from '#server/features/materials/index';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { WorkflowControl } from '#server/platform/workflows/control';
@@ -50,11 +50,11 @@ export const materialHistoryHandler = ({
     if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
     return yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'prune-material-history',
         success: historyPruneSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           const ids = yield* materials.materialHistoryExecutions(event.operationId);
 
           for (const id of ids)
@@ -70,7 +70,7 @@ export const materialHistoryHandler = ({
               attempt: event.attempt
             })
           );
-        })
+        }
       })
     ).pipe(
       Effect.catchCause((cause) =>

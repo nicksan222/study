@@ -15,12 +15,12 @@ import { failureSchema, StudyError } from '@study/contracts/errors';
 import { noteQuestionRequestedSchema } from '@study/contracts/events';
 import { questionClassificationSchema } from '@study/contracts/notes/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
@@ -43,11 +43,11 @@ export const noteQuestionHandler = ({ event }: typeof noteQuestionWorkflow.paylo
     const { store } = database;
     const input = { messageId: event.messageId, expectedActiveVersionId: event.versionId };
     const output = yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'classify-question',
         success: questionClassificationSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           const snapshot = yield* c.questionSnapshot(input);
 
           if (snapshot.manual) return { kind: snapshot.kind ?? 'undetermined' };
@@ -69,14 +69,14 @@ export const noteQuestionHandler = ({ event }: typeof noteQuestionWorkflow.paylo
               )
             }
           );
-        })
+        }
       })
     );
 
-    yield* Activity.make({
+    yield* defineActivity({
       name: 'publish-question',
       success: Schema.Void,
-      error: failureSchema,
+
       execute: withPublicationGuard(store, c.publishQuestion({ ...input, ...output }))
     });
   }).pipe(

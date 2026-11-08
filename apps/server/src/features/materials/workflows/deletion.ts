@@ -15,10 +15,10 @@ import { materialDeletionRequestedSchema } from '@study/contracts/events';
 import { materialDeletionSchema } from '@study/contracts/materials/deletion';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Materials } from '#server/features/materials/index';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { WorkflowControl } from '#server/platform/workflows/control';
@@ -46,11 +46,11 @@ export const materialDeletionHandler = ({
     if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
     return yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'retire-material-content',
         success: materialDeletionSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           const ids = yield* materials.materialDeletionExecutions(event.materialId);
 
           for (const id of ids)
@@ -66,7 +66,7 @@ export const materialDeletionHandler = ({
               attempt: event.attempt
             })
           );
-        })
+        }
       })
     ).pipe(
       Effect.catchCause((cause) =>

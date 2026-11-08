@@ -15,10 +15,10 @@ import { noteDeletionRequestedSchema } from '@study/contracts/events';
 import { noteDeletionSchema } from '@study/contracts/notes/deletion';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Notes } from '#server/features/notes/index';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { WorkflowControl } from '#server/platform/workflows/control';
@@ -44,11 +44,11 @@ export const noteDeletionHandler = ({ event }: typeof noteDeletionWorkflow.paylo
     if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
     return yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'retire-session-content',
         success: noteDeletionSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           const ids = yield* notes.noteDeletionExecutions(event.noteId);
 
           for (const id of ids)
@@ -64,7 +64,7 @@ export const noteDeletionHandler = ({ event }: typeof noteDeletionWorkflow.paylo
               attempt: event.attempt
             })
           );
-        })
+        }
       })
     ).pipe(
       Effect.catchCause((cause) =>

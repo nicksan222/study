@@ -5,6 +5,7 @@ import definitionRules from './definition-rules.ts';
 import factoryRules from './factory-rules.ts';
 import observabilityRules from './observability-rules.ts';
 import persistenceRules from './persistence-rules.ts';
+import activityHarness from './rules/activity-harness.ts';
 import assertionBoundary from './rules/assertion-boundary.ts';
 import browserBoundary from './rules/browser-boundary.ts';
 import contextIdentity from './rules/context-identity.ts';
@@ -61,6 +62,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'activity-harness': activityHarness,
     'definition-generators': definitionGenerators,
     'assertion-boundary': assertionBoundary,
     'test-guard-assertions': testGuardAssertions,

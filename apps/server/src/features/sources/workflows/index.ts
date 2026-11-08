@@ -24,7 +24,6 @@ import { correctBlockText } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
 import { detectedMime, sniff } from '@study/contracts/sources/sniff';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Settings } from '#server/features/settings/index';
 import { visionTranscriptionAgent } from '#server/features/sources/agents/vision-transcription';
@@ -37,6 +36,7 @@ import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
+import { defineActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { fetchPage } from '#server/platform/http/index';
@@ -76,7 +76,7 @@ export const sourceIngestionHandler = ({
     const fetched =
       snapshot.kind === 'link'
         ? yield* retryResumableActivity(
-            Activity.make({
+            defineActivity({
               name: 'fetch-source',
               success: Schema.Struct({
                 url: Schema.String,
@@ -84,15 +84,15 @@ export const sourceIngestionHandler = ({
                 mime: Schema.String,
                 name: Schema.String
               }),
-              error: failureSchema,
-              execute: Effect.gen(function* () {
+
+              execute: function* () {
                 yield* currentRequest;
 
                 if (snapshot.uri === null)
                   return yield* Effect.fail(new StudyError('invalid_input', 'Link has no URI'));
 
                 return yield* fetchPage(snapshot.uri, { maxBytes: DEFAULT_MAX_BYTES });
-              })
+              }
             })
           )
         : null;
@@ -120,10 +120,10 @@ export const sourceIngestionHandler = ({
     const input = decodingInput();
     const conversionStrategyId =
       input.kind === 'pdf'
-        ? yield* Activity.make({
+        ? yield* defineActivity({
             name: 'resolve-source-conversion-strategy',
             success: conversionStrategyIdSchema,
-            error: failureSchema,
+
             execute: Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
               Effect.flatMap((preferences) =>
                 Effect.try({
@@ -141,11 +141,11 @@ export const sourceIngestionHandler = ({
           })
         : null;
     const document = yield* retryResumableActivity(
-      Activity.make({
+      defineActivity({
         name: 'decode-source',
         success: documentSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
+
+        execute: function* () {
           yield* currentRequest;
 
           function isHtml() {
@@ -247,7 +247,7 @@ export const sourceIngestionHandler = ({
                 ? cause
                 : new StudyError('internal', 'Vision decoding failed', { cause })
           });
-        })
+        }
       })
     );
 
@@ -274,10 +274,10 @@ function noticeSourceFailure(
         const sources = yield* Sources;
         const { store } = yield* Database;
 
-        yield* Activity.make({
+        yield* defineActivity({
           name: 'notice-source-failure',
           success: Schema.Void,
-          error: failureSchema,
+
           execute: withPublicationGuard(store, sources.noticeSourceProcessingFailure(event)).pipe(
             Effect.catch((cause) => (cause.kind === 'not_found' ? Effect.void : Effect.fail(cause)))
           )
@@ -297,10 +297,10 @@ function publishSource(
     const sources = yield* Sources;
     const { store } = yield* Database;
 
-    return yield* Activity.make({
+    return yield* defineActivity({
       name: 'publish-source',
       success: contentSnapshotIdSchema,
-      error: failureSchema,
+
       execute: withPublicationGuard(store, sources.publishSourceDocument({ event, document }))
     });
   });
@@ -320,11 +320,11 @@ export const sourceCorrectionHandler = ({
 }: typeof sourceCorrectionWorkflow.payloadSchema.Type) =>
   Effect.gen(function* () {
     const sources = yield* Sources;
-    const document = yield* Activity.make({
+    const document = yield* defineActivity({
       name: 'correct-source',
       success: documentSchema,
-      error: failureSchema,
-      execute: Effect.gen(function* () {
+
+      execute: function* () {
         const state = yield* sources.sourceProcessing(event.sourceId);
 
         if (
@@ -357,7 +357,7 @@ export const sourceCorrectionHandler = ({
             ordinal === event.ordinal ? correctBlockText(item, event.after) : item
           )
         };
-      })
+      }
     });
 
     return yield* publishSource(event, document);

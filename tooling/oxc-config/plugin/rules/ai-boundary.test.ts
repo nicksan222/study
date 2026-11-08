@@ -105,3 +105,16 @@ testStable(
     assert.ok(diagnostics[0].filename.endsWith('/workflows/unguarded.ts'));
   }
 );
+
+testStable(
+  'canonical activity harness owns generation and still requires request preflight',
+  () => {
+    const diagnostics = lintRule('ai-boundary', {
+      'src/features/notes/workflows/harness.ts':
+        "import {defineActivity as checkpoint} from '#server/platform/definitions/define-activity'; import {generateAgent} from '#server/platform/ai/agents'; checkpoint({name: 'good', execute: function* () { return yield* generateAgent(agent, input, {maxRetries: 0, preflight}); }}); checkpoint({name: 'bad', execute: function* () { return yield* generateAgent(agent, input); }});"
+    });
+
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics[0]!.message.includes('preflight'));
+  }
+);
