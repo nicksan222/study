@@ -114,6 +114,7 @@ function useTransformation(
           ]
         }));
         void cache.invalidateQueries({ queryKey: [...noteKey(id), 'generations'] });
+        void cache.invalidateQueries({ queryKey: ['note-work', String(id)] });
       }
     )
   });
@@ -172,27 +173,47 @@ export function Transformation({
   return (
     <>
       <WorkspaceSurface.Section>
-        <Notebook.PageNotes aria-label={model.t('PageNotes')}>
-          <h2>{model.t('PageNotes')}</h2>
-          <Notebook.Muted>{model.t('PageNotesHelp')}</Notebook.Muted>
-          <Notebook.PageSourceList>
-            {notes?.length ? (
-              notes.map((note) => (
-                <li key={String(note.id)} title={note.title || model.t('NoteUntitled')}>
-                  {note.title || model.t('NoteUntitled')}
-                </li>
-              ))
-            ) : (
-              <li>{model.t('PageCurrentNote')}</li>
-            )}
-          </Notebook.PageSourceList>
-        </Notebook.PageNotes>
-        <TransformFields model={model} />
+        {model.draft.requestId ? (
+          <Disclosure summary={model.t('NoteGenerationRequest')}>
+            <TransformBrief model={model} notes={notes} />
+          </Disclosure>
+        ) : (
+          <TransformBrief model={model} notes={notes} />
+        )}
         <TransformFailure model={model} />
         <TransformRecovery model={model} />
         <TransformReceipt model={model} />
       </WorkspaceSurface.Section>
       <NoteRuns id={id} />
+    </>
+  );
+}
+
+function TransformBrief({
+  model,
+  notes
+}: {
+  model: TransformationModel;
+  notes?: readonly SelectedNote[];
+}) {
+  return (
+    <>
+      <Notebook.PageNotes aria-label={model.t('PageNotes')}>
+        <h2>{model.t('PageNotes')}</h2>
+        <Notebook.Muted>{model.t('PageNotesHelp')}</Notebook.Muted>
+        <Notebook.PageSourceList>
+          {notes?.length ? (
+            notes.map((note) => (
+              <li key={String(note.id)} title={note.title || model.t('NoteUntitled')}>
+                {note.title || model.t('NoteUntitled')}
+              </li>
+            ))
+          ) : (
+            <li>{model.t('PageCurrentNote')}</li>
+          )}
+        </Notebook.PageSourceList>
+      </Notebook.PageNotes>
+      <TransformFields model={model} />
     </>
   );
 }

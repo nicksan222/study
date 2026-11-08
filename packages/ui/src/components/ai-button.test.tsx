@@ -38,21 +38,27 @@ testStable(
   }
 );
 
-testStable(
-  'uses the same task tooltip for standalone AI activity without a visible pending label',
-  async () => {
-    const user = userEvent.setup();
+testStable('shows the current task without requiring hover or keyboard discovery', async () => {
+  render(
+    <TooltipProvider delay={0}>
+      <AiActivity label="Reading your pages" />
+    </TooltipProvider>
+  );
+  const status = screen.getByRole('status');
 
-    render(
-      <TooltipProvider delay={0}>
-        <AiActivity label="Reading your pages" />
-      </TooltipProvider>
-    );
-    const status = screen.getByRole('status');
+  expect(status).toHaveAccessibleName('Reading your pages');
+  expect(within(status).getByText('Reading your pages')).toBeVisible();
+  expect(status).toHaveAttribute('data-state', 'running');
+});
 
-    expect(status).toHaveAccessibleName('Reading your pages');
-    expect(within(status).getByText('Reading your pages')).toHaveClass('sr-only');
-    await user.hover(status);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Reading your pages');
+testStable.each(['waiting', 'stopping'] as const)(
+  'keeps %s work visible without an active-generation animation',
+  (state) => {
+    render(<AiActivity label="Current work" state={state} />);
+    const status = screen.getByRole('status', { name: 'Current work' });
+
+    expect(status).toHaveAttribute('data-state', state);
+    expect(within(status).getByText('Current work')).toBeVisible();
+    expect(status.querySelector('[data-working="true"]')).toBeNull();
   }
 );

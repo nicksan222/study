@@ -36,8 +36,26 @@ button[data-ai-working='true']:disabled {
 }
 .ui-ai-activity {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 0.5rem;
+}
+.ui-ai-activity-status {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--contrast-muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.ui-ai-activity-status > :is(svg, .ui-ai-icon) {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex: none;
+}
+.ui-ai-activity-status > span:last-child {
+  overflow-wrap: anywhere;
 }
 @keyframes ui-ai-trace {
   from {

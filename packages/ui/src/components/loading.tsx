@@ -58,10 +58,18 @@ function LoadingSkeleton({
   );
 }
 
-function Thinking({ label, action }: { label: string; action?: ReactNode }) {
+function Thinking({
+  label,
+  action,
+  state
+}: {
+  label: string;
+  action?: ReactNode;
+  state?: ComponentPropsWithRef<typeof AiActivity>['state'];
+}) {
   return (
     <div className="study-thinking">
-      <AiActivity label={label} action={action} />
+      <AiActivity label={label} action={action} state={state} />
     </div>
   );
 }

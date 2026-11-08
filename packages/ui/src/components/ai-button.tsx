@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { CirclePause, Square, Sparkles } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { observeVisibleAnimation } from '../visible-animation';
@@ -58,14 +58,34 @@ export function AiButton({
   );
 }
 
-/** Non-interactive work uses the same animated glyph and tooltip as an AI action. */
-export function AiActivity({ label, action }: { label: string; action?: ReactNode }) {
+/** Work always names its current state; only active execution animates. */
+export function AiActivity({
+  label,
+  action,
+  state = 'running'
+}: {
+  label: string;
+  action?: ReactNode;
+  state?: 'running' | 'waiting' | 'stopping';
+}) {
   return (
     <span className="ui-ai-activity">
-      <ActionTooltip label={label} tabIndex={0} role="status" aria-label={label}>
-        <AiIcon working />
-        <span className="sr-only">{label}</span>
-      </ActionTooltip>
+      <span
+        className="ui-ai-activity-status"
+        role="status"
+        aria-label={label}
+        aria-atomic="true"
+        data-state={state}
+      >
+        {state === 'running' ? (
+          <AiIcon working />
+        ) : state === 'waiting' ? (
+          <CirclePause aria-hidden="true" />
+        ) : (
+          <Square aria-hidden="true" />
+        )}
+        <span>{label}</span>
+      </span>
       {action}
     </span>
   );

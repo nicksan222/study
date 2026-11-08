@@ -304,6 +304,11 @@ function MessageVersionBody({
   onVersionChange: (id: VersionId) => void;
   citations: readonly MessageCitation[];
 }) {
+  const contentVersion =
+    version.status !== 'complete' && !version.text
+      ? (message.versions.find((item) => item.id === version.basedOn) ?? version)
+      : version;
+
   return (
     <>
       <QuestionActions message={message} versionId={version.id}>
@@ -315,7 +320,7 @@ function MessageVersionBody({
             onVersionChange={onVersionChange}
             questionAction={questionAction}
           >
-            <MessageContent message={message} version={version} citations={citations} />
+            <MessageContent message={message} version={contentVersion} citations={citations} />
           </MessageActions>
         )}
       </QuestionActions>

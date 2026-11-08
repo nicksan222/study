@@ -118,7 +118,10 @@ export function MessageContent({
 
   return message.format === 'document' ||
     message.role === 'assistant' ||
-    version.origin === 'answer' ? (
+    version.origin === 'answer' ||
+    version.origin === 'improve' ||
+    version.origin === 'summarize' ||
+    version.origin === 'instruction' ? (
     <NoteContent value={version.text} renderText={citationRenderer} />
   ) : (
     <ChatMessageText text={version.text} renderText={citationRenderer} />

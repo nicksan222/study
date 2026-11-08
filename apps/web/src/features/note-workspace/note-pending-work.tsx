@@ -2,6 +2,7 @@ import type { NoteId } from '@study/contracts/ids';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
+import { Disclosure } from '@study/ui/disclosure';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { Loading } from '@study/ui/loading';
@@ -15,6 +16,7 @@ import { AgentProgress } from '../agent-progress';
 import { noteWorkKey, noteWorkOptions, stopNoteWorkOptions } from './note-pending-work.queries';
 import type { NoteWorkItem } from './note-pending-work.queries';
 import { NoteReadError } from './status';
+import { workActivityState } from './work-state';
 
 const kinds = {
   transform: { label: 'NoteWorkTransform' },
@@ -94,9 +96,10 @@ function WorkRow({
 
   return (
     <WorkspaceWork.Row>
-      <AiActivity label={title + ' · ' + t(stateLabel)} />
       <WorkspaceWork.Copy>
-        <strong title={title}>{title}</strong>
+        <strong>{t(label)}</strong>
+        {item.title && <WorkspaceWork.Status title={item.title}>{item.title}</WorkspaceWork.Status>}
+        <AiActivity label={t(stateLabel)} state={workActivityState(item.execution, stopping)} />
       </WorkspaceWork.Copy>
       <IconButton
         size="icon-sm"
@@ -111,7 +114,9 @@ function WorkRow({
       </IconButton>
       {!stopping && (
         <WorkspaceWork.Progress>
-          <AgentProgress executionId={item.execution.id} />
+          <Disclosure summary={t('NoteWorkDetails')}>
+            <AgentProgress executionId={item.execution.id} variant="compact" />
+          </Disclosure>
         </WorkspaceWork.Progress>
       )}
       {cancel.isError && (
