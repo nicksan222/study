@@ -33,6 +33,7 @@ import noDeepRelativeImports from './rules/no-deep-relative-imports.ts';
 import noErrorMessageMatching from './rules/no-error-message-matching.ts';
 import noLossyIds from './rules/no-lossy-ids.ts';
 import noNonNullQueryResults from './rules/no-non-null-query-results.ts';
+import notesPagesVocabulary from './rules/notes-pages-vocabulary.ts';
 import packageBoundary from './rules/package-boundary.ts';
 import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
@@ -66,6 +67,7 @@ export default definePlugin({
     'shared-error-state': sharedErrorState,
     'feature-orchestration': featureOrchestration,
     'native-clock': nativeClock,
+    'notes-pages-vocabulary': notesPagesVocabulary,
     'metric-cardinality': metricCardinality,
     'context-identity': contextIdentity,
     'service-definition': serviceDefinition,

@@ -3,6 +3,7 @@ import { resolve, dirname } from 'node:path';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
+import { retiredStudyPath } from '../retired-study-paths.ts';
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -16,6 +17,7 @@ export default defineRule({
     const retiredFile =
       /\/packages\/ai\/src\//.test(filename) ||
       retiredContractFile.test(filename) ||
+      retiredStudyPath(filename) ||
       (current !== null && retiredServerRoot.test(current));
 
     return {
@@ -23,10 +25,7 @@ export default defineRule({
         if (!source) return;
 
         const resolved = resolvedSource(filename, source);
-        const retiredContract =
-          /^@study\/contracts\/(?:procedures|jobs|material|practice|ingestion|study)(?:\/|$)/.test(
-            source
-          ) || retiredContractFile.test(resolved);
+        const retiredContract = retiredContractImport(source, resolved, retiredContractFile);
 
         const server = serverPath(filename);
         const resolvedServer = serverPath(resolved);
@@ -81,5 +80,16 @@ function retiredServerImport(
 ): boolean {
   return Boolean(
     (server && target && pattern.test(target)) || (resolved !== null && pattern.test(resolved))
+  );
+}
+
+function retiredContractImport(source: string, resolved: string, file: RegExp): boolean {
+  return (
+    /^@study\/contracts\/(?:procedures|jobs|material|practice|ingestion|study)(?:\/|$)/.test(
+      source
+    ) ||
+    file.test(resolved) ||
+    retiredStudyPath(source) ||
+    retiredStudyPath(resolved)
   );
 }

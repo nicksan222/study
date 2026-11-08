@@ -73,6 +73,7 @@ export const lint = {
     'unicorn/no-useless-spread': 'error',
     'study/feature-orchestration': 'error',
     'study/native-clock': 'error',
+    'study/notes-pages-vocabulary': 'error',
     'study/metric-cardinality': 'error',
     'study/context-identity': 'error',
     'study/service-definition': 'error',
