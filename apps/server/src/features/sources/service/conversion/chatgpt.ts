@@ -25,37 +25,36 @@ export const chatGptConversion: ConversionStrategy = {
   id: 'chatgpt',
   label: 'ConversionChatGpt',
   supportedInputs: ['text', 'pdf'],
-  convert: (input, context) =>
-    Effect.gen(function* () {
-      if (input.kind === 'text') {
-        const output = yield* context.generate(textConversionAgent, { text: input.text });
+  convert: Effect.fnUntraced(function* (input, context) {
+    if (input.kind === 'text') {
+      const output = yield* context.generate(textConversionAgent, { text: input.text });
 
-        return decodeText({
-          bytes: new TextEncoder().encode(output),
-          kind: 'text',
-          mime: 'text/markdown'
-        });
-      }
+      return decodeText({
+        bytes: new TextEncoder().encode(output),
+        kind: 'text',
+        mime: 'text/markdown'
+      });
+    }
 
-      const pageCount = yield* Effect.tryPromise({
-        try: () => decodePdf(input.bytes),
-        catch: (cause) =>
-          cause instanceof StudyError
-            ? cause
-            : new StudyError('invalid_input', 'Cannot read PDF', { cause })
-      });
-      const output = yield* context.generate(pdfConversionAgent, {
-        prompt: `Transcribe all ${pageCount} page(s) in order.`,
-        data: input.bytes,
-        mediaType: 'application/pdf'
-      });
+    const pageCount = yield* Effect.tryPromise({
+      try: () => decodePdf(input.bytes),
+      catch: (cause) =>
+        cause instanceof StudyError
+          ? cause
+          : new StudyError('invalid_input', 'Cannot read PDF', { cause })
+    });
+    const output = yield* context.generate(pdfConversionAgent, {
+      prompt: `Transcribe all ${pageCount} page(s) in order.`,
+      data: input.bytes,
+      mediaType: 'application/pdf'
+    });
 
-      return yield* Effect.try({
-        try: () => visionDocument(output.pages, pageCount),
-        catch: (cause) =>
-          cause instanceof StudyError
-            ? cause
-            : new StudyError('invalid_input', 'Invalid PDF transcription', { cause })
-      });
-    })
+    return yield* Effect.try({
+      try: () => visionDocument(output.pages, pageCount),
+      catch: (cause) =>
+        cause instanceof StudyError
+          ? cause
+          : new StudyError('invalid_input', 'Invalid PDF transcription', { cause })
+    });
+  })
 };

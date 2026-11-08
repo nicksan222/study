@@ -107,9 +107,7 @@ export class App {
                   if (!runtime) throw new StudyError('internal', 'Application is not initialized');
 
                   await runtime.runPromise(
-                    Effect.flatMap(Auth, (account) =>
-                      account.rotateRefreshToken({ previous, token })
-                    )
+                    Auth.use((account) => account.rotateRefreshToken({ previous, token }))
                   );
                 }
               }),
@@ -286,7 +284,7 @@ export class App {
     }
 
     try {
-      await this.nativeRuntime.runPromise(Effect.flatMap(Auth, (auth) => auth.prepareShutdown()));
+      await this.nativeRuntime.runPromise(Auth.use((auth) => auth.prepareShutdown()));
     } catch (error) {
       errors.push(error);
     }

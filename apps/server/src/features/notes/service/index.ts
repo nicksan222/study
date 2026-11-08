@@ -137,7 +137,7 @@ function mentionsAssistant(text: string) {
 }
 
 function readWorkspacePreferences() {
-  return Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+  return Settings.use((settings) => settings.workspacePreferences()).pipe(
     Effect.provide(Settings.layer)
   );
 }
@@ -181,7 +181,7 @@ import { mergeNotes } from './merge.ts';
 
 export const Notes = defineService(
   'study/Notes',
-  Effect.gen(function* () {
+  function* () {
     const readReplyReadinessStore = yield* useStore(ReplyReadinessStore);
 
     const readReplyWakeStore = yield* useStore(ReplyWakeStore);
@@ -199,72 +199,71 @@ export const Notes = defineService(
     const assistant = yield* makeAssistantNotes;
     const { assistantNote } = assistant;
 
-    const ask = (input: typeof askInputSchema.Type) =>
-      Effect.gen(function* () {
-        const preferences = yield* readWorkspacePreferences();
+    const ask = Effect.fnUntraced(function* (input: typeof askInputSchema.Type) {
+      const preferences = yield* readWorkspacePreferences();
 
-        return yield* transaction((tx) => {
-          const normalized = normalizeAsk(input);
-          const askDigest = impactToken(normalized);
-          const intent = {
-            noteId: input.noteId,
-            threadRoot: input.threadRoot,
-            intentKey: input.intentKey,
-            instruction: normalized.instruction,
-            preferences: normalized.preferences,
-            askDigest
+      return yield* transaction((tx) => {
+        const normalized = normalizeAsk(input);
+        const askDigest = impactToken(normalized);
+        const intent = {
+          noteId: input.noteId,
+          threadRoot: input.threadRoot,
+          intentKey: input.intentKey,
+          instruction: normalized.instruction,
+          preferences: normalized.preferences,
+          askDigest
+        };
+        const existing = tx.store(NoteContextIntentStore).findNoteContextIntent(intent);
+
+        if (Option.isSome(existing)) {
+          const context = existing.value;
+          const previous = tx
+            .store(ReplyRequestStore)
+            .findReplyRequest({ requestId: context.requestId });
+          const note = askUserTarget(context);
+
+          if (Option.isNone(previous) || !note || note.role !== 'user')
+            throw new StudyError('not_found', 'Captured Ask is unavailable');
+
+          for (const target of context.inputs) assertCapturedTarget(tx, target);
+
+          return {
+            ...previous.value,
+            userMessageId: note.messageId,
+            userVersionId: note.versionId
           };
-          const existing = tx.store(NoteContextIntentStore).findNoteContextIntent(intent);
+        }
 
-          if (Option.isSome(existing)) {
-            const context = existing.value;
-            const previous = tx
-              .store(ReplyRequestStore)
-              .findReplyRequest({ requestId: context.requestId });
-            const note = askUserTarget(context);
+        const selection = tx.store(NoteSelectionStore).noteSelection({ noteId: input.noteId });
 
-            if (Option.isNone(previous) || !note || note.role !== 'user')
-              throw new StudyError('not_found', 'Captured Ask is unavailable');
+        if (selection.revision !== input.expectedSelectionRevision)
+          throw new StudyError('invalid_input', 'Note selection changed');
 
-            for (const target of context.inputs) assertCapturedTarget(tx, target);
+        if (tx.store(NoteModeStore).noteMode(input.noteId) === NoteMode.Assistant)
+          retireAssistantReplies(tx, input.noteId);
 
-            return {
-              ...previous.value,
-              userMessageId: note.messageId,
-              userVersionId: note.versionId
-            };
-          }
+        tx.store(ReplyStore).prepareReply(input);
+        const note = postMessage(tx, input);
+        const context = captureContext(
+          tx,
+          { ...intent, throughMessageId: note.id },
+          randomUUID(),
+          true
+        );
+        const result = tx
+          .store(ReplyStore)
+          .requestReply({ ...input, requestId: context.requestId, context });
 
-          const selection = tx.store(NoteSelectionStore).noteSelection({ noteId: input.noteId });
+        emitReplyRequest(tx, result, 'reply');
 
-          if (selection.revision !== input.expectedSelectionRevision)
-            throw new StudyError('invalid_input', 'Note selection changed');
+        retainExplicitQuestionAnswer(tx, note, result);
 
-          if (tx.store(NoteModeStore).noteMode(input.noteId) === NoteMode.Assistant)
-            retireAssistantReplies(tx, input.noteId);
+        if (preferences.textConversionMode === 'automatic')
+          scheduleAutomaticConversion(tx, note, preferences.textConversionStrategy);
 
-          tx.store(ReplyStore).prepareReply(input);
-          const note = postMessage(tx, input);
-          const context = captureContext(
-            tx,
-            { ...intent, throughMessageId: note.id },
-            randomUUID(),
-            true
-          );
-          const result = tx
-            .store(ReplyStore)
-            .requestReply({ ...input, requestId: context.requestId, context });
-
-          emitReplyRequest(tx, result, 'reply');
-
-          retainExplicitQuestionAnswer(tx, note, result);
-
-          if (preferences.textConversionMode === 'automatic')
-            scheduleAutomaticConversion(tx, note, preferences.textConversionStrategy);
-
-          return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
-        });
+        return { ...result, userMessageId: note.id, userVersionId: note.activeVersionId! };
       });
+    });
 
     return {
       noteMode: modes.noteMode,
@@ -283,23 +282,22 @@ export const Notes = defineService(
       questionSnapshot: (input: typeof questionVersionInputSchema.Type) =>
         transaction((tx) => tx.store(QuestionStore).questionSnapshot(input)),
       /** Commits detection independently so rejected automatic answers cannot erase the saved kind. */
-      publishQuestion: (
+      publishQuestion: Effect.fnUntraced(function* (
         input: typeof questionVersionInputSchema.Type & typeof questionClassificationSchema.Type
-      ) =>
-        Effect.gen(function* () {
+      ) {
+        yield* publicationTransaction((tx) => {
+          tx.store(QuestionStore).publishQuestion(input);
+        });
+
+        if (input.kind !== 'question') return;
+
+        const preferences = yield* readWorkspacePreferences();
+
+        if (preferences.autoAnswerQuestions)
           yield* publicationTransaction((tx) => {
-            tx.store(QuestionStore).publishQuestion(input);
+            answerQuestion(tx, input);
           });
-
-          if (input.kind !== 'question') return;
-
-          const preferences = yield* readWorkspacePreferences();
-
-          if (preferences.autoAnswerQuestions)
-            yield* publicationTransaction((tx) => {
-              answerQuestion(tx, input);
-            });
-        }),
+      }),
       applyPageProposal: (value: typeof editing.applyProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Pages.findProposalReceiptInTransaction(tx, {
@@ -452,35 +450,36 @@ export const Notes = defineService(
         }),
       mergeNotes,
       titleSnapshot: titles.titleSnapshot,
-      createUntitledNote: (input: typeof createUntitledNoteInputSchema.Type) =>
-        Effect.gen(function* () {
-          const settings = yield* Settings;
-          const language = yield* settings.language();
-          const preferences = yield* readWorkspacePreferences();
+      createUntitledNote: Effect.fnUntraced(function* (
+        input: typeof createUntitledNoteInputSchema.Type
+      ) {
+        const settings = yield* Settings;
+        const language = yield* settings.language();
+        const preferences = yield* readWorkspacePreferences();
 
-          return yield* transaction((tx) => {
-            const note = tx.store(NoteStore).createNote({
-              project: input.project,
-              title: text(language, 'NewNote'),
-              titleSource: 'provisional'
+        return yield* transaction((tx) => {
+          const note = tx.store(NoteStore).createNote({
+            project: input.project,
+            title: text(language, 'NewNote'),
+            titleSource: 'provisional'
+          });
+
+          if (input.initialMessage) {
+            const message = postMessage(tx, {
+              ...input.initialMessage,
+              noteId: note.id,
+              requestReply: false
             });
 
-            if (input.initialMessage) {
-              const message = postMessage(tx, {
-                ...input.initialMessage,
-                noteId: note.id,
-                requestReply: false
-              });
+            if (preferences.textConversionMode === 'automatic')
+              scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
 
-              if (preferences.textConversionMode === 'automatic')
-                scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
+            if (preferences.autoTitleNotes) scheduleAutomaticTitle(tx, note.id);
+          }
 
-              if (preferences.autoTitleNotes) scheduleAutomaticTitle(tx, note.id);
-            }
-
-            return note;
-          });
-        }),
+          return note;
+        });
+      }),
       requestTitle: (input: { noteId: NoteId }) =>
         transaction((tx) => {
           const requestId = randomUUID();
@@ -530,35 +529,34 @@ export const Notes = defineService(
         publicationTransaction((tx) => {
           return tx.store(ReplyStore).abandonReply(input);
         }),
-      publishReply: (input: typeof publishReplyInputSchema.Type) =>
-        Effect.gen(function* () {
-          const preferences = yield* readWorkspacePreferences();
-          const language = yield* Effect.flatMap(Settings, (settings) => settings.language()).pipe(
-            Effect.provide(Settings.layer)
-          );
+      publishReply: Effect.fnUntraced(function* (input: typeof publishReplyInputSchema.Type) {
+        const preferences = yield* readWorkspacePreferences();
+        const language = yield* Settings.use((settings) => settings.language()).pipe(
+          Effect.provide(Settings.layer)
+        );
 
-          return yield* publicationTransaction((tx) => {
-            const context = tx
-              .store(NoteContextStore)
-              .findNoteContext({ requestId: input.requestId });
+        return yield* publicationTransaction((tx) => {
+          const context = tx
+            .store(NoteContextStore)
+            .findNoteContext({ requestId: input.requestId });
 
-            if (Option.isSome(context))
-              for (const target of context.value.inputs) assertCapturedTarget(tx, target);
+          if (Option.isSome(context))
+            for (const target of context.value.inputs) assertCapturedTarget(tx, target);
 
-            tx.store(QuestionStore).assertQuestionAnswer(input);
-            const versionId = tx.store(ReplyStore).publishReply({ ...input, language });
+          tx.store(QuestionStore).assertQuestionAnswer(input);
+          const versionId = tx.store(ReplyStore).publishReply({ ...input, language });
 
-            if (preferences.autoTitleNotes) {
-              const reply = tx
-                .store(ReplyRequestStore)
-                .findReplyRequest({ requestId: input.requestId });
+          if (preferences.autoTitleNotes) {
+            const reply = tx
+              .store(ReplyRequestStore)
+              .findReplyRequest({ requestId: input.requestId });
 
-              if (Option.isSome(reply)) scheduleAutomaticTitle(tx, reply.value.noteId);
-            }
+            if (Option.isSome(reply)) scheduleAutomaticTitle(tx, reply.value.noteId);
+          }
 
-            return versionId;
-          });
-        }),
+          return versionId;
+        });
+      }),
       messageVersionCitations: (input: typeof replyVersionInputSchema.Type) =>
         transaction((tx) => {
           if (Option.isSome(tx.store(NoteDeletionStore).findNoteDeletion(input.noteId)))
@@ -636,26 +634,25 @@ export const Notes = defineService(
       ask,
       ensureNote,
       notebookNote,
-      assistantAsk: (input: typeof assistantAskInputSchema.Type) =>
-        Effect.gen(function* () {
-          const note = yield* assistantNote({ id: input.noteId });
+      assistantAsk: Effect.fnUntraced(function* (input: typeof assistantAskInputSchema.Type) {
+        const note = yield* assistantNote({ id: input.noteId });
 
-          const result = yield* ask({
-            ...input,
-            noteId: note.id,
-            expectedSelectionRevision: 0n
-          });
+        const result = yield* ask({
+          ...input,
+          noteId: note.id,
+          expectedSelectionRevision: 0n
+        });
 
-          if (note.title === text('english', 'Assistant'))
-            yield* transaction((tx) =>
-              tx.store(NoteStore).renameNote({
-                id: note.id,
-                title: [...input.text.trim()].slice(0, 80).join('')
-              })
-            );
+        if (note.title === text('english', 'Assistant'))
+          yield* transaction((tx) =>
+            tx.store(NoteStore).renameNote({
+              id: note.id,
+              title: [...input.text.trim()].slice(0, 80).join('')
+            })
+          );
 
-          return result;
-        }),
+        return result;
+      }),
       requestReply: (input: typeof replyRequestInputSchema.Type) =>
         transaction((tx) => {
           const intent = {
@@ -760,63 +757,62 @@ export const Notes = defineService(
 
           return recording.finishRecordingPost({ ...input, messageId: message.id });
         }),
-      postMessage: (input: typeof postMessageInputSchema.Type) =>
-        Effect.gen(function* () {
-          const preferences = yield* readWorkspacePreferences();
+      postMessage: Effect.fnUntraced(function* (input: typeof postMessageInputSchema.Type) {
+        const preferences = yield* readWorkspacePreferences();
 
-          return yield* transaction((tx) => {
-            const message = postMessage(tx, input);
+        return yield* transaction((tx) => {
+          const message = postMessage(tx, input);
 
-            const mentioned = mentionsAssistant(input.text);
+          const mentioned = mentionsAssistant(input.text);
 
-            if (input.requestReply ?? mentioned) {
-              const requestId = randomUUID();
+          if (input.requestReply ?? mentioned) {
+            const requestId = randomUUID();
 
-              tx.store(ReplyStore).prepareReply({
-                noteId: input.noteId,
-                threadRoot: input.threadRoot
-              });
+            tx.store(ReplyStore).prepareReply({
+              noteId: input.noteId,
+              threadRoot: input.threadRoot
+            });
 
-              const context = captureContext(
-                tx,
-                {
-                  noteId: input.noteId,
-                  threadRoot: input.threadRoot,
-                  intentKey: requestId,
-                  instruction: '',
-                  preferences: {}
-                },
-                requestId
-              );
-
-              const result = tx.store(ReplyStore).requestReply({
+            const context = captureContext(
+              tx,
+              {
                 noteId: input.noteId,
                 threadRoot: input.threadRoot,
-                requestId,
-                context
-              });
+                intentKey: requestId,
+                instruction: '',
+                preferences: {}
+              },
+              requestId
+            );
 
-              retainExplicitQuestionAnswer(tx, message, result);
-              tx.emit({
-                type: 'NoteGenerationRequested',
-                eventId: randomUUID(),
-                causationId: null,
-                correlationId: requestId,
-                inputVersion: 1,
-                depth: 0,
-                ...result,
-                operation: 'reply'
-              });
-            }
+            const result = tx.store(ReplyStore).requestReply({
+              noteId: input.noteId,
+              threadRoot: input.threadRoot,
+              requestId,
+              context
+            });
 
-            if (preferences.textConversionMode === 'automatic')
-              scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
+            retainExplicitQuestionAnswer(tx, message, result);
+            tx.emit({
+              type: 'NoteGenerationRequested',
+              eventId: randomUUID(),
+              causationId: null,
+              correlationId: requestId,
+              inputVersion: 1,
+              depth: 0,
+              ...result,
+              operation: 'reply'
+            });
+          }
 
-            if (preferences.autoTitleNotes) scheduleAutomaticTitle(tx, input.noteId);
+          if (preferences.textConversionMode === 'automatic')
+            scheduleAutomaticConversion(tx, message, preferences.textConversionStrategy);
 
-            return tx.store(MessageStore).message(message.id);
-          });
-        }),
+          if (preferences.autoTitleNotes) scheduleAutomaticTitle(tx, input.noteId);
+
+          return tx.store(MessageStore).message(message.id);
+        });
+      }),
       updateMessageDescription: (input: typeof updateMessageDescriptionInputSchema.Type) =>
         transaction((tx) =>
           resolveMessageCitations(tx, tx.store(MessageStore).updateMessageDescription(input))
@@ -895,26 +891,25 @@ export const Notes = defineService(
         transaction((tx) => tx.store(NoteSummaryStore).setNoteSettled(input)),
       note: store.note,
       findNote: store.findNote,
-      notes: (input: typeof notePageInputSchema.Type) =>
-        Effect.gen(function* () {
-          const items = yield* store.notes(input);
+      notes: Effect.fnUntraced(function* (input: typeof notePageInputSchema.Type) {
+        const items = yield* store.notes(input);
 
-          const last = items.at(-1);
+        const last = items.at(-1);
 
-          const more =
-            last && items.length === input.limit
-              ? yield* store.notes({
-                  project: input.project,
-                  limit: 1,
-                  before: { updatedAt: last.updatedAt, id: last.id }
-                })
-              : [];
+        const more =
+          last && items.length === input.limit
+            ? yield* store.notes({
+                project: input.project,
+                limit: 1,
+                before: { updatedAt: last.updatedAt, id: last.id }
+              })
+            : [];
 
-          return {
-            items,
-            next: more.length && last ? { updatedAt: last.updatedAt, id: last.id } : null
-          };
-        }),
+        return {
+          items,
+          next: more.length && last ? { updatedAt: last.updatedAt, id: last.id } : null
+        };
+      }),
       createNote: (input: typeof createNoteInputSchema.Type) =>
         transaction((tx) => tx.store(NoteStore).createNote({ ...input, titleSource: 'user' })),
       noteDeletionExecutions: (id: NoteId) =>
@@ -996,7 +991,7 @@ export const Notes = defineService(
           return status;
         })
     };
-  }),
+  },
   {
     createNoteInTransaction: (tx: Transaction, input: typeof createNoteInputSchema.Type) =>
       tx.store(NoteStore).createNote({ ...input, titleSource: 'user' }),
@@ -1130,7 +1125,7 @@ function resolveCombinedTargets(
   tx: Transaction,
   targets: typeof updateNoteSelectionSchema.Type.targets
 ) {
-  const grouped = new Map<string, Array<typeof resolvedSelectionSchema.Type>>();
+  const grouped = new Map<string, (typeof resolvedSelectionSchema.Type)[]>();
 
   for (const target of targets) {
     const resolved = resolveSelection(tx, target);

@@ -71,6 +71,12 @@ export const lint = {
     'eslint/no-unsafe-optional-chaining': 'error',
     'eslint/no-empty-pattern': 'error',
     'unicorn/no-useless-spread': 'error',
+    'study/effect-function-harness': 'error',
+    'study/service-access': 'error',
+    'study/validated-mutation': 'error',
+    'study/cleanup-harness': 'error',
+    'study/activity-harness': 'error',
+    'study/definition-generators': 'error',
     'study/feature-orchestration': 'error',
     'study/native-clock': 'error',
     'study/notes-pages-vocabulary': 'error',
@@ -222,6 +228,7 @@ export const lint = {
       files: ['**/apps/server/**/*.{ts,tsx}'],
       rules: {
         'react/rules-of-hooks': 'off',
+        'typescript/array-type': ['error', { default: 'array' }],
         'typescript/switch-exhaustiveness-check': [
           'error',
           { considerDefaultExhaustiveForUnions: false }

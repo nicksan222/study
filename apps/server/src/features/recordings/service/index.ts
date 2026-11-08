@@ -21,7 +21,6 @@ import type {
   appendRecordingInputSchema,
   recordingPageInputSchema
 } from '@study/contracts/recordings/rpc';
-import { Effect } from 'effect';
 
 import { RecordingCopyStore } from '#server/features/recordings/store/copy';
 import {
@@ -41,7 +40,7 @@ import { pageById } from '#server/platform/definitions/page-by-id';
 
 export const Recordings = defineService(
   'study/Recordings',
-  Effect.gen(function* () {
+  function* () {
     const recordings = yield* useStore(RecordingStore);
     const posts = yield* useStore(RecordingPostStore);
     const snapshots = yield* useStore(RecordingPostSnapshotStore);
@@ -94,7 +93,7 @@ export const Recordings = defineService(
           return tx.store(RecordingPostStore).finishRecordingPost(input);
         })
     };
-  }),
+  },
   {
     copyNotesInTransaction: (tx: Transaction, input: typeof copyNoteContentSchema.Type) =>
       tx.store(RecordingCopyStore).copy(input)

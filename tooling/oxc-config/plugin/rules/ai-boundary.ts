@@ -1,6 +1,12 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
+import {
+  canonicalImport,
+  featureRole,
+  moduleEdges,
+  serverPath,
+  targetPath
+} from '../architecture-imports.ts';
 import { effectBindings, serverProduction } from '../effect-bindings.ts';
 import {
   binding,
@@ -169,15 +175,18 @@ export default defineRule({
       ) {
         const call = parent.parent.parent;
 
-        if (
-          call?.type === 'CallExpression' &&
-          effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
-            'Activity.make'
-        )
-          return true;
+        if (call?.type === 'CallExpression' && checkpointConstructor(call.callee)) return true;
       }
 
       return false;
+    }
+
+    function checkpointConstructor(callee: any): boolean {
+      return (
+        canonicalImport(context, callee, 'define-activity', 'defineActivity') ||
+        canonicalImport(context, callee, 'define-activity', 'resumableActivity') ||
+        effects.resolve(callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') === 'Activity.make'
+      );
     }
 
     function sdkAgentMethod(node: any): boolean {

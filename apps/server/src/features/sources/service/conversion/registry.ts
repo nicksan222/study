@@ -99,52 +99,53 @@ export function makeConversionRegistry<R>(strategies: readonly ConversionStrateg
         name: text(locale, strategy.label),
         supportedInputs: [...strategy.supportedInputs]
       })),
-    convert: (id: string, input: ConversionInput, context: ConversionContext) =>
-      Effect.gen(function* () {
-        const strategy = yield* Effect.try({
-          try: () => requireStrategy(id),
-          catch: (error) =>
-            error instanceof StudyError
-              ? error
-              : new StudyError('internal', 'Invalid conversion strategy', { cause: error })
-        });
+    convert: Effect.fnUntraced(function* (
+      id: string,
+      input: ConversionInput,
+      context: ConversionContext
+    ) {
+      const strategy = yield* Effect.try({
+        try: () => requireStrategy(id),
+        catch: (error) =>
+          error instanceof StudyError
+            ? error
+            : new StudyError('internal', 'Invalid conversion strategy', { cause: error })
+      });
 
-        if (!strategy.supportedInputs.includes(input.kind))
-          return yield* Effect.fail(
-            new StudyError('unsupported', 'Conversion input is unsupported')
-          );
+      if (!strategy.supportedInputs.includes(input.kind))
+        return yield* Effect.fail(new StudyError('unsupported', 'Conversion input is unsupported'));
 
-        yield* Effect.try({
-          try: () => {
-            if (input.kind === 'pdf') checkInput(input.bytes, DEFAULT_MAX_BYTES);
-            else Schema.decodeUnknownSync(textConversionInputSchema)(input);
-          },
-          catch: (cause) =>
-            cause instanceof StudyError
-              ? cause
-              : new StudyError('invalid_input', 'Invalid conversion input', { cause })
-        });
+      yield* Effect.try({
+        try: () => {
+          if (input.kind === 'pdf') checkInput(input.bytes, DEFAULT_MAX_BYTES);
+          else Schema.decodeUnknownSync(textConversionInputSchema)(input);
+        },
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('invalid_input', 'Invalid conversion input', { cause })
+      });
 
-        const result = yield* strategy.convert(input, context);
+      const result = yield* strategy.convert(input, context);
 
-        return yield* Effect.try({
-          try: () => {
-            const document = Schema.decodeUnknownSync(documentSchema)(result);
+      return yield* Effect.try({
+        try: () => {
+          const document = Schema.decodeUnknownSync(documentSchema)(result);
 
-            if (
-              !document.blocks.some((block) => block.text.trim()) ||
-              (input.kind === 'text' &&
-                document.blocks.reduce((size, block) => size + block.text.length, 0) > 100_000)
-            )
-              throw new StudyError('invalid_input', 'Conversion returned empty or oversized text');
+          if (
+            !document.blocks.some((block) => block.text.trim()) ||
+            (input.kind === 'text' &&
+              document.blocks.reduce((size, block) => size + block.text.length, 0) > 100_000)
+          )
+            throw new StudyError('invalid_input', 'Conversion returned empty or oversized text');
 
-            return document;
-          },
-          catch: (cause) =>
-            cause instanceof StudyError
-              ? cause
-              : new StudyError('invalid_input', 'Invalid conversion output', { cause })
-        });
-      })
+          return document;
+        },
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('invalid_input', 'Invalid conversion output', { cause })
+      });
+    })
   };
 }

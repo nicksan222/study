@@ -24,7 +24,6 @@ import type {
   projectNoteInputSchema
 } from '@study/contracts/projects/rpc';
 import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
-import { Effect } from 'effect';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
 import { ProjectSearchStore } from '#server/features/projects/store/search';
@@ -63,7 +62,7 @@ function examOf(day: string | null) {
 
 export const Projects = defineService(
   'study/Projects',
-  Effect.gen(function* () {
+  function* () {
     const store = yield* useStore(ProjectsStore);
 
     return {
@@ -95,7 +94,7 @@ export const Projects = defineService(
           tx.store(ProjectsStore).setExam({ ...input, examOn: examOf(input.examOn) })
         )
     };
-  }),
+  },
   {
     searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
       tx.store(ProjectSearchStore).searchProjectionPages(input)

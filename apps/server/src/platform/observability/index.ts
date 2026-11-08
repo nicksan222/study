@@ -41,7 +41,7 @@ const metricLabelValues: Record<keyof MetricLabels, ReadonlySet<string>> = {
 export function safeMetricLabels(labels: MetricLabels): Metric.Metric.AttributeSet {
   const result: Record<string, string> = {};
 
-  for (const key of Object.keys(metricLabelValues) as Array<keyof MetricLabels>) {
+  for (const key of Object.keys(metricLabelValues) as (keyof MetricLabels)[]) {
     const value = labels[key];
 
     if (typeof value === 'string' && metricLabelValues[key].has(value)) result[key] = value;

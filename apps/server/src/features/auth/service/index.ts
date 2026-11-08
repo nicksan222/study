@@ -79,25 +79,24 @@ function* makeAuth() {
 
   let transition = false;
 
-  const cancel = (id?: string) =>
-    Effect.gen(function* () {
-      if (id !== undefined && id !== active?.id) return { cancelled: false, version: generation };
+  const cancel = Effect.fnUntraced(function* (id?: string) {
+    if (id !== undefined && id !== active?.id) return { cancelled: false, version: generation };
 
-      generation++;
+    generation++;
 
-      const attempt = active;
+    const attempt = active;
 
-      const version = generation;
+    const version = generation;
 
-      active = undefined;
+    active = undefined;
 
-      if (attempt) yield* Scope.close(attempt.scope, Exit.void);
+    if (attempt) yield* Scope.close(attempt.scope, Exit.void);
 
-      return { cancelled: true, version };
-    });
+    return { cancelled: true, version };
+  });
 
-  yield* Effect.addFinalizer(() =>
-    Effect.gen(function* () {
+  yield* Effect.addFinalizer(
+    Effect.fnUntraced(function* () {
       closing = true;
       yield* cancel();
     })
@@ -128,8 +127,8 @@ function* makeAuth() {
       const before = yield* read();
 
       yield* transaction((tx) => tx.store(AuthStore).deleteAccount(undefined)).pipe(
-        Effect.catch((error) =>
-          Effect.gen(function* () {
+        Effect.catch(
+          Effect.fnUntraced(function* (error) {
             if (before)
               yield* Effect.tryPromise({
                 try: () => manager.replace(before),
@@ -240,11 +239,10 @@ function* makeAuth() {
   }
 
   return {
-    prepareShutdown: () =>
-      Effect.gen(function* () {
-        closing = true;
-        yield* cancel();
-      }),
+    prepareShutdown: Effect.fnUntraced(function* () {
+      closing = true;
+      yield* cancel();
+    }),
     providers: () =>
       keysStore
         .apiKeys(undefined)
@@ -253,24 +251,22 @@ function* makeAuth() {
             providerCatalog().map((provider) => ({ ...provider, configured: !!keys[provider.id] }))
           )
         ),
-    apiKey: (provider: string) =>
-      Effect.gen(function* () {
-        yield* Effect.try({ try: () => getApiKeyProvider(provider), catch: authFailure });
-        const keys = yield* keysStore.apiKeys(undefined);
-        const key = keys[provider];
+    apiKey: Effect.fnUntraced(function* (provider: string) {
+      yield* Effect.try({ try: () => getApiKeyProvider(provider), catch: authFailure });
+      const keys = yield* keysStore.apiKeys(undefined);
+      const key = keys[provider];
 
-        return key
-          ? key
-          : yield* Effect.fail(new StudyError('auth', 'AI provider API key is missing'));
-      }),
-    saveApiKey: (input: typeof apiKeyInputSchema.Type) =>
-      Effect.gen(function* () {
-        if (!Schema.is(apiKeyInputSchema)(input))
-          return yield* Effect.fail(invalid('Invalid API key'));
+      return key
+        ? key
+        : yield* Effect.fail(new StudyError('auth', 'AI provider API key is missing'));
+    }),
+    saveApiKey: Effect.fnUntraced(function* (input: typeof apiKeyInputSchema.Type) {
+      if (!Schema.is(apiKeyInputSchema)(input))
+        return yield* Effect.fail(invalid('Invalid API key'));
 
-        yield* Effect.try({ try: () => getApiKeyProvider(input.provider), catch: authFailure });
-        yield* transaction((tx) => tx.store(ApiKeyStore).saveApiKey(input));
-      }),
+      yield* Effect.try({ try: () => getApiKeyProvider(input.provider), catch: authFailure });
+      yield* transaction((tx) => tx.store(ApiKeyStore).saveApiKey(input));
+    }),
     credentialGeneration: () => readAuthGenerationStore.credentialGeneration(undefined),
     status,
     publicAccount: () =>
@@ -282,8 +278,8 @@ function* makeAuth() {
         )
       ),
     startSignIn: (input: { reconsent?: boolean; callbackUrl?: string }) =>
-      Effect.uninterruptibleMask((restore) =>
-        Effect.gen(function* () {
+      Effect.uninterruptibleMask(
+        Effect.fnUntraced(function* (restore) {
           if (closing) return yield* Effect.fail(cancelled());
 
           const { version } = yield* cancel();
@@ -353,7 +349,7 @@ function* makeAuth() {
   };
 }
 
-const make = Effect.gen(makeAuth);
+const make = makeAuth;
 
 export const Auth = defineService('study/Auth', make, {
   validateBackup: (tx: Transaction) => tx.store(AuthBackupStore).backupSanitized(undefined),

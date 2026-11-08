@@ -14,13 +14,13 @@
 
 import { failureSchema } from '@study/contracts/errors';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Search } from '#server/features/search/index';
 import { Database } from '#server/platform/database/database';
+import { publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { PublicationGuard, withPublicationGuard } from '#server/platform/workflows/publication';
+import { PublicationGuard } from '#server/platform/workflows/publication';
 
 const reconcileResultSchema = Schema.Struct({ embedded: Schema.Int, removed: Schema.Int });
 
@@ -36,23 +36,19 @@ const searchReconciliationWorkflow = defineWorkflow({
 /** Creates opt-in workflow resources; constructing them never starts indexing. */
 export const searchReconciliation = defineWorkflowHandler(searchReconciliationWorkflow, {
   triggers: [],
-  execute: () =>
-    Effect.gen(function* () {
-      const database = yield* Database;
-      const service = yield* Search;
+  execute: Effect.fnUntraced(function* () {
+    const database = yield* Database;
+    const service = yield* Search;
 
-      return yield* Activity.make({
-        name: 'reconcile-local-search',
-        success: reconcileResultSchema,
-        error: failureSchema,
-        execute: withPublicationGuard(
-          database.store,
-          Effect.gen(function* () {
-            const guard = yield* PublicationGuard;
+    return yield* publicationActivity(database.store, {
+      name: 'reconcile-local-search',
+      success: reconcileResultSchema,
 
-            return yield* service.reconcile(() => guard.assert(database.store));
-          })
-        )
-      });
-    })
+      execute: Effect.gen(function* () {
+        const guard = yield* PublicationGuard;
+
+        return yield* service.reconcile(() => guard.assert(database.store));
+      })
+    });
+  })
 });

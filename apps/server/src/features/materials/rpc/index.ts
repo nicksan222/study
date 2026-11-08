@@ -21,45 +21,40 @@ import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const MaterialsRpcLive = defineRpc(
   MaterialsRpc,
-  Effect.gen(function* () {
-    const materials = yield* Materials;
-
-    yield* Effect.serviceOption(Notes);
-
-    return {
-      'materials.previewHistoryPrune': (value) => materials.previewHistoryPrune(value),
-      'materials.requestHistoryPrune': (value) => materials.requestHistoryPrune(value),
-      'materials.historyPrune': (value) => materials.historyPrune(value),
-      'materials.retryHistoryPrune': (value) => materials.retryHistoryPrune(value),
-      'materials.previewDeletion': (value) => materials.previewDeletion(value),
-      'materials.requestDeletion': (value) => materials.requestDeletion(value),
-      'materials.deletion': (value) => materials.deletion(value),
-      'materials.retryDeletion': (value) => materials.retryDeletion(value),
-      'materials.activeMaterialGenerations': (value) => materials.activeMaterialGenerations(value),
-      'materials.materialGeneration': (value) =>
-        materials.materialGeneration({ ...value, verifyOnly: true }),
-      'materials.cancelMaterialGeneration': (value) => materials.cancelMaterialGeneration(value),
-      'materials.retryMaterialGeneration': (value) => materials.retryMaterialGenerationOnce(value),
-      'materials.requestMaterialGeneration': (value) => materials.requestMaterialGeneration(value),
-      'materials.exportMaterialVersion': (value) => materials.exportMaterialVersion(value),
-      'materials.material': (value) => materials.material(value),
-      'materials.materials': (value) => materials.materials(value),
-      'materials.materialVersion': (value) => materials.materialVersion(value),
-      'materials.materialVersions': (value) => materials.materialVersions(value),
-      'materials.citations': (value) => materials.citations(value),
-      'materials.create': (value) => materials.create(value),
-      'materials.createVersion': (value) => materials.createVersion(value),
-      'materials.archive': (value) => materials.archive(value),
-      'materials.unarchive': (value) => materials.unarchive(value),
-      'materials.updateDescription': (value) => materials.updateDescription(value),
-      'materials.rename': (value) => materials.rename(value),
-      'materials.deleteDraft': (value) => materials.deleteDraft(value),
-      'materials.publishVersion': (value) => materials.publishVersion(value),
-      'materials.replaceDraft': (value) => materials.replaceDraft(value),
-      'materials.setCitations': (value) => materials.setCitations(value),
-      'materials.attach': (value) => materials.attach(value),
-      'materials.detach': (value) => materials.detach(value),
-      'materials.reorder': (value) => materials.reorder(value)
-    };
+  { materials: Materials, optionalNotes: Effect.serviceOption(Notes) },
+  ({ materials }) => ({
+    'materials.previewHistoryPrune': materials.previewHistoryPrune,
+    'materials.requestHistoryPrune': materials.requestHistoryPrune,
+    'materials.historyPrune': materials.historyPrune,
+    'materials.retryHistoryPrune': materials.retryHistoryPrune,
+    'materials.previewDeletion': materials.previewDeletion,
+    'materials.requestDeletion': materials.requestDeletion,
+    'materials.deletion': materials.deletion,
+    'materials.retryDeletion': materials.retryDeletion,
+    'materials.activeMaterialGenerations': materials.activeMaterialGenerations,
+    'materials.materialGeneration': (value) =>
+      materials.materialGeneration({ ...value, verifyOnly: true }),
+    'materials.cancelMaterialGeneration': materials.cancelMaterialGeneration,
+    'materials.retryMaterialGeneration': materials.retryMaterialGenerationOnce,
+    'materials.requestMaterialGeneration': materials.requestMaterialGeneration,
+    'materials.exportMaterialVersion': materials.exportMaterialVersion,
+    'materials.material': materials.material,
+    'materials.materials': materials.materials,
+    'materials.materialVersion': materials.materialVersion,
+    'materials.materialVersions': materials.materialVersions,
+    'materials.citations': materials.citations,
+    'materials.create': materials.create,
+    'materials.createVersion': materials.createVersion,
+    'materials.archive': materials.archive,
+    'materials.unarchive': materials.unarchive,
+    'materials.updateDescription': materials.updateDescription,
+    'materials.rename': materials.rename,
+    'materials.deleteDraft': materials.deleteDraft,
+    'materials.publishVersion': materials.publishVersion,
+    'materials.replaceDraft': materials.replaceDraft,
+    'materials.setCitations': materials.setCitations,
+    'materials.attach': materials.attach,
+    'materials.detach': materials.detach,
+    'materials.reorder': materials.reorder
   })
 );

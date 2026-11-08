@@ -22,63 +22,58 @@ import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const PagesRpcLive = defineRpc(
   PagesRpc,
-  Effect.gen(function* () {
-    const pages = yield* Pages;
-    const notes = yield* Effect.serviceOption(Notes);
+  { pages: Pages, notes: Effect.serviceOption(Notes) },
+  ({ pages, notes }) => ({
+    'pages.merges': pages.merges,
+    'pages.merge': pages.merge,
+    'pages.requestTransform': (v) =>
+      Option.isSome(notes)
+        ? notes.value.requestPageTransform(v)
+        : Effect.fail(new StudyError('unsupported', 'Note service is unavailable')),
+    'pages.transform': pages.transform,
+    'pages.cancelTransform': pages.cancelTransform,
+    'pages.retryTransform': Effect.fnUntraced(function* (v) {
+      const request = yield* pages.transform(v);
 
-    return {
-      'pages.merges': (v) => pages.merges(v),
-      'pages.merge': (v) => pages.merge(v),
-      'pages.requestTransform': (v) =>
-        Option.isSome(notes)
-          ? notes.value.requestPageTransform(v)
-          : Effect.fail(new StudyError('unsupported', 'Note service is unavailable')),
-      'pages.transform': (v) => pages.transform(v),
-      'pages.cancelTransform': (v) => pages.cancelTransform(v),
-      'pages.retryTransform': (v) =>
-        Effect.gen(function* () {
-          const request = yield* pages.transform(v);
+      if (request.merge) return yield* pages.retryMerge(v);
 
-          if (request.merge) return yield* pages.retryMerge(v);
-
-          return yield* Option.isSome(notes)
-            ? notes.value.retryPageTransform(v)
-            : Effect.fail(new StudyError('unsupported', 'Note service is unavailable'));
-        }),
-      'pages.updateMetadata': (v) => pages.updateMetadata(v),
-      'pages.compareProposal': (v) => pages.compareProposal(v),
-      'pages.proposal': (v) => pages.proposal(v),
-      'pages.applyProposal': (v) =>
-        Option.isSome(notes) ? notes.value.applyPageProposal(v) : pages.applyProposal(v),
-      'pages.keepProposal': (v) =>
-        Option.isSome(notes) ? notes.value.keepPageProposal(v) : pages.keepProposal(v),
-      'pages.assessCitation': (v) => pages.assessCitation(v),
-      'pages.assessments': (v) => pages.assessments(v),
-      'pages.annotations': (v) => pages.annotations(v),
-      'pages.annotation': (v) => pages.annotation(v),
-      'pages.annotationHistory': (v) => pages.annotationHistory(v),
-      'pages.createAnnotation': (v) => pages.createAnnotation(v),
-      'pages.reviseAnnotation': (v) => pages.reviseAnnotation(v),
-      'pages.create': (v) => pages.create(v),
-      'pages.page': (v) => pages.page(v),
-      'pages.pages': (v) => pages.pages(v),
-      'pages.version': (v) => pages.version(v),
-      'pages.versions': (v) => pages.versions(v),
-      'pages.save': (v) => pages.save(v),
-      'pages.restore': (v) => pages.restore(v),
-      'pages.compare': (v) => pages.compare(v),
-      'pages.copySource': (v) => pages.copySource(v),
-      'pages.archive': (v) => pages.archive(v),
-      'pages.attachProject': (v) => pages.attachProject(v),
-      'pages.detachProject': (v) => pages.detachProject(v),
-      'pages.attach': (v) => pages.attach(v),
-      'pages.detach': (v) => pages.detach(v),
-      'pages.exportFile': (v) => pages.exportFile(v),
-      'pages.exportVersion': (v) => pages.exportVersion(v),
-      'pages.previewHistory': (v) => pages.previewHistory(v),
-      'pages.retireHistory': (v) => pages.retireHistory(v),
-      'pages.previewDeletion': (v) => pages.previewDeletion(v),
-      'pages.delete': (v) => pages.delete(v)
-    };
+      return yield* Option.isSome(notes)
+        ? notes.value.retryPageTransform(v)
+        : Effect.fail(new StudyError('unsupported', 'Note service is unavailable'));
+    }),
+    'pages.updateMetadata': pages.updateMetadata,
+    'pages.compareProposal': pages.compareProposal,
+    'pages.proposal': pages.proposal,
+    'pages.applyProposal': (v) =>
+      Option.isSome(notes) ? notes.value.applyPageProposal(v) : pages.applyProposal(v),
+    'pages.keepProposal': (v) =>
+      Option.isSome(notes) ? notes.value.keepPageProposal(v) : pages.keepProposal(v),
+    'pages.assessCitation': pages.assessCitation,
+    'pages.assessments': pages.assessments,
+    'pages.annotations': pages.annotations,
+    'pages.annotation': pages.annotation,
+    'pages.annotationHistory': pages.annotationHistory,
+    'pages.createAnnotation': pages.createAnnotation,
+    'pages.reviseAnnotation': pages.reviseAnnotation,
+    'pages.create': pages.create,
+    'pages.page': pages.page,
+    'pages.pages': pages.pages,
+    'pages.version': pages.version,
+    'pages.versions': pages.versions,
+    'pages.save': pages.save,
+    'pages.restore': pages.restore,
+    'pages.compare': pages.compare,
+    'pages.copySource': pages.copySource,
+    'pages.archive': pages.archive,
+    'pages.attachProject': pages.attachProject,
+    'pages.detachProject': pages.detachProject,
+    'pages.attach': pages.attach,
+    'pages.detach': pages.detach,
+    'pages.exportFile': pages.exportFile,
+    'pages.exportVersion': pages.exportVersion,
+    'pages.previewHistory': pages.previewHistory,
+    'pages.retireHistory': pages.retireHistory,
+    'pages.previewDeletion': pages.previewDeletion,
+    'pages.delete': pages.delete
   })
 );

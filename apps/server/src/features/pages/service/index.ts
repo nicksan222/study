@@ -116,7 +116,7 @@ function annotationChanged(tx: Transaction, result: typeof evidence.annotationOu
 
 export const Pages = defineService(
   'study/Pages',
-  Effect.gen(function* () {
+  function* () {
     const docs = yield* useStore(PagesStore);
     const transforms = yield* useStore(PageTransformsStore);
     const merges = yield* useStore(PageMergesStore);
@@ -135,25 +135,24 @@ export const Pages = defineService(
         transaction((tx) => assessCitation(tx, v)),
       assessments: (v: typeof evidence.assessmentsInputSchema.Type) =>
         transaction((tx) => citationAssessments(tx, v)),
-      merges: (v: { projectId?: ProjectId }) =>
-        Effect.gen(function* () {
-          const pending: (typeof t.transformSnapshotSchema.Type)[] = [];
-          let page;
+      merges: Effect.fnUntraced(function* (v: { projectId?: ProjectId }) {
+        const pending: (typeof t.transformSnapshotSchema.Type)[] = [];
+        let page;
 
-          do {
-            page = yield* merges.merges({
-              ...v,
-              pending: true,
-              offset: pending.length,
-              limit: 1000
-            });
-            pending.push(...page);
-          } while (page.length === 1000);
+        do {
+          page = yield* merges.merges({
+            ...v,
+            pending: true,
+            offset: pending.length,
+            limit: 1000
+          });
+          pending.push(...page);
+        } while (page.length === 1000);
 
-          const completed = yield* merges.merges({ ...v, pending: false, offset: 0, limit: 3 });
+        const completed = yield* merges.merges({ ...v, pending: false, offset: 0, limit: 3 });
 
-          return [...pending, ...completed];
-        }),
+        return [...pending, ...completed];
+      }),
       merge: (v: typeof t.mergeRequestSchema.Type) => transaction((tx) => requestMerge(tx, v)),
       mergeContext: (v: typeof t.transformKeySchema.Type) =>
         transaction((tx) => mergeContext(tx, v)),
@@ -178,17 +177,16 @@ export const Pages = defineService(
           return retryTransform(tx, v);
         }),
       transform: transforms.transform,
-      cancelTransform: (v: typeof t.transformKeySchema.Type) =>
-        Effect.gen(function* () {
-          const request = yield* transaction((tx) =>
-            tx.store(PageTransformsStore).changeTransform({ ...v, cancel: true, errorKind: null })
-          );
+      cancelTransform: Effect.fnUntraced(function* (v: typeof t.transformKeySchema.Type) {
+        const request = yield* transaction((tx) =>
+          tx.store(PageTransformsStore).changeTransform({ ...v, cancel: true, errorKind: null })
+        );
 
-          if (request.resultVersionId === null)
-            yield* Workflows.cancelCorrelatedExecutions(request.id, 'document-transform/v1');
+        if (request.resultVersionId === null)
+          yield* Workflows.cancelCorrelatedExecutions(request.id, 'document-transform/v1');
 
-          return request;
-        }),
+        return request;
+      }),
       failTransform: (v: {
         requestId: string;
         eventId: string;
@@ -313,7 +311,7 @@ export const Pages = defineService(
       publishGenerated: (v: typeof e.publishSchema.Type) =>
         publicationTransaction((tx) => tx.store(PagesStore).publishGenerated(v))
     };
-  }),
+  },
   {
     searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
       tx.store(PageSearchStore).searchProjectionPages(input),

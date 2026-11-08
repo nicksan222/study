@@ -34,7 +34,7 @@ import { healthData } from './health.ts';
 
 export const System = defineService(
   'study/System',
-  Effect.gen(function* () {
+  function* () {
     const workers = yield* WorkerLifecycle;
 
     const storage = yield* BackupStorage;
@@ -82,7 +82,7 @@ export const System = defineService(
       startWorkers: () => workers.start,
       stopWorkers: () => workers.stop
     };
-  }),
+  },
   {
     backupScope: (tx: Transaction) => tx.store(BackupScopeStore).backupScope(undefined),
     backupRestoreBlocked: (scope: typeof backupScopeSchema.Type) =>

@@ -11,24 +11,20 @@
  */
 
 import { IntegrationsRpc } from '@study/contracts/integrations/rpc';
-import { Effect } from 'effect';
 
 import { Integrations } from '#server/features/integrations/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const IntegrationsRpcLive = defineRpc(
   IntegrationsRpc,
-  Effect.gen(function* () {
-    const integrations = yield* Integrations;
-
-    return {
-      'integrations.providers': () => integrations.providers(),
-      'integrations.previewImport': (input) => integrations.previewImport(input),
-      'integrations.startImport': (input) => integrations.startImport(input),
-      'integrations.import': (input) => integrations.import(input),
-      'integrations.imports': (input) => integrations.imports(input),
-      'integrations.cancelImport': (input) => integrations.cancelImport(input),
-      'integrations.retryImport': (input) => integrations.retryImport(input)
-    };
+  { integrations: Integrations },
+  ({ integrations }) => ({
+    'integrations.providers': () => integrations.providers(),
+    'integrations.previewImport': integrations.previewImport,
+    'integrations.startImport': integrations.startImport,
+    'integrations.import': integrations.import,
+    'integrations.imports': integrations.imports,
+    'integrations.cancelImport': integrations.cancelImport,
+    'integrations.retryImport': integrations.retryImport
   })
 );

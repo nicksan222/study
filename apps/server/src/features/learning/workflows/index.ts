@@ -24,7 +24,6 @@ import {
 import { quizAttemptSchema } from '@study/contracts/learning/schemas';
 import { text } from '@study/localization';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { learningGradeAgent } from '#server/features/learning/agents/learning-grade';
 import { Learning } from '#server/features/learning/service/index';
@@ -32,10 +31,13 @@ import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
+import {
+  defineActivity,
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const quizGradingWorkflow = defineWorkflow({
   name: 'quiz-grading',
@@ -46,49 +48,45 @@ export const quizGradingWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const learning = yield* Learning;
-    const { store } = yield* Database;
-    const grade = yield* retryResumableActivity(
-      Activity.make({
-        name: 'grade-answer',
-        success: gradeOutputSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
-          const snapshot = yield* learning.gradingSnapshot(event);
+export const quizGradingHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof quizGradingWorkflow.payloadSchema.Type) {
+  const learning = yield* Learning;
+  const { store } = yield* Database;
+  const grade = yield* resumableActivity({
+    name: 'grade-answer',
+    success: gradeOutputSchema,
 
-          return yield* generateAgent(
-            learningGradeAgent,
-            {
-              prompt: JSON.stringify({
-                question: snapshot.prompt,
-                reference: snapshot.referenceAnswer,
-                answer: snapshot.learnerAnswer
-              })
-            },
-            { maxRetries: 0, preflight: learning.gradingSnapshot(event).pipe(Effect.asVoid) }
-          );
-        })
-      })
-    );
+    execute: function* () {
+      const snapshot = yield* learning.gradingSnapshot(event);
 
-    return yield* Activity.make({
-      name: 'publish-grade',
-      success: quizAttemptSchema,
-      error: failureSchema,
-      execute: withPublicationGuard(
-        store,
-        learning.publishGrade({
-          attemptId: event.attemptId,
-          questionId: event.questionId,
-          expectedAnswerHash: event.answerHash,
-          score: grade.verdict === 'correct' ? 1 : grade.verdict === 'partly' ? 0.5 : 0,
-          feedback: grade.feedback
-        })
-      )
-    });
+      return yield* generateAgent(
+        learningGradeAgent,
+        {
+          prompt: JSON.stringify({
+            question: snapshot.prompt,
+            reference: snapshot.referenceAnswer,
+            answer: snapshot.learnerAnswer
+          })
+        },
+        { maxRetries: 0, preflight: learning.gradingSnapshot(event).pipe(Effect.asVoid) }
+      );
+    }
   });
+
+  return yield* publicationActivity(store, {
+    name: 'publish-grade',
+    success: quizAttemptSchema,
+
+    execute: learning.publishGrade({
+      attemptId: event.attemptId,
+      questionId: event.questionId,
+      expectedAnswerHash: event.answerHash,
+      score: grade.verdict === 'correct' ? 1 : grade.verdict === 'partly' ? 0.5 : 0,
+      feedback: grade.feedback
+    })
+  });
+});
 
 export const quizGradingRegistration = defineWorkflowHandler(quizGradingWorkflow, {
   execute: quizGradingHandler,
@@ -110,59 +108,60 @@ export const practiceSlotWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const practiceSlotHandler = ({ event }: typeof practiceSlotWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const learning = yield* Learning;
-    const materials = yield* Materials;
-    const settings = yield* Settings;
+export const practiceSlotHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof practiceSlotWorkflow.payloadSchema.Type) {
+  const learning = yield* Learning;
+  const materials = yield* Materials;
+  const settings = yield* Settings;
 
-    return yield* Activity.make({
-      name: 'request-practice-material',
-      success: Schema.Boolean,
-      error: failureSchema,
-      execute: Effect.gen(function* () {
-        const slot = yield* learning.practiceSlot(event.slotId);
+  return yield* defineActivity({
+    name: 'request-practice-material',
+    success: Schema.Boolean,
 
-        const attempt = event.generationAttempt ?? 0;
+    execute: function* () {
+      const slot = yield* learning.practiceSlot(event.slotId);
 
-        if (
-          !slot ||
-          slot.status !== 'pending' ||
-          slot.generationAttempt !== BigInt(attempt) ||
-          slot.epoch !== event.epoch ||
-          slot.projectId !== event.projectId
-        )
-          return false;
+      const attempt = event.generationAttempt ?? 0;
 
-        yield* materials.openGenerationScope({ scopeId: slot.epoch, projectId: slot.projectId });
+      if (
+        !slot ||
+        slot.status !== 'pending' ||
+        slot.generationAttempt !== BigInt(attempt) ||
+        slot.epoch !== event.epoch ||
+        slot.projectId !== event.projectId
+      )
+        return false;
 
-        const generationEventId = attempt === 0 ? slot.slotId : `${slot.slotId}/retry/${attempt}`;
-        const captured = yield* materials
-          .materialGeneration({ requestId: slot.slotId, verifyOnly: true })
-          .pipe(
-            Effect.catch((error) =>
-              error.kind === 'not_found' ? Effect.succeed(undefined) : Effect.fail(error)
-            )
-          );
-        const request = captured ?? {
-          projectId: slot.projectId,
-          title: text(yield* settings.language(), 'PracticeQuestionTitle'),
-          kind: 'quiz' as const,
-          inputs: slot.inputs,
-          scopeId: slot.epoch,
-          questionSpec: { count: 1 as const, kind: slot.kind }
-        };
+      yield* materials.openGenerationScope({ scopeId: slot.epoch, projectId: slot.projectId });
 
-        yield* materials.requestMaterialGenerationAttemptOnce({
-          requestId: slot.slotId,
-          generationEventId,
-          request
-        });
+      const generationEventId = attempt === 0 ? slot.slotId : `${slot.slotId}/retry/${attempt}`;
+      const captured = yield* materials
+        .materialGeneration({ requestId: slot.slotId, verifyOnly: true })
+        .pipe(
+          Effect.catch((error) =>
+            error.kind === 'not_found' ? Effect.succeed(undefined) : Effect.fail(error)
+          )
+        );
+      const request = captured ?? {
+        projectId: slot.projectId,
+        title: text(yield* settings.language(), 'PracticeQuestionTitle'),
+        kind: 'quiz' as const,
+        inputs: slot.inputs,
+        scopeId: slot.epoch,
+        questionSpec: { count: 1 as const, kind: slot.kind }
+      };
 
-        return true;
-      })
-    });
+      yield* materials.requestMaterialGenerationAttemptOnce({
+        requestId: slot.slotId,
+        generationEventId,
+        request
+      });
+
+      return true;
+    }
   });
+});
 
 export const practiceSlotRegistration = defineWorkflowHandler(practiceSlotWorkflow, {
   execute: practiceSlotHandler,
@@ -184,30 +183,26 @@ export const practiceFailureWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const practiceFailureHandler = ({
+export const practiceFailureHandler = Effect.fnUntraced(function* ({
   event
-}: typeof practiceFailureWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    if (event.kind !== 'quiz' || event.projectId === undefined) return false;
+}: typeof practiceFailureWorkflow.payloadSchema.Type) {
+  if (event.kind !== 'quiz' || event.projectId === undefined) return false;
 
-    const learning = yield* Learning;
-    const { store } = yield* Database;
+  const learning = yield* Learning;
+  const { store } = yield* Database;
 
-    return yield* Activity.make({
-      name: 'fail-practice-slot',
-      success: Schema.Boolean,
-      error: failureSchema,
-      execute: withPublicationGuard(
-        store,
-        learning.failPracticeSlot({
-          slotId: event.requestId,
-          projectId: event.projectId,
-          generationEventId: event.generationEventId,
-          errorKind: event.errorKind
-        })
-      )
-    });
+  return yield* publicationActivity(store, {
+    name: 'fail-practice-slot',
+    success: Schema.Boolean,
+
+    execute: learning.failPracticeSlot({
+      slotId: event.requestId,
+      projectId: event.projectId,
+      generationEventId: event.generationEventId,
+      errorKind: event.errorKind
+    })
   });
+});
 
 export const practiceFailureRegistration = defineWorkflowHandler(practiceFailureWorkflow, {
   execute: practiceFailureHandler,
@@ -229,29 +224,25 @@ export const practicePublicationWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const practicePublicationHandler = ({
+export const practicePublicationHandler = Effect.fnUntraced(function* ({
   event
-}: typeof practicePublicationWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const slotId = event.generationRequestId ?? event.causationId;
+}: typeof practicePublicationWorkflow.payloadSchema.Type) {
+  const slotId = event.generationRequestId ?? event.causationId;
 
-    if (!slotId || !Schema.is(Schema.String.check(Schema.isUUID()))(slotId)) return false;
+  if (!slotId || !Schema.is(Schema.String.check(Schema.isUUID()))(slotId)) return false;
 
-    const learning = yield* Learning;
-    const { store } = yield* Database;
+  const learning = yield* Learning;
+  const { store } = yield* Database;
 
-    return yield* Activity.make({
-      name: 'publish-practice-slot',
-      success: Schema.Boolean,
-      error: failureSchema,
-      execute: withPublicationGuard(
-        store,
-        learning
-          .publishPracticeSlot({ slotId, versionId: event.materialVersionId })
-          .pipe(Effect.map((result) => result !== null))
-      )
-    });
+  return yield* publicationActivity(store, {
+    name: 'publish-practice-slot',
+    success: Schema.Boolean,
+
+    execute: learning
+      .publishPracticeSlot({ slotId, versionId: event.materialVersionId })
+      .pipe(Effect.map((result) => result !== null))
   });
+});
 
 export const practicePublicationRegistration = defineWorkflowHandler(practicePublicationWorkflow, {
   execute: practicePublicationHandler,

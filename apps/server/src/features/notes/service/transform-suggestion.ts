@@ -37,47 +37,48 @@ function evidence(context: typeof runSelectionContextSchema.Type) {
 }
 
 /** Suggestions never rename a note or submit a Page transformation. */
-export const suggestTransformField = (input: typeof transformSuggestionInputSchema.Type) =>
-  Effect.gen(function* () {
-    const notes = yield* Notes;
-    const capture = {
-      noteId: input.noteId,
-      additionalNoteIds: input.additionalNoteIds?.length ? input.additionalNoteIds : undefined,
-      instruction: '',
-      preferences: { language: input.language }
-    };
-    const event = yield* notes.requestTransformSuggestion(input);
-    const context = yield* notes.noteContext({ requestId: event.contextRequestId });
-    const execution = Effect.flatMap(WorkflowEngine.WorkflowEngine, (engine) =>
-      engine.execute(transformSuggestionWorkflow, {
-        executionId: triggeredExecutionId(event, {
-          subscription: 'transform-suggestion',
-          workflowVersion: transformSuggestionWorkflow.version
-        }),
-        payload: { event }
-      })
-    ).pipe(
-      Effect.mapError(
-        (error) =>
-          new StudyError(error.kind, error.message, {
-            retryAfterMs: error.retryAfterMs ?? undefined
-          })
-      )
-    );
-    const engine = yield* Effect.serviceOption(WorkflowEngine.WorkflowEngine);
-    const control = yield* Effect.serviceOption(WorkflowControl);
-    const result = yield* Option.isSome(engine)
-      ? execution.pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine.value))
-      : Option.isSome(control) && control.value.run
-        ? control.value.run(execution)
-        : Effect.fail(new StudyError('unsupported', 'Workflow execution is unavailable'));
-    const current = yield* notes.captureNoteContext({
-      ...capture,
-      intentKey: crypto.randomUUID()
-    });
-
-    if (evidence(context) !== evidence(current))
-      return yield* Effect.fail(new StudyError('invalid_input', 'Suggestion context changed'));
-
-    return result;
+export const suggestTransformField = Effect.fnUntraced(function* (
+  input: typeof transformSuggestionInputSchema.Type
+) {
+  const notes = yield* Notes;
+  const capture = {
+    noteId: input.noteId,
+    additionalNoteIds: input.additionalNoteIds?.length ? input.additionalNoteIds : undefined,
+    instruction: '',
+    preferences: { language: input.language }
+  };
+  const event = yield* notes.requestTransformSuggestion(input);
+  const context = yield* notes.noteContext({ requestId: event.contextRequestId });
+  const execution = WorkflowEngine.WorkflowEngine.use((engine) =>
+    engine.execute(transformSuggestionWorkflow, {
+      executionId: triggeredExecutionId(event, {
+        subscription: 'transform-suggestion',
+        workflowVersion: transformSuggestionWorkflow.version
+      }),
+      payload: { event }
+    })
+  ).pipe(
+    Effect.mapError(
+      (error) =>
+        new StudyError(error.kind, error.message, {
+          retryAfterMs: error.retryAfterMs ?? undefined
+        })
+    )
+  );
+  const engine = yield* Effect.serviceOption(WorkflowEngine.WorkflowEngine);
+  const control = yield* Effect.serviceOption(WorkflowControl);
+  const result = yield* Option.isSome(engine)
+    ? execution.pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine.value))
+    : Option.isSome(control) && control.value.run
+      ? control.value.run(execution)
+      : Effect.fail(new StudyError('unsupported', 'Workflow execution is unavailable'));
+  const current = yield* notes.captureNoteContext({
+    ...capture,
+    intentKey: crypto.randomUUID()
   });
+
+  if (evidence(context) !== evidence(current))
+    return yield* Effect.fail(new StudyError('invalid_input', 'Suggestion context changed'));
+
+  return result;
+});

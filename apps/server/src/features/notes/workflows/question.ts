@@ -15,16 +15,17 @@ import { failureSchema, StudyError } from '@study/contracts/errors';
 import { noteQuestionRequestedSchema } from '@study/contracts/events';
 import { questionClassificationSchema } from '@study/contracts/notes/schemas';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
+import {
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const noteQuestionWorkflow = defineWorkflow({
   name: 'conversation-question',
@@ -42,42 +43,40 @@ export const noteQuestionHandler = ({ event }: typeof noteQuestionWorkflow.paylo
     const database = yield* Database;
     const { store } = database;
     const input = { messageId: event.messageId, expectedActiveVersionId: event.versionId };
-    const output = yield* retryResumableActivity(
-      Activity.make({
-        name: 'classify-question',
-        success: questionClassificationSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
-          const snapshot = yield* c.questionSnapshot(input);
+    const output = yield* resumableActivity({
+      name: 'classify-question',
+      success: questionClassificationSchema,
 
-          if (snapshot.manual) return { kind: snapshot.kind ?? 'undetermined' };
+      execute: function* () {
+        const snapshot = yield* c.questionSnapshot(input);
 
-          return yield* generateAgent(
-            questionAgent,
-            { text: snapshot.text },
-            {
-              maxRetries: 0,
-              preflight: c.questionSnapshot(input).pipe(
-                Effect.flatMap((s) =>
-                  s.manual
-                    ? Effect.fail(
-                        new StudyError('invalid_input', 'Question classification is manual')
-                      )
-                    : Effect.void
-                ),
-                Effect.provideService(Database, database)
-              )
-            }
-          );
-        })
-      })
-    );
+        if (snapshot.manual) return { kind: snapshot.kind ?? 'undetermined' };
 
-    yield* Activity.make({
+        return yield* generateAgent(
+          questionAgent,
+          { text: snapshot.text },
+          {
+            maxRetries: 0,
+            preflight: c.questionSnapshot(input).pipe(
+              Effect.flatMap((s) =>
+                s.manual
+                  ? Effect.fail(
+                      new StudyError('invalid_input', 'Question classification is manual')
+                    )
+                  : Effect.void
+              ),
+              Effect.provideService(Database, database)
+            )
+          }
+        );
+      }
+    });
+
+    yield* publicationActivity(store, {
       name: 'publish-question',
       success: Schema.Void,
-      error: failureSchema,
-      execute: withPublicationGuard(store, c.publishQuestion({ ...input, ...output }))
+
+      execute: c.publishQuestion({ ...input, ...output })
     });
   }).pipe(
     Effect.catch((error) =>

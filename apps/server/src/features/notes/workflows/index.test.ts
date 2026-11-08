@@ -831,7 +831,7 @@ function assertEventType<T extends ReturnType<typeof decodeEvent>['type']>(
   assert.ok(event && event.type === type, message);
 }
 
-function latestVersion(versions: ReadonlyArray<typeof messageVersionSchema.Type>) {
+function latestVersion(versions: readonly (typeof messageVersionSchema.Type)[]) {
   const version = versions.at(-1);
 
   assert.ok(version, 'expected a retained message version');

@@ -28,7 +28,7 @@ const decodeAnchor = Schema.decodeUnknownSync(Schema.fromJsonString(anchorSchema
 export function makeSourceSearchProjections({ db }: StoreResources) {
   /** Read visible source identities with exact target filtering and stable SQL pagination. */
   const sourceEntries = (input: SearchProjectionPageInput): SearchProjection[] => {
-    const entries: Array<SearchProjection> = [];
+    const entries: SearchProjection[] = [];
     const { offset, limit, targets } = input;
     const selected = targets?.filter((target) => target.type === 'source');
     const targetFilter =
@@ -62,7 +62,7 @@ export function makeSourceSearchProjections({ db }: StoreResources) {
   };
   /** Read anchored passage targets without exposing text from hidden or superseded source content. */
   const passageEntries = (input: SearchProjectionPageInput): SearchProjection[] => {
-    const entries: Array<SearchProjection> = [];
+    const entries: SearchProjection[] = [];
     const { offset, limit, targets } = input;
     const selected = targets?.filter((target) => target.type === 'passage');
     const targetFilter =

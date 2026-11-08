@@ -40,7 +40,7 @@ testStable('only approved scalar operation metadata reaches the log sink', () =>
 testStable('operation logs inherit only allowed annotations and carry a span', async () => {
   const { Effect, Logger, References, Context, Tracer, Option } = await import('effect');
   const { observeOperation } = await import('#server/platform/observability/index');
-  const entries: Array<{ message: unknown; annotations: unknown; spans: unknown }> = [];
+  const entries: { message: unknown; annotations: unknown; spans: unknown }[] = [];
   const logger = Logger.make((entry) => {
     entries.push({
       message: entry.message,

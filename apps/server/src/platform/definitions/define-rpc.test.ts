@@ -307,3 +307,39 @@ function typeAssertions() {
 }
 
 void typeAssertions;
+
+testStable('RPC harness acquires named dependencies lazily in declaration order', async () => {
+  const acquired: string[] = [];
+  const layer = defineRpc(
+    Group,
+    {
+      greeting: Effect.sync(() => {
+        acquired.push('greeting');
+
+        return 'Hello';
+      }),
+      punctuation: Effect.sync(() => {
+        acquired.push('punctuation');
+
+        return '!';
+      })
+    },
+    ({ greeting, punctuation }) => ({
+      'test.read': ({ name }) => Effect.succeed(`${greeting}, ${name}${punctuation}`)
+    })
+  );
+
+  assert.deepStrictEqual(acquired, []);
+  const result = await Effect.runPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const client = yield* RpcTest.makeClient(Group, { flatten: true });
+
+        return yield* client('test.read', { name: 'Ada' });
+      }).pipe(Effect.provide(layer))
+    )
+  );
+
+  assert.strictEqual(result, 'Hello, Ada!');
+  assert.deepStrictEqual(acquired, ['greeting', 'punctuation']);
+});

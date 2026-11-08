@@ -21,7 +21,6 @@ import type { pageTransformContextSchema } from '@study/contracts/pages/transfor
 import { transformPublicationSchema } from '@study/contracts/pages/transform';
 import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
 import { Effect, Schema } from 'effect';
-import { Activity } from 'effect/workflow';
 
 import { Notes } from '#server/features/notes/index';
 import { pageTransformAgent } from '#server/features/pages/agents/page-transform';
@@ -32,9 +31,9 @@ import { Pages } from '#server/features/pages/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const pageTransformWorkflow = defineWorkflow({
@@ -46,77 +45,66 @@ export const pageTransformWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const pageTransformHandler = ({ event }: typeof pageTransformWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const docs = yield* Pages;
-    const notes = yield* Notes;
-    const database = yield* Database;
-    const request = yield* docs.transform({ requestId: event.requestId });
+export const pageTransformHandler = Effect.fnUntraced(function* ({
+  event
+}: typeof pageTransformWorkflow.payloadSchema.Type) {
+  const docs = yield* Pages;
+  const notes = yield* Notes;
+  const database = yield* Database;
+  const request = yield* docs.transform({ requestId: event.requestId });
 
-    if (
-      event.causationId !== null ||
-      event.correlationId !== request.id ||
-      event.inputVersion !== 1 ||
-      event.depth !== 0
-    )
-      return yield* Effect.fail(
-        new StudyError('invalid_input', 'Page generation event identity mismatch')
-      );
+  if (
+    event.causationId !== null ||
+    event.correlationId !== request.id ||
+    event.inputVersion !== 1 ||
+    event.depth !== 0
+  )
+    return yield* Effect.fail(
+      new StudyError('invalid_input', 'Page generation event identity mismatch')
+    );
 
-    if (request.resultVersionId !== null) return request.resultVersionId;
+  if (request.resultVersionId !== null) return request.resultVersionId;
 
-    const preflight = Effect.gen(function* () {
-      const current = yield* docs.transform({ requestId: event.requestId });
+  const preflight = Effect.gen(function* () {
+    const current = yield* docs.transform({ requestId: event.requestId });
 
-      if (
-        current.cancelled ||
-        current.eventId !== event.eventId ||
-        current.resultVersionId !== null
-      )
-        return yield* Effect.fail(
-          new StudyError('cancelled', 'Page generation is no longer active')
-        );
+    if (current.cancelled || current.eventId !== event.eventId || current.resultVersionId !== null)
+      return yield* Effect.fail(new StudyError('cancelled', 'Page generation is no longer active'));
 
-      return yield* request.merge
-        ? docs.mergeContext({ requestId: request.id })
-        : notes.pageTransformContext({ requestId: request.id });
-    });
+    return yield* request.merge
+      ? docs.mergeContext({ requestId: request.id })
+      : notes.pageTransformContext({ requestId: request.id });
+  });
 
-    return yield* Effect.gen(function* () {
-      const output = yield* retryResumableActivity(
-        generateTransform(
-          request,
-          event.eventId,
-          preflight.pipe(Effect.provideService(Database, database))
-        )
-      );
-
-      return yield* Activity.make({
-        name: 'publish-authored-document',
-        success: pageVersionIdSchema,
-        error: failureSchema,
-        execute: withPublicationGuard(
-          database.store,
-          request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
-        )
-      });
-    }).pipe(
-      Effect.catch((error) =>
-        Activity.make({
-          name: 'record-authored-generation-failure',
-          error: failureSchema,
-          execute: withPublicationGuard(
-            database.store,
-            docs.failTransform({
-              requestId: request.id,
-              eventId: event.eventId,
-              errorKind: error.kind
-            })
-          )
-        }).pipe(Effect.andThen(Effect.fail(error)))
+  return yield* Effect.gen(function* () {
+    const output = yield* retryResumableActivity(
+      generateTransform(
+        request,
+        event.eventId,
+        preflight.pipe(Effect.provideService(Database, database))
       )
     );
-  });
+
+    return yield* publicationActivity(database.store, {
+      name: 'publish-authored-document',
+      success: pageVersionIdSchema,
+
+      execute: request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
+    });
+  }).pipe(
+    Effect.catch((error) =>
+      publicationActivity(database.store, {
+        name: 'record-authored-generation-failure',
+
+        execute: docs.failTransform({
+          requestId: request.id,
+          eventId: event.eventId,
+          errorKind: error.kind
+        })
+      }).pipe(Effect.andThen(Effect.fail(error)))
+    )
+  );
+});
 
 export const pageTransformRegistration = defineWorkflowHandler(pageTransformWorkflow, {
   execute: pageTransformHandler,
@@ -134,11 +122,11 @@ function generateTransform(
   eventId: string,
   preflight: Effect.Effect<typeof pageTransformContextSchema.Type, StudyError>
 ) {
-  return Activity.make({
+  return defineActivity({
     name: 'generate-authored-document',
     success: transformPublicationSchema,
-    error: failureSchema,
-    execute: Effect.gen(function* () {
+
+    execute: function* () {
       const context = yield* preflight;
       const agents = yield* Agents;
       const catalog = createEvidenceCatalog<{
@@ -217,6 +205,6 @@ function generateTransform(
             ? cause
             : new StudyError('invalid_input', 'Invalid Page output', { cause })
       });
-    })
+    }
   });
 }

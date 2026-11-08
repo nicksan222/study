@@ -39,7 +39,7 @@ import {
 } from '@study/contracts/notes/schemas';
 import { Clock, Effect, Option, Result, Schema } from 'effect';
 import type { Context } from 'effect';
-import { Activity, DurableDeferred } from 'effect/workflow';
+import { DurableDeferred } from 'effect/workflow';
 
 import { assistantAgent } from '#server/features/notes/agents/assistant';
 import { compactAssistantAgent } from '#server/features/notes/agents/assistant-compaction';
@@ -53,12 +53,16 @@ import { Sources } from '#server/features/sources/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
+import {
+  defineActivity,
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import type { AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { impactToken } from '#server/platform/definitions/impact-token';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const noteReplyWorkflow = defineWorkflow({
   name: 'conversation-reply',
@@ -94,19 +98,16 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
         yield* DurableDeferred.await(attachmentGate(part.sourceId, part.requestId));
     }
 
-    yield* Activity.make({
+    yield* publicationActivity(store, {
       name: 'seal-reply-attachments',
       success: replySnapshotSchema,
-      error: failureSchema,
-      execute: withPublicationGuard(
-        store,
-        notes.sealReplyAttachments({ requestId: event.requestId })
-      )
+
+      execute: notes.sealReplyAttachments({ requestId: event.requestId })
     });
-    const preferences = yield* Activity.make({
+    const preferences = yield* defineActivity({
       name: 'resolve-reply-preferences',
       success: runPreferencesSchema,
-      error: failureSchema,
+
       execute: Effect.gen(function* () {
         const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
         const settings = yield* Settings;
@@ -119,150 +120,148 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
       }).pipe(Effect.provide(Settings.layer))
     });
     const memory = yield* prepareAssistantContext(event.requestId);
-    const publication = yield* retryResumableActivity(
-      Activity.make({
-        name: 'generate-reply',
-        success: publishReplyInputSchema,
-        error: failureSchema,
-        execute: Effect.gen(function* () {
-          const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
+    const publication = yield* resumableActivity({
+      name: 'generate-reply',
+      success: publishReplyInputSchema,
 
-          yield* validateReplyEvent(snapshot, event);
+      execute: function* () {
+        const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
 
-          if (snapshot.context) yield* notes.noteContext({ requestId: snapshot.requestId });
+        yield* validateReplyEvent(snapshot, event);
 
-          const conversion = replyConversion(snapshot);
+        if (snapshot.context) yield* notes.noteContext({ requestId: snapshot.requestId });
 
-          if (conversion) {
-            const preflight = notes
-              .replySnapshot({ requestId: event.requestId })
-              .pipe(Effect.asVoid, Effect.provideService(Database, database));
-            const publication = yield* convertCapturedMessage(snapshot, conversion, {
-              generate: (definition, input) =>
-                generateAgent(definition, input, { maxRetries: 0, preflight })
-            });
+        const conversion = replyConversion(snapshot);
 
-            yield* preflight;
+        if (conversion) {
+          const preflight = notes
+            .replySnapshot({ requestId: event.requestId })
+            .pipe(Effect.asVoid, Effect.provideService(Database, database));
+          const publication = yield* convertCapturedMessage(snapshot, conversion, {
+            generate: (definition, input) =>
+              generateAgent(definition, input, { maxRetries: 0, preflight })
+          });
 
-            return publication;
-          }
+          yield* preflight;
 
-          const catalog = selectionCatalog(snapshot);
-          const seen = new Set<string>();
+          return publication;
+        }
 
-          for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
-            const key = `${attachment.sourceId}:${attachment.revision}:${attachment.snapshotId}`;
+        const catalog = selectionCatalog(snapshot);
+        const seen = new Set<string>();
 
-            if (seen.has(key)) continue;
+        for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
+          const key = `${attachment.sourceId}:${attachment.revision}:${attachment.snapshotId}`;
 
-            seen.add(key);
-            const { document } = yield* sources
-              .extraction({
+          if (seen.has(key)) continue;
+
+          seen.add(key);
+          const { document } = yield* sources
+            .extraction({
+              sourceId: attachment.sourceId,
+              revision: attachment.revision,
+              snapshotId: attachment.snapshotId
+            })
+            .pipe(
+              Effect.mapError((error) =>
+                error.kind === 'not_found'
+                  ? new StudyError('invalid_input', 'Captured attachment is unavailable', {
+                      cause: error
+                    })
+                  : error
+              )
+            );
+
+          catalog.addDocument({
+            key,
+            name: attachment.sourceName,
+            reference: {
+              input: {
+                kind: 'source',
                 sourceId: attachment.sourceId,
                 revision: attachment.revision,
                 snapshotId: attachment.snapshotId
-              })
-              .pipe(
-                Effect.mapError((error) =>
-                  error.kind === 'not_found'
-                    ? new StudyError('invalid_input', 'Captured attachment is unavailable', {
-                        cause: error
-                      })
-                    : error
-                )
-              );
-
-            catalog.addDocument({
-              key,
-              name: attachment.sourceName,
-              reference: {
-                input: {
-                  kind: 'source',
-                  sourceId: attachment.sourceId,
-                  revision: attachment.revision,
-                  snapshotId: attachment.snapshotId
-                },
-                sourceId: attachment.sourceId,
-                documentId: attachment.snapshotId
               },
-              blocks: document.blocks
-            });
-          }
+              sourceId: attachment.sourceId,
+              documentId: attachment.snapshotId
+            },
+            blocks: document.blocks
+          });
+        }
 
-          yield* notes.replySnapshot({ requestId: event.requestId });
-          const mode = yield* notes.noteMode(snapshot.noteId);
-          const noteScope = yield* notes.noteAssistantScope(snapshot.noteId);
-          const options = {
-            maxRetries: 0,
-            maxSteps: mode === NoteMode.Assistant ? 12 : 5,
-            preflight: notes
-              .replySnapshot({ requestId: event.requestId })
-              .pipe(
-                Effect.andThen(
-                  snapshot.context ? notes.noteContext({ requestId: event.requestId }) : Effect.void
-                ),
-                Effect.asVoid,
-                Effect.provideService(Database, database)
+        yield* notes.replySnapshot({ requestId: event.requestId });
+        const mode = yield* notes.noteMode(snapshot.noteId);
+        const noteScope = yield* notes.noteAssistantScope(snapshot.noteId);
+        const options = {
+          maxRetries: 0,
+          maxSteps: mode === NoteMode.Assistant ? 12 : 5,
+          preflight: notes
+            .replySnapshot({ requestId: event.requestId })
+            .pipe(
+              Effect.andThen(
+                snapshot.context ? notes.noteContext({ requestId: event.requestId }) : Effect.void
+              ),
+              Effect.asVoid,
+              Effect.provideService(Database, database)
+            )
+        };
+        const agentServices = {
+          ...agents,
+          language: preferences.language ?? agents.language,
+          searchSources: (query: string) => Effect.sync(() => catalog.search(query)),
+          runTool: toolRunnerForReply(mode, notes, database, snapshot, agents.runTool)
+        };
+        const rewrite = rewriteGeneration(mode, snapshot);
+        const text = yield* (
+          rewrite
+            ? generateAgent(
+                rewriteAgent,
+                {
+                  messages: snapshot.messages.map((message) => ({
+                    role: message.role,
+                    content: message.text
+                  })),
+                  origin: rewrite.origin,
+                  instruction: rewrite.instruction,
+                  preferences
+                },
+                options
               )
-          };
-          const agentServices = {
-            ...agents,
-            language: preferences.language ?? agents.language,
-            searchSources: (query: string) => Effect.sync(() => catalog.search(query)),
-            runTool: toolRunnerForReply(mode, notes, database, snapshot, agents.runTool)
-          };
-          const rewrite = rewriteGeneration(mode, snapshot);
-          const text = yield* (
-            rewrite
-              ? generateAgent(
-                  rewriteAgent,
-                  {
-                    messages: snapshot.messages.map((message) => ({
-                      role: message.role,
-                      content: message.text
-                    })),
-                    origin: rewrite.origin,
-                    instruction: rewrite.instruction,
-                    preferences
-                  },
-                  options
-                )
-              : generateAgent(
-                  replyAgentForMode(mode, Option.getOrUndefined(noteScope)),
-                  {
-                    messages: replyMessages(mode, snapshot, preferences, memory)
-                  },
-                  options
-                )
-          ).pipe(Effect.provideService(Agents, agentServices), Effect.provide(Settings.layer));
-          const citations =
-            mode === NoteMode.Assistant
-              ? []
-              : yield* Effect.try({
-                  try: () =>
-                    catalog
-                      .citations(text)
-                      .map(({ reference, ...citation }) => ({ ...citation, ...reference })),
-                  catch: (error) =>
-                    error instanceof StudyError
-                      ? error
-                      : new StudyError('invalid_input', 'Invalid citations', { cause: error })
-                });
+            : generateAgent(
+                replyAgentForMode(mode, Option.getOrUndefined(noteScope)),
+                {
+                  messages: replyMessages(mode, snapshot, preferences, memory)
+                },
+                options
+              )
+        ).pipe(Effect.provideService(Agents, agentServices), Effect.provide(Settings.layer));
+        const citations =
+          mode === NoteMode.Assistant
+            ? []
+            : yield* Effect.try({
+                try: () =>
+                  catalog
+                    .citations(text)
+                    .map(({ reference, ...citation }) => ({ ...citation, ...reference })),
+                catch: (error) =>
+                  error instanceof StudyError
+                    ? error
+                    : new StudyError('invalid_input', 'Invalid citations', { cause: error })
+              });
 
-          return { requestId: event.requestId, text, citations };
-        })
-      })
-    );
+        return { requestId: event.requestId, text, citations };
+      }
+    });
 
-    return yield* Activity.make({
+    return yield* publicationActivity(store, {
       name: 'publish-reply',
       success: versionIdSchema,
-      error: failureSchema,
-      execute: withPublicationGuard(store, notes.publishReply(publication))
+
+      execute: notes.publishReply(publication)
     });
   }).pipe(
-    Effect.catch((error) =>
-      Effect.gen(function* () {
+    Effect.catch(
+      Effect.fnUntraced(function* (error) {
         const notes = yield* Notes;
         const conversion = yield* notes.inspectReplySnapshot({ requestId: event.requestId }).pipe(
           Effect.match({
@@ -274,11 +273,11 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
         if (conversion) {
           const { store } = yield* Database;
 
-          yield* Activity.make({
+          yield* publicationActivity(store, {
             name: 'fail-conversion',
             success: Schema.Boolean,
-            error: failureSchema,
-            execute: withPublicationGuard(store, notes.failConversion(event))
+
+            execute: notes.failConversion(event)
           });
         }
 
@@ -292,19 +291,18 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
           const notes = yield* Notes;
           const { store } = yield* Database;
 
-          yield* Activity.make({
+          yield* publicationActivity(store, {
             name: 'retire-invalid-reply',
             success: Schema.Void,
-            error: failureSchema,
-            execute: withPublicationGuard(
-              store,
-              notes.abandonReply({
+
+            execute: notes
+              .abandonReply({
                 requestId: event.requestId,
                 noteId: event.noteId,
                 messageId: event.messageId,
                 versionId: event.versionId
               })
-            ).pipe(Effect.asVoid)
+              .pipe(Effect.asVoid)
           });
         }
 
@@ -342,63 +340,62 @@ export const noteAttachmentWakeWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const noteAttachmentWakeHandler = ({
+export const noteAttachmentWakeHandler = Effect.fnUntraced(function* ({
   event
-}: typeof noteAttachmentWakeWorkflow.payloadSchema.Type) =>
-  Effect.gen(function* () {
-    const notes = yield* Notes;
-    let after: string | undefined;
+}: typeof noteAttachmentWakeWorkflow.payloadSchema.Type) {
+  const notes = yield* Notes;
+  let after: string | undefined;
 
-    for (;;) {
-      const page = yield* notes.replyWakes({ sourceId: event.sourceId, after, limit: 100 });
+  for (;;) {
+    const page = yield* notes.replyWakes({ sourceId: event.sourceId, after, limit: 100 });
 
-      function* wakeReply(row: (typeof page)[number]) {
-        const readiness = yield* Effect.result(notes.replyReadiness({ requestId: row.requestId }));
+    function* wakeReply(row: (typeof page)[number]) {
+      const readiness = yield* Effect.result(notes.replyReadiness({ requestId: row.requestId }));
 
-        if (Result.isFailure(readiness)) {
-          if (!['invalid_input', 'not_found', 'unsupported'].includes(readiness.failure.kind))
-            return yield* Effect.fail(readiness.failure);
+      if (Result.isFailure(readiness)) {
+        if (!['invalid_input', 'not_found', 'unsupported'].includes(readiness.failure.kind))
+          return yield* Effect.fail(readiness.failure);
 
-          for (const part of row.pendingAttachments) {
-            const gate = attachmentGate(part.sourceId, part.requestId);
+        for (const part of row.pendingAttachments) {
+          const gate = attachmentGate(part.sourceId, part.requestId);
 
-            yield* DurableDeferred.fail(gate, {
-              token: DurableDeferred.tokenFromExecutionId(gate, {
-                workflow: noteReplyWorkflow,
-                executionId: row.executionId
-              }),
-              error: new StudyError('invalid_input', 'Captured attachment is unavailable')
-            });
-          }
-        } else {
-          for (const part of row.pendingAttachments) {
-            if (
-              readiness.success.some(
-                (item) => item.sourceId === part.sourceId && item.requestId === part.requestId
-              )
+          yield* DurableDeferred.fail(gate, {
+            token: DurableDeferred.tokenFromExecutionId(gate, {
+              workflow: noteReplyWorkflow,
+              executionId: row.executionId
+            }),
+            error: new StudyError('invalid_input', 'Captured attachment is unavailable')
+          });
+        }
+      } else {
+        for (const part of row.pendingAttachments) {
+          if (
+            readiness.success.some(
+              (item) => item.sourceId === part.sourceId && item.requestId === part.requestId
             )
-              continue;
+          )
+            continue;
 
-            const gate = attachmentGate(part.sourceId, part.requestId);
+          const gate = attachmentGate(part.sourceId, part.requestId);
 
-            yield* DurableDeferred.succeed(gate, {
-              token: DurableDeferred.tokenFromExecutionId(gate, {
-                workflow: noteReplyWorkflow,
-                executionId: row.executionId
-              }),
-              value: undefined
-            });
-          }
+          yield* DurableDeferred.succeed(gate, {
+            token: DurableDeferred.tokenFromExecutionId(gate, {
+              workflow: noteReplyWorkflow,
+              executionId: row.executionId
+            }),
+            value: undefined
+          });
         }
       }
-
-      for (const row of page) yield* Effect.gen(() => wakeReply(row));
-
-      if (page.length < 100) break;
-
-      after = page.at(-1)!.requestId;
     }
-  });
+
+    for (const row of page) yield* Effect.gen(() => wakeReply(row));
+
+    if (page.length < 100) break;
+
+    after = page.at(-1)!.requestId;
+  }
+});
 
 export const noteAttachmentWakeRegistration = defineWorkflowHandler(noteAttachmentWakeWorkflow, {
   execute: noteAttachmentWakeHandler,
@@ -515,69 +512,67 @@ function replyMessages(
 
 /** The checkpoint retains memory across provider retries without changing visible history. */
 function prepareAssistantContext(requestId: string) {
-  return retryResumableActivity(
-    Activity.make({
-      name: 'prepare-assistant-context',
-      success: Schema.NullOr(assistantMemorySchema),
-      error: failureSchema,
-      execute: Effect.gen(function* () {
-        const notes = yield* Notes;
-        const snapshot = yield* notes.replySnapshot({ requestId });
+  return resumableActivity({
+    name: 'prepare-assistant-context',
+    success: Schema.NullOr(assistantMemorySchema),
 
-        if ((yield* notes.noteMode(snapshot.noteId)) !== NoteMode.Assistant) return null;
+    execute: function* () {
+      const notes = yield* Notes;
+      const snapshot = yield* notes.replySnapshot({ requestId });
 
-        const throughMessageId = snapshot.messages.at(-1)?.messageId;
+      if ((yield* notes.noteMode(snapshot.noteId)) !== NoteMode.Assistant) return null;
 
-        if (throughMessageId === undefined) return null;
+      const throughMessageId = snapshot.messages.at(-1)?.messageId;
 
-        const latestMemory = yield* notes.assistantMemory(snapshot.noteId);
+      if (throughMessageId === undefined) return null;
 
-        if (memoryAfterQuestion(latestMemory, throughMessageId)) return null;
+      const latestMemory = yield* notes.assistantMemory(snapshot.noteId);
 
-        const database = yield* Database;
-        let plan = yield* notes.assistantCompactionPlan({
+      if (memoryAfterQuestion(latestMemory, throughMessageId)) return null;
+
+      const database = yield* Database;
+      let plan = yield* notes.assistantCompactionPlan({
+        noteId: snapshot.noteId,
+        throughMessageId
+      });
+
+      if (!needsCompaction(plan)) return plan.memory;
+
+      while (plan.characters > assistantContextBudget.keepRecent && plan.messages.length) {
+        const boundary = plan.messages.at(-1)!;
+        const summary = yield* generateAgent(
+          compactAssistantAgent,
+          {
+            previous: plan.memory?.summary ?? '',
+            messages: plan.messages.map(({ role, text }) => ({ role, text }))
+          },
+          {
+            maxRetries: 0,
+            preflight: notes
+              .replySnapshot({ requestId })
+              .pipe(Effect.asVoid, Effect.provideService(Database, database))
+          }
+        );
+        const now = yield* Clock.currentTimeMillis;
+
+        yield* withPublicationGuard(
+          database.store,
+          notes.saveAssistantMemory({
+            noteId: snapshot.noteId,
+            throughMessageId: boundary.messageId,
+            summary,
+            updatedAtMs: BigInt(now)
+          })
+        );
+        plan = yield* notes.assistantCompactionPlan({
           noteId: snapshot.noteId,
           throughMessageId
         });
+      }
 
-        if (!needsCompaction(plan)) return plan.memory;
-
-        while (plan.characters > assistantContextBudget.keepRecent && plan.messages.length) {
-          const boundary = plan.messages.at(-1)!;
-          const summary = yield* generateAgent(
-            compactAssistantAgent,
-            {
-              previous: plan.memory?.summary ?? '',
-              messages: plan.messages.map(({ role, text }) => ({ role, text }))
-            },
-            {
-              maxRetries: 0,
-              preflight: notes
-                .replySnapshot({ requestId })
-                .pipe(Effect.asVoid, Effect.provideService(Database, database))
-            }
-          );
-          const now = yield* Clock.currentTimeMillis;
-
-          yield* withPublicationGuard(
-            database.store,
-            notes.saveAssistantMemory({
-              noteId: snapshot.noteId,
-              throughMessageId: boundary.messageId,
-              summary,
-              updatedAtMs: BigInt(now)
-            })
-          );
-          plan = yield* notes.assistantCompactionPlan({
-            noteId: snapshot.noteId,
-            throughMessageId
-          });
-        }
-
-        return plan.memory;
-      })
-    })
-  );
+      return plan.memory;
+    }
+  });
 }
 
 /** Reanswers share receipts with the immutable user question, preventing repeated side effects. */

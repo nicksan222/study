@@ -29,7 +29,7 @@ import { pageById } from '#server/platform/definitions/page-by-id';
 
 export const Themes = defineService(
   'study/Themes',
-  Effect.gen(function* () {
+  function* () {
     const themes = yield* useStore(ThemeStore);
 
     const selection = yield* useStore(ThemeSelectionStore);
@@ -68,6 +68,6 @@ export const Themes = defineService(
           tx.store(ThemeSelectionStore).setSelection(id);
         })
     };
-  }),
+  },
   { validateBackup: (tx: Transaction) => tx.store(ThemeBackupStore).backupTheme(undefined) }
 );

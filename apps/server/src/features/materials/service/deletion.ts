@@ -22,7 +22,7 @@ import type {
   requestMaterialDeletionSchema,
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
-import { Context, Effect, Layer, Option } from 'effect';
+import { Context, Layer, Option } from 'effect';
 
 import {
   MaterialDeletionStore,
@@ -101,13 +101,13 @@ function preview(tx: Transaction, materialId: MaterialId, participants: Particip
 export function materialDeletionOperations() {
   return {
     previewDeletion: ({ materialId }: { materialId: MaterialId }) =>
-      Effect.flatMap(DeletionParticipants, (participants) =>
+      DeletionParticipants.use((participants) =>
         transaction((tx) => preview(tx, materialId, participants))
       ),
     deletion: ({ materialId }: { materialId: MaterialId }) =>
       transaction((tx) => tx.store(MaterialDeletionStore).materialDeletion(materialId)),
     requestDeletion: (input: typeof requestMaterialDeletionSchema.Type) =>
-      Effect.flatMap(DeletionParticipants, (participants) =>
+      DeletionParticipants.use((participants) =>
         transaction((tx) => {
           const previous = tx.store(MaterialDeletionStore).findMaterialDeletion(input.materialId);
 
@@ -175,7 +175,7 @@ export function materialDeletionOperations() {
     materialDeletionExecutions: (id: MaterialId) =>
       transaction((tx) => Workflows.retireCorrelations(tx, correlations(tx, id), eventTypes)),
     finishMaterialDeletion: (input: { materialId: MaterialId; attempt: number }) =>
-      Effect.flatMap(DeletionParticipants, (participants) =>
+      DeletionParticipants.use((participants) =>
         publicationTransaction((tx) => {
           const status = tx.store(MaterialDeletionStore).materialDeletion(input.materialId);
 

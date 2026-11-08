@@ -35,7 +35,7 @@ export default defineRule({
     const publicationOwner = path.endsWith('/apps/server/src/platform/workflows/publication.ts');
     const activityOwner =
       path.endsWith('/apps/server/src/platform/workflows/retry.ts') ||
-      /\/apps\/server\/src\/platform\/(?:definitions\/define-workflow|workflows\/(?:engine|store))\.ts$/.test(
+      /\/apps\/server\/src\/platform\/(?:definitions\/define-(?:workflow|activity)|workflows\/(?:engine|store))\.ts$/.test(
         path
       ) ||
       (/\/features\//.test(path) && featureRole(path) === 'workflow');

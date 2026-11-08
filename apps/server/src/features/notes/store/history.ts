@@ -74,7 +74,7 @@ export function makeHistory({ db }: StoreResources) {
       .get()?.mode;
     const bounded = boundedHistory(noteId, policy.bounded);
     let remaining = 200_000;
-    const history: Array<typeof noteMessageSnapshotSchema.Type> = [];
+    const history: (typeof noteMessageSnapshotSchema.Type)[] = [];
 
     for (const { message, version } of rows) {
       if (!version || version.status !== 'complete')

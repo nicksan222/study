@@ -5,15 +5,19 @@ import definitionRules from './definition-rules.ts';
 import factoryRules from './factory-rules.ts';
 import observabilityRules from './observability-rules.ts';
 import persistenceRules from './persistence-rules.ts';
+import activityHarness from './rules/activity-harness.ts';
 import assertionBoundary from './rules/assertion-boundary.ts';
 import browserBoundary from './rules/browser-boundary.ts';
+import cleanupHarness from './rules/cleanup-harness.ts';
 import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
 import decodePersistedJson from './rules/decode-persisted-json.ts';
+import definitionGenerators from './rules/definition-generators.ts';
 import drizzleBoundary from './rules/drizzle-boundary.ts';
 import effectAbortSignal from './rules/effect-abort-signal.ts';
 import effectBoundedConcurrency from './rules/effect-bounded-concurrency.ts';
 import effectBoundedRetries from './rules/effect-bounded-retries.ts';
+import effectFunctionHarness from './rules/effect-function-harness.ts';
 import effectNoDiscarded from './rules/effect-no-discarded.ts';
 import effectNoNativeTimers from './rules/effect-no-native-timers.ts';
 import effectNoOrDie from './rules/effect-no-or-die.ts';
@@ -39,6 +43,7 @@ import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
 import serverFileDescription from './rules/server-file-description.ts';
 import serverNoMocks from './rules/server-no-mocks.ts';
+import serviceAccess from './rules/service-access.ts';
 import serviceDefinition from './rules/service-definition.ts';
 import sharedErrorState from './rules/shared-error-state.ts';
 import sharedLoading from './rules/shared-loading.ts';
@@ -49,6 +54,7 @@ import testClassification from './rules/test-classification.ts';
 import testGuardAssertions from './rules/test-guard-assertions.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
+import validatedMutation from './rules/validated-mutation.ts';
 import webBoundaries from './rules/web-boundaries.ts';
 import webPageContract from './rules/web-page-contract.ts';
 import webPresentationPurity from './rules/web-presentation-purity.ts';
@@ -60,6 +66,12 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'effect-function-harness': effectFunctionHarness,
+    'service-access': serviceAccess,
+    'validated-mutation': validatedMutation,
+    'cleanup-harness': cleanupHarness,
+    'activity-harness': activityHarness,
+    'definition-generators': definitionGenerators,
     'assertion-boundary': assertionBoundary,
     'test-guard-assertions': testGuardAssertions,
     'test-classification': testClassification,

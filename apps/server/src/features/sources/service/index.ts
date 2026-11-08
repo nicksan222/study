@@ -86,7 +86,7 @@ type SourcePageInput = typeof sourcePageInputSchema.Type;
 
 export const Sources = defineService(
   'study/Sources',
-  Effect.gen(function* () {
+  function* () {
     const sources = yield* useStore(SourceStore);
     const histories = yield* useStore(SourceHistoryStore);
     const extractions = yield* useStore(SourceExtractionsStore);
@@ -125,40 +125,39 @@ export const Sources = defineService(
 
     return {
       conversionStrategies: () =>
-        Effect.flatMap(Settings, (settings) => settings.language()).pipe(
+        Settings.use((settings) => settings.language()).pipe(
           Effect.map((locale) => conversions.list(locale)),
           Effect.provide(Settings.layer)
         ),
       convertDocument: (strategyId: string, input: ConversionInput, context: ConversionContext) =>
         conversions.convert(strategyId, input, context),
-      importCapability: (input: typeof importCapabilityInputSchema.Type) =>
-        Effect.gen(function* () {
-          const session = yield* Effect.serviceOption(ChatGptSession);
-          const path = decoderPath(input);
-          const authentication = (() => {
-            if (Option.isNone(session)) return 'unavailable' as const;
+      importCapability: Effect.fnUntraced(function* (
+        input: typeof importCapabilityInputSchema.Type
+      ) {
+        const session = yield* Effect.serviceOption(ChatGptSession);
+        const path = decoderPath(input);
+        const authentication = (() => {
+          if (Option.isNone(session)) return 'unavailable' as const;
 
-            const auth: AuthManager = session.value.manager;
+          const auth: AuthManager = session.value.manager;
 
-            return auth.sessionConfigured
-              ? ('session_configured' as const)
-              : ('signed_out' as const);
-          })();
+          return auth.sessionConfigured ? ('session_configured' as const) : ('signed_out' as const);
+        })();
 
-          return {
-            kind: input.kind,
-            recognized: input.kind !== 'other',
-            status: path !== 'none' && path !== 'vision' ? 'supported' : 'unavailable',
-            path,
-            reason:
-              path === 'none'
-                ? 'no_decoder'
-                : path === 'vision'
-                  ? 'provider_unverified'
-                  : 'local_decoder',
-            provider: { authentication, capability: 'unverified' }
-          } satisfies typeof importCapabilitySchema.Type;
-        }),
+        return {
+          kind: input.kind,
+          recognized: input.kind !== 'other',
+          status: path !== 'none' && path !== 'vision' ? 'supported' : 'unavailable',
+          path,
+          reason:
+            path === 'none'
+              ? 'no_decoder'
+              : path === 'vision'
+                ? 'provider_unverified'
+                : 'local_decoder',
+          provider: { authentication, capability: 'unverified' }
+        } satisfies typeof importCapabilitySchema.Type;
+      }),
       source: sources.source,
       sourceExport: exports.sourceExport,
       findSource: sources.findSource,
@@ -500,7 +499,7 @@ export const Sources = defineService(
           return documentId;
         })
     };
-  }),
+  },
   {
     decodeImportedMarkdown: (bytes: Uint8Array) =>
       decodeText({ bytes, kind: 'text', mime: 'text/markdown' }),

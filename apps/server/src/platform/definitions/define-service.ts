@@ -32,6 +32,43 @@ type Wrapped<T> = {
 export function defineService<
   const Name extends string,
   T extends Record<string, Operation>,
+  Y extends Effect.Effect<any, any, any>,
+  P extends Record<string, (...args: never[]) => unknown> = Record<never, never>
+>(
+  name: Name,
+  make: () => Generator<Y, T, never>,
+  transactionParticipants?: P
+): ReturnType<typeof serviceDefinition<Name, T, Effect.Error<Y>, Effect.Services<Y>, P>>;
+
+export function defineService<
+  const Name extends string,
+  T extends Record<string, Operation>,
+  E,
+  R,
+  P extends Record<string, (...args: never[]) => unknown> = Record<never, never>
+>(
+  name: Name,
+  make: Effect.Effect<T, E, R>,
+  transactionParticipants?: P
+): ReturnType<typeof serviceDefinition<Name, T, E, R, P>>;
+
+export function defineService(
+  name: string,
+  make:
+    | Effect.Effect<Record<string, Operation>, any, any>
+    | (() => Generator<Effect.Effect<any, any, any>, Record<string, Operation>, never>),
+  transactionParticipants?: Record<string, (...args: never[]) => unknown>
+) {
+  return serviceDefinition(
+    name,
+    typeof make === 'function' ? Effect.gen(make) : make,
+    transactionParticipants
+  );
+}
+
+function serviceDefinition<
+  const Name extends string,
+  T extends Record<string, Operation>,
   E,
   R,
   P extends Record<string, (...args: never[]) => unknown> = Record<never, never>

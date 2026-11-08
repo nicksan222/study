@@ -82,8 +82,37 @@ function mapResult(
   return Effect.mapError(result, failure);
 }
 
-/** Build scoped native RPC handlers and translate only StudyError at the wire boundary. */
+type Dependencies = Record<string, Effect.Effect<any, any, any>>;
+
+type Resolved<D extends Dependencies> = { [K in keyof D]: Effect.Success<D[K]> };
+
+/** Bind typed RPC handlers to named, lazily acquired dependencies. */
+export function defineRpc<R extends Rpc.Any, D extends Dependencies, H extends Handlers<R>>(
+  group: RpcGroup.RpcGroup<R>,
+  dependencies: D,
+  handlers: (services: Resolved<D>) => H & Record<Exclude<keyof H, R['_tag']>, never>
+): ReturnType<typeof rpcLayer<R, H, Effect.Error<D[keyof D]>, Effect.Services<D[keyof D]>>>;
+
 export function defineRpc<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
+  group: RpcGroup.RpcGroup<R>,
+  makeHandlers: Effect.Effect<H & Record<Exclude<keyof H, R['_tag']>, never>, E, Init>
+): ReturnType<typeof rpcLayer<R, H, E, Init>>;
+
+export function defineRpc(
+  group: RpcGroup.RpcGroup<any>,
+  dependencies: Dependencies | Effect.Effect<any, any, any>,
+  handlers?: (services: any) => any
+) {
+  return rpcLayer(
+    group,
+    handlers
+      ? Effect.map(Effect.all(dependencies as Dependencies), handlers)
+      : (dependencies as Effect.Effect<any, any, any>)
+  );
+}
+
+/** Build scoped native RPC handlers and translate only StudyError at the wire boundary. */
+function rpcLayer<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
   group: RpcGroup.RpcGroup<R>,
   makeHandlers: Effect.Effect<H & Record<Exclude<keyof H, R['_tag']>, never>, E, Init>
 ): Layer.Layer<

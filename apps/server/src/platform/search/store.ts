@@ -65,7 +65,7 @@ function bestHits(
   eligible: Map<string, SearchCandidate>,
   limit: number
 ) {
-  const hits: Array<Omit<SemanticSearchHit, 'text'> & { key: string }> = [];
+  const hits: (Omit<SemanticSearchHit, 'text'> & { key: string })[] = [];
   const seen = new Set<string>();
 
   for (const match of [...ranked].sort(

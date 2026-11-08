@@ -14,31 +14,23 @@
  */
 
 import { SystemRpc } from '@study/contracts/system/rpc';
-import { Effect } from 'effect';
 
 import { System } from '#server/features/system/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
-export const SystemRpcLive = defineRpc(
-  SystemRpc,
-  Effect.gen(function* () {
-    const system = yield* System;
-
-    return {
-      'system.createBackup': () => system.createBackup(),
-      'system.listBackups': () => system.backups(),
-      'system.readBackup': (input) => system.readBackup(input),
-      'system.importBackup': (input) => system.importBackup(input),
-      'system.deleteBackup': (input) => system.deleteBackup(input),
-      'system.previewRestore': (input) => system.previewRestore(input),
-      'system.acceptRestore': (input) => system.acceptRestore(input),
-      'system.restoreStatus': () => system.restoreStatus(),
-      'system.discardRestoreRecovery': () => system.discardRestoreRecovery(),
-      'system.health': () => system.health(),
-      'system.materialSearch': (input) => system.materialSearch(input),
-      'system.search': (input) => system.search(input),
-      'system.startWorkers': () => system.startWorkers(),
-      'system.stopWorkers': () => system.stopWorkers()
-    };
-  })
-);
+export const SystemRpcLive = defineRpc(SystemRpc, { system: System }, ({ system }) => ({
+  'system.createBackup': () => system.createBackup(),
+  'system.listBackups': () => system.backups(),
+  'system.readBackup': system.readBackup,
+  'system.importBackup': system.importBackup,
+  'system.deleteBackup': system.deleteBackup,
+  'system.previewRestore': system.previewRestore,
+  'system.acceptRestore': system.acceptRestore,
+  'system.restoreStatus': () => system.restoreStatus(),
+  'system.discardRestoreRecovery': () => system.discardRestoreRecovery(),
+  'system.health': () => system.health(),
+  'system.materialSearch': system.materialSearch,
+  'system.search': system.search,
+  'system.startWorkers': () => system.startWorkers(),
+  'system.stopWorkers': () => system.stopWorkers()
+}));

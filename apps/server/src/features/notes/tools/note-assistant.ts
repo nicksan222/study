@@ -45,7 +45,7 @@ const wiki = {
 };
 
 export function noteAssistantTools(noteId: NoteId) {
-  const notebook = Effect.flatMap(Notes, (service) => service.notebookNote(noteId));
+  const notebook = Notes.use((service) => service.notebookNote(noteId));
   const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(
       Effect.provide(Notes.layer),
@@ -110,7 +110,7 @@ export function noteAssistantTools(noteId: NoteId) {
       execute: (input) =>
         provide(
           notebook.pipe(
-            Effect.andThen(Effect.flatMap(Notes, (service) => service.thread({ ...input, noteId })))
+            Effect.andThen(Notes.use((service) => service.thread({ ...input, noteId })))
           )
         )
     }),
@@ -198,9 +198,7 @@ export function noteAssistantTools(noteId: NoteId) {
       mutates: true,
       execute: (input) =>
         provide(
-          notebook.pipe(
-            Effect.andThen(Effect.flatMap(Pages, (service) => service.saveInNote(noteId, input)))
-          )
+          notebook.pipe(Effect.andThen(Pages.use((service) => service.saveInNote(noteId, input))))
         )
     }),
     list_note_sources: defineTool({
@@ -216,9 +214,7 @@ export function noteAssistantTools(noteId: NoteId) {
       execute: (input) =>
         provide(
           notebook.pipe(
-            Effect.andThen(
-              Effect.flatMap(Sources, (service) => service.noteSources({ ...input, noteId }))
-            )
+            Effect.andThen(Sources.use((service) => service.noteSources({ ...input, noteId })))
           )
         )
     }),

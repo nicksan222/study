@@ -256,3 +256,30 @@ function publicationTypeAssertions() {
 }
 
 void publicationTypeAssertions;
+
+testStable(
+  'service harness accepts lazy generator factories and preserves dependency and failure types',
+  async () => {
+    let acquisitions = 0;
+    const failure = new StudyError('invalid_input', 'rejected');
+    const service = defineService('test/Generator', function* () {
+      acquisitions++;
+      const greeting = yield* Greeting;
+
+      return { greet: () => Effect.succeed(greeting), reject: () => Effect.fail(failure) };
+    });
+
+    assert.strictEqual(acquisitions, 0);
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const instance = yield* service;
+
+        return [yield* instance.greet(), yield* Effect.flip(instance.reject())] as const;
+      }).pipe(Effect.provide(service.layer), Effect.provideService(Greeting, 'hello'))
+    );
+
+    assert.strictEqual(acquisitions, 1);
+    assert.strictEqual(result[0], 'hello');
+    assert.strictEqual(result[1], failure);
+  }
+);

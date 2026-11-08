@@ -14,7 +14,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type * as h from '@study/contracts/materials/history';
-import { Effect, Option } from 'effect';
+import { Option } from 'effect';
 
 import { MaterialGenerationCleanupStore } from '#server/features/materials/store/generation-cleanup';
 import {
@@ -77,13 +77,13 @@ function requests(tx: Transaction, operationId: string) {
 export function materialHistoryOperations() {
   return {
     previewHistoryPrune: (input: typeof h.historyScopeSchema.Type) =>
-      Effect.flatMap(DeletionParticipants, (participants) =>
+      DeletionParticipants.use((participants) =>
         transaction((tx) => preview(tx, input, participants))
       ),
     historyPrune: (input: typeof h.historyOperationKeySchema.Type) =>
       transaction((tx) => tx.store(MaterialHistoryStore).materialHistory(input)),
     requestHistoryPrune: (input: typeof h.requestHistoryPruneSchema.Type) =>
-      Effect.flatMap(DeletionParticipants, (participants) =>
+      DeletionParticipants.use((participants) =>
         transaction((tx) => {
           const store = tx.store(MaterialHistoryStore);
 
@@ -158,7 +158,7 @@ export function materialHistoryOperations() {
     materialHistoryExecutions: (operationId: string) =>
       transaction((tx) => Workflows.retireCorrelations(tx, requests(tx, operationId), eventTypes)),
     finishMaterialHistory: (input: { operationId: string; attempt: number }) =>
-      Effect.flatMap(DeletionParticipants, (participants) =>
+      DeletionParticipants.use((participants) =>
         publicationTransaction((tx) => {
           const state = tx.store(MaterialHistoryStore).materialHistory(input);
 

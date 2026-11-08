@@ -1042,7 +1042,7 @@ testStable(
 );
 
 testStable('records provider usage even when an agent rejects the generated output', async () => {
-  const records: Array<{ input: number; output: number; incomplete: boolean }> = [];
+  const records: { input: number; output: number; incomplete: boolean }[] = [];
   const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
     Effect.sync(() => {
       records.push(record);
@@ -1067,7 +1067,7 @@ testStable('records provider usage even when an agent rejects the generated outp
 });
 
 testStable('retains provider-reported tokens when ChatGPT truncates a response', async () => {
-  const records: Array<{ input: number; output: number }> = [];
+  const records: { input: number; output: number }[] = [];
   const recordUsage: NonNullable<AgentsConfig['recordUsage']> = (record) =>
     Effect.sync(() => {
       records.push(record);
