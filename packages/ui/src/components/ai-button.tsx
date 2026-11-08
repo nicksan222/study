@@ -1,4 +1,4 @@
-import { CirclePause, Square, Sparkles } from 'lucide-react';
+import { CircleAlert, CirclePause, Square, Sparkles } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { observeVisibleAnimation } from '../visible-animation';
@@ -66,7 +66,7 @@ export function AiActivity({
 }: {
   label: string;
   action?: ReactNode;
-  state?: 'running' | 'waiting' | 'stopping';
+  state?: 'running' | 'waiting' | 'stopping' | 'attention';
 }) {
   return (
     <span className="ui-ai-activity">
@@ -81,6 +81,8 @@ export function AiActivity({
           <AiIcon working />
         ) : state === 'waiting' ? (
           <CirclePause aria-hidden="true" />
+        ) : state === 'attention' ? (
+          <CircleAlert aria-hidden="true" />
         ) : (
           <Square aria-hidden="true" />
         )}

@@ -7,7 +7,9 @@ export function workActivityState(
 ) {
   if (stopping) return 'stopping';
 
-  if (execution?.status === 'suspended' || execution?.outcome === 'failure') return 'waiting';
+  if (execution?.outcome === 'failure') return 'attention';
+
+  if (execution?.status === 'suspended') return 'waiting';
 
   return 'running';
 }

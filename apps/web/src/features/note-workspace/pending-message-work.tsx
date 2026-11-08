@@ -83,16 +83,16 @@ function PendingWorkStatus({
   const { t } = useI18n();
   const { execution, stopping, showCancel, cancel } = model;
   const state = workActivityState(execution, stopping);
-  const label =
-    state === 'stopping'
-      ? 'NoteWorkStopping'
-      : state === 'waiting'
-        ? 'NoteWorkWaiting'
-        : 'NoteThinking';
+  const labels = {
+    stopping: 'NoteWorkStopping',
+    waiting: 'NoteWorkWaiting',
+    running: 'NoteThinking',
+    attention: 'NoteWorkAttention'
+  } as const;
 
   return (
     <Thinking
-      label={t(label)}
+      label={t(labels[state])}
       state={state}
       action={
         execution &&

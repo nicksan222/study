@@ -240,7 +240,8 @@ function MessageEntry({
   const version =
     message.versions.find((item) => item.id === selected) ??
     message.versions.find((item) => item.id === message.activeVersionId);
-  const citations = useMessageCitations(message, version?.id);
+  const contentVersion = messageContentVersion(message, version);
+  const citations = useMessageCitations(message, contentVersion?.id);
 
   return (
     <ChatMessage data-role={message.role}>
@@ -250,6 +251,7 @@ function MessageEntry({
         <MessageVersionBody
           message={message}
           version={version}
+          contentVersion={contentVersion ?? version}
           onActive={() => setSelected(undefined)}
           onVersionChange={setSelected}
           citations={citations.items}
@@ -263,12 +265,19 @@ function MessageEntry({
           indexNoteId={indexAnchors ? message.noteId : undefined}
         />
       )}
-      <MessageSources key={String(version?.id)} citations={citations.items} />
+      <MessageSources key={String(contentVersion?.id)} citations={citations.items} />
       {citations.error && (
         <NoteReadError error={citations.error} retry={() => void citations.refetch()} />
       )}
     </ChatMessage>
   );
+}
+
+/** Keep displayed content and evidence bound to the same immutable version. */
+function messageContentVersion(message: Message, version: Message['versions'][number] | undefined) {
+  if (!version || version.status === 'complete' || version.text) return version;
+
+  return message.versions.find((item) => item.id === version.basedOn) ?? version;
 }
 
 function messageEntryLabel(message: Message, version: Message['versions'][number] | undefined) {
@@ -294,21 +303,18 @@ function isQuestionVersion(message: Message, versionId: VersionId | undefined) {
 function MessageVersionBody({
   message,
   version,
+  contentVersion,
   onActive,
   onVersionChange,
   citations
 }: {
   message: Message;
   version: Message['versions'][number];
+  contentVersion: Message['versions'][number];
   onActive: () => void;
   onVersionChange: (id: VersionId) => void;
   citations: readonly MessageCitation[];
 }) {
-  const contentVersion =
-    version.status !== 'complete' && !version.text
-      ? (message.versions.find((item) => item.id === version.basedOn) ?? version)
-      : version;
-
   return (
     <>
       <QuestionActions message={message} versionId={version.id}>

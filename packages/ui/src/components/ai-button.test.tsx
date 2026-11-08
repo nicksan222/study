@@ -51,7 +51,7 @@ testStable('shows the current task without requiring hover or keyboard discovery
   expect(status).toHaveAttribute('data-state', 'running');
 });
 
-testStable.each(['waiting', 'stopping'] as const)(
+testStable.each(['waiting', 'stopping', 'attention'] as const)(
   'keeps %s work visible without an active-generation animation',
   (state) => {
     render(<AiActivity label="Current work" state={state} />);

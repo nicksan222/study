@@ -638,33 +638,85 @@ testStable(
   }
 );
 
+function citationMessage() {
+  return Schema.decodeUnknownSync(chatMessageSchema)({
+    id: 61n,
+    noteId: id,
+    role: 'user',
+    threadRoot: null,
+    replyTo: null,
+    activeVersionId: 63n,
+    recordingId: null,
+    recordingMs: null,
+    recordedIn: null,
+    createdAt: 1n,
+    parts: [],
+    citations: [],
+    versions: [62n, 63n].map((versionId, index) => ({
+      id: versionId,
+      number: BigInt(index + 1),
+      origin: 'typed',
+      status: 'complete',
+      text: `version ${index + 1}`,
+      basedOn: null,
+      instruction: null,
+      createdAt: 1n
+    }))
+  });
+}
+
+testStable.each(['pending', 'writing'] as const)(
+  'keeps %s rewrite content and citation evidence on the displayed parent version',
+  async (status) => {
+    const saved = citationMessage();
+    const message = Schema.decodeUnknownSync(chatMessageSchema)({
+      ...saved,
+      versions: saved.versions.map((version, index) =>
+        index === 0
+          ? { ...version, text: 'Original explanation [1].' }
+          : { ...version, status, origin: 'summarize', text: '', basedOn: saved.versions[0]!.id }
+      )
+    });
+
+    rpc.thread.mockResolvedValue({ items: [message], next: null });
+    rpc.provenance.mockResolvedValue({ state: 'available', requestId: 'pending-rewrite' });
+    rpc.citations.mockImplementation(({ versionId }) =>
+      Promise.resolve({
+        citations: [
+          {
+            marker: 1,
+            sourceId: null,
+            sourceName: `evidence ${versionId}`,
+            anchor: { type: 'authored' },
+            quote: `quote ${versionId}`
+          }
+        ]
+      })
+    );
+    mount(<History id={id} />);
+
+    expect(await screen.findByText(/Original explanation/)).toBeVisible();
+    await waitFor(() =>
+      expect(rpc.citations).toHaveBeenCalledWith({
+        noteId: id,
+        messageId: message.id,
+        versionId: 62n
+      })
+    );
+    expect(rpc.citations).not.toHaveBeenCalledWith(expect.objectContaining({ versionId: 63n }));
+    await waitFor(() =>
+      expect(rpc.provenance).toHaveBeenCalledWith(expect.objectContaining({ versionId: 63n }))
+    );
+    fireEvent.click((await screen.findAllByRole('button', { name: 'NoteOpenCitation' }))[0]!);
+    expect(await screen.findByText('quote 62')).toBeVisible();
+    expect(screen.queryByText('quote 63')).not.toBeInTheDocument();
+  }
+);
+
 testStable(
   'queries citations for the exact viewed historical version, with no active-version fallback',
   async () => {
-    const message = Schema.decodeUnknownSync(chatMessageSchema)({
-      id: 61n,
-      noteId: id,
-      role: 'user',
-      threadRoot: null,
-      replyTo: null,
-      activeVersionId: 63n,
-      recordingId: null,
-      recordingMs: null,
-      recordedIn: null,
-      createdAt: 1n,
-      parts: [],
-      citations: [],
-      versions: [62n, 63n].map((versionId, index) => ({
-        id: versionId,
-        number: BigInt(index + 1),
-        origin: 'typed',
-        status: 'complete',
-        text: `version ${index + 1}`,
-        basedOn: null,
-        instruction: null,
-        createdAt: 1n
-      }))
-    });
+    const message = citationMessage();
 
     rpc.thread.mockResolvedValue({ items: [message], next: null });
     rpc.citations.mockImplementation(({ versionId }) =>
