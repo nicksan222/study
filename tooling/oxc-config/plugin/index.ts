@@ -52,6 +52,7 @@ import testClassification from './rules/test-classification.ts';
 import testGuardAssertions from './rules/test-guard-assertions.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
+import validatedMutation from './rules/validated-mutation.ts';
 import webBoundaries from './rules/web-boundaries.ts';
 import webPageContract from './rules/web-page-contract.ts';
 import webPresentationPurity from './rules/web-presentation-purity.ts';
@@ -63,6 +64,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'validated-mutation': validatedMutation,
     'cleanup-harness': cleanupHarness,
     'activity-harness': activityHarness,
     'definition-generators': definitionGenerators,

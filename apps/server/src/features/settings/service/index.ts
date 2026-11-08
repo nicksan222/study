@@ -27,17 +27,7 @@ import {
   materialSettingsSchema,
   reviewSettingsSchema
 } from '@study/contracts/settings/schemas';
-import type {
-  AgentRules,
-  QuizSettings,
-  WorkspacePreferences,
-  AppSettings,
-  ConcurrencySettings,
-  AppearancePreferences,
-  LlmSettings,
-  MaterialSettings,
-  ReviewSettings
-} from '@study/contracts/settings/types';
+import type { AppSettings, LlmSettings } from '@study/contracts/settings/types';
 import {
   defaultAgentRules,
   defaultQuizSettings,
@@ -56,7 +46,8 @@ import { Effect, Schema } from 'effect';
 import { SettingsStore } from '#server/features/settings/store/index';
 import { getApiKeyProvider } from '#server/platform/ai/providers/registry';
 import { defineService } from '#server/platform/definitions/define-service';
-import { transaction, useStore } from '#server/platform/definitions/define-store';
+import { useStore } from '#server/platform/definitions/define-store';
+import { validatedMutation } from '#server/platform/definitions/validated-mutation';
 import { UsageStore } from '#server/platform/observability/usage-store';
 
 type Preferences = Record<string, JsonValue>;
@@ -105,14 +96,15 @@ const make = function* () {
           return Schema.is(agentRulesSchema)(resolved) ? resolved : defaultAgentRules;
         })
       ),
-    saveAgentRules: (input: AgentRules) =>
-      !Schema.is(agentRulesSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid agent rules'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveAgentRules(input);
+    saveAgentRules: validatedMutation({
+      input: agentRulesSchema,
+      message: 'Invalid agent rules',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveAgentRules(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     quizSettings: () =>
       store.preference('quiz').pipe(
         Effect.map((v) => {
@@ -121,14 +113,15 @@ const make = function* () {
           return Schema.is(quizSettingsSchema)(resolved) ? resolved : defaultQuizSettings;
         })
       ),
-    saveQuizSettings: (input: QuizSettings) =>
-      !Schema.is(quizSettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid quiz settings'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveQuizSettings(input);
+    saveQuizSettings: validatedMutation({
+      input: quizSettingsSchema,
+      message: 'Invalid quiz settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveQuizSettings(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     workspacePreferences: () =>
       store.preference('workspace').pipe(
         Effect.map((v) => {
@@ -139,14 +132,15 @@ const make = function* () {
             : defaultWorkspacePreferences;
         })
       ),
-    saveWorkspacePreferences: (input: WorkspacePreferences) =>
-      !Schema.is(workspacePreferencesSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid workspace preferences'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveWorkspacePreferences(input);
+    saveWorkspacePreferences: validatedMutation({
+      input: workspacePreferencesSchema,
+      message: 'Invalid workspace preferences',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveWorkspacePreferences(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     sidebarSettings: () =>
       store.preference('sidebar').pipe(
         Effect.map((v) => {
@@ -155,14 +149,15 @@ const make = function* () {
           return Schema.is(sidebarSettingsSchema)(resolved) ? resolved : defaultSidebarSettings;
         })
       ),
-    saveSidebarSettings: (input: typeof sidebarSettingsSchema.Type) =>
-      !Schema.is(sidebarSettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid sidebar settings'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveSidebarSettings(input);
+    saveSidebarSettings: validatedMutation({
+      input: sidebarSettingsSchema,
+      message: 'Invalid sidebar settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveSidebarSettings(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     concurrencySettings: () =>
       store.preference('concurrency').pipe(
         Effect.map((v) => {
@@ -173,14 +168,15 @@ const make = function* () {
             : defaultConcurrencySettings;
         })
       ),
-    saveConcurrencySettings: (input: ConcurrencySettings) =>
-      !Schema.is(concurrencySettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid concurrency settings'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveConcurrencySettings(input);
+    saveConcurrencySettings: validatedMutation({
+      input: concurrencySettingsSchema,
+      message: 'Invalid concurrency settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveConcurrencySettings(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     appearancePreferences: () =>
       store.preference('appearance').pipe(
         Effect.map((v) => {
@@ -191,14 +187,15 @@ const make = function* () {
             : defaultAppearancePreferences;
         })
       ),
-    saveAppearancePreferences: (input: AppearancePreferences) =>
-      !Schema.is(appearancePreferencesSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid appearance preferences'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveAppearancePreferences(input);
+    saveAppearancePreferences: validatedMutation({
+      input: appearancePreferencesSchema,
+      message: 'Invalid appearance preferences',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveAppearancePreferences(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     appSettings: () => store.preference('app').pipe(Effect.map(appSettings)),
     llmSettings: () => store.preference('llm').pipe(Effect.map(llmSettings)),
     materialSettings: () =>
@@ -209,47 +206,51 @@ const make = function* () {
           newCardsPerDay: typeof v.newCardsPerDay === 'number' ? v.newCardsPerDay : 20
         }))
       ),
-    saveAppSettings: (input: AppSettings) =>
-      !Schema.is(appSettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveAppSettings(input);
+    saveAppSettings: validatedMutation({
+      input: appSettingsSchema,
+      message: 'Invalid settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveAppSettings(input);
 
-            return {};
-          }),
-    saveLlmSettings: (input: LlmSettings) =>
-      !Schema.is(llmSettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction((tx) => {
-            for (const setup of Object.values(input)) {
-              if (typeof setup.provider === 'string') {
-                const provider = getApiKeyProvider(setup.provider);
+        return {};
+      }
+    }),
+    saveLlmSettings: validatedMutation({
+      input: llmSettingsSchema,
+      message: 'Invalid settings',
+      write: (tx, input) => {
+        for (const setup of Object.values(input)) {
+          if (typeof setup.provider === 'string') {
+            const provider = getApiKeyProvider(setup.provider);
 
-                if (setup.model !== undefined && !provider.models.includes(setup.model))
-                  throw new StudyError('invalid_input', 'Unknown provider model');
-              }
-            }
+            if (setup.model !== undefined && !provider.models.includes(setup.model))
+              throw new StudyError('invalid_input', 'Unknown provider model');
+          }
+        }
 
-            tx.store(SettingsStore).saveLlmSettings(input);
+        tx.store(SettingsStore).saveLlmSettings(input);
 
-            return {};
-          }),
-    saveMaterialSettings: (input: MaterialSettings) =>
-      !Schema.is(materialSettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveMaterialSettings(input);
+        return {};
+      }
+    }),
+    saveMaterialSettings: validatedMutation({
+      input: materialSettingsSchema,
+      message: 'Invalid settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveMaterialSettings(input);
 
-            return {};
-          }),
-    saveReviewSettings: (input: ReviewSettings) =>
-      !Schema.is(reviewSettingsSchema)(input)
-        ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
-        : transaction((tx) => {
-            tx.store(SettingsStore).saveReviewSettings(input);
+        return {};
+      }
+    }),
+    saveReviewSettings: validatedMutation({
+      input: reviewSettingsSchema,
+      message: 'Invalid settings',
+      write: (tx, input) => {
+        tx.store(SettingsStore).saveReviewSettings(input);
 
-            return {};
-          }),
+        return {};
+      }
+    }),
     language: () =>
       store
         .preference('app')
