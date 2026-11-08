@@ -3,6 +3,7 @@ import { Effect } from 'effect';
 import { runRequest } from '../effect/runtime';
 import { studyClient } from './client';
 import type { StudyClient } from './client';
+import { observeConnectionError } from './connection';
 import { toStudyError } from './errors';
 
 /** Runs a scoped native RPC request with cancellation and canonical application errors. */
@@ -11,7 +12,10 @@ export function request<A, E>(
   signal?: AbortSignal
 ) {
   return runRequest(
-    Effect.scoped(Effect.flatMap(studyClient, invoke)).pipe(Effect.mapError(toStudyError)),
+    Effect.scoped(Effect.flatMap(studyClient, invoke)).pipe(
+      Effect.tapError((error) => Effect.sync(() => observeConnectionError(error))),
+      Effect.mapError(toStudyError)
+    ),
     signal
   );
 }

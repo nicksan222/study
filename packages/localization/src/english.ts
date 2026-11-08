@@ -1,5 +1,9 @@
 // Canonical application message keys and interpolation parameters.
 export const english = Object.freeze({
+  AiSettingsModelOption: '{provider} — {model}',
+  ServerConnectionTitle: 'Could not connect to server',
+  ServerConnectionDescription: 'Study will reconnect automatically. Your drafts are kept.',
+  ServerConnectionRetry: 'Try again',
   IntegrationResume: 'Resume import',
 
   IntegrationsTitle: 'Integrations',
@@ -396,8 +400,6 @@ export const english = Object.freeze({
   SessionWorkActivity: 'Activity',
   AgentStreamingPreview: 'Writing · preview',
   AgentStreamInterrupted: 'Generation interrupted · incomplete preview',
-  AgentStreamReconnecting: 'Reconnecting to live progress…',
-  AgentStreamUnavailable: 'Live progress is unavailable. Your work can continue in the background.',
   AgentToolRunning: 'Looking through your material…',
   AgentToolCompleted: 'Material checked',
   AgentToolFailed: 'Could not finish checking material',

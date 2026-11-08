@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process';
 import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { projectIdSchema } from '@study/contracts/ids';
@@ -165,7 +166,7 @@ testStable('Drizzle generation is stable and leaves SQL-managed FTS outside sche
     const result = execFileSync(
       process.execPath,
       [
-        fileURLToPath(new URL('../../../node_modules/drizzle-kit/bin.cjs', import.meta.url)),
+        join(dirname(createRequire(import.meta.url).resolve('drizzle-kit')), 'bin.cjs'),
         'generate',
         '--config',
         config

@@ -17,22 +17,28 @@ import { OnboardingProvider } from './onboarding';
 export function Providers({
   children,
   queryClient,
-  locale = 'english'
+  locale = 'english',
+  renderApp = (content) => content
 }: {
   children: ReactNode;
   queryClient: QueryClient;
   locale?: Locale;
+  renderApp?: (content: ReactNode) => ReactNode;
 }) {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <LanguageProvider locale={locale}>
-          <SavedLanguage />
-          <Notifications>
-            <AssistantProvider>
-              <OnboardingProvider>{children}</OnboardingProvider>
-            </AssistantProvider>
-          </Notifications>
+          {renderApp(
+            <>
+              <SavedLanguage />
+              <Notifications>
+                <AssistantProvider>
+                  <OnboardingProvider>{children}</OnboardingProvider>
+                </AssistantProvider>
+              </Notifications>
+            </>
+          )}
         </LanguageProvider>
       </TooltipProvider>
     </QueryClientProvider>

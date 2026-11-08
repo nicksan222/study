@@ -62,8 +62,6 @@ export function useReply(requestId: string, messageId: MessageId) {
       (run) => run.agentId === 'assistant-compaction' && run.status === 'running'
     ),
     needsSignIn: account.data?.signedIn === false,
-    connection: progress.connection,
-    reconnect: progress.reconnect,
     ...outcome,
     actionError: [retry, stop, work].some((result) => result.isError),
     stopping: stop.isPending || outcome.cancelling,

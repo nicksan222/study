@@ -46,7 +46,7 @@
   margin-top: 0.875rem;
 }
 
-.ui-error-state[data-layout='page'] {
+.ui-error-state:is([data-layout='page'], [data-layout='screen']) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -55,20 +55,27 @@
   text-align: center;
 }
 
-.ui-error-state[data-layout='page'] .ui-error-state-icon {
+.ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-icon {
   width: 2.75rem;
   height: 2.75rem;
   margin-bottom: 0.5rem;
   border-radius: 0.75rem;
 }
 
-.ui-error-state[data-layout='page'] h2 {
+.ui-error-state:is([data-layout='page'], [data-layout='screen']) h2 {
   font-size: 1.25rem;
   letter-spacing: -0.02em;
 }
 
-.ui-error-state[data-layout='page'] .ui-error-state-action {
+.ui-error-state:is([data-layout='page'], [data-layout='screen']) .ui-error-state-action {
   justify-content: center;
+}
+.ui-error-state[data-layout='screen'] {
+  min-height: 100dvh;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 2rem;
+  background: var(--background);
 }
 .ui-error-state[data-layout='sidebar'] {
   padding: 0.75rem;

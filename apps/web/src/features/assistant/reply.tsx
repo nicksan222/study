@@ -3,7 +3,6 @@ import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { RichNoteContent } from '@study/ui/rich-note';
-import { StatusMessage } from '@study/ui/status-message';
 import { TraceLine, TraceTitle, TraceIcon } from '@study/ui/trace';
 import { LoaderCircle } from 'lucide-react';
 
@@ -57,20 +56,6 @@ function ReplyText({ model }: { model: ReplyModel }) {
             )}
           />
         )
-      )}
-      {model.connection === 'reconnecting' && (
-        <StatusMessage>{t('AgentStreamReconnecting')}</StatusMessage>
-      )}
-      {model.connection === 'unavailable' && (
-        <>
-          <StatusMessage>{t('AgentStreamUnavailable')}</StatusMessage>
-          <RetryButton
-            size="sm"
-            variant="ghost-muted"
-            label={t('LibraryRefresh')}
-            onClick={model.reconnect}
-          />
-        </>
       )}
     </>
   );

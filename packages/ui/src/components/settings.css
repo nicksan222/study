@@ -853,6 +853,9 @@
   margin: -0.25rem 0 1.25rem;
   max-width: 64ch;
 }
+.settings-group + .settings-intro {
+  margin-top: 1rem;
+}
 .settings-feedback {
   color: var(--muted-foreground);
   font-size: 0.8125rem;

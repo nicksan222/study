@@ -1,5 +1,4 @@
 import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
-import { RetryButton } from '@study/ui/action-button';
 import { GenerationPreview } from '@study/ui/generation-preview';
 import { Trace } from '@study/ui/trace';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,14 +18,14 @@ const progressLabels = {
 } as const;
 
 /**
- * Render read-only text and tool previews with connection and terminal-state labels.
+ * Render read-only text and tool previews with terminal-state labels.
  * Refresh the authoritative feature queries when an observed workflow finishes or retires;
  * raw structured output stays hidden until its owning feature publishes validated results.
  */
 export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
   const { t } = useI18n();
   const cache = useQueryClient();
-  const { runs, connection, reconnect } = useAgentProgress(input);
+  const { runs } = useAgentProgress(input);
   const previous = useRef('');
   const settled = runs.map((run) => `${run.runId}:${run.executionStatus}`).join('|');
 
@@ -53,22 +52,6 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
     ])
       void cache.invalidateQueries({ queryKey });
   }, [cache, runs, settled]);
-
-  if (connection === 'reconnecting')
-    return <GenerationPreview label={t('AgentStreamReconnecting')} />;
-
-  if (connection === 'unavailable')
-    return (
-      <>
-        <GenerationPreview label={t('AgentStreamUnavailable')} />
-        <RetryButton
-          size="sm"
-          variant="ghost-muted"
-          label={t('LibraryRefresh')}
-          onClick={reconnect}
-        />
-      </>
-    );
 
   return (
     <>

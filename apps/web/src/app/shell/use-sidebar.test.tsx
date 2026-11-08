@@ -62,6 +62,8 @@ vi.mock('#web/lib/study-client/client.ts', async () => {
   };
   const call = (fn: typeof api.projects) => (input: unknown) => Effect.tryPromise(() => fn(input));
   const client = {
+    'system.health': () =>
+      Effect.succeed({ protocolVersion: 1, workersRunning: true, testMode: false }),
     'projects.projects': call(api.projects),
     'projects.createProject': call(api.createProject),
     'sources.sources': call(api.sources),

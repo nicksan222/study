@@ -1,5 +1,5 @@
 import type { ModelTier } from '@study/contracts/settings/schemas';
-import type { LlmModel, TierSetup } from '@study/contracts/settings/types';
+import type { TierSetup } from '@study/contracts/settings/types';
 import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -28,22 +28,6 @@ export function useProviderSettings(
     if (data) save.mutate({ ...data.settings, [tier]: setup });
   }
 
-  function setModel(tier: ModelTier, model: LlmModel | string | undefined) {
-    const setup = data?.settings[tier];
-
-    if (!setup) return;
-
-    if (typeof setup.provider === 'string' && typeof model !== 'number')
-      setSetup(tier, { provider: setup.provider, model });
-    else if (setup.provider === 1 && typeof model !== 'string')
-      setSetup(tier, { provider: 1, model });
-  }
-
-  function setProvider(tier: ModelTier, provider: TierSetup['provider']) {
-    if (provider === 1 || data?.providers.some((entry) => entry.id === provider))
-      setSetup(tier, provider === 1 ? { provider: 1 } : { provider });
-  }
-
   return {
     credentialProvider,
     selectCredentialProvider,
@@ -53,8 +37,7 @@ export function useProviderSettings(
       save.reset();
       setKeyError(false);
     },
-    setModel,
-    setProvider,
+    setSetup,
     saveApiKey: (provider: string, apiKey: string | null) =>
       saveKey.mutateAsync({ provider, apiKey })
   };

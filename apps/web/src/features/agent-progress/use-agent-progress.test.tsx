@@ -33,23 +33,17 @@ testStable('switching requests aborts the old viewer and ignores its late snapsh
   expect(result.current.key).toBe('execution:second');
 });
 
-testStable(
-  'shows reconnecting honestly and accepts a fresh snapshot without stale output',
-  async () => {
-    let disconnected!: () => void;
-    let receive!: (runs: unknown) => void;
+testStable('accepts replacement snapshots without exposing feature connection state', async () => {
+  let receive!: (runs: unknown) => void;
 
-    api.subscribe.mockImplementation((_invoke, onValue, _signal, onError) => {
-      receive = onValue;
-      disconnected = onError;
+  api.subscribe.mockImplementation((_invoke, onValue) => {
+    receive = onValue;
 
-      return new Promise(() => {});
-    });
-    const { result } = renderHook(() => useAgentProgress({ correlationId: 'request' }));
+    return new Promise(() => {});
+  });
+  const { result } = renderHook(() => useAgentProgress({ correlationId: 'request' }));
 
-    await act(() => disconnected());
-    expect(result.current.connection).toBe('reconnecting');
-    await act(() => receive([]));
-    expect(result.current.connection).toBe('connected');
-  }
-);
+  await act(() => receive([]));
+  expect(result.current.runs).toEqual([]);
+  expect(result.current).not.toHaveProperty('connection');
+});

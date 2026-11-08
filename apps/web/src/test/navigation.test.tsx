@@ -10,6 +10,8 @@ vi.mock('../lib/study-client/client', async () => {
   const { Effect } = await import('effect');
   const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
   const client = {
+    'system.health': () =>
+      Effect.succeed({ protocolVersion: 1, workersRunning: true, testMode: false }),
     'projects.projects': page,
     'conversations.sessions': page,
     'sources.sources': page,

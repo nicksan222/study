@@ -42,22 +42,23 @@ function mount() {
 }
 
 testStable(
-  'changing provider resets its old model and preserves other tier selections',
+  'a combined selection saves its provider and model together and preserves other tiers',
   async () => {
     const { result } = mount();
 
-    act(() => result.current.setProvider('tiny', 'anthropic'));
+    act(() => result.current.setSetup('tiny', { provider: 'anthropic', model: 'new-model' }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...data.settings,
-        tiny: { provider: 'anthropic' }
+        tiny: { provider: 'anthropic', model: 'new-model' }
       })
     );
-    act(() => result.current.setModel('medium', 'new-model'));
+    expect(operations.saveAiSettings).toHaveBeenCalledTimes(1);
+    act(() => result.current.setSetup('medium', { provider: 1 }));
     await waitFor(() =>
       expect(operations.saveAiSettings).toHaveBeenCalledWith({
         ...data.settings,
-        medium: { provider: 'anthropic', model: 'new-model' }
+        medium: { provider: 1 }
       })
     );
   }

@@ -167,8 +167,7 @@ export function useAiSettings() {
     signOut: () => signOut.mutate(),
     credentialProvider: models.credentialProvider,
     selectCredentialProvider: models.selectCredentialProvider,
-    setModel: models.setModel,
-    setProvider: models.setProvider,
+    setSetup: models.setSetup,
     saveApiKey: models.saveApiKey
   };
 }

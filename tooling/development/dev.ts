@@ -1,12 +1,21 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 
-import { App, serve } from '@study/server/runtime';
 import { createServer } from 'vite-plus';
 import type { ViteDevServer } from 'vite-plus';
 
 import { developmentDatabasePath } from './database-path.ts';
 import { studyRpcProxy } from './rpc-proxy.ts';
+
+const [major = 0, minor = 0, patch = 0] =
+  process.versions.bun?.split(/[.-]/).slice(0, 3).map(Number) ?? [];
+
+if (major < 1 || (major === 1 && (minor < 4 || (minor === 4 && patch < 4))))
+  throw new Error(
+    'Study requires Bun 1.4.4 or newer. Run bun upgrade, then bun install --frozen-lockfile.'
+  );
+
+const { App, serve } = await import('@study/server/runtime');
 
 const root = resolve(import.meta.dirname, '../..');
 

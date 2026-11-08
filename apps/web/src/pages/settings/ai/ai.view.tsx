@@ -1,3 +1,4 @@
+import type { TierSetup } from '@study/contracts/settings/types';
 import { LlmModel } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
@@ -106,11 +107,37 @@ function AccountActions({ model }: { model: AiSettingsModel }) {
 
 export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
   const { t } = useI18n();
-  const options = [
-    { value: '', label: t('AiSettingsDefaultModel') },
-    { value: String(LlmModel.GPT6_LUNA), label: t('AiSettingsLuna') },
-    { value: String(LlmModel.GPT61_SOL), label: t('AiSettingsSol') },
-    { value: String(LlmModel.GPT6_ASTRA), label: t('AiSettingsAstra') }
+  const choices: { setup: TierSetup; provider: string; model: string; disabled: boolean }[] = [
+    {
+      setup: { provider: 1 },
+      provider: t('AiSettingsChatGpt'),
+      model: t('AiSettingsDefaultModel'),
+      disabled: !model.data?.status.signedIn
+    },
+    ...[
+      { model: LlmModel.GPT6_LUNA, label: t('AiSettingsLuna') },
+      { model: LlmModel.GPT61_SOL, label: t('AiSettingsSol') },
+      { model: LlmModel.GPT6_ASTRA, label: t('AiSettingsAstra') }
+    ].map(({ model: modelId, label }) => ({
+      setup: { provider: 1 as const, model: modelId },
+      provider: t('AiSettingsChatGpt'),
+      model: label,
+      disabled: !model.data?.status.signedIn
+    })),
+    ...(model.data?.providers ?? []).flatMap((provider) => [
+      {
+        setup: { provider: provider.id },
+        provider: t('AiSettingsProviderBrand', { provider: provider.name }),
+        model: t('AiSettingsDefaultModel'),
+        disabled: !provider.configured
+      },
+      ...provider.models.map((id) => ({
+        setup: { provider: provider.id, model: id },
+        provider: t('AiSettingsProviderBrand', { provider: provider.name }),
+        model: id,
+        disabled: !provider.configured
+      }))
+    ])
   ];
 
   return (
@@ -118,56 +145,58 @@ export function AiModelSettingsView({ model }: { model: AiSettingsModel }) {
       <AiSettingsStatus model={model} />
       {model.data && (
         <Settings.Section title={t('AiSettingsModels')}>
-          {tiers.map(({ tier, title, description }) => {
-            const setup = model.data!.settings[tier];
-            const provider = model.data!.providers.find((entry) => entry.id === setup.provider);
-            const providerOptions = [
-              { value: '1', label: t('AiSettingsChatGpt') },
-              ...model.data!.providers.map((entry) => ({
-                value: entry.id,
-                label: t('AiSettingsProviderBrand', { provider: entry.name })
-              }))
-            ];
+          <Settings.Group>
+            {tiers.map(({ tier, title, description }) => {
+              const setup = model.data!.settings[tier];
+              const options = choices.filter(
+                (option) =>
+                  !option.disabled ||
+                  (option.setup.provider === setup.provider && option.setup.model === setup.model)
+              );
+              let selected = options.findIndex(
+                (option) =>
+                  option.setup.provider === setup.provider && option.setup.model === setup.model
+              );
 
-            return (
-              <Settings.Group key={tier}>
+              // Keep saved custom models selectable even when absent from the provider catalog.
+              if (selected === -1 && typeof setup.provider === 'string') {
+                const provider = model.data!.providers.find((entry) => entry.id === setup.provider);
+
+                selected = options.length;
+                options.push({
+                  setup,
+                  provider: t('AiSettingsProviderBrand', {
+                    provider: provider?.name ?? setup.provider
+                  }),
+                  model: String(setup.model ?? t('AiSettingsDefaultModel')),
+                  disabled: !provider?.configured
+                });
+              }
+
+              return (
                 <Settings.SelectRow
+                  key={tier}
                   title={t(title)}
                   description={t(description)}
-                  value={String(setup.provider)}
-                  options={providerOptions}
-                  disabled={model.pending}
-                  onValueChange={(value) => model.setProvider(tier, value === '1' ? 1 : value)}
-                />
-                {typeof setup.provider === 'string' ? (
-                  <Settings.SelectRow
-                    title={t('AiSettingsModel')}
-                    value={String(setup.model ?? '')}
-                    options={[
-                      { value: '', label: t('AiSettingsDefaultModel') },
-                      ...(provider?.models ?? []).map((id) => ({ value: id, label: id }))
-                    ]}
-                    disabled={model.pending}
-                    onValueChange={(value) => model.setModel(tier, value || undefined)}
-                  />
-                ) : (
-                  <Settings.SelectRow
-                    title={t('AiSettingsModel')}
-                    value={String(setup.model ?? '')}
-                    options={options}
-                    disabled={model.pending}
-                    onValueChange={(value) => {
-                      const selected = Object.values(LlmModel).find(
-                        (modelId) => String(modelId) === value
-                      );
+                  value={String(selected)}
+                  options={options.map((option, index) => ({
+                    value: String(index),
+                    disabled: option.disabled,
+                    label: t('AiSettingsModelOption', {
+                      provider: option.provider,
+                      model: option.model
+                    })
+                  }))}
+                  disabled={model.pending || options.every((option) => option.disabled)}
+                  onValueChange={(value) => {
+                    const option = options.find((_entry, index) => String(index) === value);
 
-                      if (value === '' || selected !== undefined) model.setModel(tier, selected);
-                    }}
-                  />
-                )}
-              </Settings.Group>
-            );
-          })}
+                    if (option && !option.disabled) model.setSetup(tier, option.setup);
+                  }}
+                />
+              );
+            })}
+          </Settings.Group>
         </Settings.Section>
       )}
     </>

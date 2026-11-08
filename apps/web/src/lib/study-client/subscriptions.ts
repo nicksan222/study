@@ -4,14 +4,14 @@ import { Effect, Schedule, Stream } from 'effect';
 import { runRequest } from '../effect/runtime';
 import { studyClient } from './client';
 import type { StudyClient } from './client';
+import { observeConnectionError } from './connection';
 import { toStudyError } from './errors';
 
 /** Reconnect with a fresh scoped RPC stream; abort releases the viewer, not durable work. */
 export function subscribe<A, E>(
   invoke: (client: StudyClient) => Stream.Stream<A, E>,
   onValue: (value: A) => void,
-  signal: AbortSignal,
-  onError?: (error: unknown) => void
+  signal: AbortSignal
 ) {
   return runRequest(
     Effect.scoped(
@@ -23,11 +23,11 @@ export function subscribe<A, E>(
         )
       )
     ).pipe(
+      Effect.tapError((error) => Effect.sync(() => observeConnectionError(error))),
       Effect.mapError(toStudyError),
-      Effect.tapError((error) => Effect.sync(() => onError?.(error))),
       Effect.retry({
-        times: 5,
         schedule: Schedule.spaced('1 second'),
+        times: 5,
         while: (error) => isRetryable(error.kind)
       })
     ),

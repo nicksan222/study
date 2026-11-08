@@ -8,6 +8,7 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +18,11 @@ import { assert, expect } from 'vite-plus/test';
 export const root = fileURLToPath(new URL('../../../../', import.meta.url));
 
 const vp = join(root, 'node_modules/.bin/vp');
+
+const oxlint = join(
+  dirname(createRequire(import.meta.resolve('vite-plus')).resolve('oxlint/package.json')),
+  'bin/oxlint'
+);
 
 export const pluginPath = 'tooling/oxc-config/plugin';
 
@@ -91,7 +97,7 @@ export function lintFiles(
       );
 
     const result = spawnSync(
-      rule ? join(root, 'node_modules/.bin/oxlint') : vp,
+      rule ? oxlint : vp,
       [
         ...(rule ? [] : ['lint']),
         '--config',

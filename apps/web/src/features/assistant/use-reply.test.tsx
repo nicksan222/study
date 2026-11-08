@@ -95,7 +95,7 @@ testStable('explains sign-in failures and retries the same Assistant message', a
 });
 
 testStable(
-  'exhausted progress retries show unavailable and allow an explicit reconnect',
+  'stream failures do not render per-message connection errors or reconnect controls',
   async () => {
     api.thread.mockResolvedValue({
       items: [message('user', 'Explain.', 1n), message('assistant', '', 2n, true)],
@@ -104,15 +104,10 @@ testStable(
     api.executions.mockResolvedValue({ items: [execution], next: null });
     api.subscribe.mockRejectedValueOnce(new Error('Stream unavailable'));
     mountAssistant();
-
-    expect(
-      await screen.findByText(
-        'Live progress is unavailable. Your work can continue in the background.'
-      )
-    ).toBeInTheDocument();
-    expect(screen.queryByText('Reconnecting to live progress…')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(api.subscribe).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(api.subscribe).toHaveBeenCalledOnce());
+    expect(screen.queryByText(/Live progress is unavailable/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reconnecting to live progress/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
   }
 );
 

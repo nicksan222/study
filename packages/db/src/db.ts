@@ -10,6 +10,8 @@ import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
 import { load as loadVectorExtension } from 'sqlite-vec';
 
+import { configureSqliteRuntime } from './sqlite-runtime.ts';
+
 /** Owns a SQLite connection and synchronous, nested Drizzle transactions. */
 
 export class Db {
@@ -44,6 +46,8 @@ export class Db {
     path: string,
     migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
   ): Db {
+    configureSqliteRuntime();
+
     if (process.platform !== 'win32' && path !== ':memory:') {
       const fd = openSync(path, 'a', 0o600);
 
@@ -73,6 +77,8 @@ export class Db {
 
   /** Flush an exclusively owned file before replacement, without running migrations. */
   static checkpointFile(path: string): void {
+    configureSqliteRuntime();
+
     const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
 
     try {

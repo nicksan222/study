@@ -11,7 +11,7 @@ export function ErrorState({
   title: string;
   description?: ReactNode;
   action?: ReactNode;
-  layout?: 'page' | 'inline' | 'sidebar';
+  layout?: 'screen' | 'page' | 'inline' | 'sidebar';
 }) {
   const id = useId();
 

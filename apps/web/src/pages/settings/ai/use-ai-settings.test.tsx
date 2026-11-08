@@ -1,5 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
-import { catalogs } from '@study/localization';
+import { catalogs, createLocalization } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 
 vi.mock('#web/lib/i18n.tsx', () => ({
-  useI18n: () => ({ t: (key: keyof typeof catalogs.english) => catalogs.english[key] })
+  useI18n: () => createLocalization('english')
 }));
 vi.mock('#web/lib/study-client/ai-settings.ts', () => ({
   loadAiSettings: vi.fn(),
@@ -42,7 +42,7 @@ function mount(Section = AiAccountSettings) {
   vi.mocked(operations.loadAiSettings).mockResolvedValue({
     settings,
     providers: [],
-    status: { signedIn: false, email: null, sharing: false }
+    status: { signedIn: Section === AiModelSettings, email: null, sharing: false }
   });
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
@@ -60,8 +60,10 @@ testStable('saves a canonical model change while preserving the other tiers', as
   mount(AiModelSettings);
   const user = userEvent.setup();
 
-  await user.click((await screen.findAllByRole('combobox', { name: 'Model' }))[1]!);
-  await user.click(await screen.findByRole('option', { name: 'GPT-6 Astra' }));
+  await user.click(
+    await screen.findByRole('combobox', { name: catalogs.english.AiSettingsMedium })
+  );
+  await user.click(await screen.findByRole('option', { name: 'ChatGPT — GPT-6 Astra' }));
   await waitFor(() =>
     expect(operations.saveAiSettings).toHaveBeenCalledWith({
       ...settings,

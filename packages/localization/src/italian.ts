@@ -1,6 +1,11 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  AiSettingsModelOption: '{provider} — {model}',
+  ServerConnectionTitle: 'Impossibile connettersi al server',
+  ServerConnectionDescription:
+    'Study si riconnetterà automaticamente. Le tue bozze sono conservate.',
+  ServerConnectionRetry: 'Riprova',
   IntegrationResume: 'Riprendi importazione',
 
   IntegrationsTitle: 'Integrazioni',
@@ -401,9 +406,6 @@ export const italian = Object.freeze({
   SessionWorkActivity: 'Attività',
   AgentStreamingPreview: 'Scrittura · anteprima',
   AgentStreamInterrupted: 'Generazione interrotta · anteprima incompleta',
-  AgentStreamReconnecting: 'Riconnessione all’avanzamento in tempo reale…',
-  AgentStreamUnavailable:
-    'L’avanzamento in tempo reale non è disponibile. Il lavoro può continuare in background.',
   AgentToolRunning: 'Esame del tuo materiale…',
   AgentToolCompleted: 'Materiale verificato',
   AgentToolFailed: 'Impossibile completare la verifica del materiale',

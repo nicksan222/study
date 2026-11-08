@@ -98,3 +98,28 @@ testStable('does not open or change when disabled', async () => {
   expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   expect(changed).not.toHaveBeenCalled();
 });
+
+testStable(
+  'keeps disabled options visible while skipping them during keyboard selection',
+  async () => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
+
+    render(
+      <SelectControl
+        label="Appearance"
+        value="system"
+        options={options.map((option) => ({ ...option, disabled: option.value === 'light' }))}
+        onValueChange={changed}
+      />
+    );
+    await user.click(screen.getByRole('combobox', { name: 'Appearance' }));
+    const unavailable = await screen.findByRole('option', { name: 'Light' });
+
+    expect(unavailable).toHaveAttribute('aria-disabled', 'true');
+    await user.click(unavailable);
+    expect(changed).not.toHaveBeenCalled();
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(changed).toHaveBeenCalledExactlyOnceWith('dark');
+  }
+);

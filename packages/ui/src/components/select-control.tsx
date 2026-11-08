@@ -4,7 +4,7 @@ import { Check, ChevronDown, ChevronUp } from 'lucide-react';
 export interface SelectControlProps {
   label: string;
   value: string;
-  options: readonly { value: string; label: string }[];
+  options: readonly { value: string; label: string; disabled?: boolean }[];
   onValueChange: (value: string) => void;
   disabled?: boolean;
   optionText?: 'truncate' | 'wrap';
@@ -47,7 +47,12 @@ export function SelectControl({
             </Select.ScrollUpArrow>
             <Select.List className="study-select-list">
               {options.map((option) => (
-                <Select.Item key={option.value} value={option.value} className="study-select-item">
+                <Select.Item
+                  key={option.value}
+                  value={option.value}
+                  disabled={option.disabled}
+                  className="study-select-item"
+                >
                   <Select.ItemText className="study-select-value">{option.label}</Select.ItemText>
                   <Select.ItemIndicator className="study-select-indicator">
                     <Check size={16} aria-hidden="true" />
