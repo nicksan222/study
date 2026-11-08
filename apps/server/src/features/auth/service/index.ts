@@ -353,7 +353,7 @@ function* makeAuth() {
   };
 }
 
-const make = Effect.gen(makeAuth);
+const make = makeAuth;
 
 export const Auth = defineService('study/Auth', make, {
   validateBackup: (tx: Transaction) => tx.store(AuthBackupStore).backupSanitized(undefined),

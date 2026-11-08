@@ -86,7 +86,7 @@ type SourcePageInput = typeof sourcePageInputSchema.Type;
 
 export const Sources = defineService(
   'study/Sources',
-  Effect.gen(function* () {
+  function* () {
     const sources = yield* useStore(SourceStore);
     const histories = yield* useStore(SourceHistoryStore);
     const extractions = yield* useStore(SourceExtractionsStore);
@@ -500,7 +500,7 @@ export const Sources = defineService(
           return documentId;
         })
     };
-  }),
+  },
   {
     decodeImportedMarkdown: (bytes: Uint8Array) =>
       decodeText({ bytes, kind: 'text', mime: 'text/markdown' }),

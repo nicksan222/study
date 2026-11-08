@@ -10,6 +10,7 @@ import browserBoundary from './rules/browser-boundary.ts';
 import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
 import decodePersistedJson from './rules/decode-persisted-json.ts';
+import definitionGenerators from './rules/definition-generators.ts';
 import drizzleBoundary from './rules/drizzle-boundary.ts';
 import effectAbortSignal from './rules/effect-abort-signal.ts';
 import effectBoundedConcurrency from './rules/effect-bounded-concurrency.ts';
@@ -60,6 +61,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'definition-generators': definitionGenerators,
     'assertion-boundary': assertionBoundary,
     'test-guard-assertions': testGuardAssertions,
     'test-classification': testClassification,

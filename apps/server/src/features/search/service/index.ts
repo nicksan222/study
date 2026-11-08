@@ -65,86 +65,80 @@ function* readPages(
   }
 }
 
-export const Search = defineService(
-  'study/Search',
-  Effect.gen(function* () {
-    const storage = yield* SearchStorage;
-    const configuration = yield* SearchConfiguration;
-    const registry = makeRegistryStore({
-      schema: configuration.schema,
-      featureKinds: new Set(featureReaders.keys())
-    });
-    const registryStore = registry.store;
-    const readColumns: ProjectionReader = (tx, input) =>
-      tx.store(registryStore).searchProjectionPages(input);
+export const Search = defineService('study/Search', function* () {
+  const storage = yield* SearchStorage;
+  const configuration = yield* SearchConfiguration;
+  const registry = makeRegistryStore({
+    schema: configuration.schema,
+    featureKinds: new Set(featureReaders.keys())
+  });
+  const registryStore = registry.store;
+  const readColumns: ProjectionReader = (tx, input) =>
+    tx.store(registryStore).searchProjectionPages(input);
 
-    /** Resolve declared projection readers at one guarded configuration boundary. */
-    const readerFor = (entry: (typeof registry.projections)[number]): ProjectionReader => {
-      const reader = entry.projection === 'feature' ? featureReaders.get(entry.kind) : readColumns;
+  /** Resolve declared projection readers at one guarded configuration boundary. */
+  const readerFor = (entry: (typeof registry.projections)[number]): ProjectionReader => {
+    const reader = entry.projection === 'feature' ? featureReaders.get(entry.kind) : readColumns;
 
-      if (!reader) throw new StudyError('config', 'Missing searchable feature projection reader');
+    if (!reader) throw new StudyError('config', 'Missing searchable feature projection reader');
 
-      return reader;
-    };
+    return reader;
+  };
 
-    /** Consume bounded target batches inside the transaction, keeping SQLite parameter counts bounded. */
-    function* read(
-      tx: Transaction,
-      targets?: readonly SearchTarget[]
-    ): Generator<SearchProjection> {
-      for (const entry of registry.projections) {
-        const requested = targets?.filter(
-          (target) => (target.type === 'registered' ? target.entity : target.type) === entry.kind
-        );
+  /** Consume bounded target batches inside the transaction, keeping SQLite parameter counts bounded. */
+  function* read(tx: Transaction, targets?: readonly SearchTarget[]): Generator<SearchProjection> {
+    for (const entry of registry.projections) {
+      const requested = targets?.filter(
+        (target) => (target.type === 'registered' ? target.entity : target.type) === entry.kind
+      );
 
-        if (requested?.length === 0) continue;
+      if (requested?.length === 0) continue;
 
-        const reader = readerFor(entry);
+      const reader = readerFor(entry);
 
-        for (let start = 0; start < (requested?.length ?? 1); start += 200)
-          yield* readPages(tx, reader, entry.kind, requested?.slice(start, start + 200));
-      }
+      for (let start = 0; start < (requested?.length ?? 1); start += 200)
+        yield* readPages(tx, reader, entry.kind, requested?.slice(start, start + 200));
     }
+  }
 
-    /** Read visibility and mutate the index within the same synchronous database transaction. */
-    const commit = <A>(
-      work: (rows: Iterable<SearchProjection>) => A,
-      beforePublish?: () => void,
-      targets?: readonly SearchTarget[]
-    ) =>
-      storage.transaction<A>((tx) => {
-        beforePublish?.();
+  /** Read visibility and mutate the index within the same synchronous database transaction. */
+  const commit = <A>(
+    work: (rows: Iterable<SearchProjection>) => A,
+    beforePublish?: () => void,
+    targets?: readonly SearchTarget[]
+  ) =>
+    storage.transaction<A>((tx) => {
+      beforePublish?.();
 
-        return work(read(tx, targets));
-      });
-    /** Read one bounded page; publication later revalidates its targets in a transaction. */
-    const readPage = (kind: string, reader: ProjectionReader, offset: number) =>
-      storage.transaction((tx) => {
-        const page = reader(tx, { offset, limit: 1000, kind });
+      return work(read(tx, targets));
+    });
+  /** Read one bounded page; publication later revalidates its targets in a transaction. */
+  const readPage = (kind: string, reader: ProjectionReader, offset: number) =>
+    storage.transaction((tx) => {
+      const page = reader(tx, { offset, limit: 1000, kind });
 
-        return [[page.items], Option.fromNullishOr(page.next)] as const;
-      });
-    // Concurrent additions or offset shifts are recovered by the next reconciliation pass.
-    const pages = Stream.fromIterable(registry.projections).pipe(
-      Stream.flatMap((entry) => {
-        const reader = readerFor(entry);
+      return [[page.items], Option.fromNullishOr(page.next)] as const;
+    });
+  // Concurrent additions or offset shifts are recovered by the next reconciliation pass.
+  const pages = Stream.fromIterable(registry.projections).pipe(
+    Stream.flatMap((entry) => {
+      const reader = readerFor(entry);
 
-        return Stream.paginate(0, (offset) => readPage(entry.kind, reader, offset));
-      })
-    );
-    /** Keep publication fences configurable without registering a runtime worker or agent. */
-    const makeIndex = (beforePublish?: () => void) =>
-      storage.open({
-        model: configuration.model,
-        pages,
-        commit: (work, targets) => commit(work, beforePublish, targets)
-      });
-    const index = makeIndex();
+      return Stream.paginate(0, (offset) => readPage(entry.kind, reader, offset));
+    })
+  );
+  /** Keep publication fences configurable without registering a runtime worker or agent. */
+  const makeIndex = (beforePublish?: () => void) =>
+    storage.open({
+      model: configuration.model,
+      pages,
+      commit: (work, targets) => commit(work, beforePublish, targets)
+    });
+  const index = makeIndex();
 
-    return {
-      catalog: () => Effect.succeed(registry.catalog),
-      search: index.search,
-      reconcile: (beforePublish?: () => void) => makeIndex(beforePublish).reconcile()
-    };
-  })
-);
+  return {
+    catalog: () => Effect.succeed(registry.catalog),
+    search: index.search,
+    reconcile: (beforePublish?: () => void) => makeIndex(beforePublish).reconcile()
+  };
+});

@@ -396,7 +396,7 @@ function* makeMaterials() {
   };
 }
 
-export const Materials = defineService('study/Materials', Effect.gen(makeMaterials), {
+export const Materials = defineService('study/Materials', makeMaterials, {
   attachInTransaction: (tx: Transaction, value: typeof input.attachInputSchema.Type) =>
     tx.store(MaterialsStore).attach(value),
   searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>

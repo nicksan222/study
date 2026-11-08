@@ -181,7 +181,7 @@ import { mergeNotes } from './merge.ts';
 
 export const Notes = defineService(
   'study/Notes',
-  Effect.gen(function* () {
+  function* () {
     const readReplyReadinessStore = yield* useStore(ReplyReadinessStore);
 
     const readReplyWakeStore = yield* useStore(ReplyWakeStore);
@@ -996,7 +996,7 @@ export const Notes = defineService(
           return status;
         })
     };
-  }),
+  },
   {
     createNoteInTransaction: (tx: Transaction, input: typeof createNoteInputSchema.Type) =>
       tx.store(NoteStore).createNote({ ...input, titleSource: 'user' }),

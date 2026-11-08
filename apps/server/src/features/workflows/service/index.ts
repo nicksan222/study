@@ -113,7 +113,7 @@ function* makeWorkflows() {
   };
 }
 
-export const Workflows = defineService('study/Workflows', Effect.gen(makeWorkflows), {
+export const Workflows = defineService('study/Workflows', makeWorkflows, {
   validateBackup: (tx: Transaction) =>
     tx.store(WorkflowRetirementStore).workflowRetirement(undefined),
   prepareBackup: (tx: Transaction) => tx.store(WorkflowRetirementStore).prepareBackup(undefined),

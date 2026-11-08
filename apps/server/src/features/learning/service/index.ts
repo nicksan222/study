@@ -67,7 +67,7 @@ import {
 
 export const Learning = defineService(
   'study/Learning',
-  Effect.gen(function* () {
+  function* () {
     const readPracticeStore = yield* useStore(PracticeStore);
 
     const readPracticeSlotStore = yield* useStore(PracticeSlotStore);
@@ -275,7 +275,7 @@ export const Learning = defineService(
           return { items, nextCursor: more.length && last ? last.review.id : null };
         })
     };
-  }),
+  },
   {
     prepareBackup: (tx: Transaction) => tx.store(PracticeStore).prepareBackup(undefined),
     validateBackup: (tx: Transaction) => tx.store(PracticeBackupStore).backupQuiescent(undefined),

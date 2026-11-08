@@ -116,7 +116,7 @@ function annotationChanged(tx: Transaction, result: typeof evidence.annotationOu
 
 export const Pages = defineService(
   'study/Pages',
-  Effect.gen(function* () {
+  function* () {
     const docs = yield* useStore(PagesStore);
     const transforms = yield* useStore(PageTransformsStore);
     const merges = yield* useStore(PageMergesStore);
@@ -313,7 +313,7 @@ export const Pages = defineService(
       publishGenerated: (v: typeof e.publishSchema.Type) =>
         publicationTransaction((tx) => tx.store(PagesStore).publishGenerated(v))
     };
-  }),
+  },
   {
     searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
       tx.store(PageSearchStore).searchProjectionPages(input),

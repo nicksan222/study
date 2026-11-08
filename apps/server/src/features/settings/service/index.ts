@@ -91,7 +91,7 @@ const llmSettings = (v: Preferences): LlmSettings => {
   return { tiny: setup('tiny'), medium: setup('medium'), smart: setup('smart') };
 };
 
-const make = Effect.gen(function* () {
+const make = function* () {
   const store = yield* useStore(SettingsStore);
   const usage = yield* useStore(UsageStore);
 
@@ -302,6 +302,6 @@ const make = Effect.gen(function* () {
         )
       )
   };
-});
+};
 
 export const Settings = defineService('study/Settings', make);
