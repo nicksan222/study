@@ -30,7 +30,7 @@ export const RecordingCopyStore = defineStore({
         input: copyNoteContentSchema,
         output: Schema.Array(recordingCopySchema),
         run: ({ noteIds: ids, targetNoteId: target }) => {
-          const copies: Array<typeof recordingCopySchema.Type> = [];
+          const copies: (typeof recordingCopySchema.Type)[] = [];
 
           for (const old of db.orm
             .select()

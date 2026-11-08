@@ -23,7 +23,7 @@ import { pageById } from '#server/platform/definitions/page-by-id';
 testStable(
   'ID pages only probe full pages and never expose a cursor for the final page',
   async () => {
-    const calls: Array<{ limit: number; before?: number }> = [];
+    const calls: { limit: number; before?: number }[] = [];
     const query = (input: { limit: number; before?: number }) =>
       Effect.sync(() => {
         calls.push(input);

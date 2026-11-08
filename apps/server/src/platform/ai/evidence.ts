@@ -27,13 +27,13 @@ interface CapturedDocument<Reference> {
 export function createEvidenceCatalog<Reference>(
   documents: readonly CapturedDocument<Reference>[]
 ) {
-  const entries: Array<{
+  const entries: {
     marker: number;
     reference: Reference;
     blockOrdinal: number;
     name: string;
     quote: string;
-  }> = [];
+  }[] = [];
   const seen = new Set<string>();
   let remaining = 100_000;
 

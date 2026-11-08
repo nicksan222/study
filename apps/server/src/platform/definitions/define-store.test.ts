@@ -398,7 +398,7 @@ testStable('transaction steps inherit the transaction span and emit safe timing'
   const { Context, Logger, Option, References, Tracer } = await import('effect');
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const entries: Array<{ annotations: unknown; span: unknown }> = [];
+  const entries: { annotations: unknown; span: unknown }[] = [];
   const logger = Logger.make((entry) => {
     entries.push({
       annotations: entry.fiber.getRef(References.CurrentLogAnnotations),

@@ -29,13 +29,13 @@ export function activeNoteTargets(
   scope: Pick<typeof noteContextIntentSchema.Type, 'throughMessageId' | 'threadRoot'> & {
     deferPendingAttachments?: boolean;
   } = {}
-): Array<typeof noteSelectionTargetSchema.Type> {
+): (typeof noteSelectionTargetSchema.Type)[] {
   const ids = tx.store(NoteMaterialMembershipStore).noteMaterialMembership({
     noteId,
     throughMessageId: scope.throughMessageId,
     threadRoot: scope.threadRoot
   });
-  const targets: Array<typeof noteSelectionTargetSchema.Type> = [];
+  const targets: (typeof noteSelectionTargetSchema.Type)[] = [];
 
   for (const id of ids.pages) {
     const owner = Pages.pageInTransaction(tx, { id });

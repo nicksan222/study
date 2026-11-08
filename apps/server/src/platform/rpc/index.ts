@@ -29,7 +29,7 @@ export const desktopOrigins = [
 export type RpcServerOptions<R extends Rpc.Any, E> = {
   group: RpcGroup.RpcGroup<R>;
   handlers: Layer.Layer<Rpc.ToHandler<R> | Rpc.Middleware<R> | Rpc.ServicesServer<R>, E>;
-  allowedOrigins?: ReadonlyArray<string>;
+  allowedOrigins?: readonly string[];
 };
 
 export function rpcRoutes<R extends Rpc.Any, E>(options: RpcServerOptions<R, E>) {

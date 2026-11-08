@@ -1130,7 +1130,7 @@ function resolveCombinedTargets(
   tx: Transaction,
   targets: typeof updateNoteSelectionSchema.Type.targets
 ) {
-  const grouped = new Map<string, Array<typeof resolvedSelectionSchema.Type>>();
+  const grouped = new Map<string, (typeof resolvedSelectionSchema.Type)[]>();
 
   for (const target of targets) {
     const resolved = resolveSelection(tx, target);
