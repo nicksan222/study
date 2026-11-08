@@ -20,10 +20,12 @@ import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
+import {
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const noteQuestionWorkflow = defineWorkflow({
   name: 'conversation-question',
@@ -41,36 +43,34 @@ export const noteQuestionHandler = ({ event }: typeof noteQuestionWorkflow.paylo
     const database = yield* Database;
     const { store } = database;
     const input = { messageId: event.messageId, expectedActiveVersionId: event.versionId };
-    const output = yield* retryResumableActivity(
-      defineActivity({
-        name: 'classify-question',
-        success: questionClassificationSchema,
+    const output = yield* resumableActivity({
+      name: 'classify-question',
+      success: questionClassificationSchema,
 
-        execute: function* () {
-          const snapshot = yield* c.questionSnapshot(input);
+      execute: function* () {
+        const snapshot = yield* c.questionSnapshot(input);
 
-          if (snapshot.manual) return { kind: snapshot.kind ?? 'undetermined' };
+        if (snapshot.manual) return { kind: snapshot.kind ?? 'undetermined' };
 
-          return yield* generateAgent(
-            questionAgent,
-            { text: snapshot.text },
-            {
-              maxRetries: 0,
-              preflight: c.questionSnapshot(input).pipe(
-                Effect.flatMap((s) =>
-                  s.manual
-                    ? Effect.fail(
-                        new StudyError('invalid_input', 'Question classification is manual')
-                      )
-                    : Effect.void
-                ),
-                Effect.provideService(Database, database)
-              )
-            }
-          );
-        }
-      })
-    );
+        return yield* generateAgent(
+          questionAgent,
+          { text: snapshot.text },
+          {
+            maxRetries: 0,
+            preflight: c.questionSnapshot(input).pipe(
+              Effect.flatMap((s) =>
+                s.manual
+                  ? Effect.fail(
+                      new StudyError('invalid_input', 'Question classification is manual')
+                    )
+                  : Effect.void
+              ),
+              Effect.provideService(Database, database)
+            )
+          }
+        );
+      }
+    });
 
     yield* publicationActivity(store, {
       name: 'publish-question',

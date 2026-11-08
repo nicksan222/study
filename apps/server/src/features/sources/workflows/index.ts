@@ -36,11 +36,14 @@ import { visionDocument } from '#server/features/sources/decoders/vision';
 import { Sources } from '#server/features/sources/service/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
+import {
+  defineActivity,
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { fetchPage } from '#server/platform/http/index';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const sourceIngestionWorkflow = defineWorkflow({
   name: 'source-ingestion',
@@ -74,26 +77,24 @@ export const sourceIngestionHandler = ({
     });
     const fetched =
       snapshot.kind === 'link'
-        ? yield* retryResumableActivity(
-            defineActivity({
-              name: 'fetch-source',
-              success: Schema.Struct({
-                url: Schema.String,
-                bytes: Schema.Uint8Array,
-                mime: Schema.String,
-                name: Schema.String
-              }),
+        ? yield* resumableActivity({
+            name: 'fetch-source',
+            success: Schema.Struct({
+              url: Schema.String,
+              bytes: Schema.Uint8Array,
+              mime: Schema.String,
+              name: Schema.String
+            }),
 
-              execute: function* () {
-                yield* currentRequest;
+            execute: function* () {
+              yield* currentRequest;
 
-                if (snapshot.uri === null)
-                  return yield* Effect.fail(new StudyError('invalid_input', 'Link has no URI'));
+              if (snapshot.uri === null)
+                return yield* Effect.fail(new StudyError('invalid_input', 'Link has no URI'));
 
-                return yield* fetchPage(snapshot.uri, { maxBytes: DEFAULT_MAX_BYTES });
-              }
-            })
-          )
+              return yield* fetchPage(snapshot.uri, { maxBytes: DEFAULT_MAX_BYTES });
+            }
+          })
         : null;
 
     /** Reconciles fetched MIME and sniffed content before choosing a decoder or PDF strategy. */
@@ -139,116 +140,114 @@ export const sourceIngestionHandler = ({
             )
           })
         : null;
-    const document = yield* retryResumableActivity(
-      defineActivity({
-        name: 'decode-source',
-        success: documentSchema,
+    const document = yield* resumableActivity({
+      name: 'decode-source',
+      success: documentSchema,
 
-        execute: function* () {
-          yield* currentRequest;
+      execute: function* () {
+        yield* currentRequest;
 
-          function isHtml() {
-            return decoderPath(input) === 'html';
-          }
+        function isHtml() {
+          return decoderPath(input) === 'html';
+        }
 
-          if (isHtml())
-            return yield* Effect.try({
-              try: () => {
-                checkInput(input.bytes, DEFAULT_MAX_BYTES);
-
-                return decodeHtml({ bytes: input.bytes, url: input.uri ?? undefined });
-              },
-              catch: (cause) =>
-                cause instanceof StudyError
-                  ? cause
-                  : new StudyError('internal', 'HTML decoding failed', { cause })
-            });
-
-          function isText() {
-            return decoderPath(input) === 'text';
-          }
-
-          if (isText())
-            return yield* Effect.try({
-              try: () => {
-                checkInput(input.bytes, DEFAULT_MAX_BYTES);
-
-                return decodeText(input);
-              },
-              catch: (cause) =>
-                cause instanceof StudyError
-                  ? cause
-                  : new StudyError('internal', 'Text decoding failed', { cause })
-            });
-
-          function isOffice() {
-            return decoderPath(input) === 'office';
-          }
-
-          if (isOffice()) {
-            const kind = input.kind as 'document' | 'slides';
-
-            return yield* Effect.tryPromise({
-              try: (signal) => {
-                checkInput(input.bytes, DEFAULT_MAX_BYTES, signal);
-
-                return decodeOffice({ bytes: input.bytes, kind }, signal);
-              },
-              catch: (cause) =>
-                cause instanceof StudyError
-                  ? cause
-                  : new StudyError('internal', 'Office decoding failed', { cause })
-            });
-          }
-
-          function isVision() {
-            return decoderPath(input) === 'vision';
-          }
-
-          if (!isVision())
-            return yield* Effect.fail(
-              new StudyError('unsupported', 'Source type cannot be processed')
-            );
-
-          if (input.kind === 'pdf') {
-            if (conversionStrategyId === null)
-              return yield* Effect.fail(
-                new StudyError('config', 'PDF conversion strategy is unavailable')
-              );
-
-            return yield* sources.convertDocument(
-              conversionStrategyId,
-              { kind: 'pdf', bytes: input.bytes },
-              {
-                generate: (definition, data) =>
-                  generateAgent(definition, data, { maxRetries: 0, preflight: currentRequest })
-              }
-            );
-          }
-
-          const pageCount = 1;
-
-          yield* currentRequest;
-          const result = yield* generateAgent(
-            visionTranscriptionAgent,
-            {
-              prompt: `Transcribe all ${pageCount} page(s) in order.`,
-              data: input.bytes,
-              mediaType: input.mime
-            },
-            { maxRetries: 0, preflight: currentRequest }
-          );
-
+        if (isHtml())
           return yield* Effect.try({
-            try: () => visionDocument(result.pages, pageCount),
+            try: () => {
+              checkInput(input.bytes, DEFAULT_MAX_BYTES);
+
+              return decodeHtml({ bytes: input.bytes, url: input.uri ?? undefined });
+            },
             catch: (cause) =>
               cause instanceof StudyError
                 ? cause
-                : new StudyError('internal', 'Vision decoding failed', { cause })
+                : new StudyError('internal', 'HTML decoding failed', { cause })
+          });
+
+        function isText() {
+          return decoderPath(input) === 'text';
+        }
+
+        if (isText())
+          return yield* Effect.try({
+            try: () => {
+              checkInput(input.bytes, DEFAULT_MAX_BYTES);
+
+              return decodeText(input);
+            },
+            catch: (cause) =>
+              cause instanceof StudyError
+                ? cause
+                : new StudyError('internal', 'Text decoding failed', { cause })
+          });
+
+        function isOffice() {
+          return decoderPath(input) === 'office';
+        }
+
+        if (isOffice()) {
+          const kind = input.kind as 'document' | 'slides';
+
+          return yield* Effect.tryPromise({
+            try: (signal) => {
+              checkInput(input.bytes, DEFAULT_MAX_BYTES, signal);
+
+              return decodeOffice({ bytes: input.bytes, kind }, signal);
+            },
+            catch: (cause) =>
+              cause instanceof StudyError
+                ? cause
+                : new StudyError('internal', 'Office decoding failed', { cause })
           });
         }
-      })
-    );
+
+        function isVision() {
+          return decoderPath(input) === 'vision';
+        }
+
+        if (!isVision())
+          return yield* Effect.fail(
+            new StudyError('unsupported', 'Source type cannot be processed')
+          );
+
+        if (input.kind === 'pdf') {
+          if (conversionStrategyId === null)
+            return yield* Effect.fail(
+              new StudyError('config', 'PDF conversion strategy is unavailable')
+            );
+
+          return yield* sources.convertDocument(
+            conversionStrategyId,
+            { kind: 'pdf', bytes: input.bytes },
+            {
+              generate: (definition, data) =>
+                generateAgent(definition, data, { maxRetries: 0, preflight: currentRequest })
+            }
+          );
+        }
+
+        const pageCount = 1;
+
+        yield* currentRequest;
+        const result = yield* generateAgent(
+          visionTranscriptionAgent,
+          {
+            prompt: `Transcribe all ${pageCount} page(s) in order.`,
+            data: input.bytes,
+            mediaType: input.mime
+          },
+          { maxRetries: 0, preflight: currentRequest }
+        );
+
+        return yield* Effect.try({
+          try: () => visionDocument(result.pages, pageCount),
+          catch: (cause) =>
+            cause instanceof StudyError
+              ? cause
+              : new StudyError('internal', 'Vision decoding failed', { cause })
+        });
+      }
+    });
 
     return yield* publishSource(event, document);
   }).pipe(noticeSourceFailure(event));

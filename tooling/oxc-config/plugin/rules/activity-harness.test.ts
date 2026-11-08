@@ -38,3 +38,21 @@ testStable('publication checkpoints centralize their guard wrapper', () => {
     ]
   );
 });
+
+testStable('durable retries use the checkpoint harness', () => {
+  assertDiagnostics(
+    'activity-harness',
+    lintRule('activity-harness', {
+      'src/features/notes/workflows/bad.ts':
+        "import {defineActivity} from '#server/platform/definitions/define-activity'; import {retryResumableActivity as retry} from '#server/platform/workflows/retry'; retry(defineActivity({name:'x', execute:work}));",
+      'src/features/notes/workflows/good.ts':
+        "import {resumableActivity} from '#server/platform/definitions/define-activity'; resumableActivity({name:'x', execute:function* () { yield* work; }});"
+    }),
+    [
+      [
+        'src/features/notes/workflows/bad.ts',
+        'Use resumableActivity to keep retry policy and checkpoint construction in one harness.'
+      ]
+    ]
+  );
+});

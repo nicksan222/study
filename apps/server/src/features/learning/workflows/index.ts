@@ -31,10 +31,13 @@ import { Materials } from '#server/features/materials/index';
 import { Settings } from '#server/features/settings/index';
 import { generateAgent } from '#server/platform/ai/agents';
 import { Database } from '#server/platform/database/database';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
+import {
+  defineActivity,
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const quizGradingWorkflow = defineWorkflow({
   name: 'quiz-grading',
@@ -49,28 +52,26 @@ export const quizGradingHandler = ({ event }: typeof quizGradingWorkflow.payload
   Effect.gen(function* () {
     const learning = yield* Learning;
     const { store } = yield* Database;
-    const grade = yield* retryResumableActivity(
-      defineActivity({
-        name: 'grade-answer',
-        success: gradeOutputSchema,
+    const grade = yield* resumableActivity({
+      name: 'grade-answer',
+      success: gradeOutputSchema,
 
-        execute: function* () {
-          const snapshot = yield* learning.gradingSnapshot(event);
+      execute: function* () {
+        const snapshot = yield* learning.gradingSnapshot(event);
 
-          return yield* generateAgent(
-            learningGradeAgent,
-            {
-              prompt: JSON.stringify({
-                question: snapshot.prompt,
-                reference: snapshot.referenceAnswer,
-                answer: snapshot.learnerAnswer
-              })
-            },
-            { maxRetries: 0, preflight: learning.gradingSnapshot(event).pipe(Effect.asVoid) }
-          );
-        }
-      })
-    );
+        return yield* generateAgent(
+          learningGradeAgent,
+          {
+            prompt: JSON.stringify({
+              question: snapshot.prompt,
+              reference: snapshot.referenceAnswer,
+              answer: snapshot.learnerAnswer
+            })
+          },
+          { maxRetries: 0, preflight: learning.gradingSnapshot(event).pipe(Effect.asVoid) }
+        );
+      }
+    });
 
     return yield* publicationActivity(store, {
       name: 'publish-grade',

@@ -53,13 +53,16 @@ import { Sources } from '#server/features/sources/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
+import {
+  defineActivity,
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
 import type { AgentEnvironment } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { impactToken } from '#server/platform/definitions/impact-token';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const noteReplyWorkflow = defineWorkflow({
   name: 'conversation-reply',
@@ -117,140 +120,138 @@ export const noteReplyHandler = ({ event }: typeof noteReplyWorkflow.payloadSche
       }).pipe(Effect.provide(Settings.layer))
     });
     const memory = yield* prepareAssistantContext(event.requestId);
-    const publication = yield* retryResumableActivity(
-      defineActivity({
-        name: 'generate-reply',
-        success: publishReplyInputSchema,
+    const publication = yield* resumableActivity({
+      name: 'generate-reply',
+      success: publishReplyInputSchema,
 
-        execute: function* () {
-          const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
+      execute: function* () {
+        const snapshot = yield* notes.replySnapshot({ requestId: event.requestId });
 
-          yield* validateReplyEvent(snapshot, event);
+        yield* validateReplyEvent(snapshot, event);
 
-          if (snapshot.context) yield* notes.noteContext({ requestId: snapshot.requestId });
+        if (snapshot.context) yield* notes.noteContext({ requestId: snapshot.requestId });
 
-          const conversion = replyConversion(snapshot);
+        const conversion = replyConversion(snapshot);
 
-          if (conversion) {
-            const preflight = notes
-              .replySnapshot({ requestId: event.requestId })
-              .pipe(Effect.asVoid, Effect.provideService(Database, database));
-            const publication = yield* convertCapturedMessage(snapshot, conversion, {
-              generate: (definition, input) =>
-                generateAgent(definition, input, { maxRetries: 0, preflight })
-            });
+        if (conversion) {
+          const preflight = notes
+            .replySnapshot({ requestId: event.requestId })
+            .pipe(Effect.asVoid, Effect.provideService(Database, database));
+          const publication = yield* convertCapturedMessage(snapshot, conversion, {
+            generate: (definition, input) =>
+              generateAgent(definition, input, { maxRetries: 0, preflight })
+          });
 
-            yield* preflight;
+          yield* preflight;
 
-            return publication;
-          }
+          return publication;
+        }
 
-          const catalog = selectionCatalog(snapshot);
-          const seen = new Set<string>();
+        const catalog = selectionCatalog(snapshot);
+        const seen = new Set<string>();
 
-          for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
-            const key = `${attachment.sourceId}:${attachment.revision}:${attachment.snapshotId}`;
+        for (const attachment of snapshot.messages.flatMap((message) => message.attachments)) {
+          const key = `${attachment.sourceId}:${attachment.revision}:${attachment.snapshotId}`;
 
-            if (seen.has(key)) continue;
+          if (seen.has(key)) continue;
 
-            seen.add(key);
-            const { document } = yield* sources
-              .extraction({
+          seen.add(key);
+          const { document } = yield* sources
+            .extraction({
+              sourceId: attachment.sourceId,
+              revision: attachment.revision,
+              snapshotId: attachment.snapshotId
+            })
+            .pipe(
+              Effect.mapError((error) =>
+                error.kind === 'not_found'
+                  ? new StudyError('invalid_input', 'Captured attachment is unavailable', {
+                      cause: error
+                    })
+                  : error
+              )
+            );
+
+          catalog.addDocument({
+            key,
+            name: attachment.sourceName,
+            reference: {
+              input: {
+                kind: 'source',
                 sourceId: attachment.sourceId,
                 revision: attachment.revision,
                 snapshotId: attachment.snapshotId
-              })
-              .pipe(
-                Effect.mapError((error) =>
-                  error.kind === 'not_found'
-                    ? new StudyError('invalid_input', 'Captured attachment is unavailable', {
-                        cause: error
-                      })
-                    : error
-                )
-              );
-
-            catalog.addDocument({
-              key,
-              name: attachment.sourceName,
-              reference: {
-                input: {
-                  kind: 'source',
-                  sourceId: attachment.sourceId,
-                  revision: attachment.revision,
-                  snapshotId: attachment.snapshotId
-                },
-                sourceId: attachment.sourceId,
-                documentId: attachment.snapshotId
               },
-              blocks: document.blocks
-            });
-          }
-
-          yield* notes.replySnapshot({ requestId: event.requestId });
-          const mode = yield* notes.noteMode(snapshot.noteId);
-          const noteScope = yield* notes.noteAssistantScope(snapshot.noteId);
-          const options = {
-            maxRetries: 0,
-            maxSteps: mode === NoteMode.Assistant ? 12 : 5,
-            preflight: notes
-              .replySnapshot({ requestId: event.requestId })
-              .pipe(
-                Effect.andThen(
-                  snapshot.context ? notes.noteContext({ requestId: event.requestId }) : Effect.void
-                ),
-                Effect.asVoid,
-                Effect.provideService(Database, database)
-              )
-          };
-          const agentServices = {
-            ...agents,
-            language: preferences.language ?? agents.language,
-            searchSources: (query: string) => Effect.sync(() => catalog.search(query)),
-            runTool: toolRunnerForReply(mode, notes, database, snapshot, agents.runTool)
-          };
-          const rewrite = rewriteGeneration(mode, snapshot);
-          const text = yield* (
-            rewrite
-              ? generateAgent(
-                  rewriteAgent,
-                  {
-                    messages: snapshot.messages.map((message) => ({
-                      role: message.role,
-                      content: message.text
-                    })),
-                    origin: rewrite.origin,
-                    instruction: rewrite.instruction,
-                    preferences
-                  },
-                  options
-                )
-              : generateAgent(
-                  replyAgentForMode(mode, Option.getOrUndefined(noteScope)),
-                  {
-                    messages: replyMessages(mode, snapshot, preferences, memory)
-                  },
-                  options
-                )
-          ).pipe(Effect.provideService(Agents, agentServices), Effect.provide(Settings.layer));
-          const citations =
-            mode === NoteMode.Assistant
-              ? []
-              : yield* Effect.try({
-                  try: () =>
-                    catalog
-                      .citations(text)
-                      .map(({ reference, ...citation }) => ({ ...citation, ...reference })),
-                  catch: (error) =>
-                    error instanceof StudyError
-                      ? error
-                      : new StudyError('invalid_input', 'Invalid citations', { cause: error })
-                });
-
-          return { requestId: event.requestId, text, citations };
+              sourceId: attachment.sourceId,
+              documentId: attachment.snapshotId
+            },
+            blocks: document.blocks
+          });
         }
-      })
-    );
+
+        yield* notes.replySnapshot({ requestId: event.requestId });
+        const mode = yield* notes.noteMode(snapshot.noteId);
+        const noteScope = yield* notes.noteAssistantScope(snapshot.noteId);
+        const options = {
+          maxRetries: 0,
+          maxSteps: mode === NoteMode.Assistant ? 12 : 5,
+          preflight: notes
+            .replySnapshot({ requestId: event.requestId })
+            .pipe(
+              Effect.andThen(
+                snapshot.context ? notes.noteContext({ requestId: event.requestId }) : Effect.void
+              ),
+              Effect.asVoid,
+              Effect.provideService(Database, database)
+            )
+        };
+        const agentServices = {
+          ...agents,
+          language: preferences.language ?? agents.language,
+          searchSources: (query: string) => Effect.sync(() => catalog.search(query)),
+          runTool: toolRunnerForReply(mode, notes, database, snapshot, agents.runTool)
+        };
+        const rewrite = rewriteGeneration(mode, snapshot);
+        const text = yield* (
+          rewrite
+            ? generateAgent(
+                rewriteAgent,
+                {
+                  messages: snapshot.messages.map((message) => ({
+                    role: message.role,
+                    content: message.text
+                  })),
+                  origin: rewrite.origin,
+                  instruction: rewrite.instruction,
+                  preferences
+                },
+                options
+              )
+            : generateAgent(
+                replyAgentForMode(mode, Option.getOrUndefined(noteScope)),
+                {
+                  messages: replyMessages(mode, snapshot, preferences, memory)
+                },
+                options
+              )
+        ).pipe(Effect.provideService(Agents, agentServices), Effect.provide(Settings.layer));
+        const citations =
+          mode === NoteMode.Assistant
+            ? []
+            : yield* Effect.try({
+                try: () =>
+                  catalog
+                    .citations(text)
+                    .map(({ reference, ...citation }) => ({ ...citation, ...reference })),
+                catch: (error) =>
+                  error instanceof StudyError
+                    ? error
+                    : new StudyError('invalid_input', 'Invalid citations', { cause: error })
+              });
+
+        return { requestId: event.requestId, text, citations };
+      }
+    });
 
     return yield* publicationActivity(store, {
       name: 'publish-reply',
@@ -512,69 +513,67 @@ function replyMessages(
 
 /** The checkpoint retains memory across provider retries without changing visible history. */
 function prepareAssistantContext(requestId: string) {
-  return retryResumableActivity(
-    defineActivity({
-      name: 'prepare-assistant-context',
-      success: Schema.NullOr(assistantMemorySchema),
+  return resumableActivity({
+    name: 'prepare-assistant-context',
+    success: Schema.NullOr(assistantMemorySchema),
 
-      execute: function* () {
-        const notes = yield* Notes;
-        const snapshot = yield* notes.replySnapshot({ requestId });
+    execute: function* () {
+      const notes = yield* Notes;
+      const snapshot = yield* notes.replySnapshot({ requestId });
 
-        if ((yield* notes.noteMode(snapshot.noteId)) !== NoteMode.Assistant) return null;
+      if ((yield* notes.noteMode(snapshot.noteId)) !== NoteMode.Assistant) return null;
 
-        const throughMessageId = snapshot.messages.at(-1)?.messageId;
+      const throughMessageId = snapshot.messages.at(-1)?.messageId;
 
-        if (throughMessageId === undefined) return null;
+      if (throughMessageId === undefined) return null;
 
-        const latestMemory = yield* notes.assistantMemory(snapshot.noteId);
+      const latestMemory = yield* notes.assistantMemory(snapshot.noteId);
 
-        if (memoryAfterQuestion(latestMemory, throughMessageId)) return null;
+      if (memoryAfterQuestion(latestMemory, throughMessageId)) return null;
 
-        const database = yield* Database;
-        let plan = yield* notes.assistantCompactionPlan({
+      const database = yield* Database;
+      let plan = yield* notes.assistantCompactionPlan({
+        noteId: snapshot.noteId,
+        throughMessageId
+      });
+
+      if (!needsCompaction(plan)) return plan.memory;
+
+      while (plan.characters > assistantContextBudget.keepRecent && plan.messages.length) {
+        const boundary = plan.messages.at(-1)!;
+        const summary = yield* generateAgent(
+          compactAssistantAgent,
+          {
+            previous: plan.memory?.summary ?? '',
+            messages: plan.messages.map(({ role, text }) => ({ role, text }))
+          },
+          {
+            maxRetries: 0,
+            preflight: notes
+              .replySnapshot({ requestId })
+              .pipe(Effect.asVoid, Effect.provideService(Database, database))
+          }
+        );
+        const now = yield* Clock.currentTimeMillis;
+
+        yield* withPublicationGuard(
+          database.store,
+          notes.saveAssistantMemory({
+            noteId: snapshot.noteId,
+            throughMessageId: boundary.messageId,
+            summary,
+            updatedAtMs: BigInt(now)
+          })
+        );
+        plan = yield* notes.assistantCompactionPlan({
           noteId: snapshot.noteId,
           throughMessageId
         });
-
-        if (!needsCompaction(plan)) return plan.memory;
-
-        while (plan.characters > assistantContextBudget.keepRecent && plan.messages.length) {
-          const boundary = plan.messages.at(-1)!;
-          const summary = yield* generateAgent(
-            compactAssistantAgent,
-            {
-              previous: plan.memory?.summary ?? '',
-              messages: plan.messages.map(({ role, text }) => ({ role, text }))
-            },
-            {
-              maxRetries: 0,
-              preflight: notes
-                .replySnapshot({ requestId })
-                .pipe(Effect.asVoid, Effect.provideService(Database, database))
-            }
-          );
-          const now = yield* Clock.currentTimeMillis;
-
-          yield* withPublicationGuard(
-            database.store,
-            notes.saveAssistantMemory({
-              noteId: snapshot.noteId,
-              throughMessageId: boundary.messageId,
-              summary,
-              updatedAtMs: BigInt(now)
-            })
-          );
-          plan = yield* notes.assistantCompactionPlan({
-            noteId: snapshot.noteId,
-            throughMessageId
-          });
-        }
-
-        return plan.memory;
       }
-    })
-  );
+
+      return plan.memory;
+    }
+  });
 }
 
 /** Reanswers share receipts with the immutable user question, preventing repeated side effects. */

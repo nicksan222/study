@@ -18,12 +18,12 @@ import { Effect, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';
 import { Database } from '#server/platform/database/database';
-import { defineActivity } from '#server/platform/definitions/define-activity';
+import { resumableActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
 import { WorkflowControl } from '#server/platform/workflows/control';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
-import { retryResumableActivity, settleWorkflowFailure } from '#server/platform/workflows/retry';
+import { settleWorkflowFailure } from '#server/platform/workflows/retry';
 
 export const materialDeletionWorkflow = defineWorkflow({
   name: 'material-deletion',
@@ -45,30 +45,28 @@ export const materialDeletionHandler = ({
 
     if (previous.status === 'completed' || previous.attempt !== event.attempt) return previous;
 
-    return yield* retryResumableActivity(
-      defineActivity({
-        name: 'retire-material-content',
-        success: materialDeletionSchema,
+    return yield* resumableActivity({
+      name: 'retire-material-content',
+      success: materialDeletionSchema,
 
-        execute: function* () {
-          const ids = yield* materials.materialDeletionExecutions(event.materialId);
+      execute: function* () {
+        const ids = yield* materials.materialDeletionExecutions(event.materialId);
 
-          for (const id of ids)
-            yield* control.cancel({
-              id: Schema.decodeUnknownSync(executionIdSchema)(id),
-              mode: 'unsafe'
-            });
+        for (const id of ids)
+          yield* control.cancel({
+            id: Schema.decodeUnknownSync(executionIdSchema)(id),
+            mode: 'unsafe'
+          });
 
-          return yield* withPublicationGuard(
-            store,
-            materials.finishMaterialDeletion({
-              materialId: event.materialId,
-              attempt: event.attempt
-            })
-          );
-        }
-      })
-    ).pipe(
+        return yield* withPublicationGuard(
+          store,
+          materials.finishMaterialDeletion({
+            materialId: event.materialId,
+            attempt: event.attempt
+          })
+        );
+      }
+    }).pipe(
       Effect.catchCause((cause) =>
         settleWorkflowFailure(cause, 'Material cleanup failed', (kind) =>
           materials.failMaterialDeletion({

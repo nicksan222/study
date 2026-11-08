@@ -18,7 +18,13 @@ import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
-import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
+import { Database } from '#server/platform/database/database';
+import {
+  defineActivity,
+  publicationActivity,
+  resumableActivity
+} from '#server/platform/definitions/define-activity';
+import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { PublicationGuard } from '#server/platform/workflows/publication';
 
@@ -148,3 +154,56 @@ testStable('publication checkpoints capture the real activity lease inside execu
     location.cleanup();
   }
 });
+
+testStable(
+  'resumable checkpoint keeps terminal failures and honors a zero retry budget',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    let calls = 0;
+    const workflow = Workflow.make('resumable-harness', {
+      payload: {},
+      success: Schema.String,
+      error: failureSchema,
+      idempotencyKey: () => 'one'
+    });
+    const activity = resumableActivity(
+      {
+        name: 'bounded',
+        success: Schema.String,
+        execute: function* () {
+          calls++;
+
+          return yield* Effect.fail(new StudyError('transient', 'retry budget exhausted'));
+        }
+      },
+      { maxRetries: 0 }
+    );
+
+    try {
+      const error = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
+
+            yield* engine.register(workflow, () => activity);
+
+            return yield* engine
+              .execute(workflow, { executionId: 'one', payload: {} })
+              .pipe(Effect.flip);
+          }).pipe(
+            Effect.provideService(Database, { store: context }),
+            Effect.provideService(WorkflowConfiguration, { revision: Effect.succeed('fixed') }),
+            Effect.provide(WorkflowEngine.layerMemory)
+          )
+        )
+      );
+
+      assert.strictEqual(error.kind, 'transient');
+      assert.strictEqual(calls, 1);
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);

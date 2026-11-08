@@ -178,6 +178,7 @@ export default defineRule({
         if (
           call?.type === 'CallExpression' &&
           (canonicalImport(context, call.callee, 'define-activity', 'defineActivity') ||
+            canonicalImport(context, call.callee, 'define-activity', 'resumableActivity') ||
             effects.resolve(call.callee)?.replace(/^(?:unstable\/)?workflow[./]/, '') ===
               'Activity.make')
         )
