@@ -48,7 +48,7 @@ export const suggestTransformField = (input: typeof transformSuggestionInputSche
     };
     const event = yield* notes.requestTransformSuggestion(input);
     const context = yield* notes.noteContext({ requestId: event.contextRequestId });
-    const execution = Effect.flatMap(WorkflowEngine.WorkflowEngine, (engine) =>
+    const execution = WorkflowEngine.WorkflowEngine.use((engine) =>
       engine.execute(transformSuggestionWorkflow, {
         executionId: triggeredExecutionId(event, {
           subscription: 'transform-suggestion',

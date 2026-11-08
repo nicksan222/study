@@ -42,6 +42,7 @@ import parameterizedSql from './rules/parameterized-sql.ts';
 import preserveErrorCause from './rules/preserve-error-cause.ts';
 import serverFileDescription from './rules/server-file-description.ts';
 import serverNoMocks from './rules/server-no-mocks.ts';
+import serviceAccess from './rules/service-access.ts';
 import serviceDefinition from './rules/service-definition.ts';
 import sharedErrorState from './rules/shared-error-state.ts';
 import sharedLoading from './rules/shared-loading.ts';
@@ -64,6 +65,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'service-access': serviceAccess,
     'validated-mutation': validatedMutation,
     'cleanup-harness': cleanupHarness,
     'activity-harness': activityHarness,

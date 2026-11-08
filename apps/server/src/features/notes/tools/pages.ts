@@ -32,7 +32,7 @@ export const pageTools = {
     output: s.pageListSchema,
     mutates: false,
     execute: (input: typeof r.listSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.pages(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.pages(input)).pipe(Effect.provide(Pages.layer))
   }),
   read_page: defineTool({
     description: 'Read page metadata and the current anchored body.',
@@ -46,7 +46,7 @@ export const pageTools = {
     output: s.detailSchema,
     mutates: false,
     execute: (input: typeof r.pageKeySchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.page(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.page(input)).pipe(Effect.provide(Pages.layer))
   }),
   create_page: defineTool({
     description: 'Create an authored page with a reusable creation key.',
@@ -78,7 +78,7 @@ export const pageTools = {
     output: e.editOutcomeSchema,
     mutates: true,
     execute: (input: typeof e.saveSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.save(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.save(input)).pipe(Effect.provide(Pages.layer))
   }),
   update_page_metadata: defineTool({
     description: 'Update page title and description with optimistic checks.',
@@ -92,9 +92,7 @@ export const pageTools = {
     output: s.detailSchema,
     mutates: true,
     execute: (input: typeof r.metadataSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.updateMetadata(input)).pipe(
-        Effect.provide(Pages.layer)
-      )
+      Pages.use((service) => service.updateMetadata(input)).pipe(Effect.provide(Pages.layer))
   }),
   archive_page: defineTool({
     description: 'Archive or unarchive a page.',
@@ -108,7 +106,7 @@ export const pageTools = {
     output: s.detailSchema,
     mutates: true,
     execute: (input: typeof r.archiveSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.archive(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.archive(input)).pipe(Effect.provide(Pages.layer))
   }),
   list_page_versions: defineTool({
     description: 'List immutable page versions.',
@@ -121,7 +119,7 @@ export const pageTools = {
     output: s.versionPageSchema,
     mutates: false,
     execute: (input: typeof r.versionsSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.versions(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.versions(input)).pipe(Effect.provide(Pages.layer))
   }),
   read_page_version: defineTool({
     description: 'Read a specific immutable page version.',
@@ -134,7 +132,7 @@ export const pageTools = {
     output: s.versionSchema,
     mutates: false,
     execute: (input: typeof r.versionKeySchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.version(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.version(input)).pipe(Effect.provide(Pages.layer))
   }),
   restore_page_version: defineTool({
     description: 'Restore an earlier page body as a new version.',
@@ -148,7 +146,7 @@ export const pageTools = {
     output: e.editOutcomeSchema,
     mutates: true,
     execute: (input: typeof e.restoreSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.restore(input)).pipe(Effect.provide(Pages.layer))
+      Pages.use((service) => service.restore(input)).pipe(Effect.provide(Pages.layer))
   }),
   link_page_subject: defineTool({
     description: 'Link an existing page to a subject.',
@@ -162,7 +160,7 @@ export const pageTools = {
     output: Schema.Boolean,
     mutates: true,
     execute: (input: typeof r.projectLinkSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.attachProject(input)).pipe(
+      Pages.use((service) => service.attachProject(input)).pipe(
         Effect.as(true),
         Effect.provide(Pages.layer)
       )
@@ -179,7 +177,7 @@ export const pageTools = {
     output: Schema.Boolean,
     mutates: true,
     execute: (input: typeof r.projectLinkSchema.Type) =>
-      Effect.flatMap(Pages, (service) => service.detachProject(input)).pipe(
+      Pages.use((service) => service.detachProject(input)).pipe(
         Effect.as(true),
         Effect.provide(Pages.layer)
       )

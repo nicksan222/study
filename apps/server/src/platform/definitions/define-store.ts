@@ -279,7 +279,7 @@ export type Transaction = {
 export function useStore<S extends { [readStore]: (context: ServerContext) => object }>(
   store: S
 ): Effect.Effect<ReturnType<S[typeof readStore]>, StudyError, Database> {
-  return Effect.flatMap(Database, ({ store: context }) =>
+  return Database.use(({ store: context }) =>
     Effect.try({
       try: () => store[readStore](context) as ReturnType<S[typeof readStore]>,
       catch: normalizeError
@@ -334,7 +334,7 @@ function transactionEffect<T>(
 ): Effect.Effect<T, StudyError, Database> {
   return observeOperation(
     'store.transaction',
-    Effect.flatMap(Database, ({ store: context }) =>
+    Database.use(({ store: context }) =>
       Effect.withFiber((fiber) =>
         Effect.try({
           try: () => runTransaction<T>(context, fiber.context, work, guard),
@@ -357,7 +357,7 @@ export function transaction<T>(
 export function publicationTransaction<T>(
   work: (tx: Transaction) => T & SyncResult<T>
 ): Effect.Effect<T, StudyError, Database | PublicationGuard> {
-  return Effect.flatMap(PublicationGuard, (guard) => transactionEffect<T>(work, guard));
+  return PublicationGuard.use((guard) => transactionEffect<T>(work, guard));
 }
 
 function assertCollectionLimit(decoded: unknown) {

@@ -125,7 +125,7 @@ export const Sources = defineService(
 
     return {
       conversionStrategies: () =>
-        Effect.flatMap(Settings, (settings) => settings.language()).pipe(
+        Settings.use((settings) => settings.language()).pipe(
           Effect.map((locale) => conversions.list(locale)),
           Effect.provide(Settings.layer)
         ),

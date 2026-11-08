@@ -124,7 +124,7 @@ export const sourceIngestionHandler = ({
             name: 'resolve-source-conversion-strategy',
             success: conversionStrategyIdSchema,
 
-            execute: Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+            execute: Settings.use((settings) => settings.workspacePreferences()).pipe(
               Effect.flatMap((preferences) =>
                 Effect.try({
                   try: () =>

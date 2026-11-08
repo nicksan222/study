@@ -32,7 +32,7 @@ export const noteTools = {
     output: r.notePageSchema,
     mutates: false,
     execute: (input: typeof r.notePageInputSchema.Type) =>
-      Effect.flatMap(Notes, (service) => service.notes(input)).pipe(Effect.provide(Notes.layer))
+      Notes.use((service) => service.notes(input)).pipe(Effect.provide(Notes.layer))
   }),
   read_note: defineTool({
     description: 'Read a notebook note title and subject memberships.',
@@ -46,9 +46,7 @@ export const noteTools = {
     output: noteSchema,
     mutates: false,
     execute: (input: typeof r.noteIdInputSchema.Type) =>
-      Effect.flatMap(Notes, (service) => service.notebookNote(input.id)).pipe(
-        Effect.provide(Notes.layer)
-      )
+      Notes.use((service) => service.notebookNote(input.id)).pipe(Effect.provide(Notes.layer))
   }),
   create_note: defineTool({
     description: 'Create a named notebook note or reuse an exact name in the same subject.',
@@ -62,9 +60,7 @@ export const noteTools = {
     output: noteSchema,
     mutates: true,
     execute: (input: typeof r.createNoteInputSchema.Type) =>
-      Effect.flatMap(Notes, (service) => service.ensureNote(input)).pipe(
-        Effect.provide(Notes.layer)
-      )
+      Notes.use((service) => service.ensureNote(input)).pipe(Effect.provide(Notes.layer))
   }),
   rename_note: defineTool({
     description: 'Rename an existing notebook note.',
@@ -78,7 +74,7 @@ export const noteTools = {
     output: noteSchema,
     mutates: true,
     execute: (input: typeof r.renameNoteInputSchema.Type) =>
-      Effect.flatMap(Notes, (service) =>
+      Notes.use((service) =>
         service.notebookNote(input.id).pipe(Effect.andThen(service.renameNote(input)))
       ).pipe(Effect.provide(Notes.layer))
   }),
@@ -94,7 +90,7 @@ export const noteTools = {
     output: r.threadPageSchema,
     mutates: false,
     execute: (input: typeof r.threadInputSchema.Type) =>
-      Effect.flatMap(Notes, (service) =>
+      Notes.use((service) =>
         service.notebookNote(input.noteId).pipe(Effect.andThen(service.thread(input)))
       ).pipe(Effect.provide(Notes.layer))
   }),

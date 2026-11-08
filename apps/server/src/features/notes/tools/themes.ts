@@ -36,7 +36,7 @@ export const themeTools = {
     output: themePageSchema,
     mutates: false,
     execute: (input) =>
-      Effect.flatMap(Themes, (service) => service.themes(input)).pipe(Effect.provide(Themes.layer))
+      Themes.use((service) => service.themes(input)).pipe(Effect.provide(Themes.layer))
   }),
   read_theme: defineTool({
     description: 'Read the full definition of a theme.',
@@ -49,7 +49,7 @@ export const themeTools = {
     output: themeFileSchema,
     mutates: false,
     execute: ({ id }) =>
-      Effect.flatMap(Themes, (service) => service.theme(id)).pipe(Effect.provide(Themes.layer))
+      Themes.use((service) => service.theme(id)).pipe(Effect.provide(Themes.layer))
   }),
   selected_theme: defineTool({
     description: 'Read the selected theme ID, or null for the default.',
@@ -62,9 +62,7 @@ export const themeTools = {
     output: Schema.NullOr(Schema.String),
     mutates: false,
     execute: () =>
-      Effect.flatMap(Themes, (service) => service.selectedTheme()).pipe(
-        Effect.provide(Themes.layer)
-      )
+      Themes.use((service) => service.selectedTheme()).pipe(Effect.provide(Themes.layer))
   }),
   select_theme: defineTool({
     description: 'Select an existing theme, or restore the default using null.',
@@ -77,7 +75,7 @@ export const themeTools = {
     output: Schema.Boolean,
     mutates: true,
     execute: (input) =>
-      Effect.flatMap(Themes, (service) => service.selectTheme(input)).pipe(
+      Themes.use((service) => service.selectTheme(input)).pipe(
         Effect.as(true),
         Effect.provide(Themes.layer)
       )
@@ -94,7 +92,7 @@ export const themeTools = {
     output: themeFileSchema,
     mutates: true,
     execute: (theme) =>
-      Effect.flatMap(Themes, (service) => service.saveTheme({ json: serializeTheme(theme) })).pipe(
+      Themes.use((service) => service.saveTheme({ json: serializeTheme(theme) })).pipe(
         Effect.provide(Themes.layer)
       )
   }),
@@ -110,7 +108,7 @@ export const themeTools = {
     output: Schema.Boolean,
     mutates: true,
     execute: (input) =>
-      Effect.flatMap(Themes, (service) => service.deleteTheme(input)).pipe(
+      Themes.use((service) => service.deleteTheme(input)).pipe(
         Effect.as(true),
         Effect.provide(Themes.layer)
       )

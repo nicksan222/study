@@ -137,7 +137,7 @@ function mentionsAssistant(text: string) {
 }
 
 function readWorkspacePreferences() {
-  return Effect.flatMap(Settings, (settings) => settings.workspacePreferences()).pipe(
+  return Settings.use((settings) => settings.workspacePreferences()).pipe(
     Effect.provide(Settings.layer)
   );
 }
@@ -533,7 +533,7 @@ export const Notes = defineService(
       publishReply: (input: typeof publishReplyInputSchema.Type) =>
         Effect.gen(function* () {
           const preferences = yield* readWorkspacePreferences();
-          const language = yield* Effect.flatMap(Settings, (settings) => settings.language()).pipe(
+          const language = yield* Settings.use((settings) => settings.language()).pipe(
             Effect.provide(Settings.layer)
           );
 

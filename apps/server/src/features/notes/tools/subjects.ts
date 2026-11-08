@@ -30,9 +30,7 @@ export const subjectTools = {
     output: inputs.projectPageSchema,
     mutates: false,
     execute: (input: typeof inputs.projectPageInputSchema.Type) =>
-      Effect.flatMap(Projects, (service) => service.projects(input)).pipe(
-        Effect.provide(Projects.layer)
-      )
+      Projects.use((service) => service.projects(input)).pipe(Effect.provide(Projects.layer))
   }),
   read_subject: defineTool({
     description: 'Read a subject by its exact ID.',
@@ -45,9 +43,7 @@ export const subjectTools = {
     output: projectSchema,
     mutates: false,
     execute: ({ id }: typeof inputs.projectIdInputSchema.Type) =>
-      Effect.flatMap(Projects, (service) => service.project(id)).pipe(
-        Effect.provide(Projects.layer)
-      )
+      Projects.use((service) => service.project(id)).pipe(Effect.provide(Projects.layer))
   }),
   create_subject: defineTool({
     description:
@@ -62,9 +58,7 @@ export const subjectTools = {
     output: projectSchema,
     mutates: true,
     execute: (input: typeof inputs.createProjectInputSchema.Type) =>
-      Effect.flatMap(Projects, (service) => service.ensureProject(input)).pipe(
-        Effect.provide(Projects.layer)
-      )
+      Projects.use((service) => service.ensureProject(input)).pipe(Effect.provide(Projects.layer))
   }),
   rename_subject: defineTool({
     description: 'Rename an existing subject.',
@@ -77,9 +71,7 @@ export const subjectTools = {
     output: Schema.Boolean,
     mutates: true,
     execute: (input: typeof inputs.renameProjectInputSchema.Type) =>
-      Effect.flatMap(Projects, (service) => service.renameProject(input)).pipe(
-        Effect.provide(Projects.layer)
-      )
+      Projects.use((service) => service.renameProject(input)).pipe(Effect.provide(Projects.layer))
   }),
   set_subject_exam: defineTool({
     description: 'Set or clear the exam date of a subject.',
@@ -93,9 +85,7 @@ export const subjectTools = {
     output: Schema.Boolean,
     mutates: true,
     execute: (input: typeof inputs.setExamInputSchema.Type) =>
-      Effect.flatMap(Projects, (service) => service.setExam(input)).pipe(
-        Effect.provide(Projects.layer)
-      )
+      Projects.use((service) => service.setExam(input)).pipe(Effect.provide(Projects.layer))
   }),
   set_subject_icon: defineTool({
     description: 'Change a subject’s icon and color.',
@@ -109,8 +99,6 @@ export const subjectTools = {
     output: projectSchema,
     mutates: true,
     execute: (input: typeof inputs.setProjectIconInputSchema.Type) =>
-      Effect.flatMap(Projects, (service) => service.setIcon(input)).pipe(
-        Effect.provide(Projects.layer)
-      )
+      Projects.use((service) => service.setIcon(input)).pipe(Effect.provide(Projects.layer))
   })
 } as const;
