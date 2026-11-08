@@ -63,7 +63,7 @@ export async function backupFixture(t?: TestContext) {
     const started = performance.now();
 
     return App.open({
-      path: location.path,
+      path: location.prepare(),
       onPhase: (phase) =>
         console.debug(
           `study-test-phase:fixture-startup:${phase} elapsedMs=${Math.round(performance.now() - started)}`

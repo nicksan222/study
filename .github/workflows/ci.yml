@@ -19,7 +19,7 @@ env:
 
 jobs:
   gates:
-    name: 📦 Package checks
+    name: 🦀 Native and package checks
     runs-on: ubuntu-24.04
     steps:
       - name: 📥 Check out repository
@@ -42,17 +42,12 @@ jobs:
       - name: 🎨 Check formatting
         id: format
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just fmt-check
+        run: cargo fmt --all -- --check
 
-      - name: 🔎 Lint Rust and TypeScript
+      - name: 🔎 Lint Rust
         id: lint
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just lint
-
-      - name: 🌱 Check dead code, complexity and duplication
-        id: fallow
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just fallow-check
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: 🛡️ Audit Rust dependencies
         id: dependencies
@@ -64,25 +59,10 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: npm run server:typecheck
 
-      - name: 🧩 Type-check web and tooling
-        id: frontend_types
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run typecheck
-
-      - name: 🖼️ Test web, UI and localization components
-        id: frontend_tests
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run test
-
       - name: 🦀 Test native shell and Rust doctests
         id: native_tests
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just test
-
-      - name: 🛠️ Test development, desktop and release tooling
-        id: tooling_tests
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just tooling-test
 
       - name: 🗃️ Check generated database schema
         id: generated
@@ -93,12 +73,6 @@ jobs:
         id: docs
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: just docs
-
-      - name: 📦 Build web app
-        id: frontend_build
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        # Type checking already ran above; the root build repeats it.
-        run: npm exec -- vp run --fail-if-no-match --filter @study/web build
 
       - name: 🥟 Smoke-test the packaged Bun server
         id: runtime
@@ -126,17 +100,12 @@ jobs:
             'setup': '🧰 Setup',
             'shell': '🐚 Check shell scripts',
             'format': '🎨 Check formatting',
-            'lint': '🔎 Lint Rust and TypeScript',
-            'fallow': '🌱 Check dead code, complexity and duplication',
+            'lint': '🔎 Lint Rust',
             'dependencies': '🛡️ Audit Rust dependencies',
             'server_types': '🧩 Type-check server packages',
-            'frontend_types': '🧩 Type-check web and tooling',
-            'frontend_tests': '🖼️ Test web, UI and localization components',
             'native_tests': '🦀 Test native shell and Rust doctests',
-            'tooling_tests': '🛠️ Test development, desktop and release tooling',
             'generated': '🗃️ Check generated database schema',
             'docs': '📚 Build Rust documentation',
-            'frontend_build': '📦 Build web app',
             'runtime': '🥟 Smoke-test the packaged Bun server',
             'landing': '🌍 Check landing page',
           }
@@ -149,9 +118,64 @@ jobs:
                   summary.write(f'| {label} | {icons.get(outcome, "❔")} {outcome} |\n')
           PYTHON
 
-  server_tests:
-    name: 🧪 Server tests
+  javascript:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: 🔎 Oxlint, formatting and Fallow
+            task: lint
+            command: npm run lint && npm run fallow:check
+          - name: 🖼️ Web checks
+            task: web
+            command: npm run typecheck && npm run test && npm exec -- vp run --fail-if-no-match --filter @study/web build
+          - name: 🛠️ Tooling tests
+            task: tooling
+            command: just tooling-test
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      # These checks do not need Rust or the Linux GUI toolchain.
+      - name: 💚 Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26.8.2
+          cache: npm
+      - name: 🥟 Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      - name: 📦 Install workspace dependencies
+        env:
+          ONNXRUNTIME_NODE_INSTALL: skip
+        run: npm ci --no-fund --no-audit
+      - name: 🌍 Install landing dependencies for Fallow
+        if: matrix.task == 'lint'
+        working-directory: apps/landing
+        run: bun install --frozen-lockfile
+      - name: ⚙️ Install tooling test dependencies
+        if: matrix.task == 'tooling'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: just@1.40.0
+      - name: 🔏 Install release test dependency
+        if: matrix.task == 'tooling'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
+      - name: 🧪 Run checks
+        run: ${{ matrix.command }}
+
+  server_tests:
+    name: 🧪 Server tests (${{ matrix.shard }}/2)
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      # RAM-backed real files preserve WAL, locking, backup and process-restart coverage.
+      TMPDIR: /dev/shm
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -168,7 +192,7 @@ jobs:
         run: npm ci --no-fund --no-audit
       - name: 🧪 Test server, AI, database and localization
         timeout-minutes: 10
-        run: npm run server:test
+        run: npm run server:test -- --shard=${{ matrix.shard }}/2
 
   integrations:
     name: 🔌 Real integration tests
@@ -191,7 +215,7 @@ jobs:
   check:
     # Required by the main branch ruleset; keep this name.
     name: Test and build
-    needs: [gates, server_tests, integrations]
+    needs: [gates, javascript, server_tests, integrations]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
     steps:
@@ -206,7 +230,7 @@ jobs:
 
           results = json.loads(os.environ['RESULTS'])
           icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
-          labels = {'gates': '📦 Package checks', 'server_tests': '🧪 Server tests', 'integrations': '🔌 Real integration tests'}
+          labels = {'gates': '🦀 Native and package checks', 'javascript': '🔎 JavaScript checks', 'server_tests': '🧪 Server tests', 'integrations': '🔌 Real integration tests'}
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write('## 🏁 Study CI\n\n| Check | Result |\n| :--- | :--- |\n')
               for name, job in results.items():
