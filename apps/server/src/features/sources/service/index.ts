@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
-import type { ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type { ProjectId, NoteId, SourceId } from '@study/contracts/ids';
 import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import type {
   importCapabilityInputSchema,
@@ -48,7 +48,7 @@ import {
   SourceExtractionsStore,
   SourceRevisionExportsStore,
   CurrentExtractionStore,
-  SessionSourcesStore
+  NoteSourcesStore
 } from '#server/features/sources/store/exact-extraction';
 import {
   SourceHistoryStore,
@@ -92,7 +92,7 @@ export const Sources = defineService(
     const extractions = yield* useStore(SourceExtractionsStore);
     const revisions = yield* useStore(SourceRevisionExportsStore);
     const currentExtraction = yield* useStore(CurrentExtractionStore);
-    const sessionSources = yield* useStore(SessionSourcesStore);
+    const noteSources = yield* useStore(NoteSourcesStore);
 
     const exports = yield* useStore(SourceExportStore);
 
@@ -177,10 +177,10 @@ export const Sources = defineService(
         sources.source(v.sourceId).pipe(Effect.andThen(extractions.extractions(v))),
       exportRevision: (v: Parameters<typeof revisions.revisionExport>[0]) =>
         sources.source(v.sourceId).pipe(Effect.andThen(revisions.revisionExport(v))),
-      sessionSources: sessionSources.sessionSources,
-      sessionSourceExtraction: (v: typeof sourceLinkSchema.Type) =>
+      noteSources: noteSources.noteSources,
+      noteSourceExtraction: (v: typeof sourceLinkSchema.Type) =>
         transaction((tx) => {
-          tx.store(SessionSourcesStore).sessionSource(v);
+          tx.store(NoteSourcesStore).noteSource(v);
 
           return Option.getOrNull(
             tx.store(CurrentExtractionStore).findCurrentExtraction({ id: v.sourceId })
@@ -189,10 +189,10 @@ export const Sources = defineService(
       attachSource: (v: typeof sourceLinkSchema.Type) =>
         transaction((tx) => {
           tx.store(SourceStore).source(v.sourceId);
-          tx.store(SessionSourcesStore).attachSource(v);
+          tx.store(NoteSourcesStore).attachSource(v);
         }),
       detachSource: (v: typeof sourceLinkSchema.Type) =>
-        transaction((tx) => tx.store(SessionSourcesStore).detachSource(v)),
+        transaction((tx) => tx.store(NoteSourcesStore).detachSource(v)),
       sourceSnapshot: snapshots.sourceSnapshot,
       sourceDocument: documents.sourceDocument,
       document: historical.document,
@@ -236,7 +236,7 @@ export const Sources = defineService(
 
         projectId: ProjectId | null;
 
-        sessionId: SessionId;
+        noteId: NoteId;
 
         name: string;
 
@@ -540,15 +540,15 @@ export const Sources = defineService(
 
       return tx.store(SourceExtractionsStore).extraction(v);
     },
-    archiveSessionInTransaction: (
+    archiveNoteInTransaction: (
       tx: Transaction,
       v: typeof sourceLinkSchema.Type & { archivedAt: bigint | null }
-    ) => tx.store(SessionSourcesStore).archiveSession(v),
+    ) => tx.store(NoteSourcesStore).archiveNote(v),
     conversionStrategy: conversions.describe,
     conversionStrategyForInput: conversions.forInput,
     attachInTransaction: (tx: Transaction, v: typeof sourceLinkSchema.Type) => {
       tx.store(SourceStore).source(v.sourceId);
-      tx.store(SessionSourcesStore).attachSource(v);
+      tx.store(NoteSourcesStore).attachSource(v);
     },
     validateBackup: (tx: Transaction) => tx.store(SourceBackupStore).backupAsset(undefined)
   }

@@ -20,11 +20,11 @@ testStable('drops malformed IDs and unknown URL state', () => {
 testStable(
   'keeps authored and learning version references separate without losing bigint precision',
   () => {
-    expect(validateSearch({ documentVersion: '9007199254740993', version: '7' })).toEqual({
-      documentVersion: '9007199254740993',
+    expect(validateSearch({ pageVersion: '9007199254740993', version: '7' })).toEqual({
+      pageVersion: '9007199254740993',
       version: '7'
     });
-    expect(() => validateSearch({ documentVersion: '9223372036854775808' })).toThrow();
+    expect(() => validateSearch({ pageVersion: '9223372036854775808' })).toThrow();
   }
 );
 

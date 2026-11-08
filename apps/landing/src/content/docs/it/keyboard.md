@@ -1,6 +1,6 @@
 ---
 title: Scorciatoie da tastiera
-description: Salva appunti, ritrova sessioni e ripassa le carte dalla tastiera.
+description: Salva appunti, ritrova note e ripassa le carte dalla tastiera.
 section: reference
 order: 2
 ---
@@ -14,7 +14,7 @@ Su macOS usa Cmd dove le tabelle indicano Cmd/Ctrl; su Linux e Windows usa Ctrl.
 | Mostrare la barra laterale e attivare la ricerca    | Cmd/Ctrl K |
 | Cancellare il campo di ricerca della barra laterale | Esc        |
 
-## Scrittura nella sessione
+## Scrittura nella nota
 
 | Azione                  | Tasti          |
 | ----------------------- | -------------- |
@@ -43,4 +43,4 @@ Le scorciatoie non interrompono la scrittura in un campo modificabile. Puoi anch
 
 Le domande di abbinamento usano i loro comandi visibili al posto della scorciatoia per le opzioni numerate. Usa **Avanti** per proseguire dopo il commento.
 
-Vedi [sessioni](../sessions/), [flashcard](../flashcards/) ed [esercitazioni](../practice/) per i percorsi completi.
+Vedi [note](../notes/), [flashcard](../flashcards/) ed [esercitazioni](../practice/) per i percorsi completi.

@@ -155,8 +155,8 @@ testStable(
   INSERT INTO blocks(document_id,ordinal,editing_id,kind,content,text,anchor) SELECT id,0,'block-'||id,'paragraph','{"type":"paragraph","inlines":[{"type":"text","text":"Evidence","marks":[]}]}','Evidence','{"type":"paragraph","index":0}' FROM content_snapshots;
   INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(1,1,1),(2,1,3);
   INSERT INTO source_processing(source_id,revision,request_id,published_request_id,document_id) VALUES(1,1,'current','current',2);
-  INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Session','user',1,1);
-  INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
+  INSERT INTO notes(id,title,title_source,created_at,updated_at) VALUES(1,'Note','user',1,1);
+  INSERT INTO messages(id,note_id,role,created_at) VALUES(1,1,'assistant',1),(2,1,'assistant',1),(3,1,'assistant',1);
   INSERT INTO message_versions(id,message_id,number,origin,status,created_at) VALUES(1,1,1,'answer','pending',1),(2,2,1,'answer','pending',1),(3,3,1,'answer','pending',1);`);
 
       for (const [requestId, versionId, sourceId, snapshotId] of [
@@ -165,26 +165,26 @@ testStable(
         ['wrong-document', 3, '1', '2']
       ] as const)
         db.orm.run(
-          dbSql`INSERT INTO conversation_reply_requests(request_id,session_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ messages: [{ attachments: [{ partId: '1', sourceId, revision: '1', snapshotId }] }] })})`
+          dbSql`INSERT INTO note_reply_requests(request_id,note_id,version_id,snapshot) VALUES(${requestId},1,${versionId},${JSON.stringify({ messages: [{ attachments: [{ partId: '1', sourceId, revision: '1', snapshotId }] }] })})`
         );
 
       db.exec(
-        "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('exact',1,1,1,1)"
+        "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('exact',1,1,1,1)"
       );
       assert.throws(() =>
         db.exec(
-          "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-source',1,2,1,1)"
+          "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-source',1,2,1,1)"
         )
       );
       assert.throws(() =>
         db.exec(
-          "INSERT INTO conversation_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-document',1,1,1,1)"
+          "INSERT INTO note_reply_sources(request_id,part_id,source_id,revision,snapshot_id) VALUES('wrong-document',1,1,1,1)"
         )
       );
 
       for (const statement of [
-        "UPDATE conversation_reply_sources SET snapshot_id=2 WHERE request_id='exact'",
-        "DELETE FROM conversation_reply_sources WHERE request_id='exact'",
+        "UPDATE note_reply_sources SET snapshot_id=2 WHERE request_id='exact'",
+        "DELETE FROM note_reply_sources WHERE request_id='exact'",
         'DELETE FROM source_extraction_revisions WHERE snapshot_id=1',
         'DELETE FROM content_snapshots WHERE id=1',
         'DELETE FROM content_snapshots WHERE id=2',
@@ -193,7 +193,7 @@ testStable(
         assert.throws(() => db.exec(statement));
 
       db.exec(
-        'DELETE FROM sessions WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
+        'DELETE FROM notes WHERE id=1; DELETE FROM source_extraction_revisions WHERE snapshot_id=1; DELETE FROM content_snapshots WHERE id=1'
       );
       assert.strictEqual(db.orm.get(dbSql`SELECT 1 FROM content_snapshots WHERE id=1`), undefined);
       assert.strictEqual(

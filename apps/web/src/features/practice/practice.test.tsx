@@ -457,7 +457,7 @@ testStable(
     const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
       ...rpc.fixture.latestPublishedVersion,
       inputs: [
-        { kind: 'document', versionId: 8n },
+        { kind: 'page', versionId: 8n },
         { kind: 'source', sourceId: 7n, revision: 1n, snapshotId: 9n }
       ]
     });
@@ -469,10 +469,10 @@ testStable(
     await screen.findByRole('button', { name: en.PracticeStartQuiz });
     expect(screen.queryByRole('combobox', { name: en.QuizQuestionCount })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: en.PracticeActions }));
-    expect(await screen.findByText(en.PracticeSourceDocuments)).toBeInTheDocument();
+    expect(await screen.findByText(en.PracticeSourcePages)).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Material 41' })).toHaveAttribute(
       'href',
-      '/documents/41?documentVersion=8'
+      '/pages/41?pageVersion=8'
     );
     expect(
       within(screen.getByRole('complementary', { name: en.PracticeActions })).queryByRole(
@@ -480,7 +480,7 @@ testStable(
         { name: en.PracticeArchived }
       )
     ).not.toBeInTheDocument();
-    expect(rpc['documents.version']).toHaveBeenCalledWith({ id: 8n });
+    expect(rpc['pages.version']).toHaveBeenCalledWith({ id: 8n });
     expect(rpc['sources.source']).not.toHaveBeenCalled();
   }
 );

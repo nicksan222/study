@@ -1,10 +1,10 @@
-import type { ProjectId, SessionId, StudyDocumentId, SourceId } from '@study/contracts/ids';
+import type { ProjectId, NoteId, PageId, SourceId } from '@study/contracts/ids';
 import type { integrationImportIdSchema } from '@study/contracts/integrations/schemas';
 
 import { defineTable, text, integer, check, sql, index, primaryKey } from '../schema-builder.ts';
-import { sessions } from './conversations.ts';
+import { notes } from './notes.ts';
+import { pages } from './pages.ts';
 import { projects, sources } from './sources.ts';
-import { study_documents } from './study-documents.ts';
 
 /** Validated immutable transfer input and durable import progress; Workflow owns execution. */
 export const integration_imports = defineTable({
@@ -80,10 +80,10 @@ export const integration_receipts = defineTable({
     .notNull()
     .$type<typeof integrationImportIdSchema.Type>()
     .references(() => integration_imports.id),
-  session_id: integer()
-    .$type<SessionId>()
-    .references(() => sessions.id, { onDelete: 'set null' }),
-  document_id: integer()
-    .$type<StudyDocumentId>()
-    .references(() => study_documents.id, { onDelete: 'set null' })
+  note_id: integer()
+    .$type<NoteId>()
+    .references(() => notes.id, { onDelete: 'set null' }),
+  page_id: integer()
+    .$type<PageId>()
+    .references(() => pages.id, { onDelete: 'set null' })
 });

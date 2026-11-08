@@ -86,7 +86,7 @@ export const IntegrationImportsStore = defineStore({
             })
             .run();
 
-          for (const note of plan.sessions)
+          for (const note of plan.notes)
             db.orm
               .insert(integration_import_notes)
               .values({

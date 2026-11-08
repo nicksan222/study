@@ -1,28 +1,28 @@
-/** Marketing copy for the session → document → practice workflow, in both shipped languages. */
+/** Marketing copy for the note → page → practice workflow, in both shipped languages. */
 const english = {
   docsScreenshotOpen: 'Open full-resolution screenshot',
   docsNavigation: {
-    lead: 'Capture notes and sources in sessions, shape them into documents, then practise what you learned. Follow the workflow or jump to the guide you need.',
+    lead: 'Capture ideas and sources in notes, shape them into pages, then practise what you learned. Follow the workflow or jump to the guide you need.',
     sections: {
       start: 'Get started',
       capture: 'Capture material',
-      documents: 'Create documents',
+      pages: 'Create pages',
       practice: 'Practice',
       reference: 'Reference'
     },
     descriptions: {
-      start: 'Install Study and take your first session through to practice.',
+      start: 'Install Study and take your first note through to practice.',
       capture: 'Collect notes and sources, ask questions and check the evidence.',
-      documents: 'Turn saved sessions into documents and refine your study notes.',
-      practice: 'Generate exercises and flashcards from the documents you choose.',
+      pages: 'Turn saved notes into pages and refine your study notes.',
+      practice: 'Generate exercises and flashcards from the pages you choose.',
       reference: 'Find saved work, use shortcuts and manage settings, data and background work.'
     }
   },
   heroLead:
-    'Capture a session. Make sense of it in a document. Turn what you learn into flashcards, diagrams and practice. All from your own material.',
+    'Capture a note. Make sense of it in a page. Turn what you learn into flashcards, diagrams and practice. All from your own material.',
   explore: 'See how it works',
   previewLabels: {
-    document: 'Document reader, showing sample notes about mitosis.',
+    page: 'Page reader, showing sample notes about mitosis.',
     source: 'Source reader, showing two passages from a sample mitosis lecture.',
     quiz: 'Practice question about prometaphase, with four answer choices.',
     flashcards: 'Flashcard material preview, showing a question and answer about prophase.',
@@ -34,29 +34,29 @@ const english = {
     lead: 'From the first messy thought to the question you finally get right. One connected place for the whole process.',
     steps: [
       {
-        title: 'Capture it in a session.',
+        title: 'Capture it in a note.',
         body: 'Write as you think. Bring your files, record a lecture and ask questions without leaving your notebook.',
         link: 'Bring your material',
         target: 'docs/sources/'
       },
       {
-        title: 'Turn it into a document.',
-        body: 'Choose the notes and sources that matter. Combine them into a clear document, then summarize, expand, translate or refine it.',
+        title: 'Turn it into a page.',
+        body: 'Choose the notes and sources that matter. Combine them into a clear page, then summarize, expand, translate or refine it.',
         link: 'See the transformation',
-        target: '#workflow-document'
+        target: '#workflow-page'
       },
       {
         title: 'Make it something you remember.',
-        body: 'Use your sessions and documents to create flashcards, diagrams and quizzes. Go from reading an explanation to recalling it yourself.',
+        body: 'Use your notes and pages to create flashcards, diagrams and quizzes. Go from reading an explanation to recalling it yourself.',
         link: 'Try the study tools',
         target: '#learn'
       }
     ],
-    note: 'same ideas, a little clearer',
-    session: 'Session · Cell biology',
+    annotation: 'same ideas, a little clearer',
+    note: 'Note · Cell biology',
     inputs: ['My lecture notes', 'slides-mitosis.pdf', 'A question about prophase'],
     transform: 'Combine & clarify',
-    document: 'Document',
+    page: 'Page',
     titleSample: 'Making sense of mitosis',
     intro:
       'Mitosis separates duplicated chromosomes into two daughter nuclei. The process has four main phases.',
@@ -74,13 +74,13 @@ const english = {
     lead: 'A place to collect, connect, understand and practise. With the details that make it yours.',
     items: [
       {
-        title: 'A notebook for every session',
+        title: 'A notebook for every note',
         body: 'Notes, attachments, recordings and questions together. Edit your writing, improve it, or revisit an earlier version.',
         detail: 'Write · Record · Ask'
       },
       {
-        title: 'Documents you can keep working on',
-        body: 'Turn selected session material into a document. Combine documents, clarify a passage, summarize, expand or translate. Export as Markdown or HTML.',
+        title: 'Pages you can keep working on',
+        body: 'Turn selected note material into a page. Combine pages, clarify a passage, summarize, expand or translate. Export as Markdown or HTML.',
         detail: 'Transform · Merge · Export'
       },
       {
@@ -95,7 +95,7 @@ const english = {
       },
       {
         title: 'Different ways to see an idea',
-        body: 'Create flashcards for recall and diagrams for the bigger picture. Generate study material from the sessions, sources and documents you choose.',
+        body: 'Create flashcards for recall and diagrams for the bigger picture. Generate study material from the notes, sources and pages you choose.',
         detail: 'Flashcards · Diagrams · Quizzes'
       },
       {
@@ -118,28 +118,28 @@ type Copy = Widen<typeof english>;
 const italian: Copy = {
   docsScreenshotOpen: 'Apri la schermata a piena risoluzione',
   docsNavigation: {
-    lead: 'Raccogli appunti e fonti nelle sessioni, trasformali in documenti e poi esercitati su ciò che hai imparato. Segui il percorso o apri la guida che ti serve.',
+    lead: 'Raccogli appunti e fonti nelle note, trasformali in pagine e poi esercitati su ciò che hai imparato. Segui il percorso o apri la guida che ti serve.',
     sections: {
       start: 'Per iniziare',
       capture: 'Raccogliere il materiale',
-      documents: 'Creare documenti',
+      pages: 'Creare pagine',
       practice: 'Esercitarsi',
       reference: 'Consultazione'
     },
     descriptions: {
-      start: 'Installa Study e porta la prima sessione fino alle esercitazioni.',
+      start: 'Installa Study e porta la prima nota fino alle esercitazioni.',
       capture: 'Raccogli appunti e fonti, fai domande e controlla i passaggi citati.',
-      documents: 'Trasforma le sessioni salvate in documenti e rivedi gli appunti di studio.',
-      practice: 'Genera esercizi e flashcard dai documenti che scegli.',
+      pages: 'Trasforma le note salvate in pagine e rivedi gli appunti di studio.',
+      practice: 'Genera esercizi e flashcard dalle pagine che scegli.',
       reference:
         'Ritrova il lavoro, usa le scorciatoie e gestisci impostazioni, dati e attività in corso.'
     }
   },
   heroLead:
-    'Raccogli una sessione. Trasformala in un documento chiaro. Crea flashcard, schemi ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
+    'Raccogli una nota. Trasformala in una pagina chiaro. Crea flashcard, schemi ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
   explore: 'Scopri come funziona',
   previewLabels: {
-    document: 'Lettore di documenti, con appunti di esempio sulla mitosi.',
+    page: 'Lettore di pagine, con appunti di esempio sulla mitosi.',
     source: 'Lettore delle fonti, con due passaggi di una lezione di esempio sulla mitosi.',
     quiz: 'Domanda di esercitazione sulla prometafase, con quattro possibili risposte.',
     flashcards: 'Anteprima delle flashcard, con domanda e risposta sulla profase.',
@@ -151,29 +151,29 @@ const italian: Copy = {
     lead: 'Dal primo pensiero in disordine alla domanda a cui sai finalmente rispondere. Un unico posto per tutto il percorso.',
     steps: [
       {
-        title: 'Raccogli tutto in una sessione.',
+        title: 'Raccogli tutto in una nota.',
         body: 'Scrivi mentre pensi. Aggiungi file, registra una lezione e fai domande senza lasciare il tuo quaderno.',
         link: 'Porta il tuo materiale',
         target: 'docs/sources/'
       },
       {
-        title: 'Trasformalo in un documento.',
-        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in un documento chiaro, poi riassumi, approfondisci, traduci o migliora il testo.',
+        title: 'Trasformalo in una pagina.',
+        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in una pagina chiaro, poi riassumi, approfondisci, traduci o migliora il testo.',
         link: 'Guarda la trasformazione',
-        target: '#workflow-document'
+        target: '#workflow-page'
       },
       {
         title: 'Fallo diventare qualcosa che ricordi.',
-        body: 'Crea flashcard, schemi e quiz dalle tue sessioni e dai tuoi documenti. Passa dal leggere una spiegazione al ricordarla da solo.',
+        body: 'Crea flashcard, schemi e quiz dalle tue note e dalle tue pagine. Passa dal leggere una spiegazione al ricordarla da solo.',
         link: 'Prova gli strumenti',
         target: '#learn'
       }
     ],
-    note: 'le stesse idee, un po’ più chiare',
-    session: 'Sessione · Biologia cellulare',
+    annotation: 'le stesse idee, un po’ più chiare',
+    note: 'Nota · Biologia cellulare',
     inputs: ['I miei appunti della lezione', 'slides-mitosis.pdf', 'Una domanda sulla profase'],
     transform: 'Unisci e chiarisci',
-    document: 'Documento',
+    page: 'Pagina',
     titleSample: 'Capire la mitosi',
     intro:
       'La mitosi separa i cromosomi duplicati in due nuclei figli. Il processo comprende quattro fasi principali.',
@@ -191,13 +191,13 @@ const italian: Copy = {
     lead: 'Un posto per raccogliere, collegare, capire ed esercitarti. Con i dettagli che lo rendono tuo.',
     items: [
       {
-        title: 'Un quaderno per ogni sessione',
+        title: 'Un quaderno per ogni nota',
         body: 'Appunti, allegati, registrazioni e domande insieme. Modifica ciò che scrivi, miglioralo o torna a una versione precedente.',
         detail: 'Scrivi · Registra · Chiedi'
       },
       {
-        title: 'Documenti che crescono con te',
-        body: 'Trasforma il materiale scelto da una sessione in un documento. Unisci documenti, chiarisci un passaggio, riassumi, approfondisci o traduci. Esporta in Markdown o HTML.',
+        title: 'Pagine che crescono con te',
+        body: 'Trasforma il materiale scelto da una nota in una pagina. Unisci pagine, chiarisci un passaggio, riassumi, approfondisci o traduci. Esporta in Markdown o HTML.',
         detail: 'Trasforma · Unisci · Esporta'
       },
       {
@@ -212,7 +212,7 @@ const italian: Copy = {
       },
       {
         title: 'Più modi per vedere un’idea',
-        body: 'Crea flashcard per ricordare e schemi per vedere l’insieme. Genera materiale di studio dalle sessioni, fonti e documenti che scegli.',
+        body: 'Crea flashcard per ricordare e schemi per vedere l’insieme. Genera materiale di studio dalle note, fonti e pagine che scegli.',
         detail: 'Flashcard · Schemi · Quiz'
       },
       {

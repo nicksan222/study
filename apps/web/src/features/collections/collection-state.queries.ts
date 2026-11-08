@@ -89,7 +89,7 @@ export function useCollectionState() {
     } finally {
       // A lost response may follow a committed write. Reconcile reads without replaying it.
       await Promise.allSettled(
-        ['projects', 'materials', 'sessions', 'session-workspace', 'search'].map((prefix) =>
+        ['projects', 'materials', 'notes', 'note-workspace', 'search'].map((prefix) =>
           client.invalidateQueries({ queryKey: [prefix] })
         )
       );

@@ -1,7 +1,7 @@
 import {
   materialVersionIdSchema,
   contentSnapshotIdSchema,
-  studyDocumentVersionIdSchema,
+  pageVersionIdSchema,
   quizAttemptIdSchema,
   projectIdSchema
 } from '@study/contracts/ids';
@@ -10,7 +10,7 @@ import { Schema } from 'effect';
 
 import type { SidebarRouteConfig } from './sidebar-config';
 
-export type Section = 'sessions' | 'documents' | 'practice' | 'assistant';
+export type Section = 'notes' | 'pages' | 'practice' | 'assistant';
 
 export type PageMetadata = {
   title: StaticMessageKey;
@@ -34,7 +34,7 @@ export type AppSearch = {
   id?: string;
   attempt?: string;
   version?: string;
-  documentVersion?: string;
+  pageVersion?: string;
   sourceRevision?: string;
   sourceSnapshot?: string;
 };
@@ -58,10 +58,7 @@ function versionReference(value: unknown, valid: (id: bigint) => boolean) {
 export function validateSearch(search: Record<string, unknown>): AppSearch {
   const attempt = versionReference(search.attempt, Schema.is(quizAttemptIdSchema));
   const version = versionReference(search.version, Schema.is(materialVersionIdSchema));
-  const documentVersion = versionReference(
-    search.documentVersion,
-    Schema.is(studyDocumentVersionIdSchema)
-  );
+  const pageVersion = versionReference(search.pageVersion, Schema.is(pageVersionIdSchema));
   const sourceSnapshot = versionReference(
     search.sourceSnapshot,
     Schema.is(contentSnapshotIdSchema)
@@ -73,7 +70,7 @@ export function validateSearch(search: Record<string, unknown>): AppSearch {
 
   return {
     ...(sourceSnapshot && sourceRevision ? { sourceSnapshot, sourceRevision } : {}),
-    ...(documentVersion ? { documentVersion } : {}),
+    ...(pageVersion ? { pageVersion } : {}),
     ...(decimalId(search.project) ? { project: search.project } : {}),
     ...(decimalId(search.id) ? { id: search.id } : {}),
     ...(version ? { version } : {}),

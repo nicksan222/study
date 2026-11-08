@@ -22,8 +22,8 @@ import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 import { backupFixture, changedArtifact, meta, packet } from '#testing/managed-backups';
 
@@ -45,7 +45,7 @@ testStable(
       );
 
       const document = await f.app.nativeRuntime.runPromise(
-        Effect.flatMap(Documents, (documents) =>
+        Effect.flatMap(Pages, (documents) =>
           documents.create({
             createKey: randomUUID(),
             inputs: [],
@@ -72,25 +72,25 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(
         Effect.gen(function* () {
-          const c = yield* Conversations;
+          const c = yield* Notes;
 
-          const session = yield* c.createUntitledSession({});
+          const note = yield* c.createUntitledNote({});
 
-          yield* (yield* Documents).attach({ sessionId: session.id, documentId: document.id });
+          yield* (yield* Pages).attach({ noteId: note.id, pageId: document.id });
 
-          yield* c.updateSessionSelection({
-            sessionId: session.id,
+          yield* c.updateNoteSelection({
+            noteId: note.id,
             expectedRevision: 0n,
             targets: [
               {
-                input: { kind: 'document', versionId: document.version!.id },
+                input: { kind: 'page', versionId: document.version!.id },
                 scope: { kind: 'document' }
               }
             ]
           });
 
-          yield* c.captureSessionContext({
-            sessionId: session.id,
+          yield* c.captureNoteContext({
+            noteId: note.id,
             intentKey: 'retained',
             instruction: '',
             preferences: {}
@@ -132,8 +132,8 @@ testStable(
           db.exec('CREATE VIRTUAL TABLE hostile USING fts5(body)');
         },
         (db: Db) => {
-          db.exec(`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot)
-        SELECT request_id||'-forged',session_id,'forged',json_set(intent,'$.intentKey','forged'),json_set(snapshot,'$.requestId',request_id||'-forged','$.intentKey','forged') FROM session_run_contexts`);
+          db.exec(`INSERT INTO note_run_contexts(request_id,note_id,intent_key,intent,snapshot)
+        SELECT request_id||'-forged',note_id,'forged',json_set(intent,'$.intentKey','forged'),json_set(snapshot,'$.requestId',request_id||'-forged','$.intentKey','forged') FROM note_run_contexts`);
         }
       ];
 

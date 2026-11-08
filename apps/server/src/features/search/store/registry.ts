@@ -176,7 +176,7 @@ export function makeRegistryStore({
       metadata.projection === 'feature' || metadata.scope.type === 'project'
         ? (['kind', 'project'] as const)
         : (['kind'] as const),
-    citations: metadata.kind === 'passage' || metadata.kind === 'document'
+    citations: metadata.kind === 'passage' || metadata.kind === 'page'
   }));
 
   const projections = registry.entities.map(({ metadata }) => ({

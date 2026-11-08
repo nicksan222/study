@@ -1,30 +1,30 @@
-import type { SessionId, MessageId, VersionId } from '@study/contracts/ids';
+import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
 
 import { sql, defineTable, text, integer, check, primaryKey } from '../schema-builder.ts';
-import { sessions, messages, message_versions } from './conversations.ts';
+import { notes, messages, message_versions } from './notes.ts';
 
 export const assistant_chat_starts = defineTable({
   role: 'internal',
   reason: 'Idempotent private Assistant chat creation is not searchable content.'
 })('assistant_chat_starts', {
   key: text().primaryKey(),
-  session_id: integer()
-    .$type<SessionId>()
+  note_id: integer()
+    .$type<NoteId>()
     .notNull()
     .unique()
-    .references(() => sessions.id, { onDelete: 'cascade' })
+    .references(() => notes.id, { onDelete: 'cascade' })
 });
 
 export const assistant_memory = defineTable({
   role: 'internal',
-  reason: 'Private conversation compaction is contextual memory rather than study content.'
+  reason: 'Private note compaction is contextual memory rather than study content.'
 })(
   'assistant_memory',
   {
-    session_id: integer()
-      .$type<SessionId>()
+    note_id: integer()
+      .$type<NoteId>()
       .primaryKey()
-      .references(() => sessions.id, { onDelete: 'cascade' }),
+      .references(() => notes.id, { onDelete: 'cascade' }),
     through_message_id: integer()
       .$type<MessageId>()
       .notNull()

@@ -1,25 +1,25 @@
 import { Schema } from 'effect';
 
 import {
-  studyDocumentIdSchema,
+  pageIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
   quizQuestionIdSchema,
   sourceIdSchema
 } from '../ids.ts';
 import { materialKindSchema } from '../materials/schemas.ts';
-import { projectSearchTargetSchema, sessionSearchTargetSchema } from '../search/targets.ts';
+import { projectSearchTargetSchema, noteSearchTargetSchema } from '../search/targets.ts';
 import { anchorSchema } from '../sources/schemas.ts';
 import { sourceKinds } from '../sources/sniff.ts';
 
 export const searchKindSchema = Schema.Literals([
   'project',
-  'session',
+  'note',
   'message',
   'source',
   'passage',
   'material',
-  'document',
+  'page',
   'question'
 ]);
 
@@ -31,15 +31,7 @@ const materialSearchTargetSchema = Schema.Struct({
 });
 
 export const searchHitSchema = Schema.Struct({
-  kind: Schema.Literals([
-    'project',
-    'session',
-    'message',
-    'source',
-    'material',
-    'document',
-    'question'
-  ]),
+  kind: Schema.Literals(['project', 'note', 'message', 'source', 'material', 'page', 'question']),
   title: Schema.String,
   at: Schema.BigInt,
   context: Schema.optional(Schema.String),
@@ -47,8 +39,8 @@ export const searchHitSchema = Schema.Struct({
   fileKind: Schema.optional(Schema.Literals(sourceKinds)),
   target: Schema.Union([
     projectSearchTargetSchema,
-    sessionSearchTargetSchema,
-    Schema.Struct({ type: Schema.Literal('document'), documentId: studyDocumentIdSchema }),
+    noteSearchTargetSchema,
+    Schema.Struct({ type: Schema.Literal('page'), pageId: pageIdSchema }),
     materialSearchTargetSchema,
     Schema.Struct({
       type: Schema.Literal('question'),

@@ -3,11 +3,11 @@ import { choice, openQuestion } from '#tooling/seed/builders/quiz';
 import {
   createProject,
   createSource,
-  createDocument,
+  createPage,
   createFlashcards,
   createQuiz,
   createDiagram,
-  createConversation
+  createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
 
@@ -32,7 +32,7 @@ export function createBiology(seed: SeedHarness) {
       ])
     )
   );
-  const review = createDocument(project, {
+  const review = createPage(project, {
     title: 'Cell biology — exam review',
     description:
       'Compare processes by their energy source and direction of transport. Connect organelle structure to its role in protein production.',
@@ -54,7 +54,7 @@ export function createBiology(seed: SeedHarness) {
       )
     ]
   });
-  const workbook = createDocument(project, {
+  const workbook = createPage(project, {
     title: 'Cell Biology — workshop',
     blocks: [
       paragraph('Trace a secreted enzyme and distinguish compartments from transport vesicles.'),
@@ -112,7 +112,7 @@ export function createBiology(seed: SeedHarness) {
     'flowchart LR\nDNA --> RNA --> Ribosome\nRibosome --> ER --> Golgi --> Secretion'
   );
 
-  createConversation(project, {
+  createNote(project, {
     title: 'Protein trafficking',
     daysAgo: 14,
     exchanges: [
@@ -122,10 +122,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [biologyNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Membrane gradients',
     daysAgo: 13,
     exchanges: [
@@ -135,10 +135,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [transportNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Osmosis lab',
     daysAgo: 12,
     exchanges: [
@@ -148,10 +148,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [membraneDiagram],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'ATP synthesis',
     daysAgo: 11,
     exchanges: [
@@ -161,10 +161,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [biologyNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Cell cycle checkpoints',
     daysAgo: 10,
     exchanges: [
@@ -174,10 +174,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [transportNotes],
-    documents: [review],
+    pages: [review],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Enzyme kinetics',
     daysAgo: 9,
     exchanges: [
@@ -187,10 +187,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [membraneDiagram],
-    documents: [workbook],
+    pages: [workbook],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Signalling pathways',
     daysAgo: 8,
     exchanges: [
@@ -200,10 +200,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [biologyNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Microscopy planning',
     daysAgo: 7,
     exchanges: [
@@ -213,10 +213,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [transportNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Transport practice',
     daysAgo: 6,
     exchanges: [
@@ -226,10 +226,10 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [membraneDiagram],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Exam synthesis',
     daysAgo: 5,
     exchanges: [
@@ -239,7 +239,7 @@ export function createBiology(seed: SeedHarness) {
       ]
     ],
     sources: [biologyNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
 }

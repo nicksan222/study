@@ -1,5 +1,5 @@
-import type { StudyDocument } from '@study/contracts/documents/types';
-import type { SourceId, SessionId, ContentSnapshotId } from '@study/contracts/ids';
+import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
+import type { Page } from '@study/contracts/pages/types';
 import type { documentSchema, Source } from '@study/contracts/sources/schemas';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
@@ -82,12 +82,12 @@ function SourceBody({
 
   if (failed) return null;
 
-  if (!document || snapshotId === undefined) return <Loading label={t('SessionPending')} />;
+  if (!document || snapshotId === undefined) return <Loading label={t('NotePending')} />;
 
   return (
     <Desk.Editor>
       <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
-        {t(pending ? 'SessionSaving' : 'DocumentEditCopy')}
+        {t(pending ? 'NoteSaving' : 'PageEditCopy')}
       </Button>
       <RetainedDocumentReader document={document} snapshotId={snapshotId} />
     </Desk.Editor>
@@ -104,14 +104,14 @@ function originalRevision(
 export function SourcePanel({
   sourceId,
   exact,
-  sessionId,
-  onOpenDocument,
+  noteId,
+  onOpenPage,
   onDeleted
 }: {
   sourceId: SourceId;
   exact?: { revision: bigint; snapshotId: ContentSnapshotId };
-  sessionId?: SessionId;
-  onOpenDocument: (document: StudyDocument) => void;
+  noteId?: NoteId;
+  onOpenPage: (document: Page) => void;
   onDeleted?: () => void;
 }) {
   const { t } = useI18n();
@@ -119,13 +119,13 @@ export function SourcePanel({
   const [deleted, setDeleted] = useState(false);
   const source = useQuery(sourceOptions(deleted ? null : sourceId));
   const state = useQuery({ ...sourceExtractionOptions(sourceId, selected), enabled: !deleted });
-  const copy = useSourceCopy(sourceId, sessionId);
+  const copy = useSourceCopy(sourceId, noteId);
 
   function editCopy() {
     if (!state.isSuccess || !source.isSuccess || !state.data) return;
 
     void copy.copy(state.data).then((document) => {
-      if (document) onOpenDocument(document);
+      if (document) onOpenPage(document);
     });
   }
 
@@ -148,7 +148,7 @@ export function SourcePanel({
       <SourceOriginal sourceId={sourceId} revision={originalRevision(selected, state.data)} />
       {copy.document && (
         <Button variant="ghost" onClick={copy.acknowledge}>
-          {t('DocumentEditAnotherCopy')}
+          {t('PageEditAnotherCopy')}
         </Button>
       )}
       {copy.error !== undefined && <ContentReadError error={copy.error} retry={editCopy} />}

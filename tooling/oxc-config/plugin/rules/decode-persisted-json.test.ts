@@ -57,8 +57,8 @@ testStable(
   'captured preferences and context use canonical schema codecs at persistence reads',
   () => {
     const diagnostics = lintRule('decode-persisted-json', {
-      'src/features/conversations/store/capture.ts': `
-      import { runSelectionContextSchema } from '@study/contracts/conversations/context';
+      'src/features/notes/store/capture.ts': `
+      import { runSelectionContextSchema } from '@study/contracts/notes/context';
       import { Schema } from 'effect';
       const codec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
       const snapshot = Schema.decodeUnknownSync(codec)(row.snapshot);
@@ -120,7 +120,7 @@ testStable(
   'retired intents and native attempt metadata require codecs at typed read boundaries',
   () => {
     const diagnostics = lintRule('decode-persisted-json', {
-      'src/features/materials/store/session-retirement.ts': `
+      'src/features/materials/store/note-retirement.ts': `
       import { Schema } from 'effect';
       import { keepDocumentProposalSchema } from '@study/contracts/materials/editing';
       const codec = Schema.fromJsonString(Schema.toCodecJson(keepDocumentProposalSchema));

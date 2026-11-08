@@ -20,7 +20,7 @@ import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
+import { Pages } from '#server/features/pages/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { useStore } from '#server/platform/definitions/define-store';
@@ -289,7 +289,7 @@ testStable(
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
-          const documents = yield* Documents;
+          const documents = yield* Pages;
           const document = yield* documents.create({
             createKey: 'search-document',
             title: 'Independent notes',
@@ -300,7 +300,7 @@ testStable(
           const base = document.version!;
 
           yield* documents.save({
-            documentId: document.id,
+            pageId: document.id,
             expectedVersionId: base.id,
             key: 'search-edit',
             document: deletionDocument('HeadOnlySearchToken')
@@ -308,25 +308,22 @@ testStable(
           const store = yield* useStore(SystemStore);
 
           expect(
-            yield* store.searches({ query: 'Obsolete', kinds: ['document'], limit: 10 })
+            yield* store.searches({ query: 'Obsolete', kinds: ['page'], limit: 10 })
           ).toStrictEqual([]);
           const hits = yield* store.searches({
             query: 'HeadOnlySearchToken',
-            kinds: ['document'],
+            kinds: ['page'],
             limit: 10
           });
 
           assert.strictEqual(hits.length, 1);
-          assert.ok(hits[0].kind === 'document');
-          expect(hits[0].target).toStrictEqual({ type: 'document', documentId: document.id });
+          assert.ok(hits[0].kind === 'page');
+          expect(hits[0].target).toStrictEqual({ type: 'page', pageId: document.id });
           yield* documents.archive({ id: document.id, archived: true });
           expect(
-            yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['document'], limit: 10 })
+            yield* store.searches({ query: 'HeadOnlySearchToken', kinds: ['page'], limit: 10 })
           ).toStrictEqual([]);
-        }).pipe(
-          Effect.provide(Documents.layer),
-          Effect.provideService(Database, { store: context })
-        )
+        }).pipe(Effect.provide(Pages.layer), Effect.provideService(Database, { store: context }))
       );
     } finally {
       context.close();

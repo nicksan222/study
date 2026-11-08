@@ -19,8 +19,8 @@ import { Effect, Layer } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -111,11 +111,11 @@ testStable(
 );
 
 testStable(
-  'raw reply captures pin pending and ready source revisions until their session is deleted',
+  'raw reply captures pin pending and ready source revisions until their note is deleted',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const layer = Layer.merge(Sources.layer, Conversations.layer).pipe(
+    const layer = Layer.merge(Sources.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -123,29 +123,29 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
-          const conversations = yield* Conversations;
+          const notes = yield* Notes;
           const source = yield* sources.createSource({
             name: 'input.txt',
             bytes: new TextEncoder().encode('Input body'),
             projectId: null
           });
           const processing = yield* sources.sourceProcessing(source.id);
-          const session = yield* conversations.createSession({ title: 'Exact attachments' });
+          const note = yield* notes.createNote({ title: 'Exact attachments' });
 
-          yield* conversations.postMessage({
-            sessionId: session.id,
+          yield* notes.postMessage({
+            noteId: note.id,
             sourceIds: [source.id],
             text: 'Explain',
             requestReply: false
           });
-          const request = yield* conversations.requestReply({ sessionId: session.id });
+          const request = yield* notes.requestReply({ noteId: note.id });
 
           assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
           assert.ok(
             context.db.orm.get(
-              sql`SELECT snapshot_id FROM conversation_reply_sources WHERE request_id=${request.requestId}`
+              sql`SELECT snapshot_id FROM note_reply_sources WHERE request_id=${request.requestId}`
             )?.snapshot_id === null
           );
           const published = yield* transaction((tx) =>
@@ -177,7 +177,7 @@ testStable(
 
           yield* withTestPublication(
             context,
-            conversations.sealReplyAttachments({ requestId: request.requestId }).pipe(
+            notes.sealReplyAttachments({ requestId: request.requestId }).pipe(
               Effect.tap((sealed) => {
                 assert.strictEqual(sealed.messages[0].attachments[0].revision, 1n);
                 assert.strictEqual(
@@ -196,18 +196,15 @@ testStable(
             bytes: new TextEncoder().encode('Replacement')
           });
           assert.strictEqual(
-            (yield* conversations.replySnapshot({ requestId: request.requestId })).messages[0]
+            (yield* notes.replySnapshot({ requestId: request.requestId })).messages[0]
               .attachments[0].snapshotId,
             published.documentId
           );
           assert.ok(
             (yield* Effect.flip(sources.deleteSource({ id: source.id }))).kind === 'invalid_input'
           );
-          assert.strictEqual(
-            context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
-            0n
-          );
-          yield* conversations.deleteSession(session.id);
+          assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
+          yield* notes.deleteNote(note.id);
           assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
           expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(layer))
@@ -224,7 +221,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const layer = Layer.merge(Sources.layer, Documents.layer).pipe(
+    const layer = Layer.merge(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -232,7 +229,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
-          const documents = yield* Documents;
+          const documents = yield* Pages;
           const source = yield* sources.createSource({
             name: 'image.png',
             bytes: Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex'),
@@ -295,7 +292,7 @@ testStable(
           );
           const preview = yield* documents.previewDeletion({ id: authored.id });
 
-          yield* documents.delete({ documentId: authored.id, token: preview.token });
+          yield* documents.delete({ pageId: authored.id, token: preview.token });
           expect((yield* sources.previewDeletion({ id: source.id })).blockedBy).toStrictEqual([]);
           assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
           assert.strictEqual(

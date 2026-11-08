@@ -1,9 +1,9 @@
-import { summarySchema } from '@study/contracts/documents/schemas';
 import { StudyError } from '@study/contracts/errors';
 import {
   materialDetailSchema,
   materialVersionDetailSchema
 } from '@study/contracts/materials/schemas';
+import { summarySchema } from '@study/contracts/pages/schemas';
 import { projectSchema } from '@study/contracts/projects/schemas';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
@@ -49,7 +49,7 @@ function rpcFixture(linked = true) {
     ...learningVersion(102n),
     inputs: linked
       ? [
-          { kind: 'document', versionId: 8n },
+          { kind: 'page', versionId: 8n },
           { kind: 'source', sourceId: 7n, revision: 1n, snapshotId: 9n }
         ]
       : [],
@@ -81,7 +81,7 @@ function rpcFixture(linked = true) {
     latestDraftVersion: null
   });
 
-  rpc['documents.documents'].mockReturnValue(
+  rpc['pages.pages'].mockReturnValue(
     Effect.succeed({
       items: [
         Schema.decodeUnknownSync(summarySchema)({
@@ -144,7 +144,7 @@ testStable('starts generation with saved settings and closes the dialog', async 
   const user = userEvent.setup();
 
   mountLibraryRoute('/practice/41?project=1', rpc);
-  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
   const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
   await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
@@ -152,7 +152,7 @@ testStable('starts generation with saved settings and closes the dialog', async 
     expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         projectId: 1n,
-        inputs: [{ kind: 'document', versionId: 8n }],
+        inputs: [{ kind: 'page', versionId: 8n }],
         quizConfig: {
           questionCount: 3,
           choiceCount: 2,
@@ -178,7 +178,7 @@ testStable('keeps a rejected start recoverable without closing the dialog', asyn
 
   mountLibraryRoute('/practice/41?project=1', rpc);
 
-  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
   const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
   await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
@@ -205,7 +205,7 @@ testStable(
     const user = userEvent.setup();
 
     mountLibraryRoute('/practice/41?project=1', rpc);
-    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
     const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
     const create = within(dialog).getByRole('button', { name: en.PracticeGenerateStart });
 
@@ -222,16 +222,16 @@ testStable(
       expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
     );
     expect(rpc['materials.requestMaterialGeneration']).toHaveBeenCalledExactlyOnceWith(
-      expect.objectContaining({ inputs: [{ kind: 'document', versionId: 8n }] })
+      expect.objectContaining({ inputs: [{ kind: 'page', versionId: 8n }] })
     );
   }
 );
 
 testStable(
-  'generates flashcards from the sidebar with all paginated documents selected and optional filtering',
+  'generates flashcards from the sidebar with all paginated pages selected and optional filtering',
   async () => {
     const rpc = rpcFixture(false);
-    const first = rpc['documents.documents'].getMockImplementation()!;
+    const first = rpc['pages.pages'].getMockImplementation()!;
     const original = rpc['materials.materialVersion'].getMockImplementation()!;
     const extra = Schema.decodeUnknownSync(summarySchema)({
       id: 9n,
@@ -244,7 +244,7 @@ testStable(
       headVersionId: 9n
     });
 
-    rpc['documents.documents'].mockImplementation((input) =>
+    rpc['pages.pages'].mockImplementation((input) =>
       input.cursor
         ? Effect.succeed({ items: [extra], nextCursor: null })
         : first(input).pipe(Effect.map((page) => ({ ...page, nextCursor: extra.id })))
@@ -289,7 +289,7 @@ testStable(
           kind: 'flashcards',
           autoTitle: true,
           instruction: 'Focus on index tradeoffs.',
-          inputs: [{ kind: 'document', versionId: 9n }],
+          inputs: [{ kind: 'page', versionId: 9n }],
           quizConfig: undefined
         })
       )
@@ -309,7 +309,7 @@ testStable(
     const user = userEvent.setup();
 
     mountLibraryRoute('/practice/41?project=1', rpc);
-    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
     const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
     await user.click(within(dialog).getByRole('button', { name: en.PracticeGenerateStart }));
@@ -317,11 +317,11 @@ testStable(
       expect(screen.queryByRole('dialog', { name: en.PracticeGenerate })).not.toBeInTheDocument()
     );
     expect(screen.queryByText('Leaked generation activity')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: en.PracticeGenerateFromDocuments })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: en.PracticeGenerateFromPages })).toHaveAttribute(
       'aria-busy',
       'true'
     );
-    await user.click(screen.getByRole('button', { name: en.PracticeGenerateFromDocuments }));
+    await user.click(screen.getByRole('button', { name: en.PracticeGenerateFromPages }));
     const fresh = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
     expect(within(fresh).getByRole('button', { name: en.PracticeGenerateStart })).toBeEnabled();
@@ -349,7 +349,7 @@ for (const [kind, label] of [
     const user = userEvent.setup();
 
     mountLibraryRoute('/practice/41?project=1', rpc);
-    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+    await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
     const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
     await user.click(within(dialog).getByRole('radio', { name: label }));
@@ -376,7 +376,7 @@ testStable('generates true or false practice with a typed kind and saved difficu
   const user = userEvent.setup();
 
   mountLibraryRoute('/practice/41?project=1', rpc);
-  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
   const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
   await user.click(within(dialog).getByRole('radio', { name: 'True or false' }));
@@ -403,7 +403,7 @@ testStable('generates ordering practice with a typed kind and saved difficulty',
   const user = userEvent.setup();
 
   mountLibraryRoute('/practice/41?project=1', rpc);
-  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromDocuments }));
+  await user.click(await screen.findByRole('button', { name: en.PracticeGenerateFromPages }));
   const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
 
   await user.click(within(dialog).getByRole('radio', { name: 'Put in order' }));

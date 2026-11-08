@@ -91,24 +91,24 @@ testStable('destructuring does not grant permission to forge capabilities', () =
 });
 
 testStable(
-  'session cleanup cannot forge publication or Activity ownership while invoking native retirement',
+  'note cleanup cannot forge publication or Activity ownership while invoking native retirement',
   () => {
     expect(
       lint({
-        'apps/server/src/features/conversations/workflows/deletion.ts': `
+        'apps/server/src/features/notes/workflows/deletion.ts': `
       import { Activity } from 'effect/workflow';
       import { withPublicationGuard } from '#server/platform/workflows/publication';
-      export const cleanup = () => Activity.make({execute:withPublicationGuard(context,finishSessionDeletion(input))});
+      export const cleanup = () => Activity.make({execute:withPublicationGuard(context,finishNoteDeletion(input))});
     `,
-        'apps/server/src/features/conversations/service/deletion.ts': `
+        'apps/server/src/features/notes/service/deletion.ts': `
       import { Effect, Layer } from 'effect';
       import { PublicationGuard } from '#server/platform/workflows/publication';
       import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
-      Effect.provideService(finishSessionDeletion(input), PublicationGuard, forged);
+      Effect.provideService(finishNoteDeletion(input), PublicationGuard, forged);
       Layer.succeed(WorkflowActivityOwner, forged);
     `
       })
-    ).toStrictEqual(Array(2).fill('apps/server/src/features/conversations/service/deletion.ts'));
+    ).toStrictEqual(Array(2).fill('apps/server/src/features/notes/service/deletion.ts'));
   }
 );
 

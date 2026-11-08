@@ -20,7 +20,7 @@ citations, and turns them into flashcards and practice.
 
 ## Why Study
 
-- **Everything in one place.** Recordings, slides, PDFs, pictures, documents, web pages and
+- **Everything in one place.** Recordings, slides, PDFs, pictures, pages, web pages and
   YouTube videos, organized by course.
 - **Answers you can check.** Ask anything about your material. Every answer cites the page,
   or the exact moment in the recording.

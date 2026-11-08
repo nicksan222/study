@@ -1,4 +1,4 @@
-import { sessionSchema } from '@study/contracts/conversations/schemas';
+import { noteSchema } from '@study/contracts/notes/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,7 +13,7 @@ import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { RichSidebarSessions } from './rich-sidebar';
+import { RichSidebarNotes } from './rich-sidebar';
 
 const api = vi.hoisted(() => ({ settings: vi.fn(), summaries: vi.fn(), settle: vi.fn() }));
 
@@ -24,16 +24,16 @@ vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
     invoke({
       'settings.sidebarSettings': api.settings,
-      'conversations.sessionSummaries': api.summaries,
-      'conversations.setSessionSettled': api.settle,
+      'notes.noteSummaries': api.summaries,
+      'notes.setNoteSettled': api.settle,
       'settings.workspacePreferences': async () => defaultWorkspacePreferences
     })
 }));
 
-const sessions = [1n, 2n, 3n].map((id) =>
-  Schema.decodeUnknownSync(sessionSchema)({
+const notes = [1n, 2n, 3n].map((id) =>
+  Schema.decodeUnknownSync(noteSchema)({
     id,
-    title: 'Session ' + id,
+    title: 'Note ' + id,
     titleSource: 'user',
     archivedAt: null,
     projectIds: [],
@@ -50,14 +50,14 @@ afterEach(() => {
 });
 
 testStable(
-  'settles only sessions meeting the saved document threshold and keeps running work open',
+  'settles only notes meeting the saved document threshold and keeps running work open',
   async () => {
-    api.settings.mockResolvedValue({ settledDocumentThreshold: 2 });
+    api.settings.mockResolvedValue({ settledPageThreshold: 2 });
     api.summaries.mockResolvedValue({
       items: [
-        { id: 1n, generatedDocumentCount: 1n, running: false, activity: 'idle' },
-        { id: 2n, generatedDocumentCount: 2n, running: false, activity: 'idle' },
-        { id: 3n, generatedDocumentCount: 5n, running: true, activity: 'generating' }
+        { id: 1n, generatedPageCount: 1n, running: false, activity: 'idle' },
+        { id: 2n, generatedPageCount: 2n, running: false, activity: 'idle' },
+        { id: 3n, generatedPageCount: 5n, running: true, activity: 'generating' }
       ]
     });
     const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -65,12 +65,7 @@ testStable(
     caches.push(cache);
     const route = createRootRoute({
       component: () => (
-        <RichSidebarSessions
-          sessions={sessions}
-          subjects={[]}
-          project={undefined}
-          selectedSession="1"
-        />
+        <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote="1" />
       )
     });
     const router = createRouter({
@@ -85,11 +80,11 @@ testStable(
 
     await screen.findByText('SidebarGenerating');
     const generatingRow = screen
-      .getByRole('link', { name: 'Session 3' })
-      .closest('.study-session-entry') as HTMLElement;
+      .getByRole('link', { name: 'Note 3' })
+      .closest('.study-note-entry') as HTMLElement;
     const idleRow = screen
-      .getByRole('link', { name: 'Session 1' })
-      .closest('.study-session-entry') as HTMLElement;
+      .getByRole('link', { name: 'Note 1' })
+      .closest('.study-note-entry') as HTMLElement;
 
     expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoDoc' })).toBeNull();
     const generatingSettle = within(generatingRow).getByRole('button', { name: 'SidebarSettle' });
@@ -105,13 +100,13 @@ testStable(
     const groups = view.container.querySelectorAll('details');
 
     expect(groups[0]).toHaveAttribute('open');
-    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 1' })).toBeVisible();
-    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Session 3' })).toBeVisible();
-    expect(within(groups[0] as HTMLElement).queryByRole('link', { name: 'Session 2' })).toBeNull();
+    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Note 1' })).toBeVisible();
+    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Note 3' })).toBeVisible();
+    expect(within(groups[0] as HTMLElement).queryByRole('link', { name: 'Note 2' })).toBeNull();
     expect(groups[1]).not.toHaveAttribute('open');
     fireEvent.click(within(groups[1] as HTMLElement).getByText('SidebarSettled'));
     expect(
-      await within(groups[1] as HTMLElement).findByRole('link', { name: 'Session 2' })
+      await within(groups[1] as HTMLElement).findByRole('link', { name: 'Note 2' })
     ).toBeInTheDocument();
     expect(api.summaries).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -120,27 +115,27 @@ testStable(
         sidebarDensity: 'compact'
       });
     });
-    const compact = screen.getByRole('link', { name: 'Session 1' });
+    const compact = screen.getByRole('link', { name: 'Note 1' });
 
     await waitFor(() => expect(compact).toHaveAttribute('data-layout', 'compact'));
-    expect(within(compact).getByTitle('SidebarGeneratedDocuments')).toHaveTextContent('1');
+    expect(within(compact).getByTitle('SidebarGeneratedPages')).toHaveTextContent('1');
     expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
     expect(within(idleRow).getByRole('button', { name: 'SidebarTurnIntoDoc' }).parentElement).toBe(
       within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
     );
     expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoDoc' })).toBeNull();
     expect(
-      within(screen.getByRole('link', { name: 'Session 3' })).getByText('SidebarGenerating')
+      within(screen.getByRole('link', { name: 'Note 3' })).getByText('SidebarGenerating')
     ).toBeInTheDocument();
     await act(async () => {
       cache.setQueryData(['workspace-preferences'], {
         ...defaultWorkspacePreferences,
         sidebarDensity: 'compact',
-        sidebarShowDocumentCounts: false
+        sidebarShowPageCounts: false
       });
     });
     await waitFor(() =>
-      expect(within(compact).queryByTitle('SidebarGeneratedDocuments')).not.toBeInTheDocument()
+      expect(within(compact).queryByTitle('SidebarGeneratedPages')).not.toBeInTheDocument()
     );
   }
 );
@@ -150,13 +145,13 @@ testStable(
   async () => {
     let override: boolean | null = null;
 
-    api.settings.mockResolvedValue({ settledDocumentThreshold: 2 });
+    api.settings.mockResolvedValue({ settledPageThreshold: 2 });
     api.summaries.mockImplementation(() =>
       Promise.resolve({
         items: [
           {
             id: 1n,
-            generatedDocumentCount: override === false ? 5n : 0n,
+            generatedPageCount: override === false ? 5n : 0n,
             running: false,
             activity: 'idle',
             settledOverride: override
@@ -174,11 +169,11 @@ testStable(
     caches.push(cache);
     const route = createRootRoute({
       component: () => (
-        <RichSidebarSessions
-          sessions={sessions.slice(0, 1)}
+        <RichSidebarNotes
+          notes={notes.slice(0, 1)}
           subjects={[]}
           project={undefined}
-          selectedSession="1"
+          selectedNote="1"
         />
       )
     });
@@ -197,10 +192,10 @@ testStable(
     await waitFor(() => expect(api.settle).toHaveBeenCalledWith({ id: 1n, settled: true }));
     await waitFor(() =>
       expect(
-        view.container.querySelector('.study-session-group:last-child .study-session-title')
-      ).toHaveTextContent('Session 1')
+        view.container.querySelector('.study-note-group:last-child .study-note-title')
+      ).toHaveTextContent('Note 1')
     );
-    const group = view.container.querySelector('.study-session-group:last-child') as HTMLElement;
+    const group = view.container.querySelector('.study-note-group:last-child') as HTMLElement;
 
     fireEvent.click(within(group).getByText('SidebarSettled'));
     await waitFor(() =>
@@ -213,28 +208,28 @@ testStable(
     await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
     await waitFor(() =>
       expect(
-        view.container.querySelector('.study-session-group:first-child .study-session-title')
-      ).toHaveTextContent('Session 1')
+        view.container.querySelector('.study-note-group:first-child .study-note-title')
+      ).toHaveTextContent('Note 1')
     );
     expect(router.state.location.pathname).toBe('/');
   }
 );
 
 testStable(
-  'shows settled sessions as compact recent rows with ten initially and twenty-five more per click',
+  'shows settled notes as compact recent rows with ten initially and twenty-five more per click',
   async () => {
     const many = Array.from({ length: 40 }, (_, index) => ({
-      ...sessions[0]!,
-      id: BigInt(index + 1) as (typeof sessions)[number]['id'],
+      ...notes[0]!,
+      id: BigInt(index + 1) as (typeof notes)[number]['id'],
       title: 'Settled ' + (index + 1),
       updatedAt: BigInt(1000 - index)
     }));
 
-    api.settings.mockResolvedValue({ settledDocumentThreshold: 1 });
+    api.settings.mockResolvedValue({ settledPageThreshold: 1 });
     api.summaries.mockResolvedValue({
-      items: many.map((session) => ({
-        id: session.id,
-        generatedDocumentCount: 1n,
+      items: many.map((note) => ({
+        id: note.id,
+        generatedPageCount: 1n,
         running: false,
         activity: 'idle',
         settledOverride: true
@@ -245,12 +240,7 @@ testStable(
     caches.push(cache);
     const route = createRootRoute({
       component: () => (
-        <RichSidebarSessions
-          sessions={many}
-          subjects={[]}
-          project={undefined}
-          selectedSession={null}
-        />
+        <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
       )
     });
     const router = createRouter({
@@ -295,11 +285,11 @@ testStable(
 );
 
 function mountSelectionSidebar() {
-  api.settings.mockResolvedValue({ settledDocumentThreshold: 1 });
+  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({
-    items: sessions.map((session) => ({
-      id: session.id,
-      generatedDocumentCount: 0n,
+    items: notes.map((note) => ({
+      id: note.id,
+      generatedPageCount: 0n,
       running: false,
       activity: 'idle'
     }))
@@ -309,12 +299,7 @@ function mountSelectionSidebar() {
   caches.push(cache);
   const route = createRootRoute({
     component: () => (
-      <RichSidebarSessions
-        sessions={sessions}
-        subjects={[]}
-        project={undefined}
-        selectedSession={null}
-      />
+      <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
     )
   });
   const router = createRouter({
@@ -336,36 +321,33 @@ testStable(
   async () => {
     const router = mountSelectionSidebar();
 
-    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Session 1' }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectSessions' }));
-    expect(await screen.findByRole('button', { name: 'Session 1' })).toHaveAttribute(
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    expect(await screen.findByRole('button', { name: 'Note 1' })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Session 2' }));
-    expect(screen.getByRole('button', { name: 'Session 2' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
-    const row = screen.getByRole('button', { name: 'Session 1' });
+    fireEvent.click(screen.getByRole('button', { name: 'Note 2' }));
+    expect(screen.getByRole('button', { name: 'Note 2' })).toHaveAttribute('aria-pressed', 'true');
+    const row = screen.getByRole('button', { name: 'Note 1' });
 
     expect(row).toHaveAttribute('data-layout', 'detailed');
     expect(within(row).getByText('SidebarReady')).toBeVisible();
-    expect(within(row).getByTitle('SidebarGeneratedDocuments')).toBeVisible();
+    expect(within(row).getByTitle('SidebarGeneratedPages')).toBeVisible();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
     const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
     expect(toolbar.parentElement).toBe(document.body);
-    fireEvent.click(within(toolbar).getByRole('button', { name: 'SessionCreateDocument' }));
-    const dialog = await screen.findByRole('dialog', { name: 'SessionTransform' });
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'NoteCreatePage' }));
+    const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
 
-    expect(within(dialog).getByText('Session 1')).toBeVisible();
-    expect(within(dialog).getByText('Session 2')).toBeVisible();
+    expect(within(dialog).getByText('Note 1')).toBeVisible();
+    expect(within(dialog).getByText('Note 2')).toBeVisible();
     expect(within(dialog).queryByRole('checkbox')).not.toBeInTheDocument();
     expect(within(dialog).queryByRole('searchbox')).not.toBeInTheDocument();
   }
@@ -375,21 +357,21 @@ testStable(
   'disables batch actions for zero selected rows and cancel returns to navigation',
   async () => {
     mountSelectionSidebar();
-    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Session 1' }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectSessions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Session 1' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Note 1' }));
     const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
     expect(toolbar).toHaveFocus();
-    expect(within(toolbar).getByRole('button', { name: 'SessionCreateDocument' })).toBeDisabled();
+    expect(within(toolbar).getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
     expect(within(toolbar).getByRole('button', { name: 'SidebarDeleteSelected' })).toBeDisabled();
     fireEvent.click(within(toolbar).getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByRole('link', { name: 'Session 1' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Session 1' })).toHaveFocus();
+    expect(await screen.findByRole('link', { name: 'Note 1' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Note 1' })).toHaveFocus();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('toolbar', { name: 'SidebarSelectionActions' })
@@ -398,39 +380,39 @@ testStable(
 );
 
 testStable(
-  'opens deletion review for the selected sessions without deleting on selection',
+  'opens deletion review for the selected notes without deleting on selection',
   async () => {
     mountSelectionSidebar();
-    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Session 1' }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectSessions' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Session 3' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Note 3' }));
     fireEvent.click(
       within(screen.getByRole('toolbar')).getByRole('button', { name: 'SidebarDeleteSelected' })
     );
     const dialog = await screen.findByRole('alertdialog');
 
-    expect(within(dialog).getByText('Session 1')).toBeVisible();
-    expect(within(dialog).getByText('Session 3')).toBeVisible();
-    expect(within(dialog).queryByText('Session 2')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('Note 1')).toBeVisible();
+    expect(within(dialog).getByText('Note 3')).toBeVisible();
+    expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
   }
 );
 
 testStable('keeps loaded settled rows available regardless of the sidebar height', async () => {
   const many = Array.from({ length: 7 }, (_, index) => ({
-    ...sessions[0]!,
-    id: BigInt(index + 1) as (typeof sessions)[number]['id'],
+    ...notes[0]!,
+    id: BigInt(index + 1) as (typeof notes)[number]['id'],
     title: 'Recent ' + (index + 1)
   }));
 
-  api.settings.mockResolvedValue({ settledDocumentThreshold: 1 });
+  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({
-    items: many.map((session) => ({
-      id: session.id,
-      generatedDocumentCount: 1n,
+    items: many.map((note) => ({
+      id: note.id,
+      generatedPageCount: 1n,
       running: false,
       activity: 'idle'
     }))
@@ -442,7 +424,7 @@ testStable('keeps loaded settled rows available regardless of the sidebar height
         ? 400
         : this.tagName === 'SUMMARY'
           ? 38
-          : this.classList.contains('study-session-entry')
+          : this.classList.contains('study-note-entry')
             ? 36
             : 0;
 
@@ -475,12 +457,7 @@ testStable('keeps loaded settled rows available regardless of the sidebar height
     const route = createRootRoute({
       component: () => (
         <div className="study-sidebar-scroll">
-          <RichSidebarSessions
-            sessions={many}
-            subjects={[]}
-            project={undefined}
-            selectedSession={null}
-          />
+          <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
         </div>
       )
     });
@@ -517,12 +494,12 @@ testStable(
   'uses keyboard row toggles without changing the sidebar density or navigating',
   async () => {
     const router = mountSelectionSidebar();
-    const original = await screen.findByRole('link', { name: 'Session 1' });
+    const original = await screen.findByRole('link', { name: 'Note 1' });
 
     expect(original).toHaveAttribute('data-layout', 'detailed');
     fireEvent.contextMenu(original, { button: 2, clientX: 80, clientY: 80 });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectSessions' }));
-    const row = await screen.findByRole('button', { name: 'Session 2' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+    const row = await screen.findByRole('button', { name: 'Note 2' });
 
     expect(row).toHaveAttribute('data-layout', 'detailed');
     expect(row).toHaveAttribute('aria-pressed', 'false');
@@ -538,32 +515,27 @@ testStable(
 
 testStable('opens the conversion dialog from a row without navigating or settling it', async () => {
   const router = mountSelectionSidebar();
-  const link = await screen.findByRole('link', { name: 'Session 1' });
-  const row = link.closest('.study-session-entry') as HTMLElement;
+  const link = await screen.findByRole('link', { name: 'Note 1' });
+  const row = link.closest('.study-note-entry') as HTMLElement;
 
   expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
   fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoDoc' }));
-  const dialog = await screen.findByRole('dialog', { name: 'SessionTransform' });
+  const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
 
-  expect(within(dialog).getByText('Session 1')).toBeVisible();
-  expect(within(dialog).queryByText('Session 2')).not.toBeInTheDocument();
+  expect(within(dialog).getByText('Note 1')).toBeVisible();
+  expect(within(dialog).queryByText('Note 2')).not.toBeInTheDocument();
   expect(router.state.location.pathname).toBe('/');
 });
 
-testStable('offers merge only after selecting at least two sessions', async () => {
-  api.settings.mockResolvedValue({ settledDocumentThreshold: 1 });
+testStable('offers merge only after selecting at least two notes', async () => {
+  api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({ items: [] });
   const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   caches.push(cache);
   const route = createRootRoute({
     component: () => (
-      <RichSidebarSessions
-        sessions={sessions}
-        subjects={[]}
-        project={undefined}
-        selectedSession={null}
-      />
+      <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
     )
   });
   const router = createRouter({
@@ -576,15 +548,15 @@ testStable('offers merge only after selecting at least two sessions', async () =
       <RouterProvider router={router} />
     </QueryClientProvider>
   );
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Session 1' }));
-  fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectSessions' }));
-  expect(screen.getByRole('button', { name: 'SessionMerge' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Session 2' }));
-  expect(screen.getByRole('button', { name: 'SessionMerge' })).toBeEnabled();
-  fireEvent.click(screen.getByRole('button', { name: 'SessionMerge' }));
+  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }));
+  fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
+  expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Note 2' }));
+  expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
   const dialog = await screen.findByRole('dialog');
 
-  expect(within(dialog).getByText('SessionMergeHelp')).toBeInTheDocument();
-  expect(within(dialog).getByText('Session 1')).toBeInTheDocument();
-  expect(within(dialog).getByText('Session 2')).toBeInTheDocument();
+  expect(within(dialog).getByText('NoteMergeHelp')).toBeInTheDocument();
+  expect(within(dialog).getByText('Note 1')).toBeInTheDocument();
+  expect(within(dialog).getByText('Note 2')).toBeInTheDocument();
 });

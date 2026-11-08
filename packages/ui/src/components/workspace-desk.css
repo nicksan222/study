@@ -191,10 +191,10 @@
   padding: 0.75rem clamp(1rem, 2cqi, 2rem) 1.25rem;
   max-height: 40%;
 }
-.workspace-desk-board .session-history {
+.workspace-desk-board .note-history {
   min-height: auto;
 }
-.workspace-desk-board .session-notes-heading {
+.workspace-desk-board .note-notes-heading {
   display: none;
 }
 .workspace-desk-recovery {
@@ -251,7 +251,7 @@
   }
 }
 @container (max-width: 480px) {
-  .workspace-desk-board .session-capture-tools > button {
+  .workspace-desk-board .note-capture-tools > button {
     display: none;
   }
   .workspace-desk-tab-header {
@@ -278,7 +278,7 @@
   }
 }
 
-.workspace-desk-document {
+.workspace-desk-page {
   display: flex;
   align-items: center;
   gap: 0.875rem;
@@ -295,18 +295,18 @@
     background-color 120ms ease-out,
     border-color 120ms ease-out;
 }
-.workspace-desk-document:hover {
+.workspace-desk-page:hover {
   background: color-mix(in srgb, var(--accent) 45%, transparent);
   border-color: var(--muted-foreground);
 }
-.workspace-desk-document[data-active] {
+.workspace-desk-page[data-active] {
   border-color: color-mix(in srgb, var(--primary) 60%, var(--border));
 }
-.workspace-desk-document:focus-visible {
+.workspace-desk-page:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
-.workspace-desk-document-icon {
+.workspace-desk-page-icon {
   display: grid;
   place-items: center;
   width: 2.5rem;
@@ -316,65 +316,65 @@
   border-radius: 0.375rem;
   color: var(--muted-foreground);
 }
-.workspace-desk-document-copy {
+.workspace-desk-page-copy {
   display: grid;
   min-width: 0;
   gap: 0.25rem;
   flex: 1;
 }
-.workspace-desk-document-title {
+.workspace-desk-page-title {
   font-size: 0.875rem;
   font-weight: 550;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.workspace-desk-document-preview {
+.workspace-desk-page-preview {
   font-size: 0.8125rem;
   color: var(--muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.workspace-desk-document-meta {
+.workspace-desk-page-meta {
   font-size: 0.75rem;
   color: var(--muted-foreground);
 }
-.workspace-desk-document-arrow {
+.workspace-desk-page-arrow {
   flex: none;
   color: var(--muted-foreground);
 }
 
-.workspace-desk-board-tools .session-context-actions {
+.workspace-desk-board-tools .note-context-actions {
   border: 0;
 }
-.workspace-desk-board .session-entry {
+.workspace-desk-board .note-entry {
   padding: 0;
   margin-block: 1rem 1.5rem;
   border: 0;
 }
-.workspace-desk-board .session-entry > header {
+.workspace-desk-board .note-entry > header {
   margin-block-end: 0.5rem;
 }
-.workspace-desk-board .session-entry > .rich-note-content {
+.workspace-desk-board .note-entry > .rich-note-content {
   margin-block: 0;
   font-size: 0.9375rem;
 }
-.workspace-desk-board .session-entry[data-role='user'] > .rich-note-content {
+.workspace-desk-board .note-entry[data-role='user'] > .rich-note-content {
   padding: 1rem 1.25rem;
   background: var(--card);
   border-radius: 0.875rem;
 }
-.workspace-desk-board .session-entry > .rich-note-content h1 {
+.workspace-desk-board .note-entry > .rich-note-content h1 {
   font-size: 1.25rem;
   letter-spacing: -0.015em;
   margin-block: 0 0.75rem;
 }
-.workspace-desk-board .session-entry > .rich-note-content h2 {
+.workspace-desk-board .note-entry > .rich-note-content h2 {
   font-size: 1rem;
   margin-block: 1rem 0.5rem;
 }
-.workspace-desk-board .session-entry > .rich-note-content h3 {
+.workspace-desk-board .note-entry > .rich-note-content h3 {
   font-size: 0.9375rem;
 }
 
@@ -390,14 +390,14 @@
   --composer-input-height: 2.5rem;
   --composer-radius: 0.875rem;
 }
-.workspace-desk-board .session-capture-tools {
+.workspace-desk-board .note-capture-tools {
   margin: 0;
 }
 
 .workspace-desk-board .ui-composer .ui-composer-input {
   min-height: 2.5rem;
 }
-.workspace-desk-board .session-history > .workspace-desk-document {
+.workspace-desk-board .note-history > .workspace-desk-page {
   margin-block-end: 0.875rem;
 }
 .workspace-desk-drafts:not(:empty) {
@@ -411,7 +411,7 @@
   line-height: 1.75;
   max-width: 72ch;
 }
-.workspace-desk-board .session-entry[data-role='user'] > .workspace-desk-quick-text {
+.workspace-desk-board .note-entry[data-role='user'] > .workspace-desk-quick-text {
   margin-inline-start: auto;
   padding: 1rem 1.25rem;
   background: var(--card);
@@ -533,66 +533,66 @@
   object-fit: cover;
 }
 
-/* Conversation rhythm follows the content; metadata stays below the writing. */
-.workspace-desk-board .session-entry {
+/* Note rhythm follows the content; metadata stays below the writing. */
+.workspace-desk-board .note-entry {
   display: flex;
   flex-direction: column;
   gap: 0;
   margin-block: 1.25rem 2.5rem;
 }
-.workspace-desk-board .session-entry > header {
+.workspace-desk-board .note-entry > header {
   order: 2;
   margin-block: 0.25rem 0;
   color: var(--muted-foreground);
 }
-.workspace-desk-board .session-entry > header > strong {
+.workspace-desk-board .note-entry > header > strong {
   display: none;
 }
-.workspace-desk-board .session-entry[data-role='user'] > header {
+.workspace-desk-board .note-entry[data-role='user'] > header {
   justify-content: flex-end;
 }
-.workspace-desk-board .session-row-tools {
+.workspace-desk-board .note-row-tools {
   background: transparent;
   border: 0;
   margin-block: 0.375rem 0;
   color: var(--muted-foreground);
 }
-.workspace-desk-board .session-entry[data-role='assistant'] > .session-row-tools {
+.workspace-desk-board .note-entry[data-role='assistant'] > .note-row-tools {
   margin-inline: 0 auto;
 }
-.workspace-desk-board .session-entry[data-role='user'] > .workspace-desk-quick-text {
+.workspace-desk-board .note-entry[data-role='user'] > .workspace-desk-quick-text {
   width: fit-content;
   max-width: min(82%, 72ch);
   padding: 1rem 1.125rem;
   border-radius: 1.25rem;
   background: var(--card);
 }
-.workspace-desk-board .session-entry > .rich-note-content {
+.workspace-desk-board .note-entry > .rich-note-content {
   width: 100%;
   line-height: 1.75;
 }
-.workspace-desk-board .session-entry[data-role='user'] > .workspace-desk-attachments {
+.workspace-desk-board .note-entry[data-role='user'] > .workspace-desk-attachments {
   width: min(82%, 32rem);
   align-self: flex-end;
 }
-.workspace-desk-board .session-history > .workspace-desk-document {
+.workspace-desk-board .note-history > .workspace-desk-page {
   width: min(82%, 32rem);
   align-self: flex-end;
   margin-block: 0.75rem 1.75rem;
 }
 @container (max-width: 600px) {
-  .workspace-desk-board .session-entry[data-role='user'] > .workspace-desk-quick-text,
-  .workspace-desk-board .session-entry[data-role='user'] > .workspace-desk-attachments,
-  .workspace-desk-board .session-history > .workspace-desk-document {
+  .workspace-desk-board .note-entry[data-role='user'] > .workspace-desk-quick-text,
+  .workspace-desk-board .note-entry[data-role='user'] > .workspace-desk-attachments,
+  .workspace-desk-board .note-history > .workspace-desk-page {
     max-width: 94%;
     width: fit-content;
   }
-  .workspace-desk-board .session-history > .workspace-desk-document {
+  .workspace-desk-board .note-history > .workspace-desk-page {
     width: 94%;
   }
 }
 
-.workspace-desk-board .session-entry + .session-entry {
+.workspace-desk-board .note-entry + .note-entry {
   border-block-start: 0;
 }
 
@@ -600,7 +600,7 @@
   border-radius: 0;
 }
 
-.workspace-desk-document-open {
+.workspace-desk-page-open {
   display: inline-flex;
   align-items: center;
   justify-self: end;
@@ -610,27 +610,27 @@
   color: var(--muted-foreground);
 }
 
-.workspace-desk-document-open {
+.workspace-desk-page-open {
   font-size: 0;
 }
 
-.workspace-desk-document {
+.workspace-desk-page {
   gap: 0.75rem;
 }
-.workspace-desk-document-icon {
+.workspace-desk-page-icon {
   width: 2rem;
   height: 2.25rem;
   border: 0;
   background: var(--muted);
 }
-.workspace-desk-document-icon > svg {
+.workspace-desk-page-icon > svg {
   width: 1.125rem;
   height: 1.125rem;
 }
-.workspace-desk-document-copy {
+.workspace-desk-page-copy {
   gap: 0.1875rem;
 }
-.workspace-desk-document-open {
+.workspace-desk-page-open {
   flex: none;
   align-self: center;
   margin: 0 0 0 auto;
@@ -639,11 +639,11 @@
   justify-content: center;
   border-radius: var(--control-radius);
 }
-.workspace-desk-document:hover .workspace-desk-document-open {
+.workspace-desk-page:hover .workspace-desk-page-open {
   color: var(--foreground);
   background: var(--accent);
 }
-.workspace-desk-document-preview {
+.workspace-desk-page-preview {
   white-space: normal;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -676,10 +676,10 @@
   margin: 1rem 1rem 1rem 0;
   overflow-y: auto;
 }
-.workspace-desk .session-attachments-card {
+.workspace-desk .note-attachments-card {
   overflow: hidden;
 }
-.workspace-desk .session-context-actions {
+.workspace-desk .note-context-actions {
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -803,18 +803,18 @@
 }
 
 @container (max-width: 900px) {
-  .workspace-desk .session-attachments-card {
+  .workspace-desk .note-attachments-card {
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: var(--app-scrollbar-thumb) transparent;
   }
-  .workspace-desk .session-attachments-card .session-page-index {
+  .workspace-desk .note-attachments-card .note-page-index {
     max-height: none;
     overflow: visible;
   }
 }
 
-.document-editor-page {
+.page-editor-page {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -822,28 +822,28 @@
   min-height: 20rem;
 }
 
-.document-editor-page .rich-note-content {
+.page-editor-page .rich-note-content {
   padding: 0;
   background: var(--background);
 }
-.document-editor-page .rich-note-content .tiptap {
+.page-editor-page .rich-note-content .tiptap {
   width: 100%;
   min-height: 100%;
   margin: 0;
 }
 
 /* History uses the same document editor; only editing is locked. */
-.document-editor-page .rich-note-editor[data-disabled] .tiptap {
+.page-editor-page .rich-note-editor[data-disabled] .tiptap {
   color: var(--foreground);
 }
 @media (max-width: 700px) {
-  .document-editor-page .rich-note-ribbon {
+  .page-editor-page .rich-note-ribbon {
     flex-wrap: wrap;
   }
-  .document-editor-page .rich-note-ribbon > .rich-note-toolbar {
+  .page-editor-page .rich-note-ribbon > .rich-note-toolbar {
     flex-basis: 100%;
   }
-  .document-editor-page .rich-note-toolbar-end {
+  .page-editor-page .rich-note-toolbar-end {
     flex: 1 1 100%;
     flex-wrap: wrap;
     justify-content: flex-end;

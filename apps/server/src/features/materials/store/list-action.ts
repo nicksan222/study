@@ -26,7 +26,7 @@ type Input = typeof materialsInputSchema.Type;
 export function makeListAction(resources: StoreResources) {
   const { db: store } = resources;
   const { materialRow, readMaterialSummaries } = makeReads(resources);
-  const { assertProject, assertSession, assertMembership } = makeWrites(resources);
+  const { assertProject, assertNote, assertMembership } = makeWrites(resources);
   const filtersFor = (input: Input) => {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
@@ -56,19 +56,19 @@ export function makeListAction(resources: StoreResources) {
 
     let ids: MaterialId[];
 
-    if (input.sessionId !== undefined) {
-      assertSession(input.sessionId);
+    if (input.noteId !== undefined) {
+      assertNote(input.noteId);
       const cursor =
         input.cursor === undefined
           ? undefined
           : required(
               store.orm
                 .select()
-                .from(s.session_materials)
+                .from(s.note_materials)
                 .where(
                   and(
-                    eq(s.session_materials.session_id, input.sessionId),
-                    eq(s.session_materials.material_id, input.cursor)
+                    eq(s.note_materials.note_id, input.noteId),
+                    eq(s.note_materials.material_id, input.cursor)
                   )
                 )
                 .get()
@@ -77,15 +77,15 @@ export function makeListAction(resources: StoreResources) {
       ids = store.orm
         .select({ id: s.materials.id })
         .from(s.materials)
-        .innerJoin(s.session_materials, eq(s.materials.id, s.session_materials.material_id))
+        .innerJoin(s.note_materials, eq(s.materials.id, s.note_materials.material_id))
         .where(
           and(
             ...filters,
-            eq(s.session_materials.session_id, input.sessionId),
-            cursor ? gt(s.session_materials.position, cursor.position) : undefined
+            eq(s.note_materials.note_id, input.noteId),
+            cursor ? gt(s.note_materials.position, cursor.position) : undefined
           )
         )
-        .orderBy(asc(s.session_materials.position))
+        .orderBy(asc(s.note_materials.position))
         .limit(input.limit + 1)
         .all()
         .map((row) => row.id);

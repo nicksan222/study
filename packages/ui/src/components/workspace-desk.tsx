@@ -219,7 +219,7 @@ function Panel({
   );
 }
 
-function DocumentCard({
+function PageCard({
   title,
   meta,
   preview,
@@ -244,20 +244,20 @@ function DocumentCard({
     <button
       ref={card}
       title={openLabel}
-      className="workspace-desk-document"
+      className="workspace-desk-page"
       type="button"
       data-active={active || undefined}
       onClick={onOpen}
     >
-      <span className="workspace-desk-document-icon">
+      <span className="workspace-desk-page-icon">
         <FileText size={20} aria-hidden="true" />
       </span>
-      <span className="workspace-desk-document-copy">
-        <span className="workspace-desk-document-title">{title}</span>
-        {preview && <span className="workspace-desk-document-preview">{preview}</span>}
-        {meta && <span className="workspace-desk-document-meta">{meta}</span>}
+      <span className="workspace-desk-page-copy">
+        <span className="workspace-desk-page-title">{title}</span>
+        {preview && <span className="workspace-desk-page-preview">{preview}</span>}
+        {meta && <span className="workspace-desk-page-meta">{meta}</span>}
       </span>
-      <span className="workspace-desk-document-open" aria-hidden="true">
+      <span className="workspace-desk-page-open" aria-hidden="true">
         <ArrowUpRight size={16} />
       </span>
     </button>
@@ -336,7 +336,7 @@ function AttachmentCard({
 export const WorkspaceDeskSurface = {
   Root,
   Panel,
-  DocumentCard,
+  PageCard,
   AttachmentCard,
   Attachments: part('div', 'workspace-desk-attachments'),
   QuickText: part('div', 'workspace-desk-quick-text'),
@@ -352,7 +352,7 @@ export const WorkspaceDeskSurface = {
   Header: part('header', 'workspace-desk-header'),
   HeaderTitle: part('span', 'workspace-desk-header-title'),
   Editor: part('section', 'workspace-desk-editor'),
-  DocumentPage: part('div', 'document-editor-page'),
+  PageReaderPage: part('div', 'page-editor-page'),
   SaveStatus: part('span', 'workspace-desk-save-status'),
   Recovery: part('section', 'workspace-desk-recovery')
 };

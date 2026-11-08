@@ -15,6 +15,7 @@ testStable(
     const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
     const previous = join(folder, 'migrations');
     const path = join(folder, 'study.sqlite');
+    const current = join(folder, 'current-migrations');
     let connection: Db | undefined;
 
     try {
@@ -59,7 +60,12 @@ testStable(
 
       connection.close();
       connection = undefined;
-      connection = Db.open(path);
+
+      for (const name of readdirSync(migrations))
+        if (name <= '20261107155014_ordering-practice')
+          cpSync(join(migrations, name), join(current, name), { recursive: true });
+
+      connection = Db.open(path, current);
       assert.deepEqual(
         tables.map((table) => connection!.orm.all(sql.raw(`SELECT * FROM ${table}`))),
         before

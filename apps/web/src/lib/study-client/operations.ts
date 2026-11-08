@@ -1,7 +1,7 @@
-import type { createUntitledSessionInputSchema } from '@study/contracts/conversations/rpc';
-import type { SessionDto } from '@study/contracts/conversations/schemas';
-import type { ProjectId, MaterialId, SourceId, StudyDocumentId } from '@study/contracts/ids';
+import type { ProjectId, MaterialId, SourceId, PageId } from '@study/contracts/ids';
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import type { createUntitledNoteInputSchema } from '@study/contracts/notes/rpc';
+import type { NoteDto } from '@study/contracts/notes/schemas';
 import type { Project } from '@study/contracts/projects/schemas';
 import type { AppSettings } from '@study/contracts/settings/types';
 import type { searchInputSchema } from '@study/contracts/system/rpc';
@@ -14,7 +14,7 @@ import { request } from './request';
 
 export type Subjects = Project[];
 
-export type Sessions = readonly SessionDto[];
+export type Notes = readonly NoteDto[];
 
 export type Materials = MaterialSummaryDto[];
 
@@ -31,11 +31,11 @@ export const listProjects = (signal?: AbortSignal) =>
     signal
   );
 
-export const listSessions = (signal?: AbortSignal) =>
+export const listNotes = (signal?: AbortSignal) =>
   request(
     (client) =>
-      collectPages((before: Parameters<StudyClient['conversations.sessions']>[0]['before']) =>
-        client['conversations.sessions']({ limit: 100, before })
+      collectPages((before: Parameters<StudyClient['notes.notes']>[0]['before']) =>
+        client['notes.notes']({ limit: 100, before })
       ),
     signal
   );
@@ -66,11 +66,10 @@ export const searchStudy = (input: SearchInput, signal?: AbortSignal) =>
 export const createProject = (name: string) =>
   request((client) => client['projects.createProject']({ name }));
 
-export const createSession = (
+export const createNote = (
   project: ProjectId | undefined,
-  initialMessage: (typeof createUntitledSessionInputSchema.Type)['initialMessage']
-) =>
-  request((client) => client['conversations.createUntitledSession']({ project, initialMessage }));
+  initialMessage: (typeof createUntitledNoteInputSchema.Type)['initialMessage']
+) => request((client) => client['notes.createUntitledNote']({ project, initialMessage }));
 
 export const loadAppearance = (signal?: AbortSignal) =>
   request(
@@ -129,11 +128,11 @@ export const listSubjectSources = (project: ProjectId, signal?: AbortSignal) =>
     signal
   );
 
-export const countDocuments = (projectId: ProjectId | undefined, signal?: AbortSignal) =>
+export const countPages = (projectId: ProjectId | undefined, signal?: AbortSignal) =>
   request(
     (client) =>
-      collectPages((cursor: StudyDocumentId | undefined) =>
-        client['documents.documents']({ projectId, cursor, limit: 100, archived: false }).pipe(
+      collectPages((cursor: PageId | undefined) =>
+        client['pages.pages']({ projectId, cursor, limit: 100, archived: false }).pipe(
           Effect.map((page) => ({ items: page.items, next: page.nextCursor }))
         )
       ).pipe(Effect.map((items) => items.filter((item) => item.headVersionId !== null).length)),

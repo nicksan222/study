@@ -54,10 +54,10 @@ function mount() {
 testStable('keeps drafts when switching tasks and saves all categories explicitly', async () => {
   mount();
   const user = userEvent.setup();
-  const documents = await screen.findByRole('textbox', { name: 'AgentRulesDocuments' });
+  const pages = await screen.findByRole('textbox', { name: 'AgentRulesPages' });
 
-  expect(documents).toHaveAttribute('maxlength', '8000');
-  fireEvent.change(documents, { target: { value: 'Use clear headings.' } });
+  expect(pages).toHaveAttribute('maxlength', '8000');
+  fireEvent.change(pages, { target: { value: 'Use clear headings.' } });
   expect(api.save).not.toHaveBeenCalled();
   await user.click(screen.getByRole('combobox', { name: 'AgentRulesTask' }));
   await user.click(await screen.findByRole('option', { name: 'AgentRulesTitles' }));
@@ -68,7 +68,7 @@ testStable('keeps drafts when switching tasks and saves all categories explicitl
   await waitFor(() =>
     expect(api.save).toHaveBeenCalledExactlyOnceWith({
       ...defaultAgentRules,
-      documents: 'Use clear headings.',
+      pages: 'Use clear headings.',
       titles: 'Use short titles.'
     })
   );
@@ -78,7 +78,7 @@ testStable('keeps drafts when switching tasks and saves all categories explicitl
   await waitFor(() =>
     expect(api.save).toHaveBeenLastCalledWith({
       ...defaultAgentRules,
-      documents: 'Use clear headings.'
+      pages: 'Use clear headings.'
     })
   );
 });
@@ -86,7 +86,7 @@ testStable('keeps drafts when switching tasks and saves all categories explicitl
 testStable('preserves unsaved text after failure and retries the same change', async () => {
   api.save.mockRejectedValueOnce(new Error('Unavailable'));
   mount();
-  const input = await screen.findByRole('textbox', { name: 'AgentRulesDocuments' });
+  const input = await screen.findByRole('textbox', { name: 'AgentRulesPages' });
 
   fireEvent.change(input, { target: { value: 'Keep examples.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
@@ -102,5 +102,5 @@ testStable('shows a recoverable load failure without editable defaults', async (
   expect(await screen.findByText('AgentRulesLoadFailed')).toBeInTheDocument();
   expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
-  expect(await screen.findByRole('textbox', { name: 'AgentRulesDocuments' })).toBeEnabled();
+  expect(await screen.findByRole('textbox', { name: 'AgentRulesPages' })).toBeEnabled();
 });

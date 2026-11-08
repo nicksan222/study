@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Coordinates persistence for practice sessions and responses.                       │
+ * │ @file Coordinates persistence for practice notes and responses.                          │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Persists practice sessions and their captured question slots.                          │
+ * │ - Persists practice notes and their captured question slots.                             │
  * │ - Keeps persistence inputs and results typed for service-layer composition.              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │

@@ -15,18 +15,18 @@ import { randomUUID } from 'node:crypto';
 import { Effect } from 'effect';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
-import type { documentTransformFixture } from '#testing/document-transform';
 import { deletionDocument } from '#testing/material-deletion';
+import type { pageTransformFixture } from '#testing/page-transform';
 
-type Fixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 export function learningGeneration(f: Fixture) {
   return Effect.runPromise(
     Effect.gen(function* () {
-      const docs = yield* Documents;
+      const docs = yield* Pages;
       const project = yield* (yield* Projects).createProject({ name: 'Generated history' });
       const input = yield* docs.create({
         createKey: randomUUID(),
@@ -43,7 +43,7 @@ export function learningGeneration(f: Fixture) {
         kind: 'flashcards',
         title: 'Aid',
         instruction: 'HISTORY_PRIVATE_GENERATION',
-        inputs: [{ kind: 'document', versionId: input.version.id }]
+        inputs: [{ kind: 'page', versionId: input.version.id }]
       });
 
       return { input: { ...input, version: input.version }, request };

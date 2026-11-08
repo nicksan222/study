@@ -15,8 +15,8 @@
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { Effect } from 'effect';
 
-import { Conversations } from '#server/features/conversations/index';
 import { Materials } from '#server/features/materials/service/index';
+import { Notes } from '#server/features/notes/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 export const MaterialsRpcLive = defineRpc(
@@ -24,7 +24,7 @@ export const MaterialsRpcLive = defineRpc(
   Effect.gen(function* () {
     const materials = yield* Materials;
 
-    yield* Effect.serviceOption(Conversations);
+    yield* Effect.serviceOption(Notes);
 
     return {
       'materials.previewHistoryPrune': (value) => materials.previewHistoryPrune(value),

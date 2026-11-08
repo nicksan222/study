@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialVersionId, StudyDocumentVersionId } from '@study/contracts/ids';
+import type { MaterialVersionId, PageVersionId } from '@study/contracts/ids';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
@@ -23,8 +23,8 @@ import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -34,7 +34,7 @@ import { withPublicationGuard } from '#server/platform/workflows/publication';
 testStable('guarded generation publishes once and replays its receipt', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+  const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
   let complete = false;
@@ -50,7 +50,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         const projects = yield* Projects;
         const materials = yield* Materials;
 
-        const documents = yield* Documents;
+        const documents = yield* Pages;
         const project = yield* projects.createProject({ name: 'Generation' });
         const doc = yield* documents.create({
           createKey: crypto.randomUUID(),
@@ -80,7 +80,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           projectId: project.id,
           title: 'Late',
           kind: 'flashcards',
-          inputs: [{ kind: 'document', versionId: doc.version!.id }],
+          inputs: [{ kind: 'page', versionId: doc.version!.id }],
           scopeId: scope.scopeId
         });
         const request = yield* materials.requestMaterialGeneration({
@@ -88,7 +88,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           scopeId: scope.scopeId,
           title: 'Cards',
           kind: 'flashcards',
-          inputs: [{ kind: 'document', versionId: doc.version!.id }]
+          inputs: [{ kind: 'page', versionId: doc.version!.id }]
         });
         const value = {
           requestId: request.id,
@@ -96,7 +96,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           citations: [
             {
               marker: 1n,
-              input: { kind: 'document' as const, versionId: doc.version!.id },
+              input: { kind: 'page' as const, versionId: doc.version!.id },
               blockOrdinal: 0,
               quote: 'Source'
             }
@@ -168,7 +168,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
               citations: [
                 {
                   ...value.citations[0]!,
-                  input: { kind: 'document' as const, versionId: foreign.version!.id }
+                  input: { kind: 'page' as const, versionId: foreign.version!.id }
                 }
               ]
             })
@@ -190,7 +190,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           title: 'Configured quiz',
           autoTitle: true,
           kind: 'quiz',
-          inputs: [{ kind: 'document', versionId: doc.version!.id }],
+          inputs: [{ kind: 'page', versionId: doc.version!.id }],
           quizConfig: {
             questionCount: 2,
             choiceCount: 3,
@@ -322,7 +322,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           projectId: project.id,
           title: 'Quiz',
           kind: 'quiz',
-          inputs: [{ kind: 'document', versionId: doc.version!.id }],
+          inputs: [{ kind: 'page', versionId: doc.version!.id }],
           questionSpec: { count: 1, kind: 'open' }
         });
         const question = {
@@ -386,11 +386,11 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         const published = yield* materials.materialVersion({ id: result });
 
         assert.ok(published.operation === 'generate');
-        expect(published.inputs).toStrictEqual([{ kind: 'document', versionId: doc.version!.id }]);
+        expect(published.inputs).toStrictEqual([{ kind: 'page', versionId: doc.version!.id }]);
         expect((yield* materials.citations({ id: result, limit: 10 })).items).toStrictEqual([
           {
             marker: 1n,
-            input: { kind: 'document', versionId: doc.version!.id },
+            input: { kind: 'page', versionId: doc.version!.id },
             anchor: { type: 'authored' },
             quote: 'Source',
             target: undefined
@@ -426,7 +426,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
             projectId: project.id,
             title: 'Generated',
             kind: content.kind,
-            inputs: [{ kind: 'document', versionId: doc.version!.id }],
+            inputs: [{ kind: 'page', versionId: doc.version!.id }],
             instruction: 'Focus'
           });
           const id = yield* materials.publishMaterialGeneration({
@@ -444,7 +444,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           projectId: project.id,
           title: 'Stale',
           kind: 'flashcards',
-          inputs: [{ kind: 'document', versionId: doc.version!.id }]
+          inputs: [{ kind: 'page', versionId: doc.version!.id }]
         });
 
         yield* documents.archive({ id: doc.id, archived: true });
@@ -486,7 +486,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
       Effect.gen(function* () {
         const materials = yield* Materials;
 
-        yield* Documents;
+        yield* Pages;
         const error = yield* Effect.flip(
           withPublicationGuard(
             context,
@@ -525,10 +525,10 @@ testStable('receipt persists across reopen and a new workflow execution', async 
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   let requestId = '';
-  let versionId: StudyDocumentVersionId;
+  let versionId: PageVersionId;
   let resultId = 0n as MaterialVersionId;
   const run = async (executionId: string, replay: boolean) => {
-    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
     const workflow = Workflow.make('generation-reopen-test', {
@@ -542,7 +542,7 @@ testStable('receipt persists across reopen and a new workflow execution', async 
         Effect.gen(function* () {
           const materials = yield* Materials;
 
-          const documents = yield* Documents;
+          const documents = yield* Pages;
 
           if (!replay) {
             const projects = yield* Projects;
@@ -574,7 +574,7 @@ testStable('receipt persists across reopen and a new workflow execution', async 
               projectId: project.id,
               title: 'Cards',
               kind: 'flashcards',
-              inputs: [{ kind: 'document', versionId }]
+              inputs: [{ kind: 'page', versionId }]
             })).id;
           }
 
@@ -584,7 +584,7 @@ testStable('receipt persists across reopen and a new workflow execution', async 
             citations: [
               {
                 marker: 1n,
-                input: { kind: 'document' as const, versionId },
+                input: { kind: 'page' as const, versionId },
                 blockOrdinal: 0,
                 quote: 'Evidence'
               }

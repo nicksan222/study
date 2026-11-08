@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { Effect } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import { authoredDocument } from '../document-editing/test-support';
+import { authoredPage } from '../document-editing/test-support';
 import {
   importedSource,
   locationIs,
@@ -20,8 +20,8 @@ const t = catalogs.english;
 
 function historyFixture() {
   const rpc = materialRpc();
-  const old = authoredDocument(41n, 'Old source body', 1101n).version!;
-  const current = authoredDocument(41n, 'Current source body', 1201n).version!;
+  const old = authoredPage(41n, 'Old source body', 1101n).version!;
+  const current = authoredPage(41n, 'Current source body', 1201n).version!;
   const candidate = {
     sourceId: importedSource.id,
     revision: 1n,
@@ -76,9 +76,9 @@ testStable(
       '/sources/7?sourceRevision=1&sourceSnapshot=1101',
       rpc
     );
-    const independent = authoredDocument(41n);
+    const independent = authoredPage(41n);
 
-    queryClient.setQueryData(['documents', 'detail', '41'], independent);
+    queryClient.setQueryData(['pages', 'detail', '41'], independent);
     const user = userEvent.setup();
 
     expect(await screen.findByText('Old source body')).toBeVisible();
@@ -96,7 +96,7 @@ testStable(
     expect(
       queryClient.getQueryData(['sources', 'extraction', '7', '1', String(old.snapshotId)])
     ).toBeUndefined();
-    expect(queryClient.getQueryData(['documents', 'detail', '41'])).toBe(independent);
+    expect(queryClient.getQueryData(['pages', 'detail', '41'])).toBe(independent);
   }
 );
 testStable(
@@ -114,8 +114,8 @@ testStable(
     await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
     expect(await within(dialog).findByText(t.SourceHistoryFailed)).toBeVisible();
     await user.click(within(dialog).getByRole('button', { name: t.Cancel }));
-    await act(() => router.navigate({ to: '/sessions' }));
-    await locationIs(router, '/sessions');
+    await act(() => router.navigate({ to: '/notes' }));
+    await locationIs(router, '/notes');
     await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
     await locationIs(router, '/sources/7');
     await user.click(await screen.findByRole('button', { name: t.SourceHistoryPrune }));
@@ -190,8 +190,8 @@ testStable.each([false, true])(
       expect(screen.queryByText('Old source body')).toBeNull();
     }
 
-    await act(() => router.navigate({ to: '/sessions' }));
-    await locationIs(router, '/sessions');
+    await act(() => router.navigate({ to: '/notes' }));
+    await locationIs(router, '/notes');
     await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
     expect(await screen.findByText('Current source body')).toBeVisible();
     expect(screen.queryByText('Old source body')).toBeNull();

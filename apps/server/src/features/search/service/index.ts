@@ -21,9 +21,9 @@ import type {
 } from '@study/contracts/search/schemas';
 import { Effect, Option, Stream } from 'effect';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { makeRegistryStore } from '#server/features/search/store/registry';
 import { Sources } from '#server/features/sources/index';
@@ -36,13 +36,13 @@ type ProjectionReader = (tx: Transaction, input: SearchProjectionPageInput) => S
 
 const featureReaders: ReadonlyMap<string, ProjectionReader> = new Map([
   ['project', Projects.searchProjectionsInTransaction],
-  ['session', Conversations.searchProjectionsInTransaction],
-  ['message', Conversations.searchProjectionsInTransaction],
+  ['note', Notes.searchProjectionsInTransaction],
+  ['message', Notes.searchProjectionsInTransaction],
   ['source', Sources.searchProjectionsInTransaction],
   ['passage', Sources.searchProjectionsInTransaction],
   ['material', Materials.searchProjectionsInTransaction],
   ['question', Materials.searchProjectionsInTransaction],
-  ['document', Documents.searchProjectionsInTransaction]
+  ['page', Pages.searchProjectionsInTransaction]
 ]);
 
 /** Yield one kind's SQL pages synchronously while its transaction view remains valid. */

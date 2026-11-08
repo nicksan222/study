@@ -32,9 +32,9 @@ export const SourceHistoryStore = defineStore({
   make: ({ db }) => {
     function pinned(snapshotId: ContentSnapshotId) {
       return !!db.orm.get(sql`SELECT 1 FROM (
-    SELECT snapshot_id FROM session_context_sources
-    UNION ALL SELECT snapshot_id FROM conversation_reply_sources
-    UNION ALL SELECT source_snapshot_id FROM study_document_inputs
+    SELECT snapshot_id FROM note_context_sources
+    UNION ALL SELECT snapshot_id FROM note_reply_sources
+    UNION ALL SELECT source_snapshot_id FROM page_inputs
     UNION ALL SELECT source_snapshot_id FROM material_evidence_inputs
     UNION ALL SELECT source_snapshot_id FROM learning_practice_inputs
     UNION ALL SELECT document_id FROM source_processing

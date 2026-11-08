@@ -28,8 +28,8 @@ import { Effect, Layer, Option, Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -62,7 +62,7 @@ testStable('missing attempts are optional or typed failures', async () => {
             .pipe(
               Layer.provideMerge(Settings.layer),
               Layer.provideMerge(Materials.layer),
-              Layer.provideMerge(Documents.layer)
+              Layer.provideMerge(Pages.layer)
             )
             .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
@@ -485,7 +485,7 @@ testStable(
               .pipe(
                 Layer.provideMerge(Settings.layer),
                 Layer.provideMerge(Materials.layer),
-                Layer.provideMerge(Documents.layer)
+                Layer.provideMerge(Pages.layer)
               )
               .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
           )
@@ -600,7 +600,7 @@ testStable('daily allowance limits new cards and review schedules persist', asyn
             .pipe(
               Layer.provideMerge(Settings.layer),
               Layer.provideMerge(Materials.layer),
-              Layer.provideMerge(Documents.layer)
+              Layer.provideMerge(Pages.layer)
             )
             .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )
@@ -628,7 +628,7 @@ testStable('practice starts idempotently with two captured pending slots', async
       Effect.gen(function* () {
         const learning = yield* Learning;
         const materials = yield* Materials;
-        const doc = yield* (yield* Documents).create({
+        const doc = yield* (yield* Pages).create({
           createKey: randomUUID(),
           inputs: [],
           citations: [],
@@ -651,11 +651,11 @@ testStable('practice starts idempotently with two captured pending slots', async
         });
         const first = yield* learning.startPractice({
           projectId: project.id,
-          inputs: [{ kind: 'document', versionId: doc.version!.id }]
+          inputs: [{ kind: 'page', versionId: doc.version!.id }]
         });
         const second = yield* learning.startPractice({
           projectId: project.id,
-          inputs: [{ kind: 'document', versionId: doc.version!.id }]
+          inputs: [{ kind: 'page', versionId: doc.version!.id }]
         });
 
         assert.strictEqual(first.epoch, second.epoch);
@@ -698,7 +698,7 @@ testStable('practice starts idempotently with two captured pending slots', async
                 projectId: project.id,
                 title: 'Question',
                 kind: 'quiz',
-                inputs: [{ kind: 'document', versionId: doc.version!.id }],
+                inputs: [{ kind: 'page', versionId: doc.version!.id }],
                 scopeId: first.epoch!,
                 questionSpec: { count: 1, kind: 'choice' }
               }
@@ -707,7 +707,7 @@ testStable('practice starts idempotently with two captured pending slots', async
         );
         const restarted = yield* learning.startPractice({
           projectId: project.id,
-          inputs: [{ kind: 'document', versionId: doc.version!.id }]
+          inputs: [{ kind: 'page', versionId: doc.version!.id }]
         });
 
         assert.notStrictEqual(restarted.epoch, first.epoch);
@@ -718,7 +718,7 @@ testStable('practice starts idempotently with two captured pending slots', async
             .pipe(
               Layer.provideMerge(Settings.layer),
               Layer.provideMerge(Materials.layer),
-              Layer.provideMerge(Documents.layer)
+              Layer.provideMerge(Pages.layer)
             )
             .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
         )

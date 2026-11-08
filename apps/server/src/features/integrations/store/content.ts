@@ -13,7 +13,7 @@
 import { sourceIdSchema } from '@study/contracts/ids';
 import {
   integrationImportIdSchema,
-  integrationSessionSchema
+  integrationNoteSchema
 } from '@study/contracts/integrations/schemas';
 import { and, eq, inArray } from '@study/db';
 import { integration_import_notes, integration_import_files } from '@study/db/schema';
@@ -24,9 +24,9 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 
 const keySchema = Schema.Struct({ id: integrationImportIdSchema, key: Schema.String });
 
-const noteSchema = Schema.Struct({ note: integrationSessionSchema, fingerprint: Schema.String });
+const noteSchema = Schema.Struct({ note: integrationNoteSchema, fingerprint: Schema.String });
 
-const noteJson = Schema.fromJsonString(integrationSessionSchema);
+const noteJson = Schema.fromJsonString(integrationNoteSchema);
 
 const contentSchema = Schema.Struct({
   ...noteSchema.fields,

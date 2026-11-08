@@ -24,9 +24,9 @@ import { Effect, Layer, Option } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -41,7 +41,7 @@ testStable('native learning RPC maps missing attempts to typed failures', async 
       Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),
         Layer.provideMerge(Materials.layer),
-        Layer.provideMerge(Documents.layer)
+        Layer.provideMerge(Pages.layer)
       )
     ),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -75,7 +75,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
   const services = Learning.layer.pipe(
     Layer.provideMerge(Settings.layer),
     Layer.provideMerge(Materials.layer),
-    Layer.provideMerge(Documents.layer),
+    Layer.provideMerge(Pages.layer),
     Layer.provideMerge(db)
   );
   const handlers = LearningRpcLive.pipe(Layer.provide(services));
@@ -91,7 +91,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
       Effect.scoped(
         Effect.gen(function* () {
           yield* Materials;
-          const doc = yield* (yield* Documents).create({
+          const doc = yield* (yield* Pages).create({
             createKey: randomUUID(),
             inputs: [],
             citations: [],
@@ -115,7 +115,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
           const client = yield* RpcTest.makeClient(LearningRpc, { flatten: true });
           const started = yield* client('learning.startPractice', {
             projectId: project.id,
-            inputs: [{ kind: 'document', versionId: doc.version!.id }]
+            inputs: [{ kind: 'page', versionId: doc.version!.id }]
           });
 
           assert.strictEqual(started.slots.length, 2);
@@ -143,7 +143,7 @@ testStable(
     const services = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
       Layer.provideMerge(Materials.layer),
-      Layer.provideMerge(Documents.layer),
+      Layer.provideMerge(Pages.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
     const handlers = LearningRpcLive.pipe(Layer.provideMerge(services));

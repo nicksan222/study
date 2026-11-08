@@ -23,7 +23,7 @@ testStable(
       projectId: 1n,
       title: 'Quiz',
       kind: 'quiz',
-      inputs: [{ kind: 'document', versionId: 1n }],
+      inputs: [{ kind: 'page', versionId: 1n }],
       quizConfig
     };
 
@@ -55,7 +55,7 @@ testStable(
       title: 'New quiz',
       autoTitle: true,
       kind: 'quiz',
-      inputs: [{ kind: 'document', versionId: 1n }]
+      inputs: [{ kind: 'page', versionId: 1n }]
     };
 
     assert.strictEqual(decode(request).autoTitle, true);

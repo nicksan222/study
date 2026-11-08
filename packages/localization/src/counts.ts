@@ -10,7 +10,7 @@ export const cardCount = (l: Locale, n: number) => countText(l, 'card', n);
 
 export const sourceCount = (l: Locale, n: number) => countText(l, 'source', n);
 
-export const sessionCount = (l: Locale, n: number) => countText(l, 'session', n);
+export const noteCount = (l: Locale, n: number) => countText(l, 'note', n);
 
 export const replyCount = (l: Locale, n: number) => countText(l, 'reply', n);
 

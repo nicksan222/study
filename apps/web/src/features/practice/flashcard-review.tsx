@@ -146,7 +146,7 @@ function ReviewCards({
   return (
     <Practice.Active ref={focus} tabIndex={-1}>
       <Practice.ProgressHeading>
-        <span>{t('PracticeReviewSession')}</span>
+        <span>{t('PracticeReviewNote')}</span>
         <span>{reviewProgress(locale, completed, cards.length)}</span>
       </Practice.ProgressHeading>
       <Practice.Progress max={cards.length} value={completed} aria-label={t('PracticeProgress')} />

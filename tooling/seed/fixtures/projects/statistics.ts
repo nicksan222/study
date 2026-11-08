@@ -3,11 +3,11 @@ import { choice, multipleChoice } from '#tooling/seed/builders/quiz';
 import {
   createProject,
   createSource,
-  createDocument,
+  createPage,
   createFlashcards,
   createQuiz,
   createDiagram,
-  createConversation
+  createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
 
@@ -25,7 +25,7 @@ export function createStatistics(seed: SeedHarness) {
     project,
     textFile(new URL('../files/measurements.csv', import.meta.url))
   );
-  const review = createDocument(project, {
+  const review = createPage(project, {
     title: 'Statistics — worked revision',
     description:
       'Always state the population, sampling method, estimate, and uncertainty. A confidence interval describes the performance of a procedure across repeated samples.',
@@ -45,7 +45,7 @@ export function createStatistics(seed: SeedHarness) {
       )
     ]
   });
-  const workbook = createDocument(project, {
+  const workbook = createPage(project, {
     title: 'Statistics — workshop',
     blocks: [
       paragraph('A sample of 100 observations has mean 72 and standard deviation 10.'),
@@ -100,7 +100,7 @@ export function createStatistics(seed: SeedHarness) {
     'flowchart LR\nPopulation --> Sample --> Estimate --> Uncertainty\nEstimate --> Report'
   );
 
-  createConversation(project, {
+  createNote(project, {
     title: 'Sampling frame',
     daysAgo: 14,
     exchanges: [
@@ -110,10 +110,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [samplingNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Standard error',
     daysAgo: 13,
     exchanges: [
@@ -123,10 +123,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [testingNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Confidence intervals',
     daysAgo: 12,
     exchanges: [
@@ -136,10 +136,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [measurements],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Null models',
     daysAgo: 11,
     exchanges: [
@@ -149,10 +149,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [samplingNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'P-values',
     daysAgo: 10,
     exchanges: [
@@ -162,10 +162,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [testingNotes],
-    documents: [review],
+    pages: [review],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Power analysis',
     daysAgo: 9,
     exchanges: [
@@ -175,10 +175,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [measurements],
-    documents: [workbook],
+    pages: [workbook],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Regression residuals',
     daysAgo: 8,
     exchanges: [
@@ -188,10 +188,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [samplingNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Multiple comparisons',
     daysAgo: 7,
     exchanges: [
@@ -201,10 +201,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [testingNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Effect size',
     daysAgo: 6,
     exchanges: [
@@ -214,10 +214,10 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [measurements],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Reporting workshop',
     daysAgo: 5,
     exchanges: [
@@ -227,7 +227,7 @@ export function createStatistics(seed: SeedHarness) {
       ]
     ],
     sources: [samplingNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
 }

@@ -46,7 +46,7 @@ import type { AppearanceModel } from './use-page';
 import {
   AiWritingSettings,
   ReadingSettings,
-  SessionDisplaySettings,
+  NoteDisplaySettings,
   WritingSettings
 } from './workspace-settings';
 
@@ -72,7 +72,7 @@ const sections = [
       'WorkspaceSidebarTitle',
       'WorkspaceDensity',
       'WorkspaceTimeFormat',
-      'WorkspaceDocumentCounts',
+      'WorkspacePageCounts',
       'SidebarSettledThreshold'
     ]
   },
@@ -85,7 +85,7 @@ const sections = [
       'WorkspaceSpellcheck',
       'WorkspaceEditorFont',
       'WorkspaceEnterCapture',
-      'WorkspaceExpandDocuments'
+      'WorkspaceExpandPages'
     ]
   },
   {
@@ -111,7 +111,7 @@ const sections = [
     label: 'AgentRulesTitle',
     Icon: FileText,
     keywords: [
-      'AgentRulesDocuments',
+      'AgentRulesPages',
       'AgentRulesTitles',
       'AgentRulesReplies',
       'AgentRulesQuizzes',
@@ -389,7 +389,7 @@ function SectionContent({
     general: <GeneralSettings />,
     sidebar: (
       <>
-        <SessionDisplaySettings />
+        <NoteDisplaySettings />
         <SidebarSettings />
       </>
     ),

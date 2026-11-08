@@ -46,21 +46,21 @@ testStable(
             expect(projects.items).toHaveLength(5);
 
             for (const project of projects.items) {
-              const sessions = yield* client['conversations.sessions']({
+              const notes = yield* client['notes.notes']({
                 limit: 100,
                 project: project.id
               });
 
-              expect(sessions.items).toHaveLength(10);
-              expect(new Set(sessions.items.map((session) => session.title)).size).toBe(10);
+              expect(notes.items).toHaveLength(10);
+              expect(new Set(notes.items.map((note) => note.title)).size).toBe(10);
             }
 
-            const documents = yield* client['documents.documents']({ limit: 100, archived: false });
+            const pages = yield* client['pages.pages']({ limit: 100, archived: false });
 
-            expect(documents.items).toHaveLength(10);
+            expect(pages.items).toHaveLength(10);
 
-            for (const note of documents.items) {
-              const detail = yield* client['documents.document']({ id: note.id });
+            for (const note of pages.items) {
+              const detail = yield* client['pages.page']({ id: note.id });
 
               expect(detail.version?.document.blocks.length).toBeGreaterThan(0);
               expect(detail.projectIds).toHaveLength(1);

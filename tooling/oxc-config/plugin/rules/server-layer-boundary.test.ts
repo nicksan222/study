@@ -155,7 +155,7 @@ testStable('preferences are private to settings, auth, and themes stores', () =>
       "import * as schema from '@study/db/schema'; schema.preferences;",
     'src/features/learning/store.ts': "import { preferences as prefs } from '@study/db/schema';",
     'src/features/materials/materials.store.ts': "import { preferences } from '@study/db';",
-    'src/features/conversations/store/query.ts':
+    'src/features/notes/store/query.ts':
       "import * as schema from '@study/db/schema'; schema.preferences; schema['preferences'];",
     'src/features/sources/store.ts':
       "import * as schema from '@study/db/schema'; const tables = schema; const { ['preferences']: prefs } = tables;",
@@ -197,13 +197,13 @@ testStable(
   'cross-feature capture uses public synchronous participants without exposing private selection stores',
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
-      'src/features/conversations/service/capture.ts': `
+      'src/features/notes/service/capture.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
       export const capture = (target) =>
-        transaction((tx) => Materials.resolveSessionSelection(tx, target));
+        transaction((tx) => Materials.resolveNoteSelection(tx, target));
     `,
-      'src/features/conversations/service/bypass.ts': `
+      'src/features/notes/service/bypass.ts': `
       import { MaterialVersionsStore } from '#server/features/materials/store/index';
     `,
       'src/features/materials/index.ts': `
@@ -218,19 +218,19 @@ testStable(
 );
 
 testStable(
-  'session transform coordinators use public participants and cannot import another feature private stores',
+  'note transform coordinators use public participants and cannot import another feature private stores',
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
-      'src/features/conversations/service/document-transform.ts': `
+      'src/features/notes/service/document-transform.ts': `
       import { Materials } from '#server/features/materials/index';
       import { publicationTransaction } from '#server/platform/definitions/define-store';
       export const publish = (context, output) =>
         publicationTransaction((tx) => Materials.publishDocumentTransform(tx, context, output));
     `,
       'src/features/materials/service/bypass.ts': `
-      import { SessionContextStore } from '#server/features/conversations/store/index';
+      import { NoteContextStore } from '#server/features/notes/store/index';
     `,
-      'src/features/conversations/service/bypass.ts': `
+      'src/features/notes/service/bypass.ts': `
       import { MaterialGenerationStore } from '#server/features/materials/store/index';
     `
     });
@@ -244,17 +244,17 @@ testStable(
   'proposal coordinators compose public Materials participants instead of reaching into private stores',
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
-      'src/features/conversations/service/proposals.ts': `
+      'src/features/notes/service/proposals.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
       export const apply = value => transaction(tx => Materials.applyDocumentProposal(tx, value, true));
       export const keep = value => transaction(tx => Materials.keepDocumentProposal(tx, value));
     `,
-      'src/features/conversations/service/private.ts': `
+      'src/features/notes/service/private.ts': `
       import { DocumentProposalStore } from '#server/features/materials/store/document-proposals';
     `,
       'src/features/materials/service/private.ts': `
-      import { SessionContextValidityStore } from '#server/features/conversations/store/context';
+      import { NoteContextValidityStore } from '#server/features/notes/store/context';
     `
     });
 
@@ -264,16 +264,16 @@ testStable(
 );
 
 testStable(
-  'conversation evidence composition consumes the public Materials participant and keeps all evidence stores private',
+  'note evidence composition consumes the public Materials participant and keeps all evidence stores private',
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
-      'src/features/conversations/service/citations.ts': `
+      'src/features/notes/service/citations.ts': `
       import { Materials } from '#server/features/materials/index';
       import type { evidenceReferenceSchema } from '@study/contracts/materials/evidence';
       import { transaction } from '#server/platform/definitions/define-store';
       export const resolve = reference => transaction(tx => Materials.resolveEvidence(tx, reference));
     `,
-      'src/features/conversations/service/private-evidence.ts': `
+      'src/features/notes/service/private-evidence.ts': `
       import { EvidenceStore } from '#server/features/materials/store/evidence';
       import { CitationSupportStore } from '#server/features/materials/store/citation-support';
       import { AnnotationsStore } from '#server/features/materials/store/annotations';
@@ -293,17 +293,17 @@ testStable(
   'deletion coordinators compose public Materials and Workflows retirement participants',
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
-      'src/features/conversations/service/deletion.ts': `
+      'src/features/notes/service/deletion.ts': `
       import { Materials } from '#server/features/materials/index';
       import { Workflows } from '#server/features/workflows/index';
       import { transaction } from '#server/platform/definitions/define-store';
       export const retire = input => transaction(tx => {
-        Materials.prepareSessionRetirement(tx, input);
+        Materials.prepareNoteRetirement(tx, input);
         Workflows.retireCorrelations(tx, input.ids, input.eventTypes);
       });
     `,
-      'src/features/conversations/service/private.ts': `
-      import { SessionMaterialRetirementStore } from '#server/features/materials/store/session-retirement';
+      'src/features/notes/service/private.ts': `
+      import { NoteMaterialRetirementStore } from '#server/features/materials/store/note-retirement';
       import { ExecutionStore } from '#server/features/workflows/store/index';
     `
     });
@@ -320,20 +320,20 @@ testStable(
     const diagnostics = lintRule('server-layer-boundary', {
       'src/features/materials/service/deletion.ts': `
       import { Sources } from '#server/features/sources/index';
-      import { Conversations } from '#server/features/conversations/index';
+      import { Notes } from '#server/features/notes/index';
       import { Recordings } from '#server/features/recordings/index';
       import { Learning } from '#server/features/learning/index';
       import { Workflows } from '#server/features/workflows/index';
       import { publicationTransaction } from '#server/platform/definitions/define-store';
       export const finish = id => publicationTransaction(tx => {
-        Conversations.scrubMaterialDeletion(tx, id); Sources.scrubMaterialDeletion(tx, id);
+        Notes.scrubMaterialDeletion(tx, id); Sources.scrubMaterialDeletion(tx, id);
         Recordings.scrubMaterialDeletion(tx, id); Learning.scrubMaterialDeletion(tx, [id]);
         Workflows.scrubRetiredCorrelations(tx, [id]);
       });
     `,
       'src/features/materials/service/private.ts': `
       import { SourceMaterialDeletionStore } from '#server/features/sources/store/material-deletion';
-      import { ConversationMaterialDeletionStore } from '#server/features/conversations/store/material-deletion';
+      import { NoteMaterialDeletionStore } from '#server/features/notes/store/material-deletion';
     `,
       'src/features/sources/index.ts': `export { SourceMaterialDeletionStore } from './store/material-deletion';`
     });
@@ -349,11 +349,11 @@ testStable(
     const diagnostics = lintRule('server-layer-boundary', {
       'src/features/materials/service/history.ts': `
       import { Sources } from '#server/features/sources/index';
-      import { Conversations } from '#server/features/conversations/index';
+      import { Notes } from '#server/features/notes/index';
       import { Learning } from '#server/features/learning/index';
       import { Workflows } from '#server/features/workflows/index';
       export const finish = tx => {
-        Sources.scrubMaterialHistory(tx, 'exact'); Conversations.scrubMaterialHistory(tx, 'exact');
+        Sources.scrubMaterialHistory(tx, 'exact'); Notes.scrubMaterialHistory(tx, 'exact');
 
         Learning.scrubMaterialHistory(tx, []); Workflows.scrubRetiredCorrelations(tx, []);
       };
@@ -361,7 +361,7 @@ testStable(
     `,
       'src/features/materials/service/private-history.ts': `
       import { SourceMaterialHistoryStore } from '#server/features/sources/store/material-history';
-      import { ConversationMaterialHistoryStore } from '#server/features/conversations/store/material-history';
+      import { NoteMaterialHistoryStore } from '#server/features/notes/store/material-history';
     `,
       'src/features/sources/index.ts': `export { SourceMaterialHistoryStore } from './store/material-history';`
     });
@@ -377,7 +377,7 @@ testStable(
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
       'src/runtime/backups.ts':
-        "import { Materials } from '#server/features/materials/index'; import { Conversations } from '#server/features/conversations/index';",
+        "import { Materials } from '#server/features/materials/index'; import { Notes } from '#server/features/notes/index';",
       'src/features/system/service/backup.ts':
         "import { backupPolicy } from '#server/runtime/backups'; import { SourceBackupStore } from '#server/features/sources/store/backup';",
       'src/features/materials/service/backup.ts':

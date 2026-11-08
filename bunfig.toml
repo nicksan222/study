@@ -1,0 +1,3 @@
+[install]
+# Match the workspace layout used by Vite+ and shared landing previews.
+linker = "hoisted"

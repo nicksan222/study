@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@study/contracts/conversations/messages';
+import type { ChatMessage } from '@study/contracts/notes/messages';
 import { RetryButton } from '@study/ui/action-button';
 import { ToolActivity } from '@study/ui/tool-activity';
 import {

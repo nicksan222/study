@@ -7,9 +7,9 @@ import { code, paragraph, textSource } from './builders/content.ts';
 import {
   createProject,
   createSource,
-  createDocument,
+  createPage,
   createDiagram,
-  createConversation
+  createNote
 } from './harnesses/index.ts';
 import type { SeedHarness } from './harnesses/index.ts';
 import { seedDatabase } from './seed.ts';
@@ -20,58 +20,55 @@ function createSmallCourse(seed: SeedHarness) {
     project,
     textSource('outline.txt', 'Course outline\n\nA small, complete source fixture.')
   );
-  const guide = createDocument(project, {
+  const guide = createPage(project, {
     title: 'Working guide',
     blocks: [paragraph('Read the outline.'), code('SELECT 1;', 'sql')]
   });
   const overview = createDiagram(project, 'Course overview', 'flowchart LR\nRead --> Practice');
 
-  createConversation(project, {
+  createNote(project, {
     title: 'Read the outline',
     daysAgo: 2,
     exchanges: [['Where should I start?', 'Read the course outline.']],
     sources: [source],
-    documents: [guide],
+    pages: [guide],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Apply the ideas',
     daysAgo: 1,
     exchanges: [['What should I do next?', 'Practise with a concrete example.']],
     sources: [source],
-    documents: [guide],
+    pages: [guide],
     materials: [overview]
   });
 }
 
-testStable(
-  'creator sequences reuse library fixtures across any number of conversations',
-  async () => {
-    const location = createTestDatabase();
+testStable('creator sequences reuse library fixtures across any number of notes', async () => {
+  const location = createTestDatabase();
+
+  try {
+    const summary = await seedDatabase(location.path, [createSmallCourse]);
+
+    expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
+
+    const db = location.open();
 
     try {
-      const summary = await seedDatabase(location.path, [createSmallCourse]);
-
-      expect(summary).toEqual({ projects: 1, sessions: 2, sources: 1, documents: 1, materials: 1 });
-
-      const db = location.open();
-
-      try {
-        expect(db.orm.get(sql`SELECT count(*) n FROM sessions`)?.n).toBe(2n);
-        expect(db.orm.get(sql`SELECT count(*) n FROM session_sources`)?.n).toBe(2n);
-        expect(db.orm.get(sql`SELECT count(*) n FROM session_documents`)?.n).toBe(2n);
-        expect(db.orm.get(sql`SELECT count(*) n FROM session_materials`)?.n).toBe(2n);
-        expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
-        expect(db.orm.get(sql`SELECT count(*) n FROM material_diagram_versions`)?.n).toBe(1n);
-        expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
-      } finally {
-        db.close();
-      }
+      expect(db.orm.get(sql`SELECT count(*) n FROM notes`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM note_sources`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM note_materials`)?.n).toBe(2n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM material_diagram_versions`)?.n).toBe(1n);
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
     } finally {
-      location.cleanup();
+      db.close();
     }
+  } finally {
+    location.cleanup();
   }
-);
+});
 
 testStable(
   'cross-project fixture references abort the candidate and preserve the existing database',
@@ -93,7 +90,7 @@ testStable(
               textSource('private.txt', 'A project-owned source.')
             );
 
-            createConversation(second, {
+            createNote(second, {
               title: 'Wrong project',
               exchanges: [],
               daysAgo: 1,
@@ -116,7 +113,7 @@ testStable(
   }
 );
 
-testStable('conversations can mix multiple turns and omit unrelated fixture kinds', async () => {
+testStable('notes can mix multiple turns and omit unrelated fixture kinds', async () => {
   const location = createTestDatabase();
 
   try {
@@ -128,7 +125,7 @@ testStable('conversations can mix multiple turns and omit unrelated fixture kind
           examInDays: 21
         });
 
-        createConversation(project, {
+        createNote(project, {
           title: 'Open questions',
           daysAgo: 1,
           exchanges: [

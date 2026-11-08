@@ -82,7 +82,7 @@ export const SourceDeletionPreviewStore = defineStore({
             revisionCount: revisions.n,
             extractionCount: extractions.n,
             blockedBy: sourceDeletionBlockers(resources, id),
-            retainedCopies: 'authored_outputs_and_raw_session_records' as const
+            retainedCopies: 'authored_outputs_and_raw_note_records' as const
           };
         }
       })

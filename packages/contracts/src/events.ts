@@ -1,22 +1,17 @@
 import { Schema } from 'effect';
 
-import {
-  titleSnapshotSchema,
-  transformSuggestionFieldSchema,
-  transformSuggestionLanguageSchema
-} from './conversations/schemas.ts';
 import { errorKindSchema } from './errors.ts';
 import {
   contentSnapshotIdSchema,
   recordingIdSchema,
   materialIdSchema,
-  studyDocumentIdSchema,
-  studyDocumentAnnotationIdSchema,
+  pageIdSchema,
+  pageAnnotationIdSchema,
   materialVersionIdSchema,
-  studyDocumentVersionIdSchema,
+  pageVersionIdSchema,
   projectIdSchema,
   sourceIdSchema,
-  sessionIdSchema,
+  noteIdSchema,
   messageIdSchema,
   versionIdSchema,
   quizAttemptIdSchema,
@@ -24,6 +19,11 @@ import {
 } from './ids.ts';
 import { integrationImportIdSchema } from './integrations/schemas.ts';
 import { materialGenerationKindSchema } from './materials/schemas.ts';
+import {
+  titleSnapshotSchema,
+  transformSuggestionFieldSchema,
+  transformSuggestionLanguageSchema
+} from './notes/schemas.ts';
 
 const envelope = {
   eventId: Schema.String,
@@ -90,24 +90,24 @@ const sourceHistoryPrunedSchema = Schema.Struct({
   snapshotIds: Schema.Array(contentSnapshotIdSchema)
 });
 
-export const documentGenerationRequestedSchema = Schema.Struct({
+export const pageGenerationRequestedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('DocumentGenerationRequested'),
+  type: Schema.Literal('PageGenerationRequested'),
   requestId: Schema.String.check(Schema.isMinLength(1))
 });
 
-const documentGenerationFailedSchema = Schema.Struct({
+const pageGenerationFailedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('DocumentGenerationFailed'),
+  type: Schema.Literal('PageGenerationFailed'),
   requestId: Schema.String,
   generationEventId: Schema.String,
   errorKind: errorKindSchema
 });
 
-const documentPublishedSchema = Schema.Struct({
+const pagePublishedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('DocumentPublished'),
-  versionId: studyDocumentVersionIdSchema
+  type: Schema.Literal('PagePublished'),
+  versionId: pageVersionIdSchema
 });
 
 export const materialGenerationRequestedSchema = Schema.Struct({
@@ -136,20 +136,20 @@ export const materialPublishedSchema = Schema.Struct({
   materialVersionId: materialVersionIdSchema
 });
 
-const documentAnnotationChangedSchema = Schema.Struct({
+const pageAnnotationChangedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('DocumentAnnotationChanged'),
-  annotationId: studyDocumentAnnotationIdSchema,
-  documentId: studyDocumentIdSchema,
+  type: Schema.Literal('PageAnnotationChanged'),
+  annotationId: pageAnnotationIdSchema,
+  pageId: pageIdSchema,
   revision: Schema.BigInt.check(
     Schema.isBetweenBigInt({ minimum: 1n, maximum: 9223372036854775807n })
   )
 });
 
-export const conversationGenerationRequestedSchema = Schema.Struct({
+export const noteGenerationRequestedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('ConversationGenerationRequested'),
-  sessionId: sessionIdSchema,
+  type: Schema.Literal('NoteGenerationRequested'),
+  noteId: noteIdSchema,
   messageId: messageIdSchema,
   versionId: versionIdSchema,
   requestId: Schema.String.check(Schema.isMinLength(1)),
@@ -170,31 +170,31 @@ export const materialDeletionRequestedSchema = Schema.Struct({
   attempt: Schema.Int
 });
 
-export const sessionDeletionRequestedSchema = Schema.Struct({
+export const noteDeletionRequestedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('SessionDeletionRequested'),
-  sessionId: sessionIdSchema,
+  type: Schema.Literal('NoteDeletionRequested'),
+  noteId: noteIdSchema,
   attempt: Schema.Int
 });
 
-export const conversationQuestionRequestedSchema = Schema.Struct({
+export const noteQuestionRequestedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('ConversationQuestionRequested'),
-  sessionId: sessionIdSchema,
+  type: Schema.Literal('NoteQuestionRequested'),
+  noteId: noteIdSchema,
   messageId: messageIdSchema,
   versionId: versionIdSchema
 });
 
-export const conversationTitleRequestedSchema = Schema.Struct({
+export const noteTitleRequestedSchema = Schema.Struct({
   ...envelope,
-  type: Schema.Literal('ConversationTitleRequested'),
+  type: Schema.Literal('NoteTitleRequested'),
   ...titleSnapshotSchema.fields
 });
 
 export const transformSuggestionRequestedSchema = Schema.Struct({
   ...envelope,
   type: Schema.Literal('TransformSuggestionRequested'),
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   contextRequestId: Schema.String,
   field: transformSuggestionFieldSchema,
   language: transformSuggestionLanguageSchema
@@ -224,7 +224,7 @@ export const recordingPostRequestedSchema = Schema.Struct({
   type: Schema.Literal('RecordingPostRequested'),
   requestId: Schema.String.check(Schema.isMinLength(1)),
   recordingId: recordingIdSchema,
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   projectId: Schema.NullOr(projectIdSchema)
 });
 
@@ -238,12 +238,12 @@ export const integrationImportRequestedSchema = Schema.Struct({
 export const workflowEventSchema = Schema.Union([
   integrationImportRequestedSchema,
   sourceHistoryPrunedSchema,
-  documentGenerationRequestedSchema,
-  documentGenerationFailedSchema,
-  documentPublishedSchema,
+  pageGenerationRequestedSchema,
+  pageGenerationFailedSchema,
+  pagePublishedSchema,
   materialHistoryPruneRequestedSchema,
   materialDeletionRequestedSchema,
-  sessionDeletionRequestedSchema,
+  noteDeletionRequestedSchema,
   recordingPostRequestedSchema,
   sourceProcessingRequestedSchema,
   sourceCorrectionRequestedSchema,
@@ -252,13 +252,13 @@ export const workflowEventSchema = Schema.Union([
   sourceProjectChangedSchema,
   sourceProcessingFailedSchema,
   materialPublishedSchema,
-  documentAnnotationChangedSchema,
+  pageAnnotationChangedSchema,
   materialGenerationRequestedSchema,
   materialGenerationFailedSchema,
-  conversationGenerationRequestedSchema,
-  conversationTitleRequestedSchema,
+  noteGenerationRequestedSchema,
+  noteTitleRequestedSchema,
   transformSuggestionRequestedSchema,
-  conversationQuestionRequestedSchema,
+  noteQuestionRequestedSchema,
   quizAnswerSubmittedSchema,
   practiceSlotRequestedSchema
 ]);

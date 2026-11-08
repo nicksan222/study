@@ -17,7 +17,7 @@ function fixture(t: TestContext) {
   });
   db.exec(`
     INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Math',1,1),(2,'Other',1,1);
-    INSERT INTO sessions(id,title,title_source,created_at,updated_at)
+    INSERT INTO notes(id,title,title_source,created_at,updated_at)
       VALUES(1,'Lecture','user',1,1),(2,'Other','user',1,1);
   `);
 
@@ -38,9 +38,7 @@ function diagram(db: Db, id: bigint) {
 }
 
 function authored(db: Db, id: bigint, publishNow = true) {
-  db.orm.run(
-    sql`INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(${id},'Evidence',1,1)`
-  );
+  db.orm.run(sql`INSERT INTO pages(id,title,created_at,updated_at) VALUES(${id},'Evidence',1,1)`);
   db.orm.run(
     sql`INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(${id},1,'{}',1)`
   );
@@ -48,13 +46,11 @@ function authored(db: Db, id: bigint, publishNow = true) {
     sql`INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(${id},0,'paragraph',${'block-' + id},'{"type":"paragraph","inlines":[{"type":"text","text":"Quote","marks":[]}]}','Quote','{"type":"authored"}')`
   );
   db.orm.run(
-    sql`INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(${id},${id},1,${id},1)`
+    sql`INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at) VALUES(${id},${id},1,${id},1)`
   );
 
   if (publishNow)
-    db.orm.run(
-      sql`UPDATE study_document_versions SET status='published',published_at=2 WHERE id=${id}`
-    );
+    db.orm.run(sql`UPDATE page_versions SET status='published',published_at=2 WHERE id=${id}`);
 }
 
 function original(db: Db) {
@@ -68,16 +64,16 @@ function publish(db: Db, id: bigint) {
 }
 
 testStable(
-  'materials enforce kind and version identity while session selection crosses collections',
+  'materials enforce kind and version identity while note selection crosses collections',
   (t) => {
     const db = fixture(t);
 
     diagram(db, 1n);
-    db.exec('INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0)');
+    db.exec('INSERT INTO note_materials(note_id,material_id,position) VALUES(1,1,0)');
     assert.throws(() =>
       db.exec("INSERT INTO materials(kind,title,created_at,updated_at) VALUES('mystery','No',1,1)")
     );
-    db.exec('INSERT INTO session_materials(session_id,material_id,position) VALUES(2,1,0)');
+    db.exec('INSERT INTO note_materials(note_id,material_id,position) VALUES(2,1,0)');
     assert.throws(() =>
       db.exec(
         "INSERT INTO material_versions(material_id,kind,number,created_at) VALUES(1,'quiz',2,1)"
@@ -148,22 +144,22 @@ testStable(
     authored(db, 1n);
     authored(db, 2n);
     db.exec(
-      'INSERT INTO material_evidence_inputs(version_id,position,document_version_id) VALUES(3,0,1),(3,1,2)'
+      'INSERT INTO material_evidence_inputs(version_id,position,page_version_id) VALUES(3,0,1),(3,1,2)'
     );
     assert.throws(() =>
       db.exec(
-        'INSERT INTO material_evidence_inputs(version_id,position,document_version_id) VALUES(1,0,1)'
+        'INSERT INTO material_evidence_inputs(version_id,position,page_version_id) VALUES(1,0,1)'
       )
     );
     authored(db, 4n, false);
     assert.throws(() =>
       db.exec(
-        'INSERT INTO material_evidence_inputs(version_id,position,document_version_id) VALUES(3,2,4)'
+        'INSERT INTO material_evidence_inputs(version_id,position,page_version_id) VALUES(3,2,4)'
       )
     );
     authored(db, 5n);
     db.exec(
-      'INSERT INTO material_evidence_inputs(version_id,position,document_version_id) VALUES(3,2,5)'
+      'INSERT INTO material_evidence_inputs(version_id,position,page_version_id) VALUES(3,2,5)'
     );
     publish(db, 3n);
     assert.strictEqual(
@@ -175,7 +171,7 @@ testStable(
       db.exec('UPDATE material_evidence_inputs SET version_id=1 WHERE version_id=3')
     );
     db.exec('DELETE FROM projects WHERE id=1');
-    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM study_document_versions`)?.n, 4n);
+    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM page_versions`)?.n, 4n);
     expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   }
 );
@@ -241,10 +237,10 @@ testStable('authored versions own canonical snapshots and freeze their underlyin
   authored(db, 1n, false);
   db.exec('DELETE FROM blocks WHERE document_id=1');
   assert.throws(() =>
-    db.exec("UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1")
+    db.exec("UPDATE page_versions SET status='published',published_at=2 WHERE id=1")
   );
   db.exec(`INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(1,0,'paragraph','block-1','{"type":"paragraph","inlines":[{"type":"text","text":"Derivative","marks":[]}]}','Derivative','{"type":"authored"}');
- UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1;`);
+ UPDATE page_versions SET status='published',published_at=2 WHERE id=1;`);
 
   for (const q of [
     "UPDATE blocks SET text='changed' WHERE document_id=1",
@@ -256,7 +252,7 @@ testStable('authored versions own canonical snapshots and freeze their underlyin
 });
 
 testStable(
-  'collection deletion preserves source bytes, authored versions, learning and independent session attachments',
+  'collection deletion preserves source bytes, authored versions, learning and independent note attachments',
   (t) => {
     const db = fixture(t);
 
@@ -264,10 +260,10 @@ testStable(
     authored(db, 1n);
     diagram(db, 1n);
     publish(db, 1n);
-    db.exec(`INSERT INTO project_documents(project_id,document_id) VALUES(1,1);
- INSERT INTO session_sources(session_id,source_id,position) VALUES(1,1,0);
- INSERT INTO session_documents(session_id,document_id,position) VALUES(1,1,0);
- INSERT INTO session_materials(session_id,material_id,position) VALUES(1,1,0);
+    db.exec(`INSERT INTO project_pages(project_id,page_id) VALUES(1,1);
+ INSERT INTO note_sources(note_id,source_id,position) VALUES(1,1,0);
+ INSERT INTO note_pages(note_id,page_id,position) VALUES(1,1,0);
+ INSERT INTO note_materials(note_id,material_id,position) VALUES(1,1,0);
  DELETE FROM projects WHERE id=1;`);
 
     for (const table of ['sources', 'source_snapshots'])
@@ -275,11 +271,11 @@ testStable(
 
     for (const table of [
       'content_snapshots',
-      'study_document_versions',
+      'page_versions',
       'material_versions',
-      'session_sources',
-      'session_documents',
-      'session_materials'
+      'note_sources',
+      'note_pages',
+      'note_materials'
     ])
       assert.strictEqual(db.orm.get(sql.raw(`SELECT count(*) n FROM ${table}`))?.n, 1n);
 
@@ -334,12 +330,12 @@ testStable('authored publication rejects malformed canonical anchors', (t) => {
   for (const anchor of ['null', '{}', '[]', '{"type":"page","page":0}']) {
     db.orm.run(sql`UPDATE blocks SET anchor=${anchor} WHERE document_id=1`);
     assert.throws(() =>
-      db.exec("UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1")
+      db.exec("UPDATE page_versions SET status='published',published_at=2 WHERE id=1")
     );
   }
 
   db.exec(`UPDATE blocks SET anchor='{"type":"authored"}' WHERE document_id=1;
-    UPDATE study_document_versions SET status='published',published_at=2 WHERE id=1`);
+    UPDATE page_versions SET status='published',published_at=2 WHERE id=1`);
 });
 
 testStable('scheduling fields declared bigint reject fractional storage', (t) => {
@@ -397,7 +393,7 @@ testStable('material citations enforce positive unsigned 32 bit markers', (t) =>
   authored(db, 1n);
   diagram(db, 2n);
   db.exec(
-    'INSERT INTO material_evidence_inputs(id,version_id,position,document_version_id) VALUES(1,2,0,1)'
+    'INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1)'
   );
   const insert = (marker: bigint) =>
     db.orm.run(
@@ -421,7 +417,7 @@ testStable('fresh canonical migrations preserve all published citation mutation 
   authored(db, 1n);
   diagram(db, 2n);
   db.exec(`
-    INSERT INTO material_evidence_inputs(id,version_id,position,document_version_id) VALUES(1,2,0,1);
+    INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1);
     INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote)
       VALUES(2,1,1,'{"type":"authored"}','Original quote');
   `);

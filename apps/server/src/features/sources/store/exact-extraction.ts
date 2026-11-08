@@ -154,52 +154,48 @@ export const CurrentExtractionStore = defineStore({
   })
 });
 
-export const SessionSourcesStore = defineStore({
-  name: 'study/SessionSourcesStore',
-  entity: { singular: 'sessionSource', plural: 'sessionSources' },
+export const NoteSourcesStore = defineStore({
+  name: 'study/NoteSourcesStore',
+  entity: { singular: 'noteSource', plural: 'noteSources' },
   make: ({ db }) => {
-    function assertSession(sessionId: typeof c.sessionSourcesInputSchema.Type.sessionId) {
+    function assertNote(noteId: typeof c.noteSourcesInputSchema.Type.noteId) {
       if (
-        !db.orm.select().from(s.sessions).where(eq(s.sessions.id, sessionId)).get() ||
-        db.orm
-          .select()
-          .from(s.session_deletions)
-          .where(eq(s.session_deletions.session_id, sessionId))
-          .get()
+        !db.orm.select().from(s.notes).where(eq(s.notes.id, noteId)).get() ||
+        db.orm.select().from(s.note_deletions).where(eq(s.note_deletions.note_id, noteId)).get()
       )
-        throw new StudyError('not_found', 'Session is unavailable');
+        throw new StudyError('not_found', 'Note is unavailable');
     }
 
     return {
       queries: {
-        sessionSource: storeQuery({
+        noteSource: storeQuery({
           role: 'required',
           input: c.sourceLinkSchema,
           output: c.sourceLinkSchema.fields.sourceId,
-          run: ({ sessionId, sourceId }) => {
-            assertSession(sessionId);
+          run: ({ noteId, sourceId }) => {
+            assertNote(noteId);
 
             return (
               db.orm
-                .select({ id: s.session_sources.source_id })
-                .from(s.session_sources)
+                .select({ id: s.note_sources.source_id })
+                .from(s.note_sources)
                 .where(
                   and(
-                    eq(s.session_sources.session_id, sessionId),
-                    eq(s.session_sources.source_id, sourceId),
-                    sql`${s.session_sources.archived_at} IS NULL`
+                    eq(s.note_sources.note_id, noteId),
+                    eq(s.note_sources.source_id, sourceId),
+                    sql`${s.note_sources.archived_at} IS NULL`
                   )
                 )
                 .get()?.id ?? null
             );
           }
         }),
-        sessionSources: storeQuery({
+        noteSources: storeQuery({
           role: 'collection',
-          input: c.sessionSourcesInputSchema,
-          output: Schema.Array(c.sessionSourceSchema),
+          input: c.noteSourcesInputSchema,
+          output: Schema.Array(c.noteSourceSchema),
           run: (v) => {
-            assertSession(v.sessionId);
+            assertNote(v.noteId);
 
             return db.orm
               .select({
@@ -208,23 +204,23 @@ export const SessionSourcesStore = defineStore({
                 kind: s.sources.kind,
                 revision: s.source_processing.revision,
                 snapshotId: s.source_processing.document_id,
-                position: s.session_sources.position,
+                position: s.note_sources.position,
                 requestId: s.source_processing.request_id,
                 publishedRequestId: s.source_processing.published_request_id
               })
-              .from(s.session_sources)
-              .innerJoin(s.sources, eq(s.sources.id, s.session_sources.source_id))
+              .from(s.note_sources)
+              .innerJoin(s.sources, eq(s.sources.id, s.note_sources.source_id))
               .innerJoin(s.source_processing, eq(s.source_processing.source_id, s.sources.id))
               .where(
                 and(
-                  eq(s.session_sources.session_id, v.sessionId),
-                  sql`${s.session_sources.archived_at} IS NULL`,
+                  eq(s.note_sources.note_id, v.noteId),
+                  sql`${s.note_sources.archived_at} IS NULL`,
                   v.afterPosition === undefined
                     ? undefined
-                    : gt(s.session_sources.position, v.afterPosition)
+                    : gt(s.note_sources.position, v.afterPosition)
                 )
               )
-              .orderBy(asc(s.session_sources.position))
+              .orderBy(asc(s.note_sources.position))
               .limit(v.limit)
               .all()
               .map(({ publishedRequestId, requestId, ...row }) => ({
@@ -236,7 +232,7 @@ export const SessionSourcesStore = defineStore({
         })
       },
       mutations: {
-        archiveSession: storeMutation({
+        archiveNote: storeMutation({
           input: Schema.Struct({
             ...c.sourceLinkSchema.fields,
             archivedAt: Schema.NullOr(Schema.BigInt)
@@ -244,36 +240,33 @@ export const SessionSourcesStore = defineStore({
           output: Schema.Void,
           run: (v) => {
             const changed = db.orm
-              .update(s.session_sources)
+              .update(s.note_sources)
               .set({ archived_at: v.archivedAt })
               .where(
-                and(
-                  eq(s.session_sources.source_id, v.sourceId),
-                  eq(s.session_sources.session_id, v.sessionId)
-                )
+                and(eq(s.note_sources.source_id, v.sourceId), eq(s.note_sources.note_id, v.noteId))
               )
-              .returning({ id: s.session_sources.source_id })
+              .returning({ id: s.note_sources.source_id })
               .get();
 
-            if (!changed) throw new StudyError('not_found', 'Session item is unavailable');
+            if (!changed) throw new StudyError('not_found', 'Note item is unavailable');
           }
         }),
         attachSource: storeMutation({
           input: c.sourceLinkSchema,
           output: Schema.Void,
           run: (v) => {
-            assertSession(v.sessionId);
+            assertNote(v.noteId);
             const last = db.orm
               .select()
-              .from(s.session_sources)
-              .where(eq(s.session_sources.session_id, v.sessionId))
-              .orderBy(desc(s.session_sources.position))
+              .from(s.note_sources)
+              .where(eq(s.note_sources.note_id, v.noteId))
+              .orderBy(desc(s.note_sources.position))
               .get();
 
             db.orm
-              .insert(s.session_sources)
+              .insert(s.note_sources)
               .values({
-                session_id: v.sessionId,
+                note_id: v.noteId,
                 source_id: v.sourceId,
                 position: (last?.position ?? -1n) + 1n
               })
@@ -285,14 +278,11 @@ export const SessionSourcesStore = defineStore({
           input: c.sourceLinkSchema,
           output: Schema.Void,
           run: (v) => {
-            assertSession(v.sessionId);
+            assertNote(v.noteId);
             db.orm
-              .delete(s.session_sources)
+              .delete(s.note_sources)
               .where(
-                and(
-                  eq(s.session_sources.session_id, v.sessionId),
-                  eq(s.session_sources.source_id, v.sourceId)
-                )
+                and(eq(s.note_sources.note_id, v.noteId), eq(s.note_sources.source_id, v.sourceId))
               )
               .run();
           }

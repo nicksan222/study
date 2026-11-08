@@ -84,7 +84,7 @@ testStable('explains sign-in failures and retries the same Assistant message', a
   });
   api.reanswer.mockResolvedValue({
     requestId: 'retry',
-    sessionId: 91n,
+    noteId: 91n,
     messageId: 2n,
     versionId: 3n
   });
@@ -112,7 +112,7 @@ testStable(
 );
 
 testStable(
-  'completed session tools refresh content without resetting open tabs or drafts',
+  'completed note tools refresh content without resetting open tabs or drafts',
   async () => {
     let receive!: (value: typeof agentProgressPageSchema.Type) => void;
 
@@ -131,7 +131,7 @@ testStable(
     const resetWorkbench = vi.fn(async () => ({ tabs: [], draft: '' }));
     const refreshContent = vi.fn(async () => 'updated');
     const tabs = new QueryObserver(client, {
-      queryKey: ['session-drafts', '25', 'workbench'],
+      queryKey: ['note-drafts', '25', 'workbench'],
       queryFn: resetWorkbench,
       initialData: workbench,
       staleTime: Infinity
@@ -154,12 +154,12 @@ testStable(
               runId: 'scoped',
               executionId: 'run',
               executionStatus: 'running',
-              agentId: 'session-assistant',
+              agentId: 'note-assistant',
               mode: 'text',
               status: 'running',
               failureKind: null,
               text: '',
-              tools: [{ toolCallId: 'edit', toolName: 'edit_session_note', status: 'completed' }],
+              tools: [{ toolCallId: 'edit', toolName: 'edit_note_message', status: 'completed' }],
               revision: 1n,
               updatedAtMs: 1n
             }

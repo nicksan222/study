@@ -22,7 +22,7 @@ import {
   setProjectIconInputSchema,
   projectPageInputSchema,
   projectMaterialInputSchema,
-  projectSessionInputSchema
+  projectNoteInputSchema
 } from '@study/contracts/projects/rpc';
 import {
   projectSchema,
@@ -30,13 +30,7 @@ import {
   automaticProjectIcon
 } from '@study/contracts/projects/schemas';
 import { and, desc, eq, lt } from '@study/db';
-import {
-  projects,
-  materials,
-  sessions,
-  project_materials,
-  project_sessions
-} from '@study/db/schema';
+import { projects, materials, notes, project_materials, project_notes } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -102,25 +96,25 @@ export const ProjectsStore = defineStore({
           )
           .run();
     };
-    const sessionMembership = (input: typeof projectSessionInputSchema.Type, add: boolean) => {
+    const noteMembership = (input: typeof projectNoteInputSchema.Type, add: boolean) => {
       assertProject(input.projectId);
 
-      if (!db.orm.select().from(sessions).where(eq(sessions.id, input.sessionId)).get())
-        throw new StudyError('not_found', 'Session not found');
+      if (!db.orm.select().from(notes).where(eq(notes.id, input.noteId)).get())
+        throw new StudyError('not_found', 'Note not found');
 
       if (add)
         db.orm
-          .insert(project_sessions)
-          .values({ project_id: input.projectId, session_id: input.sessionId })
+          .insert(project_notes)
+          .values({ project_id: input.projectId, note_id: input.noteId })
           .onConflictDoNothing()
           .run();
       else
         db.orm
-          .delete(project_sessions)
+          .delete(project_notes)
           .where(
             and(
-              eq(project_sessions.project_id, input.projectId),
-              eq(project_sessions.session_id, input.sessionId)
+              eq(project_notes.project_id, input.projectId),
+              eq(project_notes.note_id, input.noteId)
             )
           )
           .run();
@@ -183,15 +177,15 @@ export const ProjectsStore = defineStore({
           output: Schema.Void,
           run: (input) => materialMembership(input, false)
         }),
-        addSession: storeMutation({
-          input: projectSessionInputSchema,
+        addNote: storeMutation({
+          input: projectNoteInputSchema,
           output: Schema.Void,
-          run: (input) => sessionMembership(input, true)
+          run: (input) => noteMembership(input, true)
         }),
-        removeSession: storeMutation({
-          input: projectSessionInputSchema,
+        removeNote: storeMutation({
+          input: projectNoteInputSchema,
           output: Schema.Void,
-          run: (input) => sessionMembership(input, false)
+          run: (input) => noteMembership(input, false)
         }),
         ensureProject: storeMutation({
           input: createInput,

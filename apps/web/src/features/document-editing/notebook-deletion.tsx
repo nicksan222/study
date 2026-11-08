@@ -1,5 +1,5 @@
-import type { StudyDocumentSummary } from '@study/contracts/documents/types';
-import type { StudyDocumentVersionId } from '@study/contracts/ids';
+import type { PageVersionId } from '@study/contracts/ids';
+import type { PageSummary } from '@study/contracts/pages/types';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import type { ItemDeletionActions } from '@study/ui/context-menu';
@@ -11,10 +11,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import {
-  documentHistoryOptions,
-  invalidateDocuments
-} from '#web/lib/study-client/documents.queries.ts';
+import { pageHistoryOptions, invalidatePages } from '#web/lib/study-client/pages.queries.ts';
 
 import { ContentReadError, releaseBodyPreviews } from '../document-presentation';
 import {
@@ -23,17 +20,17 @@ import {
 } from './notebook-deletion.queries';
 
 /** Notebook actions keep whole-document deletion separate from one exact historical body. */
-export function DocumentNotebookDeletion({
+export function PageNotebookDeletion({
   document,
   onDeleted,
   renderActions
 }: {
-  document: StudyDocumentSummary;
+  document: PageSummary;
   onDeleted?: () => void;
   renderActions?: (actions: ItemDeletionActions) => ReactNode;
 }) {
   const { t } = useI18n();
-  const model = useDocumentNotebookDeletion(document, onDeleted);
+  const model = usePageNotebookDeletion(document, onDeleted);
   const { mode, open } = model;
 
   return (
@@ -47,22 +44,22 @@ export function DocumentNotebookDeletion({
       ) : (
         <>
           <Button size="sm" variant="ghost-destructive" onClick={() => open('item')}>
-            {t('SessionDeleteItem')}
+            {t('NoteDeleteItem')}
           </Button>
           <Button size="sm" variant="ghost-destructive" onClick={() => open('version')}>
-            {t('SessionDeleteVersion')}
+            {t('NoteDeleteVersion')}
           </Button>
         </>
       )}
-      <DocumentDeletionDialog model={model} />
+      <PageDeletionDialog model={model} />
     </>
   );
 }
 
-function DocumentDeletionDialog({ model }: { model: Model }) {
+function PageDeletionDialog({ model }: { model: Model }) {
   const { t } = useI18n();
   const { mode, setMode, preview, remove, blocked, confirming } = model;
-  const copy = useDocumentDeletionCopy(model);
+  const copy = usePageDeletionCopy(model);
 
   return (
     <DangerDialog
@@ -79,23 +76,23 @@ function DocumentDeletionDialog({ model }: { model: Model }) {
       confirmation={copy.confirmation}
       onConfirm={() => remove.mutate()}
     >
-      {mode === 'version' && !confirming && <DocumentVersionChoices model={model} />}
+      {mode === 'version' && !confirming && <PageVersionChoices model={model} />}
       {mode === 'item' && preview.isFetching && <Loading label={t('LoadingStudy')} />}
-      <DocumentDeletionFeedback model={model} />
+      <PageDeletionFeedback model={model} />
     </DangerDialog>
   );
 }
 
-function useDocumentDeletionCopy(model: Model) {
+function usePageDeletionCopy(model: Model) {
   const { t } = useI18n();
   const { document, mode, confirming, selectedVersion, versionId, preview } = model;
-  const label = t(mode === 'item' ? 'SessionDeleteItem' : 'SessionDeleteVersion');
-  const title = mode === 'version' && !confirming ? t('SessionDeleteChooseVersion') : label;
+  const label = t(mode === 'item' ? 'NoteDeleteItem' : 'NoteDeleteVersion');
+  const title = mode === 'version' && !confirming ? t('NoteDeleteChooseVersion') : label;
   let description = document.title;
 
-  if (mode === 'item') description = t('SessionDeleteItemHelp');
+  if (mode === 'item') description = t('NoteDeleteItemHelp');
   else if (confirming)
-    description = t('SessionDeleteChosenVersionHelp', {
+    description = t('NoteDeleteChosenVersionHelp', {
       version: t('ReaderVersion') + ' ' + String(selectedVersion?.number),
       name: document.title
     });
@@ -112,20 +109,20 @@ function useDocumentDeletionCopy(model: Model) {
   return { label, title, description, confirmation };
 }
 
-function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?: () => void) {
+function usePageNotebookDeletion(document: PageSummary, onDeleted?: () => void) {
   const cache = useQueryClient();
   const [mode, setMode] = useState<'item' | 'version'>();
-  const [versionId, setVersionId] = useState<StudyDocumentVersionId>();
+  const [versionId, setVersionId] = useState<PageVersionId>();
   const history = useInfiniteQuery({
-    ...documentHistoryOptions(document.id),
+    ...pageHistoryOptions(document.id),
     enabled: mode === 'version'
   });
   const preview = useQuery(
-    notebookDeletionPreviewOptions({ documentId: document.id, mode, versionId })
+    notebookDeletionPreviewOptions({ pageId: document.id, mode, versionId })
   );
   const remove = useMutation({
     ...notebookDeletionOptions({
-      documentId: document.id,
+      pageId: document.id,
       mode,
       versionId,
       token: preview.data?.token
@@ -134,11 +131,11 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?:
       if (!preview.data) return;
 
       await releaseBodyPreviews(cache, {
-        kind: 'document',
-        documentId: String(document.id),
+        kind: 'page',
+        pageId: String(document.id),
         versionIds: preview.data.versionIds.map(String)
       });
-      await invalidateDocuments(cache);
+      await invalidatePages(cache);
       setMode(undefined);
 
       if (mode === 'item') onDeleted?.();
@@ -146,8 +143,8 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?:
     onError: async () => {
       if (preview.data)
         await releaseBodyPreviews(cache, {
-          kind: 'document',
-          documentId: String(document.id),
+          kind: 'page',
+          pageId: String(document.id),
           versionIds: preview.data.versionIds.map(String)
         });
     }
@@ -183,9 +180,9 @@ function useDocumentNotebookDeletion(document: StudyDocumentSummary, onDeleted?:
   };
 }
 
-type Model = ReturnType<typeof useDocumentNotebookDeletion>;
+type Model = ReturnType<typeof usePageNotebookDeletion>;
 
-function DocumentVersionChoices({ model }: { model: Model }) {
+function PageVersionChoices({ model }: { model: Model }) {
   const { t, date } = useI18n();
   const { document, versionId, setVersionId, history, preview } = model;
   const versions = history.data?.pages.flatMap((page) => page.items) ?? [];
@@ -206,7 +203,7 @@ function DocumentVersionChoices({ model }: { model: Model }) {
         pendingLabel={t('LoadingStudy')}
         onSelect={setVersionId}
       />
-      {versions.length === 1 && !history.hasNextPage && <p>{t('SessionDeleteNoOlderVersions')}</p>}
+      {versions.length === 1 && !history.hasNextPage && <p>{t('NoteDeleteNoOlderVersions')}</p>}
       {history.hasNextPage && (
         <LoadMoreButton
           disabled={history.isFetchingNextPage || preview.isFetching}
@@ -218,7 +215,7 @@ function DocumentVersionChoices({ model }: { model: Model }) {
   );
 }
 
-function DocumentDeletionFeedback({ model }: { model: Model }) {
+function PageDeletionFeedback({ model }: { model: Model }) {
   const { t } = useI18n();
   const { mode, history, preview, remove, blocked } = model;
 
@@ -226,7 +223,7 @@ function DocumentDeletionFeedback({ model }: { model: Model }) {
     <>
       {' '}
       {model.versionId !== undefined && preview.isSuccess && !preview.isFetching && blocked && (
-        <p>{t('SessionDeleteVersionProtected')}</p>
+        <p>{t('NoteDeleteVersionProtected')}</p>
       )}
       {history.error && mode === 'version' && (
         <ContentReadError error={history.error} retry={() => void history.refetch()} />

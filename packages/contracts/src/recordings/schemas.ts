@@ -1,10 +1,10 @@
 import { Schema } from 'effect';
 
-import { recordingIdSchema, sessionIdSchema, sourceIdSchema, messageIdSchema } from '../ids.ts';
+import { recordingIdSchema, noteIdSchema, sourceIdSchema, messageIdSchema } from '../ids.ts';
 
 export const recordingSchema = Schema.Struct({
   id: recordingIdSchema,
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   startedAt: Schema.BigInt,
   updatedAt: Schema.BigInt
 });
@@ -17,7 +17,7 @@ export const recordingViewSchema = Schema.Struct({
 export const recordingPostSchema = Schema.Struct({
   requestId: Schema.String.check(Schema.isMinLength(1)),
   recordingId: recordingIdSchema,
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   sourceId: Schema.NullOr(sourceIdSchema),
   messageId: Schema.NullOr(messageIdSchema)
 });

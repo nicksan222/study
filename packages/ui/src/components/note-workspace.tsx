@@ -1,0 +1,98 @@
+import type { ComponentPropsWithRef } from 'react';
+
+import { ActionGroup } from './action-group';
+import { Button } from './button';
+import { semanticPart as part } from './semantic-part';
+import { Textarea } from './textarea';
+
+function BlockText(props: Omit<ComponentPropsWithRef<typeof Textarea>, 'className'>) {
+  return <Textarea {...props} className="note-block-text" />;
+}
+
+function TransformOperation(props: Omit<ComponentPropsWithRef<typeof Button>, 'className'>) {
+  return <Button {...props} className="note-transform-operation" />;
+}
+
+export const Notebook = {
+  FieldHeading: part('div', 'note-field-heading'),
+  TransformOperations: part('div', 'note-transform-operations'),
+  TransformOperation,
+  Attachments: part('div', 'note-attachments'),
+  FileButton: part('label', 'note-file-button'),
+  AttemptRecovery: part('section', 'note-attempt-recovery'),
+  Workspace: part('section', 'note-workspace'),
+  Canvas: part('div', 'note-canvas'),
+  Toolbar: part('div', 'note-toolbar'),
+  Start: part('section', 'note-start'),
+  StartContent: part('div', 'note-start-content'),
+  StartHeading: part('header', 'note-start-heading'),
+  StartKind: part('span', 'note-start-kind'),
+  StartRecovery: part('div', 'note-start-recovery'),
+  List: part('ul', 'note-list'),
+  Actions: part(ActionGroup, 'note-actions'),
+  Muted: part('p', 'note-muted'),
+  MutedLabel: part('span', 'note-muted'),
+  Status: part('div', 'note-muted'),
+  WorkLog: part('div', 'note-work-log'),
+  WorkRow: part('div', 'note-work-row'),
+  WorkCopy: part('div', 'note-work-copy'),
+  WorkItem: part('details', 'note-work-item'),
+  WorkSummary: part('summary', 'note-work-row'),
+  WorkMetadata: part('dl', 'note-work-metadata'),
+  WorkSection: part('section', 'note-work-section'),
+  WorkHeading: part('h3', 'note-work-heading'),
+  RowTools: part('div', 'note-row-tools'),
+  VersionStepper: part('div', 'note-version-stepper'),
+  VersionLabel: part('span', 'note-version-label'),
+  ActionLabel: part('span', 'note-action-label'),
+  ItemEditor: part('section', 'note-item-editor'),
+  TargetPreview: part('blockquote', 'note-target-preview'),
+  ActionRecovery: part('div', 'note-action-recovery'),
+  BatchDeletionItem: part('section', 'note-batch-deletion-item'),
+  PageNotes: part('section', 'page-notes'),
+  PageSourceList: part('ul', 'page-source-list'),
+  Preferences: part('details', 'note-preferences'),
+  ComposerFooter: part('div', 'note-composer-footer'),
+  Composer: part('div', 'note-composer'),
+  Section: part('details', 'note-section'),
+  TransformResult: part('div', 'note-transform-result'),
+  Runs: part('section', 'note-runs'),
+  TransformRun: part('section', 'note-transform-run'),
+  RunHeading: part('header', 'note-run-heading'),
+  Page: part('section', 'note-page'),
+  PageNavigation: part('div', 'note-page-navigation'),
+  PageHeading: part('header', 'note-page-heading'),
+  CaptureTools: part('div', 'note-capture-tools'),
+  NotesHeading: part('div', 'note-notes-heading'),
+  IndexTarget: part('div', 'note-index-target'),
+  History: part('section', 'note-history'),
+  EmptyCanvas: part('div', 'note-empty-canvas'),
+  Entry: part('article', 'note-entry'),
+  Prose: part('div', 'note-prose'),
+  Instruction: part('p', 'note-prose'),
+  Captured: part('div', 'note-captured'),
+  ContextNotice: part('div', 'note-context-notice'),
+  ContextCard: part('div', 'note-context-card'),
+  ContextCardHeading: part('header', 'note-context-card-heading'),
+  ContextGroup: part('section', 'note-context-group'),
+  ContextGroupHeading: part('header', 'note-context-group-heading'),
+  ContextCount: part('span', 'note-context-count'),
+  ContextSources: part('ul', 'note-context-sources'),
+  ContextSource: part('li', 'note-context-source'),
+  ContextScope: part('p', 'note-context-scope'),
+  ContextExcerpt: part('blockquote', 'note-context-excerpt'),
+  ContextTimeline: part('ol', 'note-context-timeline'),
+  ContextEvent: part('li', 'note-context-event'),
+  ContextMarker: part('span', 'note-context-marker'),
+  Selected: part('ul', 'note-selected'),
+  Materials: part('ul', 'note-materials'),
+  ExactPage: part('div', 'note-exact-page'),
+  Block: part('div', 'note-block'),
+  SelectedTarget: part('div', 'note-selected-target'),
+  SelectionExcerpts: part('div', 'note-selection-excerpts'),
+  CanvasToolbar: part('div', 'note-toolbar note-canvas-toolbar'),
+  Delete: part('details', 'note-delete'),
+  Label: part('label', 'sr-only'),
+  AccessibleText: part('span', 'sr-only'),
+  BlockText
+};

@@ -3,11 +3,11 @@ import { choice, openQuestion } from '#tooling/seed/builders/quiz';
 import {
   createProject,
   createSource,
-  createDocument,
+  createPage,
   createFlashcards,
   createQuiz,
   createDiagram,
-  createConversation
+  createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
 
@@ -29,7 +29,7 @@ export function createHistory(seed: SeedHarness) {
     project,
     textFile(new URL('../files/timeline.json', import.meta.url))
   );
-  const review = createDocument(project, {
+  const review = createPage(project, {
     title: 'Ottocento — mappa per il ripasso',
     description:
       'Distinguere trasformazioni economiche, conflitti sociali e progetti politici. Collegare industrializzazione, urbanizzazione e richieste di rappresentanza senza ridurle a una sola causa.',
@@ -51,7 +51,7 @@ export function createHistory(seed: SeedHarness) {
       )
     ]
   });
-  const workbook = createDocument(project, {
+  const workbook = createPage(project, {
     title: 'Storia contemporanea — workshop',
     blocks: [
       paragraph('Confrontare gli obiettivi dei diversi movimenti senza considerarli sinonimi.'),
@@ -107,7 +107,7 @@ export function createHistory(seed: SeedHarness) {
     'flowchart LR\nIndustrializzazione --> Urbanizzazione\nRestaurazione --> Liberalismo --> Rivoluzioni\nUrbanizzazione --> Conflitti_sociali'
   );
 
-  createConversation(project, {
+  createNote(project, {
     title: 'Restaurazione',
     daysAgo: 14,
     exchanges: [
@@ -117,10 +117,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [industrialNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Fabbrica e lavoro',
     daysAgo: 13,
     exchanges: [
@@ -130,10 +130,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [europeNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Carbone e vapore',
     daysAgo: 12,
     exchanges: [
@@ -143,10 +143,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [timeline],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Urbanizzazione',
     daysAgo: 11,
     exchanges: [
@@ -156,10 +156,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [industrialNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Liberalismo e democrazia',
     daysAgo: 10,
     exchanges: [
@@ -169,10 +169,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [europeNotes],
-    documents: [review],
+    pages: [review],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Le rivoluzioni del 1830',
     daysAgo: 9,
     exchanges: [
@@ -182,10 +182,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [timeline],
-    documents: [workbook],
+    pages: [workbook],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Il 1848 europeo',
     daysAgo: 8,
     exchanges: [
@@ -195,10 +195,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [industrialNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Questione nazionale',
     daysAgo: 7,
     exchanges: [
@@ -208,10 +208,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [europeNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Risorgimento',
     daysAgo: 6,
     exchanges: [
@@ -221,10 +221,10 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [timeline],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Confronto delle fonti',
     daysAgo: 5,
     exchanges: [
@@ -234,7 +234,7 @@ export function createHistory(seed: SeedHarness) {
       ]
     ],
     sources: [industrialNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
 }

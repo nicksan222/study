@@ -1,7 +1,7 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Implements durable recording-post activities that turn completed recordings into   │
- * │ source and conversation content.                                                         │
+ * │ source and note content.                                                                 │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Feature workflows own durable execution and scoped activity behavior.                  │
@@ -20,7 +20,7 @@ import type { sourceSchema } from '@study/contracts/sources/schemas';
 import { Effect, Schema } from 'effect';
 import { Activity } from 'effect/workflow';
 
-import { Conversations } from '#server/features/conversations/index';
+import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
 import { Database } from '#server/platform/database/database';
@@ -41,13 +41,13 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
   Effect.gen(function* () {
     const recordings = yield* Recordings;
     const sources = yield* Sources;
-    const conversations = yield* Conversations;
+    const notes = yield* Notes;
     const { store } = yield* Database;
     const snapshot = yield* recordings.recordingPostSnapshot({ requestId: event.requestId });
 
     if (
       snapshot.recordingId !== event.recordingId ||
-      snapshot.sessionId !== event.sessionId ||
+      snapshot.noteId !== event.noteId ||
       snapshot.projectId !== event.projectId ||
       event.eventId !== event.requestId
     )
@@ -67,7 +67,7 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
         sources.importRecording({
           requestId: event.requestId,
           projectId: snapshot.projectId,
-          sessionId: snapshot.sessionId,
+          noteId: snapshot.noteId,
           name: snapshot.name,
           bytes: snapshot.bytes,
           durationMs: snapshot.durationMs
@@ -80,10 +80,10 @@ export const recordingPostHandler = ({ event }: typeof recordingPostWorkflow.pay
       error: failureSchema,
       execute: withPublicationGuard(
         store,
-        conversations.postRecordingMessage({
+        notes.postRecordingMessage({
           requestId: event.requestId,
           projectId: snapshot.projectId,
-          sessionId: snapshot.sessionId,
+          noteId: snapshot.noteId,
           sourceId,
           durationMs: snapshot.durationMs
         })

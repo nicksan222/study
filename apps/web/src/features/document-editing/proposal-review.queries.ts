@@ -3,11 +3,11 @@ import type {
   keepProposalSchema,
   comparisonSchema,
   proposalOutcomeSchema
-} from '@study/contracts/documents/editing';
+} from '@study/contracts/pages/editing';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
+import { invalidatePages } from '#web/lib/study-client/pages.queries.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 type Outcome = typeof proposalOutcomeSchema.Type;
@@ -32,8 +32,8 @@ export function useProposalReview({ requestId }: { requestId: string }) {
   const { t } = useI18n();
   const client = useQueryClient();
   const comparison = useQuery({
-    queryKey: ['documents', 'proposal-comparison', requestId],
-    queryFn: () => request((rpc) => rpc['documents.compareProposal']({ requestId }))
+    queryKey: ['pages', 'proposal-comparison', requestId],
+    queryFn: () => request((rpc) => rpc['pages.compareProposal']({ requestId }))
   });
   const key = ['document-proposal-actions', requestId];
   const state = useQuery({
@@ -59,13 +59,13 @@ export function useProposalReview({ requestId }: { requestId: string }) {
     try {
       const receipt = await request((rpc) =>
         input.kind === 'apply'
-          ? rpc['documents.applyProposal'](input.input)
-          : rpc['documents.keepProposal'](input.input)
+          ? rpc['pages.applyProposal'](input.input)
+          : rpc['pages.keepProposal'](input.input)
       );
 
       // Retain the exact receipt before refreshing or navigating away.
       update({ outcome: receipt, attempt: undefined });
-      await invalidateDocuments(client);
+      await invalidatePages(client);
     } catch {
       update({ failed: true });
     } finally {
@@ -90,7 +90,7 @@ export function useProposalReview({ requestId }: { requestId: string }) {
               expectedVersionId: value.beforeVersionId
             }
           }
-        : { kind, input: { requestId, key: operationKey, title: t('DocumentCopyTitle') } }
+        : { kind, input: { requestId, key: operationKey, title: t('PageCopyTitle') } }
     );
   }
 

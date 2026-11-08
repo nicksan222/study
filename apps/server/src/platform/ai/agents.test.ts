@@ -569,8 +569,8 @@ testStable('rejects empty model output without publishing completion', async () 
   );
 });
 
-testStable('preserves conversation history in the native reply request', async () => {
-  const { replyAgent } = await import('#server/features/conversations/agents/reply');
+testStable('preserves note history in the native reply request', async () => {
+  const { replyAgent } = await import('#server/features/notes/agents/reply');
   let body = '';
 
   await peer(
@@ -605,7 +605,7 @@ testStable('preserves conversation history in the native reply request', async (
 });
 
 testStable('the Assistant keeps its local tools without gaining web search', async (t) => {
-  const { assistantAgent } = await import('#server/features/conversations/agents/assistant');
+  const { assistantAgent } = await import('#server/features/notes/agents/assistant');
   const fixture = createServerTest(t, { app: false });
   const store = new ServerContext(fixture.openDb());
 
@@ -634,7 +634,7 @@ testStable('the Assistant keeps its local tools without gaining web search', asy
 testStable(
   'native web search completes inside the reply request without a local search executor',
   async () => {
-    const { replyAgent } = await import('#server/features/conversations/agents/reply');
+    const { replyAgent } = await import('#server/features/notes/agents/reply');
     const answer = 'Verified with [OpenAI](https://openai.com/).';
     let requests = 0;
 
@@ -997,7 +997,7 @@ testStable(
       ...defaultAgentRules,
       quizzes: 'Use application questions.',
       titles: 'Use descriptive titles.',
-      documents: 'UNRELATED DOCUMENT RULE'
+      pages: 'UNRELATED DOCUMENT RULE'
     };
     const bodies: string[] = [];
 

@@ -19,18 +19,18 @@ import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { workflowStore } from '#server/platform/workflows/store';
-import { documentTransformFixture } from '#testing/document-transform';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
 import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-deletion';
-import { assertScrubbed } from '#testing/session-deletion';
+import { assertScrubbed } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 
 testStable(
   'generated learning deletion fences replay, releases exact authored evidence and never reassigns cleanup ownership',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await learningGeneration(f);
@@ -41,17 +41,17 @@ testStable(
       const output = await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
-          const docs = yield* Documents;
+          const docs = yield* Pages;
           const output = yield* m.materialVersion({ id: versionId });
 
           expect(output.inputs).toStrictEqual([
-            { kind: 'document', versionId: saved.input.version.id }
+            { kind: 'page', versionId: saved.input.version.id }
           ]);
           const preview = yield* docs.previewDeletion({ id: saved.input.id });
 
           expect(preview.blockedVersionIds).toStrictEqual([saved.input.version.id]);
           assert.ok(
-            (yield* Effect.flip(docs.delete({ documentId: saved.input.id, token: preview.token })))
+            (yield* Effect.flip(docs.delete({ pageId: saved.input.id, token: preview.token })))
               .kind === 'invalid_input'
           );
 
@@ -142,7 +142,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
-          const docs = yield* Documents;
+          const docs = yield* Pages;
 
           assert.strictEqual(
             (yield* m.deletion({ materialId: output.material_id })).operationId,
@@ -156,7 +156,7 @@ testStable(
           const preview = yield* docs.previewDeletion({ id: saved.input.id });
 
           expect(preview.blockedVersionIds).toStrictEqual([]);
-          yield* docs.delete({ documentId: saved.input.id, token: preview.token });
+          yield* docs.delete({ pageId: saved.input.id, token: preview.token });
         }).pipe(Effect.provide(f.domain()))
       );
       f.reopen();

@@ -4,40 +4,40 @@ import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-function fixture(patch: Record<string, unknown> = {}, generationSession: number | null = null) {
+function fixture(patch: Record<string, unknown> = {}, generationNote: number | null = null) {
   const location = createTestDatabase();
   const db = location.open();
 
-  db.exec(`INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1);
- INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(1,'Target',1,1),(3,'Other',1,1);
+  db.exec(`INSERT INTO notes(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1);
+ INSERT INTO pages(id,title,created_at,updated_at) VALUES(1,'Target',1,1),(3,'Other',1,1);
  INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(1,1,'{}',1),(2,1,'{}',1),(3,1,'{}',1),(4,1,'{}',1);
  INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor)
  SELECT id,0,'paragraph','block-'||id,'{"type":"paragraph","inlines":[{"type":"text","text":"Evidence","marks":[]}]}','Evidence','{"type":"authored"}' FROM content_snapshots;
- INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1),(3,1,2,2,1),(5,3,1,3,1);
- UPDATE study_document_versions SET status='published',published_at=2;
+ INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1),(3,1,2,2,1),(5,3,1,3,1);
+ UPDATE page_versions SET status='published',published_at=2;
 `);
   const capture = {
     requestId: 'capture',
-    sessionId: '1',
+    noteId: '1',
     inputs: [
-      { input: { kind: 'document', versionId: '1' }, snapshotId: '1', scope: { kind: 'document' } }
+      { input: { kind: 'page', versionId: '1' }, snapshotId: '1', scope: { kind: 'document' } }
     ],
     messages: [],
     ...patch
   };
 
   db.orm.run(
-    sql`INSERT INTO session_run_contexts(request_id,session_id,intent_key,intent,snapshot) VALUES('capture',1,'proposal','{}',${JSON.stringify(capture)})`
+    sql`INSERT INTO note_run_contexts(request_id,note_id,intent_key,intent,snapshot) VALUES('capture',1,'proposal','{}',${JSON.stringify(capture)})`
   );
-  db.exec(` INSERT INTO session_context_documents(request_id,version_id) VALUES('capture',1);
- INSERT INTO study_document_transform_requests(id,context_request_id,session_id,request,intent_hash,instruction,event_id,created_at)
+  db.exec(` INSERT INTO note_context_pages(request_id,version_id) VALUES('capture',1);
+ INSERT INTO page_transform_requests(id,context_request_id,note_id,request,intent_hash,instruction,event_id,created_at)
  VALUES('document/capture','capture',1,'{"title":"Proposal","contextRequestId":"capture","operations":["clarity"],"editTargetVersionId":"1"}','${'a'.repeat(64)}','Clarify','event',1);
- INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,operation,creator,instruction,created_at) VALUES(4,1,3,4,'generate','agent','Clarify',1);
- INSERT INTO study_document_version_parents(version_id,parent_version_id,document_id) VALUES(4,1,1);
- INSERT INTO study_document_inputs(version_id,position,document_version_id) VALUES(4,0,1);
+ INSERT INTO page_versions(id,page_id,number,content_snapshot_id,operation,creator,instruction,created_at) VALUES(4,1,3,4,'generate','agent','Clarify',1);
+ INSERT INTO page_version_parents(version_id,parent_version_id,page_id) VALUES(4,1,1);
+ INSERT INTO page_inputs(version_id,position,page_version_id) VALUES(4,0,1);
 `);
   db.orm.run(
-    sql`INSERT INTO study_document_generation_requests(id,document_id,expected_version_id,session_id,intent_hash,created_at) VALUES('document/capture',1,1,${generationSession},${'b'.repeat(64)},1)`
+    sql`INSERT INTO page_generation_requests(id,page_id,expected_version_id,note_id,intent_hash,created_at) VALUES('document/capture',1,1,${generationNote},${'b'.repeat(64)},1)`
   );
 
   return {
@@ -51,50 +51,40 @@ function fixture(patch: Record<string, unknown> = {}, generationSession: number 
 
 function retain(db: ReturnType<typeof fixture>['db']) {
   db.exec(
-    "INSERT INTO study_document_proposals(request_id,base_version_id,proposed_version_id) VALUES('document/capture',1,4)"
+    "INSERT INTO page_proposals(request_id,base_version_id,proposed_version_id) VALUES('document/capture',1,4)"
   );
 }
 
 function receipt(db: ReturnType<typeof fixture>['db']) {
-  db.exec(
-    "UPDATE study_document_generation_requests SET result_version_id=4 WHERE id='document/capture'"
-  );
+  db.exec("UPDATE page_generation_requests SET result_version_id=4 WHERE id='document/capture'");
 }
 
 const mutations = [
   ['unretained output', '', false],
   [
     'wrong expected base',
-    "UPDATE study_document_generation_requests SET expected_version_id=3 WHERE id='document/capture'",
+    "UPDATE page_generation_requests SET expected_version_id=3 WHERE id='document/capture'",
     true
   ],
-  ['missing captured input', 'DELETE FROM study_document_inputs WHERE version_id=4', true],
-  [
-    'substituted exact input',
-    'UPDATE study_document_inputs SET document_version_id=3 WHERE version_id=4',
-    true
-  ],
+  ['missing captured input', 'DELETE FROM page_inputs WHERE version_id=4', true],
+  ['substituted exact input', 'UPDATE page_inputs SET page_version_id=3 WHERE version_id=4', true],
   [
     'extra exact input',
-    'INSERT INTO study_document_inputs(version_id,position,document_version_id) VALUES(4,1,3)',
+    'INSERT INTO page_inputs(version_id,position,page_version_id) VALUES(4,1,3)',
     true
   ],
   [
     'wrong ancestry',
-    'DELETE FROM study_document_version_parents WHERE version_id=4; INSERT INTO study_document_version_parents(version_id,parent_version_id,document_id) VALUES(4,3,1)',
+    'DELETE FROM page_version_parents WHERE version_id=4; INSERT INTO page_version_parents(version_id,parent_version_id,page_id) VALUES(4,3,1)',
     true
   ],
-  ['missing ancestry', 'DELETE FROM study_document_version_parents WHERE version_id=4', true],
-  ['forged creator', "UPDATE study_document_versions SET creator='user' WHERE id=4", true],
-  ['wrong operation', "UPDATE study_document_versions SET operation='edit' WHERE id=4", true],
-  [
-    'wrong instruction',
-    "UPDATE study_document_versions SET instruction='Different' WHERE id=4",
-    true
-  ],
+  ['missing ancestry', 'DELETE FROM page_version_parents WHERE version_id=4', true],
+  ['forged creator', "UPDATE page_versions SET creator='user' WHERE id=4", true],
+  ['wrong operation', "UPDATE page_versions SET operation='edit' WHERE id=4", true],
+  ['wrong instruction', "UPDATE page_versions SET instruction='Different' WHERE id=4", true],
   [
     'cancelled authority',
-    "UPDATE study_document_transform_requests SET cancelled=1 WHERE id='document/capture'",
+    "UPDATE page_transform_requests SET cancelled=1 WHERE id='document/capture'",
     true
   ],
   [
@@ -108,8 +98,8 @@ const mutations = [
     true
   ],
   [
-    'deleted session',
-    "INSERT INTO session_deletions(session_id,operation_id,status,created_at) VALUES(1,'delete','pending',2)",
+    'deleted note',
+    "INSERT INTO note_deletions(note_id,operation_id,status,created_at) VALUES(1,'delete','pending',2)",
     true
   ]
 ] as const;
@@ -128,7 +118,7 @@ for (const [name, mutation, retained] of mutations)
       });
       assert.strictEqual(
         f.db.orm.get(
-          "SELECT result_version_id FROM study_document_generation_requests WHERE id='document/capture'"
+          "SELECT result_version_id FROM page_generation_requests WHERE id='document/capture'"
         )?.result_version_id,
         null
       );
@@ -143,7 +133,7 @@ const invalidCaptures = [
     {
       inputs: [
         {
-          input: { kind: 'document', versionId: '1' },
+          input: { kind: 'page', versionId: '1' },
           snapshotId: '1',
           scope: { kind: 'blocks', blockIds: ['block-1'] }
         }
@@ -155,7 +145,7 @@ const invalidCaptures = [
     {
       inputs: [
         {
-          input: { kind: 'document', versionId: '3' },
+          input: { kind: 'page', versionId: '3' },
           snapshotId: '1',
           scope: { kind: 'document' }
         }
@@ -167,7 +157,7 @@ const invalidCaptures = [
     {
       inputs: [
         {
-          input: { kind: 'document', versionId: '1' },
+          input: { kind: 'page', versionId: '1' },
           snapshotId: '2',
           scope: { kind: 'document' }
         }
@@ -175,7 +165,7 @@ const invalidCaptures = [
     }
   ],
   ['wrong capture identity', { requestId: 'different' }],
-  ['wrong captured session', { sessionId: '2' }]
+  ['wrong captured note', { noteId: '2' }]
 ] as const;
 
 for (const [name, patch] of invalidCaptures)
@@ -199,23 +189,23 @@ testStable(
       retain(f.db);
       receipt(f.db);
       assert.strictEqual(
-        f.db.orm.get('SELECT status FROM study_document_versions WHERE id=4')?.status,
+        f.db.orm.get('SELECT status FROM page_versions WHERE id=4')?.status,
         'draft'
       );
       assert.strictEqual(
         f.db.orm.get(
-          "SELECT id FROM study_document_versions WHERE document_id=1 AND status='published' ORDER BY number DESC LIMIT 1"
+          "SELECT id FROM page_versions WHERE page_id=1 AND status='published' ORDER BY number DESC LIMIT 1"
         )?.id,
         3n
       );
 
       for (const mutation of [
-        "UPDATE study_document_generation_requests SET result_version_id=5 WHERE id='document/capture'",
-        "DELETE FROM study_document_generation_requests WHERE id='document/capture'",
-        'DELETE FROM study_document_proposals',
+        "UPDATE page_generation_requests SET result_version_id=5 WHERE id='document/capture'",
+        "DELETE FROM page_generation_requests WHERE id='document/capture'",
+        'DELETE FROM page_proposals',
         "UPDATE blocks SET text='forged' WHERE document_id=4",
-        'DELETE FROM study_document_inputs WHERE version_id=4',
-        'DELETE FROM study_document_version_parents WHERE version_id=4'
+        'DELETE FROM page_inputs WHERE version_id=4',
+        'DELETE FROM page_version_parents WHERE version_id=4'
       ])
         assert.throws(() => f.db.exec(mutation));
 
@@ -241,7 +231,7 @@ for (const [name, operation, outcome, current, result] of [
       receipt(f.db);
       assert.throws(() =>
         f.db.orm.run(
-          sql`INSERT INTO study_document_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) VALUES('forged','document/capture',${operation},'{}',${outcome},${current},${result})`
+          sql`INSERT INTO page_proposal_receipts(key,request_id,operation,intent,outcome,current_version_id,result_version_id) VALUES('forged','document/capture',${operation},'{}',${outcome},${current},${result})`
         )
       );
     } finally {
@@ -257,7 +247,7 @@ for (const result of [1, 3, 5])
       retain(f.db);
       assert.throws(() =>
         f.db.orm.run(
-          sql`UPDATE study_document_generation_requests SET result_version_id=${result} WHERE id='document/capture'`
+          sql`UPDATE page_generation_requests SET result_version_id=${result} WHERE id='document/capture'`
         )
       );
     } finally {
@@ -265,7 +255,7 @@ for (const result of [1, 3, 5])
     }
   });
 
-testStable('authored generation cannot claim another session as its publication metadata', () => {
+testStable('authored generation cannot claim another note as its publication metadata', () => {
   const f = fixture({}, 2);
 
   try {

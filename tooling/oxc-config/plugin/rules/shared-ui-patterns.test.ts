@@ -31,7 +31,7 @@ testStable('enforces shared pagination while allowing owner-specific action labe
   ).toHaveLength(1);
   expect(
     lint(
-      `import { Button } from '@study/ui/button'; const view = <Button>{t('DocumentEdit')}</Button>;`
+      `import { Button } from '@study/ui/button'; const view = <Button>{t('PageEdit')}</Button>;`
     )
   ).toHaveLength(0);
 });

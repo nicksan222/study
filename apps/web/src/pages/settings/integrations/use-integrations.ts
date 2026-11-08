@@ -33,7 +33,7 @@ export function useIntegrations() {
     .join(',');
 
   useEffect(() => {
-    for (const key of ['sessions', 'documents', 'sources', 'search'])
+    for (const key of ['notes', 'pages', 'sources', 'search'])
       void cache.invalidateQueries({ queryKey: [key] });
   }, [cache, revision]);
 

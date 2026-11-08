@@ -12,7 +12,7 @@ export function useSidebarShortcuts() {
     function destinations() {
       return Array.from(
         root.current?.querySelectorAll<HTMLAnchorElement>(
-          '.study-sidebar-scroll a.study-session-row[href]'
+          '.study-sidebar-scroll a.study-note-row[href]'
         ) ?? []
       )
         .filter(available)

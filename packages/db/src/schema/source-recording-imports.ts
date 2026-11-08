@@ -1,4 +1,4 @@
-import type { ProjectId, SessionId, SourceId } from '@study/contracts/ids';
+import type { ProjectId, NoteId, SourceId } from '@study/contracts/ids';
 
 import { defineTable, sql, blob, check, integer, text } from '../schema-builder.ts';
 import { projects } from './sources.ts';
@@ -11,7 +11,7 @@ export const source_recording_imports = defineTable({ role: 'contributes', entit
     project_id: integer()
       .$type<ProjectId>()
       .references(() => projects.id, { onDelete: 'set null' }),
-    session_id: integer().$type<SessionId>().notNull(),
+    note_id: integer().$type<NoteId>().notNull(),
     source_id: integer().$type<SourceId>().notNull(),
     input_hash: blob({ mode: 'buffer' }).notNull(),
     duration_ms: integer().$type<bigint>().notNull()

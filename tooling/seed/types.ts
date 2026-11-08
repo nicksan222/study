@@ -9,7 +9,7 @@ export type SourceFixture = {
   readonly document: Document;
 };
 
-export type NoteFixture = {
+export type PageFixture = {
   readonly title: string;
   readonly description?: string;
   readonly blocks: readonly Block[];
@@ -30,8 +30,8 @@ export type ProjectFixture = {
 
 export type SeedSummary = {
   projects: number;
-  sessions: number;
+  notes: number;
   sources: number;
-  documents: number;
+  pages: number;
   materials: number;
 };

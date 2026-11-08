@@ -7,7 +7,7 @@ import {
   materialIdSchema,
   materialVersionIdSchema,
   projectIdSchema,
-  sessionIdSchema
+  noteIdSchema
 } from '../ids.ts';
 import { blockIdSchema } from '../sources/schemas.ts';
 import {
@@ -71,7 +71,7 @@ export const materialsInputSchema = Schema.Struct({
   limit,
   cursor: Schema.optional(materialIdSchema),
   projectId: Schema.optional(projectIdSchema),
-  sessionId: Schema.optional(sessionIdSchema),
+  noteId: Schema.optional(noteIdSchema),
   archived: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false)))
 });
 
@@ -94,7 +94,7 @@ export const citationsInputSchema = Schema.Struct({
 });
 
 export const attachInputSchema = Schema.Struct({
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   materialId: materialIdSchema
 });
 
@@ -112,7 +112,7 @@ export const updateDescriptionInputSchema = Schema.Struct({
 });
 
 export const reorderInputSchema = Schema.Struct({
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   materialIds: Schema.mutable(Schema.Array(materialIdSchema)).check(Schema.isMaxLength(10000))
 });
 

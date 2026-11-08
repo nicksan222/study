@@ -66,7 +66,7 @@ testStable(
       Number(value.target.range.versionId);
       Number(revision.source.currentDocumentId);
     `,
-      'src/features/conversations/store/offsets.ts': `
+      'src/features/notes/store/offsets.ts': `
       Number(row.range_start);
       Number(row.range_end);
       Number(processing.revision);
@@ -83,8 +83,8 @@ testStable(
   'deletion and retired receipt identities remain lossless while attempt counters are numeric',
   () => {
     const diagnostics = lintRule('no-lossy-ids', {
-      'src/features/conversations/store/deletion.ts': `Number(row.session_id); parseInt(value.sessionId, 10); Number(row.attempt);`,
-      'src/features/materials/store/session-retirement.ts': `Number(row.result_version_id); Number(row.proposed_version_id); String(row.base_version_id); String(value.requestId);`
+      'src/features/notes/store/deletion.ts': `Number(row.note_id); parseInt(value.noteId, 10); Number(row.attempt);`,
+      'src/features/materials/store/note-retirement.ts': `Number(row.result_version_id); Number(row.proposed_version_id); String(row.base_version_id); String(value.requestId);`
     });
 
     assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
@@ -109,7 +109,7 @@ testStable(
   'history candidates and exact attachment roots remain lossless across preview and SQL proofs',
   () => {
     const diagnostics = lintRule('no-lossy-ids', {
-      'src/features/conversations/store/material-history.ts': `
+      'src/features/notes/store/material-history.ts': `
       Number(attachment.documentId); parseInt(attachment.sourceId, 10); Number(member.version_id);
 
       String(attachment.documentId); String(attachment.sourceId); Number(policy.keepLatest); Number(state.attempt);
@@ -127,8 +127,8 @@ testStable(
     const diagnostics = lintRule('no-lossy-ids', {
       'src/features/system/store/backup.ts':
         'Number(row.material_id); parseInt(row.version_id, 10); Number(row.n); Number(scope.tombstones); String(row.document_id);',
-      'src/features/conversations/store/backup.ts':
-        'Number(row.session_id); String(row.request_id); Number(row.revision);'
+      'src/features/notes/store/backup.ts':
+        'Number(row.note_id); String(row.request_id); Number(row.revision);'
     });
 
     assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));

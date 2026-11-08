@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { SessionId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts/ids';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { ProjectId, SourceId } from '@study/contracts/ids';
 import { correctBlockText, plainBlock } from '@study/contracts/sources/document';
@@ -25,7 +25,7 @@ import { Effect, Layer, Option } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
+import { Pages } from '#server/features/pages/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -647,7 +647,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const layer = Layer.mergeAll(Sources.layer, Documents.layer).pipe(
+    const layer = Layer.mergeAll(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -658,7 +658,7 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const sources = yield* Sources;
-          const documents = yield* Documents;
+          const documents = yield* Pages;
           const source = yield* sources.createSource({
             name: 'test.txt',
             bytes: new TextEncoder().encode('Evidence'),
@@ -670,7 +670,7 @@ testStable(
             0n
           );
           assert.strictEqual(
-            context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM study_documents`)!.n,
+            context.db.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM pages`)!.n,
             0n
           );
           const state = yield* sources.sourceProcessing(source.id);
@@ -1009,10 +1009,10 @@ testStable('project reassignment preserves an explicit message attachment', asyn
       sql`INSERT INTO projects (id, name, created_at, updated_at) VALUES (1, 'One', 1, 1), (2, 'Two', 1, 1)`
     );
     context.db.orm.run(
-      sql`INSERT INTO sessions (id,title,title_source,created_at,updated_at) VALUES (1, 'Session', 'user', 1, 1)`
+      sql`INSERT INTO notes (id,title,title_source,created_at,updated_at) VALUES (1, 'Note', 'user', 1, 1)`
     );
     context.db.orm.run(
-      sql`INSERT INTO messages (id, session_id, role, created_at) VALUES (1, 1, 'user', 1)`
+      sql`INSERT INTO messages (id, note_id, role, created_at) VALUES (1, 1, 'user', 1)`
     );
     await Effect.runPromise(
       Effect.gen(function* () {
@@ -1037,7 +1037,7 @@ testStable('project reassignment preserves an explicit message attachment', asyn
 });
 
 testStable(
-  'exact source extractions and session links never substitute a pending revision or author a document',
+  'exact source extractions and note links never substitute a pending revision or author a document',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
@@ -1087,21 +1087,21 @@ testStable(
             (yield* sources.currentExtraction({ id: source.id }))?.snapshotId,
             published.documentId
           );
-          const session = context.db.orm.get<{ id: bigint }>(
-            sql`INSERT INTO sessions(title,title_source,created_at,updated_at) VALUES('Session','user',1,1) RETURNING id`
+          const note = context.db.orm.get<{ id: bigint }>(
+            sql`INSERT INTO notes(title,title_source,created_at,updated_at) VALUES('Note','user',1,1) RETURNING id`
           )!;
 
           yield* sources.attachSource({
-            sessionId: session.id as SessionId,
+            noteId: note.id as NoteId,
             sourceId: source.id
           });
           yield* sources.attachSource({
-            sessionId: session.id as SessionId,
+            noteId: note.id as NoteId,
             sourceId: source.id
           });
           assert.strictEqual(
-            (yield* sources.sessionSources({
-              sessionId: session.id as SessionId,
+            (yield* sources.noteSources({
+              noteId: note.id as NoteId,
               limit: 100
             })).length,
             1
@@ -1132,8 +1132,8 @@ testStable(
             (yield* Effect.flip(sources.exportRevision({ sourceId: source.id, revision: 999n })))
               .kind === 'not_found'
           );
-          const links = yield* sources.sessionSources({
-            sessionId: session.id as SessionId,
+          const links = yield* sources.noteSources({
+            noteId: note.id as NoteId,
             limit: 100
           });
 
@@ -1148,16 +1148,14 @@ testStable(
             (yield* Effect.flip(sources.extraction({ ...exact, revision: 2n }))).kind ===
               'not_found'
           );
-          expect(
-            context.db.orm.get<{ n: number }>(sql`SELECT count(*) n FROM study_documents`)!.n
-          ).toBe(0n);
+          expect(context.db.orm.get<{ n: number }>(sql`SELECT count(*) n FROM pages`)!.n).toBe(0n);
           yield* sources.detachSource({
-            sessionId: session.id as SessionId,
+            noteId: note.id as NoteId,
             sourceId: source.id
           });
           expect(
-            yield* sources.sessionSources({
-              sessionId: session.id as SessionId,
+            yield* sources.noteSources({
+              noteId: note.id as NoteId,
               limit: 100
             })
           ).toStrictEqual([]);

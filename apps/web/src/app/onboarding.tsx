@@ -1,7 +1,7 @@
 import { Onboarding, OnboardingNotebook, OnboardingSetup } from '@study/ui/onboarding';
 import {
   OnboardingSubject,
-  OnboardingDocument,
+  OnboardingPage,
   OnboardingWorkflow
 } from '@study/ui/onboarding-previews';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,11 +28,11 @@ const slides = [
     title: 'OnboardingSubjectsTitle',
     description: 'OnboardingSubjectsDescription'
   },
-  { id: 'sessions', title: 'OnboardingNotesTitle', description: 'OnboardingNotebookDescription' },
+  { id: 'notes', title: 'OnboardingNotesTitle', description: 'OnboardingNotebookDescription' },
   {
-    id: 'documents',
-    title: 'OnboardingDocumentsTitle',
-    description: 'OnboardingDocumentsDescription'
+    id: 'pages',
+    title: 'OnboardingPagesTitle',
+    description: 'OnboardingPagesDescription'
   },
   {
     id: 'workflow',
@@ -112,19 +112,19 @@ function WelcomeVisual({ kind }: { kind: (typeof slides)[number]['id'] }) {
         label={t('OnboardingExample')}
         name={t('OnboardingSampleSubject')}
         monogram={t('OnboardingSampleMonogram')}
-        sessionsLabel={t('Sessions')}
-        session={t('OnboardingSampleSession')}
-        documentsLabel={t('SessionSelectionDocuments')}
-        document={t('OnboardingSampleDocumentTitle')}
+        notesLabel={t('Notes')}
+        note={t('OnboardingSampleNote')}
+        pagesLabel={t('NoteSelectionPages')}
+        document={t('OnboardingSamplePageTitle')}
       />
     );
 
-  if (kind === 'documents')
+  if (kind === 'pages')
     return (
-      <OnboardingDocument
-        label={t('OnboardingExampleDocument')}
-        title={t('OnboardingSampleDocumentTitle')}
-        content={t('OnboardingSampleDocumentBody')}
+      <OnboardingPage
+        label={t('OnboardingExamplePage')}
+        title={t('OnboardingSamplePageTitle')}
+        content={t('OnboardingSamplePageBody')}
       />
     );
 
@@ -132,22 +132,21 @@ function WelcomeVisual({ kind }: { kind: (typeof slides)[number]['id'] }) {
     return (
       <OnboardingWorkflow
         label={t('OnboardingExampleTransformation')}
-        note={t('OnboardingSampleNote')}
+        note={t('OnboardingSampleEntry')}
         file={t('OnboardingSampleFile')}
-        title={t('OnboardingSampleDocumentTitle')}
-        content={t('OnboardingSampleDocumentBody')}
+        title={t('OnboardingSamplePageTitle')}
+        content={t('OnboardingSamplePageBody')}
         transformLabel={t('OnboardingPreviewTransform')}
-        notesLabel={t('OnboardingPreviewNotes')}
-        sessionsLabel={t('Sessions')}
-        documentsLabel={t('SessionSelectionDocuments')}
+        captureLabel={t('OnboardingPreviewNotes')}
+        pagesLabel={t('NoteSelectionPages')}
       />
     );
 
-  if (kind === 'sessions')
+  if (kind === 'notes')
     return (
       <OnboardingNotebook
         label={t('OnboardingExample')}
-        note={t('OnboardingSampleNote')}
+        note={t('OnboardingSampleEntry')}
         file={t('OnboardingSampleFile')}
       />
     );

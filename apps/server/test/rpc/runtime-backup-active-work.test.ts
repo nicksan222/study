@@ -19,64 +19,64 @@ import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { documentTransformFixture } from '#testing/document-transform';
 import {
   backupFixture,
   createDocument,
-  document as backupDocument,
+  document as backupPage,
   exportSnapshot,
   restoreSnapshot
 } from '#testing/managed-backups';
 import { processSource } from '#testing/material-history';
-import { validDocumentTransformOutput } from '#testing/session-deletion';
+import { validDocumentTransformOutput } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 
 for (const action of ['apply', 'keep'] as const)
   testStable(
     `completed proposal ${action} receipt replays after restore while a new key cannot act on its retired capture`,
     async () => {
-      const source = await documentTransformFixture();
+      const source = await pageTransformFixture();
 
       let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
       try {
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
-            const m = yield* Documents;
+            const m = yield* Pages;
 
-            const c = yield* Conversations;
+            const c = yield* Notes;
 
             const document = yield* m.create({
               createKey: randomUUID(),
               inputs: [],
               citations: [],
               title: 'Target',
-              document: backupDocument('Target body')
+              document: backupPage('Target body')
             });
 
             assert.ok(document.version);
-            const session = yield* c.createUntitledSession({});
+            const note = yield* c.createUntitledNote({});
 
-            yield* m.attach({ sessionId: session.id, documentId: document.id });
+            yield* m.attach({ noteId: note.id, pageId: document.id });
 
-            yield* c.updateSessionSelection({
-              sessionId: session.id,
+            yield* c.updateNoteSelection({
+              noteId: note.id,
               expectedRevision: 0n,
               targets: [
                 {
-                  input: { kind: 'document', versionId: document.version.id },
+                  input: { kind: 'page', versionId: document.version.id },
                   scope: { kind: 'document' }
                 }
               ]
             });
 
-            const capture = yield* c.captureSessionContext({
-              sessionId: session.id,
+            const capture = yield* c.captureNoteContext({
+              noteId: note.id,
               intentKey: 'proposal',
               instruction: '',
               preferences: {}
@@ -114,7 +114,7 @@ for (const action of ['apply', 'keep'] as const)
         };
 
         const outcome = await Effect.runPromise(
-          Effect.flatMap(Conversations, (c) =>
+          Effect.flatMap(Notes, (c) =>
             action === 'apply' ? c.applyDocumentProposal(input) : c.keepDocumentProposal(input)
           ).pipe(Effect.provide(source.domain()))
         );
@@ -128,9 +128,9 @@ for (const action of ['apply', 'keep'] as const)
 
         const app = target.app;
 
-        const c = await app.nativeRuntime.runPromise(Conversations);
+        const c = await app.nativeRuntime.runPromise(Notes);
 
-        const m = await app.nativeRuntime.runPromise(Documents);
+        const m = await app.nativeRuntime.runPromise(Pages);
 
         const replay = await app.nativeRuntime.runPromise(
           action === 'apply' ? c.applyDocumentProposal(input) : c.keepDocumentProposal(input)
@@ -147,7 +147,7 @@ for (const action of ['apply', 'keep'] as const)
         );
         expect(
           await app.nativeRuntime.runPromise(
-            c.inspectSessionContext({ requestId: saved.capture.requestId })
+            c.inspectNoteContext({ requestId: saved.capture.requestId })
           )
         ).toStrictEqual(saved.capture);
 
@@ -163,13 +163,11 @@ for (const action of ['apply', 'keep'] as const)
           ).kind === 'not_found'
         );
 
-        const before = app.store.db.orm.select().from(s.study_document_versions).all();
+        const before = app.store.db.orm.select().from(s.page_versions).all();
 
         await app.workers.start();
         await app.workers.stop();
-        expect(app.store.db.orm.select().from(s.study_document_versions).all()).toStrictEqual(
-          before
-        );
+        expect(app.store.db.orm.select().from(s.page_versions).all()).toStrictEqual(before);
       } finally {
         await target?.close();
         await source.close();
@@ -197,21 +195,21 @@ testStable(
 
           const project = yield* projects.createProject({ name: 'Practice backup' });
 
-          yield* (yield* Documents).attachProject({
+          yield* (yield* Pages).attachProject({
             projectId: project.id,
-            documentId: document.id
+            pageId: document.id
           });
 
           const generation = yield* m.requestMaterialGeneration({
             projectId: project.id,
             kind: 'flashcards',
             title: 'Pending aid',
-            inputs: [{ kind: 'document', versionId: document.version.id }]
+            inputs: [{ kind: 'page', versionId: document.version.id }]
           });
 
           const practice = yield* learning.startPractice({
             projectId: project.id,
-            inputs: [{ kind: 'document', versionId: document.version.id }]
+            inputs: [{ kind: 'page', versionId: document.version.id }]
           });
 
           const quiz = yield* m.create({
@@ -294,7 +292,7 @@ testStable(
       const fresh = await app.nativeRuntime.runPromise(
         learning.startPractice({
           projectId: saved.project.id,
-          inputs: [{ kind: 'document', versionId: document.version.id }]
+          inputs: [{ kind: 'page', versionId: document.version.id }]
         })
       );
 
@@ -310,7 +308,7 @@ testStable(
 testStable(
   'pending source correction retains completed extraction but cannot replay from the imported outbox',
   async () => {
-    const source = await documentTransformFixture();
+    const source = await pageTransformFixture();
 
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 

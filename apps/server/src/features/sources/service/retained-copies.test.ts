@@ -21,24 +21,24 @@ import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
+import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
-import { documentTransformFixture } from '#testing/document-transform';
 import { deletionDocument } from '#testing/material-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 import { recordingSource } from '#testing/recording-source';
 
 for (const kind of ['file', 'image', 'recording'] as const)
   testStable(
     `independent ${kind} pins preserve exact exports until final source removal without affecting equal-hash bytes or raw PCM`,
     async () => {
-      const f = await documentTransformFixture();
+      const f = await pageTransformFixture();
 
       try {
         const recordingId = kind === 'recording' ? await recordingSource(f) : null;
         const saved = await Effect.runPromise(
           Effect.gen(function* () {
             const sources = yield* Sources;
-            const docs = yield* Documents;
+            const docs = yield* Pages;
             const source =
               recordingId === null
                 ? yield* sources.createSource({
@@ -85,7 +85,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
             const expected = yield* docs.exportVersion({ id: b.version.id });
             const preview = yield* docs.previewDeletion({ id: a.id });
 
-            yield* docs.delete({ documentId: a.id, token: preview.token });
+            yield* docs.delete({ pageId: a.id, token: preview.token });
             assert.ok(
               (yield* Effect.flip(docs.exportVersion({ id: a.version.id }))).kind === 'not_found'
             );
@@ -118,14 +118,14 @@ for (const kind of ['file', 'image', 'recording'] as const)
         await Effect.runPromise(
           Effect.gen(function* () {
             const sources = yield* Sources;
-            const docs = yield* Documents;
+            const docs = yield* Pages;
 
             expect(yield* docs.exportVersion({ id: saved.b.version.id })).toStrictEqual(
               saved.expected
             );
             const preview = yield* docs.previewDeletion({ id: saved.b.id });
 
-            yield* docs.delete({ documentId: saved.b.id, token: preview.token });
+            yield* docs.delete({ pageId: saved.b.id, token: preview.token });
             expect(
               (yield* sources.previewDeletion({ id: saved.source.id })).blockedBy
             ).toStrictEqual([]);

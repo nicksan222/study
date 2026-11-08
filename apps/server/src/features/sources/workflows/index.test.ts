@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { ConversationsRpc } from '@study/contracts/conversations/rpc';
 import type { ProjectId } from '@study/contracts/ids';
+import { NotesRpc } from '@study/contracts/notes/rpc';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
@@ -25,8 +25,8 @@ import { RpcTest } from 'effect/rpc';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
-import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
+import { Notes } from '#server/features/notes/index';
+import { NotesRpcLive } from '#server/features/notes/rpc/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/service/index';
@@ -44,19 +44,19 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 
 testStable(
-  'native ingestion lets quick sessions capture a historic exact source extraction without projections',
+  'native ingestion lets quick notes capture a historic exact source extraction without projections',
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
     const domain = () =>
-      Layer.mergeAll(Sources.layer, Conversations.layer, Settings.layer, Projects.layer).pipe(
+      Layer.mergeAll(Sources.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const services = () =>
       Layer.mergeAll(
-        ConversationsRpcLive.pipe(Layer.provideMerge(domain())),
+        NotesRpcLive.pipe(Layer.provideMerge(domain())),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
           model: () => Effect.succeed(model),
@@ -78,7 +78,7 @@ testStable(
               ...(yield* settings.workspacePreferences()),
               textConversionStrategy: 'unavailable'
             });
-            const client = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+            const client = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
             const projects = yield* Projects;
             const collection = yield* projects.createProject({ name: 'Temporary organization' });
             const source = yield* sources.createSource({
@@ -127,10 +127,7 @@ testStable(
                 documentId
               );
               assert.strictEqual(context.db.orm.select().from(tables.materials).all().length, 0);
-              assert.strictEqual(
-                context.db.orm.select().from(tables.study_documents).all().length,
-                0
-              );
+              assert.strictEqual(context.db.orm.select().from(tables.pages).all().length, 0);
 
               return { documentId };
             }
@@ -141,15 +138,15 @@ testStable(
               (yield* sources.sourceProcessing(source.id)).documentId,
               first.documentId
             );
-            const session = yield* client('conversations.createSession', {
+            const note = yield* client('notes.createNote', {
               title: 'Historic import'
             });
 
             // Original bytes are not authority for a future extraction.
             assert.ok(
               (yield* Effect.flip(
-                client('conversations.updateSessionSelection', {
-                  sessionId: session.id,
+                client('notes.updateNoteSelection', {
+                  noteId: note.id,
                   expectedRevision: 0n,
                   targets: [
                     {
@@ -165,14 +162,14 @@ testStable(
                 })
               )).kind === 'not_found'
             );
-            yield* client('conversations.postMessage', {
-              sessionId: session.id,
+            yield* client('notes.postMessage', {
+              noteId: note.id,
               text: '',
               sourceIds: [source.id],
               requestReply: false
             });
-            const captured = yield* client('conversations.captureSessionContext', {
-              sessionId: session.id,
+            const captured = yield* client('notes.captureNoteContext', {
+              noteId: note.id,
               intentKey: 'historic-import',
               instruction: 'Explain',
               preferences: {}
@@ -188,8 +185,8 @@ testStable(
 
             assert.notStrictEqual(latest.documentId, first.documentId);
             // Historical selection changes cannot replace the already captured source body.
-            yield* client('conversations.updateSessionSelection', {
-              sessionId: session.id,
+            yield* client('notes.updateNoteSelection', {
+              noteId: note.id,
               expectedRevision: 0n,
               targets: [
                 {
@@ -203,7 +200,7 @@ testStable(
                 }
               ]
             });
-            const snapshot = yield* client('conversations.inspectSessionContext', {
+            const snapshot = yield* client('notes.inspectNoteContext', {
               requestId: captured.requestId
             });
 
@@ -226,9 +223,9 @@ testStable(
       context.close();
       context = new ServerContext(location.open());
       const reopened = await Effect.runPromise(
-        Effect.flatMap(Conversations, (conversations) =>
-          conversations.sessionContext({ requestId: captured.requestId })
-        ).pipe(Effect.provide(domain()))
+        Effect.flatMap(Notes, (notes) => notes.noteContext({ requestId: captured.requestId })).pipe(
+          Effect.provide(domain())
+        )
       );
 
       expect(reopened).toStrictEqual(captured);

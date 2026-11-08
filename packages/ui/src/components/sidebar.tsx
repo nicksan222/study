@@ -20,7 +20,7 @@ import { createPortal } from 'react-dom';
 import { SearchField as SharedSearchField } from './search-field';
 import { useSidebarShortcuts } from './sidebar-shortcuts';
 
-const frameClasses = { default: '', 'session-entry': 'study-shell-session-entry' } as const;
+const frameClasses = { default: '', 'note-entry': 'study-shell-note-entry' } as const;
 
 /** Owns persisted sidebar resizing within the content and sidebar width constraints. */
 
@@ -38,7 +38,7 @@ function Frame({
   ...props
 }: ComponentProps<'div'> & {
   collapsed: boolean;
-  variant?: 'default' | 'session-entry';
+  variant?: 'default' | 'note-entry';
   defaultWidth?: number;
   minWidth?: number;
   minContentWidth?: number;
@@ -267,7 +267,7 @@ function NavigationItem({
 }
 
 function Items({ className, ...props }: ComponentProps<'nav'>) {
-  return <nav {...props} className={cn('study-session-list', className)} />;
+  return <nav {...props} className={cn('study-note-list', className)} />;
 }
 
 function Message({ className, ...props }: ComponentProps<'p'>) {
@@ -322,7 +322,7 @@ function Topbar({
   );
 }
 
-/** Exposes sidebar expansion with optional placement for hidden session navigation. */
+/** Exposes sidebar expansion with optional placement for hidden note navigation. */
 
 function Toggle({
   label,
@@ -436,15 +436,15 @@ function SearchField({
   );
 }
 
-function SessionActivity({ running, ...props }: ComponentProps<'span'> & { running?: boolean }) {
-  return <span {...props} className="study-session-activity" data-running={running || undefined} />;
+function NoteActivity({ running, ...props }: ComponentProps<'span'> & { running?: boolean }) {
+  return <span {...props} className="study-note-activity" data-running={running || undefined} />;
 }
 
-function SessionCount(props: ComponentProps<'span'>) {
-  return <span {...props} className="study-session-document-count" />;
+function NoteCount(props: ComponentProps<'span'>) {
+  return <span {...props} className="study-note-page-count" />;
 }
 
-function SessionRowActions({
+function NoteRowActions({
   className,
   placement = 'bottom',
   ...props
@@ -453,13 +453,13 @@ function SessionRowActions({
     <div
       {...props}
       data-placement={placement}
-      className={cn('study-session-row-actions', className)}
+      className={cn('study-note-row-actions', className)}
     />
   );
 }
 
 function SettleAction(props: ComponentProps<typeof Button>) {
-  return <Button {...props} size="sm" variant="ghost-muted" className="study-session-settle" />;
+  return <Button {...props} size="sm" variant="ghost-muted" className="study-note-settle" />;
 }
 
 /** Floats contextual actions beside their sidebar without changing its list geometry. */
@@ -505,14 +505,14 @@ function SelectionBar({ ref, style, ...props }: ComponentProps<'div'>) {
 
   return (
     <>
-      <span ref={anchor} className="study-session-selection-anchor" aria-hidden="true" />
+      <span ref={anchor} className="study-note-selection-anchor" aria-hidden="true" />
       {typeof document !== 'undefined' &&
         createPortal(
           <div
             {...props}
             ref={element}
             style={{ ...style, ...position }}
-            className="study-session-selection-bar"
+            className="study-note-selection-bar"
           />,
           document.body
         )}
@@ -522,7 +522,7 @@ function SelectionBar({ ref, style, ...props }: ComponentProps<'div'>) {
 
 function SelectionCount({ count, label }: { count: number; label: string }) {
   return (
-    <span className="study-session-selection-count" role="status" aria-label={label}>
+    <span className="study-note-selection-count" role="status" aria-label={label}>
       <span>{label}</span>
       <span aria-hidden="true">{count}</span>
     </span>
@@ -533,16 +533,16 @@ function SettledRows(props: ComponentProps<'div'>) {
   return <div {...props} className="study-settled-rows" />;
 }
 
-function SessionMore(props: ComponentProps<typeof Button>) {
-  return <Button {...props} size="sm" variant="ghost-muted" className="study-session-more" />;
+function NoteMore(props: ComponentProps<typeof Button>) {
+  return <Button {...props} size="sm" variant="ghost-muted" className="study-note-more" />;
 }
 
-function SessionEntry({ className, ...props }: ComponentProps<'div'>) {
-  return <div {...props} className={cn('study-session-entry', className)} />;
+function NoteEntry({ className, ...props }: ComponentProps<'div'>) {
+  return <div {...props} className={cn('study-note-entry', className)} />;
 }
 
 /** Cap expanded sections equally while letting short sections keep their natural height. */
-function SessionGroups({ className, ref, ...props }: ComponentProps<'div'>) {
+function NoteGroups({ className, ref, ...props }: ComponentProps<'div'>) {
   const root = useRef<HTMLDivElement>(null);
 
   useImperativeHandle(ref, () => root.current!);
@@ -558,7 +558,7 @@ function SessionGroups({ className, ref, ...props }: ComponentProps<'div'>) {
       if (!element || !boundary) return;
 
       const children = Array.from(element.children) as HTMLElement[];
-      const groups = children.filter((child) => child.classList.contains('study-session-group'));
+      const groups = children.filter((child) => child.classList.contains('study-note-group'));
       const expanded = groups.filter(
         (group) => group.hasAttribute('open') && !group.hasAttribute('data-empty')
       );
@@ -592,7 +592,7 @@ function SessionGroups({ className, ref, ...props }: ComponentProps<'div'>) {
     };
   }, []);
 
-  return <div {...props} ref={root} className={cn('study-session-groups', className)} />;
+  return <div {...props} ref={root} className={cn('study-note-groups', className)} />;
 }
 
 function reservedSectionSpace(
@@ -620,7 +620,7 @@ function reservedSectionSpace(
   return fixed;
 }
 
-type SessionGroupProps = {
+type NoteGroupProps = {
   title: string;
   count: number;
   children: ReactNode;
@@ -628,28 +628,22 @@ type SessionGroupProps = {
   variant?: 'settled';
 };
 
-function SessionGroup(props: SessionGroupProps) {
+function NoteGroup(props: NoteGroupProps) {
   return props.variant === 'settled' ? (
-    <SlidingSessionGroup {...props} />
+    <SlidingNoteGroup {...props} />
   ) : (
-    <NativeSessionGroup {...props} />
+    <NativeNoteGroup {...props} />
   );
 }
 
-function NativeSessionGroup({
-  title,
-  count,
-  children,
-  defaultOpen = false,
-  variant
-}: SessionGroupProps) {
+function NativeNoteGroup({ title, count, children, defaultOpen = false, variant }: NoteGroupProps) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
     <details
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
-      className="study-session-group"
+      className="study-note-group"
       data-variant={variant}
       data-empty={count === 0 || undefined}
     >
@@ -717,13 +711,13 @@ function useSlidingDisclosure(defaultOpen: boolean) {
   return { open, expanded, toggle, finish };
 }
 
-function SlidingSessionGroup({ title, count, children, defaultOpen = false }: SessionGroupProps) {
+function SlidingNoteGroup({ title, count, children, defaultOpen = false }: NoteGroupProps) {
   const disclosure = useSlidingDisclosure(defaultOpen);
 
   return (
     <details
       open={disclosure.open}
-      className="study-session-group"
+      className="study-note-group"
       data-variant="settled"
       data-empty={count === 0 || undefined}
     >
@@ -740,14 +734,14 @@ function SlidingSessionGroup({ title, count, children, defaultOpen = false }: Se
         <ChevronRight aria-hidden="true" />
       </summary>
       <div
-        className="study-session-group-slide"
+        className="study-note-group-slide"
         data-expanded={disclosure.expanded || undefined}
         onTransitionEnd={(event) => {
           if (event.target === event.currentTarget) disclosure.finish();
         }}
       >
         <div
-          className="study-session-group-body"
+          className="study-note-group-body"
           aria-hidden={!disclosure.expanded}
           inert={!disclosure.expanded}
         >
@@ -787,23 +781,23 @@ function Item({
       'data-selecting': selection !== undefined || undefined,
       'aria-pressed': selection,
       type: render ? undefined : 'button',
-      className: cn('study-session-row', className),
+      className: cn('study-note-row', className),
       children:
         layout !== 'detailed' ? (
           <>
-            <span className="study-session-row-icon">{icon}</span>
-            <span className="study-session-title">{label}</span>
+            <span className="study-note-row-icon">{icon}</span>
+            <span className="study-note-title">{label}</span>
             {description && <span className="study-item-kind">{description}</span>}
             {timestamp}
           </>
         ) : (
           <>
-            <span className="study-session-meta">
+            <span className="study-note-meta">
               {icon}
               <span>{context}</span>
               {timestamp}
             </span>
-            <span className="study-session-title">{label}</span>
+            <span className="study-note-title">{label}</span>
             {description && <span className="study-item-kind">{description}</span>}
           </>
         )
@@ -975,16 +969,16 @@ export const Sidebar = {
   NavigationItem,
   Items,
   Item,
-  SessionGroup,
-  SessionGroups,
-  SessionMore,
+  NoteGroup,
+  NoteGroups,
+  NoteMore,
   SettledRows,
   SelectionBar,
   SelectionCount,
-  SessionEntry,
-  SessionRowActions,
-  SessionActivity,
-  SessionCount,
+  NoteEntry,
+  NoteRowActions,
+  NoteActivity,
+  NoteCount,
   SettleAction,
   Message,
   Toggle,
@@ -1001,7 +995,7 @@ export const Sidebar = {
   ScreenReaderHeading
 };
 
-/** Preserve a page heading when session entry hides the visible topbar. */
+/** Preserve a page heading when note entry hides the visible topbar. */
 
 function ScreenReaderHeading({ children, ...props }: ComponentProps<'h1'>) {
   return (

@@ -33,7 +33,7 @@ function HistoryReview({ view }: { view: View }) {
           title={t('SourceHistoryFailed')}
           action={
             <Button disabled={view.pending} onClick={view.reviewAgain}>
-              {t('DocumentPreview')}
+              {t('PagePreview')}
             </Button>
           }
         />

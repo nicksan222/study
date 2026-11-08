@@ -1,10 +1,10 @@
-import { detailSchema } from '@study/contracts/documents/schemas';
+import { detailSchema } from '@study/contracts/pages/schemas';
 import { plainBlock } from '@study/contracts/sources/document';
 import { Schema } from 'effect';
 
 import { blankDocument } from './block-editor';
 
-export function authoredDocument(id = 2n, text = '', versionId = 10n) {
+export function authoredPage(id = 2n, text = '', versionId = 10n) {
   return Schema.decodeUnknownSync(detailSchema)({
     id,
     projectIds: [],
@@ -16,7 +16,7 @@ export function authoredDocument(id = 2n, text = '', versionId = 10n) {
     headVersionId: versionId,
     version: {
       id: versionId,
-      documentId: id,
+      pageId: id,
       number: versionId,
       operation: 'original',
       creator: 'user',

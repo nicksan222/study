@@ -1,5 +1,5 @@
-import { comparisonSchema, proposalOutcomeSchema } from '@study/contracts/documents/editing';
 import { StudyError } from '@study/contracts/errors';
+import { comparisonSchema, proposalOutcomeSchema } from '@study/contracts/pages/editing';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as MockModule0 from '@tanstack/react-router';
@@ -16,10 +16,10 @@ import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { useDocumentRetirement } from '../authored-documents/retirement.queries';
 import { releaseBodyPreviews } from '../document-presentation/body-cache';
+import { usePageRetirement } from '../pages/retirement.queries';
 import { ProposalReview } from './proposal-review';
-import { authoredDocument } from './test-support';
+import { authoredPage } from './test-support';
 
 const rpc = vi.hoisted(() => ({
   compare: vi.fn(),
@@ -35,16 +35,16 @@ vi.mock('#web/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key 
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (fn: (client: unknown) => unknown) =>
     fn({
-      'documents.compareProposal': rpc.compare,
-      'documents.applyProposal': rpc.apply,
-      'documents.keepProposal': rpc.keep,
-      'documents.previewDeletion': rpc.preview,
-      'documents.delete': rpc.retire
+      'pages.compareProposal': rpc.compare,
+      'pages.applyProposal': rpc.apply,
+      'pages.keepProposal': rpc.keep,
+      'pages.previewDeletion': rpc.preview,
+      'pages.delete': rpc.retire
     })
 }));
-vi.mock('#web/lib/study-client/documents.queries.ts', () => ({
-  documentVersionOptions: (id: unknown) => ({
-    queryKey: ['documents', 'version', String(id)],
+vi.mock('#web/lib/study-client/pages.queries.ts', () => ({
+  pageVersionOptions: (id: unknown) => ({
+    queryKey: ['pages', 'version', String(id)],
     queryFn: () => rpc.version(id)
   })
 }));
@@ -65,7 +65,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const version = (id: bigint) => authoredDocument(41n, `Proposal private body ${id}`, id).version!;
+const version = (id: bigint) => authoredPage(41n, `Proposal private body ${id}`, id).version!;
 
 const comparison = (current = 101n, base = 100n) =>
   Schema.decodeUnknownSync(comparisonSchema)({
@@ -133,7 +133,7 @@ testStable.each(['apply', 'keep'] as const)(
 
     fireEvent.click(
       await screen.findByRole('button', {
-        name: kind === 'apply' ? 'DocumentApply' : 'DocumentKeepNew'
+        name: kind === 'apply' ? 'PageApply' : 'PageKeepNew'
       })
     );
     await screen.findByRole('alert');
@@ -141,21 +141,21 @@ testStable.each(['apply', 'keep'] as const)(
 
     expect(submitted).toMatchObject({ requestId: 'proposal-1', key: expect.any(String) });
 
-    if (kind === 'keep') expect(submitted).toMatchObject({ title: 'DocumentCopyTitle' });
+    if (kind === 'keep') expect(submitted).toMatchObject({ title: 'PageCopyTitle' });
 
     if (kind === 'apply') expect(submitted).toMatchObject({ expectedVersionId: 100n });
 
     rpc.compare.mockResolvedValue(comparison(201n, 200n));
     await act(async () => {
-      await first.client.invalidateQueries({ queryKey: ['documents', 'proposal-comparison'] });
+      await first.client.invalidateQueries({ queryKey: ['pages', 'proposal-comparison'] });
     });
     first.unmount();
     mount(first.client);
     expect(operation).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'DocumentRetryProposal' }));
-    await screen.findByText('DocumentProposalSaved');
+    expect(screen.getByRole('button', { name: 'PageApply' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'PageKeepNew' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'PageRetryProposal' }));
+    await screen.findByText('PageProposalSaved');
     expect(operation).toHaveBeenCalledTimes(2);
     expect(operation.mock.calls[1]![0]).toEqual(submitted);
     expect(rpc.version).toHaveBeenCalledWith(103n);
@@ -171,8 +171,8 @@ testStable(
     rpc.apply.mockReturnValue(response.promise);
     const first = mount(undefined, 2);
 
-    await screen.findAllByRole('button', { name: 'DocumentApply' });
-    const buttons = screen.getAllByRole('button', { name: 'DocumentApply' });
+    await screen.findAllByRole('button', { name: 'PageApply' });
+    const buttons = screen.getAllByRole('button', { name: 'PageApply' });
 
     act(() => {
       fireEvent.click(buttons[0]!);
@@ -189,10 +189,10 @@ testStable(
     });
     const reopened = mount(first.client);
 
-    await screen.findByText('DocumentProposalSaved');
+    await screen.findByText('PageProposalSaved');
     expect(rpc.version).toHaveBeenCalledWith(103n);
-    expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'DocumentRetryProposal' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'PageKeepNew' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'PageRetryProposal' })).toBeNull();
     await act(async () => {
       refresh.resolve(undefined);
       await refresh.promise;
@@ -200,8 +200,8 @@ testStable(
     invalidate.mockRestore();
     reopened.unmount();
     mount(first.client);
-    await screen.findByText('DocumentProposalSaved');
-    expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
+    await screen.findByText('PageProposalSaved');
+    expect(screen.getByRole('button', { name: 'PageApply' })).toBeDisabled();
     expect(rpc.apply).toHaveBeenCalledTimes(1);
     expect(rpc.keep).not.toHaveBeenCalled();
   }
@@ -214,25 +214,23 @@ testStable(
     rpc.keep.mockResolvedValue(receipt('kept'));
     const first = mount();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'DocumentApply' }));
-    await screen.findByText('DocumentConflict');
+    fireEvent.click(await screen.findByRole('button', { name: 'PageApply' }));
+    await screen.findByText('PageConflict');
     expect(rpc.keep).not.toHaveBeenCalled();
     first.unmount();
     mount(first.client);
-    expect(screen.getByRole('button', { name: 'DocumentApply' })).toBeDisabled();
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeEnabled()
-    );
-    fireEvent.click(screen.getByRole('button', { name: 'DocumentKeepNew' }));
-    await screen.findByText('DocumentProposalSaved');
+    expect(screen.getByRole('button', { name: 'PageApply' })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'PageKeepNew' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'PageKeepNew' }));
+    await screen.findByText('PageProposalSaved');
     expect(rpc.keep).toHaveBeenCalledTimes(1);
     expect(rpc.keep.mock.calls[0]![0]).toEqual({
       requestId: 'proposal-1',
       key: expect.any(String),
-      title: 'DocumentCopyTitle'
+      title: 'PageCopyTitle'
     });
     expect(rpc.keep.mock.calls[0]![0].key).not.toBe(rpc.apply.mock.calls[0]![0].key);
-    expect(screen.getByRole('button', { name: 'DocumentKeepNew' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'PageKeepNew' })).toBeDisabled();
   }
 );
 
@@ -241,20 +239,20 @@ testStable(
   async () => {
     const view = mount();
 
-    await screen.findByRole('button', { name: 'DocumentApply' });
-    fireEvent.click(screen.getByText('DocumentSubmitted', { selector: 'summary' }));
+    await screen.findByRole('button', { name: 'PageApply' });
+    fireEvent.click(screen.getByText('PageSubmitted', { selector: 'summary' }));
     expect(screen.getByText('Proposal private body 102')).toBeVisible();
     rpc.compare.mockRejectedValue(new StudyError('not_found', 'Document deleted'));
     await act(async () => {
-      await view.client.invalidateQueries({ queryKey: ['documents', 'proposal-comparison'] });
+      await view.client.invalidateQueries({ queryKey: ['pages', 'proposal-comparison'] });
     });
     await screen.findByRole('alert');
-    expect(
-      view.client.getQueryState(['documents', 'proposal-comparison', 'proposal-1'])?.status
-    ).toBe('error');
+    expect(view.client.getQueryState(['pages', 'proposal-comparison', 'proposal-1'])?.status).toBe(
+      'error'
+    );
     expect(screen.queryByText('Proposal private body 102')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentApply' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentKeepNew' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageApply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageKeepNew' })).toBeNull();
     expect(rpc.apply).not.toHaveBeenCalled();
     expect(rpc.keep).not.toHaveBeenCalled();
   }
@@ -269,32 +267,30 @@ testStable.each(['before', 'proposed', 'current'] as const)(
 
     clients.push(client);
     const value = comparison();
-    const key = ['documents', 'proposal-comparison', 'proposal-1'];
+    const key = ['pages', 'proposal-comparison', 'proposal-1'];
     const otherOwner = {
       ...value,
-      [slot]: authoredDocument(42n, 'Unrelated owner', 501n).version!
+      [slot]: authoredPage(42n, 'Unrelated owner', 501n).version!
     };
     // Only this slot carries the selected retirement identity; other fields must not be inferred from requestId or top-level IDs.
-    const target = { ...value, [slot]: authoredDocument(77n, 'Retired exact body', 501n).version! };
+    const target = { ...value, [slot]: authoredPage(77n, 'Retired exact body', 501n).version! };
     const otherVersion = {
       ...target,
-      [slot]: authoredDocument(77n, 'Retained same owner', 502n).version!
+      [slot]: authoredPage(77n, 'Retained same owner', 502n).version!
     };
 
     client.setQueryData(key, target);
-    client.setQueryData(['documents', 'proposal-comparison', 'other-owner'], otherOwner);
-    client.setQueryData(['documents', 'proposal-comparison', 'other-version'], otherVersion);
+    client.setQueryData(['pages', 'proposal-comparison', 'other-owner'], otherOwner);
+    client.setQueryData(['pages', 'proposal-comparison', 'other-version'], otherVersion);
     const draftKey = ['document-editor', '77', '502'];
-    const noteKey = ['documents', 'annotations', '77'];
+    const noteKey = ['pages', 'annotations', '77'];
 
     client.setQueryData(draftKey, { text: 'Unsaved retained draft' });
     client.setQueryData(noteKey, { note: 'Retained annotation note' });
-    await releaseBodyPreviews(client, { kind: 'document', documentId: '77', versionIds: ['501'] });
+    await releaseBodyPreviews(client, { kind: 'page', pageId: '77', versionIds: ['501'] });
     expect(client.getQueryData(key)).toBeUndefined();
-    expect(client.getQueryData(['documents', 'proposal-comparison', 'other-owner'])).toBe(
-      otherOwner
-    );
-    expect(client.getQueryData(['documents', 'proposal-comparison', 'other-version'])).toBe(
+    expect(client.getQueryData(['pages', 'proposal-comparison', 'other-owner'])).toBe(otherOwner);
+    expect(client.getQueryData(['pages', 'proposal-comparison', 'other-version'])).toBe(
       otherVersion
     );
     expect(client.getQueryData(draftKey)).toEqual({ text: 'Unsaved retained draft' });
@@ -303,7 +299,7 @@ testStable.each(['before', 'proposed', 'current'] as const)(
     mount(client);
     await screen.findByRole('alert');
     expect(screen.queryByText('Retired exact body')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentApply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageApply' })).toBeNull();
   }
 );
 
@@ -315,18 +311,18 @@ testStable.each([false, true])(
     });
 
     clients.push(client);
-    const key = ['documents', 'proposal-comparison', 'proposal-1'];
+    const key = ['pages', 'proposal-comparison', 'proposal-1'];
 
     client.setQueryData(key, comparison());
     const first = mounted ? mount(client) : undefined;
 
     if (first) {
-      fireEvent.click(await screen.findByText('DocumentSubmitted', { selector: 'summary' }));
+      fireEvent.click(await screen.findByText('PageSubmitted', { selector: 'summary' }));
       expect(screen.getByText('Proposal private body 102')).toBeVisible();
     }
 
     rpc.preview.mockResolvedValue({
-      documentId: version(100n).documentId,
+      pageId: version(100n).pageId,
       token: 'delete-exact',
       versionIds: [100n, 101n, 102n],
       blockedVersionIds: [],
@@ -335,7 +331,7 @@ testStable.each([false, true])(
     rpc.retire.mockImplementation(async () => {
       rpc.compare.mockRejectedValue(new StudyError('not_found', 'Document deleted'));
     });
-    const retirement = renderHook(() => useDocumentRetirement(authoredDocument(41n, '', 101n)), {
+    const retirement = renderHook(() => usePageRetirement(authoredPage(41n, '', 101n)), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
       )
@@ -347,7 +343,7 @@ testStable.each([false, true])(
       await retirement.result.current.retire.mutateAsync();
     });
     expect(rpc.retire).toHaveBeenCalledExactlyOnceWith({
-      documentId: version(100n).documentId,
+      pageId: version(100n).pageId,
       token: 'delete-exact'
     });
     expect(client.getQueryData(key)).toBeUndefined();
@@ -358,13 +354,13 @@ testStable.each([false, true])(
     expect(screen.queryByText('Proposal private body 100')).toBeNull();
     expect(screen.queryByText('Proposal private body 101')).toBeNull();
     expect(screen.queryByText('Proposal private body 102')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentApply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageApply' })).toBeNull();
     first?.unmount();
     retirement.unmount();
     mount(client);
     await screen.findByRole('alert');
     expect(screen.queryByText('Proposal private body 102')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentKeepNew' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageKeepNew' })).toBeNull();
   }
 );
 
@@ -374,26 +370,26 @@ testStable(
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, staleTime: Infinity } }
     });
-    const key = ['documents', 'proposal-comparison', 'proposal-1'];
+    const key = ['pages', 'proposal-comparison', 'proposal-1'];
 
     client.setQueryData(key, comparison());
     mount(client);
-    fireEvent.click(screen.getByText('DocumentSubmitted', { selector: 'summary' }));
+    fireEvent.click(screen.getByText('PageSubmitted', { selector: 'summary' }));
     expect(screen.getByText('Proposal private body 102')).toBeVisible();
     const availability = deferred<ReturnType<typeof comparison>>();
 
     rpc.compare.mockReturnValue(availability.promise);
     const release = releaseBodyPreviews(client, {
-      kind: 'document',
-      documentId: '41',
+      kind: 'page',
+      pageId: '41',
       versionIds: ['102']
     });
 
     await waitFor(() => {
       expect(client.getQueryState(key)?.fetchStatus).toBe('fetching');
       expect(screen.queryByText('Proposal private body 102')).toBeNull();
-      expect(screen.queryByRole('button', { name: 'DocumentApply' })).toBeNull();
-      expect(screen.queryByRole('button', { name: 'DocumentKeepNew' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'PageApply' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'PageKeepNew' })).toBeNull();
     });
     await act(async () => {
       availability.reject(new StudyError('not_found', 'Version retired'));
@@ -401,7 +397,7 @@ testStable(
     });
     await screen.findByRole('alert');
     expect(screen.queryByText('Proposal private body 102')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentApply' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'DocumentKeepNew' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageApply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'PageKeepNew' })).toBeNull();
   }
 );

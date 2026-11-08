@@ -1,22 +1,18 @@
-import type { ChatMessage } from '@study/contracts/conversations/messages';
-import type { assistantAskInputSchema } from '@study/contracts/conversations/rpc';
-import {
-  chatMessageSchema,
-  askResultSchema,
-  sessionSchema
-} from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
+import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { assistantAskInputSchema } from '@study/contracts/notes/rpc';
+import { chatMessageSchema, askResultSchema, noteSchema } from '@study/contracts/notes/schemas';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { Effect, Schema } from 'effect';
 import { afterEach, beforeEach, vi } from 'vite-plus/test';
 
-import { AssistantProvider } from '#web/features/assistant/conversation.tsx';
+import { AssistantProvider } from '#web/features/assistant/note.tsx';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 import { Page } from '#web/pages/assistant/page.tsx';
 
 const api = vi.hoisted(() => ({
-  session: vi.fn(),
+  note: vi.fn(),
   chats: vi.fn(),
   context: vi.fn(),
   newChat: vi.fn(),
@@ -35,19 +31,19 @@ const api = vi.hoisted(() => ({
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (rpc: object) => Effect.Effect<unknown, unknown>) => {
     const rpc = {
-      'conversations.assistantSession': api.session,
-      'conversations.assistantChats': api.chats,
-      'conversations.assistantContext': api.context,
-      'conversations.newAssistantSession': api.newChat,
-      'conversations.thread': api.thread,
-      'conversations.assistantAsk': api.ask,
-      'conversations.replyVersion': api.provenance,
+      'notes.assistantNote': api.note,
+      'notes.assistantChats': api.chats,
+      'notes.assistantContext': api.context,
+      'notes.newAssistantNote': api.newChat,
+      'notes.thread': api.thread,
+      'notes.assistantAsk': api.ask,
+      'notes.replyVersion': api.provenance,
       'workflows.agentProgress': api.progress,
-      'conversations.reanswer': api.reanswer,
+      'notes.reanswer': api.reanswer,
       'workflows.executions': api.executions,
       'workflows.cancelExecution': api.cancel,
       'projects.projects': async () => ({ items: [], next: null }),
-      'conversations.sessions': async () => ({ items: [], next: null })
+      'notes.notes': async () => ({ items: [], next: null })
     } satisfies Partial<Record<keyof StudyClient, unknown>>;
 
     return Effect.runPromise(
@@ -78,7 +74,7 @@ export function message(
 ): ChatMessage {
   return Schema.decodeUnknownSync(chatMessageSchema)({
     id,
-    sessionId: 91n,
+    noteId: 91n,
     role,
     threadRoot: null,
     replyTo: role === 'assistant' ? id - 1n : null,
@@ -110,8 +106,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   let messages: ChatMessage[] = [];
 
-  api.session.mockImplementation(async (input) =>
-    Schema.decodeUnknownSync(sessionSchema)({
+  api.note.mockImplementation(async (input) =>
+    Schema.decodeUnknownSync(noteSchema)({
       id: input.id ?? 91n,
       projectIds: [],
       title: 'Assistant',
@@ -129,7 +125,7 @@ beforeEach(() => {
     lastCompactedAtMs: null
   });
   api.newChat.mockResolvedValue(
-    Schema.decodeUnknownSync(sessionSchema)({
+    Schema.decodeUnknownSync(noteSchema)({
       id: 92n,
       projectIds: [],
       title: 'Assistant',
@@ -149,7 +145,7 @@ beforeEach(() => {
 
     return Schema.decodeUnknownSync(askResultSchema)({
       requestId: 'reply',
-      sessionId: 91n,
+      noteId: 91n,
       messageId: 2n,
       versionId: 2n,
       userMessageId: 1n,

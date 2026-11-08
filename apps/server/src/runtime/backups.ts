@@ -18,10 +18,10 @@ import type { Db } from '@study/db';
 import { Effect } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 import { System } from '#server/features/system/index';
 import { Themes } from '#server/features/themes/index';
@@ -45,25 +45,25 @@ export const backupPolicy: SnapshotPolicy = {
       db,
       transaction((tx) => {
         Materials.prepareBackup(tx);
-        const authoredRequests = Documents.prepareBackup(tx);
+        const authoredRequests = Pages.prepareBackup(tx);
 
         Workflows.retireCorrelations(tx, authoredRequests, [
-          'DocumentGenerationRequested',
-          'DocumentGenerationFailed',
-          'DocumentPublished'
+          'PageGenerationRequested',
+          'PageGenerationFailed',
+          'PagePublished'
         ]);
         Learning.prepareBackup(tx);
         Materials.validateBackup(tx);
-        Documents.validateBackup(tx);
+        Pages.validateBackup(tx);
         Sources.validateBackup(tx);
-        Conversations.validateBackup(tx);
+        Notes.validateBackup(tx);
         Themes.validateBackup(tx);
 
-        const captures = Conversations.prepareBackup(tx);
+        const captures = Notes.prepareBackup(tx);
 
         // Captures share reply request identities, even before a reply event exists.
         // Retain inspection while fencing every imported capture from actionable reuse.
-        Workflows.retireCorrelations(tx, captures, ['ConversationGenerationRequested']);
+        Workflows.retireCorrelations(tx, captures, ['NoteGenerationRequested']);
         Auth.sanitizeBackup(tx);
         Workflows.prepareBackup(tx);
       })
@@ -73,9 +73,9 @@ export const backupPolicy: SnapshotPolicy = {
       db,
       transaction((tx) => {
         Materials.validateBackup(tx);
-        Documents.validateBackup(tx);
+        Pages.validateBackup(tx);
         Sources.validateBackup(tx);
-        Conversations.validateBackup(tx, true);
+        Notes.validateBackup(tx, true);
         Themes.validateBackup(tx);
 
         if (

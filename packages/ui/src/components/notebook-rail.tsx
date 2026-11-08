@@ -14,7 +14,7 @@ function Marker({
   target: string;
   label: ReactNode;
   preview: ReactNode;
-  kind: 'note' | 'reply' | 'document' | 'attachment';
+  kind: 'note' | 'reply' | 'page' | 'attachment';
   onSelect: () => void;
 }) {
   const [open, setOpen] = useState(false);

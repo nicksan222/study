@@ -31,7 +31,7 @@ Su **Windows** avvia l'installer `.exe` e segui i passaggi.
 
 ## Collega l'area di lavoro
 
-Puoi iniziare salvando appunti. Collega ChatGPT da **Impostazioni** quando vuoi risposte, trasformazioni dei documenti o esercitazioni generate. [Primi passi](../first-steps/) spiega il percorso sessione → documento → esercitazioni; [privacy](../privacy/) descrive l'archiviazione locale e cosa inviano le richieste ai modelli.
+Puoi iniziare salvando appunti. Collega ChatGPT da **Impostazioni** quando vuoi risposte, trasformazioni delle pagine o esercitazioni generate. [Primi passi](../first-steps/) spiega il percorso nota → pagina → esercitazioni; [privacy](../privacy/) descrive l'archiviazione locale e cosa inviano le richieste ai modelli.
 
 ## Aggiornamenti
 

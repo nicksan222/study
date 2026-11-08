@@ -12,7 +12,7 @@ import {
   MessageScrollerItem,
   MessageScrollerButton
 } from '@study/ui/message-scroller';
-import { Notebook } from '@study/ui/session-workspace';
+import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { ArrowDown, ArrowUp } from 'lucide-react';
@@ -32,7 +32,7 @@ export function AssistantThread({ model, scoped = false }: { model: Model; scope
 
   return (
     <MessageScrollerProvider
-      key={String(model.session.data?.id)}
+      key={String(model.note.data?.id)}
       autoScroll
       defaultScrollPosition="last-anchor"
     >
@@ -66,7 +66,7 @@ export function AssistantThread({ model, scoped = false }: { model: Model; scope
             {model.history.isSuccess && model.messages.length === 0 && (
               <MessageScrollerEmpty>
                 <h3>{t('StudyChatEmptyTitle')}</h3>
-                <p>{t(scoped ? 'SessionAssistantDescription' : 'AssistantEmptyDescription')}</p>
+                <p>{t(scoped ? 'NoteAssistantDescription' : 'AssistantEmptyDescription')}</p>
               </MessageScrollerEmpty>
             )}
             {model.messages.map((message) => (

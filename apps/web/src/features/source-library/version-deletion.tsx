@@ -45,7 +45,7 @@ export function SourceVersionDeletion({
             view.show();
           }}
         >
-          {t('SessionDeleteVersion')}
+          {t('NoteDeleteVersion')}
         </Button>
       )}
       <SourceVersionDialog model={model} source={source} />
@@ -61,16 +61,16 @@ function SourceVersionDialog({ model, source }: { model: Model; source: Source }
     <DangerDialog
       open={view.open}
       onOpenChange={view.setOpen}
-      title={t(confirming ? 'SessionDeleteVersion' : 'SessionDeleteChooseVersion')}
+      title={t(confirming ? 'NoteDeleteVersion' : 'NoteDeleteChooseVersion')}
       description={
         confirming
-          ? t('SessionDeleteChosenVersionHelp', {
+          ? t('NoteDeleteChosenVersionHelp', {
               version: t('ReaderVersion') + ' ' + String(selectedVersion?.revision),
               name: source.name
             })
           : source.name
       }
-      confirmLabel={t('SessionDeleteVersion')}
+      confirmLabel={t('NoteDeleteVersion')}
       cancelLabel={t('Cancel')}
       pending={pending}
       disabled={blocked || preview.isFetching || preview.isError || !!view.state.attempt}
@@ -137,14 +137,14 @@ function SourceVersionChoices({ model }: { model: Model }) {
           label: t('ReaderVersion') + ' ' + String(version.revision),
           description: date(version.createdAt),
           disabled: version.snapshotId === latest,
-          status: version.snapshotId === latest ? t('SessionVersionLatest') : undefined
+          status: version.snapshotId === latest ? t('NoteVersionLatest') : undefined
         }))}
         selected={selected}
         pending={pending || preview.isFetching || !!view.state.attempt}
         pendingLabel={t('LoadingStudy')}
         onSelect={setSelected}
       />
-      {versions.length === 1 && !history.hasNextPage && <p>{t('SessionDeleteNoOlderVersions')}</p>}
+      {versions.length === 1 && !history.hasNextPage && <p>{t('NoteDeleteNoOlderVersions')}</p>}
       {history.hasNextPage && (
         <LoadMoreButton
           disabled={history.isFetchingNextPage || pending}
@@ -164,7 +164,7 @@ function SourceVersionFeedback({ model }: { model: Model }) {
     <>
       {' '}
       {selected !== undefined && preview.isSuccess && !preview.isFetching && blocked && (
-        <p>{t('SessionDeleteVersionProtected')}</p>
+        <p>{t('NoteDeleteVersionProtected')}</p>
       )}
       {history.error && (
         <ContentReadError error={history.error} retry={() => void history.refetch()} />

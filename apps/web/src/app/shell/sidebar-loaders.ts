@@ -1,13 +1,13 @@
 import { libraryQueryOptions } from '#web/features/library/index.ts';
 import type { AppSearch } from '#web/lib/navigation/route-contract.ts';
-import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+import { projectsQueryOptions, notesQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
 import type { AppRouterContext } from '../router-context';
 
 export function loadSidebar({ context }: { context: AppRouterContext }) {
   // Keep the shell usable while its independently retryable panels load.
   void context.queryClient.prefetchQuery(projectsQueryOptions());
-  void context.queryClient.prefetchQuery(sessionsQueryOptions());
+  void context.queryClient.prefetchQuery(notesQueryOptions());
 }
 
 export const practiceLoaderDeps = ({ search }: { search: AppSearch }) => ({

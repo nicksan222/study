@@ -42,8 +42,8 @@ function previewState(): typeof integrationImportSchema.Type {
     errorKind: null,
     warnings: [],
     items: [
-      { key: 'A.md', title: 'A', status: 'pending', sessionId: null, errorKind: null },
-      { key: 'B.md', title: 'B', status: 'pending', sessionId: null, errorKind: null }
+      { key: 'A.md', title: 'A', status: 'pending', noteId: null, errorKind: null },
+      { key: 'B.md', title: 'B', status: 'pending', noteId: null, errorKind: null }
     ]
   };
 }

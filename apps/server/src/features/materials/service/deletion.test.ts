@@ -16,15 +16,13 @@ import { randomUUID } from 'node:crypto';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
-/** Genuine learning deletion uses exact output ownership; Documents and Sources retain their independent lifetimes. */
+/** Genuine learning deletion uses exact output ownership; Pages and Sources retain their independent lifetimes. */
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema, Exit } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import {
@@ -32,8 +30,9 @@ import {
   materialDeletionHandler
 } from '#server/features/materials/workflows/deletion';
 import { materialGenerationWorkflow } from '#server/features/materials/workflows/generation';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { workflowStore } from '#server/platform/workflows/store';
-import { documentTransformFixture } from '#testing/document-transform';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
 import {
   acceptMaterialDeletion,
@@ -41,7 +40,8 @@ import {
   materialDeletionEvent,
   deletionDocument
 } from '#testing/material-deletion';
-import { assertScrubbed, awaitNativeStatus } from '#testing/session-deletion';
+import { assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 
 const content = (text: string) => ({
   kind: 'diagram' as const,
@@ -52,14 +52,14 @@ const content = (text: string) => ({
 testStable(
   'native RPC deletes only its exact learning output, preserving shared authored evidence, raw captures and independent outputs',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
-          const docs = yield* Documents;
-          const chats = yield* Conversations;
+          const docs = yield* Pages;
+          const chats = yield* Notes;
           const evidence = yield* docs.create({
             createKey: randomUUID(),
             title: 'Shared evidence',
@@ -69,7 +69,7 @@ testStable(
           });
 
           assert.ok(evidence.version);
-          const input = { kind: 'document' as const, versionId: evidence.version.id };
+          const input = { kind: 'page' as const, versionId: evidence.version.id };
           const root = yield* m.create({
             title: 'Root',
             content: content('ORIGINAL_DELETE_ONLY'),
@@ -88,28 +88,28 @@ testStable(
             inputs: [input],
             publish: true
           });
-          const session = yield* chats.createUntitledSession({});
+          const note = yield* chats.createUntitledNote({});
 
           yield* chats.postMessage({
-            sessionId: session.id,
+            noteId: note.id,
             text: 'Retained raw note',
             requestReply: false
           });
-          yield* chats.updateSessionSelection({
-            sessionId: session.id,
+          yield* chats.updateNoteSelection({
+            noteId: note.id,
             expectedRevision: 0n,
             targets: [{ input, scope: { kind: 'document' } }]
           });
-          const capture = yield* chats.captureSessionContext({
-            sessionId: session.id,
+          const capture = yield* chats.captureNoteContext({
+            noteId: note.id,
             intentKey: 'independent-capture',
             instruction: 'Independent raw instruction',
             preferences: {}
           });
 
-          yield* m.attach({ materialId: root.id, sessionId: session.id });
+          yield* m.attach({ materialId: root.id, noteId: note.id });
 
-          return { root, kept, evidence: evidence.version, session, capture };
+          return { root, kept, evidence: evidence.version, note, capture };
         }).pipe(Effect.provide(f.domain()))
       );
       const input = await Effect.runPromise(
@@ -119,7 +119,7 @@ testStable(
             const preview = yield* rpc['materials.previewDeletion']({ materialId: saved.root.id });
 
             expect(preview.versionIds).toStrictEqual([saved.root.version.id]);
-            expect(preview.sessionIds).toStrictEqual([saved.session.id]);
+            expect(preview.noteIds).toStrictEqual([saved.note.id]);
             const input = { materialId: saved.root.id, token: preview.token };
             const accepted = yield* rpc['materials.requestDeletion'](input);
 
@@ -142,18 +142,18 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
-          const docs = yield* Documents;
-          const chats = yield* Conversations;
+          const docs = yield* Pages;
+          const chats = yield* Notes;
 
           expect((yield* m.material({ id: saved.kept.id })).version).toStrictEqual(
             saved.kept.version
           );
           expect(yield* docs.version({ id: saved.evidence.id })).toStrictEqual(saved.evidence);
-          expect(yield* chats.sessionContext({ requestId: saved.capture.requestId })).toStrictEqual(
+          expect(yield* chats.noteContext({ requestId: saved.capture.requestId })).toStrictEqual(
             saved.capture
           );
           assert.ok(
-            (yield* chats.thread({ sessionId: saved.session.id, limit: 10 })).items[0]?.versions[0]
+            (yield* chats.thread({ noteId: saved.note.id, limit: 10 })).items[0]?.versions[0]
               ?.text === 'Retained raw note'
           );
           const completed = yield* m.deletion({ materialId: saved.root.id });
@@ -175,15 +175,15 @@ testStable(
 );
 
 testStable(
-  'learning deletion preview rejects substituted identity, new versions and newly attached sessions without persisting a barrier',
+  'learning deletion preview rejects substituted identity, new versions and newly attached notes without persisting a barrier',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
-          const chats = yield* Conversations;
+          const chats = yield* Notes;
           const root = yield* m.create({ title: 'Root', content: content('Old'), publish: true });
           const other = yield* m.create({
             title: 'Other',
@@ -202,9 +202,9 @@ testStable(
               .kind === 'invalid_input'
           );
           const second = yield* m.previewDeletion({ materialId: root.id });
-          const session = yield* chats.createUntitledSession({});
+          const note = yield* chats.createUntitledNote({});
 
-          yield* m.attach({ materialId: root.id, sessionId: session.id });
+          yield* m.attach({ materialId: root.id, noteId: note.id });
           assert.ok(
             (yield* Effect.flip(m.requestDeletion({ materialId: root.id, token: second.token })))
               .kind === 'invalid_input'
@@ -221,7 +221,7 @@ testStable(
 testStable(
   'learning deletion barrier and outbox roll back together on event persistence failure',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const root = await Effect.runPromise(
@@ -260,7 +260,7 @@ for (const doubleFailure of [false, true])
   testStable(
     `failed cleanup retries after restart and fences stale completion (failure settlement blocked=${doubleFailure})`,
     async () => {
-      const f = await documentTransformFixture();
+      const f = await pageTransformFixture();
 
       try {
         const root = await Effect.runPromise(
@@ -355,7 +355,7 @@ for (const doubleFailure of [false, true])
 testStable(
   'native retirement rejects late checkpoints and deferred delivery while unrelated execution survives',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await learningGeneration(f);

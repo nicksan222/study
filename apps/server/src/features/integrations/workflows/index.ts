@@ -87,7 +87,7 @@ export const integrationImportRegistration = defineWorkflowHandler(integrationIm
     {
       subscription: 'integration-import',
       event: 'IntegrationImportRequested',
-      emits: ['SourceProcessingRequested', 'DocumentPublished']
+      emits: ['SourceProcessingRequested', 'PagePublished']
     }
   ]
 });

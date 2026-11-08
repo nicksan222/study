@@ -29,7 +29,7 @@ export const content_snapshots = defineTable({ role: 'contributes', entity: 'pas
   ]
 );
 
-export const blocks = defineTable({ role: 'contributes', entity: 'document' })(
+export const blocks = defineTable({ role: 'contributes', entity: 'page' })(
   'blocks',
   {
     id: integer().primaryKey({ autoIncrement: true }).$type<bigint>(),

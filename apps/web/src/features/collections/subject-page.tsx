@@ -21,10 +21,10 @@ import { useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { documentsOptions } from '#web/lib/study-client/documents.queries.ts';
+import { pagesOptions } from '#web/lib/study-client/pages.queries.ts';
 
 import { materialsOptions } from '../material-library';
-import { sessionPagesOptions } from '../session-workspace';
+import { paginatedNotesOptions } from '../note-workspace';
 import { subjectSourcesOptions } from '../source-library';
 import { SubjectIdentity } from '../subjects';
 import { subjectProjectOptions } from './collections.queries';
@@ -55,9 +55,9 @@ function SubjectContents({ project }: { project: Project }) {
             <Settings2 aria-hidden="true" />
             {t(managing ? 'SubjectWorkspaceContents' : 'SubjectWorkspaceManage')}
           </Button>
-          <Button render={<Link to="/sessions" search={search} />}>
+          <Button render={<Link to="/notes" search={search} />}>
             <Plus aria-hidden="true" />
-            {t('NewSession')}
+            {t('NewNote')}
           </Button>
         </SubjectWorkspace.Actions>
       </SubjectWorkspace.Header>
@@ -68,8 +68,8 @@ function SubjectContents({ project }: { project: Project }) {
         />
       ) : (
         <SubjectWorkspace.Content>
-          <SubjectSessions project={project.id} />
-          <SubjectDocuments project={project.id} />
+          <SubjectNotes project={project.id} />
+          <SubjectPages project={project.id} />
           <SubjectSources project={project.id} />
           <SubjectMaterials project={project.id} />
         </SubjectWorkspace.Content>
@@ -154,13 +154,13 @@ function ContentRow({
   );
 }
 
-function SubjectSessions({ project }: { project: ProjectId }) {
+function SubjectNotes({ project }: { project: ProjectId }) {
   const { t, date } = useI18n();
-  const state = useInfiniteQuery(sessionPagesOptions(project));
+  const state = useInfiniteQuery(paginatedNotesOptions(project));
   const items = state.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
-    <ContentSection title={t('Sessions')} state={state} empty={!items.length}>
+    <ContentSection title={t('Notes')} state={state} empty={!items.length}>
       {items.map((item) => (
         <ContentRow
           key={String(item.id)}
@@ -169,8 +169,8 @@ function SubjectSessions({ project }: { project: ProjectId }) {
           updated={date(item.updatedAt, { dateStyle: 'medium' })}
           render={
             <Link
-              to="/session/$sessionId"
-              params={{ sessionId: item.id }}
+              to="/notes/$noteId"
+              params={{ noteId: item.id }}
               search={{ project: String(project) }}
             />
           }
@@ -180,13 +180,13 @@ function SubjectSessions({ project }: { project: ProjectId }) {
   );
 }
 
-function SubjectDocuments({ project }: { project: ProjectId }) {
+function SubjectPages({ project }: { project: ProjectId }) {
   const { t, date } = useI18n();
-  const state = useInfiniteQuery(documentsOptions(project));
+  const state = useInfiniteQuery(pagesOptions(project));
   const items = state.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
-    <ContentSection title={t('SourceDocument')} state={state} empty={!items.length}>
+    <ContentSection title={t('SourcePage')} state={state} empty={!items.length}>
       {items.map((item) => (
         <ContentRow
           key={String(item.id)}
@@ -195,8 +195,8 @@ function SubjectDocuments({ project }: { project: ProjectId }) {
           updated={date(item.updatedAt, { dateStyle: 'medium' })}
           render={
             <Link
-              to="/documents/$documentId"
-              params={{ documentId: String(item.id) }}
+              to="/pages/$pageId"
+              params={{ pageId: String(item.id) }}
               search={{ project: String(project) }}
             />
           }

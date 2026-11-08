@@ -24,8 +24,8 @@ import { Effect, Exit, Layer, Schema } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/service/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import {
@@ -46,12 +46,9 @@ testStable('rejects mismatched generation event before reaching a provider', asy
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
-  const domain = Layer.mergeAll(
-    Projects.layer,
-    Materials.layer,
-    Sources.layer,
-    Documents.layer
-  ).pipe(Layer.provideMerge(database));
+  const domain = Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Pages.layer).pipe(
+    Layer.provideMerge(database)
+  );
   const services = Layer.mergeAll(
     domain,
     database,
@@ -71,7 +68,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
         const projects = yield* Projects;
         const materials = yield* Materials;
         const project = yield* projects.createProject({ name: 'test' });
-        const doc = yield* (yield* Documents).create({
+        const doc = yield* (yield* Pages).create({
           createKey: crypto.randomUUID(),
           inputs: [],
           citations: [],
@@ -97,7 +94,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
           projectId: project.id,
           title: 'cards',
           kind: 'flashcards',
-          inputs: [{ kind: 'document', versionId: doc.version!.id }]
+          inputs: [{ kind: 'page', versionId: doc.version!.id }]
         });
         const value = decodeEvent(
           context.db.orm.select().from(s.workflowEvents).all().at(-1)!.payload
@@ -221,7 +218,7 @@ testStable(
     );
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
     const domain = () =>
-      Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Documents.layer).pipe(
+      Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Pages.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
     const services = () =>

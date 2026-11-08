@@ -79,7 +79,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
   const status = t(stop.isPending ? 'PracticeGenerationStopping' : 'PracticeGenerationRunning');
 
   return (
-    <Sidebar.SessionEntry>
+    <Sidebar.NoteEntry>
       <ContextMenu>
         <ContextMenuTrigger
           render={
@@ -90,10 +90,10 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
               }
               icon={<Icon aria-hidden="true" />}
               description={
-                <Sidebar.SessionActivity running>
+                <Sidebar.NoteActivity running>
                   <Spinner size="xs" label={status} aria-hidden="true" />
                   <span>{status}</span>
-                </Sidebar.SessionActivity>
+                </Sidebar.NoteActivity>
               }
               aria-label={generation.title}
               title={generation.title}
@@ -108,7 +108,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
-      <Sidebar.SessionRowActions>
+      <Sidebar.NoteRowActions>
         <Sidebar.SettleAction
           aria-label={stopLabel}
           title={stopLabel}
@@ -118,10 +118,10 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           <Square aria-hidden="true" />
           {t('StopJob')}
         </Sidebar.SettleAction>
-      </Sidebar.SessionRowActions>
+      </Sidebar.NoteRowActions>
       {stop.isError && (
         <Sidebar.Message role="alert">{t('PracticeGenerationStopError')}</Sidebar.Message>
       )}
-    </Sidebar.SessionEntry>
+    </Sidebar.NoteEntry>
   );
 }

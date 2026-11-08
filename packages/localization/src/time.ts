@@ -101,7 +101,7 @@ export function moment(l: Locale, today: Day, d: Day, time: [number, number]): s
 }
 
 export const recordingFileName = (l: Locale, d: Day, time: [number, number]) =>
-  `${text(l, 'RecordingSessionTitle')} ${date(d)} ${pad(time[0])}.${pad(time[1])}.wav`;
+  `${text(l, 'RecordingNoteTitle')} ${date(d)} ${pad(time[0])}.${pad(time[1])}.wav`;
 
 export const pastedImageName = (l: Locale, d: Day, time: [number, number, number], ext: string) =>
   `${text(l, 'PastedImageName')} ${date(d)} ${time.map(pad).join('.')}.${ext}`;

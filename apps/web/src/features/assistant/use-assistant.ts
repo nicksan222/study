@@ -1,5 +1,5 @@
-import type { ChatMessage } from '@study/contracts/conversations/messages';
-import type { SessionId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts/ids';
+import type { ChatMessage } from '@study/contracts/notes/messages';
 import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -12,25 +12,25 @@ import {
   assistantExecutionOptions,
   assistantKey,
   assistantReplyOptions,
-  assistantSessionOptions,
+  assistantNoteOptions,
   assistantThreadOptions
 } from './assistant.queries';
-import { useAssistantDraft, useAssistantSelection } from './conversation';
+import { useAssistantDraft, useAssistantSelection } from './note';
 
 /** Reads committed history and keeps idempotent sends recoverable after transport failures. */
-export function useAssistant(scope?: SessionId) {
+export function useAssistant(scope?: NoteId) {
   const cache = useQueryClient();
   const { selectedId, select, takeNewChatKey, clearNewChatKey, clearSentDraft } =
     useAssistantSelection();
-  const session = useQuery(assistantSessionOptions(selectedId, scope));
-  const { draft, setDraft } = useAssistantDraft(session.data?.id);
+  const note = useQuery(assistantNoteOptions(selectedId, scope));
+  const { draft, setDraft } = useAssistantDraft(note.data?.id);
 
   useEffect(() => {
-    if (scope !== undefined || selectedId !== undefined || !session.data) return;
+    if (scope !== undefined || selectedId !== undefined || !note.data) return;
 
-    cache.setQueryData(assistantSessionOptions(session.data.id).queryKey, session.data);
-    select(session.data.id);
-  }, [cache, select, selectedId, session.data, scope]);
+    cache.setQueryData(assistantNoteOptions(note.data.id).queryKey, note.data);
+    select(note.data.id);
+  }, [cache, select, selectedId, note.data, scope]);
   const chats = useInfiniteQuery({ ...assistantChatsOptions(), enabled: scope === undefined });
   const createChat = useMutation({
     ...newAssistantChatOptions(),
@@ -42,7 +42,7 @@ export function useAssistant(scope?: SessionId) {
       return cache.invalidateQueries({ queryKey: assistantKey });
     }
   });
-  const history = useInfiniteQuery(assistantThreadOptions(session.data?.id));
+  const history = useInfiniteQuery(assistantThreadOptions(note.data?.id));
   const messages = [
     ...new Map(
       (history.data?.pages.flatMap((page) => page.items) ?? []).map((message) => [
@@ -57,11 +57,11 @@ export function useAssistant(scope?: SessionId) {
   const work = useQuery(assistantExecutionOptions(requestId));
   const execution = work.data?.items[0];
   const busy = replyBusy(pending, execution);
-  const context = useQuery(assistantContextOptions(session.data?.id, busy));
+  const context = useQuery(assistantContextOptions(note.data?.id, busy));
   const mutation = useMutation({
     ...assistantAskOptions(),
     onSuccess: (_result, input) => {
-      if (input.sessionId !== undefined) clearSentDraft(input.sessionId, input.text);
+      if (input.noteId !== undefined) clearSentDraft(input.noteId, input.text);
 
       return cache.invalidateQueries({ queryKey: assistantKey });
     },
@@ -86,11 +86,11 @@ export function useAssistant(scope?: SessionId) {
     requestId,
     execution,
     history,
-    session,
+    note,
     mutation,
     draft: draft.text,
     blocked: busy || mutation.isPending || !history.isSuccess,
-    error: [session, history, mutation, provenance, work].find((result) => result.error)?.error,
+    error: [note, history, mutation, provenance, work].find((result) => result.error)?.error,
     retry: () => {
       if (mutation.isError) mutation.reset();
 
@@ -109,7 +109,7 @@ export function useAssistant(scope?: SessionId) {
       const intentKey = draft.intent?.text === text ? draft.intent.key : crypto.randomUUID();
 
       setDraft({ ...draft, intent: { text, key: intentKey } });
-      mutation.mutate({ text, intentKey, sessionId: session.data?.id });
+      mutation.mutate({ text, intentKey, noteId: note.data?.id });
 
       return true;
     }

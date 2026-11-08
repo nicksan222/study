@@ -17,17 +17,17 @@ import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/index';
-import { documentTransformFixture } from '#testing/document-transform';
 import { acceptMaterialDeletion, cleanupMaterial } from '#testing/material-deletion';
 import { acceptHistory, cleanupHistory } from '#testing/material-history';
+import { assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
-import { assertScrubbed, awaitNativeStatus } from '#testing/session-deletion';
 
 for (const failSettlement of [false, true]) {
   testStable(
     `injected cleanup failure ${failSettlement ? 'and failed state persistence' : 'with durable failure'} rolls back and recovers after reopen`,
     async () => {
-      const f = await documentTransformFixture();
+      const f = await pageTransformFixture();
 
       try {
         const saved = await Effect.runPromise(

@@ -10,8 +10,8 @@ import { SettingsMenu } from '#web/pages/settings/menu.tsx';
 import type { useSidebarCounts } from './sidebar-counts.queries';
 
 const sections = [
-  ['/sessions', 'sessions', MessagesSquare, 'Sessions'],
-  ['/documents', 'documents', FileText, 'SourceDocument'],
+  ['/notes', 'notes', MessagesSquare, 'Notes'],
+  ['/pages', 'pages', FileText, 'SourcePage'],
   ['/practice', 'practice', GraduationCap, 'Practice']
 ] as const;
 
@@ -41,7 +41,7 @@ export function SidebarNavigation({
             key={to}
             label={t(label)}
             count={counts?.[currentSection].count}
-            unresolved={currentSection === 'sessions' && counts?.sessions.unresolved}
+            unresolved={currentSection === 'notes' && counts?.notes.unresolved}
             render={
               <Link
                 to={to}

@@ -263,7 +263,7 @@ function TableContent({ content }: { content: Extract<BlockContent, { type: 'tab
       <table>
         <tbody>
           {keyed(content.rows).map(({ value: row, key }) => (
-            <DocumentRow key={key} row={row} />
+            <PageRow key={key} row={row} />
           ))}
         </tbody>
       </table>
@@ -271,17 +271,17 @@ function TableContent({ content }: { content: Extract<BlockContent, { type: 'tab
   );
 }
 
-function DocumentRow({ row }: { row: TableRow }) {
+function PageRow({ row }: { row: TableRow }) {
   return (
     <tr>
       {keyed(row.cells).map(({ value: cell, key }) => (
-        <DocumentCell key={key} cell={cell} />
+        <PageCell key={key} cell={cell} />
       ))}
     </tr>
   );
 }
 
-function DocumentCell({ cell }: { cell: TableRow['cells'][number] }) {
+function PageCell({ cell }: { cell: TableRow['cells'][number] }) {
   return createElement(
     cell.header ? 'th' : 'td',
     { colSpan: cell.colspan, rowSpan: cell.rowspan },

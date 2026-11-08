@@ -4,12 +4,12 @@ import { assert, expect } from 'vite-plus/test';
 import { lintRule } from '../test/utils.ts';
 
 testStable(
-  'feature writers respect table ownership while reads and shared documents remain available',
+  'feature writers respect table ownership while reads and shared pages remain available',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/projects/store.ts': `import { sessions, projects } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(sessions); db.insert(projects); db.update(sessions); db.execute('UPDATE sessions SET title = 1');`,
+      'src/features/projects/store.ts': `import { notes, projects } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(notes); db.insert(projects); db.update(notes); db.execute('UPDATE notes SET title = 1');`,
       'src/features/learning/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute('UPDATE preferences SET value = 1');`,
-      'src/features/documents/store.ts': `import { content_snapshots } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
+      'src/features/pages/store.ts': `import { content_snapshots } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
     });
 
     assert.strictEqual(diagnostics.length, 3);
@@ -22,16 +22,16 @@ testStable('recognizes aliases and SQL without confusing unrelated APIs or reads
       import * as schema from '@study/db/schema';
       import { sql as query } from 'drizzle-orm';
       import type { Db } from '@study/db'; declare const db: Db;
-      const ns = schema; const { sessions: s } = ns; const alias = (s as any)!;
+      const ns = schema; const { notes: s } = ns; const alias = (s as any)!;
       db.insert(alias); db.update(ns['messages']);
-      query\`UPDATE \${schema.sessions} SET title = 1\`;
+      query\`UPDATE \${schema.notes} SET title = 1\`;
       query.raw('DELETE FROM preferences');
-      db.execute('SELECT update, sessions FROM projects');
-      logger.update(schema.sessions); parser.run('UPDATE sessions SET x=1');
+      db.execute('SELECT update, notes FROM projects');
+      logger.update(schema.notes); parser.run('UPDATE notes SET x=1');
       function shadow(s) { db.delete(s); }
     `,
     'src/features/sources/store.ts': `import { content_snapshots, chunks } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots); db.insert(chunks);`,
-    'src/features/projects/store.test.ts': `import { sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.update(sessions);`
+    'src/features/projects/store.test.ts': `import { notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.update(notes);`
   });
 
   assert.strictEqual(diagnostics.length, 4);
@@ -55,8 +55,8 @@ testStable('table ownership applies to contextual native factory receivers', () 
     'src/features/projects/store/index.ts': `
       import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
       import * as schema from '@study/db/schema';
-      defineStore({make: ({db}) => ({queries: {}, mutations: {save: storeMutation({ run(input) { db.orm.update(schema.sessions).set({ title: 'bypass' }).where(predicate).run(); } })}})});
-      function shadow(storeMutation) { storeMutation({ run(db) { db.orm.update(schema.sessions).run(); } }); }
+      defineStore({make: ({db}) => ({queries: {}, mutations: {save: storeMutation({ run(input) { db.orm.update(schema.notes).set({ title: 'bypass' }).where(predicate).run(); } })}})});
+      function shadow(storeMutation) { storeMutation({ run(db) { db.orm.update(schema.notes).run(); } }); }
     `
   });
 
@@ -67,21 +67,21 @@ testStable(
   'collection membership writes stay with organization and the identity-creating feature',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/projects/store.ts': `import { project_materials as materials, project_sessions as sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(sessions);`,
-      'src/features/materials/store.ts': `import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_sessions);`,
-      'src/features/conversations/store.ts': `import { project_sessions, project_materials as links } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_sessions); db.delete(links);`,
-      'src/features/sources/store.ts': `import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; const ns = schema; const { project_materials: links } = ns; const alias = (links as any)!; db.insert(alias); db.update(ns['project_sessions']);`,
-      'src/features/learning/store.ts': `import { project_materials, project_sessions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_sessions);`
+      'src/features/projects/store.ts': `import { project_materials as materials, project_notes as notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(notes);`,
+      'src/features/materials/store.ts': `import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_notes);`,
+      'src/features/notes/store.ts': `import { project_notes, project_materials as links } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_notes); db.delete(links);`,
+      'src/features/sources/store.ts': `import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; const ns = schema; const { project_materials: links } = ns; const alias = (links as any)!; db.insert(alias); db.update(ns['project_notes']);`,
+      'src/features/learning/store.ts': `import { project_materials, project_notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_notes);`
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
-        'Feature materials may not write project_sessions.',
-        'Feature conversations may not write project_materials.',
+        'Feature materials may not write project_notes.',
+        'Feature notes may not write project_materials.',
         'Feature sources may not write project_materials.',
-        'Feature sources may not write project_sessions.',
+        'Feature sources may not write project_notes.',
         'Feature learning may not write project_materials.',
-        'Feature learning may not write project_sessions.'
+        'Feature learning may not write project_notes.'
       ].sort()
     );
   }
@@ -150,35 +150,35 @@ testStable(
 );
 
 testStable(
-  'captured session context is conversation-owned while material selection pins stay material-owned',
+  'captured note context is note-owned while material selection pins stay material-owned',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
       'src/features/materials/store/participants.ts': `
       import * as schema from '@study/db/schema';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      const { session_run_contexts: captures } = schema;
+      const { note_run_contexts: captures } = schema;
       db.select().from(captures);
       db.insert(captures);
-      sql\`DELETE FROM session_run_contexts WHERE session_id=1\`;
+      sql\`DELETE FROM note_run_contexts WHERE note_id=1\`;
       db.insert(schema.material_evidence_inputs);
     `,
-      'src/features/conversations/store/capture.ts': `
+      'src/features/notes/store/capture.ts': `
       import * as schema from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(schema.session_run_contexts);
-      db.delete(schema.session_run_contexts);
-      db.select().from(schema.study_document_versions);
-      db.update(schema.study_document_versions);
-      db.insert(schema.session_materials);
+      db.insert(schema.note_run_contexts);
+      db.delete(schema.note_run_contexts);
+      db.select().from(schema.page_versions);
+      db.update(schema.page_versions);
+      db.insert(schema.note_materials);
     `
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature conversations may not write session_materials.',
-      'Feature conversations may not write study_document_versions.',
-      'Feature materials may not write session_run_contexts.',
-      'Feature materials may not write session_run_contexts.'
+      'Feature materials may not write note_run_contexts.',
+      'Feature materials may not write note_run_contexts.',
+      'Feature notes may not write note_materials.',
+      'Feature notes may not write page_versions.'
     ]);
   }
 );
@@ -187,7 +187,7 @@ testStable(
   'learning generation receipts and citations remain material-owned while coordinators can only read them',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/conversations/store/transform.ts': `
+      'src/features/notes/store/transform.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
       db.select().from(s.material_generation_requests);
@@ -205,73 +205,73 @@ testStable(
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature conversations may not write material_evidence_citations.',
-      'Feature conversations may not write material_evidence_inputs.',
-      'Feature conversations may not write material_generation_requests.'
+      'Feature notes may not write material_evidence_citations.',
+      'Feature notes may not write material_evidence_inputs.',
+      'Feature notes may not write material_generation_requests.'
     ]);
   }
 );
 
 testStable(
-  'edit and proposal receipts stay Documents-owned and asset roots stay trigger-derived',
+  'edit and proposal receipts stay Pages-owned and asset roots stay trigger-derived',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/documents/store/editing.ts': `
+      'src/features/pages/store/editing.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.study_document_edit_receipts);
-      db.insert(s.study_document_proposals);
-      db.insert(s.study_document_proposal_receipts);
+      db.insert(s.page_edit_receipts);
+      db.insert(s.page_proposals);
+      db.insert(s.page_proposal_receipts);
       db.delete(s.document_assets);
     `,
-      'src/features/conversations/store/proposals.ts': `
+      'src/features/notes/store/proposals.ts': `
       import * as schema from '@study/db/schema';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.select().from(schema.study_document_proposals);
-      const { study_document_proposals: proposals } = schema;
+      db.select().from(schema.page_proposals);
+      const { page_proposals: proposals } = schema;
       db.insert(proposals);
-      db.update(schema.study_document_edit_receipts);
-      sql\`DELETE FROM study_document_proposal_receipts WHERE key=\${key}\`;
+      db.update(schema.page_edit_receipts);
+      sql\`DELETE FROM page_proposal_receipts WHERE key=\${key}\`;
     `
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature conversations may not write study_document_edit_receipts.',
-      'Feature conversations may not write study_document_proposal_receipts.',
-      'Feature conversations may not write study_document_proposals.',
-      'Feature documents may not write document_assets.'
+      'Feature notes may not write page_edit_receipts.',
+      'Feature notes may not write page_proposal_receipts.',
+      'Feature notes may not write page_proposals.',
+      'Feature pages may not write document_assets.'
     ]);
   }
 );
 
 testStable(
-  'historic annotations and manual judgments stay Documents-owned while message citations stay Conversations-owned',
+  'historic annotations and manual judgments stay Pages-owned while message citations stay Notes-owned',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/conversations/store/evidence.ts': `
+      'src/features/notes/store/evidence.ts': `
       import * as s from '@study/db/schema';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
-      const { study_document_annotations: annotations } = s;
+      const { page_annotations: annotations } = s;
       db.select().from(annotations);
       db.insert(annotations);
-      db.update(s['study_document_annotation_revisions']);
-      sql\`DELETE FROM study_document_citation_assessments WHERE marker=1\`;
+      db.update(s['page_annotation_revisions']);
+      sql\`DELETE FROM page_citation_assessments WHERE marker=1\`;
       db.insert(s.citations);
     `,
       'src/features/sources/store/correction.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.study_document_citation_assessments);
-      db.delete(s.study_document_annotation_revisions);
+      db.insert(s.page_citation_assessments);
+      db.delete(s.page_annotation_revisions);
     `,
-      'src/features/documents/store/evidence.ts': `
+      'src/features/pages/store/evidence.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.study_document_annotations);
-      db.insert(s.study_document_annotation_revisions);
-      db.insert(s.study_document_citation_assessments);
+      db.insert(s.page_annotations);
+      db.insert(s.page_annotation_revisions);
+      db.insert(s.page_citation_assessments);
       db.select().from(s.citations);
       db.update(s.citations);
     `
@@ -279,39 +279,39 @@ testStable(
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
-        'Feature conversations may not write study_document_annotations.',
-        'Feature conversations may not write study_document_annotation_revisions.',
-        'Feature conversations may not write study_document_citation_assessments.',
-        'Feature sources may not write study_document_citation_assessments.',
-        'Feature sources may not write study_document_annotation_revisions.',
-        'Feature documents may not write citations.'
+        'Feature notes may not write page_annotations.',
+        'Feature notes may not write page_annotation_revisions.',
+        'Feature notes may not write page_citation_assessments.',
+        'Feature sources may not write page_citation_assessments.',
+        'Feature sources may not write page_annotation_revisions.',
+        'Feature pages may not write citations.'
       ].sort()
     );
   }
 );
 
 testStable(
-  'deletion barriers are Conversations-owned and proposal retirement proofs are Documents-owned',
+  'deletion barriers are Notes-owned and proposal retirement proofs are Pages-owned',
   () => {
     const diagnostics = lintRule('feature-persistence-boundary', {
-      'src/features/conversations/store/deletion.ts': `
+      'src/features/notes/store/deletion.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.session_deletions); db.insert(s.session_deletion_correlations);
-      db.select().from(s.study_document_transform_requests);
-      db.delete(s.study_document_proposal_receipts); db.insert(s.study_document_transform_requests);
+      db.insert(s.note_deletions); db.insert(s.note_deletion_correlations);
+      db.select().from(s.page_transform_requests);
+      db.delete(s.page_proposal_receipts); db.insert(s.page_transform_requests);
     `,
-      'src/features/documents/store/session-retirement.ts': `
+      'src/features/pages/store/note-retirement.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.study_document_transform_requests); db.insert(s.study_document_proposal_receipts);
-      db.select().from(s.session_deletions); db.update(s.session_deletions); db.delete(s.session_deletion_correlations);
+      db.insert(s.page_transform_requests); db.insert(s.page_proposal_receipts);
+      db.select().from(s.note_deletions); db.update(s.note_deletions); db.delete(s.note_deletion_correlations);
     `
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual([
-      'Feature conversations may not write study_document_proposal_receipts.',
-      'Feature conversations may not write study_document_transform_requests.',
-      'Feature documents may not write session_deletion_correlations.',
-      'Feature documents may not write session_deletions.'
+      'Feature notes may not write page_proposal_receipts.',
+      'Feature notes may not write page_transform_requests.',
+      'Feature pages may not write note_deletion_correlations.',
+      'Feature pages may not write note_deletions.'
     ]);
   }
 );
@@ -334,9 +334,9 @@ testStable(
       sql\`UPDATE material_deletions SET status='completed'\`;
       db.delete(s.material_deletion_requests);
     `,
-      'src/features/conversations/store/material-deletion.ts': `
+      'src/features/notes/store/material-deletion.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.delete(s.message_versions); db.delete(s.conversation_reply_requests); db.delete(s.session_run_contexts);
+      db.delete(s.message_versions); db.delete(s.note_reply_requests); db.delete(s.note_run_contexts);
       db.update(s.material_deletion_requests);
     `,
       'src/features/learning/store/material-deletion.ts': `
@@ -351,7 +351,7 @@ testStable(
         'Feature sources may not write material_deletion_members.',
         'Feature sources may not write material_deletions.',
         'Feature sources may not write material_deletion_requests.',
-        'Feature conversations may not write material_deletion_requests.',
+        'Feature notes may not write material_deletion_requests.',
         'Feature learning may not write source_extraction_revisions.'
       ].sort()
     );
@@ -365,24 +365,24 @@ testStable(
       'src/features/materials/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_history_prunes); db.insert(s.material_history_members); db.insert(s.material_history_requests);
-      db.insert(s.source_extraction_revisions); db.insert(s.session_retired_intents);
+      db.insert(s.source_extraction_revisions); db.insert(s.note_retired_intents);
     `,
       'src/features/sources/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.source_extraction_revisions); db.insert(s.source_snapshots); db.update(s.material_history_members);
     `,
-      'src/features/conversations/store/history.ts': `
+      'src/features/notes/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.session_retired_intents); db.insert(s.material_history_requests);
+      db.insert(s.note_retired_intents); db.insert(s.material_history_requests);
     `
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
       [
         'Feature materials may not write source_extraction_revisions.',
-        'Feature materials may not write session_retired_intents.',
+        'Feature materials may not write note_retired_intents.',
         'Feature sources may not write material_history_members.',
-        'Feature conversations may not write material_history_requests.'
+        'Feature notes may not write material_history_requests.'
       ].sort()
     );
   }
@@ -403,7 +403,7 @@ testStable(
 
       db.insert(schema.source_extraction_revisions); db.update(schema.source_snapshots);
 
-      sql\`DELETE FROM session_retired_intents WHERE request_id=\${requestId}\`;
+      sql\`DELETE FROM note_retired_intents WHERE request_id=\${requestId}\`;
 
     `,
       'src/features/sources/store/material-history.ts': `
@@ -411,9 +411,9 @@ testStable(
       db.insert(s.source_extraction_revisions); db.insert(s.source_snapshots);
 
     `,
-      'src/features/conversations/store/material-history.ts': `
+      'src/features/notes/store/material-history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
-      db.insert(s.session_retired_intents);
+      db.insert(s.note_retired_intents);
 
     `
     });
@@ -422,7 +422,7 @@ testStable(
       'Feature learning may not write material_history_members.',
       'Feature learning may not write material_history_prunes.',
       'Feature learning may not write material_history_requests.',
-      'Feature learning may not write session_retired_intents.',
+      'Feature learning may not write note_retired_intents.',
       'Feature learning may not write source_extraction_revisions.',
       'Feature learning may not write source_snapshots.'
     ]);
@@ -438,7 +438,7 @@ testStable(
       db.select().from(s.messages); db.delete(s.preferences); db.delete(s.message_versions);
       db.update(s.material_generation_requests); db.update(s.learning_practice_controls);
     `,
-      'src/features/conversations/store/backup.ts': `
+      'src/features/notes/store/backup.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.delete(s.message_versions);
     `

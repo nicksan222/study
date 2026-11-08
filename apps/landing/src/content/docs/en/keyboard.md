@@ -1,6 +1,6 @@
 ---
 title: Keyboard shortcuts
-description: Save notes, find sessions and review cards from the keyboard.
+description: Save notes, find notes and review cards from the keyboard.
 section: reference
 order: 2
 ---
@@ -14,7 +14,7 @@ On macOS use Cmd where the tables say Cmd/Ctrl; on Linux and Windows use Ctrl. T
 | Reveal the sidebar and focus search | Cmd/Ctrl K |
 | Clear the sidebar search field      | Esc        |
 
-## Session composer
+## Note composer
 
 | Action                   | Keys           |
 | ------------------------ | -------------- |
@@ -43,4 +43,4 @@ Shortcuts do not interrupt text entry in an editable field. You can also use the
 
 Matching questions use their visible controls rather than the numbered-choice shortcut. Use **Next** to continue after feedback.
 
-See [sessions](../sessions/), [flashcards](../flashcards/) and [practice](../practice/) for the full workflows.
+See [notes](../notes/), [flashcards](../flashcards/) and [practice](../practice/) for the full workflows.

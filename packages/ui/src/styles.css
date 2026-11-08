@@ -5,7 +5,7 @@
 @import './components/citation.css';
 @import './components/rich-note.css';
 @import './components/material-library.css';
-@import './session-workspace.css';
+@import './note-workspace.css';
 @import 'tailwindcss';
 @import './theme.css';
 @import './components/shell.css';

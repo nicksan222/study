@@ -20,7 +20,7 @@ import { defineAgent } from '#server/platform/definitions/define-agent';
 
 export const textConversionAgent = defineAgent({
   id: 'text-conversion',
-  customRules: [AgentRule.Documents],
+  customRules: [AgentRule.Pages],
   input: textConversionInputSchema,
   output: textConversionOutputSchema,
   model: 'tiny',

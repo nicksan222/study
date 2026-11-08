@@ -1,9 +1,10 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { Db, sql } from '@study/db';
-import { projects, source_blobs, sources, study_document_versions } from '@study/db/schema';
+import { projects, source_blobs, sources, page_versions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
 import { testStable } from '@study/testing/vitest';
@@ -12,7 +13,7 @@ import { expect } from 'vite-plus/test';
 import { seedDatabase } from './seed.ts';
 
 testStable(
-  'replaces all old content with readable, linked documents and repeatable study data',
+  'replaces all old content with readable, linked pages and repeatable study data',
   async () => {
     const location = createTestDatabase();
     let db = location.open();
@@ -44,17 +45,17 @@ testStable(
       expect(
         db.orm
           .select()
-          .from(study_document_versions)
+          .from(page_versions)
           .all()
           .every((row) => row.status === 'published')
       ).toBe(true);
-      expect(db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n).toBe(10n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM pages`)?.n).toBe(10n);
       expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_entries`)?.n).toBe(20n);
       expect(db.orm.get(sql`SELECT count(*) n FROM material_quiz_questions`)?.n).toBe(15n);
       expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(100n);
       expect(
         db.orm
-          .all(sql`SELECT project_id, count(*) n FROM project_sessions GROUP BY project_id`)
+          .all(sql`SELECT project_id, count(*) n FROM project_notes GROUP BY project_id`)
           .map((row) => row.n)
       ).toEqual([10n, 10n, 10n, 10n, 10n]);
       expect(db.orm.get(sql`SELECT count(*) n FROM material_diagram_versions`)?.n).toBe(5n);
@@ -221,10 +222,12 @@ testStable(
     const location = createTestDatabase();
 
     try {
-      const crashed = spawnSync(process.execPath, [
-        '--input-type=module',
-        '-e',
-        `
+      const crashed = spawnSync(
+        process.execPath,
+        [
+          '--input-type=module',
+          '-e',
+          `
       import { Db } from '@study/db';
       import { projects } from '@study/db/schema';
       const db = Db.open(process.argv[1]);
@@ -233,8 +236,10 @@ testStable(
       }).run();
       process.kill(process.pid, 'SIGKILL');
     `,
-        location.path
-      ]);
+          location.path
+        ],
+        { cwd: fileURLToPath(new URL('..', import.meta.url)) }
+      );
 
       expect(crashed.signal).toBe('SIGKILL');
       expect(statSync(location.path + '-wal').size).toBeGreaterThan(0);

@@ -1,8 +1,8 @@
 import { useParams } from '@tanstack/react-router';
 import type { ComponentType } from 'react';
 
-import { DocumentsSidebar } from '#web/features/authored-documents/index.ts';
 import { LibraryList } from '#web/features/library/index.ts';
+import { PagesSidebar } from '#web/features/pages/index.ts';
 import { PracticeSidebarGenerations } from '#web/features/practice/index.ts';
 import type { SidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
@@ -18,9 +18,9 @@ type PanelProps = { model: SidebarModel; ready: boolean };
 const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
   workspace: null,
   assistant: null,
-  documents: ({ model, ready }) =>
+  pages: ({ model, ready }) =>
     ready ? (
-      <DocumentsSidebar
+      <PagesSidebar
         key={String(model.project)}
         project={model.project}
         subjects={model.subjects}
@@ -32,7 +32,7 @@ const panels: Record<SidebarContent, ComponentType<PanelProps> | null> = {
 
 export function Sidebar(props: SidebarProps) {
   const model = useSidebar(props);
-  const { sessionId } = useParams({ strict: false });
+  const { noteId } = useParams({ strict: false });
   const Panel = panels[sidebarContent(model.metadata)];
   const ready =
     model.canSearch &&
@@ -42,8 +42,8 @@ export function Sidebar(props: SidebarProps) {
   const counts = useSidebarCounts({
     project: model.project,
     subjects: model.subjects,
-    sessions: model.sessions,
-    sessionsReady: model.sessionState === 'ready',
+    notes: model.notes,
+    notesReady: model.noteState === 'ready',
     ready
   });
 
@@ -51,7 +51,7 @@ export function Sidebar(props: SidebarProps) {
     <SidebarView
       counts={counts}
       {...model}
-      selectedSession={sessionId ? String(sessionId) : null}
+      selectedNote={noteId ? String(noteId) : null}
       collection={Panel ? <Panel model={model} ready={ready} /> : null}
     />
   );

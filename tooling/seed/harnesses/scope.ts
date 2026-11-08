@@ -11,7 +11,7 @@ export type Created<Id> = { readonly id: Id; readonly projectId: ProjectId };
 
 export type ProjectDefinition = (seed: SeedHarness) => void;
 
-/** Fixture handles carry ownership so conversations cannot accidentally mix projects. */
+/** Fixture handles carry ownership so notes cannot accidentally mix projects. */
 export function ownedId<Id>(project: ProjectHarness, fixture: Created<Id>): Id {
   if (project.projectId !== fixture.projectId)
     throw new RangeError('Seed fixture belongs to another project');

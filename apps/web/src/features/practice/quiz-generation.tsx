@@ -29,10 +29,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { quizSettingsOptions } from '#web/lib/study-client/quiz-settings.queries.ts';
 
 import { GenerationWatcher } from './generation-watcher';
-import {
-  generationDocumentsOptions,
-  quizGenerationMutationOptions
-} from './quiz-generation.queries';
+import { generationPagesOptions, quizGenerationMutationOptions } from './quiz-generation.queries';
 import { QuizInputPicker } from './quiz-input-picker';
 
 export function QuizGenerationAction({
@@ -80,12 +77,12 @@ function GenerationDialog({
           <AiButton
             size={inline ? 'default' : 'icon'}
             variant={inline ? 'outline' : 'ghost-muted'}
-            label={t(inline ? 'PracticeGenerateFromDocuments' : 'PracticeGenerate')}
+            label={t(inline ? 'PracticeGenerateFromPages' : 'PracticeGenerate')}
             disabled={disabled}
             pending={requests.length > 0}
             workingLabel={t('QuizGenerating')}
           >
-            {inline && t('PracticeGenerateFromDocuments')}
+            {inline && t('PracticeGenerateFromPages')}
           </AiButton>
         }
       />
@@ -124,7 +121,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false' | 'ordering'
   >('quiz');
   const [instruction, setInstruction] = useState('');
-  const { documents, inputs, setInputs } = useGenerationDocuments(projectId);
+  const { pages, inputs, setInputs } = useGenerationPages(projectId);
   const preferences = useQuery(quizSettingsOptions());
   const saved = preferences.data ?? defaultQuizSettings;
   const configuration =
@@ -139,7 +136,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     }
   });
   const busy = start.isPending;
-  const hasSources = documents.isSuccess && inputs.length > 0 && inputs.length <= 20;
+  const hasSources = pages.isSuccess && inputs.length > 0 && inputs.length <= 20;
   const titleKey = {
     quiz: 'SidebarQuiz',
     flashcards: 'Flashcards',
@@ -160,7 +157,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
         autoTitle: true,
         kind: kind === 'flashcards' ? 'flashcards' : 'quiz',
         instruction: instruction.trim() || undefined,
-        inputs: inputs.filter((input) => input.kind === 'document'),
+        inputs: inputs.filter((input) => input.kind === 'page'),
         quizConfig:
           kind !== 'flashcards'
             ? {
@@ -178,7 +175,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
     setKind,
     instruction,
     setInstruction,
-    documents,
+    pages,
     inputs,
     setInputs,
     preferences,
@@ -191,7 +188,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
 
 type GenerationModel = ReturnType<typeof useGeneration>;
 
-/** Offer localized practice modes alongside the selected source documents. */
+/** Offer localized practice modes alongside the selected source pages. */
 function GenerationPanel({
   projectId,
   accepted
@@ -291,14 +288,14 @@ function GenerationPanel({
             </Practice.CustomizeBody>
           </Practice.Customize>
         </Practice.GenerationBrief>
-        <Practice.GenerationDocuments>
+        <Practice.GenerationPages>
           <QuizInputPicker
-            documents={model.documents}
+            pages={model.pages}
             inputs={model.inputs}
             onChange={model.setInputs}
             disabled={model.busy}
           />
-        </Practice.GenerationDocuments>
+        </Practice.GenerationPages>
       </Practice.GenerationLayout>
       <Practice.GenerationStatus>
         <GenerationStatus model={model} />
@@ -360,24 +357,24 @@ function GenerationAction({ model }: { model: GenerationModel }) {
   );
 }
 
-function useGenerationDocuments(projectId?: ProjectId) {
-  const documents = useQuery(generationDocumentsOptions(projectId));
+function useGenerationPages(projectId?: ProjectId) {
+  const pages = useQuery(generationPagesOptions(projectId));
   const [excluded, setExcluded] = useState<bigint[]>([]);
-  const inputs: ContentInput[] = (documents.data ?? [])
+  const inputs: ContentInput[] = (pages.data ?? [])
     .filter((doc) => doc.headVersionId !== null && !excluded.includes(doc.headVersionId))
-    .map((doc) => ({ kind: 'document', versionId: doc.headVersionId! }));
+    .map((doc) => ({ kind: 'page', versionId: doc.headVersionId! }));
   const setInputs = (update: SetStateAction<ContentInput[]>) => {
     const next = typeof update === 'function' ? update(inputs) : update;
     const selected = new Set(
-      next.filter((input) => input.kind === 'document').map((input) => input.versionId)
+      next.filter((input) => input.kind === 'page').map((input) => input.versionId)
     );
 
     setExcluded(
-      (documents.data ?? []).flatMap((doc) =>
+      (pages.data ?? []).flatMap((doc) =>
         doc.headVersionId !== null && !selected.has(doc.headVersionId) ? [doc.headVersionId] : []
       )
     );
   };
 
-  return { documents, inputs, setInputs };
+  return { pages, inputs, setInputs };
 }

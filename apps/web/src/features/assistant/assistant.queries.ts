@@ -1,6 +1,6 @@
-import type { ChatMessage } from '@study/contracts/conversations/messages';
-import type { assistantAskInputSchema } from '@study/contracts/conversations/rpc';
-import type { MessageId, SessionId } from '@study/contracts/ids';
+import type { MessageId, NoteId } from '@study/contracts/ids';
+import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { assistantAskInputSchema } from '@study/contracts/notes/rpc';
 import type { executionIdSchema } from '@study/contracts/workflows/schemas';
 import type { QueryClient } from '@tanstack/react-query';
 import {
@@ -15,30 +15,27 @@ import { request } from '#web/lib/study-client/request.ts';
 
 export const assistantKey = ['assistant'] as const;
 
-export const assistantSessionOptions = (id?: SessionId, scope?: SessionId) =>
+export const assistantNoteOptions = (id?: NoteId, scope?: NoteId) =>
   queryOptions({
     queryKey:
       scope === undefined
-        ? [...assistantKey, 'session', id?.toString()]
-        : [...assistantKey, 'scoped-session', String(scope)],
+        ? [...assistantKey, 'note', id?.toString()]
+        : [...assistantKey, 'scoped-note', String(scope)],
     queryFn: ({ signal }) =>
       scope === undefined
-        ? request((rpc) => rpc['conversations.assistantSession']({ id }), signal)
-        : request((rpc) => rpc['conversations.sessionAssistant']({ sessionId: scope }), signal)
+        ? request((rpc) => rpc['notes.assistantNote']({ id }), signal)
+        : request((rpc) => rpc['notes.noteAssistant']({ noteId: scope }), signal)
   });
 
-export const assistantThreadOptions = (sessionId?: SessionId) =>
+export const assistantThreadOptions = (noteId?: NoteId) =>
   infiniteQueryOptions({
-    queryKey: [...assistantKey, 'thread', sessionId?.toString()],
+    queryKey: [...assistantKey, 'thread', noteId?.toString()],
     initialPageParam: undefined as MessageId | undefined,
     queryFn:
-      sessionId === undefined
+      noteId === undefined
         ? skipToken
         : ({ pageParam, signal }) =>
-            request(
-              (rpc) => rpc['conversations.thread']({ sessionId, before: pageParam, limit: 30 }),
-              signal
-            ),
+            request((rpc) => rpc['notes.thread']({ noteId, before: pageParam, limit: 30 }), signal),
     getNextPageParam: (page) => page.next ?? undefined,
     refetchInterval: (query) =>
       query.state.data?.pages[0]?.items.some(
@@ -54,7 +51,7 @@ export const assistantThreadOptions = (sessionId?: SessionId) =>
 export const assistantAskOptions = () =>
   mutationOptions({
     mutationFn: (input: typeof assistantAskInputSchema.Type) =>
-      request((rpc) => rpc['conversations.assistantAsk'](input)),
+      request((rpc) => rpc['notes.assistantAsk'](input)),
     retry: false
   });
 
@@ -70,8 +67,8 @@ export const assistantReplyOptions = (message?: ChatMessage) =>
       ? ({ signal }) =>
           request(
             (rpc) =>
-              rpc['conversations.replyVersion']({
-                sessionId: message.sessionId,
+              rpc['notes.replyVersion']({
+                noteId: message.noteId,
                 messageId: message.id,
                 versionId: message.activeVersionId!
               }),
@@ -95,8 +92,7 @@ export const assistantExecutionOptions = (requestId?: string) =>
 
 export const retryAssistantReplyOptions = () =>
   mutationOptions({
-    mutationFn: (messageId: MessageId) =>
-      request((rpc) => rpc['conversations.reanswer']({ messageId })),
+    mutationFn: (messageId: MessageId) => request((rpc) => rpc['notes.reanswer']({ messageId })),
     retry: false
   });
 
@@ -108,9 +104,9 @@ export const stopAssistantReplyOptions = () =>
   });
 
 export async function loadAssistant({ context }: { context: { queryClient: QueryClient } }) {
-  const session = await context.queryClient.ensureQueryData(assistantSessionOptions());
+  const note = await context.queryClient.ensureQueryData(assistantNoteOptions());
 
-  await context.queryClient.ensureInfiniteQueryData(assistantThreadOptions(session.id));
+  await context.queryClient.ensureInfiniteQueryData(assistantThreadOptions(note.id));
 }
 
 export const assistantAuthOptions = (enabled: boolean) =>
@@ -131,30 +127,25 @@ export const assistantAppearanceOptions = () =>
 export const assistantChatsOptions = () =>
   infiniteQueryOptions({
     queryKey: [...assistantKey, 'chats'],
-    initialPageParam: undefined as SessionId | undefined,
+    initialPageParam: undefined as NoteId | undefined,
     queryFn: ({ pageParam, signal }) =>
-      request(
-        (rpc) => rpc['conversations.assistantChats']({ limit: 30, before: pageParam }),
-        signal
-      ),
+      request((rpc) => rpc['notes.assistantChats']({ limit: 30, before: pageParam }), signal),
     getNextPageParam: (page) => page.next ?? undefined
   });
 
 export const newAssistantChatOptions = () =>
   mutationOptions({
-    mutationFn: (key: string) =>
-      request((rpc) => rpc['conversations.newAssistantSession']({ key })),
+    mutationFn: (key: string) => request((rpc) => rpc['notes.newAssistantNote']({ key })),
     retry: false
   });
 
-export const assistantContextOptions = (sessionId?: SessionId, active = false) =>
+export const assistantContextOptions = (noteId?: NoteId, active = false) =>
   queryOptions({
-    queryKey: [...assistantKey, 'context', sessionId?.toString()],
+    queryKey: [...assistantKey, 'context', noteId?.toString()],
     queryFn:
-      sessionId === undefined
+      noteId === undefined
         ? skipToken
-        : ({ signal }) =>
-            request((rpc) => rpc['conversations.assistantContext']({ sessionId }), signal),
+        : ({ signal }) => request((rpc) => rpc['notes.assistantContext']({ noteId }), signal),
     refetchInterval: active ? 1000 : false
   });
 

@@ -11,16 +11,16 @@ export function searchResultLocation(hit: Hit, project?: string) {
   switch (target.type) {
     case 'project':
       return { to: '/home', search: { project: String(target.id) } } as const;
-    case 'session':
+    case 'note':
       return {
-        to: '/session/$sessionId',
-        params: { sessionId: target.sessionId },
+        to: '/notes/$noteId',
+        params: { noteId: target.noteId },
         search
       } as const;
-    case 'document':
+    case 'page':
       return {
-        to: '/documents/$documentId',
-        params: { documentId: String(target.documentId) },
+        to: '/pages/$pageId',
+        params: { pageId: String(target.pageId) },
         search
       } as const;
     case 'source':
@@ -44,10 +44,10 @@ export function searchResultKey(hit: Hit) {
   const id =
     target.type === 'project'
       ? target.id
-      : target.type === 'session'
-        ? target.sessionId
-        : target.type === 'document'
-          ? target.documentId
+      : target.type === 'note'
+        ? target.noteId
+        : target.type === 'page'
+          ? target.pageId
           : target.type === 'source'
             ? target.sourceId
             : target.materialId;

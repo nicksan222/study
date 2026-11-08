@@ -1,7 +1,7 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Projects internal search matches into typed public hits by resolving current       │
- * │ project, source, conversation, and study-material records.                               │
+ * │ project, source, note, and study-material records.                                       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Feature stores own SQLite access and map rows to typed contracts.                      │
@@ -53,30 +53,30 @@ export const SystemStore = defineStore({
         : [];
     }
 
-    function presentConversation(
+    function presentNote(
       hit: SearchHit,
-      target: Extract<SearchHit['target'], { type: 'session' | 'message' }>
+      target: Extract<SearchHit['target'], { type: 'note' | 'message' }>
     ): (typeof searchHitSchema.Type)[] {
       const msg =
         target.type === 'message'
           ? db.orm.select().from(schema.messages).where(eq(schema.messages.id, target.id)).get()
           : undefined;
-      const id = target.type === 'session' ? target.id : msg?.session_id;
-      const session =
+      const id = target.type === 'note' ? target.id : msg?.note_id;
+      const note =
         id === undefined
           ? undefined
-          : db.orm.select().from(schema.sessions).where(eq(schema.sessions.id, id)).get();
+          : db.orm.select().from(schema.notes).where(eq(schema.notes.id, id)).get();
 
-      return session
+      return note
         ? [
             {
-              kind: msg ? 'message' : 'session',
-              title: session.title,
+              kind: msg ? 'message' : 'note',
+              title: note.title,
               excerpt: hit.text,
-              at: msg?.created_at ?? session.updated_at,
+              at: msg?.created_at ?? note.updated_at,
               target: {
-                type: 'session',
-                sessionId: session.id
+                type: 'note',
+                noteId: note.id
               }
             }
           ]
@@ -121,24 +121,20 @@ export const SystemStore = defineStore({
       ];
     }
 
-    function presentDocument(
+    function presentPage(
       hit: SearchHit,
-      target: Extract<SearchHit['target'], { type: 'document' }>
+      target: Extract<SearchHit['target'], { type: 'page' }>
     ): (typeof searchHitSchema.Type)[] {
-      const row = db.orm
-        .select()
-        .from(schema.study_documents)
-        .where(eq(schema.study_documents.id, target.id))
-        .get();
+      const row = db.orm.select().from(schema.pages).where(eq(schema.pages.id, target.id)).get();
 
       return row
         ? [
             {
-              kind: 'document',
+              kind: 'page',
               title: row.title,
               excerpt: hit.text,
               at: row.updated_at,
-              target: { type: 'document', documentId: row.id }
+              target: { type: 'page', pageId: row.id }
             }
           ]
         : [];
@@ -196,12 +192,12 @@ export const SystemStore = defineStore({
             }).flatMap((hit): (typeof searchHitSchema.Type)[] => {
               const target = hit.target;
 
-              if (target.type === 'document') return presentDocument(hit, target);
+              if (target.type === 'page') return presentPage(hit, target);
 
               if (target.type === 'project') return presentProject(target);
 
-              if (target.type === 'session' || target.type === 'message')
-                return presentConversation(hit, target);
+              if (target.type === 'note' || target.type === 'message')
+                return presentNote(hit, target);
 
               if (target.type === 'source' || target.type === 'passage')
                 return presentSource(hit, target);

@@ -66,7 +66,7 @@ testStable('shows first run, supports back, and saves completion before closing'
     'ColorScheme',
     'OnboardingSubjectsTitle',
     'OnboardingNotesTitle',
-    'OnboardingDocumentsTitle',
+    'OnboardingPagesTitle',
     'OnboardingWorkflowTitle',
     'OnboardingConnectTitle'
   ]) {
@@ -77,18 +77,18 @@ testStable('shows first run, supports back, and saves completion before closing'
     if (title === 'OnboardingSubjectsTitle')
       expect(screen.getByText('OnboardingSampleSubject')).toBeInTheDocument();
 
-    if (title === 'OnboardingDocumentsTitle')
+    if (title === 'OnboardingPagesTitle')
       expect(
-        screen.getByRole('heading', { name: 'OnboardingSampleDocumentTitle' })
+        screen.getByRole('heading', { name: 'OnboardingSamplePageTitle' })
       ).toBeInTheDocument();
 
     if (title === 'OnboardingWorkflowTitle') {
       fireEvent.click(screen.getByRole('button', { name: 'OnboardingPreviewTransform' }));
       expect(
-        screen.getByRole('heading', { name: 'OnboardingSampleDocumentTitle' })
+        screen.getByRole('heading', { name: 'OnboardingSamplePageTitle' })
       ).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'OnboardingPreviewNotes' }));
-      expect(screen.getByText('OnboardingSampleNote')).toBeInTheDocument();
+      expect(screen.getByText('OnboardingSampleEntry')).toBeInTheDocument();
     }
   }
 

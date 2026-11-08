@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises an HTTP conversation reply with a source still downloading. It verifies  │
+ * │ @file Exercises an HTTP note reply with a source still downloading. It verifies          │
  * │ the registered attachment wake resumes the durable reply into its later authentication   │
  * │ wait.                                                                                    │
  * │                                                                                          │
@@ -9,7 +9,7 @@
  * │   waiting for authentication.                                                            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Uses #server/client/index, #server/features/conversations/index, #server/runtime/index   │
+ * │ Uses #server/client/index, #server/features/notes/index, #server/runtime/index           │
  * │ with real SQLite and application resources; fixture cleanup closes owned resources.      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
@@ -23,7 +23,7 @@ import { Effect } from 'effect';
 import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { Conversations } from '#server/features/conversations/index';
+import { Notes } from '#server/features/notes/index';
 import { serve } from '#server/runtime/index';
 import { createStudyTest } from '#testing/server-test';
 
@@ -61,17 +61,17 @@ testStable(
         projectId: project.id,
         url: evidenceUrl
       });
-      const session = yield* client['conversations.createSession']({
+      const note = yield* client['notes.createNote']({
         project: project.id,
         title: 'Chat'
       });
 
-      yield* client['conversations.postMessage']({
-        sessionId: session.id,
+      yield* client['notes.postMessage']({
+        noteId: note.id,
         text: 'Explain the evidence',
         sourceIds: [source.id]
       });
-      const request = yield* client['conversations.requestReply']({ sessionId: session.id });
+      const request = yield* client['notes.requestReply']({ noteId: note.id });
 
       yield* client['system.startWorkers']({});
       let waiting = false;
@@ -104,9 +104,7 @@ testStable(
       );
       const before = yield* Effect.promise(() =>
         fixture.run(
-          Effect.flatMap(Conversations, (conversations) =>
-            conversations.replySnapshot({ requestId: request.requestId })
-          )
+          Effect.flatMap(Notes, (notes) => notes.replySnapshot({ requestId: request.requestId }))
         )
       );
 
@@ -133,9 +131,7 @@ testStable(
       );
       const after = yield* Effect.promise(() =>
         fixture.run(
-          Effect.flatMap(Conversations, (conversations) =>
-            conversations.replySnapshot({ requestId: request.requestId })
-          )
+          Effect.flatMap(Notes, (notes) => notes.replySnapshot({ requestId: request.requestId }))
         )
       );
 

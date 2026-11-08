@@ -88,7 +88,7 @@ export const learning_practice_inputs = defineTable({
   (t) => [
     primaryKey({ columns: [t.slot_id, t.position] }),
     ...exactContentInputConstraints(t),
-    index('learning_practice_inputs_document').on(t.document_version_id),
+    index('learning_practice_inputs_document').on(t.page_version_id),
     index('learning_practice_inputs_source').on(
       t.source_id,
       t.source_revision,

@@ -42,13 +42,13 @@ export function AgentProgress(input: typeof agentProgressInputSchema.Type) {
       return;
 
     for (const queryKey of [
-      ['session-workspace'],
-      ['session-generation'],
-      ['session-execution'],
-      ['session-work'],
+      ['note-workspace'],
+      ['note-generation'],
+      ['note-execution'],
+      ['note-work'],
       ['materials'],
       ['library'],
-      ['sessions']
+      ['notes']
     ])
       void cache.invalidateQueries({ queryKey });
   }, [cache, runs, settled]);

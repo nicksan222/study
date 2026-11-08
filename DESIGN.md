@@ -1,7 +1,7 @@
 # Study design system
 
 Study uses Groam's Graphite workspace foundations, approved in the subject overview mockup
-`.impeccable/mocks/home-groam/subject-a.png`. The session notebook direction is
+`.impeccable/mocks/home-groam/subject-a.png`. The note notebook direction is
 `.impeccable/mocks/home-groam/note-dump.png`. The product is a working study notebook:
 capturing, finding, transforming and practising the learner's own material takes priority.
 
@@ -61,14 +61,14 @@ metrics, remote fonts or saturated alternative palettes.
 ## Subject workspace
 
 The current subject picker owns the top of the sidebar, with search directly below it. Subject identities use one quiet letter badge throughout the picker, lists and notebook breadcrumb. Automatic initials follow the title; a saved custom one-to-three-letter monogram can replace them. The icon editor previews both modes and confirms successful saves with a toast.
-Overview, Sessions, Sources, Flashcards, Diagram and Practice all belong to that subject. Changing subjects keeps the section and clears the old selected item. An item's
+Overview, Notes, Sources, Flashcards, Diagram and Practice all belong to that subject. Changing subjects keeps the section and clears the old selected item. An item's
 own subject is authoritative for deep links; unresolved or missing subjects never expose
 another subject's content. The saved current-subject hint is validated against the database.
 All subjects, Settings and Help stay global in the footer. Search is subject scoped inside
 the workspace and global on global pages.
 
-The overview prioritizes review, continuing a session and adding sources, then background
-activity. Sessions are the note dump, not a generic assistant chat. Each entry keeps its
+The overview prioritizes review, continuing a note and adding sources, then background
+activity. Notes are the note dump, not a generic assistant chat. Each entry keeps its
 attachments, current text, earlier versions, transformation origin and parent version.
 Improve, Summarize and custom transformations use the existing version model. Original
 uploaded bytes stay accessible; a file's extraction is not presented as a fictitious note
@@ -84,20 +84,20 @@ All copy comes from `study-localization`. Browser tests use isolated real RPC se
 Assess every page in both themes and at narrow sizes, including important pending, empty
 and version-history states, and fix independent UX/UI review findings before finishing.
 
-## Session entry and errors
+## Note entry and errors
 
-The Sessions starter lives at `/sessions`; an active notebook uses `/sessions/:sessionId`.
-Both use `WorkspaceSurface` from `@study/ui/workspace`, with explicit welcome and session
+The Notes starter lives at `/notes`; an active notebook uses `/notes/:noteId`.
+Both use `WorkspaceSurface` from `@study/ui/workspace`, with explicit welcome and note
 variants, the same restrained typography and a bottom composer dock. The content column
 stops at 48rem on wide screens; the interface does not enlarge to fill the monitor.
-The active notebook header is one compact subject/session breadcrumb. The sidebar owns
+The active notebook header is one compact subject/note breadcrumb. The sidebar owns
 its collapse control while open, and the content shows one reveal control while hidden.
-Cmd/Ctrl+K reveals navigation and focuses search. Session actions use the row's context
+Cmd/Ctrl+K reveals navigation and focuses search. Note actions use the row's context
 menu without permanent overflow buttons.
 
 `WorkspaceCard` owns one compact right context panel, controlled by the square menu icon
-in the session header. It combines current-session notes, attachments, revisions and
-generated material with selection, document transformation and session deletion actions.
+in the note header. It combines current-note notes, attachments, revisions and
+generated material with selection, document transformation and note deletion actions.
 Selection and transformation open shared dialogs with readable 14px form text and one
 scrolling body. Closing either dialog returns focus to its card action; closing the panel
 keeps drafts and operation ownership mounted. Previews are read-only and retain exact
@@ -107,9 +107,9 @@ move the card into the page flow and keep controls reachable.
 
 `@study/ui/composer` owns the shared input surface and footer, with starter and notebook
 variants using the same geometry. Draft text and files follow the user into a confirmed
-session; starting a session does not request a reply. Notes remain an unboxed chronological
+note; starting a note does not request a reply. Notes remain an unboxed chronological
 notebook. Save note is primary, Cmd/Ctrl+Enter saves, and Ask Study is explicit. Destructive
-session actions use the shared confirmation dialog and preserve pending and uncertain
+note actions use the shared confirmation dialog and preserve pending and uncertain
 operation fences.
 
 Shared `@study/ui/error-state` owns page and inline failure presentation: a neutral icon,

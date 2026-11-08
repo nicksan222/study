@@ -56,7 +56,7 @@ testStable(
       {
         'apps/web/src/app/router.ts': `import { createHashHistory as history } from '@tanstack/react-router';`,
         'apps/web/src/routes/MediaList.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/MediaList')({ component: Page });`,
-        'apps/web/src/app/shell/links.ts': `export const links = ['/Home', '/media_list', '/#/sessions', '/sessions/'];`
+        'apps/web/src/app/shell/links.ts': `export const links = ['/Home', '/media_list', '/#/notes', '/notes/'];`
       },
       true
     );
@@ -71,7 +71,7 @@ testStable('permits browser history, kebab-case paths and parameterized route se
       'web-router-navigation',
       {
         'apps/web/src/app/router.ts': `import { createBrowserHistory } from '@tanstack/react-router'; const parse = (search) => new URLSearchParams(search);`,
-        'apps/web/src/app/shell/links.ts': `export const links = ['/', '/home', '/media-list', '/projects/$projectId/sessions/$sessionId', 'https://example.com/SomePage'];`
+        'apps/web/src/app/shell/links.ts': `export const links = ['/', '/home', '/media-list', '/projects/$projectId/notes/$noteId', 'https://example.com/SomePage'];`
       },
       true
     )
@@ -86,7 +86,7 @@ testStable(
       {
         'apps/web/src/pages/home/unsafe.tsx': `export const view = <a href="/projects?project=9007199254740993">Collections</a>;`,
         'apps/web/src/features/collections/unsafe.tsx': `window.location.assign('/library?project=9007199254740993');`,
-        'apps/web/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; export const view = <><Link to="/sessions" search={{project: search.project}} /><Link to="/library" search={{project: search.project}} /><Link to="/projects" search={{project: search.project}} /></>;`
+        'apps/web/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; export const view = <><Link to="/notes" search={{project: search.project}} /><Link to="/library" search={{project: search.project}} /><Link to="/projects" search={{project: search.project}} /></>;`
       },
       true
     );
@@ -107,7 +107,7 @@ testStable(
       import {Link} from '@tanstack/react-router';
       export const result = <Link to="/materials/$materialId" params={{materialId: String(materialId)}} search={{version: String(resultVersionId)}} />;
     `,
-          'apps/web/src/features/session-workspace/history.tsx': `
+          'apps/web/src/features/note-workspace/history.tsx': `
       import {Link} from '@tanstack/react-router';
       export const input = <Link to="/materials/$materialId" params={{materialId: String(input.materialId)}} search={{version: String(input.versionId)}} />;
     `
@@ -136,21 +136,21 @@ testStable(
     const diagnostics = lintRule(
       'web-router-navigation',
       {
-        'apps/web/src/routes/sessions.index.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
-        export const Route = fileRoute('/sessions/')({component: Page});`,
-        'apps/web/src/routes/sessions.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/sessions/')({});`,
-        'apps/web/src/routes/sessions/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/sessions/')({});`,
+        'apps/web/src/routes/notes.index.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
+        export const Route = fileRoute('/notes/')({component: Page});`,
+        'apps/web/src/routes/notes.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/notes/')({});`,
+        'apps/web/src/routes/notes/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; createFileRoute('/notes/')({});`,
         'apps/web/src/routes/unsafe.tsx': `import { createFileRoute as fileRoute } from '@tanstack/react-router';
-        fileRoute('/Sessions/')({});
-        function shadow(fileRoute) { return fileRoute('/sessions/')({}); }
-        const badNavigation = '/sessions/';`,
-        'apps/web/src/routes/other.tsx': `import { createFileRoute } from 'another-router'; createFileRoute('/sessions/')({});`,
-        'apps/web/src/app/shell/links.tsx': `import { Link } from '@tanstack/react-router'; const view = <Link to="/sessions/" />;`
+        fileRoute('/Notes/')({});
+        function shadow(fileRoute) { return fileRoute('/notes/')({}); }
+        const badNavigation = '/notes/';`,
+        'apps/web/src/routes/other.tsx': `import { createFileRoute } from 'another-router'; createFileRoute('/notes/')({});`,
+        'apps/web/src/app/shell/links.tsx': `import { Link } from '@tanstack/react-router'; const view = <Link to="/notes/" />;`
       },
       true
     );
 
     assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
-    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/sessions.index.tsx')));
+    assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/notes.index.tsx')));
   }
 );

@@ -2,7 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
-import { recordingIdSchema, sessionIdSchema } from '../ids.ts';
+import { recordingIdSchema, noteIdSchema } from '../ids.ts';
 import { recordingViewSchema, recordingPostSchema } from './schemas.ts';
 
 export const recordingPageInputSchema = Schema.Struct({
@@ -23,14 +23,14 @@ export const appendRecordingInputSchema = Schema.Struct({
 });
 
 export const postRecordingInputSchema = Schema.Struct({
-  session: sessionIdSchema,
+  note: noteIdSchema,
   recording: recordingIdSchema,
   name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255))
 });
 
 export const RecordingsRpc = RpcGroup.make(
   Rpc.make('createRecording', {
-    payload: { id: sessionIdSchema },
+    payload: { id: noteIdSchema },
     success: recordingViewSchema,
     error: failureSchema
   }),

@@ -11,7 +11,7 @@ import {
   quizOrderingItemIdSchema,
   matchingTermIdSchema,
   matchingDefinitionIdSchema,
-  sessionIdSchema
+  noteIdSchema
 } from '../ids.ts';
 import { contentInputSchema, contentInputKey, contentRangeSchema } from '../inputs.ts';
 import { learningCitationSchema } from './inputs.ts';
@@ -508,7 +508,7 @@ export const createMaterialVersionInputSchema = Schema.Struct({
 export const createMaterialInputSchema = Schema.Struct({
   ...createMaterialVersionInputSchema.fields,
   projectId: Schema.optional(projectIdSchema),
-  sessionId: Schema.optional(sessionIdSchema),
+  noteId: Schema.optional(noteIdSchema),
   title: Schema.Trim.check(Schema.isBetweenLength(1, 200))
 }).check(uniqueMaterialLinks);
 

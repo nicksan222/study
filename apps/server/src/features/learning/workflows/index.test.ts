@@ -29,9 +29,9 @@ import { Effect, Layer, Option, Schema } from 'effect';
 import { Activity, DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/service/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
@@ -117,7 +117,7 @@ testStable(
           .pipe(
             Layer.provideMerge(Settings.layer),
             Layer.provideMerge(Materials.layer),
-            Layer.provideMerge(Documents.layer)
+            Layer.provideMerge(Pages.layer)
           )
           .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context }))),
         agentsLayer({
@@ -138,7 +138,7 @@ testStable(
               .pipe(
                 Layer.provideMerge(Settings.layer),
                 Layer.provideMerge(Materials.layer),
-                Layer.provideMerge(Documents.layer)
+                Layer.provideMerge(Pages.layer)
               )
               .pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })))
           )
@@ -364,7 +364,7 @@ testStable(
       Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),
         Layer.provideMerge(Materials.layer),
-        Layer.provideMerge(Documents.layer)
+        Layer.provideMerge(Pages.layer)
       ),
       workflowEngineLayer(context)
     ).pipe(Layer.provideMerge(dbLayer));
@@ -382,7 +382,7 @@ testStable(
             const materials = yield* Materials;
             const learning = yield* Learning;
             const engine = yield* WorkflowEngine.WorkflowEngine;
-            const doc = yield* (yield* Documents).create({
+            const doc = yield* (yield* Pages).create({
               createKey: randomUUID(),
               inputs: [],
               citations: [],
@@ -406,7 +406,7 @@ testStable(
 
             yield* learning.startPractice({
               projectId: project.id,
-              inputs: [{ kind: 'document', versionId: doc.version!.id }]
+              inputs: [{ kind: 'page', versionId: doc.version!.id }]
             });
             const event = decodeEvent(
               context.db.orm
@@ -635,7 +635,7 @@ testStable(
                     citations: [
                       {
                         marker: 1n,
-                        input: { kind: 'document', versionId: doc.version!.id },
+                        input: { kind: 'page', versionId: doc.version!.id },
                         blockOrdinal: 0,
                         quote: 'Practice source'
                       }
@@ -736,7 +736,7 @@ testStable(
             yield* learning.stopPractice({ projectId: project.id });
             yield* learning.startPractice({
               projectId: project.id,
-              inputs: [{ kind: 'document', versionId: doc.version!.id }]
+              inputs: [{ kind: 'page', versionId: doc.version!.id }]
             });
             const replay = yield* learning.answerPracticeQuestion({
               slotId: ready.slotId,

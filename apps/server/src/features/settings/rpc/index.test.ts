@@ -54,7 +54,7 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
           expect(yield* client('settings.agentRules', {})).toStrictEqual(defaultAgentRules);
           const rules = {
             ...defaultAgentRules,
-            documents: 'Keep worked examples.',
+            pages: 'Keep worked examples.',
             titles: 'Use descriptive titles.'
           };
 
@@ -63,7 +63,7 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
           expect(
             Exit.isFailure(
               yield* Effect.exit(
-                client('settings.saveAgentRules', { ...rules, documents: 'x'.repeat(8001) })
+                client('settings.saveAgentRules', { ...rules, pages: 'x'.repeat(8001) })
               )
             )
           ).toBe(true);

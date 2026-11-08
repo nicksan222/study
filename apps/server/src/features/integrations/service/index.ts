@@ -139,11 +139,11 @@ export const Integrations = defineService(
             attempt: 0,
             warnings: plan.warnings,
             errorKind: null,
-            items: plan.sessions.map((note) => ({
+            items: plan.notes.map((note) => ({
               key: note.key,
               title: note.title,
               status: 'pending',
-              sessionId: null,
+              noteId: null,
               errorKind: null
             }))
           };

@@ -1,31 +1,31 @@
-import type { StudyDocumentId, StudyDocumentVersionId } from '@study/contracts/ids';
+import type { PageId, PageVersionId } from '@study/contracts/ids';
 import { mutationOptions, queryOptions } from '@tanstack/react-query';
 
 import { request } from '#web/lib/study-client/request.ts';
 
 type Intent = {
-  documentId: StudyDocumentId;
+  pageId: PageId;
   mode?: 'item' | 'version';
-  versionId?: StudyDocumentVersionId;
+  versionId?: PageVersionId;
 };
 
-export const notebookDeletionPreviewOptions = ({ documentId, mode, versionId }: Intent) =>
+export const notebookDeletionPreviewOptions = ({ pageId, mode, versionId }: Intent) =>
   queryOptions({
-    queryKey: ['documents', 'notebook-deletion', String(documentId), mode, String(versionId)],
+    queryKey: ['pages', 'notebook-deletion', String(pageId), mode, String(versionId)],
     enabled: mode === 'item' || (mode === 'version' && versionId !== undefined),
     retry: false,
     queryFn: ({ signal }) =>
       request(
         (rpc) =>
           mode === 'item'
-            ? rpc['documents.previewDeletion']({ id: documentId })
-            : rpc['documents.previewHistory']({ documentId, keepLatest: 1, versionId }),
+            ? rpc['pages.previewDeletion']({ id: pageId })
+            : rpc['pages.previewHistory']({ pageId, keepLatest: 1, versionId }),
         signal
       )
   });
 
 export const notebookDeletionOptions = ({
-  documentId,
+  pageId,
   mode,
   versionId,
   token
@@ -35,10 +35,10 @@ export const notebookDeletionOptions = ({
     mutationFn: async () => {
       if (!token) return;
 
-      if (mode === 'item') await request((rpc) => rpc['documents.delete']({ documentId, token }));
+      if (mode === 'item') await request((rpc) => rpc['pages.delete']({ pageId, token }));
       else
         await request((rpc) =>
-          rpc['documents.retireHistory']({ documentId, keepLatest: 1, versionId, token })
+          rpc['pages.retireHistory']({ pageId, keepLatest: 1, versionId, token })
         );
     }
   });

@@ -1,4 +1,4 @@
-import type { ProjectId, MaterialId, SessionId } from '@study/contracts/ids';
+import type { ProjectId, MaterialId, NoteId } from '@study/contracts/ids';
 import { queryOptions, useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
@@ -44,11 +44,11 @@ export function materialMembership(projectId: ProjectId, materialId: MaterialId,
   );
 }
 
-export function sessionMembership(projectId: ProjectId, sessionId: SessionId, add: boolean) {
+export function noteMembership(projectId: ProjectId, noteId: NoteId, add: boolean) {
   return request((client) =>
     add
-      ? client['projects.addSession']({ projectId, sessionId })
-      : client['projects.removeSession']({ projectId, sessionId })
+      ? client['projects.addNote']({ projectId, noteId })
+      : client['projects.removeNote']({ projectId, noteId })
   );
 }
 

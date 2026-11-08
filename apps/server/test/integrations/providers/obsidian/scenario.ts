@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Verifies a real Obsidian vault becomes editable Study sessions.                    │
+ * │ @file Verifies a real Obsidian vault becomes editable Study notes.                       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Creates vault content through the running application.                                 │
@@ -83,36 +83,34 @@ function scenario() {
 
     expect(result.status).toBe('completed');
     expect(result.items.map((item) => item.status)).toEqual(['imported', 'imported', 'excluded']);
-    const sessions = yield* client['conversations.sessions']({ limit: 100 });
+    const notes = yield* client['notes.notes']({ limit: 100 });
 
-    expect(sessions.items.map((item) => item.title).sort()).toEqual(['Cell biology', 'DNA']);
-    const documents = yield* client['documents.documents']({ limit: 100, archived: false });
+    expect(notes.items.map((item) => item.title).sort()).toEqual(['Cell biology', 'DNA']);
+    const documents = yield* client['pages.pages']({ limit: 100, archived: false });
     const cells = documents.items.find((item) => item.title === 'Cell biology');
 
     expect(cells).toBeTruthy();
-    const detail = yield* client['documents.document']({ id: cells!.id });
+    const detail = yield* client['pages.page']({ id: cells!.id });
 
     expect(detail.version).toBeTruthy();
     expect(
       detail.version!.document.blocks.some((block) => block.text.includes('genetic material'))
     ).toBeTruthy();
-    const dnaSession = result.items.find((item) => item.key === 'Biology/DNA.md')!.sessionId;
+    const dnaNote = result.items.find((item) => item.key === 'Biology/DNA.md')!.noteId;
     const links = detail
       .version!.document.blocks.flatMap((block) =>
         block.content.type === 'paragraph' ? block.content.inlines : []
       )
       .filter((inline) => inline.type === 'link');
 
-    expect(links).toEqual([
-      { type: 'link', text: 'genetic material', href: `/session/${dnaSession}` }
-    ]);
+    expect(links).toEqual([{ type: 'link', text: 'genetic material', href: `/note/${dnaNote}` }]);
     const sources = yield* client['sources.sources']({ limit: 100 });
     const svg = sources.items.find((item) => item.name === 'cell.svg');
 
     expect(svg).toBeTruthy();
-    const cellSession = result.items.find((item) => item.key === 'Biology/Cells.md')!.sessionId;
-    const thread = yield* client['conversations.thread']({
-      sessionId: cellSession!,
+    const cellNote = result.items.find((item) => item.key === 'Biology/Cells.md')!.noteId;
+    const thread = yield* client['notes.thread']({
+      noteId: cellNote!,
       limit: 100
     });
 
@@ -145,7 +143,7 @@ function scenario() {
     }
 
     expect(second.items.map((item) => item.status)).toEqual(['unchanged', 'unchanged', 'excluded']);
-    expect((yield* client['conversations.sessions']({ limit: 100 })).items.length).toBe(2);
+    expect((yield* client['notes.notes']({ limit: 100 })).items.length).toBe(2);
   });
 }
 

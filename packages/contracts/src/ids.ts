@@ -12,9 +12,9 @@ export const sourceIdSchema = positiveId.pipe(Schema.brand('SourceId'));
 
 export type SourceId = typeof sourceIdSchema.Type;
 
-export const sessionIdSchema = positiveId.pipe(Schema.brand('SessionId'));
+export const noteIdSchema = positiveId.pipe(Schema.brand('NoteId'));
 
-export type SessionId = typeof sessionIdSchema.Type;
+export type NoteId = typeof noteIdSchema.Type;
 
 export const messageIdSchema = positiveId.pipe(Schema.brand('MessageId'));
 
@@ -64,19 +64,17 @@ export const materialCardIdSchema = positiveId.pipe(Schema.brand('MaterialCardId
 
 export type MaterialCardId = typeof materialCardIdSchema.Type;
 
-export const studyDocumentIdSchema = positiveId.pipe(Schema.brand('StudyDocumentId'));
+export const pageIdSchema = positiveId.pipe(Schema.brand('PageId'));
 
-export type StudyDocumentId = typeof studyDocumentIdSchema.Type;
+export type PageId = typeof pageIdSchema.Type;
 
-export const studyDocumentVersionIdSchema = positiveId.pipe(Schema.brand('StudyDocumentVersionId'));
+export const pageVersionIdSchema = positiveId.pipe(Schema.brand('PageVersionId'));
 
-export type StudyDocumentVersionId = typeof studyDocumentVersionIdSchema.Type;
+export type PageVersionId = typeof pageVersionIdSchema.Type;
 
-export const studyDocumentAnnotationIdSchema = positiveId.pipe(
-  Schema.brand('StudyDocumentAnnotationId')
-);
+export const pageAnnotationIdSchema = positiveId.pipe(Schema.brand('PageAnnotationId'));
 
-export type StudyDocumentAnnotationId = typeof studyDocumentAnnotationIdSchema.Type;
+export type PageAnnotationId = typeof pageAnnotationIdSchema.Type;
 
 export const quizOrderingItemIdSchema = positiveId.pipe(Schema.brand('QuizOrderingItemId'));
 

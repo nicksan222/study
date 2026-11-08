@@ -67,9 +67,7 @@ export function SourceDeletion({
         {(view.preview.error || view.remove.error) && (
           <ErrorState
             title={t('SourceDeleteFailed')}
-            action={
-              <Button onClick={() => void view.preview.refetch()}>{t('DocumentPreview')}</Button>
-            }
+            action={<Button onClick={() => void view.preview.refetch()}>{t('PagePreview')}</Button>}
           />
         )}
       </DangerDialog>

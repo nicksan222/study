@@ -25,7 +25,7 @@ export type { EditorImageReference, StructuredEditorLabels } from './structured-
 export type StructuredEditorValue = JSONContent;
 
 const identity = Extension.create({
-  name: 'documentIdentity',
+  name: 'pageIdentity',
   addGlobalAttributes: () => [
     {
       types: [
@@ -50,7 +50,7 @@ const identity = Extension.create({
 });
 
 const retainedList = Node.create({
-  name: 'documentList',
+  name: 'pageList',
   group: 'block',
   content: '(bulletList | orderedList)*',
   addAttributes: () => ({ blockId: { default: null, rendered: false } }),

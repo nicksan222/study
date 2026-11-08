@@ -21,13 +21,13 @@ import {
 import type { ReactNode } from 'react';
 import { useContext } from 'react';
 
-import { useNewBlankDocument } from '#web/features/authored-documents/index.ts';
 import { ReplayContext } from '#web/features/onboarding/index.tsx';
+import { useNewBlankPage } from '#web/features/pages/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 const destinations = [
-  ['/sessions', 'Sessions', MessagesSquare],
-  ['/documents', 'SourceDocument', FileText],
+  ['/notes', 'Notes', MessagesSquare],
+  ['/pages', 'SourcePage', FileText],
   ['/practice', 'Practice', GraduationCap]
 ] as const;
 
@@ -49,12 +49,12 @@ export function DefaultContextMenu({
   const { t } = useI18n();
   const navigate = useNavigate();
   const replay = useContext(ReplayContext);
-  const document = useNewBlankDocument(project);
+  const document = useNewBlankPage(project);
   const search = project ? { project: String(project) } : {};
 
-  async function createDocument() {
+  async function createPage() {
     if (!(await document.create())) {
-      toastManager.add({ type: 'error', title: t('SessionActionErrorTitle') });
+      toastManager.add({ type: 'error', title: t('NoteActionErrorTitle') });
     }
   }
 
@@ -72,17 +72,14 @@ export function DefaultContextMenu({
       <ContextMenuPopup aria-label={t('WorkspaceShortcuts')}>
         <ContextMenuItem
           disabled={disabled}
-          onClick={() => void navigate({ to: '/sessions', search })}
+          onClick={() => void navigate({ to: '/notes', search })}
         >
           <SquarePen aria-hidden="true" />
-          {t('NewSession')}
+          {t('NewNote')}
         </ContextMenuItem>
-        <ContextMenuItem
-          disabled={disabled || document.pending}
-          onClick={() => void createDocument()}
-        >
+        <ContextMenuItem disabled={disabled || document.pending} onClick={() => void createPage()}>
           <FilePlus2 aria-hidden="true" />
-          {t('DocumentNew')}
+          {t('PageNew')}
         </ContextMenuItem>
         <ContextMenuSeparator />
         {destinations.map(([to, label, Icon]) => (

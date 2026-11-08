@@ -24,8 +24,8 @@ testStable(
       ]
     });
 
-    expect(plan.sessions.map((item) => item.key)).toEqual(['Biology/Cells.md', 'Biology/DNA.md']);
-    expect(plan.sessions[0]).toMatchObject({
+    expect(plan.notes.map((item) => item.key)).toEqual(['Biology/Cells.md', 'Biology/DNA.md']);
+    expect(plan.notes[0]).toMatchObject({
       title: 'Cell biology',
       text: '# Cells\n\nSee [[DNA|genes]] and ![[images/cell.png]].',
       metadata: 'title: "Cell biology"\ntags: [science]',
@@ -61,13 +61,13 @@ testStable(
       ]
     });
 
-    expect(plan.sessions.find((item) => item.key === 'Home.md')?.links).toEqual([]);
+    expect(plan.notes.find((item) => item.key === 'Home.md')?.links).toEqual([]);
     expect(plan.warnings.map((warning) => warning.code)).toEqual([
       'ambiguous_link',
       'missing_link',
       'missing_attachment'
     ]);
-    expect(plan.sessions.find((item) => item.key === 'Home.md')?.text).toContain('[[Missing]]');
+    expect(plan.notes.find((item) => item.key === 'Home.md')?.text).toContain('[[Missing]]');
   }
 );
 

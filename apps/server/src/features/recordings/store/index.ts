@@ -13,7 +13,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import { recordingIdSchema, sessionIdSchema } from '@study/contracts/ids';
+import { recordingIdSchema, noteIdSchema } from '@study/contracts/ids';
 import {
   appendRecordingInputSchema,
   postRecordingInputSchema,
@@ -21,7 +21,7 @@ import {
 } from '@study/contracts/recordings/rpc';
 import { recordingPostSchema, recordingViewSchema } from '@study/contracts/recordings/schemas';
 import { and, asc, desc, eq, lt, sql } from '@study/db';
-import { recording_chunks, recording_posts, recordings, sessions } from '@study/db/schema';
+import { recording_chunks, recording_posts, recordings, notes } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
 import {
@@ -56,7 +56,7 @@ function makeHelpers({ db }: StoreResources) {
 
     return {
       id: row.id,
-      sessionId: row.session_id,
+      noteId: row.note_id,
       startedAt: row.started_at,
       updatedAt: row.updated_at,
       samples: sum?.samples ?? 0n
@@ -71,7 +71,7 @@ function makeHelpers({ db }: StoreResources) {
     return {
       requestId: row.request_id,
       recordingId: row.recording_id,
-      sessionId: row.session_id,
+      noteId: row.note_id,
       sourceId: row.source_id,
       messageId: row.message_id
     };
@@ -139,14 +139,14 @@ export const RecordingStore = defineStore({
       },
       mutations: {
         createRecording: storeMutation({
-          input: sessionIdSchema,
+          input: noteIdSchema,
           output: recordingViewSchema,
           run: (id) => {
-            required(db.orm.select().from(sessions).where(eq(sessions.id, id)).get());
+            required(db.orm.select().from(notes).where(eq(notes.id, id)).get());
             const at = unixSeconds(clock);
             const row = db.orm
               .insert(recordings)
-              .values({ session_id: id, started_at: at, updated_at: at })
+              .values({ note_id: id, started_at: at, updated_at: at })
               .returning()
               .get();
 
@@ -224,8 +224,8 @@ export const RecordingPostStore = defineStore({
           run: (input) => {
             const record = required(recording(input.recording));
 
-            if (record.sessionId !== input.session)
-              throw new StudyError('invalid_input', 'Recording belongs to another session');
+            if (record.noteId !== input.note)
+              throw new StudyError('invalid_input', 'Recording belongs to another note');
 
             const existing = db.orm
               .select()
@@ -244,7 +244,7 @@ export const RecordingPostStore = defineStore({
             }
 
             mutable(input.recording);
-            required(db.orm.select().from(sessions).where(eq(sessions.id, input.session)).get());
+            required(db.orm.select().from(notes).where(eq(notes.id, input.note)).get());
             const chunks = db.orm
               .select({ pcm: recording_chunks.pcm })
               .from(recording_chunks)
@@ -258,7 +258,7 @@ export const RecordingPostStore = defineStore({
               .values({
                 request_id: input.requestId,
                 recording_id: input.recording,
-                session_id: input.session,
+                note_id: input.note,
                 project_id: null,
                 name: input.name.trim(),
                 wav: Buffer.from(wav),
@@ -317,13 +317,9 @@ export const RecordingPostSnapshotStore = defineStore({
                 .where(eq(recording_posts.request_id, requestId))
                 .get()
             );
-            const session = db.orm
-              .select()
-              .from(sessions)
-              .where(eq(sessions.id, row.session_id))
-              .get();
+            const note = db.orm.select().from(notes).where(eq(notes.id, row.note_id)).get();
 
-            if (!session) throw new StudyError('invalid_input', 'Recording session is unavailable');
+            if (!note) throw new StudyError('invalid_input', 'Recording note is unavailable');
 
             return {
               ...post(requestId),

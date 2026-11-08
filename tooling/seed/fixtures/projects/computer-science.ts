@@ -3,11 +3,11 @@ import { choice, multipleChoice } from '#tooling/seed/builders/quiz';
 import {
   createProject,
   createSource,
-  createDocument,
+  createPage,
   createFlashcards,
   createQuiz,
   createDiagram,
-  createConversation
+  createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
 
@@ -29,7 +29,7 @@ export function createComputerScience(seed: SeedHarness) {
     project,
     textFile(new URL('../files/transactions.ts', import.meta.url))
   );
-  const review = createDocument(project, {
+  const review = createPage(project, {
     title: 'Relational databases — review',
     description:
       'Model stable identities and relationships, inspect query plans, and protect invariants with constraints and transactions.',
@@ -51,7 +51,7 @@ export function createComputerScience(seed: SeedHarness) {
       )
     ]
   });
-  const workbook = createDocument(project, {
+  const workbook = createPage(project, {
     title: 'Computer Science — workshop',
     blocks: [
       paragraph('List every course, including those with no enrolments.'),
@@ -113,7 +113,7 @@ export function createComputerScience(seed: SeedHarness) {
     'erDiagram\nSTUDENT ||--o{ ENROLMENT : has\nCOURSE ||--o{ ENROLMENT : contains\nSTUDENT {\n int id PK\n}\nCOURSE {\n int id PK\n}\nENROLMENT {\n int student_id FK\n int course_id FK\n}'
   );
 
-  createConversation(project, {
+  createNote(project, {
     title: 'Relational modelling',
     daysAgo: 14,
     exchanges: [
@@ -123,10 +123,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [relationalNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Primary keys',
     daysAgo: 13,
     exchanges: [
@@ -136,10 +136,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [indexingQueries],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Normalisation',
     daysAgo: 12,
     exchanges: [
@@ -149,10 +149,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [transactionExample],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'SQL joins',
     daysAgo: 11,
     exchanges: [
@@ -162,10 +162,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [relationalNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Indexes',
     daysAgo: 10,
     exchanges: [
@@ -175,10 +175,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [indexingQueries],
-    documents: [review],
+    pages: [review],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Query plans',
     daysAgo: 9,
     exchanges: [
@@ -188,10 +188,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [transactionExample],
-    documents: [workbook],
+    pages: [workbook],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Transaction boundaries',
     daysAgo: 8,
     exchanges: [
@@ -201,10 +201,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [relationalNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Isolation',
     daysAgo: 7,
     exchanges: [
@@ -214,10 +214,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [indexingQueries],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Migrations',
     daysAgo: 6,
     exchanges: [
@@ -227,10 +227,10 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [transactionExample],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Recovery exercise',
     daysAgo: 5,
     exchanges: [
@@ -240,7 +240,7 @@ export function createComputerScience(seed: SeedHarness) {
       ]
     ],
     sources: [relationalNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
 }

@@ -21,7 +21,7 @@ export default defineRule({
       'window',
       'document',
       'localStorage',
-      'sessionStorage',
+      'noteStorage',
       'navigator',
       'location',
       'history',

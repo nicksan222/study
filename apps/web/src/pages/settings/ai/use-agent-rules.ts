@@ -12,7 +12,7 @@ import {
 export function useAgentRules() {
   const client = useQueryClient();
   const query = useQuery(agentRulesOptions());
-  const [selected, setSelected] = useState<AgentRule>(AgentRule.Documents);
+  const [selected, setSelected] = useState<AgentRule>(AgentRule.Pages);
   const [draft, setDraft] = useState<Partial<AgentRules>>({});
   const mutation = useMutation({
     ...saveAgentRulesOptions(),

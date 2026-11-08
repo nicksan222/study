@@ -41,23 +41,23 @@ testStable('scoped generation requests require a live scope in their own project
     db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
       INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1),('closed',1,0,1,1);`);
     db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-      VALUES('valid',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"document","versionId":"1"}],"scopeId":"scope"}',1),
-      ('unscoped',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"document","versionId":"1"}],"scopeId":null}',1)`);
+      VALUES('valid',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"scope"}',1),
+      ('unscoped',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":null}',1)`);
     assert.throws(() =>
       db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-      VALUES('invalid-spec',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"document","versionId":"1"}],"questionSpec":{"count":2,"kind":"open"}}',1)`)
+      VALUES('invalid-spec',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"questionSpec":{"count":2,"kind":"open"}}',1)`)
     );
 
     for (const scopeId of ['missing', 'closed'])
       assert.throws(() =>
         db.exec(`
       INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-      VALUES('request',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"document","versionId":"1"}],"scopeId":"${scopeId}"}',1)`)
+      VALUES('request',1,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"${scopeId}"}',1)`)
       );
 
     assert.throws(() =>
       db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-      VALUES('other-project',2,'{"title":"Question","kind":"quiz","inputs":[{"kind":"document","versionId":"1"}],"scopeId":"scope"}',1)`)
+      VALUES('other-project',2,'{"title":"Question","kind":"quiz","inputs":[{"kind":"page","versionId":"1"}],"scopeId":"scope"}',1)`)
     );
   } finally {
     db.close();

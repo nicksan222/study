@@ -12,17 +12,17 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { ConversationMode } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import type {
   ContentSnapshotId,
-  StudyDocumentId,
+  PageId,
   ProjectId,
   SourceId,
   ChunkId,
   MessageId,
-  SessionId
+  NoteId
 } from '@study/contracts/ids';
+import { NoteMode } from '@study/contracts/notes/schemas';
 import type { searchHitSchema } from '@study/contracts/system/schemas';
 
 type PublicTarget = typeof searchHitSchema.Type.target;
@@ -33,7 +33,7 @@ type QuestionTarget = Extract<PublicTarget, { type: 'question' }>;
 
 type SearchTarget =
   | { type: 'project'; id: ProjectId }
-  | { type: 'session'; id: SessionId }
+  | { type: 'note'; id: NoteId }
   | { type: 'source'; id: SourceId }
   | { type: 'message'; id: MessageId }
   | {
@@ -43,7 +43,7 @@ type SearchTarget =
       sourceId: SourceId;
       anchor: typeof anchorSchema.Type;
     }
-  | { type: 'document'; id: StudyDocumentId }
+  | { type: 'page'; id: PageId }
   | { type: 'material'; id: MaterialTarget['materialId'] }
   | { type: 'question'; id: QuestionTarget['questionId'] };
 
@@ -74,12 +74,12 @@ export function makeSearch({ db }: StoreResources) {
 
     const kinds = options.kinds ?? [
       'project',
-      'session',
+      'note',
       'source',
       'passage',
       'message',
       'material',
-      'document',
+      'page',
       'question'
     ];
     const project = options.projectId ?? null;
@@ -89,7 +89,7 @@ export function makeSearch({ db }: StoreResources) {
     searchMessages(expression, kinds, project, limit, hits);
     searchCatalog(expression, kinds, project, limit, hits);
     searchNames(query, kinds, project, limit, hits);
-    searchDocuments(tokens, kinds, project, limit, hits);
+    searchPages(tokens, kinds, project, limit, hits);
 
     return hits.sort((a, b) => a.rank - b.rank).slice(0, limit);
   }
@@ -131,7 +131,7 @@ export function makeSearch({ db }: StoreResources) {
   ) {
     if (kinds.includes('message')) {
       const rows = db.orm.all(
-        sql`SELECT m.id,m.session_id,NULL AS project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN sessions s ON s.id=m.session_id WHERE message_fts MATCH ${expression} AND s.mode = ${ConversationMode.Notebook} AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=s.id AND ps.project_id=${project})) ORDER BY rank LIMIT ${limit}`
+        sql`SELECT m.id,m.note_id,NULL AS project_id,v.text,bm25(message_fts) AS rank FROM message_fts JOIN message_versions v ON v.id=message_fts.rowid JOIN messages m ON m.active_version_id=v.id JOIN notes s ON s.id=m.note_id WHERE message_fts MATCH ${expression} AND s.mode = ${NoteMode.Notebook} AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_notes ps WHERE ps.note_id=s.id AND ps.project_id=${project})) ORDER BY rank LIMIT ${limit}`
       );
 
       for (const r of rows)
@@ -155,7 +155,7 @@ export function makeSearch({ db }: StoreResources) {
     hits: SearchHit[]
   ) {
     const catalog: SearchKind[] = kinds.filter((k) =>
-      ['project', 'session', 'source', 'material', 'question'].includes(k)
+      ['project', 'note', 'source', 'material', 'question'].includes(k)
     );
 
     if (catalog.length) {
@@ -163,11 +163,11 @@ export function makeSearch({ db }: StoreResources) {
         sql`SELECT kind,target_id,project_id,text,bm25(catalog_fts) AS rank FROM catalog_fts WHERE catalog_fts MATCH ${expression} AND kind IN (${sql.join(
           catalog.map((kind) => sql`${kind}`),
           sql`, `
-        )}) AND (kind != 'session' OR EXISTS(SELECT 1 FROM sessions s WHERE s.id=CAST(target_id AS INTEGER) AND s.mode=${ConversationMode.Notebook})) AND (kind NOT IN ('material','question') OR EXISTS(SELECT 1 FROM materials m WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND EXISTS(SELECT 1 FROM material_versions v WHERE v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id=m.id AND latest.status='published') AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND (catalog_fts.kind='material' AND m.id=CAST(target_id AS INTEGER) OR catalog_fts.kind='question' AND EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=v.id AND q.id=CAST(target_id AS INTEGER)))))) AND (${project} IS NULL OR
+        )}) AND (kind != 'note' OR EXISTS(SELECT 1 FROM notes s WHERE s.id=CAST(target_id AS INTEGER) AND s.mode=${NoteMode.Notebook})) AND (kind NOT IN ('material','question') OR EXISTS(SELECT 1 FROM materials m WHERE m.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM material_deletion_members d WHERE d.material_id=m.id) AND EXISTS(SELECT 1 FROM material_versions v WHERE v.material_id=m.id AND v.status='published' AND v.number=(SELECT max(latest.number) FROM material_versions latest WHERE latest.material_id=m.id AND latest.status='published') AND NOT EXISTS(SELECT 1 FROM material_history_members h WHERE h.version_id=v.id) AND (catalog_fts.kind='material' AND m.id=CAST(target_id AS INTEGER) OR catalog_fts.kind='question' AND EXISTS(SELECT 1 FROM material_quiz_questions q WHERE q.version_id=v.id AND q.id=CAST(target_id AS INTEGER)))))) AND (${project} IS NULL OR
  (kind='material' AND EXISTS(SELECT 1 FROM project_materials pm WHERE pm.material_id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
  (kind='question' AND EXISTS(SELECT 1 FROM project_materials pm JOIN material_versions v ON v.material_id=pm.material_id JOIN material_quiz_questions q ON q.version_id=v.id WHERE q.id=CAST(target_id AS INTEGER) AND pm.project_id=${project})) OR
- (kind='session' AND EXISTS(SELECT 1 FROM project_sessions ps WHERE ps.session_id=CAST(target_id AS INTEGER) AND ps.project_id=${project})) OR
- (kind NOT IN ('material','question','session') AND CAST(project_id AS INTEGER)=${project})) ORDER BY rank,kind,CAST(target_id AS INTEGER) LIMIT ${limit}`
+ (kind='note' AND EXISTS(SELECT 1 FROM project_notes ps WHERE ps.note_id=CAST(target_id AS INTEGER) AND ps.project_id=${project})) OR
+ (kind NOT IN ('material','question','note') AND CAST(project_id AS INTEGER)=${project})) ORDER BY rank,kind,CAST(target_id AS INTEGER) LIMIT ${limit}`
       );
 
       for (const r of rows) {
@@ -190,24 +190,24 @@ export function makeSearch({ db }: StoreResources) {
     }
   }
 
-  function searchDocuments(
+  function searchPages(
     tokens: string[],
     kinds: readonly SearchKind[],
     project: ProjectId | null,
     limit: number,
     hits: SearchHit[]
   ) {
-    if (!kinds.includes('document')) return;
+    if (!kinds.includes('page')) return;
 
     const body = sql`coalesce((SELECT group_concat(b.text,char(10)) FROM blocks b WHERE b.document_id=v.content_snapshot_id),'')`;
     const searchable = sql`d.title || char(10) || coalesce(d.description,'') || char(10) || ${body}`;
     const rows = db.orm.all(sql`SELECT d.id,substr(${searchable},1,400) AS text
-      FROM study_documents d JOIN study_document_versions v ON v.document_id=d.id
-      AND v.status='published' AND v.number=(SELECT max(h.number) FROM study_document_versions h
-        WHERE h.document_id=d.id AND h.status='published')
-      WHERE d.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM study_document_deletions x WHERE x.document_id=d.id)
-      AND NOT EXISTS(SELECT 1 FROM study_document_retirements x WHERE x.version_id=v.id)
-      AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_documents p WHERE p.document_id=d.id AND p.project_id=${project}))
+      FROM pages d JOIN page_versions v ON v.page_id=d.id
+      AND v.status='published' AND v.number=(SELECT max(h.number) FROM page_versions h
+        WHERE h.page_id=d.id AND h.status='published')
+      WHERE d.archived_at IS NULL AND NOT EXISTS(SELECT 1 FROM page_deletions x WHERE x.page_id=d.id)
+      AND NOT EXISTS(SELECT 1 FROM page_retirements x WHERE x.version_id=v.id)
+      AND (${project} IS NULL OR EXISTS(SELECT 1 FROM project_pages p WHERE p.page_id=d.id AND p.project_id=${project}))
       AND ${sql.join(
         tokens.map((token) => sql`instr(lower(${searchable}),lower(${token}))>0`),
         sql` AND `
@@ -216,7 +216,7 @@ export function makeSearch({ db }: StoreResources) {
 
     for (const row of rows)
       hits.push({
-        target: { type: 'document', id: row.id as StudyDocumentId },
+        target: { type: 'page', id: row.id as PageId },
         projectId: project,
         text: row.text as string,
         rank: 0
@@ -230,7 +230,7 @@ export function makeSearch({ db }: StoreResources) {
     limit: number,
     hits: SearchHit[]
   ) {
-    for (const kind of ['project', 'session', 'source'] as const) {
+    for (const kind of ['project', 'note', 'source'] as const) {
       if (!kinds.includes(kind)) continue;
 
       for (const row of nameRows(kind, query, project, limit)) {
@@ -247,24 +247,24 @@ export function makeSearch({ db }: StoreResources) {
   }
 
   function nameRows(
-    kind: 'project' | 'session' | 'source',
+    kind: 'project' | 'note' | 'source',
     query: string,
     project: ProjectId | null,
     limit: number
   ) {
     const table =
-      kind === 'project' ? schema.projects : kind === 'session' ? schema.sessions : schema.sources;
+      kind === 'project' ? schema.projects : kind === 'note' ? schema.notes : schema.sources;
     const label =
-      kind === 'session'
-        ? schema.sessions.title
+      kind === 'note'
+        ? schema.notes.title
         : kind === 'project'
           ? schema.projects.name
           : schema.sources.name;
     const scope =
       kind === 'project'
         ? schema.projects.id
-        : kind === 'session'
-          ? schema.sessions.id
+        : kind === 'note'
+          ? schema.notes.id
           : schema.sources.project_id;
     const pattern = `%${query.replaceAll('\\', '\\\\').replaceAll('%', '\\%').replaceAll('_', '\\_')}%`;
 
@@ -272,7 +272,7 @@ export function makeSearch({ db }: StoreResources) {
       .select({ id: table.id, projectId: scope, text: label })
       .from(table)
       .where(
-        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND ${kind === 'session' ? sql`${schema.sessions.mode} = ${ConversationMode.Notebook}` : sql`1`} AND (${project} IS NULL OR ${kind === 'session' ? sql`EXISTS (SELECT 1 FROM project_sessions ps WHERE ps.session_id = ${schema.sessions.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
+        sql`${label} LIKE ${pattern} ESCAPE ${'\\'} AND ${kind === 'note' ? sql`${schema.notes.mode} = ${NoteMode.Notebook}` : sql`1`} AND (${project} IS NULL OR ${kind === 'note' ? sql`EXISTS (SELECT 1 FROM project_notes ps WHERE ps.note_id = ${schema.notes.id} AND ps.project_id = ${project})` : sql`${scope}=${project}`})`
       )
       .limit(limit)
       .all();
@@ -284,8 +284,8 @@ export function makeSearch({ db }: StoreResources) {
 function catalogTarget(kind: unknown, id: bigint): SearchTarget | undefined {
   return kind === 'project'
     ? { type: 'project', id: id as ProjectId }
-    : kind === 'session'
-      ? { type: 'session', id: id as SessionId }
+    : kind === 'note'
+      ? { type: 'note', id: id as NoteId }
       : kind === 'source'
         ? { type: 'source', id: id as SourceId }
         : kind === 'material'

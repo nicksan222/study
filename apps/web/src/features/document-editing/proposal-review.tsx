@@ -1,4 +1,4 @@
-import type { proposalOutcomeSchema } from '@study/contracts/documents/editing';
+import type { proposalOutcomeSchema } from '@study/contracts/pages/editing';
 import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
@@ -7,14 +7,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#web/lib/i18n.tsx';
-import { documentVersionOptions } from '#web/lib/study-client/documents.queries.ts';
+import { pageVersionOptions } from '#web/lib/study-client/pages.queries.ts';
 
-import { ComparisonView } from './document-actions';
+import { ComparisonView } from './page-actions';
 import { useProposalReview } from './proposal-review.queries';
 
 type Outcome = typeof proposalOutcomeSchema.Type;
 
-/** Session result cards supply their committed request identity. */
+/** Note result cards supply their committed request identity. */
 type ProposalView = ReturnType<typeof useProposalReview>;
 
 export function ProposalReview({ requestId }: { requestId: string }) {
@@ -23,28 +23,28 @@ export function ProposalReview({ requestId }: { requestId: string }) {
 
   return (
     <DocumentEditing.Proposal>
-      <h3>{t('DocumentProposal')}</h3>
+      <h3>{t('PageProposal')}</h3>
       <ProposalActions view={view} />
       {comparison.isError && (
         <ErrorState
           title={t('ErrorStateTitle')}
-          description={t('DocumentActionFailed')}
+          description={t('PageActionFailed')}
           action={<Button onClick={() => void comparison.refetch()}>{t('LibraryRefresh')}</Button>}
         />
       )}
       {outcome && (
         <StatusMessage>
-          {t(outcome.outcome === 'conflict' ? 'DocumentConflict' : 'DocumentProposalSaved')}
+          {t(outcome.outcome === 'conflict' ? 'PageConflict' : 'PageProposalSaved')}
         </StatusMessage>
       )}
-      {busy && <StatusMessage>{t('SessionSaving')}</StatusMessage>}
+      {busy && <StatusMessage>{t('NoteSaving')}</StatusMessage>}
       {outcome?.resultVersionId && <ProposalResult versionId={outcome.resultVersionId} />}
       {failed && (
-        <ErrorState title={t('ErrorStateTitle')} description={<> {t('DocumentActionFailed')} </>} />
+        <ErrorState title={t('ErrorStateTitle')} description={<> {t('PageActionFailed')} </>} />
       )}
       {attempt && !busy && (
         <Button variant="outline" onClick={() => void run(attempt)}>
-          {t('DocumentRetryProposal')}
+          {t('PageRetryProposal')}
         </Button>
       )}
     </DocumentEditing.Proposal>
@@ -53,18 +53,18 @@ export function ProposalReview({ requestId }: { requestId: string }) {
 
 function ProposalResult({ versionId }: { versionId: NonNullable<Outcome['resultVersionId']> }) {
   const { t } = useI18n();
-  const version = useQuery(documentVersionOptions(versionId));
+  const version = useQuery(pageVersionOptions(versionId));
 
   return version.isSuccess && version.data ? (
     <Link
-      to="/documents/$documentId"
-      params={{ documentId: String(version.data.documentId) }}
-      search={{ documentVersion: String(versionId) }}
+      to="/pages/$pageId"
+      params={{ pageId: String(version.data.pageId) }}
+      search={{ pageVersion: String(versionId) }}
     >
-      {t('SessionOpenOutput')}
+      {t('NoteOpenOutput')}
     </Link>
   ) : version.isError ? (
-    <ErrorState title={t('ErrorStateTitle')} description={t('SessionContextUnavailable')} />
+    <ErrorState title={t('ErrorStateTitle')} description={t('NoteContextUnavailable')} />
   ) : null;
 }
 
@@ -80,14 +80,14 @@ function ProposalActions({ view }: { view: ProposalView }) {
             disabled={busy || !!attempt || !!outcome}
             onClick={() => void act('apply', comparison.data!)}
           >
-            {t('DocumentApply')}
+            {t('PageApply')}
           </Button>
           <Button
             variant="ghost"
             disabled={busy || !!attempt || (!!outcome && outcome.outcome !== 'conflict')}
             onClick={() => void act('keep', comparison.data!)}
           >
-            {t('DocumentKeepNew')}
+            {t('PageKeepNew')}
           </Button>
         </>
       )}

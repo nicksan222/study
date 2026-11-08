@@ -53,13 +53,13 @@ testStable('requires make to return bound descriptor groups', () => {
 });
 
 testStable('bound aliases preserve each persistence boundary', () => {
-  const prefix = `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; import { sessions, workflow_executions } from '@study/db'; defineStore({make: resources => { const {db} = resources; const alias = db; return {queries: {}, mutations: {save: storeMutation({run(input) { `;
+  const prefix = `import { defineStore, storeMutation } from '#server/platform/definitions/define-store'; import { notes, workflow_executions } from '@study/db'; defineStore({make: resources => { const {db} = resources; const alias = db; return {queries: {}, mutations: {save: storeMutation({run(input) { `;
   const suffix = ` }})}}; }});`;
   const cases: [string, string][] = [
-    ['executed-query', 'alias.orm.select().from(sessions);'],
-    ['guarded-mutations', 'alias.orm.delete(sessions).run();'],
+    ['executed-query', 'alias.orm.select().from(notes);'],
+    ['guarded-mutations', 'alias.orm.delete(notes).run();'],
     ['synchronous-transactions', 'alias.transaction(async () => 1);'],
-    ['feature-persistence-boundary', 'alias.orm.update(sessions).set({}).where(predicate).run();'],
+    ['feature-persistence-boundary', 'alias.orm.update(notes).set({}).where(predicate).run();'],
     [
       'workflow-persistence-boundary',
       'alias.orm.update(workflow_executions).set({}).where(predicate).run();'
@@ -105,13 +105,10 @@ testStable('current ServerContext aliases retain resource and persistence owners
     for (const [rule, body] of [
       ['feature-layout', ''],
       ['synchronous-transactions', 'ctx.transaction(async () => 1);'],
-      [
-        'feature-persistence-boundary',
-        'ctx.db.orm.update(sessions).set({}).where(predicate).run();'
-      ]
+      ['feature-persistence-boundary', 'ctx.db.orm.update(notes).set({}).where(predicate).run();']
     ]) {
       const diagnostics = lintRule(rule, {
-        'src/features/projects/store/read.ts': `${declaration} import { sessions } from '@study/db'; function read(ctx: Alias) { ${body} }`
+        'src/features/projects/store/read.ts': `${declaration} import { notes } from '@study/db'; function read(ctx: Alias) { ${body} }`
       });
 
       assert.strictEqual(diagnostics.length, 1, `${rule}: ${JSON.stringify(diagnostics)}`);

@@ -64,7 +64,7 @@ testStable('native System RPC returns published quiz search identities', async (
           const filtered = yield* client['system.search']({
             query: 'solar',
             limit: 10,
-            kinds: ['session', 'message']
+            kinds: ['note', 'message']
           });
 
           expect(filtered.hits).toStrictEqual([]);

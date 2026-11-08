@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { messageRoleSchema } from '../conversations/schemas.ts';
+import { messageRoleSchema } from '../notes/schemas.ts';
 
 const modelMessageSchema = Schema.Struct({
   role: messageRoleSchema,

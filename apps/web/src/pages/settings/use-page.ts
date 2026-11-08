@@ -78,7 +78,7 @@ export function usePage(
         workspaceProject === undefined ? scope.project : String(workspaceProject);
 
       if (activeProject === String(id)) {
-        void navigate({ to: '/sessions', search: {}, replace: true });
+        void navigate({ to: '/notes', search: {}, replace: true });
       } else if (scope.project === String(id)) {
         void navigate({
           to: '.',

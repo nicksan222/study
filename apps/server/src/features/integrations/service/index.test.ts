@@ -19,9 +19,9 @@ import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Integrations } from '#server/features/integrations/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { serve } from '#server/runtime/server';
@@ -38,7 +38,7 @@ const input = (text = '# Cells\n\nSee [[DNA]].') => ({
 });
 
 testStable(
-  'imports through real HTTP RPC and native Workflow into editable session documents',
+  'imports through real HTTP RPC and native Workflow into editable note documents',
   async (t) => {
     const fixture = await createStudyTest(t);
     const server = fixture.manage(await serve(fixture.app));
@@ -51,7 +51,7 @@ testStable(
           const preview = yield* client['integrations.previewImport'](input());
 
           expect(preview.status).toBe('preview');
-          expect((yield* client['conversations.sessions']({ limit: 100 })).items).toHaveLength(0);
+          expect((yield* client['notes.notes']({ limit: 100 })).items).toHaveLength(0);
           yield* client['integrations.startImport']({ id: preview.id, excludedKeys: [] });
           let result = yield* client['integrations.import']({ id: preview.id });
 
@@ -62,12 +62,12 @@ testStable(
 
           expect(result.status).toBe('completed');
           expect(result.items.map((item) => item.status)).toEqual(['imported', 'imported']);
-          const sessions = yield* client['conversations.sessions']({ limit: 100 });
+          const notes = yield* client['notes.notes']({ limit: 100 });
 
-          expect(sessions.items.map((session) => session.title).sort()).toEqual(['Cells', 'DNA']);
-          const docs = yield* client['documents.documents']({ limit: 100, archived: false });
+          expect(notes.items.map((note) => note.title).sort()).toEqual(['Cells', 'DNA']);
+          const docs = yield* client['pages.pages']({ limit: 100, archived: false });
           const cells = docs.items.find((doc) => doc.title === 'Cells')!;
-          const document = yield* client['documents.document']({ id: cells.id });
+          const document = yield* client['pages.page']({ id: cells.id });
 
           expect(document.version?.document.blocks.map((block) => block.text).join('\n')).toContain(
             'Cells'
@@ -78,8 +78,8 @@ testStable(
           expect(JSON.stringify(document.version?.document)).toContain('"type":"link"');
           const original = document.version!;
 
-          const edit = yield* client['documents.save']({
-            documentId: cells.id,
+          const edit = yield* client['pages.save']({
+            pageId: cells.id,
             expectedVersionId: original.id,
             key: randomUUID(),
             document: original.document
@@ -94,7 +94,7 @@ testStable(
 );
 
 testStable(
-  'resumes a cancelled import after destination reservation without duplicate sessions',
+  'resumes a cancelled import after destination reservation without duplicate notes',
   async (t) => {
     const fixture = await createStudyTest(t);
     const preview = await fixture.run(
@@ -118,7 +118,7 @@ testStable(
       Effect.flatMap(Integrations, (service) => service.import({ id: preview.id }))
     );
 
-    expect(reserved.items.every((item) => item.sessionId !== null)).toBe(true);
+    expect(reserved.items.every((item) => item.noteId !== null)).toBe(true);
     await fixture.run(
       Effect.flatMap(Integrations, (service) => service.cancelImport({ id: preview.id }))
     );
@@ -140,13 +140,13 @@ testStable(
         }
 
         expect(state.status).toBe('completed');
-        expect(state.items.map((item) => item.sessionId)).toEqual(
-          reserved.items.map((item) => item.sessionId)
+        expect(state.items.map((item) => item.noteId)).toEqual(
+          reserved.items.map((item) => item.noteId)
         );
         expect(state.items.every((item) => item.status === 'imported')).toBe(true);
-        const conversations = yield* Conversations;
+        const notes = yield* Notes;
 
-        expect((yield* conversations.sessions({ limit: 100 })).items).toHaveLength(2);
+        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
@@ -222,10 +222,10 @@ testStable(
 
         expect(state.status).toBe('completed');
         const sources = yield* Sources;
-        const conversations = yield* Conversations;
+        const notes = yield* Notes;
 
         for (const item of state.items) {
-          const thread = yield* conversations.thread({ sessionId: item.sessionId!, limit: 100 });
+          const thread = yield* notes.thread({ noteId: item.noteId!, limit: 100 });
 
           expect(
             thread.items.flatMap((message) => message.parts).map((part) => part.sourceName)
@@ -282,11 +282,11 @@ testStable(
         }
 
         expect(repeated.items.map((item) => item.status)).toEqual(['conflict', 'unchanged']);
-        const conversations = yield* Conversations;
-        const documents = yield* Documents;
+        const notes = yield* Notes;
+        const documents = yield* Pages;
 
-        expect((yield* conversations.sessions({ limit: 100 })).items).toHaveLength(2);
-        expect((yield* documents.documents({ limit: 100, archived: false })).items).toHaveLength(2);
+        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(2);
+        expect((yield* documents.pages({ limit: 100, archived: false })).items).toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
@@ -294,7 +294,7 @@ testStable(
 );
 
 testStable(
-  'cancels before publication and excludes selected notes without creating sessions',
+  'cancels before publication and excludes selected notes without creating notes',
   async (t) => {
     const fixture = await createStudyTest(t);
 
@@ -308,9 +308,9 @@ testStable(
 
         expect(cancelled.status).toBe('cancelled');
         expect(cancelled.items.find((item) => item.key === 'DNA.md')?.status).toBe('excluded');
-        const conversations = yield* Conversations;
+        const notes = yield* Notes;
 
-        expect((yield* conversations.sessions({ limit: 100 })).items).toHaveLength(0);
+        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(0);
       })
     );
   }
@@ -353,9 +353,9 @@ testStable(
 
         expect(state.status).toBe('failed');
         expect(state.errorKind).toBe('not_found');
-        const conversations = yield* Conversations;
+        const notes = yield* Notes;
 
-        expect((yield* conversations.sessions({ limit: 100 })).items).toHaveLength(0);
+        expect((yield* notes.notes({ limit: 100 })).items).toHaveLength(0);
       }),
       { signal: AbortSignal.timeout(20000) }
     );
@@ -376,7 +376,7 @@ testStable('a cancelled preview cannot bypass import confirmation through retry'
         'invalid_input'
       );
       expect((yield* service.import({ id: preview.id })).status).toBe('cancelled');
-      expect((yield* (yield* Conversations).sessions({ limit: 100 })).items).toHaveLength(0);
+      expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(0);
     })
   );
 });
@@ -415,13 +415,13 @@ testStable(
         }
 
         expect(retried.status).toBe('completed');
-        expect(retried.items.map((item) => item.sessionId)).toEqual(
-          failed.items.map((item) => item.sessionId)
+        expect(retried.items.map((item) => item.noteId)).toEqual(
+          failed.items.map((item) => item.noteId)
         );
-        expect(
-          (yield* (yield* Documents).documents({ limit: 100, archived: false })).items
-        ).toHaveLength(2);
-        expect((yield* (yield* Conversations).sessions({ limit: 100 })).items).toHaveLength(2);
+        expect((yield* (yield* Pages).pages({ limit: 100, archived: false })).items).toHaveLength(
+          2
+        );
+        expect((yield* (yield* Notes).notes({ limit: 100 })).items).toHaveLength(2);
       }),
       { signal: AbortSignal.timeout(20000) }
     );

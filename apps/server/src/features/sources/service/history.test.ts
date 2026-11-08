@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { DocumentsRpc } from '@study/contracts/documents/rpc';
+import { PagesRpc } from '@study/contracts/pages/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { sql } from '@study/db';
@@ -22,8 +22,8 @@ import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
-import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
+import { Pages } from '#server/features/pages/index';
+import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { SourceStore } from '#server/features/sources/store/index';
@@ -49,8 +49,8 @@ const document = (text: string) => ({
 function fixture() {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const handlers = Layer.mergeAll(DocumentsRpcLive, SourcesRpcLive).pipe(
-    Layer.provideMerge(Layer.mergeAll(Documents.layer, Sources.layer)),
+  const handlers = Layer.mergeAll(PagesRpcLive, SourcesRpcLive).pipe(
+    Layer.provideMerge(Layer.mergeAll(Pages.layer, Sources.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
@@ -98,12 +98,12 @@ testStable(
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
-            const rpc = yield* RpcTest.makeClient(SourcesRpc.merge(DocumentsRpc));
+            const rpc = yield* RpcTest.makeClient(SourcesRpc.merge(PagesRpc));
             const saved = yield* setup();
             const [first, second] = saved.snapshots;
 
             assert.ok(first && second);
-            const copy = yield* rpc['documents.copySource']({
+            const copy = yield* rpc['pages.copySource']({
               createKey: 'history-copy',
               title: 'Independent copy',
               sourceId: saved.source.id,
@@ -112,7 +112,7 @@ testStable(
             });
 
             f.context.db.exec(
-              "INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Raw copy','user',1,1); INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'assistant',1); INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(1,1,1,'typed','complete','Historic [1]',1)"
+              "INSERT INTO notes(id,title,title_source,created_at,updated_at) VALUES(1,'Raw copy','user',1,1); INSERT INTO messages(id,note_id,role,created_at) VALUES(1,1,'assistant',1); INSERT INTO message_versions(id,message_id,number,origin,status,text,created_at) VALUES(1,1,1,'typed','complete','Historic [1]',1)"
             );
             f.context.db.orm.run(
               sql`INSERT INTO citations(version_id,marker,source_id,source_revision,document_id,source_name,anchor,quote) VALUES(1,1,${saved.source.id},1,${second},'history.txt','{"type":"paragraph","index":0}','Corrected extraction')`
@@ -146,10 +146,10 @@ testStable(
                 sql`DELETE FROM source_extraction_revisions WHERE snapshot_id=${second}`
               )
             );
-            const deletion = yield* rpc['documents.previewDeletion']({ id: copy.id });
+            const deletion = yield* rpc['pages.previewDeletion']({ id: copy.id });
 
-            yield* rpc['documents.delete']({ documentId: copy.id, token: deletion.token });
-            f.context.db.exec('DELETE FROM sessions WHERE id=1');
+            yield* rpc['pages.delete']({ pageId: copy.id, token: deletion.token });
+            f.context.db.exec('DELETE FROM notes WHERE id=1');
             assert.ok(
               (yield* Effect.flip(
                 rpc['sources.retireHistory']({

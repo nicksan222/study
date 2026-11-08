@@ -9,12 +9,12 @@ export function useSidebarSettings() {
   const cache = useQueryClient();
   const query = useQuery(sidebarSettingsOptions());
   const [draft, setDraft] = useState<string>();
-  const value = draft ?? String(query.data?.settledDocumentThreshold ?? '');
+  const value = draft ?? String(query.data?.settledPageThreshold ?? '');
   const number = Number(value);
   const valid = value.trim() !== '' && Number.isInteger(number) && number >= 1 && number <= 100;
   const mutation = useMutation({
     mutationFn: () =>
-      request((rpc) => rpc['settings.saveSidebarSettings']({ settledDocumentThreshold: number })),
+      request((rpc) => rpc['settings.saveSidebarSettings']({ settledPageThreshold: number })),
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: sidebarSettingsOptions().queryKey });
       setDraft(undefined);
@@ -27,7 +27,7 @@ export function useSidebarSettings() {
     value,
     valid,
     setDraft,
-    changed: query.data && number !== query.data.settledDocumentThreshold,
+    changed: query.data && number !== query.data.settledPageThreshold,
     save: () => {
       if (valid && query.data && !mutation.isPending) mutation.mutate();
     }

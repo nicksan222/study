@@ -16,9 +16,9 @@ import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { useMaterialLifecycle, useDeletionRecovery } from './material-lifecycle.queries';
 
 function cleanupMessage(status: 'pending' | 'running' | 'failed' | 'completed') {
-  if (status === 'completed') return 'DocumentCleanupCompleted';
+  if (status === 'completed') return 'PageCleanupCompleted';
 
-  return status === 'failed' ? 'DocumentCleanupFailed' : 'DocumentCleanupPending';
+  return status === 'failed' ? 'PageCleanupFailed' : 'PageCleanupPending';
 }
 
 type LifecycleController = ReturnType<typeof useMaterialLifecycle>;
@@ -30,7 +30,7 @@ function PruneSettings({ c }: { c: LifecycleController }) {
   return (
     <>
       {mode === 'prune' && !pruneOperation && !pruneInput && (
-        <Field label={<> {t('DocumentKeepLatest')} </>}>
+        <Field label={<> {t('PageKeepLatest')} </>}>
           <Input
             type="number"
             min={1}
@@ -63,7 +63,7 @@ function LifecyclePreview({ c }: { c: LifecycleController }) {
           }
           onClick={() => void preview()}
         >
-          {t('DocumentPreview')}
+          {t('PagePreview')}
         </Button>
       )}
     </>
@@ -78,7 +78,7 @@ function DeletionPreview({ c }: { c: LifecycleController }) {
     <>
       {deletion && mode === 'delete' && !operation && (
         <>
-          <p>{t('DocumentDeleteImpact')}</p>
+          <p>{t('PageDeleteImpact')}</p>
           <ul>
             {deletion.versionIds.map((version) => (
               <li key={String(version)}>
@@ -89,7 +89,7 @@ function DeletionPreview({ c }: { c: LifecycleController }) {
           <p>{t('LearningRetirementHelp')}</p>
 
           <Button variant="destructive-outline" disabled={busy} onClick={c.confirmDeletion}>
-            {t('DocumentConfirmDelete')}
+            {t('PageConfirmDelete')}
           </Button>
         </>
       )}
@@ -105,7 +105,7 @@ function PrunePreview({ c }: { c: LifecycleController }) {
     <>
       {prune && mode === 'prune' && !operation && (
         <>
-          <p>{t('DocumentPruneImpact')}</p>
+          <p>{t('PagePruneImpact')}</p>
           <ul>
             {prune.candidateIds.map((version) => (
               <li key={String(version)}>
@@ -115,15 +115,15 @@ function PrunePreview({ c }: { c: LifecycleController }) {
           </ul>
 
           <p>
-            {t('DocumentProtectedVersions')} {prune.protected.length}
+            {t('PageProtectedVersions')} {prune.protected.length}
           </p>
-          {prune.hasMore && <p>{t('DocumentPruneMore')}</p>}
+          {prune.hasMore && <p>{t('PagePruneMore')}</p>}
           <Button
             variant="destructive-outline"
             disabled={busy || prune.candidateIds.length === 0}
             onClick={c.confirmPrune}
           >
-            {t('DocumentConfirmPrune')}
+            {t('PageConfirmPrune')}
           </Button>
         </>
       )}
@@ -139,7 +139,7 @@ function PruneRetry({ c }: { c: LifecycleController }) {
     <>
       {mode === 'prune' && pruneInput && !pruneOperation && !prune && (
         <Button disabled={busy} onClick={c.retryPruneInput}>
-          {t('DocumentRetryCleanup')}
+          {t('PageRetryCleanup')}
         </Button>
       )}
     </>
@@ -164,7 +164,7 @@ function CleanupOperation({ c }: { c: LifecycleController }) {
               description={
                 <>
                   <Button disabled={busy} onClick={c.retryOperation}>
-                    {t('DocumentRetryCleanup')}
+                    {t('PageRetryCleanup')}
                   </Button>
                 </>
               }
@@ -184,7 +184,7 @@ function PruneNext({ c }: { c: LifecycleController }) {
     <>
       {mode === 'prune' && pruneOperation?.status === 'completed' && (
         <Button disabled={busy} onClick={c.nextPrune}>
-          {t('DocumentPruneNext')}
+          {t('PagePruneNext')}
         </Button>
       )}
     </>
@@ -201,10 +201,10 @@ export function MaterialLifecycle({ id }: { id: MaterialId }) {
     <MaterialLibrary.HistorySection>
       <MaterialLibrary.Actions>
         <Button variant="ghost" onClick={() => setMode('prune')}>
-          {t('DocumentPrune')}
+          {t('PagePrune')}
         </Button>
         <Button variant="ghost" onClick={() => setMode('delete')}>
-          {t('DocumentDelete')}
+          {t('PageDelete')}
         </Button>
       </MaterialLibrary.Actions>
       <Dialog
@@ -214,11 +214,9 @@ export function MaterialLifecycle({ id }: { id: MaterialId }) {
         }}
       >
         <DialogPopup closeLabel={t('Close')}>
-          <DialogHeading
-            title={<> {t(mode === 'delete' ? 'DocumentDelete' : 'DocumentPrune')} </>}
-          />
+          <DialogHeading title={<> {t(mode === 'delete' ? 'PageDelete' : 'PagePrune')} </>} />
           <MaterialLibrary.Import>
-            <p>{t(mode === 'delete' ? 'DocumentDeleteExplanation' : 'DocumentPruneExplanation')}</p>
+            <p>{t(mode === 'delete' ? 'PageDeleteExplanation' : 'PagePruneExplanation')}</p>
             <PruneSettings c={c} />
             <LifecyclePreview c={c} />
             <DeletionPreview c={c} />
@@ -229,7 +227,7 @@ export function MaterialLifecycle({ id }: { id: MaterialId }) {
             {failed && (
               <ErrorState
                 title={t('ErrorStateTitle')}
-                description={<> {t('DocumentPreviewFailed')} </>}
+                description={<> {t('PagePreviewFailed')} </>}
               />
             )}
             <Button variant="ghost" disabled={busy} onClick={() => setMode(undefined)}>
@@ -263,28 +261,24 @@ function LifecycleConfirmation({ c }: { c: LifecycleController }) {
       onOpenChange={(open) => {
         if (!open) setConfirmation(undefined);
       }}
-      title={t(confirmation?.kind === 'delete' ? 'DocumentDelete' : 'DocumentPrune')}
+      title={t(confirmation?.kind === 'delete' ? 'PageDelete' : 'PagePrune')}
       confirmation={{
         value: t('DeleteConfirmationWord'),
         label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') }),
         identity: cleanupConfirmationIdentity(confirmation)
       }}
       description={t(
-        confirmation?.kind === 'delete' ? 'DocumentDeleteExplanation' : 'DocumentPruneExplanation'
+        confirmation?.kind === 'delete' ? 'PageDeleteExplanation' : 'PagePruneExplanation'
       )}
-      confirmLabel={t(
-        confirmation?.kind === 'delete' ? 'DocumentConfirmDelete' : 'DocumentConfirmPrune'
-      )}
+      confirmLabel={t(confirmation?.kind === 'delete' ? 'PageConfirmDelete' : 'PageConfirmPrune')}
       cancelLabel={t('Cancel')}
       pending={busy}
       disabled={operation !== undefined}
       onConfirm={c.confirmCleanup}
     >
-      {failed && (
-        <ErrorState title={t('ErrorStateTitle')} description={t('DocumentPreviewFailed')} />
-      )}
+      {failed && <ErrorState title={t('ErrorStateTitle')} description={t('PagePreviewFailed')} />}
       {operation?.status === 'failed' && (
-        <ErrorState title={t('ErrorStateTitle')} description={t('DocumentCleanupFailed')} />
+        <ErrorState title={t('ErrorStateTitle')} description={t('PageCleanupFailed')} />
       )}
     </DangerDialog>
   );
@@ -297,7 +291,7 @@ function RecoveryStatus({ state }: { state: ReturnType<typeof useDeletionRecover
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
-  return <ErrorState title={t('ErrorStateTitle')} description={t('DocumentPreviewFailed')} />;
+  return <ErrorState title={t('ErrorStateTitle')} description={t('PagePreviewFailed')} />;
 }
 
 /** Recovery uses the durable deletion identity even after content reads are fenced. */
@@ -308,7 +302,7 @@ export function DeletionRecovery({ id }: { id: MaterialId }) {
   if (state.isError && toStudyError(state.error).kind === 'not_found') return null;
 
   return (
-    <MaterialLibrary.Notice aria-label={t('DocumentDelete')}>
+    <MaterialLibrary.Notice aria-label={t('PageDelete')}>
       <RecoveryStatus state={state} />
 
       <Button disabled={busy || state.isFetching} onClick={() => void state.refetch()}>
@@ -320,17 +314,14 @@ export function DeletionRecovery({ id }: { id: MaterialId }) {
           description={
             <>
               <Button disabled={busy} onClick={retry}>
-                {t('DocumentRetryCleanup')}
+                {t('PageRetryCleanup')}
               </Button>
             </>
           }
         />
       )}
       {failed && (
-        <ErrorState
-          title={t('ErrorStateTitle')}
-          description={<> {t('DocumentPreviewFailed')} </>}
-        />
+        <ErrorState title={t('ErrorStateTitle')} description={<> {t('PagePreviewFailed')} </>} />
       )}
     </MaterialLibrary.Notice>
   );

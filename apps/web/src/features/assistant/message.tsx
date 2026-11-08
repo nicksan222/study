@@ -1,4 +1,4 @@
-import type { ChatMessage as ConversationMessage } from '@study/contracts/conversations/messages';
+import type { ChatMessage as NoteMessage } from '@study/contracts/notes/messages';
 import { Bubble, BubbleContent } from '@study/ui/bubble';
 import { CodeBlockCopyButton } from '@study/ui/code-block';
 import { Message, MessageContent, MessageHeader, MessageFooter } from '@study/ui/message';
@@ -9,14 +9,14 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { AssistantReply, AssistantThinking } from './reply';
 import { AssistantToolActivity } from './tool-activity';
 
-const roleLabels = { user: 'SessionContextYou', assistant: 'Assistant' } as const;
+const roleLabels = { user: 'NoteContextYou', assistant: 'Assistant' } as const;
 
 /** Final replies use the same safe Markdown/math renderer as streamed replies. */
 export function AssistantMessage({
   message,
   requestId
 }: {
-  message: ConversationMessage;
+  message: NoteMessage;
   requestId?: string;
 }) {
   const { t } = useI18n();
@@ -59,13 +59,7 @@ export function AssistantMessage({
   );
 }
 
-function AssistantBody({
-  message,
-  requestId
-}: {
-  message: ConversationMessage;
-  requestId?: string;
-}) {
+function AssistantBody({ message, requestId }: { message: NoteMessage; requestId?: string }) {
   const { t } = useI18n();
   const version = message.versions.find((version) => version.id === message.activeVersionId);
 

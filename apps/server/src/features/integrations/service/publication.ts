@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Publishes imported sessions and documents with atomic identity receipts.           │
+ * │ @file Publishes imported notes and documents with atomic identity receipts.              │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Reserves destinations and publishes original source content.                           │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Only public feature participants access conversation document and source persistence.    │
+ * │ Only public feature participants access note document and source persistence.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -16,23 +16,23 @@ import { StudyError } from '@study/contracts/errors';
 import type {
   integrationImportSchema,
   integrationPlanSchema,
-  integrationSessionSchema
+  integrationNoteSchema
 } from '@study/contracts/integrations/schemas';
 import { Option } from 'effect';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import {
   IntegrationNotesStore,
   IntegrationContentStore
 } from '#server/features/integrations/store/content';
 import { IntegrationReceiptsStore } from '#server/features/integrations/store/receipts';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
 type State = typeof integrationImportSchema.Type;
 
-type Note = typeof integrationSessionSchema.Type;
+type Note = typeof integrationNoteSchema.Type;
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 
@@ -44,7 +44,7 @@ export function importFingerprints(plan: typeof integrationPlanSchema.Type) {
   const files = new Map(plan.files.map((file) => [file.path, hash(file.content)]));
 
   return Object.fromEntries(
-    plan.sessions.map((note) => [
+    plan.notes.map((note) => [
       note.key,
       hash(
         JSON.stringify([
@@ -63,7 +63,7 @@ function resolvedFingerprint(state: State, note: Note, content: string) {
       (item) => item.key === link.target && item.status !== 'excluded'
     );
 
-    return [link.target, target?.sessionId?.toString() ?? null];
+    return [link.target, target?.noteId?.toString() ?? null];
   });
 
   return hash(JSON.stringify([content, destinations]));
@@ -79,9 +79,9 @@ function reserveDestinations(tx: Transaction, state: State): State {
 
       const previous = Option.getOrNull(receipts.findIntegrationReceipt(identity(state, item.key)));
 
-      if (previous) return { ...item, sessionId: previous.sessionId };
+      if (previous) return { ...item, noteId: previous.noteId };
 
-      const session = Conversations.createSessionInTransaction(tx, {
+      const note = Notes.createNoteInTransaction(tx, {
         title: item.title,
         project: state.projectId ?? undefined
       });
@@ -90,11 +90,11 @@ function reserveDestinations(tx: Transaction, state: State): State {
         identity: identity(state, item.key),
         fingerprint: '',
         importId: state.id,
-        sessionId: session.id,
-        documentId: null
+        noteId: note.id,
+        pageId: null
       });
 
-      return { ...item, sessionId: session.id };
+      return { ...item, noteId: note.id };
     })
   };
 }
@@ -118,16 +118,14 @@ export function reserveImport(tx: Transaction, input: State): State {
 
       const expected = resolvedFingerprint(state, note, fingerprint);
 
-      if (previous.importId === state.id && previous.sessionId) {
+      if (previous.importId === state.id && previous.noteId) {
         receipts.retain({ ...previous, fingerprint: expected });
 
         return item;
       }
 
       const unchanged =
-        previous.fingerprint === expected &&
-        previous.sessionId !== null &&
-        previous.documentId !== null;
+        previous.fingerprint === expected && previous.noteId !== null && previous.pageId !== null;
 
       return { ...item, status: unchanged ? ('unchanged' as const) : ('conflict' as const) };
     })
@@ -140,10 +138,10 @@ function linkedText(note: Note, state: State) {
   for (const link of [...note.links].sort((a, b) => b.start - a.start)) {
     const target = state.items.find((item) => item.key === link.target);
 
-    if (!target?.sessionId || target.status === 'excluded') continue;
+    if (!target?.noteId || target.status === 'excluded') continue;
 
     const label = link.label.replaceAll('[', '\\[').replaceAll(']', '\\]');
-    const replacement = `[${label}](/session/${target.sessionId}${link.fragment ? `#${encodeURIComponent(link.fragment)}` : ''})`;
+    const replacement = `[${label}](/note/${target.noteId}${link.fragment ? `#${encodeURIComponent(link.fragment)}` : ''})`;
 
     text = text.slice(0, link.start) + replacement + text.slice(link.end);
   }
@@ -157,7 +155,7 @@ export function publishImportItem(tx: Transaction, state: State, key: string): S
 
   if (!item || item.status !== 'pending') return state;
 
-  if (!item.sessionId) throw new StudyError('invalid_input', 'Import destination is unavailable');
+  if (!item.noteId) throw new StudyError('invalid_input', 'Import destination is unavailable');
 
   const content = tx.store(IntegrationContentStore).integrationContent({ id: state.id, key });
   const sources = content.files.map((file) => {
@@ -178,8 +176,8 @@ export function publishImportItem(tx: Transaction, state: State, key: string): S
     return source;
   });
 
-  Conversations.postMessageInTransaction(tx, {
-    sessionId: item.sessionId,
+  Notes.postMessageInTransaction(tx, {
+    noteId: item.noteId,
     text: '',
     sourceIds: sources.map((source) => source.id),
     requestReply: false
@@ -188,7 +186,7 @@ export function publishImportItem(tx: Transaction, state: State, key: string): S
   const document = Sources.decodeImportedMarkdown(
     new TextEncoder().encode(linkedText(content.note, state))
   );
-  const authored = Documents.createInTransaction(tx, {
+  const authored = Pages.createInTransaction(tx, {
     createKey: `integration:${state.id}:${hash(key)}`,
     title: content.note.title,
     document,
@@ -199,7 +197,7 @@ export function publishImportItem(tx: Transaction, state: State, key: string): S
       snapshotId: null
     })),
     citations: [],
-    sessionId: item.sessionId,
+    noteId: item.noteId,
     projectId: state.projectId ?? undefined
   });
 
@@ -207,8 +205,8 @@ export function publishImportItem(tx: Transaction, state: State, key: string): S
     identity: identity(state, key),
     fingerprint: resolvedFingerprint(state, content.note, content.fingerprint),
     importId: state.id,
-    sessionId: item.sessionId,
-    documentId: authored.id
+    noteId: item.noteId,
+    pageId: authored.id
   });
 
   return {

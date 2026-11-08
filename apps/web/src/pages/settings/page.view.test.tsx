@@ -231,7 +231,7 @@ testStable.each([
   ['Custom instructions', 'Custom instructions', 'instructions'],
   ['Questions per quiz', 'Quizzes', 'quizzes'],
   ['New cards per day', 'Flashcards', 'flashcards'],
-  ['Automatic session titles', 'AI behavior', 'automation']
+  ['Automatic note titles', 'AI behavior', 'automation']
 ] as const)('finds %s under its focused %s section', (search, label, section) => {
   const onSectionChange = vi.fn();
 

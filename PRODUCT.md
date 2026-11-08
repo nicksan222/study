@@ -21,7 +21,7 @@ reading) and again while they revise and practise toward an exam.
 ## Product Purpose
 
 Study is one calm place for everything someone learns. They bring what they study from
-(recordings, slides, PDFs, pictures, documents, web pages and videos); Study reads it, answers
+(recordings, slides, PDFs, pictures, pages, web pages and videos); Study reads it, answers
 questions about it with citations to the exact page or moment, and turns it into study
 material, flashcards and practice. Success is a learner who walks into the exam having
 reviewed and practised their own material, without managing a pile of separate tools.
@@ -40,23 +40,23 @@ reviewed and practised their own material, without managing a pile of separate t
 
 ## Operating Context
 
-- **Projects:** one per course or subject, holding its sources, sessions and material, with
+- **Projects:** one per course or subject, holding its sources, notes and material, with
   optional exam dates that Home and the flashcard reviews count down to. A project is a
-  group of sessions: its flashcards, diagram and quiz always cover the
+  group of notes: its flashcards, diagram and quiz always cover the
   whole project. Each is up to date, out of date (saying what changed since) or not made
   yet; Update rewrites it from the project as it is now, revising what it says.
-- **Sessions are the notebook:** the learner writes, records and attaches as they study.
-  Typing `@study` asks a question; only a note that mentions `@study` gets an answer. Study transcribes recordings, reads files and names sessions in the background.
+- **Notes are the notebook:** the learner writes, records and attaches as they study.
+  Typing `@study` asks a question; only a note that mentions `@study` gets an answer. Study transcribes recordings, reads files and names notes in the background.
 - **Reviewing:** flashcards come back when due; practice is an endless quiz over the
   project, one per project, graded by the model.
 - **Background work is visible:** imports, transcription, reading and material run as jobs
   the learner can see, stop and retry.
-- **First run:** a guided welcome tour (language and look, how sessions work, where AI runs,
+- **First run:** a guided welcome tour (language and look, how notes work, where AI runs,
   signing in to ChatGPT, downloading the local models).
 
 ## Capabilities and Constraints
 
-- Pages today: Home, Projects, Sessions, Study (flashcards, diagrams), Practice, media lists, Settings, Help, and the onboarding tour.
+- Pages today: Home, Projects, Notes, Study (flashcards, diagrams), Practice, media lists, Settings, Help, and the onboarding tour.
 - Model work (reading pages and PDFs, answers, titles, material, quiz questions and grades)
   runs only on the learner's ChatGPT plan. Speech-to-text and embeddings run locally, and
   their models download only on an explicit install.

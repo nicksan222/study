@@ -12,18 +12,18 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as HomeRouteImport } from './routes/home'
+import { Route as NotesRouteImport } from './routes/notes'
 import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as DocumentsIndexRouteImport } from './routes/documents.index'
-import { Route as DocumentsDocumentIdRouteImport } from './routes/documents.$documentId'
 import { Route as FlashcardsIndexRouteImport } from './routes/flashcards.index'
 import { Route as FlashcardsMaterialIdRouteImport } from './routes/flashcards.$materialId'
 import { Route as MaterialsMaterialIdRouteImport } from './routes/materials.$materialId'
+import { Route as NotesIndexRouteImport } from './routes/notes.index'
+import { Route as NotesNoteIdRouteImport } from './routes/notes.$noteId'
+import { Route as PagesIndexRouteImport } from './routes/pages.index'
+import { Route as PagesPageIdRouteImport } from './routes/pages.$pageId'
 import { Route as PracticeIndexRouteImport } from './routes/practice.index'
 import { Route as PracticeMaterialIdRouteImport } from './routes/practice.$materialId'
-import { Route as SessionSessionIdRouteImport } from './routes/session.$sessionId'
-import { Route as SessionsIndexRouteImport } from './routes/sessions.index'
 import { Route as SourcesSourceIdRouteImport } from './routes/sources.$sourceId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -41,29 +41,19 @@ const HomeRoute = HomeRouteImport.update({
   path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotesRoute = NotesRouteImport.update({
+  id: '/notes',
+  path: '/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SessionsRoute = SessionsRouteImport.update({
-  id: '/sessions',
-  path: '/sessions',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsIndexRoute = DocumentsIndexRouteImport.update({
-  id: '/documents/',
-  path: '/documents/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsDocumentIdRoute = DocumentsDocumentIdRouteImport.update({
-  id: '/documents/$documentId',
-  path: '/documents/$documentId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlashcardsIndexRoute = FlashcardsIndexRouteImport.update({
@@ -81,6 +71,26 @@ const MaterialsMaterialIdRoute = MaterialsMaterialIdRouteImport.update({
   path: '/materials/$materialId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotesIndexRoute = NotesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => NotesRoute,
+} as any)
+const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
+  id: '/$noteId',
+  path: '/$noteId',
+  getParentRoute: () => NotesRoute,
+} as any)
+const PagesIndexRoute = PagesIndexRouteImport.update({
+  id: '/pages/',
+  path: '/pages/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PagesPageIdRoute = PagesPageIdRouteImport.update({
+  id: '/pages/$pageId',
+  path: '/pages/$pageId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PracticeIndexRoute = PracticeIndexRouteImport.update({
   id: '/practice/',
   path: '/practice/',
@@ -90,16 +100,6 @@ const PracticeMaterialIdRoute = PracticeMaterialIdRouteImport.update({
   id: '/practice/$materialId',
   path: '/practice/$materialId',
   getParentRoute: () => rootRouteImport,
-} as any)
-const SessionSessionIdRoute = SessionSessionIdRouteImport.update({
-  id: '/session/$sessionId',
-  path: '/session/$sessionId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SessionsIndexRoute = SessionsIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => SessionsRoute,
 } as any)
 const SourcesSourceIdRoute = SourcesSourceIdRouteImport.update({
   id: '/sources/$sourceId',
@@ -111,19 +111,19 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/home': typeof HomeRoute
+  '/notes': typeof NotesRouteWithChildren
   '/projects': typeof ProjectsRoute
-  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
-  '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/notes/$noteId': typeof NotesNoteIdRoute
+  '/pages/$pageId': typeof PagesPageIdRoute
   '/practice/$materialId': typeof PracticeMaterialIdRoute
-  '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
-  '/documents/': typeof DocumentsIndexRoute
   '/flashcards/': typeof FlashcardsIndexRoute
+  '/notes/': typeof NotesIndexRoute
+  '/pages/': typeof PagesIndexRoute
   '/practice/': typeof PracticeIndexRoute
-  '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -131,35 +131,35 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/projects': typeof ProjectsRoute
   '/settings': typeof SettingsRoute
-  '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/notes/$noteId': typeof NotesNoteIdRoute
+  '/pages/$pageId': typeof PagesPageIdRoute
   '/practice/$materialId': typeof PracticeMaterialIdRoute
-  '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
-  '/documents': typeof DocumentsIndexRoute
   '/flashcards': typeof FlashcardsIndexRoute
+  '/notes': typeof NotesIndexRoute
+  '/pages': typeof PagesIndexRoute
   '/practice': typeof PracticeIndexRoute
-  '/sessions': typeof SessionsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/home': typeof HomeRoute
+  '/notes': typeof NotesRouteWithChildren
   '/projects': typeof ProjectsRoute
-  '/sessions': typeof SessionsRouteWithChildren
   '/settings': typeof SettingsRoute
-  '/documents/$documentId': typeof DocumentsDocumentIdRoute
   '/flashcards/$materialId': typeof FlashcardsMaterialIdRoute
   '/materials/$materialId': typeof MaterialsMaterialIdRoute
+  '/notes/$noteId': typeof NotesNoteIdRoute
+  '/pages/$pageId': typeof PagesPageIdRoute
   '/practice/$materialId': typeof PracticeMaterialIdRoute
-  '/session/$sessionId': typeof SessionSessionIdRoute
   '/sources/$sourceId': typeof SourcesSourceIdRoute
-  '/documents/': typeof DocumentsIndexRoute
   '/flashcards/': typeof FlashcardsIndexRoute
+  '/notes/': typeof NotesIndexRoute
+  '/pages/': typeof PagesIndexRoute
   '/practice/': typeof PracticeIndexRoute
-  '/sessions/': typeof SessionsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -167,19 +167,19 @@ export interface FileRouteTypes {
     | '/'
     | '/assistant'
     | '/home'
+    | '/notes'
     | '/projects'
-    | '/sessions'
     | '/settings'
-    | '/documents/$documentId'
     | '/flashcards/$materialId'
     | '/materials/$materialId'
+    | '/notes/$noteId'
+    | '/pages/$pageId'
     | '/practice/$materialId'
-    | '/session/$sessionId'
     | '/sources/$sourceId'
-    | '/documents/'
     | '/flashcards/'
+    | '/notes/'
+    | '/pages/'
     | '/practice/'
-    | '/sessions/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -187,51 +187,50 @@ export interface FileRouteTypes {
     | '/home'
     | '/projects'
     | '/settings'
-    | '/documents/$documentId'
     | '/flashcards/$materialId'
     | '/materials/$materialId'
+    | '/notes/$noteId'
+    | '/pages/$pageId'
     | '/practice/$materialId'
-    | '/session/$sessionId'
     | '/sources/$sourceId'
-    | '/documents'
     | '/flashcards'
+    | '/notes'
+    | '/pages'
     | '/practice'
-    | '/sessions'
   id:
     | '__root__'
     | '/'
     | '/assistant'
     | '/home'
+    | '/notes'
     | '/projects'
-    | '/sessions'
     | '/settings'
-    | '/documents/$documentId'
     | '/flashcards/$materialId'
     | '/materials/$materialId'
+    | '/notes/$noteId'
+    | '/pages/$pageId'
     | '/practice/$materialId'
-    | '/session/$sessionId'
     | '/sources/$sourceId'
-    | '/documents/'
     | '/flashcards/'
+    | '/notes/'
+    | '/pages/'
     | '/practice/'
-    | '/sessions/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssistantRoute: typeof AssistantRoute
   HomeRoute: typeof HomeRoute
+  NotesRoute: typeof NotesRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
-  SessionsRoute: typeof SessionsRouteWithChildren
   SettingsRoute: typeof SettingsRoute
-  DocumentsDocumentIdRoute: typeof DocumentsDocumentIdRoute
   FlashcardsMaterialIdRoute: typeof FlashcardsMaterialIdRoute
   MaterialsMaterialIdRoute: typeof MaterialsMaterialIdRoute
+  PagesPageIdRoute: typeof PagesPageIdRoute
   PracticeMaterialIdRoute: typeof PracticeMaterialIdRoute
-  SessionSessionIdRoute: typeof SessionSessionIdRoute
   SourcesSourceIdRoute: typeof SourcesSourceIdRoute
-  DocumentsIndexRoute: typeof DocumentsIndexRoute
   FlashcardsIndexRoute: typeof FlashcardsIndexRoute
+  PagesIndexRoute: typeof PagesIndexRoute
   PracticeIndexRoute: typeof PracticeIndexRoute
 }
 
@@ -258,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notes': {
+      id: '/notes'
+      path: '/notes'
+      fullPath: '/notes'
+      preLoaderRoute: typeof NotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/projects': {
       id: '/projects'
       path: '/projects'
@@ -265,32 +271,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sessions': {
-      id: '/sessions'
-      path: '/sessions'
-      fullPath: '/sessions'
-      preLoaderRoute: typeof SessionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/': {
-      id: '/documents/'
-      path: '/documents'
-      fullPath: '/documents/'
-      preLoaderRoute: typeof DocumentsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents/$documentId': {
-      id: '/documents/$documentId'
-      path: '/documents/$documentId'
-      fullPath: '/documents/$documentId'
-      preLoaderRoute: typeof DocumentsDocumentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flashcards/': {
@@ -314,6 +299,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaterialsMaterialIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notes/': {
+      id: '/notes/'
+      path: '/'
+      fullPath: '/notes/'
+      preLoaderRoute: typeof NotesIndexRouteImport
+      parentRoute: typeof NotesRoute
+    }
+    '/notes/$noteId': {
+      id: '/notes/$noteId'
+      path: '/$noteId'
+      fullPath: '/notes/$noteId'
+      preLoaderRoute: typeof NotesNoteIdRouteImport
+      parentRoute: typeof NotesRoute
+    }
+    '/pages/': {
+      id: '/pages/'
+      path: '/pages'
+      fullPath: '/pages/'
+      preLoaderRoute: typeof PagesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pages/$pageId': {
+      id: '/pages/$pageId'
+      path: '/pages/$pageId'
+      fullPath: '/pages/$pageId'
+      preLoaderRoute: typeof PagesPageIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/practice/': {
       id: '/practice/'
       path: '/practice'
@@ -328,20 +341,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PracticeMaterialIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/session/$sessionId': {
-      id: '/session/$sessionId'
-      path: '/session/$sessionId'
-      fullPath: '/session/$sessionId'
-      preLoaderRoute: typeof SessionSessionIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sessions/': {
-      id: '/sessions/'
-      path: '/'
-      fullPath: '/sessions/'
-      preLoaderRoute: typeof SessionsIndexRouteImport
-      parentRoute: typeof SessionsRoute
-    }
     '/sources/$sourceId': {
       id: '/sources/$sourceId'
       path: '/sources/$sourceId'
@@ -352,33 +351,32 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface SessionsRouteChildren {
-  SessionsIndexRoute: typeof SessionsIndexRoute
+interface NotesRouteChildren {
+  NotesNoteIdRoute: typeof NotesNoteIdRoute
+  NotesIndexRoute: typeof NotesIndexRoute
 }
 
-const SessionsRouteChildren: SessionsRouteChildren = {
-  SessionsIndexRoute: SessionsIndexRoute,
+const NotesRouteChildren: NotesRouteChildren = {
+  NotesNoteIdRoute: NotesNoteIdRoute,
+  NotesIndexRoute: NotesIndexRoute,
 }
 
-const SessionsRouteWithChildren = SessionsRoute._addFileChildren(
-  SessionsRouteChildren,
-)
+const NotesRouteWithChildren = NotesRoute._addFileChildren(NotesRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
   HomeRoute: HomeRoute,
+  NotesRoute: NotesRouteWithChildren,
   ProjectsRoute: ProjectsRoute,
-  SessionsRoute: SessionsRouteWithChildren,
   SettingsRoute: SettingsRoute,
-  DocumentsDocumentIdRoute: DocumentsDocumentIdRoute,
   FlashcardsMaterialIdRoute: FlashcardsMaterialIdRoute,
   MaterialsMaterialIdRoute: MaterialsMaterialIdRoute,
+  PagesPageIdRoute: PagesPageIdRoute,
   PracticeMaterialIdRoute: PracticeMaterialIdRoute,
-  SessionSessionIdRoute: SessionSessionIdRoute,
   SourcesSourceIdRoute: SourcesSourceIdRoute,
-  DocumentsIndexRoute: DocumentsIndexRoute,
   FlashcardsIndexRoute: FlashcardsIndexRoute,
+  PagesIndexRoute: PagesIndexRoute,
   PracticeIndexRoute: PracticeIndexRoute,
 }
 export const routeTree = rootRouteImport

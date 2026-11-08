@@ -79,7 +79,7 @@ export const defaultConcurrencySettings: ConcurrencySettings = {
 
 export type SidebarSettings = typeof sidebarSettingsSchema.Type;
 
-export const defaultSidebarSettings: SidebarSettings = { settledDocumentThreshold: 1 };
+export const defaultSidebarSettings: SidebarSettings = { settledPageThreshold: 1 };
 
 export type WorkspacePreferences = typeof workspacePreferencesSchema.Type;
 
@@ -89,16 +89,16 @@ export const defaultWorkspacePreferences: WorkspacePreferences = {
   submitOnEnter: false,
   defaultExportFormat: 'markdown',
   defaultAiDetail: 'balanced',
-  autoTitleSessions: false,
+  autoTitleNotes: false,
   autoAnswerQuestions: false,
   textConversionMode: 'manual',
   textConversionStrategy: 'chatgpt',
   sidebarDensity: 'comfortable',
-  sidebarShowDocumentCounts: true,
+  sidebarShowPageCounts: true,
   sidebarTimeFormat: 'relative',
   editorFontSize: 16,
   readerFontSize: 16,
-  expandDocuments: false
+  expandPages: false
 };
 
 export type QuizSettings = typeof quizSettingsSchema.Type;
@@ -117,7 +117,7 @@ export const defaultQuizSettings: QuizSettings = {
 export type AgentRules = typeof agentRulesSchema.Type;
 
 export const defaultAgentRules: AgentRules = {
-  documents: '',
+  pages: '',
   titles: '',
   replies: '',
   quizzes: '',

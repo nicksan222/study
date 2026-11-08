@@ -25,7 +25,7 @@ export function useSidebarActions(
 
     void navigate({ to: subjectDestination, search: { project: String(id) } });
   };
-  const createSession = async () => {
+  const createNote = async () => {
     if (creating) return;
 
     setActionError(false);
@@ -33,7 +33,7 @@ export function useSidebarActions(
 
     try {
       await navigate({
-        to: '/sessions',
+        to: '/notes',
         search: project ? { project: String(project) } : {}
       });
     } catch {
@@ -65,7 +65,7 @@ export function useSidebarActions(
     setActionError,
     creating,
     selectSubject,
-    createSession,
+    createNote,
     createSubject
   };
 }

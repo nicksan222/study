@@ -1,11 +1,11 @@
-import type { selectionReferenceSchema } from '@study/contracts/conversations/context';
-import type { StudyDocumentVersionId } from '@study/contracts/ids';
+import type { PageVersionId } from '@study/contracts/ids';
+import type { selectionReferenceSchema } from '@study/contracts/notes/context';
 import { Button } from '@study/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 
-import { documentVersionOptions } from '#web/lib/study-client/documents.queries.ts';
+import { pageVersionOptions } from '#web/lib/study-client/pages.queries.ts';
 
 /** Opens precisely the cited retained version or source extraction, never a current head. */
 
@@ -45,11 +45,11 @@ function AuthoredInputLink({
   name,
   action
 }: {
-  versionId: StudyDocumentVersionId;
+  versionId: PageVersionId;
   name: string;
   action: boolean;
 }) {
-  const state = useQuery(documentVersionOptions(versionId));
+  const state = useQuery(pageVersionOptions(versionId));
 
   return state.data && !state.error ? (
     <InputLinkPresentation
@@ -57,9 +57,9 @@ function AuthoredInputLink({
       name={name}
       link={
         <Link
-          to="/documents/$documentId"
-          params={{ documentId: String(state.data.documentId) }}
-          search={{ documentVersion: String(versionId) }}
+          to="/pages/$pageId"
+          params={{ pageId: String(state.data.pageId) }}
+          search={{ pageVersion: String(versionId) }}
         >
           {name}
         </Link>

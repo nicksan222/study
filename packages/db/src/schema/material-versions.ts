@@ -16,7 +16,7 @@ import {
 import type { AnySQLiteColumn } from '../schema-builder.ts';
 import { libraryContentColumns } from './column-types.ts';
 
-/** Durable library content; collection and session membership never own it. */
+/** Durable library content; collection and note membership never own it. */
 export const materials = defineTable({
   role: 'entity',
   projection: 'feature',

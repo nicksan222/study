@@ -36,7 +36,7 @@ export function useSidebarSearch({
         query: query.trim(),
         project: global ? undefined : project,
         limit: 30,
-        ...(global ? {} : { kinds: ['session', 'message'] })
+        ...(global ? {} : { kinds: ['note', 'message'] })
       },
       searchEnabled
     )

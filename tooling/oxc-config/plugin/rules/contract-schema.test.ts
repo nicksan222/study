@@ -94,7 +94,7 @@ testStable(
     const diagnostics = lintRule(
       'contract-schema',
       {
-        'packages/contracts/src/documents.ts': `
+        'packages/contracts/src/pages.ts': `
       import { Schema } from 'effect';
       interface Node { kind: string; children: readonly Node[] }
       export type Editor = Readonly<{ blocks: readonly Node[] }>;
@@ -116,7 +116,7 @@ testStable(
     const diagnostics = lintRule(
       'contract-schema',
       {
-        'packages/contracts/src/conversations/capture.ts': `
+        'packages/contracts/src/notes/capture.ts': `
       import { Schema } from 'effect';
       import { runPreferencesSchema, runSelectionContextSchema } from './context';
       export type Context = typeof runSelectionContextSchema.Type;

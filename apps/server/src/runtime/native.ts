@@ -21,16 +21,16 @@ import { Effect, Layer, Logger } from 'effect';
 
 import { AuthRpcLive } from '#server/features/auth/rpc/index';
 import { Auth } from '#server/features/auth/service/index';
-import { Conversations } from '#server/features/conversations/index';
-import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
-import { Documents } from '#server/features/documents/index';
-import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
 import { Integrations } from '#server/features/integrations/index';
 import { IntegrationsRpcLive } from '#server/features/integrations/rpc/index';
 import { Learning } from '#server/features/learning/index';
 import { LearningRpcLive } from '#server/features/learning/rpc/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
+import { Notes } from '#server/features/notes/index';
+import { NotesRpcLive } from '#server/features/notes/rpc/index';
+import { Pages } from '#server/features/pages/index';
+import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { ProjectsRpcLive } from '#server/features/projects/rpc/index';
 import { Projects } from '#server/features/projects/service/index';
 import { Recordings } from '#server/features/recordings/index';
@@ -97,10 +97,10 @@ export function nativeLayers(
     Workflows.layer,
     Recordings.layer,
     Materials.layer,
-    Documents.layer,
+    Pages.layer,
     Integrations.layer,
     Materials.deletionParticipantsLayer({ Learning }),
-    Conversations.layer,
+    Notes.layer,
     Learning.layer.pipe(Layer.provide(Layer.mergeAll(Settings.layer, Materials.layer))),
     Projects.layer,
     Settings.layer,
@@ -193,9 +193,9 @@ export function nativeLayers(
     WorkflowsRpcLive,
     RecordingsRpcLive,
     MaterialsRpcLive,
-    DocumentsRpcLive,
+    PagesRpcLive,
     IntegrationsRpcLive,
-    ConversationsRpcLive,
+    NotesRpcLive,
     LearningRpcLive,
     ProjectsRpcLive,
     SettingsRpcLive,

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Verifies source processing and conversation reply workflows survive application    │
+ * │ @file Verifies source processing and note reply workflows survive application            │
  * │ restarts. Durable event receipts and execution state are checked alongside worker health │
  * │ and search visibility.                                                                   │
  * │                                                                                          │
@@ -112,16 +112,16 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const project = yield* client['projects.createProject']({ name: 'Physics' });
-            const session = yield* client['conversations.createSession']({
+            const note = yield* client['notes.createNote']({
               project: project.id,
               title: 'Notes'
             });
 
-            yield* client['conversations.postMessage']({
-              sessionId: session.id,
+            yield* client['notes.postMessage']({
+              noteId: note.id,
               text: 'Explain gravity'
             });
-            const request = yield* client['conversations.requestReply']({ sessionId: session.id });
+            const request = yield* client['notes.requestReply']({ noteId: note.id });
 
             yield* client['system.startWorkers']({});
 
@@ -131,7 +131,7 @@ testStable(
                   sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
                 ).length
               ) {
-                const message = yield* client['conversations.message']({ id: request.messageId });
+                const message = yield* client['notes.message']({ id: request.messageId });
 
                 assert.ok(
                   message.versions.find((version) => version.id === request.versionId)?.status ===

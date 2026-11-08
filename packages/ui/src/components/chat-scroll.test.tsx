@@ -2,13 +2,13 @@ import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { expect, vi } from 'vite-plus/test';
 
-import { ChatConversation } from './chat';
+import { ChatNote } from './chat';
 
-function Conversation({ count = 2, first = 'first' }: { count?: number; first?: string }) {
+function Note({ count = 2, first = 'first' }: { count?: number; first?: string }) {
   return (
     <div className="workspace-desk-notebook">
       <div data-notebook-scroll-host>
-        <ChatConversation
+        <ChatNote
           label="Notebook"
           jumpLabel="Latest"
           itemCount={count}
@@ -16,7 +16,7 @@ function Conversation({ count = 2, first = 'first' }: { count?: number; first?: 
           navigation={<nav aria-label="Page index">Markers</nav>}
         >
           <p>Notebook content</p>
-        </ChatConversation>
+        </ChatNote>
       </div>
       <div data-notebook-navigation-host />
     </div>
@@ -31,7 +31,7 @@ function dimensions(host: HTMLElement, height: number) {
 testStable(
   'uses the workspace scroll host for reading position and the Latest action',
   async () => {
-    const view = render(<Conversation />);
+    const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
     const overlay = view.container.querySelector('[data-notebook-navigation-host]')!;
 
@@ -53,7 +53,7 @@ testStable(
 testStable(
   'preserves the reader position when older entries are prepended in the workspace host',
   async () => {
-    const view = render(<Conversation />);
+    const view = render(<Note />);
     const host = view.container.querySelector<HTMLElement>('[data-notebook-scroll-host]')!;
 
     dimensions(host, 1000);
@@ -61,7 +61,7 @@ testStable(
     fireEvent.scroll(host);
     await screen.findByRole('button', { name: 'Latest' });
     dimensions(host, 1200);
-    view.rerender(<Conversation count={3} first="older" />);
+    view.rerender(<Note count={3} first="older" />);
     await waitFor(() => expect(host.scrollTop).toBe(300));
   }
 );

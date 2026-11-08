@@ -211,7 +211,7 @@ testStable(
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: f.server.url });
             const one = yield* client['projects.createProject']({ name: 'One' });
             const two = yield* client['projects.createProject']({ name: 'Two' });
-            const session = yield* client['conversations.createSession']({
+            const note = yield* client['notes.createNote']({
               project: one.id,
               title: 'Notes'
             });
@@ -225,24 +225,23 @@ testStable(
               name: 'other.txt',
               bytes: new TextEncoder().encode('Other')
             });
-            const message = yield* client['conversations.postMessage']({
-              sessionId: session.id,
+            const message = yield* client['notes.postMessage']({
+              noteId: note.id,
               text: '',
               sourceIds: [source.id]
             });
 
             assert.strictEqual(message.parts[0]?.sourceId, source.id);
             assert.ok(message.parts[0]?.sourceName === 'notes.txt');
-            const shared = yield* client['conversations.postMessage']({
-              sessionId: session.id,
+            const shared = yield* client['notes.postMessage']({
+              noteId: note.id,
               text: '',
               sourceIds: [foreign.id]
             });
 
             assert.strictEqual(shared.parts[0]?.sourceId, foreign.id);
             assert.strictEqual(
-              (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 })).items
-                .length,
+              (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
               2
             );
           })

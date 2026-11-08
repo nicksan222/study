@@ -29,18 +29,18 @@ export function makeDetachAction(resources: StoreResources) {
   const { db } = resources;
   const store = db;
   const { materialRow } = makeReads(resources);
-  const { assertSession } = makeWrites(resources);
+  const { assertNote } = makeWrites(resources);
   const detach = (input: Input) =>
     materialIntegrity(() => {
       materialRow(input.materialId);
 
-      assertSession(input.sessionId);
+      assertNote(input.noteId);
       store.orm
-        .delete(s.session_materials)
+        .delete(s.note_materials)
         .where(
           and(
-            eq(s.session_materials.session_id, input.sessionId),
-            eq(s.session_materials.material_id, input.materialId)
+            eq(s.note_materials.note_id, input.noteId),
+            eq(s.note_materials.material_id, input.materialId)
           )
         )
         .run();

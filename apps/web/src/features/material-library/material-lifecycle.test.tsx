@@ -71,13 +71,13 @@ testStable(
     );
     mountLibraryRoute('/materials/41', rpc);
     const user = userEvent.setup();
-    const recovery = await screen.findByRole('region', { name: catalogs.english.DocumentDelete });
+    const recovery = await screen.findByRole('region', { name: catalogs.english.PageDelete });
 
-    await within(recovery).findByText(catalogs.english.DocumentCleanupFailed);
+    await within(recovery).findByText(catalogs.english.PageCleanupFailed);
     await user.click(
-      within(recovery).getByRole('button', { name: catalogs.english.DocumentRetryCleanup })
+      within(recovery).getByRole('button', { name: catalogs.english.PageRetryCleanup })
     );
-    await within(recovery).findByText(catalogs.english.DocumentCleanupPending);
+    await within(recovery).findByText(catalogs.english.PageCleanupPending);
     expect(rpc['materials.retryDeletion']).toHaveBeenCalledExactlyOnceWith({
       materialId: materialId('41')
     });
@@ -88,7 +88,7 @@ testStable(
     await user.click(
       within(recovery).getByRole('button', { name: catalogs.english.LibraryRefresh })
     );
-    await within(recovery).findByText(catalogs.english.DocumentCleanupCompleted);
+    await within(recovery).findByText(catalogs.english.PageCleanupCompleted);
   }
 );
 
@@ -134,15 +134,15 @@ testStable(
     let view = mount();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePreview }));
     {
       await user.click(
-        await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
+        await screen.findByRole('button', { name: catalogs.english.PageConfirmPrune })
       );
       const confirmation = await screen.findByRole('alertdialog');
       const confirm = within(confirmation).getByRole('button', {
-        name: catalogs.english.DocumentConfirmPrune
+        name: catalogs.english.PageConfirmPrune
       });
 
       expect(confirm).toBeDisabled();
@@ -153,25 +153,23 @@ testStable(
       await user.click(confirm);
     }
     await screen.findByRole('alert');
-    expect(screen.queryByRole('button', { name: catalogs.english.DocumentPruneNext })).toBeNull();
+    expect(screen.queryByRole('button', { name: catalogs.english.PagePruneNext })).toBeNull();
     const first = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];
 
     view.unmount();
     view = mount();
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
-    expect(screen.queryByRole('button', { name: catalogs.english.DocumentPreview })).toBeNull();
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentRetryCleanup }));
-    await screen.findByText(catalogs.english.DocumentCleanupCompleted);
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
+    expect(screen.queryByRole('button', { name: catalogs.english.PagePreview })).toBeNull();
+    await user.click(screen.getByRole('button', { name: catalogs.english.PageRetryCleanup }));
+    await screen.findByText(catalogs.english.PageCleanupCompleted);
     expect(rpc['materials.requestHistoryPrune'].mock.calls[1]![0]).toEqual(first);
     view.unmount();
     mount();
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
-    await screen.findByText(catalogs.english.DocumentCleanupCompleted);
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPruneNext }));
-    expect(screen.queryByText(catalogs.english.DocumentCleanupCompleted)).toBeNull();
-    expect(
-      screen.queryByRole('button', { name: catalogs.english.DocumentConfirmPrune })
-    ).toBeNull();
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
+    await screen.findByText(catalogs.english.PageCleanupCompleted);
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePruneNext }));
+    expect(screen.queryByText(catalogs.english.PageCleanupCompleted)).toBeNull();
+    expect(screen.queryByRole('button', { name: catalogs.english.PageConfirmPrune })).toBeNull();
     rpc['materials.previewHistoryPrune'].mockReturnValue(
       Effect.succeed({
         ...preview,
@@ -180,14 +178,14 @@ testStable(
         hasMore: false
       })
     );
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePreview }));
     {
       await user.click(
-        await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
+        await screen.findByRole('button', { name: catalogs.english.PageConfirmPrune })
       );
       const confirmation = await screen.findByRole('alertdialog');
       const confirm = within(confirmation).getByRole('button', {
-        name: catalogs.english.DocumentConfirmPrune
+        name: catalogs.english.PageConfirmPrune
       });
 
       expect(confirm).toBeDisabled();
@@ -197,7 +195,7 @@ testStable(
       );
       await user.click(confirm);
     }
-    await screen.findByText(catalogs.english.DocumentCleanupCompleted);
+    await screen.findByText(catalogs.english.PageCleanupCompleted);
     const next = rpc['materials.requestHistoryPrune'].mock.calls[2]![0];
 
     expect(next.operationId).not.toBe(first.operationId);
@@ -244,14 +242,14 @@ testStable(
     );
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPrune }));
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentPreview }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
+    await user.click(screen.getByRole('button', { name: catalogs.english.PagePreview }));
     await user.click(
-      await screen.findByRole('button', { name: catalogs.english.DocumentConfirmPrune })
+      await screen.findByRole('button', { name: catalogs.english.PageConfirmPrune })
     );
     const dialog = await screen.findByRole('alertdialog');
     const confirm = within(dialog).getByRole('button', {
-      name: catalogs.english.DocumentConfirmPrune
+      name: catalogs.english.PageConfirmPrune
     });
 
     expect(confirm).toBeDisabled();
@@ -259,11 +257,11 @@ testStable(
     await user.type(within(dialog).getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
     await user.click(confirm);
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      catalogs.english.DocumentCleanupFailed
+      catalogs.english.PageCleanupFailed
     );
     expect(confirm).toBeDisabled();
     expect(toastManager.add).toHaveBeenCalledExactlyOnceWith({
-      title: catalogs.english.DocumentCleanupFailed,
+      title: catalogs.english.PageCleanupFailed,
       type: 'error'
     });
     const submitted = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];

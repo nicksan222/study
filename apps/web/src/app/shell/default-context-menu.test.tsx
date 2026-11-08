@@ -15,8 +15,8 @@ import { renderInRouter } from '#web/test/render-in-router.tsx';
 
 import { DefaultContextMenu } from './default-context-menu';
 
-vi.mock('#web/features/authored-documents/index.ts', () => ({
-  useNewBlankDocument: () => ({ pending: false, create: async () => true })
+vi.mock('#web/features/pages/index.ts', () => ({
+  useNewBlankPage: () => ({ pending: false, create: async () => true })
 }));
 
 const en = catalogs.english;
@@ -29,11 +29,11 @@ testStable('offers creation and scoped destinations on otherwise unhandled conte
   );
 
   fireEvent.contextMenu(await screen.findByText('Workspace'));
-  expect(await screen.findByRole('menuitem', { name: en.NewSession })).toBeEnabled();
-  expect(screen.getByRole('menuitem', { name: en.DocumentNew })).toBeEnabled();
-  expect(screen.getByRole('menuitem', { name: en.SourceDocument })).toHaveAttribute(
+  expect(await screen.findByRole('menuitem', { name: en.NewNote })).toBeEnabled();
+  expect(screen.getByRole('menuitem', { name: en.PageNew })).toBeEnabled();
+  expect(screen.getByRole('menuitem', { name: en.SourcePage })).toHaveAttribute(
     'href',
-    '/documents?project=2'
+    '/pages?project=2'
   );
   expect(screen.getByRole('menuitem', { name: en.Projects })).toHaveAttribute('href', '/projects');
   await userEvent.keyboard('{Escape}');
@@ -55,7 +55,7 @@ testStable('lets nested custom menus and handlers take precedence over the fallb
 
   fireEvent.contextMenu(await screen.findByText('Custom target'));
   expect(await screen.findByRole('menuitem', { name: 'Custom action' })).toBeInTheDocument();
-  expect(screen.queryByRole('menuitem', { name: en.NewSession })).not.toBeInTheDocument();
+  expect(screen.queryByRole('menuitem', { name: en.NewNote })).not.toBeInTheDocument();
   await userEvent.keyboard('{Escape}');
   await waitFor(() => expect(screen.queryByRole('menu')).not.toBeInTheDocument());
   fireEvent.contextMenu(screen.getByRole('button', { name: 'Handled target' }));

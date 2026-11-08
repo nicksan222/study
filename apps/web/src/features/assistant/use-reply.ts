@@ -34,7 +34,7 @@ export function useReply(requestId: string, messageId: MessageId) {
 
     void cache.invalidateQueries({
       predicate: (query) =>
-        query.queryKey[0] !== assistantKey[0] && query.queryKey[0] !== 'session-drafts'
+        query.queryKey[0] !== assistantKey[0] && query.queryKey[0] !== 'note-drafts'
     });
 
     if (
@@ -56,7 +56,7 @@ export function useReply(requestId: string, messageId: MessageId) {
 
   return {
     run: progress.runs.findLast(
-      (run) => run.agentId === 'assistant' || run.agentId === 'session-assistant'
+      (run) => run.agentId === 'assistant' || run.agentId === 'note-assistant'
     ),
     compacting: progress.runs.some(
       (run) => run.agentId === 'assistant-compaction' && run.status === 'running'

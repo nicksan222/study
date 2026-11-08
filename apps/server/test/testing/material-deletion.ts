@@ -26,9 +26,9 @@ import {
   materialDeletionHandler
 } from '#server/features/materials/workflows/deletion';
 import { decodeEvent } from '#server/platform/workflows/events';
-import type { documentTransformFixture } from '#testing/document-transform';
+import type { pageTransformFixture } from '#testing/page-transform';
 
-export type MaterialDeletionFixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+export type MaterialDeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 export function acceptMaterialDeletion(fixture: MaterialDeletionFixture, materialId: MaterialId) {
   return Effect.runPromise(

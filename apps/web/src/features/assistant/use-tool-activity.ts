@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@study/contracts/conversations/messages';
+import type { ChatMessage } from '@study/contracts/notes/messages';
 import { useQuery } from '@tanstack/react-query';
 
 import { settledAgentTool } from '../agent-progress';
@@ -14,7 +14,7 @@ export function useToolActivity(message: ChatMessage) {
   const progress = useQuery(assistantToolProgressOptions(requestId, pending));
   const runs =
     progress.data?.filter(
-      (run) => run.agentId === 'assistant' || run.agentId === 'session-assistant'
+      (run) => run.agentId === 'assistant' || run.agentId === 'note-assistant'
     ) ?? [];
 
   return {

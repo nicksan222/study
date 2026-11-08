@@ -82,12 +82,12 @@ testStable.each([
     act(() => result.current.onProjectDeleted(deleted));
 
     if (redirect)
-      expect(router.navigate).toHaveBeenCalledWith({ to: '/sessions', search: {}, replace: true });
+      expect(router.navigate).toHaveBeenCalledWith({ to: '/notes', search: {}, replace: true });
     else expect(router.navigate).not.toHaveBeenCalled();
   }
 );
 
-testStable('clears a deleted stale URL subject without leaving the resolved session', () => {
+testStable('clears a deleted stale URL subject without leaving the resolved note', () => {
   router.scope = { project: '41' };
   router.navigate.mockClear();
   const { result } = setup(() => usePage(undefined, 'projects', projectIdSchema.make(42n)));

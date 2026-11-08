@@ -11,7 +11,7 @@ function Root({
 }: ComponentProps<'section'> & { variant?: 'default' | 'starter' | 'notebook' }) {
   return (
     <section
-      className={cn('ui-composer', variant === 'notebook' && 'session-composer', className)}
+      className={cn('ui-composer', variant === 'notebook' && 'note-composer', className)}
       data-variant={variant}
       {...props}
     />
@@ -31,7 +31,7 @@ function Footer({
     <div
       className={cn(
         'ui-composer-footer',
-        variant === 'notebook' && 'session-composer-footer',
+        variant === 'notebook' && 'note-composer-footer',
         className
       )}
       {...props}

@@ -27,10 +27,10 @@ function renderSidebar(children: ReactNode) {
 
 vi.mock('./rich-sidebar.queries', () => ({
   useSidebarProgress: () => ({
-    settings: { data: { settledDocumentThreshold: 1 } },
+    settings: { data: { settledPageThreshold: 1 } },
     progress: { data: { items: [] } }
   }),
-  useSessionSettlement: () => ({ mutate: vi.fn(), isPending: false })
+  useNoteSettlement: () => ({ mutate: vi.fn(), isPending: false })
 }));
 
 testStable(
@@ -56,25 +56,23 @@ testStable(
   }
 );
 
-testStable('allows creating an unfiled session from an empty session list', async () => {
+testStable('allows creating an unfiled note from an empty note list', async () => {
   const user = userEvent.setup();
-  const createSession = vi.fn();
+  const createNote = vi.fn();
 
-  renderSidebar(
-    <SidebarView {...sidebarModel()} createSession={createSession} collection={null} />
-  );
-  expect(await screen.findByText(catalogs.english.DashboardNoSessions)).toBeInTheDocument();
-  const create = screen.getByRole('button', { name: catalogs.english.NewSession });
+  renderSidebar(<SidebarView {...sidebarModel()} createNote={createNote} collection={null} />);
+  expect(await screen.findByText(catalogs.english.DashboardNoNotes)).toBeInTheDocument();
+  const create = screen.getByRole('button', { name: catalogs.english.NewNote });
 
   expect(create).toBeEnabled();
   await user.click(create);
-  expect(createSession).toHaveBeenCalledOnce();
+  expect(createNote).toHaveBeenCalledOnce();
 });
 
-testStable('announces session loading once through the shared indicator', async () => {
-  renderSidebar(<SidebarView {...sidebarModel()} sessionState="loading" collection={null} />);
+testStable('announces note loading once through the shared indicator', async () => {
+  renderSidebar(<SidebarView {...sidebarModel()} noteState="loading" collection={null} />);
 
-  expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingSessions);
+  expect(await screen.findByRole('status')).toHaveTextContent(catalogs.english.LoadingNotes);
   expect(screen.getAllByRole('status')).toHaveLength(1);
 });
 
@@ -108,35 +106,31 @@ testStable(
   }
 );
 
-testStable('offers document creation instead of session creation in Documents', async () => {
+testStable('offers document creation instead of note creation in Pages', async () => {
   renderSidebar(
     <SidebarView
       {...sidebarModel()}
-      metadata={{ title: 'SourceDocument', section: 'documents', scope: 'project' }}
-      section="documents"
+      metadata={{ title: 'SourcePage', section: 'pages', scope: 'project' }}
+      section="pages"
       collection={null}
     />
   );
 
   expect(
-    await screen.findByRole('button', { name: catalogs.english.SessionCreateDocument })
+    await screen.findByRole('button', { name: catalogs.english.NoteCreatePage })
   ).toBeEnabled();
-  expect(
-    screen.queryByRole('button', { name: catalogs.english.NewSession })
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: catalogs.english.NewNote })).not.toBeInTheDocument();
 });
 
-testStable('does not offer session creation on unrelated pages', async () => {
+testStable('does not offer note creation on unrelated pages', async () => {
   renderSidebar(
     <SidebarView
       {...sidebarModel()}
-      metadata={{ title: 'Help', section: 'sessions', scope: 'global' }}
+      metadata={{ title: 'Help', section: 'notes', scope: 'global' }}
       collection={null}
     />
   );
 
   await screen.findByRole('button', { name: catalogs.english.NewProject });
-  expect(
-    screen.queryByRole('button', { name: catalogs.english.NewSession })
-  ).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: catalogs.english.NewNote })).not.toBeInTheDocument();
 });

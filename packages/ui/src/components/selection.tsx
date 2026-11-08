@@ -46,7 +46,7 @@ export const SelectionSurface = {
   ArchivePlaceholder: part('div', 'ui-archive-placeholder'),
   ArchiveFooter: part('footer', 'ui-archive-footer'),
   ArchiveActions: part('div', 'ui-archive-actions'),
-  DocumentActions: part('div', 'ui-selection-document-actions'),
+  PageActions: part('div', 'ui-selection-page-actions'),
   History: part('div', 'ui-selection-history'),
   Heading: part('div', 'ui-selection-heading'),
   Empty: part('div', 'ui-selection-empty'),

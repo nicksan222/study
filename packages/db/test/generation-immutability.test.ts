@@ -17,17 +17,17 @@ function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => b
 }
 
 const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Project',1,1);
- INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(1,'Input',1,1);
+ INSERT INTO pages(id,title,created_at,updated_at) VALUES(1,'Input',1,1);
  INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(1,1,'{}',1),(2,1,'{}',1);
  INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content)
  SELECT id,0,'paragraph','Evidence','{"type":"authored"}','input-'||id,'{"type":"paragraph","inlines":[{"type":"text","text":"Evidence","marks":[]}]}' FROM content_snapshots;
- INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1),(3,1,2,2,1);
- UPDATE study_document_versions SET status='published',published_at=2;
- INSERT INTO project_documents(project_id,document_id) VALUES(1,1);
+ INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1),(3,1,2,2,1);
+ UPDATE page_versions SET status='published',published_at=2;
+ INSERT INTO project_pages(project_id,page_id) VALUES(1,1);
  INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(2,'diagram','Requested',1,1);
  INSERT INTO project_materials(project_id,material_id) VALUES(1,2);
- INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"document","versionId":"1"}]}',1);
- INSERT INTO material_evidence_inputs(request_id,position,document_version_id) VALUES('request',0,1);
+ INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"page","versionId":"1"}]}',1);
+ INSERT INTO material_evidence_inputs(request_id,position,page_version_id) VALUES('request',0,1);
  INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'diagram',1,'agent','generate',1);
  INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
 
@@ -68,7 +68,7 @@ testStable(
       const { db, close } = fixture(false, autoTitle);
 
       try {
-        db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
+        db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE materials SET title='Evidence relationships' WHERE id=2;`);
         const publish = () =>
@@ -88,7 +88,7 @@ testStable('automatic titles reject unbounded or blank names and malformed title
   const { db, close } = fixture(false, true);
 
   try {
-    db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
+    db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
     UPDATE material_versions SET generation_request_id='request' WHERE id=2;`);
 
     for (const title of ['', ' ', ' Evidence ', 'x'.repeat(201)]) {
@@ -100,7 +100,7 @@ testStable('automatic titles reject unbounded or blank names and malformed title
 
     assert.throws(() =>
       db.exec(
-        `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"diagram","inputs":[{"kind":"document","versionId":"1"}]}',1)`
+        `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"diagram","inputs":[{"kind":"page","versionId":"1"}]}',1)`
       )
     );
   } finally {
@@ -132,14 +132,12 @@ testStable('captured generation intent and ordered inputs cannot be rewritten or
       )
     );
     assert.throws(() =>
-      db.exec(
-        `UPDATE material_evidence_inputs SET document_version_id=3 WHERE request_id='request'`
-      )
+      db.exec(`UPDATE material_evidence_inputs SET page_version_id=3 WHERE request_id='request'`)
     );
     assert.throws(() => db.exec(`DELETE FROM material_evidence_inputs WHERE request_id='request'`));
     assert.throws(() =>
       db.exec(
-        `INSERT INTO material_evidence_inputs(request_id,document_version_id,position) VALUES('request',3,1)`
+        `INSERT INTO material_evidence_inputs(request_id,page_version_id,position) VALUES('request',3,1)`
       )
     );
     assert.throws(() => db.exec(`DELETE FROM material_generation_requests WHERE id='request'`));
@@ -155,7 +153,7 @@ testStable(
     const { db, close } = fixture();
 
     try {
-      db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
+      db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE material_versions SET status='published',published_at=2 WHERE id=2;
       UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='request';`);
@@ -178,7 +176,7 @@ testStable('closed scopes fence direct publication of a valid generated draft', 
   const { db, close } = fixture(true);
 
   try {
-    db.exec(`INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0);
+    db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
       UPDATE material_versions SET generation_request_id='request' WHERE id=2;
       UPDATE material_generation_scopes SET enabled=0,updated_at=2 WHERE id='scope';`);
     assert.throws(
@@ -196,7 +194,7 @@ testStable('generation publication rejects a captured input removed from its col
 
   try {
     db.exec(
-      "INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_documents WHERE document_id=1;"
+      "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_pages WHERE page_id=1;"
     );
     assert.throws(() =>
       db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2")
@@ -211,7 +209,7 @@ testStable('the first generation receipt rejects an input removed after output p
 
   try {
     db.exec(
-      "INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_documents WHERE document_id=1;"
+      "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_pages WHERE page_id=1;"
     );
     assert.throws(() =>
       db.exec(
@@ -232,9 +230,9 @@ testStable(
 
     try {
       db.exec(
-        "INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+        "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
           '0'.repeat(64) +
-          "' WHERE id='request'; DELETE FROM project_documents WHERE document_id=1;"
+          "' WHERE id='request'; DELETE FROM project_pages WHERE page_id=1;"
       );
       assert.doesNotThrow(() =>
         db.exec(
@@ -264,22 +262,22 @@ for (const stage of ['publication', 'receipt']) {
 
       try {
         db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
-        INSERT INTO study_documents(id,title,created_at,updated_at) VALUES(3,'Second input',1,1);
+        INSERT INTO pages(id,title,created_at,updated_at) VALUES(3,'Second input',1,1);
         INSERT INTO content_snapshots(id,extractor_version,meta,created_at) SELECT 3,extractor_version,meta,created_at FROM content_snapshots WHERE id=1;
         INSERT INTO blocks(document_id,ordinal,kind,text,anchor,editing_id,content) SELECT 3,ordinal,kind,text,anchor,editing_id,content FROM blocks WHERE document_id=1;
-        INSERT INTO study_document_versions(id,document_id,number,content_snapshot_id,created_at) VALUES(4,3,1,3,1);
-        UPDATE study_document_versions SET status='published',published_at=2 WHERE id=4;
-        INSERT INTO project_documents(project_id,document_id) VALUES(1,3),(2,3);
+        INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at) VALUES(4,3,1,3,1);
+        UPDATE page_versions SET status='published',published_at=2 WHERE id=4;
+        INSERT INTO project_pages(project_id,page_id) VALUES(1,3),(2,3);
         INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-          VALUES('multiple',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"document","versionId":"1"},{"kind":"document","versionId":"4"}]}',1);
-        INSERT INTO material_evidence_inputs(request_id,document_version_id,position) VALUES('multiple',1,0),('multiple',4,1);
-        INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0),(2,4,1);
+          VALUES('multiple',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"page","versionId":"1"},{"kind":"page","versionId":"4"}]}',1);
+        INSERT INTO material_evidence_inputs(request_id,page_version_id,position) VALUES('multiple',1,0),('multiple',4,1);
+        INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0),(2,4,1);
         UPDATE material_versions SET generation_request_id='multiple' WHERE id=2;`);
 
         if (stage === 'receipt')
           db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2");
 
-        db.exec('DELETE FROM project_documents WHERE project_id=1 AND document_id=3');
+        db.exec('DELETE FROM project_pages WHERE project_id=1 AND page_id=3');
         const write =
           stage === 'publication'
             ? "UPDATE material_versions SET status='published',published_at=2 WHERE id=2"
@@ -299,7 +297,7 @@ for (const stage of ['publication', 'receipt']) {
           db.orm.get('SELECT status FROM material_versions WHERE id=2')?.status,
           stage === 'publication' ? 'draft' : 'published'
         );
-        db.exec('INSERT INTO project_documents(project_id,document_id) VALUES(1,3)');
+        db.exec('INSERT INTO project_pages(project_id,page_id) VALUES(1,3)');
         assert.doesNotThrow(() => db.exec(write));
         expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
       } finally {
@@ -321,19 +319,19 @@ testStable(
 
       assert.throws(publish);
       db.exec(
-        'INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,3,1)'
+        'INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,3,1)'
       );
       assert.throws(publish);
       db.exec(
-        'INSERT INTO material_evidence_inputs(version_id,document_version_id,position) VALUES(2,1,0)'
+        'INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0)'
       );
       assert.throws(publish);
-      db.exec('DELETE FROM material_evidence_inputs WHERE version_id=2 AND document_version_id=3');
+      db.exec('DELETE FROM material_evidence_inputs WHERE version_id=2 AND page_version_id=3');
       assert.doesNotThrow(publish);
       expect(
         db.orm
-          .all('SELECT document_version_id FROM material_evidence_inputs WHERE version_id=2')
-          .map((row) => row.document_version_id)
+          .all('SELECT page_version_id FROM material_evidence_inputs WHERE version_id=2')
+          .map((row) => row.page_version_id)
       ).toStrictEqual([1n]);
       expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {

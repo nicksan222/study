@@ -33,7 +33,7 @@ testStable('keeps Assistant drafts across page navigation', async () => {
 
   await waitFor(() => expect(input).toBeEnabled());
   await user.type(input, 'Keep this draft');
-  await act(() => router.navigate({ to: '/sessions' }));
+  await act(() => router.navigate({ to: '/notes' }));
   await user.click(await screen.findByRole('link', { name: 'Assistant' }));
   expect(await screen.findByRole('textbox', { name: 'Message' })).toHaveValue('Keep this draft');
   expect(router.state.location.pathname).toBe('/assistant');

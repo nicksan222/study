@@ -10,13 +10,13 @@ testStable('schema registry discovers every declared table and all searchable en
 
   assert.strictEqual(registry.tables.length, Object.keys(schema).length);
   expect(registry.entities.map(({ metadata }) => metadata.kind).sort()).toStrictEqual([
-    'document',
     'material',
     'message',
+    'note',
+    'page',
     'passage',
     'project',
     'question',
-    'session',
     'source'
   ]);
 });

@@ -3,12 +3,12 @@ import type { KeyboardEvent } from 'react';
 
 import type { useAssistant } from './use-assistant';
 
-export function useAssistantComposer(conversation: Pick<ReturnType<typeof useAssistant>, 'send'>) {
+export function useAssistantComposer(note: Pick<ReturnType<typeof useAssistant>, 'send'>) {
   const input = useRef<HTMLTextAreaElement>(null);
   const hintId = useId();
   const inputId = useId();
   const send = () => {
-    const sent = conversation.send();
+    const sent = note.send();
 
     if (sent) input.current?.focus();
 

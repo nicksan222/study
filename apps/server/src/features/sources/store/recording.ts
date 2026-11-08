@@ -15,7 +15,7 @@
 import { createHash } from 'node:crypto';
 
 import { StudyError } from '@study/contracts/errors';
-import { projectIdSchema, sessionIdSchema, sourceIdSchema } from '@study/contracts/ids';
+import { projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import { and, eq } from '@study/db';
 import * as tables from '@study/db/schema';
 import { Option, Schema } from 'effect';
@@ -26,7 +26,7 @@ import { defineStore, storeMutation, storeQuery } from '#server/platform/definit
 const inputSchema = Schema.Struct({
   requestId: Schema.String,
   projectId: Schema.NullOr(projectIdSchema),
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   name: Schema.String,
   bytes: Schema.Uint8Array,
   durationMs: Schema.Number
@@ -40,7 +40,7 @@ function hash(input: typeof inputSchema.Type) {
       JSON.stringify([
         input.requestId,
         String(input.projectId),
-        String(input.sessionId),
+        String(input.noteId),
         input.name,
         input.durationMs
       ])
@@ -77,14 +77,14 @@ export const RecordingImportStore = defineStore({
         output: Schema.Uint8Array,
         run: (input) => {
           validateRecordingImport(input);
-          const session = db.orm
-            .select({ id: tables.sessions.id })
-            .from(tables.sessions)
-            .where(and(eq(tables.sessions.id, input.sessionId)))
+          const note = db.orm
+            .select({ id: tables.notes.id })
+            .from(tables.notes)
+            .where(and(eq(tables.notes.id, input.noteId)))
             .get();
 
-          if (!session)
-            throw new StudyError('invalid_input', 'recording session does not belong to project');
+          if (!note)
+            throw new StudyError('invalid_input', 'recording note does not belong to project');
 
           return hash(input);
         }
@@ -102,7 +102,7 @@ export const RecordingImportStore = defineStore({
             .values({
               request_id: input.requestId,
               project_id: input.projectId,
-              session_id: input.sessionId,
+              note_id: input.noteId,
               source_id: input.sourceId,
               input_hash: Buffer.from(input.hash),
               duration_ms: BigInt(input.durationMs)

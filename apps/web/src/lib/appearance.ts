@@ -12,7 +12,7 @@ let store = createThemeStore({ appearance: 'dark' });
 
 let revision = 0;
 
-let activeDocument: Document | undefined;
+let activePage: Document | undefined;
 
 const preferenceProperties = [
   '--appearance-contrast-base',
@@ -38,7 +38,7 @@ export function applyAppearance({
         ? 'light'
         : 'dark'
   );
-  const element = activeDocument?.documentElement;
+  const element = activePage?.documentElement;
 
   if (element) {
     element.style.setProperty(
@@ -60,7 +60,7 @@ export function applyAppearance({
 }
 
 export function initializeAppearance(document: Document): () => void {
-  activeDocument = document;
+  activePage = document;
   const originalPreferences = new Map(
     preferenceProperties.map((key) => [key, document.documentElement.style.getPropertyValue(key)])
   );
@@ -90,6 +90,6 @@ export function initializeAppearance(document: Document): () => void {
       else document.documentElement.style.removeProperty(key);
     }
 
-    if (activeDocument === document) activeDocument = undefined;
+    if (activePage === document) activePage = undefined;
   };
 }

@@ -17,7 +17,7 @@ export function PageView({ model }: { model: ReturnType<typeof usePage> }) {
 
   return (
     <WorkspaceCard.Provider>
-      <WorkspaceSurface.Root variant="desk" data-conversation="assistant">
+      <WorkspaceSurface.Root variant="desk" data-note="assistant">
         <Sidebar.Topbar parent={t('AppName')} title={t('Assistant')}>
           <Desk.LayoutControls aria-label={t('AssistantHistory')}>
             <WorkspaceCard.Toggle

@@ -102,7 +102,7 @@ testStable(
 );
 
 testStable(
-  'resets exact confirmation when the target, required phrase or open session changes',
+  'resets exact confirmation when the target, required phrase or open note changes',
   async () => {
     const user = userEvent.setup();
     const confirm = vi.fn();

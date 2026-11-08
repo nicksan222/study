@@ -140,15 +140,13 @@ export function useMaterialLifecycle(id: MaterialId) {
       }
 
       if (result.status === 'failed') {
-        toastManager.add({ title: t('DocumentCleanupFailed'), type: 'error' });
+        toastManager.add({ title: t('PageCleanupFailed'), type: 'error' });
 
         return;
       }
 
       toastManager.add({
-        title: t(
-          result.status === 'completed' ? 'DocumentCleanupCompleted' : 'DocumentCleanupPending'
-        ),
+        title: t(result.status === 'completed' ? 'PageCleanupCompleted' : 'PageCleanupPending'),
         type: result.status === 'completed' ? 'success' : 'info'
       });
       setConfirmation(undefined);

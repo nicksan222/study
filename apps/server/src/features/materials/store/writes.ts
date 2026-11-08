@@ -13,7 +13,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { MaterialId, MaterialVersionId, ProjectId, SessionId } from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId, ProjectId, NoteId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { createMaterialVersionInputSchema } from '@study/contracts/materials/schemas';
 import { and, eq, desc } from '@study/db';
@@ -38,8 +38,8 @@ export function makeWrites(resources: StoreResources) {
     required(store.orm.select().from(s.projects).where(eq(s.projects.id, id)).get());
   }
 
-  function assertSession(id: SessionId) {
-    required(store.orm.select().from(s.sessions).where(eq(s.sessions.id, id)).get());
+  function assertNote(id: NoteId) {
+    required(store.orm.select().from(s.notes).where(eq(s.notes.id, id)).get());
   }
 
   function assertMembership(projectId: ProjectId, materialId: MaterialId) {
@@ -170,5 +170,5 @@ export function makeWrites(resources: StoreResources) {
       .run();
   }
 
-  return { assertProject, assertSession, assertMembership, insertLinks, insertVersion, publish };
+  return { assertProject, assertNote, assertMembership, insertLinks, insertVersion, publish };
 }

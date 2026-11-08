@@ -4,7 +4,7 @@
  * │ stores and agents.                                                                       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Owns quiz attempts, practice sessions, response grading, and card scheduling.          │
+ * │ - Owns quiz attempts, practice notes, response grading, and card scheduling.             │
  * │ - Coordinates typed failures and persistence effects for feature callers.                │
  * │                                                                                          │
  * │ Boundaries:                                                                              │

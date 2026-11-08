@@ -2,7 +2,7 @@
 import { Schema } from 'effect';
 
 import { errorKindSchema } from '../errors.ts';
-import { projectIdSchema, sessionIdSchema } from '../ids.ts';
+import { projectIdSchema, noteIdSchema } from '../ids.ts';
 
 export const MAX_INTEGRATION_BYTES = 32 * 1024 * 1024;
 
@@ -38,7 +38,7 @@ export const integrationWarningSchema = Schema.Struct({
   target: Schema.NullOr(Schema.String)
 });
 
-export const integrationSessionSchema = Schema.Struct({
+export const integrationNoteSchema = Schema.Struct({
   key: Schema.String,
   title: Schema.String.check(Schema.isBetweenLength(1, 200)),
   /** Original Markdown, before Study's canonical source decoder runs. */
@@ -59,7 +59,7 @@ export const integrationSessionSchema = Schema.Struct({
 });
 
 export const integrationPlanSchema = Schema.Struct({
-  sessions: Schema.Array(integrationSessionSchema).check(Schema.isMaxLength(2000)),
+  notes: Schema.Array(integrationNoteSchema).check(Schema.isMaxLength(2000)),
   files: Schema.Array(integrationFileSchema),
   warnings: Schema.Array(integrationWarningSchema)
 });
@@ -86,7 +86,7 @@ const integrationImportItemSchema = Schema.Struct({
   key: Schema.String,
   title: Schema.String,
   status: Schema.Literals(['pending', 'imported', 'unchanged', 'conflict', 'excluded', 'failed']),
-  sessionId: Schema.NullOr(sessionIdSchema),
+  noteId: Schema.NullOr(noteIdSchema),
   errorKind: Schema.NullOr(errorKindSchema)
 });
 

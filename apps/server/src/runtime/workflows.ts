@@ -16,15 +16,6 @@
 
 import { Layer } from 'effect';
 
-import { sessionDeletionRegistration } from '#server/features/conversations/workflows/deletion';
-import {
-  conversationReplyRegistration,
-  conversationAttachmentWakeRegistration
-} from '#server/features/conversations/workflows/index';
-import { conversationQuestionRegistration } from '#server/features/conversations/workflows/question';
-import { conversationTitleRegistration } from '#server/features/conversations/workflows/title';
-import { transformSuggestionRegistration } from '#server/features/conversations/workflows/transform-suggestion';
-import { documentTransformRegistration } from '#server/features/documents/workflows/transform';
 import { integrationImportRegistration } from '#server/features/integrations/workflows/index';
 import {
   quizGradingRegistration,
@@ -35,6 +26,15 @@ import {
 import { materialDeletionRegistration } from '#server/features/materials/workflows/deletion';
 import { materialGenerationRegistration } from '#server/features/materials/workflows/generation';
 import { materialHistoryRegistration } from '#server/features/materials/workflows/history';
+import { noteDeletionRegistration } from '#server/features/notes/workflows/deletion';
+import {
+  noteReplyRegistration,
+  noteAttachmentWakeRegistration
+} from '#server/features/notes/workflows/index';
+import { noteQuestionRegistration } from '#server/features/notes/workflows/question';
+import { noteTitleRegistration } from '#server/features/notes/workflows/title';
+import { transformSuggestionRegistration } from '#server/features/notes/workflows/transform-suggestion';
+import { pageTransformRegistration } from '#server/features/pages/workflows/transform';
 import { recordingPostRegistration } from '#server/features/recordings/workflows/index';
 import { sourceCorrectionRegistration } from '#server/features/sources/workflows/index';
 import { sourceIngestionRegistration } from '#server/features/sources/workflows/index';
@@ -43,17 +43,17 @@ import { sourceIngestionRegistration } from '#server/features/sources/workflows/
 const entries = [
   integrationImportRegistration,
   transformSuggestionRegistration,
-  documentTransformRegistration,
+  pageTransformRegistration,
   materialHistoryRegistration,
   materialDeletionRegistration,
-  sessionDeletionRegistration,
+  noteDeletionRegistration,
   practiceFailureRegistration,
-  conversationAttachmentWakeRegistration,
+  noteAttachmentWakeRegistration,
   recordingPostRegistration,
   materialGenerationRegistration,
-  conversationTitleRegistration,
-  conversationQuestionRegistration,
-  conversationReplyRegistration,
+  noteTitleRegistration,
+  noteQuestionRegistration,
+  noteReplyRegistration,
   sourceIngestionRegistration,
   sourceCorrectionRegistration,
   quizGradingRegistration,

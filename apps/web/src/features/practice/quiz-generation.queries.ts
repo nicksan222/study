@@ -2,7 +2,7 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
 import { mutationOptions, queryOptions } from '@tanstack/react-query';
 
-import { listPracticeDocuments } from '#web/lib/study-client/practice-documents.ts';
+import { listPracticePages } from '#web/lib/study-client/practice-pages.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 export const quizGenerationMutationOptions = () =>
@@ -24,10 +24,10 @@ export const quizGenerationOptions = (requestId: string) =>
         : 2000
   });
 
-export const generationDocumentsOptions = (projectId?: ProjectId) =>
+export const generationPagesOptions = (projectId?: ProjectId) =>
   queryOptions({
-    queryKey: ['documents', 'generation', projectId?.toString()],
-    queryFn: ({ signal }) => listPracticeDocuments(projectId, signal)
+    queryKey: ['pages', 'generation', projectId?.toString()],
+    queryFn: ({ signal }) => listPracticePages(projectId, signal)
   });
 
 export const activeGenerationsOptions = (projectId?: ProjectId, enabled = true) =>

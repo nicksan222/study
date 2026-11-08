@@ -1,9 +1,9 @@
-import type { sourceCopySchema } from '@study/contracts/documents/rpc';
-import type { StudyDocument } from '@study/contracts/documents/types';
-import type { SourceId, SessionId, ContentSnapshotId } from '@study/contracts/ids';
+import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
+import type { sourceCopySchema } from '@study/contracts/pages/rpc';
+import type { Page } from '@study/contracts/pages/types';
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { invalidateDocuments } from '#web/lib/study-client/documents.queries.ts';
+import { invalidatePages } from '#web/lib/study-client/pages.queries.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 /** A current pending revision never borrows a previous revision's extraction. */
@@ -42,13 +42,13 @@ export const sourceOptions = (id: SourceId | null) =>
 
 type Input = typeof sourceCopySchema.Type;
 
-type CopyState = { pending: boolean; input?: Input; document?: StudyDocument; error?: unknown };
+type CopyState = { pending: boolean; input?: Input; document?: Page; error?: unknown };
 
 /** The query cache retains an immutable copy request until its uncertain receipt is recovered. */
 
-export function useSourceCopy(sourceId: SourceId, sessionId?: SessionId) {
+export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
   const cache = useQueryClient();
-  const key = ['source-copy', String(sourceId), sessionId?.toString()];
+  const key = ['source-copy', String(sourceId), noteId?.toString()];
   const initial: CopyState = { pending: false };
   const state = useQuery({
     queryKey: key,
@@ -71,7 +71,7 @@ export function useSourceCopy(sourceId: SourceId, sessionId?: SessionId) {
 
     const input = current.input ?? {
       sourceId,
-      sessionId,
+      noteId,
       createKey: crypto.randomUUID(),
       title: extraction.name,
       revision: extraction.revision,
@@ -81,10 +81,10 @@ export function useSourceCopy(sourceId: SourceId, sessionId?: SessionId) {
     cache.setQueryData<CopyState>(key, { pending: true, input });
 
     try {
-      const document = await request((rpc) => rpc['documents.copySource'](input));
+      const document = await request((rpc) => rpc['pages.copySource'](input));
 
       cache.setQueryData<CopyState>(key, { pending: false, input, document });
-      void invalidateDocuments(cache);
+      void invalidatePages(cache);
 
       return document;
     } catch (error) {

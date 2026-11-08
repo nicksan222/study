@@ -19,17 +19,17 @@ import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { makeGenerationRetirement } from '#server/features/materials/store/generation-retirement';
+import { Pages } from '#server/features/pages/index';
 import { workflowStore } from '#server/platform/workflows/store';
-import { documentTransformFixture } from '#testing/document-transform';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
 import { deletionDocument } from '#testing/material-deletion';
 import { acceptHistory, cleanupHistory } from '#testing/material-history';
-import { assertScrubbed } from '#testing/session-deletion';
+import { assertScrubbed } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 
-type Fixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 function assertRetired(f: Fixture, requestId: string) {
   const row = f.context.db.orm
@@ -56,7 +56,7 @@ for (const attemptInputFirst of [false, true])
   testStable(
     `generated learning history preserves exact ownership when authored input retirement is ${attemptInputFirst ? 'attempted first' : 'not requested'}`,
     async () => {
-      const f = await documentTransformFixture();
+      const f = await pageTransformFixture();
 
       try {
         const saved = await learningGeneration(f);
@@ -67,7 +67,7 @@ for (const attemptInputFirst of [false, true])
         const kept = await Effect.runPromise(
           Effect.gen(function* () {
             const m = yield* Materials;
-            const docs = yield* Documents;
+            const docs = yield* Pages;
             const output = yield* m.materialVersion({ id: versionId });
 
             assert.ok(output.content.kind === 'flashcards');
@@ -90,12 +90,12 @@ for (const attemptInputFirst of [false, true])
             });
 
             yield* docs.save({
-              documentId: saved.input.id,
+              pageId: saved.input.id,
               expectedVersionId: saved.input.version.id,
               key: 'advance',
               document: deletionDocument('Current input')
             });
-            const scope = { documentId: saved.input.id, keepLatest: 1 };
+            const scope = { pageId: saved.input.id, keepLatest: 1 };
 
             if (attemptInputFirst) {
               const blocked = yield* docs.previewHistory(scope);
@@ -140,7 +140,7 @@ for (const attemptInputFirst of [false, true])
         await Effect.runPromise(
           Effect.gen(function* () {
             const m = yield* Materials;
-            const docs = yield* Documents;
+            const docs = yield* Pages;
 
             assert.ok(
               (yield* m.historyPrune({ operationId: 'history-output' })).status === 'completed'
@@ -185,7 +185,7 @@ for (const attemptInputFirst of [false, true])
 testStable(
   'completed learning generation cleanup proof rejects restoring private payload, result, pins or ownership',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await learningGeneration(f);
@@ -237,7 +237,7 @@ testStable(
           .insert(s.material_evidence_inputs)
           .values({
             request_id: saved.request.id,
-            document_version_id: saved.input.version.id,
+            page_version_id: saved.input.version.id,
             position: 0n
           })
           .run()

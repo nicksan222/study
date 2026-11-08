@@ -83,7 +83,7 @@ const popupClasses = {
   default: '',
   media: '',
   identity: 'ui-identity-dialog',
-  'workspace-context': 'session-context-dialog',
+  'workspace-context': 'note-context-dialog',
   'practice-generation': 'study-generation-dialog'
 } as const;
 

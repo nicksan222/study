@@ -70,7 +70,7 @@ export const concurrencySettingsSchema = Schema.Struct({
 });
 
 export const sidebarSettingsSchema = Schema.Struct({
-  settledDocumentThreshold: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+  settledPageThreshold: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
 });
 
 export const workspacePreferencesSchema = Schema.Struct({
@@ -79,16 +79,16 @@ export const workspacePreferencesSchema = Schema.Struct({
   submitOnEnter: Schema.Boolean,
   defaultExportFormat: exportFormatSchema,
   defaultAiDetail: Schema.Literals(['brief', 'balanced', 'detailed']),
-  autoTitleSessions: Schema.Boolean,
+  autoTitleNotes: Schema.Boolean,
   autoAnswerQuestions: Schema.Boolean,
   textConversionMode: Schema.Literals(['manual', 'automatic']),
   textConversionStrategy: conversionStrategyIdSchema,
   sidebarDensity: Schema.Literals(['comfortable', 'compact']),
-  sidebarShowDocumentCounts: Schema.Boolean,
+  sidebarShowPageCounts: Schema.Boolean,
   sidebarTimeFormat: Schema.Literals(['relative', 'absolute']),
   editorFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
   readerFontSize: Schema.Int.check(Schema.isBetween({ minimum: 14, maximum: 24 })),
-  expandDocuments: Schema.Boolean
+  expandPages: Schema.Boolean
 });
 
 /** Generation defaults for each specialized practice mode. */
@@ -127,7 +127,7 @@ export const quizSettingsSchema = Schema.Struct({
 });
 
 export const AgentRule = {
-  Documents: { key: 'documents' },
+  Pages: { key: 'pages' },
   Titles: { key: 'titles' },
   Replies: { key: 'replies' },
   Quizzes: { key: 'quizzes' },
@@ -144,7 +144,7 @@ export const maxAgentRuleLength = 8000;
 const agentRuleTextSchema = Schema.String.check(Schema.isMaxLength(maxAgentRuleLength));
 
 export const agentRulesSchema = Schema.Struct({
-  [AgentRule.Documents.key]: agentRuleTextSchema,
+  [AgentRule.Pages.key]: agentRuleTextSchema,
   [AgentRule.Titles.key]: agentRuleTextSchema,
   [AgentRule.Replies.key]: agentRuleTextSchema,
   [AgentRule.Quizzes.key]: agentRuleTextSchema,

@@ -20,11 +20,11 @@ testStable('only progress persistence and retirement cleanup may write generatio
     lint({
       'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress); db.update(workflow_agent_progress);`,
       'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.delete(workflow_agent_progress);`,
-      'apps/server/src/features/conversations/store/index.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress);`,
+      'apps/server/src/features/notes/store/index.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress);`,
       'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.update(workflow_agent_progress);`
     })
   ).toStrictEqual([
-    'apps/server/src/features/conversations/store/index.ts',
+    'apps/server/src/features/notes/store/index.ts',
     'apps/server/src/platform/ai/agents.ts'
   ]);
 });
@@ -144,7 +144,7 @@ testStable(
       db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
       db.delete(s.workflow_activities); db.update(s.workflow_executions); db.update(s.workflowEvents);
     `,
-        'apps/server/src/features/conversations/store/deletion.ts': `
+        'apps/server/src/features/notes/store/deletion.ts': `
       import * as s from '@study/db/schema';
       db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
     `,
@@ -157,7 +157,7 @@ testStable(
         'apps/server/src/platform/workflows/configuration.ts': `import * as s from '@study/db/schema'; db.delete(s.workflow_configuration_waits);`
       })
     ).toStrictEqual([
-      ...Array(2).fill('apps/server/src/features/conversations/store/deletion.ts'),
+      ...Array(2).fill('apps/server/src/features/notes/store/deletion.ts'),
       'apps/server/src/platform/workflows/control.ts',
       ...Array(3).fill('apps/server/src/platform/workflows/retirement.ts')
     ]);
@@ -200,7 +200,7 @@ testStable(
       db.delete(checkpoints); db.insert(retired); db.update(schema.workflow_executions);
 
     `,
-        'apps/server/src/features/conversations/store/material-history.ts': `
+        'apps/server/src/features/notes/store/material-history.ts': `
       import * as s from '@study/db/schema'; import { sql } from '@study/db';
       db.select().from(s.workflow_deferreds);
 
@@ -214,8 +214,8 @@ testStable(
     `
       })
     ).toStrictEqual([
-      ...Array(3).fill('apps/server/src/features/conversations/store/material-history.ts'),
-      ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts')
+      ...Array(3).fill('apps/server/src/features/materials/store/generation-cleanup.ts'),
+      ...Array(3).fill('apps/server/src/features/notes/store/material-history.ts')
     ]);
   }
 );

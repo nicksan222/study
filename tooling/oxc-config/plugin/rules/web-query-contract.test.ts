@@ -137,21 +137,21 @@ testStable(
 );
 
 testStable(
-  'unavailable session reconciliation consumes shared selection, thread and generation options',
+  'unavailable note reconciliation consumes shared selection, thread and generation options',
   () => {
     expect(
       lintRule(
         'web-query-contract',
         {
-          'apps/web/src/features/session-workspace/unavailable-attempt.tsx': `
+          'apps/web/src/features/note-workspace/unavailable-attempt.tsx': `
       import {useQueryClient} from '@tanstack/react-query';
-      import {selectionOptions, threadOptions, sessionGenerationsOptions} from './session-workspace.queries';
+      import {selectionOptions, threadOptions, noteGenerationsOptions} from './note-workspace.queries';
       export function Recovery() {
         const client = useQueryClient();
         return Promise.all([
           client.fetchQuery({...selectionOptions(id), staleTime: 0}),
           client.fetchInfiniteQuery({...threadOptions(id), staleTime: 0}),
-          client.fetchInfiniteQuery({...sessionGenerationsOptions(id), staleTime: 0})
+          client.fetchInfiniteQuery({...noteGenerationsOptions(id), staleTime: 0})
         ]);
       }
     `
@@ -162,9 +162,9 @@ testStable(
     const diagnostics = lintRule(
       'web-query-contract',
       {
-        'apps/web/src/features/session-workspace/unavailable-attempt.tsx': `
+        'apps/web/src/features/note-workspace/unavailable-attempt.tsx': `
       export const review = (client) => client.fetchInfiniteQuery({
-        queryKey: ['session-generations'], queryFn: () => discoverRuns()
+        queryKey: ['note-generations'], queryFn: () => discoverRuns()
       });
     `
       },

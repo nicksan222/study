@@ -26,9 +26,7 @@ testStable('generation publication requires integer citation positions and brand
   const value = {
     requestId: 'request',
     content: { kind: 'flashcards', cards: [{ front: 'Q [1]', back: 'A' }] },
-    citations: [
-      { marker: 1n, input: { kind: 'document', versionId: 1n }, blockOrdinal: 0, quote: 'Q' }
-    ]
+    citations: [{ marker: 1n, input: { kind: 'page', versionId: 1n }, blockOrdinal: 0, quote: 'Q' }]
   };
 
   expect(decode(value).citations).toStrictEqual(value.citations);
@@ -82,7 +80,7 @@ testStable('generation captures a quiz-only exact question specification', async
     projectId: 1n,
     title: 'Question',
     kind: 'quiz',
-    inputs: [{ kind: 'document', versionId: 1n }],
+    inputs: [{ kind: 'page', versionId: 1n }],
     scopeId: 'epoch',
     questionSpec: { count: 1, kind: 'open' }
   };

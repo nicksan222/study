@@ -21,7 +21,7 @@ import type {
   setExamInputSchema,
   setProjectIconInputSchema,
   projectMaterialInputSchema,
-  projectSessionInputSchema
+  projectNoteInputSchema
 } from '@study/contracts/projects/rpc';
 import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { Effect } from 'effect';
@@ -71,10 +71,10 @@ export const Projects = defineService(
         transaction((tx) => tx.store(ProjectsStore).addMaterial(input)),
       removeMaterial: (input: typeof projectMaterialInputSchema.Type) =>
         transaction((tx) => tx.store(ProjectsStore).removeMaterial(input)),
-      addSession: (input: typeof projectSessionInputSchema.Type) =>
-        transaction((tx) => tx.store(ProjectsStore).addSession(input)),
-      removeSession: (input: typeof projectSessionInputSchema.Type) =>
-        transaction((tx) => tx.store(ProjectsStore).removeSession(input)),
+      addNote: (input: typeof projectNoteInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).addNote(input)),
+      removeNote: (input: typeof projectNoteInputSchema.Type) =>
+        transaction((tx) => tx.store(ProjectsStore).removeNote(input)),
       project: store.project,
       findProject: store.findProject,
       projects: (input: typeof projectPageInputSchema.Type) => pageById(store.projects, input),

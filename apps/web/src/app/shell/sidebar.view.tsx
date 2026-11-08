@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-import { NewBlankDocument } from '#web/features/authored-documents/index.ts';
+import { NewBlankPage } from '#web/features/pages/index.ts';
 import { PracticeGenerationAction, ArchivedPracticeAction } from '#web/features/practice/index.ts';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -31,14 +31,14 @@ import { searchResultLocation, searchResultKey } from '#web/lib/navigation/searc
 import { sidebarContent } from '#web/lib/navigation/sidebar-config.ts';
 import { Page as SettingsPage } from '#web/pages/settings/page.tsx';
 
-import { RichSidebarSessions } from './rich-sidebar';
+import { RichSidebarNotes } from './rich-sidebar';
 import type { useSidebarCounts } from './sidebar-counts.queries';
 import { SidebarNavigation } from './sidebar-navigation.view';
 import type { SidebarModel } from './use-sidebar';
 
 type SidebarViewModel = SidebarModel & {
   collection: ReactNode;
-  selectedSession?: string | null;
+  selectedNote?: string | null;
   counts?: ReturnType<typeof useSidebarCounts>;
 };
 
@@ -65,8 +65,8 @@ export function SidebarView(model: SidebarViewModel) {
 
 function searchPresentation(kind: SidebarModel['hits'][number]['kind']) {
   switch (kind) {
-    case 'document':
-      return { Icon: FileText, label: 'SourceDocument' as const };
+    case 'page':
+      return { Icon: FileText, label: 'SourcePage' as const };
     case 'material':
       return { Icon: GraduationCap, label: 'SearchKindMaterial' as const };
     case 'source':
@@ -74,7 +74,7 @@ function searchPresentation(kind: SidebarModel['hits'][number]['kind']) {
     case 'project':
       return { Icon: Folder, label: 'SearchKindProject' as const };
     default:
-      return { Icon: MessagesSquare, label: 'SearchKindSession' as const };
+      return { Icon: MessagesSquare, label: 'SearchKindNote' as const };
   }
 }
 
@@ -134,46 +134,46 @@ function SidebarSearchResults({
   );
 }
 
-/** Lists scoped sessions with an independent deletion action for each row. */
+/** Lists scoped notes with an independent deletion action for each row. */
 
-function SidebarSessions({
-  selectedSession,
+function SidebarNotes({
+  selectedNote,
   project,
   subjects,
   invalidSubject,
-  sessions,
-  sessionState,
-  reloadSessions
+  notes,
+  noteState,
+  reloadNotes
 }: Pick<
   SidebarModel,
-  'project' | 'subjects' | 'invalidSubject' | 'sessions' | 'sessionState' | 'reloadSessions'
-> & { selectedSession?: string | null }) {
+  'project' | 'subjects' | 'invalidSubject' | 'notes' | 'noteState' | 'reloadNotes'
+> & { selectedNote?: string | null }) {
   const { t } = useI18n();
 
   return (
-    <SidebarUI.Items id="study-sidebar-sessions" aria-label={t('Sessions')}>
-      {sessionState === 'loading' && <Loading layout="sidebar" label={t('LoadingSessions')} />}
-      {sessionState === 'error' && (
+    <SidebarUI.Items id="study-sidebar-notes" aria-label={t('Notes')}>
+      {noteState === 'loading' && <Loading layout="sidebar" label={t('LoadingNotes')} />}
+      {noteState === 'error' && (
         <ErrorState
           layout="sidebar"
-          title={t('SessionsLoadError')}
+          title={t('NotesLoadError')}
           action={
-            <Button variant="ghost-muted" onClick={() => reloadSessions()}>
-              {t('SessionsLoadError')}
+            <Button variant="ghost-muted" onClick={() => reloadNotes()}>
+              {t('NotesLoadError')}
             </Button>
           }
         />
       )}
-      {sessionState === 'ready' && !invalidSubject && (
-        <RichSidebarSessions
+      {noteState === 'ready' && !invalidSubject && (
+        <RichSidebarNotes
           project={project}
-          selectedSession={selectedSession ?? null}
+          selectedNote={selectedNote ?? null}
           subjects={subjects}
-          sessions={sessions}
+          notes={notes}
         />
       )}
-      {sessionState === 'ready' && !invalidSubject && sessions.length === 0 && (
-        <SidebarUI.Message>{t('DashboardNoSessions')}</SidebarUI.Message>
+      {noteState === 'ready' && !invalidSubject && notes.length === 0 && (
+        <SidebarUI.Message>{t('DashboardNoNotes')}</SidebarUI.Message>
       )}
     </SidebarUI.Items>
   );
@@ -420,7 +420,7 @@ function SidebarToolbar({
   searchRef,
   openSearch,
   clearSearch,
-  createSession
+  createNote
 }: Pick<
   SidebarModel,
   | 'metadata'
@@ -437,7 +437,7 @@ function SidebarToolbar({
   | 'searchRef'
   | 'openSearch'
   | 'clearSearch'
-  | 'createSession'
+  | 'createNote'
 >) {
   const { t } = useI18n();
 
@@ -470,7 +470,7 @@ function SidebarToolbar({
         project={project}
         disabled={invalidSubject || subjectState !== 'ready'}
         creating={creating}
-        createSession={createSession}
+        createNote={createNote}
       />
     </SidebarUI.Toolbar>
   );
@@ -617,7 +617,7 @@ function SidebarContentBody(model: SidebarViewModel) {
 
   if (model.query.trim()) return <SidebarSearchResults {...model} />;
 
-  return <SidebarSessions {...model} />;
+  return <SidebarNotes {...model} />;
 }
 
 function keywordOnly(result: SidebarModel['result']) {
@@ -681,9 +681,9 @@ function SidebarSearchControl({
   );
 }
 
-/** Disables quick session creation until subject ownership is ready. */
+/** Disables quick note creation until subject ownership is ready. */
 
-function SidebarCreateSessionIcon({ creating }: Pick<SidebarModel, 'creating'>) {
+function SidebarCreateNoteIcon({ creating }: Pick<SidebarModel, 'creating'>) {
   const { t } = useI18n();
 
   return creating ? <Spinner label={t('Saving')} /> : <SquarePen aria-hidden="true" />;
@@ -715,8 +715,8 @@ function SidebarCreationControl({
   project,
   disabled,
   creating,
-  createSession
-}: Pick<SidebarModel, 'metadata' | 'project' | 'creating' | 'createSession'> & {
+  createNote
+}: Pick<SidebarModel, 'metadata' | 'project' | 'creating' | 'createNote'> & {
   disabled: boolean;
 }) {
   const { t } = useI18n();
@@ -729,19 +729,19 @@ function SidebarCreationControl({
           <PracticeGenerationAction projectId={project} disabled={disabled} />
         </>
       )}
-      {metadata.section === 'documents' && (
-        <NewBlankDocument key={String(project)} project={project} compact disabled={disabled} />
+      {metadata.section === 'pages' && (
+        <NewBlankPage key={String(project)} project={project} compact disabled={disabled} />
       )}
-      {metadata.title === 'Sessions' && (
+      {metadata.title === 'Notes' && (
         <IconButton
           size="icon"
           variant="ghost-muted"
-          label={t('NewSession')}
+          label={t('NewNote')}
 
           disabled={creating}
-          onClick={() => void createSession()}
+          onClick={() => void createNote()}
         >
-          <SidebarCreateSessionIcon creating={creating} />
+          <SidebarCreateNoteIcon creating={creating} />
         </IconButton>
       )}
     </>

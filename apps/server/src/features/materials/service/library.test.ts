@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Verifies library identities survive collection and session organization changes.   │
+ * │ @file Verifies library identities survive collection and note organization changes.      │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Exercises real native RPC and service membership mutations.                            │
@@ -13,10 +13,10 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { ConversationsRpc } from '@study/contracts/conversations/rpc';
-import { projectIdSchema, materialIdSchema, sessionIdSchema } from '@study/contracts/ids';
+import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
+import { NotesRpc } from '@study/contracts/notes/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { workflowEvents } from '@study/db/schema';
@@ -27,10 +27,10 @@ import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { ConversationsRpcLive } from '#server/features/conversations/rpc/index';
-import { Conversations } from '#server/features/conversations/service/index';
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { NotesRpcLive } from '#server/features/notes/rpc/index';
+import { Notes } from '#server/features/notes/service/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
@@ -60,7 +60,7 @@ const authored = () => ({
 });
 
 function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
-  return Effect.flatMap(Documents, (docs) =>
+  return Effect.flatMap(Pages, (docs) =>
     docs.create({
       createKey: randomUUID(),
       projectId,
@@ -79,13 +79,13 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
 }
 
 testStable(
-  'native RPC creates an uncollected material shared by quick sessions and preserves it after session deletion',
+  'native RPC creates an uncollected material shared by quick notes and preserves it after note deletion',
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const handlers = () =>
-      Layer.mergeAll(materialRpcHandlers, ConversationsRpcLive).pipe(
-        Layer.provide(Layer.mergeAll(Materials.layer, Conversations.layer, Settings.layer)),
+      Layer.mergeAll(materialRpcHandlers, NotesRpcLive).pipe(
+        Layer.provide(Layer.mergeAll(Materials.layer, Notes.layer, Settings.layer)),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
 
@@ -94,21 +94,21 @@ testStable(
         Effect.scoped(
           Effect.gen(function* () {
             const materials = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
-            const conversations = yield* RpcTest.makeClient(ConversationsRpc, { flatten: true });
+            const notes = yield* RpcTest.makeClient(NotesRpc, { flatten: true });
             const material = yield* materials('materials.create', { title: 'Library', content });
-            const first = yield* conversations('conversations.createSession', { title: 'First' });
-            const second = yield* conversations('conversations.createSession', { title: 'Second' });
+            const first = yield* notes('notes.createNote', { title: 'First' });
+            const second = yield* notes('notes.createNote', { title: 'Second' });
 
-            for (const session of [first, second])
+            for (const note of [first, second])
               yield* materials('materials.attach', {
-                sessionId: session.id,
+                noteId: note.id,
                 materialId: material.id
               });
 
-            yield* materials('materials.detach', { sessionId: first.id, materialId: material.id });
+            yield* materials('materials.detach', { noteId: first.id, materialId: material.id });
             assert.strictEqual(
               (yield* materials('materials.materials', {
-                sessionId: second.id,
+                noteId: second.id,
                 limit: 10,
                 archived: false
               })).items[0]?.id,
@@ -116,13 +116,13 @@ testStable(
             );
             assert.strictEqual(
               (yield* materials('materials.materials', {
-                sessionId: first.id,
+                noteId: first.id,
                 limit: 10,
                 archived: false
               })).items.length,
               0
             );
-            yield* conversations('conversations.deleteSession', { id: second.id });
+            yield* notes('notes.deleteNote', { id: second.id });
 
             return material;
           }).pipe(Effect.provide(handlers()))
@@ -155,18 +155,14 @@ testStable(
 );
 
 testStable(
-  'flat collections organize shared materials and sessions without owning source bytes or lineage',
+  'flat collections organize shared materials and notes without owning source bytes or lineage',
   async () => {
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const services = () =>
-      Layer.mergeAll(
-        Projects.layer,
-        Materials.layer,
-        Documents.layer,
-        Sources.layer,
-        Conversations.layer
-      ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+      Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Sources.layer, Notes.layer).pipe(
+        Layer.provideMerge(Layer.succeed(Database, { store: context }))
+      );
 
     try {
       const saved = await Effect.runPromise(
@@ -174,10 +170,10 @@ testStable(
           const projects = yield* Projects,
             materials = yield* Materials,
             sources = yield* Sources,
-            conversations = yield* Conversations;
+            notes = yield* Notes;
           const a = yield* projects.createProject({ name: 'A' }),
             b = yield* projects.createProject({ name: 'B' });
-          const session = yield* conversations.createSession({ title: 'Quick' });
+          const note = yield* notes.createNote({ title: 'Quick' });
           const source = yield* sources.createSource({
             name: 'original.txt',
             projectId: a.id,
@@ -192,12 +188,12 @@ testStable(
           const material = yield* materials.create({
             title: 'Shared',
             content,
-            inputs: [{ kind: 'document', versionId: evidence.version.id }]
+            inputs: [{ kind: 'page', versionId: evidence.version.id }]
           });
 
           for (const project of [a, b]) {
             yield* projects.addMaterial({ projectId: project.id, materialId: material.id });
-            yield* projects.addSession({ projectId: project.id, sessionId: session.id });
+            yield* projects.addNote({ projectId: project.id, noteId: note.id });
           }
 
           yield* projects.addMaterial({ projectId: a.id, materialId: original.id });
@@ -221,16 +217,16 @@ testStable(
           const outboxBefore = context.db.orm.select().from(workflowEvents).all().length;
           const missingProject = Schema.decodeUnknownSync(projectIdSchema)(999n);
           const missingMaterial = Schema.decodeUnknownSync(materialIdSchema)(999n);
-          const missingSession = Schema.decodeUnknownSync(sessionIdSchema)(999n);
+          const missingNote = Schema.decodeUnknownSync(noteIdSchema)(999n);
 
           for (const mutation of [
             projects.addMaterial({ projectId: missingProject, materialId: material.id }),
             projects.addMaterial({ projectId: a.id, materialId: missingMaterial }),
-            projects.addSession({ projectId: a.id, sessionId: missingSession }),
+            projects.addNote({ projectId: a.id, noteId: missingNote }),
             materials.create({
               title: 'Rolled back',
               projectId: a.id,
-              sessionId: missingSession,
+              noteId: missingNote,
               content
             })
           ])
@@ -246,7 +242,7 @@ testStable(
           );
           yield* projects.deleteProject({ id: a.id });
 
-          return { material, original, evidence, source, session, b };
+          return { material, original, evidence, source, note, b };
         }).pipe(Effect.provide(services()))
       );
 
@@ -255,18 +251,16 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Materials,
-            conversations = yield* Conversations,
+            notes = yield* Notes,
             sources = yield* Sources;
           const material = yield* materials.material({ id: saved.material.id });
 
           assert.strictEqual(material.version.id, saved.material.version.id);
           expect(material.version.inputs).toStrictEqual([
-            { kind: 'document', versionId: saved.evidence.version.id }
+            { kind: 'page', versionId: saved.evidence.version.id }
           ]);
           expect(material.projectIds).toStrictEqual([saved.b.id]);
-          expect((yield* conversations.session(saved.session.id)).projectIds).toStrictEqual([
-            saved.b.id
-          ]);
+          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([saved.b.id]);
           assert.strictEqual((yield* sources.source(saved.source.id)).id, saved.source.id);
           assert.ok(
             new TextDecoder().decode(
@@ -289,7 +283,7 @@ testStable(
     const location = createTestDatabase();
     let context = new ServerContext(location.open());
     const services = () =>
-      Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer, Conversations.layer).pipe(
+      Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Notes.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
 
@@ -299,34 +293,34 @@ testStable(
           const projects = yield* Projects;
 
           const materials = yield* Materials;
-          const docs = yield* Documents;
-          const conversations = yield* Conversations;
+          const docs = yield* Pages;
+          const notes = yield* Notes;
           const a = yield* projects.createProject({ name: 'Requested' });
           const b = yield* projects.createProject({ name: 'Other membership' });
           const input = yield* createAuthored(a.id, 'Captured');
           const unrelated = yield* createAuthored(a.id, 'Unselected');
-          const session = yield* conversations.createSession({ title: 'Selection is not scope' });
+          const note = yield* notes.createNote({ title: 'Selection is not scope' });
 
-          yield* docs.attachProject({ projectId: b.id, documentId: input.id });
-          yield* projects.addSession({ projectId: a.id, sessionId: session.id });
+          yield* docs.attachProject({ projectId: b.id, pageId: input.id });
+          yield* projects.addNote({ projectId: a.id, noteId: note.id });
 
           for (const material of [input, unrelated])
-            yield* docs.attach({ sessionId: session.id, documentId: material.id });
+            yield* docs.attach({ noteId: note.id, pageId: material.id });
 
           const request = yield* materials.requestMaterialGeneration({
             projectId: a.id,
             title: 'Exact',
             kind: 'diagram',
-            inputs: [{ kind: 'document', versionId: input.version.id }]
+            inputs: [{ kind: 'page', versionId: input.version.id }]
           });
 
           yield* docs.save({
-            documentId: input.id,
+            pageId: input.id,
             expectedVersionId: input.version.id,
             key: 'advance-head',
             document: authored()
           });
-          yield* docs.detachProject({ projectId: a.id, documentId: input.id });
+          yield* docs.detachProject({ projectId: a.id, pageId: input.id });
           const events = context.db.orm.select().from(workflowEvents).all();
           const requests = context.db.orm.all(sql`SELECT * FROM material_generation_requests`);
 
@@ -340,7 +334,7 @@ testStable(
                 projectId: a.id,
                 title: 'No fallback',
                 kind: 'diagram',
-                inputs: [{ kind: 'document', versionId: input.version.id }]
+                inputs: [{ kind: 'page', versionId: input.version.id }]
               })
             )).kind === 'invalid_input'
           );
@@ -349,7 +343,7 @@ testStable(
             requests
           );
 
-          return { a, b, input, unrelated, session, request };
+          return { a, b, input, unrelated, note, request };
         }).pipe(Effect.provide(services()))
       );
 
@@ -360,22 +354,21 @@ testStable(
           const projects = yield* Projects;
 
           const materials = yield* Materials;
-          const docs = yield* Documents;
-          const conversations = yield* Conversations;
+          const docs = yield* Pages;
+          const notes = yield* Notes;
 
           assert.ok(
             (yield* Effect.flip(materials.materialGeneration({ requestId: saved.request.id })))
               .kind === 'invalid_input'
           );
-          yield* docs.attachProject({ projectId: saved.a.id, documentId: saved.input.id });
+          yield* docs.attachProject({ projectId: saved.a.id, pageId: saved.input.id });
           expect(
             (yield* materials.materialGeneration({ requestId: saved.request.id })).inputs
-          ).toStrictEqual([{ kind: 'document', versionId: saved.input.version.id }]);
-          yield* projects.removeSession({ projectId: saved.a.id, sessionId: saved.session.id });
-          expect((yield* conversations.session(saved.session.id)).projectIds).toStrictEqual([]);
+          ).toStrictEqual([{ kind: 'page', versionId: saved.input.version.id }]);
+          yield* projects.removeNote({ projectId: saved.a.id, noteId: saved.note.id });
+          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
           assert.strictEqual(
-            (yield* docs.documents({ sessionId: saved.session.id, archived: false, limit: 10 }))
-              .items.length,
+            (yield* docs.pages({ noteId: saved.note.id, archived: false, limit: 10 })).items.length,
             2
           );
           yield* projects.deleteProject({ id: saved.a.id });
@@ -391,20 +384,19 @@ testStable(
       await Effect.runPromise(
         Effect.gen(function* () {
           yield* Materials;
-          const docs = yield* Documents;
-          const conversations = yield* Conversations;
+          const docs = yield* Pages;
+          const notes = yield* Notes;
 
           for (const original of [saved.input, saved.unrelated]) {
-            expect((yield* docs.document({ id: original.id })).projectIds).toStrictEqual([]);
+            expect((yield* docs.page({ id: original.id })).projectIds).toStrictEqual([]);
             expect((yield* docs.version({ id: original.version.id })).document).toStrictEqual(
               original.version.document
             );
           }
 
-          expect((yield* conversations.session(saved.session.id)).projectIds).toStrictEqual([]);
+          expect((yield* notes.note(saved.note.id)).projectIds).toStrictEqual([]);
           assert.strictEqual(
-            (yield* docs.documents({ sessionId: saved.session.id, archived: false, limit: 10 }))
-              .items.length,
+            (yield* docs.pages({ noteId: saved.note.id, archived: false, limit: 10 })).items.length,
             2
           );
           expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);

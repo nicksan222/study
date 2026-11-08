@@ -76,7 +76,7 @@ testStable(
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(summary);
     expect(trigger).toHaveAttribute('aria-expanded', 'true');
-    expect(api.provenance).toHaveBeenCalledWith({ sessionId: 91n, messageId: 2n, versionId: 2n });
+    expect(api.provenance).toHaveBeenCalledWith({ noteId: 91n, messageId: 2n, versionId: 2n });
     expect(api.progress).toHaveBeenCalledWith({ correlationId: 'reply' });
     view.unmount();
     mountAssistant();

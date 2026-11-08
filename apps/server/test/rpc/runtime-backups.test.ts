@@ -26,10 +26,10 @@ import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Auth } from '#server/features/auth/index';
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { workflowStore } from '#server/platform/workflows/store';
@@ -87,7 +87,7 @@ testStable(
 
             const backup = yield* client['system.createBackup']({});
 
-            assert.strictEqual(backup.scope.documents, 1);
+            assert.strictEqual(backup.scope.pages, 1);
             assert.ok(backup.credentials === 'excluded');
 
             const list = yield* client['system.listBackups']({});
@@ -184,7 +184,7 @@ testStable(
 );
 
 testStable(
-  'Materials, Documents, managed BLOBs, collections, sessions and annotations roundtrip on startup',
+  'Materials, Pages, managed BLOBs, collections, notes and annotations roundtrip on startup',
   async () => {
     const f = await backupFixture();
 
@@ -212,7 +212,7 @@ testStable(
       );
 
       await f.app.nativeRuntime.runPromise(
-        Effect.flatMap(Documents, (documents) =>
+        Effect.flatMap(Pages, (documents) =>
           documents.create({
             createKey: randomUUID(),
             inputs: [],
@@ -265,11 +265,11 @@ testStable(
 
           const project = yield* projects.createProject({ name: 'Collection' });
 
-          yield* (yield* Documents).attachProject({ projectId: project.id, documentId: saved.id });
-          yield* (yield* Conversations).createSession({ title: 'Session' });
+          yield* (yield* Pages).attachProject({ projectId: project.id, pageId: saved.id });
+          yield* (yield* Notes).createNote({ title: 'Note' });
           yield* (yield* Learning).startPractice({
             projectId: project.id,
-            inputs: [{ kind: 'document', versionId: saved.version.id }]
+            inputs: [{ kind: 'page', versionId: saved.version.id }]
           });
         })
       );
@@ -279,12 +279,12 @@ testStable(
       const block = db.select().from(s.blocks).where(eq(s.blocks.document_id, documentId)).get()!;
 
       await f.app.nativeRuntime.runPromise(
-        Effect.flatMap(Documents, (documents) =>
+        Effect.flatMap(Pages, (documents) =>
           documents.createAnnotation({
             kind: 'note',
             note: 'Retained note',
             target: {
-              documentId: saved.id,
+              pageId: saved.id,
               range: {
                 versionId: saved.version.id,
                 snapshotId: documentId,
@@ -305,7 +305,7 @@ testStable(
         blocks: db.select().from(s.blocks).all(),
         assets: db.select().from(s.source_snapshots).all(),
         originals: db.select().from(s.source_blobs).all(),
-        annotations: db.select().from(s.study_document_annotation_revisions).all()
+        annotations: db.select().from(s.page_annotation_revisions).all()
       };
 
       const api = await f.api();
@@ -323,7 +323,7 @@ testStable(
       const restored = f.app.store.db.orm;
 
       assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
-      assert.ok(restored.select().from(s.sessions).get()!.title === 'Session');
+      assert.ok(restored.select().from(s.notes).get()!.title === 'Note');
       expect(restored.select().from(s.material_quiz_questions).all()).toStrictEqual(
         expected.questions
       );
@@ -337,7 +337,7 @@ testStable(
       expect(restored.select().from(s.blocks).all()).toStrictEqual(expected.blocks);
       expect(restored.select().from(s.source_snapshots).all()).toStrictEqual(expected.assets);
       expect(restored.select().from(s.source_blobs).all()).toStrictEqual(expected.originals);
-      expect(restored.select().from(s.study_document_annotation_revisions).all()).toStrictEqual(
+      expect(restored.select().from(s.page_annotation_revisions).all()).toStrictEqual(
         expected.annotations
       );
       assert.ok(
@@ -403,7 +403,7 @@ testStable(
             "INSERT INTO content_snapshots(extractor_version,meta,created_at) VALUES(1,'{}',1)"
           );
           Object.assign(manifest, {
-            scope: { ...manifest.scope, documents: manifest.scope.documents + 1 }
+            scope: { ...manifest.scope, pages: manifest.scope.pages + 1 }
           });
         })
       ];
@@ -495,7 +495,7 @@ testStable(
       const old = await f.app.nativeRuntime.runPromise(api.createBackup());
 
       f.app.store.db.orm.run(
-        sql`INSERT INTO session_deletions(session_id,operation_id,status,created_at,completed_at) VALUES(99,'del-session','completed',1,2)`
+        sql`INSERT INTO note_deletions(note_id,operation_id,status,created_at,completed_at) VALUES(99,'del-note','completed',1,2)`
       );
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: old.id }));
@@ -524,8 +524,7 @@ testStable(
       await fresh.app.nativeRuntime.runPromise(freshApi.acceptRestore(acceptance(newPreview)));
       await fresh.reopen();
       assert.ok(
-        fresh.app.store.db.orm.select().from(s.session_deletions).get()!.operation_id ===
-          'del-session'
+        fresh.app.store.db.orm.select().from(s.note_deletions).get()!.operation_id === 'del-note'
       );
     } finally {
       await f.close();
@@ -541,7 +540,7 @@ testStable(
 
     try {
       f.app.store.db.orm.run(
-        sql`INSERT INTO session_deletions(session_id,operation_id,status,error_kind,created_at) VALUES(99,'failed-cleanup','failed','internal',1)`
+        sql`INSERT INTO note_deletions(note_id,operation_id,status,error_kind,created_at) VALUES(99,'failed-cleanup','failed','internal',1)`
       );
 
       const before = f.app.store.db.contentIdentity();
@@ -553,7 +552,7 @@ testStable(
       );
       assert.strictEqual(f.app.store.db.contentIdentity(), before);
       assert.ok(existsSync(f.location.path + '.backups/scratch.sqlite') === false);
-      assert.ok(f.app.store.db.orm.select().from(s.session_deletions).get()!.status === 'failed');
+      assert.ok(f.app.store.db.orm.select().from(s.note_deletions).get()!.status === 'failed');
     } finally {
       await f.close();
     }
@@ -598,7 +597,7 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopenedApi.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 0);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 0);
     } finally {
       await f.close();
     }

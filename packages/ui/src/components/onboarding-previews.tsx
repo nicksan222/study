@@ -11,17 +11,17 @@ export function OnboardingSubject({
   label,
   name,
   monogram,
-  sessionsLabel,
-  session,
-  documentsLabel,
+  notesLabel,
+  note,
+  pagesLabel,
   document
 }: {
   label: string;
   name: string;
   monogram: string;
-  sessionsLabel: string;
-  session: string;
-  documentsLabel: string;
+  notesLabel: string;
+  note: string;
+  pagesLabel: string;
   document: string;
 }) {
   return (
@@ -39,8 +39,8 @@ export function OnboardingSubject({
             </List.Icon>
           </List.Leading>
           <List.Main>
-            <List.Title>{sessionsLabel}</List.Title>
-            <List.Description>{session}</List.Description>
+            <List.Title>{notesLabel}</List.Title>
+            <List.Description>{note}</List.Description>
           </List.Main>
         </List.Row>
         <List.Row>
@@ -50,7 +50,7 @@ export function OnboardingSubject({
             </List.Icon>
           </List.Leading>
           <List.Main>
-            <List.Title>{documentsLabel}</List.Title>
+            <List.Title>{pagesLabel}</List.Title>
             <List.Description>{document}</List.Description>
           </List.Main>
         </List.Row>
@@ -60,7 +60,7 @@ export function OnboardingSubject({
 }
 
 /** Uses the document's Markdown renderer for a quiet, read-only sample page. */
-export function OnboardingDocument({
+export function OnboardingPage({
   label,
   title,
   content
@@ -91,9 +91,8 @@ export function OnboardingWorkflow({
   title,
   content,
   transformLabel,
-  notesLabel,
-  sessionsLabel,
-  documentsLabel
+  captureLabel,
+  pagesLabel
 }: {
   label: string;
   note: string;
@@ -101,28 +100,27 @@ export function OnboardingWorkflow({
   title: string;
   content: string;
   transformLabel: string;
-  notesLabel: string;
-  sessionsLabel: string;
-  documentsLabel: string;
+  captureLabel: string;
+  pagesLabel: string;
 }) {
-  const [document, setDocument] = useState(false);
+  const [document, setPage] = useState(false);
 
   return (
     <div className="ui-onboarding-workflow">
       <div className="ui-onboarding-workflow-path">
-        <span data-current={!document}>{sessionsLabel}</span>
+        <span data-current={!document}>{captureLabel}</span>
         <ArrowRight aria-hidden="true" />
-        <span data-current={document}>{documentsLabel}</span>
+        <span data-current={document}>{pagesLabel}</span>
       </div>
       <div aria-live="polite">
         {document ? (
-          <OnboardingDocument label={label} title={title} content={content} />
+          <OnboardingPage label={label} title={title} content={content} />
         ) : (
           <OnboardingNotebook label={label} note={note} file={file} />
         )}
       </div>
-      <Button variant="outline" onClick={() => setDocument((value) => !value)}>
-        {document ? notesLabel : transformLabel}
+      <Button variant="outline" onClick={() => setPage((value) => !value)}>
+        {document ? captureLabel : transformLabel}
         {!document && <ArrowRight aria-hidden="true" />}
       </Button>
     </div>

@@ -12,11 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  copySessionContentSchema,
-  recordingCopySchema
-} from '@study/contracts/conversations/sessions';
 import { StudyError } from '@study/contracts/errors';
+import { copyNoteContentSchema, recordingCopySchema } from '@study/contracts/notes/notes';
 import { eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
@@ -30,15 +27,15 @@ export const RecordingCopyStore = defineStore({
     queries: {},
     mutations: {
       copy: storeMutation({
-        input: copySessionContentSchema,
+        input: copyNoteContentSchema,
         output: Schema.Array(recordingCopySchema),
-        run: ({ sessionIds: ids, targetSessionId: target }) => {
+        run: ({ noteIds: ids, targetNoteId: target }) => {
           const copies: Array<typeof recordingCopySchema.Type> = [];
 
           for (const old of db.orm
             .select()
             .from(s.recordings)
-            .where(inArray(s.recordings.session_id, ids))
+            .where(inArray(s.recordings.note_id, ids))
             .all()) {
             const post = db.orm
               .select()
@@ -49,13 +46,13 @@ export const RecordingCopyStore = defineStore({
             if (old.sealed_at === null && !post?.message_id)
               throw new StudyError(
                 'invalid_input',
-                'Finish or discard recordings before merging sessions'
+                'Finish or discard recordings before merging notes'
               );
 
             const { id, ...values } = old;
             const created = db.orm
               .insert(s.recordings)
-              .values({ ...values, session_id: target, sealed_at: old.updated_at })
+              .values({ ...values, note_id: target, sealed_at: old.updated_at })
               .returning()
               .get();
 

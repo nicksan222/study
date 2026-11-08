@@ -34,10 +34,10 @@ vi.mock('../lib/study-client/client', async () => {
   return {
     studyClient: Effect.succeed({
       'projects.projects': page,
-      'conversations.sessions': page,
+      'notes.notes': page,
       'sources.sources': page,
       'materials.materials': page,
-      'documents.documents': page,
+      'pages.pages': page,
       ...workflows
     })
   };

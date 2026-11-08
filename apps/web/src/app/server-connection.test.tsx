@@ -35,7 +35,7 @@ function Draft() {
   const [value, setValue] = useState('');
   const save = useMutation({ mutationFn: api.save });
   const draft = useQuery({
-    queryKey: ['session-drafts', '25'],
+    queryKey: ['note-drafts', '25'],
     queryFn: api.resetDraft,
     initialData: 'open tab',
     staleTime: Infinity,

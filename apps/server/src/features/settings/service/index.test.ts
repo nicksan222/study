@@ -79,15 +79,15 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
           zoomPercent: 100,
           onboarded: false
         });
-        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledDocumentThreshold: 1 });
-        yield* settings.saveSidebarSettings({ settledDocumentThreshold: 3 });
-        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledDocumentThreshold: 3 });
+        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledPageThreshold: 1 });
+        yield* settings.saveSidebarSettings({ settledPageThreshold: 3 });
+        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledPageThreshold: 3 });
         const invalidSidebar = yield* Effect.flip(
-          settings.saveSidebarSettings({ settledDocumentThreshold: 0 })
+          settings.saveSidebarSettings({ settledPageThreshold: 0 })
         );
 
         assert.ok(invalidSidebar.kind === 'invalid_input');
-        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledDocumentThreshold: 3 });
+        expect(yield* settings.sidebarSettings()).toStrictEqual({ settledPageThreshold: 3 });
         expect(yield* settings.materialSettings()).toStrictEqual({ sift: true });
         expect(yield* settings.reviewSettings()).toStrictEqual({ newCardsPerDay: 20 });
         assert.strictEqual(yield* settings.language(), 'english');
@@ -265,7 +265,7 @@ testStable(
             autosaveIntervalSeconds: 8,
             defaultAiDetail: 'detailed' as const,
             spellcheck: false,
-            autoTitleSessions: true
+            autoTitleNotes: true
           };
 
           yield* settings.saveWorkspacePreferences(saved);
@@ -336,14 +336,14 @@ testStable(
           expect(yield* settings.agentRules()).toStrictEqual(defaultAgentRules);
           const rules = {
             ...defaultAgentRules,
-            documents: 'Use descriptive headings.',
+            pages: 'Use descriptive headings.',
             titles: 'Use Italian titles.'
           };
 
           yield* settings.saveAgentRules(rules);
           expect(yield* settings.agentRules()).toStrictEqual(rules);
           expect(
-            (yield* Effect.flip(settings.saveAgentRules({ ...rules, documents: 'x'.repeat(8001) })))
+            (yield* Effect.flip(settings.saveAgentRules({ ...rules, pages: 'x'.repeat(8001) })))
               .kind
           ).toBe('invalid_input');
           expect(yield* settings.agentRules()).toStrictEqual(rules);

@@ -1,4 +1,4 @@
-import type { MaterialId, ProjectId, SessionId } from '@study/contracts/ids';
+import type { MaterialId, ProjectId, NoteId } from '@study/contracts/ids';
 
 import {
   defineTable,
@@ -10,8 +10,8 @@ import {
   uniqueIndex,
   check
 } from '../schema-builder.ts';
-import { sessions } from './conversations.ts';
 import { materials } from './material-versions.ts';
+import { notes } from './notes.ts';
 import { projects } from './sources.ts';
 
 /** Flat organizational links. Deleting a collection never deletes library content. */
@@ -33,43 +33,43 @@ export const project_materials = defineTable({ role: 'contributes', entity: 'mat
   ]
 );
 
-export const project_sessions = defineTable({ role: 'contributes', entity: 'session' })(
-  'project_sessions',
+export const project_notes = defineTable({ role: 'contributes', entity: 'note' })(
+  'project_notes',
   {
     project_id: integer()
       .$type<ProjectId>()
       .notNull()
       .references(() => projects.id, { onDelete: 'cascade' }),
-    session_id: integer()
-      .$type<SessionId>()
+    note_id: integer()
+      .$type<NoteId>()
       .notNull()
-      .references(() => sessions.id, { onDelete: 'cascade' })
+      .references(() => notes.id, { onDelete: 'cascade' })
   },
   (t) => [
-    primaryKey({ columns: [t.project_id, t.session_id] }),
-    index('project_sessions_session_idx').on(t.session_id)
+    primaryKey({ columns: [t.project_id, t.note_id] }),
+    index('project_notes_note_idx').on(t.note_id)
   ]
 );
 
-export const session_materials = defineTable({ role: 'contributes', entity: 'material' })(
-  'session_materials',
+export const note_materials = defineTable({ role: 'contributes', entity: 'material' })(
+  'note_materials',
   {
-    session_id: integer().$type<SessionId>().notNull(),
+    note_id: integer().$type<NoteId>().notNull(),
     material_id: integer().$type<MaterialId>().notNull(),
     position: integer().$type<bigint>().notNull()
   },
   (t) => [
-    primaryKey({ columns: [t.session_id, t.material_id] }),
+    primaryKey({ columns: [t.note_id, t.material_id] }),
     foreignKey({
-      columns: [t.session_id],
-      foreignColumns: [sessions.id]
+      columns: [t.note_id],
+      foreignColumns: [notes.id]
     }).onDelete('cascade'),
     foreignKey({
       columns: [t.material_id],
       foreignColumns: [materials.id]
     }).onDelete('cascade'),
-    uniqueIndex('session_materials_position_unique').on(t.session_id, t.position),
-    index('session_materials_material_idx').on(t.material_id, t.session_id),
-    check('session_materials_position_check', sql`typeof(position) = 'integer' AND position >= 0`)
+    uniqueIndex('note_materials_position_unique').on(t.note_id, t.position),
+    index('note_materials_material_idx').on(t.material_id, t.note_id),
+    check('note_materials_position_check', sql`typeof(position) = 'integer' AND position >= 0`)
   ]
 );

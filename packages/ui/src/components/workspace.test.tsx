@@ -12,14 +12,14 @@ testStable('toggles the associated panel by keyboard and preserves its draft', a
 
   render(
     <WorkspaceCard.Provider>
-      <WorkspaceCard.Toggle label="Session context" />
-      <WorkspaceCard.Root aria-label="Session context">
+      <WorkspaceCard.Toggle label="Note context" />
+      <WorkspaceCard.Root aria-label="Note context">
         <input aria-label="Instruction" defaultValue="Preserve this draft" />
       </WorkspaceCard.Root>
     </WorkspaceCard.Provider>
   );
-  const toggle = screen.getByRole('button', { name: 'Session context' });
-  const panel = screen.getByRole('complementary', { name: 'Session context' });
+  const toggle = screen.getByRole('button', { name: 'Note context' });
+  const panel = screen.getByRole('complementary', { name: 'Note context' });
 
   expect(toggle.getAttribute('aria-controls')).toBe(panel.id);
   expect(toggle.getAttribute('aria-expanded')).toBe('true');

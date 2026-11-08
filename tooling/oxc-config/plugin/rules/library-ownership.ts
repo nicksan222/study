@@ -9,7 +9,7 @@ import {
   namedProperty
 } from '../lexical-bindings.ts';
 
-const durable = new Set(['materials', 'material_versions', 'sessions']);
+const durable = new Set(['materials', 'material_versions', 'notes']);
 
 const projectColumns = new Set(['project_id', 'projectId']);
 
@@ -123,7 +123,7 @@ export default defineRule({
           context.report({
             node: owner,
             message:
-              'Materials, versions and sessions are independent library identities; organize them through project membership tables.'
+              'Materials, versions and notes are independent library identities; organize them through project membership tables.'
           });
       }
     };

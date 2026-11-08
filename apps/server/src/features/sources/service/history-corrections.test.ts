@@ -24,14 +24,14 @@ import {
   sourceCorrectionHandler
 } from '#server/features/sources/workflows/index';
 import { decodeEvent } from '#server/platform/workflows/events';
-import { documentTransformFixture } from '#testing/document-transform';
 import { processSource } from '#testing/material-history';
-import { assertScrubbed } from '#testing/session-deletion';
+import { assertScrubbed } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 
 testStable(
   'unchanged original bytes survive obsolete extraction pruning while current and in-flight correction roots remain usable',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const bytes = new TextEncoder().encode('Original source evidence');
@@ -227,7 +227,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
       assert.strictEqual(
         f.context.db.orm.get(
           sql`SELECT count(*) n FROM source_snapshots WHERE source_id=${source.id}`

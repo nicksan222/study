@@ -1,4 +1,4 @@
-import { askResultSchema } from '@study/contracts/conversations/schemas';
+import { askResultSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -72,7 +72,7 @@ testStable(
       items: [
         {
           id: 91n,
-          title: 'Earlier conversation',
+          title: 'Earlier note',
           projectIds: [],
           titleSource: 'user',
           archivedAt: null,
@@ -90,16 +90,16 @@ testStable(
     fireEvent.click(screen.getByRole('button', { name: 'Chat history' }));
     fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
     await waitFor(() => expect(api.newChat).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(api.session).toHaveBeenCalledWith({ id: 92n }));
+    await waitFor(() => expect(api.note).toHaveBeenCalledWith({ id: 92n }));
     await waitFor(() => expect(input).toBeEnabled());
     expect(input).toHaveValue('');
     fireEvent.change(input, { target: { value: 'Draft for the new chat' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Earlier conversation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Earlier note' }));
     await waitFor(() => expect(input).toHaveValue('Draft for the earlier chat'));
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
     await waitFor(() =>
       expect(api.ask).toHaveBeenCalledWith(
-        expect.objectContaining({ sessionId: 91n, text: 'Draft for the earlier chat' })
+        expect.objectContaining({ noteId: 91n, text: 'Draft for the earlier chat' })
       )
     );
   }
@@ -157,13 +157,13 @@ testStable(
     await waitFor(() => expect(api.ask).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole('button', { name: 'Chat history' }));
     fireEvent.click(screen.getByRole('button', { name: 'New chat' }));
-    await waitFor(() => expect(api.session).toHaveBeenCalledWith({ id: 92n }));
+    await waitFor(() => expect(api.note).toHaveBeenCalledWith({ id: 92n }));
     await waitFor(() => expect(input).toBeEnabled());
     fireEvent.change(input, { target: { value: 'Same text' } });
     await act(async () => {
       finish(
         Schema.decodeUnknownSync(askResultSchema)({
-          sessionId: 91n,
+          noteId: 91n,
           messageId: 2n,
           versionId: 2n,
           requestId: 'finished',

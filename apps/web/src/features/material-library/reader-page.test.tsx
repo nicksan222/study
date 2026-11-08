@@ -116,7 +116,7 @@ testStable(
       references: [],
       sourceIds: [],
       sharedImageSourceIds: [],
-      sessionIds: [],
+      noteIds: [],
       retainedMessageCitationCount: 0,
       privateRequestIds: [],
       retainedCopies: 'unselected_materials_and_published_messages_including_recordings'
@@ -151,32 +151,30 @@ testStable(
     expect(actions.closest('details')).not.toHaveAttribute('open');
     await user.click(actions);
     expect(actions.closest('details')).toHaveAttribute('open');
-    await user.click(screen.getByRole('button', { name: catalogs.english.DocumentDelete }));
-    const dialog = within(
-      await screen.findByRole('dialog', { name: catalogs.english.DocumentDelete })
-    );
+    await user.click(screen.getByRole('button', { name: catalogs.english.PageDelete }));
+    const dialog = within(await screen.findByRole('dialog', { name: catalogs.english.PageDelete }));
 
     expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
-    await user.click(dialog.getByRole('button', { name: catalogs.english.DocumentPreview }));
-    await dialog.findByRole('button', { name: catalogs.english.DocumentConfirmDelete });
+    await user.click(dialog.getByRole('button', { name: catalogs.english.PagePreview }));
+    await dialog.findByRole('button', { name: catalogs.english.PageConfirmDelete });
     expect(rpc['materials.previewDeletion']).toHaveBeenCalledExactlyOnceWith({
       materialId: materialId('41')
     });
     expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
     // Accepted deletion retires content before invalidation refetches the reader.
     rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
-    await user.click(dialog.getByRole('button', { name: catalogs.english.DocumentConfirmDelete }));
+    await user.click(dialog.getByRole('button', { name: catalogs.english.PageConfirmDelete }));
     const confirmation = within(await screen.findByRole('alertdialog'));
 
     await user.type(confirmation.getByRole('textbox'), catalogs.english.DeleteConfirmationWord);
     await user.click(
-      confirmation.getByRole('button', { name: catalogs.english.DocumentConfirmDelete })
+      confirmation.getByRole('button', { name: catalogs.english.PageConfirmDelete })
     );
     const recovery = within(
-      await screen.findByRole('region', { name: catalogs.english.DocumentDelete })
+      await screen.findByRole('region', { name: catalogs.english.PageDelete })
     );
 
-    await recovery.findByText(catalogs.english.DocumentCleanupPending);
+    await recovery.findByText(catalogs.english.PageCleanupPending);
     expect(screen.queryByText(/Current extraction 41/)).toBeNull();
     expect(rpc['materials.requestDeletion']).toHaveBeenCalledExactlyOnceWith({
       materialId: materialId('41'),
@@ -186,7 +184,7 @@ testStable(
       Effect.succeed({ ...operation, status: 'completed', phase: 'completed', completedAt: 2n })
     );
     await user.click(recovery.getByRole('button', { name: catalogs.english.LibraryRefresh }));
-    await recovery.findByText(catalogs.english.DocumentCleanupCompleted);
+    await recovery.findByText(catalogs.english.PageCleanupCompleted);
     expect(rpc['materials.requestDeletion']).toHaveBeenCalledTimes(1);
     expect(rpc['materials.retryDeletion']).not.toHaveBeenCalled();
   }

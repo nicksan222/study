@@ -1,7 +1,7 @@
 import { mutationOptions, queryOptions } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
 
-import { createProject, listProjects, listSessions, searchStudy } from './operations';
+import { createProject, listProjects, listNotes, searchStudy } from './operations';
 import type { SearchInput } from './operations';
 
 export const projectsQueryOptions = () =>
@@ -10,13 +10,13 @@ export const projectsQueryOptions = () =>
     queryFn: ({ signal }) => listProjects(signal)
   });
 
-export const sessionsQueryOptions = () =>
+export const notesQueryOptions = () =>
   queryOptions({
-    queryKey: ['sessions'],
-    queryFn: ({ signal }) => listSessions(signal),
+    queryKey: ['notes'],
+    queryFn: ({ signal }) => listNotes(signal),
     refetchOnWindowFocus: 'always',
     refetchInterval: (query) =>
-      query.state.data?.some((session) => session.titleSource === 'provisional') ? 3000 : false
+      query.state.data?.some((note) => note.titleSource === 'provisional') ? 3000 : false
   });
 
 export const searchQueryOptions = (input: SearchInput, enabled: boolean) =>

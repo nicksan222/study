@@ -13,7 +13,7 @@ import { vi } from 'vite-plus/test';
 
 import { Providers } from '#web/app/providers.tsx';
 import { createAppRouter } from '#web/app/router.ts';
-import { authoredDocument } from '#web/features/document-editing/test-support.ts';
+import { authoredPage } from '#web/features/document-editing/test-support.ts';
 import { runRequest } from '#web/lib/effect/runtime.ts';
 import { createStudyQueryClient } from '#web/lib/query-client.ts';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
@@ -64,7 +64,7 @@ export function learningVersion(id = 101n, owner = 41n, text = 'Historical extra
 /** Canonical snapshot fixture, independent of authored or learning identities. */
 
 function exactDocument(id = 101n, text = 'Historical extraction') {
-  const version = authoredDocument(41n, text, id).version!;
+  const version = authoredPage(41n, text, id).version!;
 
   return { id: version.snapshotId, document: version.document };
 }
@@ -92,33 +92,33 @@ export function summary(id = 41n) {
 
 export function materialRpc() {
   return {
-    'documents.create': vi.fn<StudyClient['documents.create']>(),
-    'documents.documents': vi
-      .fn<StudyClient['documents.documents']>()
+    'pages.create': vi.fn<StudyClient['pages.create']>(),
+    'pages.pages': vi
+      .fn<StudyClient['pages.pages']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'documents.document': vi.fn<StudyClient['documents.document']>().mockReturnValue(
+    'pages.page': vi.fn<StudyClient['pages.page']>().mockReturnValue(
       Effect.succeed({
-        ...authoredDocument(41n, 'Historical extraction', 101n),
+        ...authoredPage(41n, 'Historical extraction', 101n),
         title: 'Material 41'
       })
     ),
-    'documents.version': vi
-      .fn<StudyClient['documents.version']>()
+    'pages.version': vi
+      .fn<StudyClient['pages.version']>()
       .mockImplementation(({ id }) =>
-        Effect.succeed(authoredDocument(41n, 'Historical extraction', id).version!)
+        Effect.succeed(authoredPage(41n, 'Historical extraction', id).version!)
       ),
-    'documents.versions': vi
-      .fn<StudyClient['documents.versions']>()
+    'pages.versions': vi
+      .fn<StudyClient['pages.versions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'documents.updateMetadata': vi.fn<StudyClient['documents.updateMetadata']>(),
-    'documents.annotations': vi
-      .fn<StudyClient['documents.annotations']>()
+    'pages.updateMetadata': vi.fn<StudyClient['pages.updateMetadata']>(),
+    'pages.annotations': vi
+      .fn<StudyClient['pages.annotations']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'documents.assessments': vi
-      .fn<StudyClient['documents.assessments']>()
+    'pages.assessments': vi
+      .fn<StudyClient['pages.assessments']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),
-    'documents.exportFile': vi.fn<StudyClient['documents.exportFile']>(),
-    'documents.exportVersion': vi.fn<StudyClient['documents.exportVersion']>(),
+    'pages.exportFile': vi.fn<StudyClient['pages.exportFile']>(),
+    'pages.exportVersion': vi.fn<StudyClient['pages.exportVersion']>(),
     'materials.activeMaterialGenerations': vi
       .fn<StudyClient['materials.activeMaterialGenerations']>()
       .mockReturnValue(Effect.succeed([])),
@@ -168,7 +168,7 @@ export function materialRpc() {
         revisionCount: 1n,
         extractionCount: 1n,
         blockedBy: [],
-        retainedCopies: 'authored_outputs_and_raw_session_records'
+        retainedCopies: 'authored_outputs_and_raw_note_records'
       })
     ),
     'sources.deleteSource': vi.fn<StudyClient['sources.deleteSource']>(),
@@ -210,7 +210,7 @@ export function materialRpc() {
   };
 }
 
-export function mountLibraryRoute(initial = '/documents', rpc = materialRpc()) {
+export function mountLibraryRoute(initial = '/pages', rpc = materialRpc()) {
   // Substitute the RPC transport only: production options, query cache, routes and components run.
   vi.mocked(request).mockImplementation((invoke, signal) =>
     runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)

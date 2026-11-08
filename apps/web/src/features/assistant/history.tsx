@@ -17,7 +17,7 @@ export function AssistantHistory({
 }: {
   model: Pick<
     ReturnType<typeof useAssistant>,
-    'chats' | 'createChat' | 'newChat' | 'session' | 'selectChat'
+    'chats' | 'createChat' | 'newChat' | 'note' | 'selectChat'
   >;
   visible: boolean;
   onDismiss: () => void;
@@ -51,7 +51,7 @@ export function AssistantHistory({
             .map((chat) => (
               <WorkspaceCard.Item
                 key={String(chat.id)}
-                aria-current={model.session.data?.id === chat.id ? 'page' : undefined}
+                aria-current={model.note.data?.id === chat.id ? 'page' : undefined}
                 onClick={() => model.selectChat(chat.id)}
               >
                 <MessageSquare size={16} />

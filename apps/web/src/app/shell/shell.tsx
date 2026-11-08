@@ -12,8 +12,8 @@ import { DesktopUpdates } from './desktop-updates';
 import { Sidebar } from './sidebar';
 import { useSidebarContext } from './sidebar-context.queries';
 
-/** Owns sidebar visibility and transfers keyboard search focus when the session navigation opens. */
-function useShellNavigation(sessions: boolean, practice: boolean) {
+/** Owns sidebar visibility and transfers keyboard search focus when the note navigation opens. */
+function useShellNavigation(notes: boolean, practice: boolean) {
   const [open, setOpen] = useState(() => !practice || window.innerWidth >= 700);
   const focusSearch = useRef(false);
 
@@ -29,7 +29,7 @@ function useShellNavigation(sessions: boolean, practice: boolean) {
   }, [practice]);
 
   useEffect(() => {
-    if (!sessions || open) return;
+    if (!notes || open) return;
 
     const revealSearch = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
@@ -42,7 +42,7 @@ function useShellNavigation(sessions: boolean, practice: boolean) {
     window.addEventListener('keydown', revealSearch);
 
     return () => window.removeEventListener('keydown', revealSearch);
-  }, [sessions, open]);
+  }, [notes, open]);
   useEffect(() => {
     if (!open || !focusSearch.current) return;
 
@@ -51,23 +51,23 @@ function useShellNavigation(sessions: boolean, practice: boolean) {
   }, [open]);
 
   return {
-    visible: !sessions || open,
+    visible: !notes || open,
     collapsed: !open,
     open,
     toggle: () => setOpen((value) => !value)
   };
 }
 
-/** Keeps a page heading accessible when the session layout hides its visual top bar. */
+/** Keeps a page heading accessible when the note layout hides its visual top bar. */
 function ShellHeader({
-  sessions,
+  notes,
   visible,
   title,
   onToggle,
   header
 }: {
   header?: 'workspace';
-  sessions: boolean;
+  notes: boolean;
   visible: boolean;
   title: string;
   onToggle: () => void;
@@ -84,7 +84,7 @@ function ShellHeader({
       />
     );
 
-  if (!sessions) return <SidebarUI.Topbar parent={t('AppName')} title={title} />;
+  if (!notes) return <SidebarUI.Topbar parent={t('AppName')} title={title} />;
 
   return (
     <>
@@ -101,31 +101,31 @@ function ShellHeader({
   );
 }
 
-function usePageLayout(sessions: boolean, documents: boolean, workspace: boolean) {
+function usePageLayout(notes: boolean, pages: boolean, workspace: boolean) {
   const search = useSearch({ from: '__root__' });
   const params = useParams({ strict: false });
-  const editingDocument = documents && params.documentId !== undefined && !search.documentVersion;
+  const editingPage = pages && params.pageId !== undefined && !search.pageVersion;
 
-  return sessions || editingDocument || workspace ? 'bleed' : 'padded';
+  return notes || editingPage || workspace ? 'bleed' : 'padded';
 }
 
-/** Selects the session layout from route metadata and composes the shared application shell. */
+/** Selects the note layout from route metadata and composes the shared application shell. */
 export function Shell() {
   const { t } = useI18n();
   const matches = useMatches();
   const metadata = matches.at(-1)?.staticData ?? {};
   const title = metadata.title ?? 'Home';
-  const sessions = title === 'Sessions';
-  const notebook = ['Sessions', 'Assistant'].includes(title);
+  const notes = title === 'Notes';
+  const notebook = ['Notes', 'Assistant'].includes(title);
   const layout = usePageLayout(
-    sessions,
-    metadata.section === 'documents',
+    notes,
+    metadata.section === 'pages',
     metadata.header === 'workspace'
   );
   const navigation = useShellNavigation(notebook, metadata.section === 'practice');
   const context = useSidebarContext({
     title,
-    section: metadata.section ?? 'sessions',
+    section: metadata.section ?? 'notes',
     scope: metadata.scope ?? 'project',
     sidebar: metadata.sidebar
   });
@@ -136,7 +136,7 @@ export function Shell() {
       <DesktopUpdates />
       <DefaultContextMenu project={project} disabled={shortcutsDisabled}>
         <SidebarUI.Frame
-          variant={notebook ? 'session-entry' : 'default'}
+          variant={notebook ? 'note-entry' : 'default'}
           data-entry-navigation={navigation.open}
           collapsed={navigation.collapsed}
           defaultWidth={288}
@@ -150,7 +150,7 @@ export function Shell() {
             <Sidebar
               metadata={{
                 title,
-                section: metadata.section ?? 'sessions',
+                section: metadata.section ?? 'notes',
                 scope: metadata.scope ?? 'project',
                 sidebar: metadata.sidebar
               }}
@@ -161,7 +161,7 @@ export function Shell() {
           <SidebarUI.Main>
             <ShellHeader
               header={metadata.header}
-              sessions={notebook}
+              notes={notebook}
               visible={navigation.visible}
               title={t(title)}
               onToggle={navigation.toggle}

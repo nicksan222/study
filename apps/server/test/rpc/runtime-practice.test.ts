@@ -185,7 +185,7 @@ for (const mode of [
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const project = yield* client['projects.createProject']({ name: 'Practice' });
-            const document = yield* client['documents.create']({
+            const document = yield* client['pages.create']({
               createKey: randomUUID(),
               inputs: [],
               citations: [],
@@ -214,14 +214,14 @@ for (const mode of [
             });
             const initial = yield* client['learning.startPractice']({
               projectId: project.id,
-              inputs: [{ kind: 'document', versionId: document.version!.id }]
+              inputs: [{ kind: 'page', versionId: document.version!.id }]
             });
 
             assert.strictEqual(initial.slots.length, 2);
             expect(initial.slots.map((slot) => slot.kind)).toStrictEqual(['choice', 'choice']);
 
             if (mode === 'archived-before-request')
-              yield* client['documents.archive']({ id: document.id, archived: true });
+              yield* client['pages.archive']({ id: document.id, archived: true });
 
             yield* client['system.startWorkers']({});
             let ready = initial;
@@ -236,7 +236,7 @@ for (const mode of [
             }
 
             if (mode === 'archived-before-request')
-              yield* client['documents.archive']({ id: document.id, archived: false });
+              yield* client['pages.archive']({ id: document.id, archived: false });
 
             yield* recoverFailedPractice();
 

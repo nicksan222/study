@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { assistantContextBudget } from '../conversations/assistant.ts';
+import { assistantContextBudget } from '../notes/assistant.ts';
 
 export const compactionInputSchema = Schema.Struct({
   previous: Schema.String,

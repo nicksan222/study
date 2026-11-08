@@ -1,7 +1,7 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
  * │ @file Captures and posts a recording over native RPC, then verifies the worker publishes │
- * │ a WAV-backed source and conversation message. Repeating the post request returns the     │
+ * │ a WAV-backed source and note message. Repeating the post request returns the             │
  * │ same durable result.                                                                     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
@@ -39,11 +39,11 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const project = yield* client['projects.createProject']({ name: 'Recording' });
-            const session = yield* client['conversations.createSession']({
+            const note = yield* client['notes.createNote']({
               project: project.id,
               title: 'Audio'
             });
-            const recording = yield* client['recordings.createRecording']({ id: session.id });
+            const recording = yield* client['recordings.createRecording']({ id: note.id });
 
             yield* client['recordings.appendRecording']({
               id: recording.id,
@@ -54,7 +54,7 @@ testStable(
               3n
             );
             const post = yield* client['recordings.postRecording']({
-              session: session.id,
+              note: note.id,
               recording: recording.id,
               name: 'Lecture.wav'
             });
@@ -65,7 +65,7 @@ testStable(
               });
 
               if (result.messageId !== null) {
-                const message = yield* client['conversations.message']({ id: result.messageId });
+                const message = yield* client['notes.message']({ id: result.messageId });
 
                 assert.strictEqual(message.recordedIn, result.sourceId);
                 assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
@@ -74,15 +74,14 @@ testStable(
                   0
                 );
                 const replayed = yield* client['recordings.postRecording']({
-                  session: session.id,
+                  note: note.id,
                   recording: recording.id,
                   name: 'Lecture.wav'
                 });
 
                 expect(replayed).toStrictEqual(result);
                 assert.strictEqual(
-                  (yield* client['conversations.thread']({ sessionId: session.id, limit: 10 }))
-                    .items.length,
+                  (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
                   1
                 );
 

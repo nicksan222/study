@@ -16,7 +16,7 @@ export const yoursEn = {
     },
     local: {
       title: 'Your library stays here',
-      body: 'Your notes, sources and documents live on your computer. You choose the material for each task. Work that needs a model runs on',
+      body: 'Your notes, sources and pages live on your computer. You choose the material for each task. Work that needs a model runs on',
       never: 'your ChatGPT plan',
       end: '.'
     },
@@ -46,7 +46,7 @@ export const yoursIt: Shape<typeof yoursEn> = {
     },
     local: {
       title: 'La tua libreria resta qui',
-      body: 'Appunti, fonti e documenti vivono sul tuo computer. Scegli tu il materiale per ogni attività. Il lavoro che richiede un modello usa',
+      body: 'Appunti, fonti e pagine vivono sul tuo computer. Scegli tu il materiale per ogni attività. Il lavoro che richiede un modello usa',
       never: 'il tuo piano ChatGPT',
       end: '.'
     },

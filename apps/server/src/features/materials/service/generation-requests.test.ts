@@ -28,8 +28,8 @@ import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -52,7 +52,7 @@ const document = () => ({
 });
 
 function createEvidence(input: { projectId: ProjectId; title: string }) {
-  return Effect.flatMap(Documents, (docs) =>
+  return Effect.flatMap(Pages, (docs) =>
     docs.create({
       ...input,
       createKey: randomUUID(),
@@ -72,7 +72,7 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
 testStable('quiz settings persist as request intent and reject changed settings', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+  const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
 
@@ -83,7 +83,7 @@ testStable('quiz settings persist as request intent and reject changed settings'
         const materials = yield* Materials;
         const project = yield* projects.createProject({ name: 'Configured quizzes' });
         const doc = yield* createEvidence({ projectId: project.id, title: 'Evidence' });
-        const input = { kind: 'document' as const, versionId: doc.version.id };
+        const input = { kind: 'page' as const, versionId: doc.version.id };
         const quizConfig = {
           questionCount: 2,
           choiceCount: 3,
@@ -146,7 +146,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -161,12 +161,12 @@ testStable(
             projectId: project.id,
             title: ' Cards ',
             kind: 'flashcards',
-            inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+            inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
           });
 
           assert.ok(request.title === 'Cards');
           expect(request.inputs).toStrictEqual([
-            { kind: 'document' as const, versionId: doc.version.id }
+            { kind: 'page' as const, versionId: doc.version.id }
           ]);
           assert.strictEqual(
             context.db.orm
@@ -189,11 +189,11 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
   const location = createTestDatabase();
   let context = new ServerContext(location.open());
   const makeServices = () =>
-    Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
   let requestId = '';
-  let documentId = 0n;
+  let pageId = 0n;
   let versionId = 0n;
   let otherRequestId = '';
 
@@ -210,16 +210,16 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       const doc = yield* createEvidence({ projectId: project.id, title: 'Doc' });
       const foreign = yield* createEvidence({ projectId: other.id, title: 'Foreign' });
       const draftOwner = yield* createEvidence({ projectId: project.id, title: 'Draft' });
-      const docs = yield* Documents;
+      const docs = yield* Pages;
 
       yield* docs.save({
-        documentId: draftOwner.id,
+        pageId: draftOwner.id,
         expectedVersionId: draftOwner.version.id,
         key: randomUUID(),
         document: document()
       });
       const alternative = yield* docs.save({
-        documentId: draftOwner.id,
+        pageId: draftOwner.id,
         expectedVersionId: draftOwner.version.id,
         key: randomUUID(),
         document: document()
@@ -240,7 +240,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
           (yield* Effect.flip(
             materials.requestMaterialGeneration({
               ...base,
-              inputs: [{ kind: 'document' as const, versionId: id }]
+              inputs: [{ kind: 'page' as const, versionId: id }]
             })
           )).kind === 'invalid_input'
         );
@@ -256,8 +256,8 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         parse({
           ...base,
           inputs: [
-            { kind: 'document' as const, versionId: doc.version.id },
-            { kind: 'document' as const, versionId: doc.version.id }
+            { kind: 'page' as const, versionId: doc.version.id },
+            { kind: 'page' as const, versionId: doc.version.id }
           ]
         })
       );
@@ -266,7 +266,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         parse({
           ...base,
           inputs: Array.from({ length: 21 }, (_, i) => ({
-            kind: 'document',
+            kind: 'page',
             versionId: BigInt(i + 1)
           }))
         })
@@ -281,7 +281,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       yield* Effect.flip(
         materials.requestMaterialGeneration({
           ...base,
-          inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+          inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
         })
       );
       assert.strictEqual(
@@ -292,14 +292,14 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       context.db.exec('DROP TRIGGER reject_generation_event');
       const request = yield* client('materials.requestMaterialGeneration', {
         ...base,
-        inputs: [{ kind: 'document' as const, versionId: doc.version.id }],
+        inputs: [{ kind: 'page' as const, versionId: doc.version.id }],
         instruction: 'Focus'
       });
       const snapshot = yield* materials.materialGeneration({ requestId: request.id });
 
       requestId = request.id;
       versionId = doc.version.id;
-      documentId = doc.version.snapshotId;
+      pageId = doc.version.snapshotId;
       assert.ok(snapshot.instruction === 'Focus');
       const event = context.db.orm
         .select()
@@ -319,7 +319,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         kind: 'quiz'
       });
       yield* docs.save({
-        documentId: doc.id,
+        pageId: doc.id,
         expectedVersionId: doc.version.id,
         key: randomUUID(),
         document: document()
@@ -328,12 +328,12 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         projectId: other.id,
         title: 'Other',
         kind: 'diagram',
-        inputs: [{ kind: 'document' as const, versionId: foreign.version.id }]
+        inputs: [{ kind: 'page' as const, versionId: foreign.version.id }]
       });
 
       otherRequestId = otherRequest.id;
       assert.throws(() =>
-        context.db.orm.run(sql`DELETE FROM study_document_versions WHERE id=${doc.version.id}`)
+        context.db.orm.run(sql`DELETE FROM page_versions WHERE id=${doc.version.id}`)
       );
     }
 
@@ -351,12 +351,12 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
         const materials = yield* Materials;
         const snapshot = yield* materials.materialGeneration({ requestId });
 
-        expect(snapshot.inputs).toStrictEqual([{ kind: 'document', versionId }]);
-        const docs = yield* Documents;
+        expect(snapshot.inputs).toStrictEqual([{ kind: 'page', versionId }]);
+        const docs = yield* Pages;
         const exact = snapshot.inputs[0];
 
-        assert.ok(exact?.kind === 'document');
-        assert.strictEqual((yield* docs.version({ id: exact.versionId })).snapshotId, documentId);
+        assert.ok(exact?.kind === 'page');
+        assert.strictEqual((yield* docs.version({ id: exact.versionId })).snapshotId, pageId);
         context.db.orm.run(sql`DELETE FROM projects WHERE id=${snapshot.projectId}`);
         assert.strictEqual(
           (yield* materials.materialGeneration({ requestId: otherRequestId })).id,
@@ -383,7 +383,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -398,7 +398,7 @@ testStable(
             projectId: project.id,
             title: 'Question',
             kind: 'quiz' as const,
-            inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+            inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
           };
           const first = yield* materials.requestMaterialGenerationOnce({
             requestId: 'slot-1',
@@ -444,7 +444,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -461,7 +461,7 @@ testStable(
             projectId: project.id,
             title: 'Question',
             kind: 'quiz' as const,
-            inputs: [{ kind: 'document' as const, versionId: doc.version.id }],
+            inputs: [{ kind: 'page' as const, versionId: doc.version.id }],
             scopeId: scope.scopeId,
             questionSpec: { count: 1 as const, kind: 'open' as const }
           };
@@ -520,7 +520,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -539,7 +539,7 @@ testStable(
               projectId: project.id,
               title: 'Question',
               kind: 'quiz',
-              inputs: [{ kind: 'document' as const, versionId: doc.version.id }],
+              inputs: [{ kind: 'page' as const, versionId: doc.version.id }],
               scopeId: 'scope'
             }
           });
@@ -570,7 +570,7 @@ testStable(
               projectId: project.id,
               title: 'Other',
               kind: 'quiz',
-              inputs: [{ kind: 'document' as const, versionId: doc.version.id }]
+              inputs: [{ kind: 'page' as const, versionId: doc.version.id }]
             }
           });
           assert.ok(
@@ -609,7 +609,7 @@ testStable(
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
-    const services = Layer.mergeAll(Projects.layer, Materials.layer, Documents.layer).pipe(
+    const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
 
@@ -626,13 +626,13 @@ testStable(
             projectId: project.id,
             title: 'Quiz',
             kind: 'quiz',
-            inputs: [{ kind: 'document', versionId: doc.version.id }]
+            inputs: [{ kind: 'page', versionId: doc.version.id }]
           });
           const otherRequest = yield* materials.requestMaterialGeneration({
             projectId: other.id,
             title: 'Cards',
             kind: 'flashcards',
-            inputs: [{ kind: 'document', versionId: otherDoc.version.id }]
+            inputs: [{ kind: 'page', versionId: otherDoc.version.id }]
           });
 
           expect(

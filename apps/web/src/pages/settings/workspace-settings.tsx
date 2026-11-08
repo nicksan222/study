@@ -72,10 +72,10 @@ function PreferenceSection({
 type BooleanField =
   | 'spellcheck'
   | 'submitOnEnter'
-  | 'autoTitleSessions'
+  | 'autoTitleNotes'
   | 'autoAnswerQuestions'
-  | 'sidebarShowDocumentCounts'
-  | 'expandDocuments';
+  | 'sidebarShowPageCounts'
+  | 'expandPages';
 
 /** Saves one switch while preserving unrelated preferences from other windows. */
 function PreferenceToggle({
@@ -209,15 +209,15 @@ export function WritingSettings() {
         description="WorkspaceEnterCaptureHelp"
       />
       <PreferenceToggle
-        field="expandDocuments"
-        title="WorkspaceExpandDocuments"
-        description="WorkspaceExpandDocumentsHelp"
+        field="expandPages"
+        title="WorkspaceExpandPages"
+        description="WorkspaceExpandPagesHelp"
       />
     </PreferenceSection>
   );
 }
 
-export function SessionDisplaySettings() {
+export function NoteDisplaySettings() {
   return (
     <PreferenceSection title="WorkspaceSidebarTitle" description="WorkspaceSidebarDescription">
       <PreferenceSelect
@@ -239,9 +239,9 @@ export function SessionDisplaySettings() {
         ]}
       />
       <PreferenceToggle
-        field="sidebarShowDocumentCounts"
-        title="WorkspaceDocumentCounts"
-        description="WorkspaceDocumentCountsHelp"
+        field="sidebarShowPageCounts"
+        title="WorkspacePageCounts"
+        description="WorkspacePageCountsHelp"
       />
     </PreferenceSection>
   );
@@ -264,7 +264,7 @@ export function ReadingSettings() {
         options={[
           { value: 'markdown', label: 'WorkspaceMarkdown' },
           { value: 'html', label: 'WorkspaceHtml' },
-          { value: 'aid_json', label: 'WorkspaceDocumentJson' },
+          { value: 'aid_json', label: 'WorkspacePageJson' },
           { value: 'csv', label: 'ExportCsv' }
         ]}
       />
@@ -281,9 +281,9 @@ export function AiWritingSettings() {
         title="WorkspaceAiDetail"
         description="WorkspaceAiDetailHelp"
         options={[
-          { value: 'brief', label: 'SessionDetailBrief' },
-          { value: 'balanced', label: 'SessionDetailBalanced' },
-          { value: 'detailed', label: 'SessionDetailDetailed' }
+          { value: 'brief', label: 'NoteDetailBrief' },
+          { value: 'balanced', label: 'NoteDetailBalanced' },
+          { value: 'detailed', label: 'NoteDetailDetailed' }
         ]}
       />
       <PreferenceSelect
@@ -302,7 +302,7 @@ export function AiWritingSettings() {
         description="WorkspaceAutoAnswerQuestionsHelp"
       />
       <PreferenceToggle
-        field="autoTitleSessions"
+        field="autoTitleNotes"
         title="WorkspaceAutoTitles"
         description="WorkspaceAutoTitlesHelp"
       />

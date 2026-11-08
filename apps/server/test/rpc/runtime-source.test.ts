@@ -206,7 +206,7 @@ testStable(
               0
             );
             assert.strictEqual(
-              (yield* client['documents.documents']({
+              (yield* client['pages.pages']({
                 projectId: project.id,
                 archived: false,
                 limit: 10

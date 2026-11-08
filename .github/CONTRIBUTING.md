@@ -46,7 +46,7 @@ devcontainer exec --workspace-folder . bash
 ```
 
 The devcontainer installs root and landing dependencies from their committed locks. To
-refresh them, run `npm ci` and `bun install --cwd apps/landing --frozen-lockfile`, then
+refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
 all application features, and seeded browser E2E and capture generation are unavailable.
@@ -63,7 +63,7 @@ sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-d
 ```
 
 Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` picks the version) and
-[just](https://github.com/casey/just), Node 26 for build tooling and Bun 1.4.4 for the application runtime. Run `npm ci` and
+[just](https://github.com/casey/just), Node 26 for build tooling and Bun 1.4.4 for the application runtime. Run `bun install --frozen-lockfile` and
 `bun install --cwd apps/landing --frozen-lockfile`, then `just check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the

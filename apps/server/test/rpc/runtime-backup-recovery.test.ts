@@ -67,7 +67,7 @@ testStable(
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
       await f.reopen();
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
       assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
@@ -117,7 +117,7 @@ testStable(
 
       await f.app.nativeRuntime.runPromise(reopened.acceptRestore(acceptance(retry)));
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
     } finally {
       await f.close();
     }
@@ -160,7 +160,7 @@ testStable(
 
       const identity = f.app.store.db.contentIdentity();
 
-      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
       await f.reopen();
       assert.strictEqual(f.app.store.db.contentIdentity(), identity);
 
@@ -241,7 +241,7 @@ testStable(
           async validate(db) {
             await backupPolicy.validate(db);
             reader = Db.openSnapshot(ownership.path);
-            reader.exec('BEGIN; SELECT count(*) FROM study_documents;');
+            reader.exec('BEGIN; SELECT count(*) FROM pages;');
           }
         });
       } finally {
@@ -298,7 +298,7 @@ testStable(
         try {
           assert.strictEqual(current.contentIdentity(), before);
           assert.strictEqual(
-            current.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM study_documents`)!.n,
+            current.orm.get<{ n: bigint }>(sql`SELECT count(*) n FROM pages`)!.n,
             2n
           );
         } finally {
@@ -312,7 +312,7 @@ testStable(
       }
 
       await f.reopen();
-      assert.strictEqual(f.app.store.db.orm.select().from(s.study_documents).all().length, 1);
+      assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
       await f.reopen();
       assert.ok(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'

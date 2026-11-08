@@ -2,20 +2,20 @@ import { Schema } from 'effect';
 
 import {
   projectIdSchema,
-  sessionIdSchema,
+  noteIdSchema,
   messageIdSchema,
   versionIdSchema,
   sourceIdSchema,
   chunkIdSchema,
   contentSnapshotIdSchema,
-  studyDocumentIdSchema,
-  studyDocumentVersionIdSchema,
+  pageIdSchema,
+  pageVersionIdSchema,
   materialIdSchema,
   materialVersionIdSchema,
   quizQuestionIdSchema
 } from '../ids.ts';
 import { anchorSchema } from '../sources/schemas.ts';
-import { projectSearchTargetSchema, sessionSearchTargetSchema } from './targets.ts';
+import { projectSearchTargetSchema, noteSearchTargetSchema } from './targets.ts';
 
 /** A registry-owned identity for new entities without a dedicated application target yet. */
 export const registeredEntityKeySchema = Schema.String.check(Schema.isMinLength(1)).pipe(
@@ -24,11 +24,11 @@ export const registeredEntityKeySchema = Schema.String.check(Schema.isMinLength(
 
 export const searchTargetSchema = Schema.Union([
   projectSearchTargetSchema,
-  sessionSearchTargetSchema,
+  noteSearchTargetSchema,
   Schema.Struct({
     type: Schema.Literal('message'),
     messageId: messageIdSchema,
-    sessionId: sessionIdSchema,
+    noteId: noteIdSchema,
     versionId: versionIdSchema
   }),
   Schema.Struct({ type: Schema.Literal('source'), sourceId: sourceIdSchema }),
@@ -40,9 +40,9 @@ export const searchTargetSchema = Schema.Union([
     anchor: anchorSchema
   }),
   Schema.Struct({
-    type: Schema.Literal('document'),
-    documentId: studyDocumentIdSchema,
-    versionId: studyDocumentVersionIdSchema
+    type: Schema.Literal('page'),
+    pageId: pageIdSchema,
+    versionId: pageVersionIdSchema
   }),
   Schema.Struct({
     type: Schema.Literal('material'),

@@ -1,10 +1,10 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exercises recording publication workflows across conversation and source features  │
+ * │ @file Exercises recording publication workflows across note and source features          │
  * │ using real workflow and database layers.                                                 │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Exercises exercises recording publication workflows across conversation and source     │
+ * │ - Exercises exercises recording publication workflows across note and source             │
  * │   features using real workflow and database layers..                                     │
  * │ - Checks focused behavior using the file’s test fixtures.                                │
  * │                                                                                          │
@@ -22,7 +22,7 @@ import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
+import { Notes } from '#server/features/notes/index';
 import { Projects } from '#server/features/projects/index';
 import { Recordings } from '#server/features/recordings/service/index';
 import { Sources } from '#server/features/sources/index';
@@ -40,7 +40,7 @@ for (const deleteCommittedMessage of [false, true])
       const location = createTestDatabase();
       let context = new ServerContext(location.open());
       const services = () =>
-        Layer.mergeAll(Projects.layer, Conversations.layer, Sources.layer, Recordings.layer).pipe(
+        Layer.mergeAll(Projects.layer, Notes.layer, Sources.layer, Recordings.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
         );
 
@@ -48,25 +48,25 @@ for (const deleteCommittedMessage of [false, true])
         const pending = await Effect.runPromise(
           Effect.gen(function* () {
             const projects = yield* Projects;
-            const conversations = yield* Conversations;
+            const notes = yield* Notes;
             const recordings = yield* Recordings;
             const project = yield* projects.createProject({ name: 'Audio' });
-            const session = yield* conversations.createSession({
+            const note = yield* notes.createNote({
               project: project.id,
               title: 'Recording'
             });
-            const other = yield* conversations.createSession({
+            const other = yield* notes.createNote({
               project: project.id,
               title: 'Other'
             });
-            const recording = yield* recordings.createRecording(session.id);
+            const recording = yield* recordings.createRecording(note.id);
 
             yield* recordings.appendRecording({ id: recording.id, samples: [-32768, 0, 32767] });
             assert.strictEqual((yield* recordings.recording(recording.id)).samples, 3n);
             assert.ok(
               (yield* Effect.flip(
                 recordings.postRecording({
-                  session: other.id,
+                  note: other.id,
                   recording: recording.id,
                   name: 'wrong.wav'
                 })
@@ -77,7 +77,7 @@ for (const deleteCommittedMessage of [false, true])
             );
             yield* Effect.flip(
               recordings.postRecording({
-                session: session.id,
+                note: note.id,
                 recording: recording.id,
                 name: 'lecture.wav'
               })
@@ -87,7 +87,7 @@ for (const deleteCommittedMessage of [false, true])
               0
             );
             context.db.orm.run(sql`DROP TRIGGER fail_recording_event`);
-            const input = { session: session.id, recording: recording.id, name: 'lecture.wav' };
+            const input = { note: note.id, recording: recording.id, name: 'lecture.wav' };
             const post = yield* recordings.postRecording(input);
 
             expect(yield* recordings.postRecording(input)).toStrictEqual(post);
@@ -110,7 +110,7 @@ for (const deleteCommittedMessage of [false, true])
             );
             assert.throws(() =>
               context.db.orm.run(
-                sql`UPDATE recordings SET session_id=${other.id} WHERE id=${recording.id}`
+                sql`UPDATE recordings SET note_id=${other.id} WHERE id=${recording.id}`
               )
             );
             assert.throws(() =>
@@ -119,7 +119,7 @@ for (const deleteCommittedMessage of [false, true])
               )
             );
 
-            return { post, project, session };
+            return { post, project, note };
           }).pipe(Effect.provide(services()))
         );
         const event = decodeEvent(
@@ -161,20 +161,17 @@ for (const deleteCommittedMessage of [false, true])
           1
         );
         assert.strictEqual(
-          context.db.orm.select().from(tables.conversation_recording_posts).all().length,
+          context.db.orm.select().from(tables.note_recording_posts).all().length,
           1
         );
 
         if (deleteCommittedMessage) {
-          const committed = context.db.orm
-            .select()
-            .from(tables.conversation_recording_posts)
-            .all()[0]!;
+          const committed = context.db.orm.select().from(tables.note_recording_posts).all()[0]!;
 
           await Effect.runPromise(
-            Effect.flatMap(Conversations, (service) =>
-              service.deleteMessage(committed.message_id)
-            ).pipe(Effect.provide(services()))
+            Effect.flatMap(Notes, (service) => service.deleteMessage(committed.message_id)).pipe(
+              Effect.provide(services())
+            )
           );
         }
 
@@ -223,8 +220,8 @@ for (const deleteCommittedMessage of [false, true])
               result
             );
             assert.strictEqual((yield* recordings.recordings({ limit: 10 })).items.length, 0);
-            const messages = yield* (yield* Conversations).thread({
-              sessionId: pending.session.id,
+            const messages = yield* (yield* Notes).thread({
+              noteId: pending.note.id,
               limit: 10
             });
 
@@ -234,16 +231,16 @@ for (const deleteCommittedMessage of [false, true])
               assert.strictEqual(messages.items[0]?.recordedIn, result.sourceId);
 
             if (!deleteCommittedMessage) {
-              const conversations = yield* Conversations;
-              const other = yield* conversations.createSession({ title: 'Merge partner' });
-              const merged = yield* conversations.mergeSessions({
-                sessionIds: [pending.session.id, other.id],
+              const notes = yield* Notes;
+              const other = yield* notes.createNote({ title: 'Merge partner' });
+              const merged = yield* notes.mergeNotes({
+                noteIds: [pending.note.id, other.id],
                 intentKey: 'recording-merge'
               });
               const copied = context.db.orm
                 .select()
                 .from(tables.recordings)
-                .where(eq(tables.recordings.session_id, merged.id))
+                .where(eq(tables.recordings.note_id, merged.id))
                 .get()!;
 
               expect(copied.id).not.toBe(pending.post.recordingId);
@@ -259,15 +256,14 @@ for (const deleteCommittedMessage of [false, true])
               expect(
                 (yield* Effect.flip(
                   recordings.postRecording({
-                    session: merged.id,
+                    note: merged.id,
                     recording: copied.id,
                     name: 'duplicate.wav'
                   })
                 )).kind
               ).toBe('invalid_input');
               expect(
-                (yield* conversations.thread({ sessionId: merged.id, limit: 100 })).items[0]
-                  ?.recordedIn
+                (yield* notes.thread({ noteId: merged.id, limit: 100 })).items[0]?.recordedIn
               ).toBe(result.sourceId);
             }
 
@@ -277,7 +273,7 @@ for (const deleteCommittedMessage of [false, true])
               1
             );
             assert.strictEqual(
-              context.db.orm.select().from(tables.conversation_recording_posts).all().length,
+              context.db.orm.select().from(tables.note_recording_posts).all().length,
               1
             );
             assert.strictEqual(

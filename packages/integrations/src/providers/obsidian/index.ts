@@ -42,7 +42,7 @@ export const obsidianProvider: IntegrationProvider = {
           .sort((a, b) => a.path.localeCompare(b.path, 'en'));
         const paths = files.map((file) => file.path);
         const warnings: (typeof integrationWarningSchema.Type)[] = [];
-        const sessions: (typeof integrationPlanSchema.Type.sessions)[number][] = [];
+        const notes: (typeof integrationPlanSchema.Type.notes)[number][] = [];
 
         for (const file of files.filter((entry) => /\.md$/i.test(entry.path))) {
           const parsed = note(file.path, file.content);
@@ -59,14 +59,14 @@ export const obsidianProvider: IntegrationProvider = {
           const references = obsidianReferences(file.path, parsed.text, paths);
 
           warnings.push(...references.warnings);
-          sessions.push({
+          notes.push({
             ...parsed,
             links: references.links,
             attachments: references.attachments
           });
         }
 
-        const used = new Set(sessions.flatMap((session) => [session.key, ...session.attachments]));
+        const used = new Set(notes.flatMap((note) => [note.key, ...note.attachments]));
 
         for (const file of files.filter(
           (entry) => !used.has(entry.path) && !/\.md$/i.test(entry.path)
@@ -74,7 +74,7 @@ export const obsidianProvider: IntegrationProvider = {
           warnings.push({ code: 'unsupported_file', path: file.path, target: null });
 
         return Schema.decodeUnknownSync(integrationPlanSchema)({
-          sessions,
+          notes,
           files: files.filter((file) => used.has(file.path)),
           warnings
         });

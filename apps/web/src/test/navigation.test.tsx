@@ -13,7 +13,7 @@ vi.mock('../lib/study-client/client', async () => {
     'system.health': () =>
       Effect.succeed({ protocolVersion: 1, workersRunning: true, testMode: false }),
     'projects.projects': page,
-    'conversations.sessions': page,
+    'notes.notes': page,
     'sources.sources': page,
     'materials.materials': page
   };
@@ -23,7 +23,7 @@ vi.mock('../lib/study-client/client', async () => {
   };
 });
 
-const pages = ['Sessions', 'Projects', 'Flashcards', 'Practice'] as const;
+const pages = ['Notes', 'Projects', 'Flashcards', 'Practice'] as const;
 
 beforeEach(() => {
   history.replaceState(null, '', '/');
@@ -44,7 +44,7 @@ testStable.each(pages)('renders the %s route without network access', async (pag
   } else {
     expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeInTheDocument();
     expect(screen.getByRole('main')).toHaveTextContent(
-      page === 'Sessions' ? catalogs.english.SessionStartHelp : catalogs.english.AppName
+      page === 'Notes' ? catalogs.english.NoteStartHelp : catalogs.english.AppName
     );
   }
 
@@ -56,7 +56,7 @@ testStable(
   async () => {
     const user = userEvent.setup();
 
-    history.replaceState(null, '', '/projects/1/session/42');
+    history.replaceState(null, '', '/projects/1/notes/42');
     render(<App />);
     expect(
       await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
@@ -67,11 +67,11 @@ testStable(
     expect(
       await screen.findByRole('dialog', { name: catalogs.english.Settings })
     ).toBeInTheDocument();
-    expect(location.pathname + location.search).toBe('/projects/1/session/42');
+    expect(location.pathname + location.search).toBe('/projects/1/notes/42');
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await waitFor(() => expect(trigger).toHaveFocus());
-    expect(screen.getByRole('heading', { name: catalogs.english.Sessions })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: catalogs.english.Notes })).toBeInTheDocument();
   }
 );
 

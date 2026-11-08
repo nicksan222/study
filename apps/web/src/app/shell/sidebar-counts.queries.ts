@@ -2,8 +2,8 @@ import type { ProjectId } from '@study/contracts/ids';
 import { useQuery } from '@tanstack/react-query';
 
 import { libraryQueryOptions } from '#web/features/library/index.ts';
-import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
-import { countDocuments } from '#web/lib/study-client/operations.ts';
+import type { Notes, Subjects } from '#web/lib/study-client/operations.ts';
+import { countPages } from '#web/lib/study-client/operations.ts';
 
 import { useSidebarProgress } from './rich-sidebar.queries';
 
@@ -11,39 +11,39 @@ import { useSidebarProgress } from './rich-sidebar.queries';
 export function useSidebarCounts({
   project,
   subjects,
-  sessions,
-  sessionsReady,
+  notes,
+  notesReady,
   ready
 }: {
   project?: ProjectId;
   subjects: Subjects;
-  sessions: Sessions;
-  sessionsReady: boolean;
+  notes: Notes;
+  notesReady: boolean;
   ready: boolean;
 }) {
   const { settings, progress } = useSidebarProgress();
-  const documents = useQuery({
-    queryKey: ['documents', 'navigation-count', project?.toString()],
-    queryFn: ({ signal }) => countDocuments(project, signal),
+  const pages = useQuery({
+    queryKey: ['pages', 'navigation-count', project?.toString()],
+    queryFn: ({ signal }) => countPages(project, signal),
     enabled: ready,
     refetchInterval: 15_000
   });
   const practice = useQuery(libraryQueryOptions(subjects, project, ready));
-  const threshold = BigInt(settings.data?.settledDocumentThreshold ?? 1);
+  const threshold = BigInt(settings.data?.settledPageThreshold ?? 1);
   const summaries = new Map(progress.data?.items.map((item) => [item.id, item]));
-  const unresolved = sessions.some((session) => {
-    const summary = summaries.get(session.id);
+  const unresolved = notes.some((note) => {
+    const summary = summaries.get(note.id);
 
     return (
       !summary ||
       summary.running ||
-      !(summary.settledOverride ?? summary.generatedDocumentCount >= threshold)
+      !(summary.settledOverride ?? summary.generatedPageCount >= threshold)
     );
   });
 
   return {
-    sessions: { count: ready && sessionsReady ? sessions.length : undefined, unresolved },
-    documents: { count: ready && documents.isSuccess ? documents.data : undefined },
+    notes: { count: ready && notesReady ? notes.length : undefined, unresolved },
+    pages: { count: ready && pages.isSuccess ? pages.data : undefined },
     practice: {
       count:
         ready && practice.isSuccess

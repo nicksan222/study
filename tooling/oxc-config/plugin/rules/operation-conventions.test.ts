@@ -73,20 +73,20 @@ testStable(
           })
         });
       `,
-        'apps/server/src/features/conversations/store/role.ts': `
+        'apps/server/src/features/notes/store/role.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({
-          entity: { singular: 'sessionContext', plural: 'sessionContexts' },
+          entity: { singular: 'noteContext', plural: 'noteContexts' },
           make: () => ({
-            queries: { sessionContext: storeQuery({ role: 'snapshot' }) },
+            queries: { noteContext: storeQuery({ role: 'snapshot' }) },
             mutations: {}
           })
         });
       `
       })
     ).toStrictEqual([
-      'apps/server/src/features/conversations/store/role.ts',
-      'apps/server/src/features/materials/store/alias.ts'
+      'apps/server/src/features/materials/store/alias.ts',
+      'apps/server/src/features/notes/store/role.ts'
     ]);
   }
 );
@@ -102,9 +102,9 @@ testStable(
       defineStore({entity:{singular:'documentProposalReceipt',plural:'documentProposalReceipts'},make:()=>({queries:{findDocumentProposalReceipt:storeQuery({role:'optional'})},mutations:{}})});
       defineStore({entity:{singular:'documentComparison',plural:'documentComparisons'},make:()=>({queries:{documentComparison:storeQuery({role:'required'})},mutations:{}})});
     `,
-        'apps/server/src/features/conversations/store/validity.ts': `
+        'apps/server/src/features/notes/store/validity.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-      defineStore({entity:{singular:'sessionContextValidity',plural:'sessionContextValidities'},make:()=>({queries:{sessionContextValidity:storeQuery({role:'required'})},mutations:{}})});
+      defineStore({entity:{singular:'noteContextValidity',plural:'noteContextValidities'},make:()=>({queries:{noteContextValidity:storeQuery({role:'required'})},mutations:{}})});
     `,
         'apps/server/src/features/materials/store/bypass.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -121,18 +121,18 @@ testStable(
 testStable('deletion aggregates require their own canonical descriptors beside status', () => {
   expect(
     lint({
-      'apps/server/src/features/conversations/store/deletion.ts': `
+      'apps/server/src/features/notes/store/deletion.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-      defineStore({entity:{singular:'sessionDeletion',plural:'sessionDeletions'},make:()=>({queries:{sessionDeletion:storeQuery({role:'required'}),findSessionDeletion:storeQuery({role:'optional'})},mutations:{}})});
+      defineStore({entity:{singular:'noteDeletion',plural:'noteDeletions'},make:()=>({queries:{noteDeletion:storeQuery({role:'required'}),findNoteDeletion:storeQuery({role:'optional'})},mutations:{}})});
       defineStore({entity:{singular:'deletionOwnership',plural:'deletionOwnerships'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'})},mutations:{}})});
       defineStore({entity:{singular:'deletionCorrelation',plural:'deletionCorrelations'},make:()=>({queries:{deletionCorrelation:storeQuery({role:'required'})},mutations:{}})});
     `,
-      'apps/server/src/features/conversations/store/bypass.ts': `
+      'apps/server/src/features/notes/store/bypass.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-      defineStore({entity:{singular:'sessionDeletion',plural:'sessionDeletions'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'}),deletionCorrelations:storeQuery({role:'required'})},mutations:{}})});
+      defineStore({entity:{singular:'noteDeletion',plural:'noteDeletions'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'}),deletionCorrelations:storeQuery({role:'required'})},mutations:{}})});
     `
     })
-  ).toStrictEqual(Array(2).fill('apps/server/src/features/conversations/store/bypass.ts'));
+  ).toStrictEqual(Array(2).fill('apps/server/src/features/notes/store/bypass.ts'));
 });
 
 testStable(
@@ -193,11 +193,11 @@ testStable(
       lint({
         'apps/server/src/features/materials/store/reader.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
-        defineStore({entity:{singular:'materialVersionDocument',plural:'materialVersionDocuments'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'})},mutations:{}})});
+        defineStore({entity:{singular:'materialVersionDocument',plural:'materialVersionPages'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'})},mutations:{}})});
         defineStore({entity:{singular:'materialVersionImage',plural:'materialVersionImages'},make:()=>({queries:{materialVersionImage:storeQuery({role:'required'})},mutations:{}})});
         defineStore({entity:{singular:'importedMaterial',plural:'importedMaterials'},make:()=>({queries:{importedMaterial:storeQuery({role:'required'})},mutations:{}})});
       `,
-        'apps/server/src/features/conversations/store/reply.ts': `
+        'apps/server/src/features/notes/store/reply.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'replyVersion',plural:'replyVersions'},make:()=>({queries:{replyVersion:storeQuery({role:'required'})},mutations:{}})});
         defineStore({entity:{singular:'replyRequest',plural:'replyRequests'},make:()=>({queries:{findReplyRequest:storeQuery({role:'optional'})},mutations:{}})});
@@ -206,14 +206,14 @@ testStable(
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'materialReader',plural:'materialReaders'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'}),materialVersionImage:storeQuery({role:'required'}),importedMaterial:storeQuery({role:'required'})},mutations:{}})});
       `,
-        'apps/server/src/features/conversations/store/combined.ts': `
+        'apps/server/src/features/notes/store/combined.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'replyRequest',plural:'replyRequests'},make:()=>({queries:{findReplyRequest:storeQuery({role:'optional'}),replyVersion:storeQuery({role:'required'})},mutations:{}})});
       `
       })
     ).toStrictEqual([
-      'apps/server/src/features/conversations/store/combined.ts',
-      ...Array(3).fill('apps/server/src/features/materials/store/combined.ts')
+      ...Array(3).fill('apps/server/src/features/materials/store/combined.ts'),
+      'apps/server/src/features/notes/store/combined.ts'
     ]);
   }
 );

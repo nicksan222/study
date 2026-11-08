@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sessionIdSchema, studyDocumentIdSchema } from '@study/contracts/ids';
+import { noteIdSchema, pageIdSchema } from '@study/contracts/ids';
 import { integrationImportIdSchema } from '@study/contracts/integrations/schemas';
 import { eq } from '@study/db';
 import { integration_receipts } from '@study/db/schema';
@@ -22,8 +22,8 @@ const receiptSchema = Schema.Struct({
   identity: Schema.String,
   fingerprint: Schema.String,
   importId: integrationImportIdSchema,
-  sessionId: Schema.NullOr(sessionIdSchema),
-  documentId: Schema.NullOr(studyDocumentIdSchema)
+  noteId: Schema.NullOr(noteIdSchema),
+  pageId: Schema.NullOr(pageIdSchema)
 });
 
 export const IntegrationReceiptsStore = defineStore({
@@ -47,8 +47,8 @@ export const IntegrationReceiptsStore = defineStore({
                 identity: row.identity,
                 fingerprint: row.fingerprint,
                 importId: row.import_id,
-                sessionId: row.session_id,
-                documentId: row.document_id
+                noteId: row.note_id,
+                pageId: row.page_id
               })
             : Option.none();
         }
@@ -65,12 +65,12 @@ export const IntegrationReceiptsStore = defineStore({
               identity: receipt.identity,
               fingerprint: receipt.fingerprint,
               import_id: receipt.importId,
-              session_id: receipt.sessionId,
-              document_id: receipt.documentId
+              note_id: receipt.noteId,
+              page_id: receipt.pageId
             })
             .onConflictDoUpdate({
               target: integration_receipts.identity,
-              set: { document_id: receipt.documentId, fingerprint: receipt.fingerprint }
+              set: { page_id: receipt.pageId, fingerprint: receipt.fingerprint }
             })
             .run();
         }

@@ -31,7 +31,7 @@ On **Windows**, run the `.exe` installer and follow its steps.
 
 ## Connect your workspace
 
-You can start by saving notes. Connect ChatGPT from **Settings** when you want answers, document transformations or generated practice. [First steps](../first-steps/) walks through the session → document → practice workflow; [privacy](../privacy/) explains local storage and what model requests send.
+You can start by saving notes. Connect ChatGPT from **Settings** when you want answers, page transformations or generated practice. [First steps](../first-steps/) walks through the note → page → practice workflow; [privacy](../privacy/) explains local storage and what model requests send.
 
 ## Updates
 

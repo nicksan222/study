@@ -23,7 +23,7 @@ import { createTestDatabase } from '@study/db/testing';
 import { Effect, Schema } from 'effect';
 import type { TestContext } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
+import { Pages } from '#server/features/pages/index';
 import { System } from '#server/features/system/index';
 import { App } from '#server/runtime/index';
 
@@ -109,7 +109,7 @@ export async function backupFixture(t?: TestContext) {
 
 export async function createDocument(app: App, text = 'Retained rich content') {
   return app.nativeRuntime.runPromise(
-    Effect.flatMap(Documents, (m) =>
+    Effect.flatMap(Pages, (m) =>
       m
         .create({
           createKey: randomUUID(),

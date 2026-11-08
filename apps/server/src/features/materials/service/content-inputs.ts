@@ -22,7 +22,7 @@ import { validBlockTextRange } from '@study/contracts/sources/document';
 import { hasTextualContent } from '@study/contracts/sources/schemas';
 import { Schema } from 'effect';
 
-import { Documents } from '#server/features/documents/index';
+import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 import type { Transaction } from '#server/platform/definitions/define-store';
 
@@ -44,8 +44,8 @@ export function readContentInput(
     return Schema.decodeUnknownSync(resolvedContentInputSchema)({ input, ...exact });
   }
 
-  const version = Documents.versionInTransaction(tx, input.versionId);
-  const document = Documents.documentInTransaction(tx, { id: version.documentId });
+  const version = Pages.versionInTransaction(tx, input.versionId);
+  const document = Pages.pageInTransaction(tx, { id: version.pageId });
 
   if (version.status !== 'published' || (!allowArchived && document.archivedAt !== null))
     throw new StudyError('invalid_input', 'Learning requires a published authored version');

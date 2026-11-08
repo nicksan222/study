@@ -1,4 +1,4 @@
-import type { SessionId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts/ids';
 import { eq } from '@study/db';
 import type { Db } from '@study/db';
 import { messages, message_versions } from '@study/db/schema';
@@ -7,7 +7,7 @@ import type { Exchange } from '../types.ts';
 
 export function createMessages(
   db: Db,
-  sessionId: SessionId,
+  noteId: NoteId,
   exchanges: readonly Exchange[],
   time: bigint
 ) {
@@ -15,7 +15,7 @@ export function createMessages(
     const question = db.orm
       .insert(messages)
       .values({
-        session_id: sessionId,
+        note_id: noteId,
         role: 'user',
         created_at: time + BigInt(index * 120)
       })
@@ -24,7 +24,7 @@ export function createMessages(
     const answer = db.orm
       .insert(messages)
       .values({
-        session_id: sessionId,
+        note_id: noteId,
         role: 'assistant',
         reply_to: question.id,
         created_at: question.created_at + 30n

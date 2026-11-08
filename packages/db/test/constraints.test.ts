@@ -60,8 +60,8 @@ function seed(db: NodeSQLiteDatabase) {
     .values({ source_id: source.id, extractor_version: 0n, meta: '{}', created_at: 1n })
     .returning()
     .get();
-  const session = db
-    .insert(schema.sessions)
+  const note = db
+    .insert(schema.notes)
     .values({
       title: 'S',
       title_source: 'user',
@@ -72,7 +72,7 @@ function seed(db: NodeSQLiteDatabase) {
     .get();
   const message = db
     .insert(schema.messages)
-    .values({ session_id: session.id, role: 'assistant', created_at: 1n })
+    .values({ note_id: note.id, role: 'assistant', created_at: 1n })
     .returning()
     .get();
   const version = db
@@ -88,7 +88,7 @@ function seed(db: NodeSQLiteDatabase) {
     .returning()
     .get();
 
-  return { db, source, document, session, message, version };
+  return { db, source, document, note, message, version };
 }
 
 function checkViolation(error: unknown): boolean {

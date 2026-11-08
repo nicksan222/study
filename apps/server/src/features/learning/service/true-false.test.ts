@@ -18,8 +18,8 @@ import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
@@ -35,7 +35,7 @@ for (const truth of [true, false])
       const domain = Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),
         Layer.provideMerge(Materials.layer),
-        Layer.provideMerge(Documents.layer),
+        Layer.provideMerge(Pages.layer),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
 

@@ -1,9 +1,9 @@
 import { AuthRpc } from './auth/rpc.ts';
-import { ConversationsRpc } from './conversations/rpc.ts';
-import { DocumentsRpc } from './documents/rpc.ts';
 import { IntegrationsRpc } from './integrations/rpc.ts';
 import { LearningRpc } from './learning/rpc.ts';
 import { MaterialsRpc } from './materials/rpc.ts';
+import { NotesRpc } from './notes/rpc.ts';
+import { PagesRpc } from './pages/rpc.ts';
 import { ProjectsRpc } from './projects/rpc.ts';
 import { RecordingsRpc } from './recordings/rpc.ts';
 import { SettingsRpc } from './settings/rpc.ts';
@@ -16,10 +16,10 @@ import { WorkflowsRpc } from './workflows/rpc.ts';
 export const StudyRpc = SourcesRpc.merge(
   IntegrationsRpc,
   MaterialsRpc,
-  DocumentsRpc,
+  PagesRpc,
   WorkflowsRpc,
   RecordingsRpc,
-  ConversationsRpc,
+  NotesRpc,
   LearningRpc,
   ProjectsRpc,
   SettingsRpc,

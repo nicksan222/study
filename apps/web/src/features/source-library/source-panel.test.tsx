@@ -1,19 +1,19 @@
 import { StudyError } from '@study/contracts/errors';
-import { sourceIdSchema, contentSnapshotIdSchema, sessionIdSchema } from '@study/contracts/ids';
+import { sourceIdSchema, contentSnapshotIdSchema, noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { authoredDocument } from '../document-editing/test-support';
+import { authoredPage } from '../document-editing/test-support';
 import { useSourceCopy } from './source-panel.queries';
 
 const rpc = vi.hoisted(() => ({ copy: vi.fn() }));
 
 vi.mock('#web/lib/study-client/request.ts', () => ({
   request: (invoke: (client: Record<string, unknown>) => unknown) =>
-    invoke({ 'documents.copySource': rpc.copy })
+    invoke({ 'pages.copySource': rpc.copy })
 }));
 afterEach(() => {
   cleanup();
@@ -25,7 +25,7 @@ testStable(
   async () => {
     const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const source = sourceIdSchema.make(7n),
-      session = sessionIdSchema.make(8n);
+      note = noteIdSchema.make(8n);
     const exact = {
       name: 'Original extraction',
       revision: 1n,
@@ -37,8 +37,8 @@ testStable(
 
     rpc.copy
       .mockRejectedValueOnce(new StudyError('transient', 'Lost copy response'))
-      .mockResolvedValueOnce(authoredDocument(20n));
-    const first = renderHook(() => useSourceCopy(source, session), { wrapper });
+      .mockResolvedValueOnce(authoredPage(20n));
+    const first = renderHook(() => useSourceCopy(source, note), { wrapper });
 
     await act(async () => {
       await first.result.current.copy(exact);
@@ -47,18 +47,18 @@ testStable(
 
     expect(attempt).toEqual({
       sourceId: source,
-      sessionId: session,
+      noteId: note,
       title: exact.name,
       revision: 1n,
       snapshotId: 11n,
       createKey: expect.any(String)
     });
     act(() => first.result.current.acknowledge());
-    expect(cache.getQueryData(['source-copy', String(source), String(session)])).toMatchObject({
+    expect(cache.getQueryData(['source-copy', String(source), String(note)])).toMatchObject({
       input: attempt
     });
     first.unmount();
-    const reopened = renderHook(() => useSourceCopy(source, session), { wrapper });
+    const reopened = renderHook(() => useSourceCopy(source, note), { wrapper });
 
     await act(async () => {
       await reopened.result.current.copy({
@@ -74,7 +74,7 @@ testStable(
     });
     expect(rpc.copy).toHaveBeenCalledTimes(2);
     act(() => reopened.result.current.acknowledge());
-    rpc.copy.mockResolvedValueOnce(authoredDocument(21n));
+    rpc.copy.mockResolvedValueOnce(authoredPage(21n));
     await act(async () => {
       await reopened.result.current.copy({
         name: 'Replacement',

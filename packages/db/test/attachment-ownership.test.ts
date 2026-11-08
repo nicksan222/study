@@ -11,9 +11,9 @@ function fixture(run: (db: ReturnType<ReturnType<typeof createTestDatabase>['ope
   try {
     db.exec(`
       INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
-      INSERT INTO sessions(id,title,title_source,created_at,updated_at)
+      INSERT INTO notes(id,title,title_source,created_at,updated_at)
         VALUES(1,'One','user',1,1),(2,'Two','user',1,1),(3,'Other','user',1,1);
-      INSERT INTO messages(id,session_id,role,created_at) VALUES(1,1,'user',1),(2,2,'user',1),(3,3,'user',1);
+      INSERT INTO messages(id,note_id,role,created_at) VALUES(1,1,'user',1),(2,2,'user',1),(3,3,'user',1);
       INSERT INTO sources(id,project_id,origin,kind,mime,name,size_bytes,sha256,created_at)
         VALUES(1,1,'attachment','text','text/plain','One',1,zeroblob(32),1),
               (2,2,'attachment','text','text/plain','Two',1,zeroblob(32),1),
@@ -48,7 +48,7 @@ testStable(
     })
 );
 
-testStable('source cleanup and session or project cascades remain possible', () => {
+testStable('source cleanup and note or project cascades remain possible', () => {
   fixture((db) => {
     db.exec('DELETE FROM sources WHERE id=1');
     assert.strictEqual(
@@ -58,7 +58,7 @@ testStable('source cleanup and session or project cascades remain possible', () 
     );
   });
   fixture((db) => {
-    db.exec('DELETE FROM sessions WHERE id=1');
+    db.exec('DELETE FROM notes WHERE id=1');
     assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
   });
   fixture((db) => {

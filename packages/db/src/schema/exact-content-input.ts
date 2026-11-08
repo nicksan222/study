@@ -1,16 +1,16 @@
-import type { ContentSnapshotId, SourceId, StudyDocumentVersionId } from '@study/contracts/ids';
+import type { ContentSnapshotId, SourceId, PageVersionId } from '@study/contracts/ids';
 
 import { sql, check, foreignKey, integer, text, primaryKey } from '../schema-builder.ts';
 import type { AnySQLiteColumn } from '../schema-builder.ts';
+import { page_versions } from './pages.ts';
 import { source_extraction_revisions } from './source-processing.ts';
-import { study_document_versions } from './study-documents.ts';
 
 /** One normalized exact readable-input shape across durable learning owners. */
 export function exactContentInputColumns() {
   return {
-    document_version_id: integer()
-      .$type<StudyDocumentVersionId>()
-      .references(() => study_document_versions.id),
+    page_version_id: integer()
+      .$type<PageVersionId>()
+      .references(() => page_versions.id),
     source_id: integer().$type<SourceId>(),
     source_revision: integer().$type<bigint>(),
     source_snapshot_id: integer().$type<ContentSnapshotId>()
@@ -18,7 +18,7 @@ export function exactContentInputColumns() {
 }
 
 export function exactContentInputConstraints(t: {
-  document_version_id: AnySQLiteColumn;
+  page_version_id: AnySQLiteColumn;
   source_id: AnySQLiteColumn;
   source_revision: AnySQLiteColumn;
   source_snapshot_id: AnySQLiteColumn;
@@ -34,7 +34,7 @@ export function exactContentInputConstraints(t: {
     }),
     check(
       'exact_content_input_reference',
-      sql`((${t.document_version_id} IS NOT NULL AND ${t.source_id} IS NULL AND ${t.source_revision} IS NULL AND ${t.source_snapshot_id} IS NULL) OR (${t.document_version_id} IS NULL AND ${t.source_id} IS NOT NULL AND ${t.source_revision}>0 AND ${t.source_snapshot_id} IS NOT NULL))`
+      sql`((${t.page_version_id} IS NOT NULL AND ${t.source_id} IS NULL AND ${t.source_revision} IS NULL AND ${t.source_snapshot_id} IS NULL) OR (${t.page_version_id} IS NULL AND ${t.source_id} IS NOT NULL AND ${t.source_revision}>0 AND ${t.source_snapshot_id} IS NOT NULL))`
     )
   ];
 }

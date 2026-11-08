@@ -2,12 +2,7 @@ import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
-import {
-  contentSnapshotIdSchema,
-  projectIdSchema,
-  sourceIdSchema,
-  sessionIdSchema
-} from '../ids.ts';
+import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema, noteIdSchema } from '../ids.ts';
 import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
 import { conversionStrategySchema } from './conversion.ts';
 import { documentSchema, sourceSchema } from './schemas.ts';
@@ -20,7 +15,7 @@ export const sourceDeletionPreviewSchema = Schema.Struct({
   revisionCount: Schema.BigInt,
   extractionCount: Schema.BigInt,
   blockedBy: Schema.Array(Schema.Literals(['exact_inputs', 'image_assets'])),
-  retainedCopies: Schema.Literal('authored_outputs_and_raw_session_records')
+  retainedCopies: Schema.Literal('authored_outputs_and_raw_note_records')
 });
 
 export const sourceRevisionSchema = Schema.Int.check(Schema.isGreaterThan(0));
@@ -103,18 +98,18 @@ export const exactExtractionSchema = Schema.Struct({
   document: documentSchema
 });
 
-export const sessionSourcesInputSchema = Schema.Struct({
-  sessionId: sessionIdSchema,
+export const noteSourcesInputSchema = Schema.Struct({
+  noteId: noteIdSchema,
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 1000 })),
   afterPosition: Schema.optional(Schema.BigInt.check(Schema.isGreaterThanOrEqualToBigInt(0n)))
 });
 
 export const sourceLinkSchema = Schema.Struct({
-  sessionId: sessionIdSchema,
+  noteId: noteIdSchema,
   sourceId: sourceIdSchema
 });
 
-export const sessionSourceSchema = Schema.Struct({
+export const noteSourceSchema = Schema.Struct({
   id: sourceIdSchema,
   position: Schema.BigInt,
   name: Schema.String,
@@ -180,9 +175,9 @@ export const SourcesRpc = RpcGroup.make(
     success: exactExtractionSchema,
     error: failureSchema
   }),
-  Rpc.make('sessionSources', {
-    payload: sessionSourcesInputSchema,
-    success: Schema.Array(sessionSourceSchema),
+  Rpc.make('noteSources', {
+    payload: noteSourcesInputSchema,
+    success: Schema.Array(noteSourceSchema),
     error: failureSchema
   }),
   Rpc.make('attachSource', {

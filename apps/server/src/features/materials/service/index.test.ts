@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto';
 
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
-import { sessions, workflowEvents } from '@study/db/schema';
+import { notes, workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
@@ -26,8 +26,8 @@ import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
+import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
@@ -41,7 +41,7 @@ const content = {
 };
 
 testStable(
-  'materials versions, links, citations and session membership preserve SQLite invariants',
+  'materials versions, links, citations and note membership preserve SQLite invariants',
   async () => {
     const location = createTestDatabase();
     const context = new ServerContext(location.open());
@@ -49,7 +49,7 @@ testStable(
       Projects.layer,
       Sources.layer,
       Materials.layer,
-      Documents.layer
+      Pages.layer
     ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
     try {
@@ -71,7 +71,7 @@ testStable(
               .items.length,
             0
           );
-          const docs = yield* Documents;
+          const docs = yield* Pages;
           const evidence = yield* docs.create({
             createKey: randomUUID(),
             title: 'Evidence',
@@ -94,7 +94,7 @@ testStable(
           });
 
           assert.ok(evidence.version);
-          const input = { kind: 'document' as const, versionId: evidence.version.id };
+          const input = { kind: 'page' as const, versionId: evidence.version.id };
           const another = yield* projects.createProject({ name: 'Other' });
           const first = yield* materials.create({
             projectId: project.id,
@@ -162,7 +162,7 @@ testStable(
           });
 
           assert.ok(foreign.version);
-          const foreignInput = { kind: 'document' as const, versionId: foreign.version.id };
+          const foreignInput = { kind: 'page' as const, versionId: foreign.version.id };
           const shared = yield* materials.createVersion({
             materialId: first.id,
             content,
@@ -170,10 +170,10 @@ testStable(
           });
 
           expect(shared.inputs).toStrictEqual([foreignInput]);
-          const session = context.db.orm
-            .insert(sessions)
+          const note = context.db.orm
+            .insert(notes)
             .values({
-              title: 'Session',
+              title: 'Note',
               title_source: 'user',
               created_at: 1n,
               updated_at: 1n
@@ -181,16 +181,15 @@ testStable(
             .returning()
             .get();
 
-          yield* materials.attach({ sessionId: session.id, materialId: first.id });
+          yield* materials.attach({ noteId: note.id, materialId: first.id });
           expect(
-            (yield* materials.reorder({ sessionId: session.id, materialIds: [first.id] }))
-              .materialIds
+            (yield* materials.reorder({ noteId: note.id, materialIds: [first.id] })).materialIds
           ).toStrictEqual([first.id]);
           assert.ok(
-            (yield* Effect.flip(materials.reorder({ sessionId: session.id, materialIds: [] })))
-              .kind === 'invalid_input'
+            (yield* Effect.flip(materials.reorder({ noteId: note.id, materialIds: [] }))).kind ===
+              'invalid_input'
           );
-          yield* materials.detach({ sessionId: session.id, materialId: first.id });
+          yield* materials.detach({ noteId: note.id, materialId: first.id });
           yield* materials.archive({ id: first.id });
           assert.ok(
             (yield* Effect.flip(materials.rename({ id: first.id, title: 'Rejected' }))).kind ===
@@ -228,12 +227,9 @@ testStable(
 testStable('native materials RPC uses the service and maps canonical failures', async () => {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
-  const services = Layer.mergeAll(
-    Projects.layer,
-    Sources.layer,
-    Materials.layer,
-    Documents.layer
-  ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
+  const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer, Pages.layer).pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
   const handlers = materialRpcHandlers.pipe(Layer.provide(services));
 
   try {

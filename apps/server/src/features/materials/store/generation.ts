@@ -578,7 +578,7 @@ export function makeGeneration(resources: StoreResources) {
     projectId?: Scope['projectId'];
     kind?: string;
   }) {
-    if (request.kind === 'document') return;
+    if (request.kind === 'page') return;
 
     if (request.projectId === undefined)
       throw new StudyError('invalid_input', 'Collection generation requires a project');

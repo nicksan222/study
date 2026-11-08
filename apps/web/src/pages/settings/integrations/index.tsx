@@ -240,9 +240,9 @@ function ImportItems({ model, run }: { model: Model; run: Run }) {
             title={item.title}
             description={`${item.key} · ${t(statuses[item.status])}`}
           >
-            {item.sessionId && (
-              <Link to="/session/$sessionId" params={{ sessionId: item.sessionId }}>
-                {t('IntegrationOpenSession')}
+            {item.noteId && (
+              <Link to="/notes/$noteId" params={{ noteId: item.noteId }}>
+                {t('IntegrationOpenNote')}
               </Link>
             )}
           </Settings.Row>

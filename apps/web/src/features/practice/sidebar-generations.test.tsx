@@ -27,7 +27,7 @@ const generation = Schema.decodeUnknownSync(materialGenerationSnapshotSchema)({
   projectId: project,
   title: 'Cell division quiz',
   kind: 'quiz',
-  inputs: [{ kind: 'document', versionId: 8n }],
+  inputs: [{ kind: 'page', versionId: 8n }],
   cancelled: false,
   errorKind: null,
   resultVersionId: null

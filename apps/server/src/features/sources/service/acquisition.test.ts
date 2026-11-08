@@ -65,10 +65,7 @@ testStable(
             }
 
             assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-            assert.strictEqual(
-              context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
-              0n
-            );
+            assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
             context.db.exec(
               "CREATE TRIGGER reject_acquisition BEFORE INSERT ON workflow_events WHEN NEW.type='SourceProcessingRequested' BEGIN SELECT RAISE(ABORT,'injected acquisition failure'); END"
             );
@@ -163,10 +160,7 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
                   'replacement.txt'
               );
               assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-              assert.strictEqual(
-                context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
-                0n
-              );
+              assert.strictEqual(context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
               expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
             })
           ).pipe(Effect.provide(domain))

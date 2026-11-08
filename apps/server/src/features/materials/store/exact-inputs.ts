@@ -12,7 +12,7 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type { MaterialVersionId } from '@study/contracts/ids';
-/** Learning-owned exact references; canonical bodies stay with Documents and Sources. */
+/** Learning-owned exact references; canonical bodies stay with Pages and Sources. */
 import { contentInputKey, contentInputSchema } from '@study/contracts/inputs';
 import type { ContentInput } from '@study/contracts/inputs';
 import { learningCitationSchema } from '@study/contracts/materials/inputs';
@@ -29,8 +29,8 @@ type Owner = { kind: 'version'; id: MaterialVersionId } | { kind: 'request'; id:
 
 function materialInputValue(row: typeof s.material_evidence_inputs.$inferSelect): ContentInput {
   return Schema.decodeUnknownSync(contentInputSchema)(
-    row.document_version_id !== null
-      ? { kind: 'document', versionId: row.document_version_id }
+    row.page_version_id !== null
+      ? { kind: 'page', versionId: row.page_version_id }
       : {
           kind: 'source',
           sourceId: row.source_id,

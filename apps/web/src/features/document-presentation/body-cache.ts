@@ -1,10 +1,10 @@
-import { comparisonSchema } from '@study/contracts/documents/editing';
-import { detailSchema } from '@study/contracts/documents/schemas';
+import { comparisonSchema } from '@study/contracts/pages/editing';
+import { detailSchema } from '@study/contracts/pages/schemas';
 import { exactExtractionSchema } from '@study/contracts/sources/rpc';
 import type { Query, QueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
 
-type DocumentOwner = { kind: 'document'; documentId: string; versionIds: readonly string[] };
+type PageOwner = { kind: 'page'; pageId: string; versionIds: readonly string[] };
 
 type SourceOwner = { kind: 'source'; sourceId: string; snapshotIds: readonly string[] };
 
@@ -14,19 +14,19 @@ const isExtraction = Schema.is(exactExtractionSchema);
 
 const isSourceCopy = Schema.is(Schema.Struct({ document: detailSchema }));
 
-function comparisonBody(data: unknown, owner: DocumentOwner, ids: Set<string>) {
+function comparisonBody(data: unknown, owner: PageOwner, ids: Set<string>) {
   return (
     isComparison(data) &&
     [data.before, data.proposed, data.current].some(
-      (version) => String(version.documentId) === owner.documentId && ids.has(String(version.id))
+      (version) => String(version.pageId) === owner.pageId && ids.has(String(version.id))
     )
   );
 }
 
-function retainedRangeBody(value: unknown, owner: DocumentOwner, ids: Set<string>) {
-  const [documentId, versionId] = String(value).split(':');
+function retainedRangeBody(value: unknown, owner: PageOwner, ids: Set<string>) {
+  const [pageId, versionId] = String(value).split(':');
 
-  return documentId === owner.documentId && versionId !== undefined && ids.has(versionId);
+  return pageId === owner.pageId && versionId !== undefined && ids.has(versionId);
 }
 
 function currentExtractionBody(data: unknown, owner: SourceOwner, ids: Set<string>) {
@@ -37,29 +37,22 @@ function currentExtractionBody(data: unknown, owner: SourceOwner, ids: Set<strin
   );
 }
 
-function documentBody(
-  key: readonly unknown[],
-  data: unknown,
-  owner: DocumentOwner,
-  ids: Set<string>
-) {
-  if (key[0] !== 'documents') return false;
+function documentBody(key: readonly unknown[], data: unknown, owner: PageOwner, ids: Set<string>) {
+  if (key[0] !== 'pages') return false;
 
   if (key[1] === 'proposal-comparison') return comparisonBody(data, owner, ids);
 
   if (['version', 'evidence', 'assessments'].includes(String(key[1])))
     return ids.has(String(key[2]));
 
-  if (key[1] === 'annotationDocument')
-    return key[2] === owner.documentId && ids.has(String(key[3]));
+  if (key[1] === 'annotationPage') return key[2] === owner.pageId && ids.has(String(key[3]));
 
   if (key[1] === 'retainedRange') return retainedRangeBody(key[2], owner, ids);
 
-  if (key[1] === 'selected-input') return [...ids].some((id) => key[2] === `document:${id}`);
+  if (key[1] === 'selected-input') return [...ids].some((id) => key[2] === `page:${id}`);
 
   return (
-    ['history', 'annotationVersions', 'detail'].includes(String(key[1])) &&
-    key[2] === owner.documentId
+    ['history', 'annotationVersions', 'detail'].includes(String(key[1])) && key[2] === owner.pageId
   );
 }
 
@@ -81,8 +74,8 @@ function sourceBody(key: readonly unknown[], data: unknown, owner: SourceOwner, 
 }
 /** Release exact body previews, including inactive derived reads; notes and drafts are separate. */
 
-export async function releaseBodyPreviews(cache: QueryClient, owner: DocumentOwner | SourceOwner) {
-  const ids = new Set(owner.kind === 'document' ? owner.versionIds : owner.snapshotIds);
+export async function releaseBodyPreviews(cache: QueryClient, owner: PageOwner | SourceOwner) {
+  const ids = new Set(owner.kind === 'page' ? owner.versionIds : owner.snapshotIds);
   const owned = {
     predicate: ({
       queryKey,
@@ -96,7 +89,7 @@ export async function releaseBodyPreviews(cache: QueryClient, owner: DocumentOwn
       if (queryKey[0] === 'source-copy') {
         return (
           isSourceCopy(state.data) &&
-          String(state.data.document.id) === owner.documentId &&
+          String(state.data.document.id) === owner.pageId &&
           ids.has(String(state.data.document.version?.id))
         );
       }
@@ -114,7 +107,7 @@ export async function releaseBodyPreviews(cache: QueryClient, owner: DocumentOwn
   await cache.resetQueries(selected);
   // Search results contain body excerpts and have no stable per-result query identity.
 
-  for (const queryKey of [['search'], ['session-material-search']]) {
+  for (const queryKey of [['search'], ['note-material-search']]) {
     await cache.cancelQueries({ queryKey });
     await cache.resetQueries({ queryKey });
     cache.removeQueries({ queryKey });

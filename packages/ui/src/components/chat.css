@@ -1,10 +1,10 @@
-.workspace-desk-board-body:has(> .chat-conversation) {
+.workspace-desk-board-body:has(> .chat-note) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding: 0;
 }
-.chat-conversation {
+.chat-note {
   position: relative;
   isolation: isolate;
   display: flex;
@@ -61,7 +61,7 @@
   padding: 0;
   background: transparent;
 }
-.workspace-desk-board .session-history > .workspace-desk-document {
+.workspace-desk-board .note-history > .workspace-desk-page {
   width: min(100%, 40rem);
   max-width: 100%;
   align-self: flex-start;
@@ -81,7 +81,7 @@
 }
 
 /* Timeline cards share the composer measure; the rail sits quietly in its outer gutter. */
-.workspace-desk-board .session-history {
+.workspace-desk-board .note-history {
   width: 100%;
   max-width: none;
   margin-inline: 0;
@@ -96,7 +96,7 @@
   flex-wrap: wrap;
   gap: 0.25rem;
 }
-.workspace-desk-board .chat-message-actions .session-action-label {
+.workspace-desk-board .chat-message-actions .note-action-label {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -132,7 +132,7 @@
   }
 }
 
-.chat-conversation[data-navigation] {
+.chat-note[data-navigation] {
   padding-inline-start: 1.5rem;
 }
 .notebook-rail {
@@ -221,14 +221,14 @@
   }
 }
 
-/* A session scrolls its notebook and action card together at the workspace edge. */
-[data-notebook-scroll-host] .workspace-desk-board-body:has(> .chat-conversation) {
+/* A note scrolls its notebook and action card together at the workspace edge. */
+[data-notebook-scroll-host] .workspace-desk-board-body:has(> .chat-note) {
   overflow: visible;
 }
 [data-notebook-scroll-host] .chat-viewport {
   overflow: visible;
 }
-[data-notebook-scroll-host] .chat-conversation[data-navigation] {
+[data-notebook-scroll-host] .chat-note[data-navigation] {
   padding-inline-start: 0;
 }
 [data-notebook-scroll-host] .chat-content {
@@ -240,14 +240,14 @@
 }
 
 /* Writing reads as one notebook; files retain their own preview surfaces. */
-.workspace-desk-board .session-index-target {
+.workspace-desk-board .note-index-target {
   padding: 0.5rem 1rem;
   scroll-margin-block: 1.5rem;
 }
-.workspace-desk-board .session-index-target + .session-index-target {
+.workspace-desk-board .note-index-target + .note-index-target {
   border-block-start: 0;
 }
-.workspace-desk-board .session-index-target > .chat-message {
+.workspace-desk-board .note-index-target > .chat-message {
   width: 100%;
   margin: 0;
   padding: 0;
@@ -255,7 +255,7 @@
   border-radius: 0;
   background: transparent;
 }
-.workspace-desk-board .session-index-target > .chat-message:hover {
+.workspace-desk-board .note-index-target > .chat-message:hover {
   background: transparent;
 }
 .workspace-desk-board .chat-message[data-role='user'] .chat-message-content > .chat-message-text,
@@ -272,7 +272,7 @@
   font-size: 0.9375rem;
   line-height: 1.7;
 }
-.workspace-desk-board .session-index-target > .workspace-desk-document {
+.workspace-desk-board .note-index-target > .workspace-desk-page {
   width: 100%;
   max-width: none;
   margin: 0;
@@ -280,10 +280,7 @@
   border: 0;
   background: transparent;
 }
-.workspace-desk-board
-  .session-index-target
-  > .workspace-desk-document
-  .workspace-desk-document-icon {
+.workspace-desk-board .note-index-target > .workspace-desk-page .workspace-desk-page-icon {
   width: 1.5rem;
   height: 1.75rem;
   background: transparent;
@@ -291,7 +288,7 @@
 
 /* Saved writing keeps its formatting and a compact, anchored action row. */
 .workspace-desk-board
-  .session-index-target
+  .note-index-target
   > .chat-message
   .chat-message-content
   > .rich-note-content {
@@ -324,7 +321,7 @@
   align-items: center;
   margin-block-start: 0.75rem;
 }
-.session-version-stepper {
+.note-version-stepper {
   display: inline-flex;
   align-items: center;
   gap: 0.125rem;
@@ -332,7 +329,7 @@
   margin-inline: 0.125rem;
   border-inline: 1px solid var(--border);
 }
-.session-version-label {
+.note-version-label {
   min-width: 2.75rem;
   text-align: center;
   font-size: 0.6875rem;
@@ -340,7 +337,7 @@
   font-variant-numeric: tabular-nums;
   color: var(--muted-foreground);
 }
-.session-version-label[data-latest] {
+.note-version-label[data-latest] {
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
   color: var(--foreground);
@@ -371,7 +368,7 @@
   transform: none;
   transition: opacity 120ms ease;
 }
-.workspace-desk-board .session-index-target:is(:hover, :focus-within) .chat-message-actions,
+.workspace-desk-board .note-index-target:is(:hover, :focus-within) .chat-message-actions,
 .workspace-desk-board .chat-message-actions[data-open] {
   opacity: 1;
   pointer-events: auto;
@@ -419,29 +416,25 @@
   line-height: 1.5;
 }
 
-/* Assistant conversations share the notebook canvas while keeping each speaker's side clear. */
-.ui-workspace[data-conversation='assistant'] .chat-message[data-role='user'] {
+/* Assistant notes share the notebook canvas while keeping each speaker's side clear. */
+.ui-workspace[data-note='assistant'] .chat-message[data-role='user'] {
   align-self: flex-end;
   width: min(85%, 40rem);
   max-width: 100%;
 }
-.ui-workspace[data-conversation='assistant'] .chat-message[data-role='assistant'] {
+.ui-workspace[data-note='assistant'] .chat-message[data-role='assistant'] {
   align-self: flex-start;
   width: 100%;
 }
-.ui-workspace[data-conversation='assistant']
-  .chat-message[data-role='assistant']
-  > .rich-note-content {
+.ui-workspace[data-note='assistant'] .chat-message[data-role='assistant'] > .rich-note-content {
   max-width: 72ch;
   margin-inline: 0 auto;
 }
 
-.ui-workspace[data-conversation='assistant'] .chat-message[data-role='user'] > .chat-entry-label {
+.ui-workspace[data-note='assistant'] .chat-message[data-role='user'] > .chat-entry-label {
   align-self: flex-end;
 }
-.ui-workspace[data-conversation='assistant']
-  .chat-message[data-role='user']
-  > .workspace-desk-quick-text {
+.ui-workspace[data-note='assistant'] .chat-message[data-role='user'] > .workspace-desk-quick-text {
   max-width: 100%;
   margin-inline: auto 0;
 }

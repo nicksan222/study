@@ -1,6 +1,6 @@
-import { sessionSchema } from '@study/contracts/conversations/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { materialSummarySchema } from '@study/contracts/materials/schemas';
+import { noteSchema } from '@study/contracts/notes/schemas';
 import { projectSchema } from '@study/contracts/projects/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
@@ -35,10 +35,10 @@ const rpc = vi.hoisted(() => ({
   'projects.renameProject': vi.fn<StudyClient['projects.renameProject']>(),
   'projects.addMaterial': vi.fn<StudyClient['projects.addMaterial']>(),
   'projects.removeMaterial': vi.fn<StudyClient['projects.removeMaterial']>(),
-  'projects.addSession': vi.fn<StudyClient['projects.addSession']>(),
-  'projects.removeSession': vi.fn<StudyClient['projects.removeSession']>(),
+  'projects.addNote': vi.fn<StudyClient['projects.addNote']>(),
+  'projects.removeNote': vi.fn<StudyClient['projects.removeNote']>(),
   'materials.materials': vi.fn<StudyClient['materials.materials']>(),
-  'conversations.sessions': vi.fn<StudyClient['conversations.sessions']>()
+  'notes.notes': vi.fn<StudyClient['notes.notes']>()
 }));
 
 vi.mock('#web/lib/study-client/client.ts', async () => {
@@ -123,7 +123,7 @@ beforeEach(() => {
   rpc['projects.projects'].mockReturnValue(Effect.succeed({ items: [project], next: null }));
   rpc['projects.project'].mockReturnValue(Effect.succeed(project));
   rpc['materials.materials'].mockReturnValue(Effect.succeed({ items: [], nextCursor: null }));
-  rpc['conversations.sessions'].mockReturnValue(Effect.succeed({ items: [], next: null }));
+  rpc['notes.notes'].mockReturnValue(Effect.succeed({ items: [], next: null }));
 });
 
 testStable(
@@ -329,7 +329,7 @@ testStable(
   }
 );
 
-testStable.each(['materials', 'sessions'] as const)(
+testStable.each(['materials', 'notes'] as const)(
   'reconciles an ambiguous %s membership response and supports explicit refresh without replay',
   async (kind) => {
     let member = true;
@@ -357,7 +357,7 @@ testStable.each(['materials', 'sessions'] as const)(
       latestPublishedVersion: null,
       latestDraftVersion: null
     });
-    const session = Schema.decodeUnknownSync(sessionSchema)({
+    const note = Schema.decodeUnknownSync(noteSchema)({
       id: 9n,
       projectIds: [project.id],
       title: 'Discussion',
@@ -370,11 +370,11 @@ testStable.each(['materials', 'sessions'] as const)(
     rpc['materials.materials'].mockImplementation(() =>
       Effect.succeed({ items: member ? [material] : [], nextCursor: null })
     );
-    rpc['conversations.sessions'].mockImplementation(() =>
-      Effect.succeed({ items: member ? [session] : [], next: null })
+    rpc['notes.notes'].mockImplementation(() =>
+      Effect.succeed({ items: member ? [note] : [], next: null })
     );
     const remove =
-      kind === 'materials' ? rpc['projects.removeMaterial'] : rpc['projects.removeSession'];
+      kind === 'materials' ? rpc['projects.removeMaterial'] : rpc['projects.removeNote'];
     const failed = () =>
       Effect.sync(() => {
         member = false;
@@ -383,7 +383,7 @@ testStable.each(['materials', 'sessions'] as const)(
       );
 
     rpc['projects.removeMaterial'].mockImplementation(failed);
-    rpc['projects.removeSession'].mockImplementation(failed);
+    rpc['projects.removeNote'].mockImplementation(failed);
     mount();
     await selectProject();
     const title = kind === 'materials' ? 'Reading' : 'Discussion';
@@ -413,7 +413,7 @@ testStable.each(['materials', 'sessions'] as const)(
     expect(remove).toHaveBeenCalledWith(
       kind === 'materials'
         ? { projectId: project.id, materialId: material.id }
-        : { projectId: project.id, sessionId: session.id }
+        : { projectId: project.id, noteId: note.id }
     );
   }
 );
@@ -466,7 +466,7 @@ testStable(
   'uses complete projectIds in the picker and reconciles a lost add response without replay',
   async () => {
     let attached = false;
-    const session = Schema.decodeUnknownSync(sessionSchema)({
+    const note = Schema.decodeUnknownSync(noteSchema)({
       id: 9n,
       projectIds: [],
       title: 'Available discussion',
@@ -476,23 +476,23 @@ testStable(
       updatedAt: 1n
     });
     const existing = {
-      ...session,
-      id: Schema.decodeUnknownSync(sessionSchema)({ ...session, id: 10n }).id,
+      ...note,
+      id: Schema.decodeUnknownSync(noteSchema)({ ...note, id: 10n }).id,
       title: 'Already attached',
       projectIds: [project.id]
     };
 
-    rpc['conversations.sessions'].mockImplementation(({ project: filter }) =>
+    rpc['notes.notes'].mockImplementation(({ project: filter }) =>
       Effect.succeed({
         items: filter
           ? attached
-            ? [{ ...session, projectIds: [project.id] }]
+            ? [{ ...note, projectIds: [project.id] }]
             : []
-          : [{ ...session, projectIds: attached ? [project.id] : [] }, existing],
+          : [{ ...note, projectIds: attached ? [project.id] : [] }, existing],
         next: null
       })
     );
-    rpc['projects.addSession'].mockImplementation(() =>
+    rpc['projects.addNote'].mockImplementation(() =>
       Effect.sync(() => {
         attached = true;
       }).pipe(Effect.flatMap(() => Effect.fail(new StudyError('internal', 'lost after commit'))))
@@ -501,8 +501,8 @@ testStable(
     // Inactive consumers must also become stale when an ambiguous write settles.
     const sidebarKeys = [
       ['projects'],
-      ['sessions'],
-      ['session-workspace', 'cached'],
+      ['notes'],
+      ['note-workspace', 'cached'],
       ['search', 'cached']
     ];
 
@@ -542,11 +542,11 @@ testStable(
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await screen.findByRole('button', { name: `${t['collections.detach']}: Available discussion` });
-    expect(rpc['projects.addSession']).toHaveBeenCalledExactlyOnceWith({
+    expect(rpc['projects.addNote']).toHaveBeenCalledExactlyOnceWith({
       projectId: project.id,
-      sessionId: session.id
+      noteId: note.id
     });
-    expect(rpc['projects.removeSession']).not.toHaveBeenCalled();
+    expect(rpc['projects.removeNote']).not.toHaveBeenCalled();
 
     for (const key of sidebarKeys) expect(client.getQueryState(key)?.isInvalidated).toBe(true);
   }

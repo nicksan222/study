@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Publishes a real recording Source while preserving independently owned session     │
+ * │ @file Publishes a real recording Source while preserving independently owned note        │
  * │ audio.                                                                                   │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
@@ -17,30 +17,30 @@ import { Effect } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
+import { Notes } from '#server/features/notes/index';
 import { Recordings } from '#server/features/recordings/index';
 import {
   recordingPostWorkflow,
   recordingPostHandler
 } from '#server/features/recordings/workflows/index';
 import { decodeEvent } from '#server/platform/workflows/events';
-import type { documentTransformFixture } from '#testing/document-transform';
+import type { pageTransformFixture } from '#testing/page-transform';
 
-type SourceFixture = Awaited<ReturnType<typeof documentTransformFixture>>;
+type SourceFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
 export async function recordingSource(f: SourceFixture) {
   const post = await Effect.runPromise(
     Effect.gen(function* () {
-      const session = yield* (yield* Conversations).createUntitledSession({});
+      const note = yield* (yield* Notes).createUntitledNote({});
 
       const recordings = yield* Recordings;
 
-      const recording = yield* recordings.createRecording(session.id);
+      const recording = yield* recordings.createRecording(note.id);
 
       yield* recordings.appendRecording({ id: recording.id, samples: [-32768, 0, 32767] });
 
       return yield* recordings.postRecording({
-        session: session.id,
+        note: note.id,
         recording: recording.id,
         name: 'source-copy.wav'
       });

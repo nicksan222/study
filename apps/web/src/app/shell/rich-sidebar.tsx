@@ -1,4 +1,4 @@
-import type { SessionDto } from '@study/contracts/conversations/schemas';
+import type { NoteDto } from '@study/contracts/notes/schemas';
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
@@ -19,58 +19,58 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import {
-  SessionMergeDialog,
-  SessionDocumentDialog,
-  SessionBatchDeleteDialog
-} from '#web/features/session-workspace/index.ts';
-import type { SelectedSession } from '#web/features/session-workspace/index.ts';
+  NoteMergeDialog,
+  NotePageDialog,
+  NoteBatchDeleteDialog
+} from '#web/features/note-workspace/index.ts';
+import type { SelectedNote } from '#web/features/note-workspace/index.ts';
 import { SubjectIdentity } from '#web/features/subjects/index.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
-import { useSidebarProgress, useSessionSettlement } from './rich-sidebar.queries';
-import { SidebarSessionActions } from './sidebar-session-actions';
-import { SidebarSessionDrafts } from './sidebar-session-drafts';
+import { useSidebarProgress, useNoteSettlement } from './rich-sidebar.queries';
+import { SidebarNoteActions } from './sidebar-note-actions';
+import { SidebarNoteDrafts } from './sidebar-note-drafts';
 import type { SidebarModel } from './use-sidebar';
 
-type Props = Pick<SidebarModel, 'project' | 'subjects' | 'sessions'> & {
-  selectedSession: string | null;
+type Props = Pick<SidebarModel, 'project' | 'subjects' | 'notes'> & {
+  selectedNote: string | null;
 };
 
 type Progress = NonNullable<
   ReturnType<typeof useSidebarProgress>['progress']['data']
 >['items'][number];
 
-/** Groups sessions using persisted overrides, document counts, and running work. */
+/** Groups notes using persisted overrides, document counts, and running work. */
 
-export function RichSidebarSessions(props: Props) {
-  return <SidebarSessionList key={String(props.project)} {...props} />;
+export function RichSidebarNotes(props: Props) {
+  return <SidebarNoteList key={String(props.project)} {...props} />;
 }
 
-function SidebarSessionList(props: Props) {
+function SidebarNoteList(props: Props) {
   const { t } = useI18n();
   const { settings, progress } = useSidebarProgress();
   const selectionToolbar = useRef<HTMLDivElement>(null);
-  const sessionRows = useRef<HTMLDivElement>(null);
+  const noteRows = useRef<HTMLDivElement>(null);
   const selectionOrigin = useRef<string | undefined>(undefined);
-  const [selected, setSelected] = useState<SelectedSession[] | null>(null);
+  const [selected, setSelected] = useState<SelectedNote[] | null>(null);
   const [action, setAction] = useState<{
-    kind: 'document' | 'delete' | 'merge';
-    sessions: SelectedSession[];
+    kind: 'page' | 'delete' | 'merge';
+    notes: SelectedNote[];
   } | null>(null);
   const selection: SelectionControls = {
     items: selected,
-    start: (session) => {
-      selectionOrigin.current = String(session.id);
-      setSelected([{ id: session.id, title: session.title }]);
+    start: (note) => {
+      selectionOrigin.current = String(note.id);
+      setSelected([{ id: note.id, title: note.title }]);
     },
-    toggle: (session) =>
+    toggle: (note) =>
       setSelected((current) => {
         const items = current ?? [];
 
-        return items.some((item) => item.id === session.id)
-          ? items.filter((item) => item.id !== session.id)
-          : [...items, { id: session.id, title: session.title }];
+        return items.some((item) => item.id === note.id)
+          ? items.filter((item) => item.id !== note.id)
+          : [...items, { id: note.id, title: note.title }];
       })
   };
   const selecting = selected !== null;
@@ -78,27 +78,25 @@ function SidebarSessionList(props: Props) {
   useEffect(() => {
     if (selecting) selectionToolbar.current?.focus();
     else if (selectionOrigin.current) {
-      sessionRows.current
-        ?.querySelector<HTMLElement>(`[data-session-id="${selectionOrigin.current}"]`)
+      noteRows.current
+        ?.querySelector<HTMLElement>(`[data-note-id="${selectionOrigin.current}"]`)
         ?.focus();
     }
   }, [selecting]);
-  const threshold = settings.data?.settledDocumentThreshold ?? 1;
+  const threshold = settings.data?.settledPageThreshold ?? 1;
   const summaries = new Map(progress.data?.items.map((item) => [String(item.id), item]));
-  const settled = (session: SessionDto) => {
-    const summary = summaries.get(String(session.id));
+  const settled = (note: NoteDto) => {
+    const summary = summaries.get(String(note.id));
 
     return (
       !!summary &&
       !summary.running &&
-      (summary.settledOverride ?? summary.generatedDocumentCount >= BigInt(threshold))
+      (summary.settledOverride ?? summary.generatedPageCount >= BigInt(threshold))
     );
   };
-  const archived = props.sessions.filter((session) => session.archivedAt != null);
-  const open = props.sessions.filter((session) => session.archivedAt == null && !settled(session));
-  const complete = props.sessions.filter(
-    (session) => session.archivedAt == null && settled(session)
-  );
+  const archived = props.notes.filter((note) => note.archivedAt != null);
+  const open = props.notes.filter((note) => note.archivedAt == null && !settled(note));
+  const complete = props.notes.filter((note) => note.archivedAt == null && settled(note));
 
   return (
     <>
@@ -115,23 +113,23 @@ function SidebarSessionList(props: Props) {
           />
           <Button
             size="sm"
-            aria-label={t('SessionCreateDocument')}
-            title={t('SessionCreateDocument')}
+            aria-label={t('NoteCreatePage')}
+            title={t('NoteCreatePage')}
             disabled={!selected.length}
-            onClick={() => setAction({ kind: 'document', sessions: [...selected] })}
+            onClick={() => setAction({ kind: 'page', notes: [...selected] })}
           >
             <FileText aria-hidden="true" />
-            {t('SessionCreateDocument')}
+            {t('NoteCreatePage')}
           </Button>
           <Button
             size="sm"
-            aria-label={t('SessionMerge')}
-            title={t('SessionMerge')}
-            disabled={!canMergeSessions(selected, props.sessions)}
-            onClick={() => setAction({ kind: 'merge', sessions: [...selected] })}
+            aria-label={t('NoteMerge')}
+            title={t('NoteMerge')}
+            disabled={!canMergeNotes(selected, props.notes)}
+            onClick={() => setAction({ kind: 'merge', notes: [...selected] })}
           >
             <Merge aria-hidden="true" />
-            <span data-selection-action-label>{t('SessionMerge')}</span>
+            <span data-selection-action-label>{t('NoteMerge')}</span>
           </Button>
           <Button
             size="sm"
@@ -139,7 +137,7 @@ function SidebarSessionList(props: Props) {
             aria-label={t('SidebarDeleteSelected')}
             title={t('SidebarDeleteSelected')}
             disabled={!selected.length}
-            onClick={() => setAction({ kind: 'delete', sessions: [...selected] })}
+            onClick={() => setAction({ kind: 'delete', notes: [...selected] })}
           >
             <Trash2 aria-hidden="true" />
             <span data-selection-action-label>{t('SidebarDeleteSelected')}</span>
@@ -155,55 +153,51 @@ function SidebarSessionList(props: Props) {
           </IconButton>
         </SidebarUI.SelectionBar>
       )}
-      <SidebarUI.SessionGroups ref={sessionRows}>
-        <SidebarSessionDrafts project={props.project} subjects={props.subjects} />
-        <SidebarUI.SessionGroup title={t('SidebarOpen')} count={open.length} defaultOpen>
-          {open.map((session) => (
-            <RichSession
-              key={String(session.id)}
+      <SidebarUI.NoteGroups ref={noteRows}>
+        <SidebarNoteDrafts project={props.project} subjects={props.subjects} />
+        <SidebarUI.NoteGroup title={t('SidebarOpen')} count={open.length} defaultOpen>
+          {open.map((note) => (
+            <RichNote
+              key={String(note.id)}
               {...props}
-              session={session}
-              progress={summaries.get(String(session.id))}
+              note={note}
+              progress={summaries.get(String(note.id))}
               settled={false}
               selection={selection}
             />
           ))}
-        </SidebarUI.SessionGroup>
-        <SettledSessions
+        </SidebarUI.NoteGroup>
+        <SettledNotes
           key={String(props.project)}
           {...props}
-          sessions={complete}
+          notes={complete}
           summaries={summaries}
           selection={selection}
         />
         {archived.length > 0 && (
-          <SidebarUI.SessionGroup
-            title={t('SessionArchived')}
-            count={archived.length}
-            variant="settled"
-          >
-            {archived.map((session) => (
-              <RichSession
-                key={String(session.id)}
+          <SidebarUI.NoteGroup title={t('NoteArchived')} count={archived.length} variant="settled">
+            {archived.map((note) => (
+              <RichNote
+                key={String(note.id)}
                 {...props}
-                session={session}
-                progress={summaries.get(String(session.id))}
+                note={note}
+                progress={summaries.get(String(note.id))}
                 settled
                 selection={selection}
               />
             ))}
-          </SidebarUI.SessionGroup>
+          </SidebarUI.NoteGroup>
         )}
-      </SidebarUI.SessionGroups>
+      </SidebarUI.NoteGroups>
       <MergeAction
         action={action}
         onClose={() => setAction(null)}
         onMerged={() => setSelected(null)}
       />
-      {action?.kind === 'document' && action.sessions[0] && (
-        <SessionDocumentDialog
-          id={action.sessions[0].id}
-          sessions={action.sessions}
+      {action?.kind === 'page' && action.notes[0] && (
+        <NotePageDialog
+          id={action.notes[0].id}
+          notes={action.notes}
           open
           onOpenChange={(open) => {
             if (!open) setAction(null);
@@ -211,8 +205,8 @@ function SidebarSessionList(props: Props) {
         />
       )}
       {action?.kind === 'delete' && (
-        <SessionBatchDeleteDialog
-          sessions={action.sessions}
+        <NoteBatchDeleteDialog
+          notes={action.notes}
           open
           onOpenChange={(open) => {
             if (!open) setAction(null);
@@ -230,49 +224,49 @@ function SidebarSessionList(props: Props) {
   );
 }
 
-/** Keeps completed work scannable while revealing older sessions in deliberate batches. */
+/** Keeps completed work scannable while revealing older notes in deliberate batches. */
 
-function SettledSessions(
+function SettledNotes(
   props: Props & { summaries: Map<string, Progress>; selection: SelectionControls }
 ) {
   const { t } = useI18n();
   const [visible, setVisible] = useState(10);
-  const sessions = props.sessions.toSorted((a, b) =>
+  const notes = props.notes.toSorted((a, b) =>
     a.updatedAt === b.updatedAt ? 0 : a.updatedAt > b.updatedAt ? -1 : 1
   );
-  const more = Math.min(25, Math.max(0, sessions.length - visible));
+  const more = Math.min(25, Math.max(0, notes.length - visible));
 
   return (
-    <SidebarUI.SessionGroup title={t('SidebarSettled')} count={sessions.length} variant="settled">
+    <SidebarUI.NoteGroup title={t('SidebarSettled')} count={notes.length} variant="settled">
       <SidebarUI.SettledRows>
-        {sessions.slice(0, visible).map((session) => (
-          <RichSession
-            key={String(session.id)}
+        {notes.slice(0, visible).map((note) => (
+          <RichNote
+            key={String(note.id)}
             {...props}
-            session={session}
-            progress={props.summaries.get(String(session.id))}
+            note={note}
+            progress={props.summaries.get(String(note.id))}
             settled
           />
         ))}
       </SidebarUI.SettledRows>
       {more > 0 && (
-        <SidebarUI.SessionMore onClick={() => setVisible((count) => count + 25)}>
+        <SidebarUI.NoteMore onClick={() => setVisible((count) => count + 25)}>
           <ChevronDown aria-hidden="true" />
           {t('SidebarShowMore', { count: more })}
-        </SidebarUI.SessionMore>
+        </SidebarUI.NoteMore>
       )}
-    </SidebarUI.SessionGroup>
+    </SidebarUI.NoteGroup>
   );
 }
 
 type SelectionControls = {
-  items: readonly SelectedSession[] | null;
-  start: (session: SessionDto) => void;
-  toggle: (session: SessionDto) => void;
+  items: readonly SelectedNote[] | null;
+  start: (note: NoteDto) => void;
+  toggle: (note: NoteDto) => void;
 };
 
 type RowProps = Props & {
-  session: SessionDto;
+  note: NoteDto;
   progress?: Progress;
   settled: boolean;
   selection: SelectionControls;
@@ -280,40 +274,40 @@ type RowProps = Props & {
 
 /** Keeps settlement actions separate from navigation and disabled during active work. */
 
-function RichSession(props: RowProps) {
+function RichNote(props: RowProps) {
   return (
-    <SidebarUI.SessionEntry
+    <SidebarUI.NoteEntry
       data-settled={props.settled || undefined}
       data-selecting={props.selection.items !== null || undefined}
     >
-      <SessionLink {...props} />
-      <SessionControls {...props} />
-    </SidebarUI.SessionEntry>
+      <NoteLink {...props} />
+      <NoteControls {...props} />
+    </SidebarUI.NoteEntry>
   );
 }
 
-function canConvertSession({ settled, progress }: RowProps) {
+function canConvertNote({ settled, progress }: RowProps) {
   return !settled && progress?.activity !== 'generating';
 }
 
-function SessionControls(props: RowProps) {
+function NoteControls(props: RowProps) {
   const { t } = useI18n();
-  const settlement = useSessionSettlement(props.session.id);
+  const settlement = useNoteSettlement(props.note.id);
   const preferences = useWorkspacePreferences();
-  const [documentOpen, setDocumentOpen] = useState(false);
+  const [pageOpen, setPageOpen] = useState(false);
   const blocked = settlement.isPending || !!props.progress?.running;
-  const documentAction = canConvertSession(props) ? (
-    <SidebarUI.SettleAction disabled={blocked} onClick={() => setDocumentOpen(true)}>
+  const pageAction = canConvertNote(props) ? (
+    <SidebarUI.SettleAction disabled={blocked} onClick={() => setPageOpen(true)}>
       {t('SidebarTurnIntoDoc')}
     </SidebarUI.SettleAction>
   ) : null;
 
   return (
     <>
-      {!props.selection.items && props.session.archivedAt == null && (
-        <SessionActionLayout
+      {!props.selection.items && props.note.archivedAt == null && (
+        <NoteActionLayout
           compact={preferences.sidebarDensity === 'compact'}
-          documentAction={documentAction}
+          pageAction={pageAction}
         >
           <SidebarUI.SettleAction
             disabled={blocked}
@@ -321,14 +315,14 @@ function SessionControls(props: RowProps) {
           >
             {t(props.settled ? 'SidebarReopen' : 'SidebarSettle')}
           </SidebarUI.SettleAction>
-        </SessionActionLayout>
+        </NoteActionLayout>
       )}
-      {documentOpen && (
-        <SessionDocumentDialog
-          id={props.session.id}
-          sessions={[{ id: props.session.id, title: props.session.title }]}
-          open={documentOpen}
-          onOpenChange={setDocumentOpen}
+      {pageOpen && (
+        <NotePageDialog
+          id={props.note.id}
+          notes={[{ id: props.note.id, title: props.note.title }]}
+          open={pageOpen}
+          onOpenChange={setPageOpen}
         />
       )}
       {settlement.error && (
@@ -338,35 +332,33 @@ function SessionControls(props: RowProps) {
   );
 }
 
-function SessionActionLayout({
+function NoteActionLayout({
   compact,
-  documentAction,
+  pageAction,
   children
 }: {
   compact: boolean;
-  documentAction: ReactNode;
+  pageAction: ReactNode;
   children: ReactNode;
 }) {
   return (
     <>
-      {!compact && documentAction && (
-        <SidebarUI.SessionRowActions>{documentAction}</SidebarUI.SessionRowActions>
-      )}
-      <SidebarUI.SessionRowActions placement="top">
-        {compact && documentAction}
+      {!compact && pageAction && <SidebarUI.NoteRowActions>{pageAction}</SidebarUI.NoteRowActions>}
+      <SidebarUI.NoteRowActions placement="top">
+        {compact && pageAction}
         {children}
-      </SidebarUI.SessionRowActions>
+      </SidebarUI.NoteRowActions>
     </>
   );
 }
 
-/** Renders subject identity, selection, and progress for one session destination. */
+/** Renders subject identity, selection, and progress for one note destination. */
 
-function SessionLink({
-  session,
+function NoteLink({
+  note,
   project,
   subjects,
-  selectedSession,
+  selectedNote,
   progress,
   settled,
   selection
@@ -375,37 +367,36 @@ function SessionLink({
   const preferences = useWorkspacePreferences();
   const owner = subjects.find(
     (item) =>
-      session.projectIds.includes(item.id) &&
-      (item.id === project || session.projectIds[0] === item.id)
+      note.projectIds.includes(item.id) && (item.id === project || note.projectIds[0] === item.id)
   );
 
   return (
-    <SidebarSessionActions
-      id={session.id}
+    <SidebarNoteActions
+      id={note.id}
       project={project ? String(project) : undefined}
-      onSelect={() => selection.start(session)}
+      onSelect={() => selection.start(note)}
     >
       <SidebarUI.Item
         layout={
           settled ? 'summary' : preferences.sidebarDensity === 'compact' ? 'compact' : 'detailed'
         }
-        label={session.title}
-        data-session-id={String(session.id)}
-        context={owner?.name ?? t('Sessions')}
-        icon={<SessionRowIcon owner={owner} settled={settled} />}
-        timestamp={<SessionTime at={session.updatedAt} />}
-        selection={selection.items?.some((item) => item.id === session.id)}
-        description={settled ? undefined : <SessionProgress progress={progress} />}
-        aria-label={session.title}
-        aria-current={selectedSession === String(session.id) ? 'page' : undefined}
-        title={session.title}
-        render={sessionDestination(session, project, selection)}
+        label={note.title}
+        data-note-id={String(note.id)}
+        context={owner?.name ?? t('Notes')}
+        icon={<NoteRowIcon owner={owner} settled={settled} />}
+        timestamp={<NoteTime at={note.updatedAt} />}
+        selection={selection.items?.some((item) => item.id === note.id)}
+        description={settled ? undefined : <NoteProgress progress={progress} />}
+        aria-label={note.title}
+        aria-current={selectedNote === String(note.id) ? 'page' : undefined}
+        title={note.title}
+        render={noteDestination(note, project, selection)}
       />
-    </SidebarSessionActions>
+    </SidebarNoteActions>
   );
 }
 
-function SessionRowIcon({
+function NoteRowIcon({
   owner,
   settled
 }: {
@@ -417,24 +408,16 @@ function SessionRowIcon({
   return settled ? <SquareDashed aria-hidden="true" /> : <MessagesSquare aria-hidden="true" />;
 }
 
-function sessionDestination(
-  session: SessionDto,
-  project: Props['project'],
-  selection: SelectionControls
-) {
+function noteDestination(note: NoteDto, project: Props['project'], selection: SelectionControls) {
   if (selection.items !== null)
-    return (
-      <button type="button" aria-label={session.title} onClick={() => selection.toggle(session)} />
-    );
+    return <button type="button" aria-label={note.title} onClick={() => selection.toggle(note)} />;
 
   return (
     <Link
-      to="/session/$sessionId"
-      params={{ sessionId: session.id }}
+      to="/notes/$noteId"
+      params={{ noteId: note.id }}
       search={
-        (project ?? session.projectIds[0])
-          ? { project: String(project ?? session.projectIds[0]) }
-          : {}
+        (project ?? note.projectIds[0]) ? { project: String(project ?? note.projectIds[0]) } : {}
       }
     />
   );
@@ -442,7 +425,7 @@ function sessionDestination(
 
 /** Refreshes the displayed age without changing the stored timestamp. */
 
-function SessionTime({ at }: { at: bigint }) {
+function NoteTime({ at }: { at: bigint }) {
   const { locale, date } = useI18n();
   const now = useNowMinute();
   const preferences = useWorkspacePreferences();
@@ -456,7 +439,7 @@ function SessionTime({ at }: { at: bigint }) {
 
 /** Shows workflow activity and retained generated-document counts. */
 
-function SessionProgress({ progress }: { progress?: Progress }) {
+function NoteProgress({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
   const preferences = useWorkspacePreferences();
   const labels = {
@@ -469,36 +452,34 @@ function SessionProgress({ progress }: { progress?: Progress }) {
 
   return (
     <>
-      <SidebarUI.SessionActivity running={progress?.running} title={t(label)}>
+      <SidebarUI.NoteActivity running={progress?.running} title={t(label)}>
         {progress?.running && <Spinner size="xs" label={t(label)} aria-hidden="true" />}
         <span>{t(label)}</span>
-      </SidebarUI.SessionActivity>
-      {preferences.sidebarShowDocumentCounts && <SessionDocumentCount progress={progress} />}
+      </SidebarUI.NoteActivity>
+      {preferences.sidebarShowPageCounts && <NotePageCount progress={progress} />}
     </>
   );
 }
 
-/** Reuses the document count in both detailed and compact session rows. */
+/** Reuses the document count in both detailed and compact note rows. */
 
-function SessionDocumentCount({ progress }: { progress?: Progress }) {
+function NotePageCount({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
 
   return (
-    <SidebarUI.SessionCount title={t('SidebarGeneratedDocuments')}>
+    <SidebarUI.NoteCount title={t('SidebarGeneratedPages')}>
       <FileText size={12} aria-hidden="true" />
-      {progress ? String(progress.generatedDocumentCount) : '—'}
-    </SidebarUI.SessionCount>
+      {progress ? String(progress.generatedPageCount) : '—'}
+    </SidebarUI.NoteCount>
   );
 }
 
-function canMergeSessions(selected: readonly SelectedSession[], sessions: readonly SessionDto[]) {
+function canMergeNotes(selected: readonly SelectedNote[], notes: readonly NoteDto[]) {
   if (selected.length < 2 || selected.length > 20) return false;
 
-  const archived = new Set(
-    sessions.filter((session) => session.archivedAt != null).map((session) => session.id)
-  );
+  const archived = new Set(notes.filter((note) => note.archivedAt != null).map((note) => note.id));
 
-  return selected.every((session) => !archived.has(session.id));
+  return selected.every((note) => !archived.has(note.id));
 }
 
 function MergeAction({
@@ -506,15 +487,15 @@ function MergeAction({
   onClose,
   onMerged
 }: {
-  action: { kind: 'document' | 'delete' | 'merge'; sessions: SelectedSession[] } | null;
+  action: { kind: 'page' | 'delete' | 'merge'; notes: SelectedNote[] } | null;
   onClose: () => void;
   onMerged: () => void;
 }) {
   if (action?.kind !== 'merge') return null;
 
   return (
-    <SessionMergeDialog
-      sessions={action.sessions}
+    <NoteMergeDialog
+      notes={action.notes}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}

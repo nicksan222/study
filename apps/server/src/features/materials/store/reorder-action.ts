@@ -30,11 +30,11 @@ export function makeReorderAction({ db: store }: StoreResources) {
     materialIntegrity(() => {
       const db = store.orm;
 
-      required(db.select().from(s.sessions).where(eq(s.sessions.id, input.sessionId)).get());
+      required(db.select().from(s.notes).where(eq(s.notes.id, input.noteId)).get());
       const rows = db
         .select()
-        .from(s.session_materials)
-        .where(eq(s.session_materials.session_id, input.sessionId))
+        .from(s.note_materials)
+        .where(eq(s.note_materials.note_id, input.noteId))
         .all();
 
       if (
@@ -44,16 +44,14 @@ export function makeReorderAction({ db: store }: StoreResources) {
       )
         throw new StudyError(
           'invalid_input',
-          'Reorder must include each session material exactly once'
+          'Reorder must include each note material exactly once'
         );
 
-      db.delete(s.session_materials)
-        .where(eq(s.session_materials.session_id, input.sessionId))
-        .run();
+      db.delete(s.note_materials).where(eq(s.note_materials.note_id, input.noteId)).run();
       input.materialIds.forEach((id, index) => {
         const row = required(rows.find((item) => item.material_id === id));
 
-        db.insert(s.session_materials)
+        db.insert(s.note_materials)
           .values({ ...row, position: BigInt(index) })
           .run();
       });

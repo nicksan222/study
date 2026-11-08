@@ -5,8 +5,8 @@ import { useContext, useState } from 'react';
 import { ReplayContext } from '#web/features/onboarding/index.tsx';
 import type { PageMetadata } from '#web/lib/navigation/route-contract.ts';
 import { sidebarContent, sidebarSubjectDestination } from '#web/lib/navigation/sidebar-config.ts';
-import type { Sessions, Subjects } from '#web/lib/study-client/operations.ts';
-import { projectsQueryOptions, sessionsQueryOptions } from '#web/lib/study-client/study.queries.ts';
+import type { Notes, Subjects } from '#web/lib/study-client/operations.ts';
+import { projectsQueryOptions, notesQueryOptions } from '#web/lib/study-client/study.queries.ts';
 
 import { useSidebarActions } from './sidebar-actions.queries';
 import { useSidebarContext } from './sidebar-context.queries';
@@ -14,7 +14,7 @@ import { useSidebarSearch, useSidebarSearchInput } from './use-sidebar-search.qu
 
 const noSubjects: Subjects = [];
 
-const noSessions: Sessions = [];
+const noNotes: Notes = [];
 
 export type SidebarProps = {
   metadata: PageMetadata;
@@ -30,11 +30,11 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
   const global = metadata.scope === 'global';
   const section = metadata.section;
   const projects = useQuery(projectsQueryOptions());
-  const sessionList = useQuery(sessionsQueryOptions());
+  const noteList = useQuery(notesQueryOptions());
   const subjects = projects.data ?? noSubjects;
-  const sessions = sessionList.data ?? noSessions;
+  const notes = noteList.data ?? noNotes;
   const subjectState = loadingState(!ready ? context.status : projects.status);
-  const sessionState = loadingState(sessionList.status);
+  const noteState = loadingState(noteList.status);
   const [settingsProject, setSettingsProject] = useState<ProjectId>();
   const [query, setQuery] = useState('');
   const {
@@ -51,9 +51,9 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     canSearch,
     content: sidebarContent(metadata)
   });
-  const visibleSessions = ready
-    ? sidebarSessions(sessions, invalidSubject, requestedProject, project)
-    : noSessions;
+  const visibleNotes = ready
+    ? sidebarNotes(notes, invalidSubject, requestedProject, project)
+    : noNotes;
 
   const { searchRef, openSearch } = useSidebarSearchInput(collapsed, onToggle);
 
@@ -71,7 +71,7 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     setActionError,
     creating,
     selectSubject,
-    createSession,
+    createNote,
     createSubject
   } = useSidebarActions(project, sidebarSubjectDestination(metadata, context.owned), clearSearch);
 
@@ -90,8 +90,8 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     subjectState,
     project,
     invalidSubject,
-    sessions: visibleSessions,
-    sessionState,
+    notes: visibleNotes,
+    noteState,
     pickerOpen,
     setPickerOpen,
     query,
@@ -110,14 +110,14 @@ export function useSidebar({ metadata, collapsed, onToggle }: SidebarProps) {
     openSearch,
     clearSearch,
     selectSubject,
-    createSession,
+    createNote,
     createSubject,
     reloadSubjects: () => {
       context.reload();
       void projects.refetch();
     },
-    reloadSessions: () => {
-      void sessionList.refetch();
+    reloadNotes: () => {
+      void noteList.refetch();
     }
   };
 }
@@ -147,8 +147,8 @@ function sidebarScope(
   return { subject, project, invalidSubject, canSearch };
 }
 
-function sidebarSessions(
-  sessions: Sessions,
+function sidebarNotes(
+  notes: Notes,
   invalid: boolean,
   requested: string | null,
   project: ProjectId | undefined
@@ -156,6 +156,6 @@ function sidebarSessions(
   if (invalid) return [];
 
   return requested
-    ? sessions.filter((session) => project !== undefined && session.projectIds.includes(project))
-    : sessions;
+    ? notes.filter((note) => project !== undefined && note.projectIds.includes(project))
+    : notes;
 }

@@ -36,19 +36,19 @@ export const BackupScopeStore = defineStore({
           return {
             materials: count(sql`SELECT count(*) n FROM materials`),
             versions: count(sql`SELECT count(*) n FROM material_versions`),
-            documents: count(sql`SELECT count(*) n FROM study_documents`),
-            documentVersions: count(sql`SELECT count(*) n FROM study_document_versions`),
+            pages: count(sql`SELECT count(*) n FROM pages`),
+            pageVersions: count(sql`SELECT count(*) n FROM page_versions`),
             extractions: count(sql`SELECT count(*) n FROM source_extraction_revisions`),
-            documentRetirements: count(sql`SELECT count(*) n FROM study_document_retirements`),
+            pageRetirements: count(sql`SELECT count(*) n FROM page_retirements`),
             sources: count(sql`SELECT count(*) n FROM sources`),
             collections: count(sql`SELECT count(*) n FROM projects`),
-            sessions: count(sql`SELECT count(*) n FROM sessions`),
-            annotations: count(sql`SELECT count(*) n FROM study_document_annotations`),
+            notes: count(sql`SELECT count(*) n FROM notes`),
+            annotations: count(sql`SELECT count(*) n FROM page_annotations`),
             quizAttempts: count(sql`SELECT count(*) n FROM material_quiz_attempts`),
             cardReviews: count(sql`SELECT count(*) n FROM material_card_reviews`),
             practiceSlots: count(sql`SELECT count(*) n FROM learning_practice_slots`),
             tombstones: count(
-              sql`SELECT (SELECT count(*) FROM material_deletions) + (SELECT count(*) FROM session_deletions) + (SELECT count(*) FROM study_document_deletions) n`
+              sql`SELECT (SELECT count(*) FROM material_deletions) + (SELECT count(*) FROM note_deletions) + (SELECT count(*) FROM page_deletions) n`
             ),
             historyPrunes: count(sql`SELECT count(*) n FROM material_history_prunes`),
             prunedVersions: count(sql`SELECT count(*) n FROM material_history_members`)

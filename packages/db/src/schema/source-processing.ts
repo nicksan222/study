@@ -54,7 +54,7 @@ export const source_snapshots = defineTable({ role: 'contributes', entity: 'sour
   ]
 );
 
-/** Explicit retention roots for copied managed images, independent of membership/session. */
+/** Explicit retention roots for copied managed images, independent of membership/note. */
 export const document_assets = defineTable({
   role: 'internal',
   reason: 'Private operational state outside searchable published content'

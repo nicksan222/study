@@ -49,9 +49,9 @@ testStable('accepts canonical imports, aliases, namespaces, and feature wrappers
     lint(`
     import { ErrorState as Failure } from '@study/ui/error-state';
     import * as Feedback from '@study/ui/error-state';
-    export function SessionError() { return <Failure title="Failed" />; }
+    export function NoteError() { return <Failure title="Failed" />; }
     export function View({ error, state }) {
-      return <>{error && <SessionError />}
+      return <>{error && <NoteError />}
         {state.isError ? <section><Feedback.ErrorState title="Failed" /></section> : <Content />}
       </>;
     }
@@ -167,12 +167,12 @@ testStable('checks named error presenters even when they omit alert semantics', 
   const diagnostics = lint(`
     function ErrorState() { return <p>Failed</p>; }
     const RouteError = () => <section>{t('Failure')}</section>;
-    const SessionError = () => { return <div>Failed</div>; };
+    const NoteError = () => { return <div>Failed</div>; };
   `);
 
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('declared error presenters without function bodies do not crash traversal', () => {
-  expect(lint('declare function SessionError(): JSX.Element;')).toStrictEqual([]);
+  expect(lint('declare function NoteError(): JSX.Element;')).toStrictEqual([]);
 });

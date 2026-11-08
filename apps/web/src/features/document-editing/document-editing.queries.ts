@@ -2,8 +2,8 @@ import type {
   comparisonSchema,
   editOutcomeSchema,
   saveSchema
-} from '@study/contracts/documents/editing';
-import type { StudyDocumentVersion } from '@study/contracts/documents/types';
+} from '@study/contracts/pages/editing';
+import type { PageVersion } from '@study/contracts/pages/types';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState, useRef } from 'react';
@@ -14,12 +14,12 @@ type Comparison = typeof comparisonSchema.Type;
 
 type Outcome = typeof editOutcomeSchema.Type;
 
-export function useDocumentEditor({
+export function usePageEditor({
   version,
   current
 }: {
-  version: StudyDocumentVersion;
-  current: StudyDocumentVersion['id'];
+  version: PageVersion;
+  current: PageVersion['id'];
 }) {
   const { t } = useI18n();
   const client = useQueryClient();
@@ -28,7 +28,7 @@ export function useDocumentEditor({
 
   // User-authored drafts and exact retry receipts live until explicit discard.
   client.setQueryDefaults(['document-editor'], { gcTime: Infinity });
-  const draftKey = ['document-editor', String(version.documentId), String(version.id)];
+  const draftKey = ['document-editor', String(version.pageId), String(version.id)];
   const [draft, setDraft] = useState<typeof documentSchema.Type | undefined>(() =>
     client.getQueryData(draftKey)
   );

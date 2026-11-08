@@ -11,7 +11,7 @@ import { Archive, ArrowUpRight, FileText, Play, RotateCcw } from 'lucide-react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AttemptsAction } from './history-dialog';
-import { MaterialDocuments } from './material-documents';
+import { MaterialPages } from './material-pages';
 import { attemptOptions, useMaterialArchive } from './practice.queries';
 
 export function MaterialActions({ material }: { material: MaterialDetailDto }) {
@@ -70,7 +70,7 @@ export function MaterialActions({ material }: { material: MaterialDetailDto }) {
         )}
       </WorkspaceCard.Group>
       <WorkspaceCard.Group>
-        <MaterialDocuments version={version} materialId={material.id} />
+        <MaterialPages version={version} materialId={material.id} />
       </WorkspaceCard.Group>
       <WorkspaceCard.Group>
         <ArchiveAction material={material} busy={busy} project={project} />

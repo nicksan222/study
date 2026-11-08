@@ -22,7 +22,7 @@ import { materialIntegrity } from '#server/features/materials/store/transactions
 import { now, makeWrites } from '#server/features/materials/store/writes';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
-import { makeSessionMembership } from './session-membership.ts';
+import { makeNoteMembership } from './note-membership.ts';
 
 type CreateMaterialInput = typeof createMaterialInputSchema.Type;
 
@@ -30,8 +30,8 @@ export function makeCreateMaterial(resources: StoreResources) {
   const { db, clock } = resources;
   const store = db;
   const { readMaterial } = makeReads(resources);
-  const { assertProject, assertSession, insertVersion } = makeWrites(resources);
-  const { attachMaterial } = makeSessionMembership(resources);
+  const { assertProject, assertNote, insertVersion } = makeWrites(resources);
+  const { attachMaterial } = makeNoteMembership(resources);
 
   function createMaterial(input: CreateMaterialInput): MaterialDetailDto {
     return materialIntegrity(() =>
@@ -42,7 +42,7 @@ export function makeCreateMaterial(resources: StoreResources) {
   function insertMaterial(input: CreateMaterialInput): MaterialDetailDto {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
-    if (input.sessionId !== undefined) assertSession(input.sessionId);
+    if (input.noteId !== undefined) assertNote(input.noteId);
 
     const timestamp = now(clock);
     const row = store.orm
@@ -64,7 +64,7 @@ export function makeCreateMaterial(resources: StoreResources) {
 
     insertVersion(row.id, input);
 
-    if (input.sessionId !== undefined) attachMaterial(input.sessionId, row.id);
+    if (input.noteId !== undefined) attachMaterial(input.noteId, row.id);
 
     return required(readMaterial(row.id));
   }

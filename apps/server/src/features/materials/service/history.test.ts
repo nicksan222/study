@@ -20,15 +20,15 @@ import { Effect, Layer, Schema } from 'effect';
 import { RpcTest } from 'effect/rpc';
 import { assert, expect } from 'vite-plus/test';
 
-import { Conversations } from '#server/features/conversations/index';
-import { Documents } from '#server/features/documents/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
-import { documentTransformFixture } from '#testing/document-transform';
+import { Notes } from '#server/features/notes/index';
+import { Pages } from '#server/features/pages/index';
 import { deletionDocument, acceptMaterialDeletion } from '#testing/material-deletion';
 import { cleanupHistory as cleanup } from '#testing/material-history';
+import { cleanup as cleanupNote } from '#testing/note-deletion';
+import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
-import { cleanup as cleanupSession } from '#testing/session-deletion';
 
 testStable('retention policy and explicit candidate scope have positive finite bounds', () => {
   const policy = Schema.decodeUnknownSync(historyPolicySchema);
@@ -49,7 +49,7 @@ testStable('retention policy and explicit candidate scope have positive finite b
 testStable(
   'native RPC prunes exact learning history while preserving its current version and an independent output',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await Effect.runPromise(
@@ -188,7 +188,7 @@ testStable(
 testStable(
   'preview invalidates on new content, scope cannot expand, drafts are protected and no-op is explicit',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const input = await Effect.runPromise(
@@ -290,7 +290,7 @@ testStable(
 testStable(
   'cleanup failure remains visible, retry advances exactly once and stale settlement cannot complete a newer attempt',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await Effect.runPromise(
@@ -376,15 +376,15 @@ testStable(
 );
 
 testStable(
-  'authored exact captures block body retirement until raw session cleanup, while fresh work uses the independent current head',
+  'authored exact captures block body retirement until raw note cleanup, while fresh work uses the independent current head',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await Effect.runPromise(
         Effect.gen(function* () {
-          const docs = yield* Documents;
-          const chats = yield* Conversations;
+          const docs = yield* Pages;
+          const chats = yield* Notes;
           const root = yield* docs.create({
             createKey: 'capture-prune',
             title: 'Input history',
@@ -394,27 +394,27 @@ testStable(
           });
 
           assert.ok(root.version);
-          const session = yield* chats.createUntitledSession({});
+          const note = yield* chats.createUntitledNote({});
 
-          yield* docs.attach({ sessionId: session.id, documentId: root.id });
+          yield* docs.attach({ noteId: note.id, pageId: root.id });
 
           yield* chats.postMessage({
-            sessionId: session.id,
+            noteId: note.id,
             text: 'RAW_MESSAGE_PRIVATE',
             requestReply: false
           });
-          yield* chats.updateSessionSelection({
-            sessionId: session.id,
+          yield* chats.updateNoteSelection({
+            noteId: note.id,
             expectedRevision: 0n,
             targets: [
               {
-                input: { kind: 'document', versionId: root.version.id },
+                input: { kind: 'page', versionId: root.version.id },
                 scope: { kind: 'document' }
               }
             ]
           });
-          const capture = yield* chats.captureSessionContext({
-            sessionId: session.id,
+          const capture = yield* chats.captureNoteContext({
+            noteId: note.id,
             intentKey: 'same-run',
             instruction: 'PRIVATE_CAPTURE_PRUNE',
             preferences: {}
@@ -425,12 +425,12 @@ testStable(
             operations: ['clarity']
           });
           const current = yield* docs.save({
-            documentId: root.id,
+            pageId: root.id,
             expectedVersionId: root.version.id,
             key: 'current-head',
             document: deletionDocument('FRESH_INPUT_KEEP')
           });
-          const scope = { documentId: root.id, keepLatest: 1 };
+          const scope = { pageId: root.id, keepLatest: 1 };
           const preview = yield* docs.previewHistory(scope);
 
           expect(preview.blockedVersionIds).toStrictEqual([root.version.id]);
@@ -439,10 +439,10 @@ testStable(
               'invalid_input'
           );
           assert.ok(
-            (yield* chats.sessionContext({ requestId: capture.requestId })).instruction ===
+            (yield* chats.noteContext({ requestId: capture.requestId })).instruction ===
               'PRIVATE_CAPTURE_PRUNE'
           );
-          yield* chats.deleteSession(session.id);
+          yield* chats.deleteNote(note.id);
           const released = yield* docs.previewHistory(scope);
 
           expect(released.blockedVersionIds).toStrictEqual([]);
@@ -451,22 +451,22 @@ testStable(
           return {
             rootId: root.id,
             currentId: current.submittedVersionId,
-            sessionId: session.id,
+            noteId: note.id,
             captureId: capture.requestId,
             requestId: generation.id
           };
         }).pipe(Effect.provide(f.domain()))
       );
 
-      await cleanupSession(f, saved.sessionId);
+      await cleanupNote(f, saved.noteId);
       f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
-          const docs = yield* Documents;
-          const chats = yield* Conversations;
+          const docs = yield* Pages;
+          const chats = yield* Notes;
 
           assert.ok(
-            (yield* Effect.flip(chats.sessionContext({ requestId: saved.captureId }))).kind ===
+            (yield* Effect.flip(chats.noteContext({ requestId: saved.captureId }))).kind ===
               'not_found'
           );
           assert.ok((yield* docs.transform({ requestId: saved.requestId })).cancelled === true);
@@ -478,33 +478,33 @@ testStable(
               })
             )).kind === 'not_found'
           );
-          const session = yield* chats.createUntitledSession({});
+          const note = yield* chats.createUntitledNote({});
 
-          yield* docs.attach({ sessionId: session.id, documentId: saved.rootId });
+          yield* docs.attach({ noteId: note.id, pageId: saved.rootId });
 
-          yield* chats.updateSessionSelection({
-            sessionId: session.id,
+          yield* chats.updateNoteSelection({
+            noteId: note.id,
             expectedRevision: 0n,
             targets: [
               {
-                input: { kind: 'document', versionId: saved.currentId },
+                input: { kind: 'page', versionId: saved.currentId },
                 scope: { kind: 'document' }
               }
             ]
           });
-          const fresh = yield* chats.captureSessionContext({
-            sessionId: session.id,
+          const fresh = yield* chats.captureNoteContext({
+            noteId: note.id,
             intentKey: 'fresh',
             instruction: '',
             preferences: {}
           });
 
           expect(fresh.inputs[0]?.input).toStrictEqual({
-            kind: 'document',
+            kind: 'page',
             versionId: saved.currentId
           });
           assert.strictEqual(
-            (yield* docs.document({ id: saved.rootId })).headVersionId,
+            (yield* docs.page({ id: saved.rootId })).headVersionId,
             saved.currentId
           );
         }).pipe(Effect.provide(f.domain()))
@@ -525,7 +525,7 @@ testStable(
 testStable(
   'history candidate batches are deterministic oldest-first and bounded to one hundred identities',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       const saved = await Effect.runPromise(

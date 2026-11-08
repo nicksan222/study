@@ -22,7 +22,7 @@ import { Materials } from '#server/features/materials/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { decodeEvent } from '#server/platform/workflows/events';
-import { documentTransformFixture } from '#testing/document-transform';
+import { pageTransformFixture } from '#testing/page-transform';
 
 import {
   sourceIngestionWorkflow,
@@ -34,7 +34,7 @@ import {
 testStable(
   'native source ingestion, correction and reprocessing retain independent exact history across reopen without projections',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
     const domain = () => Learning.layer.pipe(Layer.provideMerge(f.domain()));
     const event = (requestId: string) => {
       const row = f.context.db.orm.get(
@@ -109,7 +109,7 @@ testStable(
 
       assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n, 0n);
+      assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
       assert.throws(() =>
         f.context.db.orm.run(sql`UPDATE blocks SET text='tampered' WHERE document_id=${first}`)
       );
@@ -242,10 +242,7 @@ testStable(
             replaced
           );
           assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-          assert.strictEqual(
-            f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
-            0n
-          );
+          assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
           expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
         }).pipe(Effect.provide(domain()))
       );
@@ -258,7 +255,7 @@ testStable(
 testStable(
   'unsupported native extraction keeps the original bytes and creates no fake source material',
   async () => {
-    const f = await documentTransformFixture();
+    const f = await pageTransformFixture();
 
     try {
       await Effect.runPromise(
@@ -304,10 +301,7 @@ testStable(
               )
             );
             assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
-            assert.strictEqual(
-              f.context.db.orm.get(sql`SELECT count(*) n FROM study_documents`)?.n,
-              0n
-            );
+            assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);
           })
         ).pipe(Effect.provide(f.services()))
       );

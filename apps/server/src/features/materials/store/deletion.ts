@@ -98,13 +98,13 @@ function makeDeletion({ db, clock }: StoreResources) {
       .all();
     const memberships = db.orm
       .select()
-      .from(s.session_materials)
-      .where(eq(s.session_materials.material_id, id))
+      .from(s.note_materials)
+      .where(eq(s.note_materials.material_id, id))
       .all();
     const value = {
       materialId: id,
       versionIds: versions.map((version) => version.id),
-      sessionIds: memberships.map((link) => link.session_id),
+      noteIds: memberships.map((link) => link.note_id),
       privateRequestIds: [
         ...new Set(
           versions.flatMap((version) =>
@@ -298,8 +298,8 @@ export const MaterialDeletionStore = defineStore({
               .run();
 
             db.orm
-              .delete(s.session_materials)
-              .where(inArray(s.session_materials.material_id, [...deletion.materialIds]))
+              .delete(s.note_materials)
+              .where(inArray(s.note_materials.material_id, [...deletion.materialIds]))
               .run();
 
             db.orm

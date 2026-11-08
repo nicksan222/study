@@ -1,7 +1,7 @@
-import type { MessageId, ProjectId, RecordingId, SessionId, SourceId } from '@study/contracts/ids';
+import type { MessageId, ProjectId, RecordingId, NoteId, SourceId } from '@study/contracts/ids';
 
 import { defineTable, sql, blob, check, integer, text, uniqueIndex } from '../schema-builder.ts';
-import { recordings, sessions } from './conversations.ts';
+import { recordings, notes } from './notes.ts';
 import { projects } from './sources.ts';
 
 /** Immutable recording input and a durable publication receipt; execution belongs to Workflow. */
@@ -13,10 +13,10 @@ export const recording_posts = defineTable({ role: 'contributes', entity: 'sourc
       .$type<RecordingId>()
       .notNull()
       .references(() => recordings.id, { onDelete: 'cascade' }),
-    session_id: integer()
-      .$type<SessionId>()
+    note_id: integer()
+      .$type<NoteId>()
       .notNull()
-      .references(() => sessions.id, { onDelete: 'cascade' }),
+      .references(() => notes.id, { onDelete: 'cascade' }),
     project_id: integer()
       .$type<ProjectId>()
       .references(() => projects.id, { onDelete: 'set null' }),

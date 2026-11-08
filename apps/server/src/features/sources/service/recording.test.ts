@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId, SessionId } from '@study/contracts/ids';
+import type { ProjectId, NoteId } from '@study/contracts/ids';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -65,7 +65,7 @@ testStable(
         sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'one',1,1),(2,'two',1,1)`
       );
       context.db.orm.run(
-        sql`INSERT INTO sessions (id,title,title_source,created_at,updated_at) VALUES (1,'one','user',1,1)`
+        sql`INSERT INTO notes (id,title,title_source,created_at,updated_at) VALUES (1,'one','user',1,1)`
       );
 
       function* verifyRecordingImports() {
@@ -73,7 +73,7 @@ testStable(
         const input = {
           requestId: 'recording-1',
           projectId: 1n as ProjectId,
-          sessionId: 1n as SessionId,
+          noteId: 1n as NoteId,
           name: 'recording.wav',
           bytes: wav(),
           durationMs: 1

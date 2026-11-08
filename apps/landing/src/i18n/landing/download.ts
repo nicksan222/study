@@ -23,7 +23,7 @@ export const downloadEn = {
       'linux-arm': { name: 'Linux ARM64', label: 'Download the Linux ARM64 AppImage' }
     } satisfies Record<Os, { name: string; label: string }>,
     linuxNote: 'Linux needs Ubuntu 24.04, Debian 13 or newer.',
-    optional: 'Your notes, sources and documents stay on your computer.',
+    optional: 'Your notes, sources and pages stay on your computer.',
     early: 'Study is in early development. Expect rough edges, and',
     tellUs: 'tell us about them',
     install: 'Installing Study',
@@ -53,7 +53,7 @@ export const downloadIt: Shape<typeof downloadEn> = {
       'linux-arm': { name: 'Linux ARM64', label: 'Scarica l’AppImage Linux ARM64' }
     },
     linuxNote: 'Su Linux serve Ubuntu 24.04, Debian 13 o successivi.',
-    optional: 'Appunti, fonti e documenti restano sul tuo computer.',
+    optional: 'Appunti, fonti e pagine restano sul tuo computer.',
     early: 'Study è nelle prime fasi di sviluppo. Aspettati qualche imperfezione, e',
     tellUs: 'segnalacela',
     install: 'Installare Study',

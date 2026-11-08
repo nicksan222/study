@@ -1,11 +1,11 @@
 import type {
-  integrationSessionSchema,
+  integrationNoteSchema,
   integrationWarningSchema
 } from '@study/contracts/integrations/schemas';
 
 type Warning = typeof integrationWarningSchema.Type;
 
-type Link = (typeof integrationSessionSchema.Type.links)[number];
+type Link = (typeof integrationNoteSchema.Type.links)[number];
 
 function relativePath(from: string, target: string) {
   const parts = from.split('/').slice(0, -1);

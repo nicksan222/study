@@ -1,6 +1,6 @@
 import { Schema } from 'effect';
 
-import { projectIdSchema, sourceIdSchema, sessionIdSchema } from '../ids.ts';
+import { projectIdSchema, sourceIdSchema, noteIdSchema } from '../ids.ts';
 import { sourceKinds } from './sniff.ts';
 
 export const sourceSchema = Schema.Struct({
@@ -57,11 +57,11 @@ function validUrl(value: string) {
   }
 }
 
-/** Canonical document links accept safe external URLs and exact local session routes. */
+/** Canonical document links accept safe external URLs and exact local note routes. */
 export function validDocumentHref(value: string) {
-  const session = /^\/session\/([1-9][0-9]{0,18})(?:#[A-Za-z0-9%_.!~*'()-]*)?$/.exec(value);
+  const note = /^\/note\/([1-9][0-9]{0,18})(?:#[A-Za-z0-9%_.!~*'()-]*)?$/.exec(value);
 
-  return session ? Schema.is(sessionIdSchema)(BigInt(session[1]!)) : validUrl(value);
+  return note ? Schema.is(noteIdSchema)(BigInt(note[1]!)) : validUrl(value);
 }
 
 export const blockIdSchema = Schema.String.check(Schema.isBetweenLength(1, 128)).pipe(

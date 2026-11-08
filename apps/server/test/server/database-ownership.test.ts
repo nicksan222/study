@@ -249,7 +249,7 @@ testStable(
       try {
         expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
         await contender.exited;
-        assert.strictEqual(restored.store.db.orm.select().from(s.study_documents).all().length, 1);
+        assert.strictEqual(restored.store.db.orm.select().from(s.pages).all().length, 1);
       } finally {
         contender.child.kill('SIGKILL');
         await restored.close();

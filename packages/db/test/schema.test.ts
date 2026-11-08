@@ -101,10 +101,10 @@ testStable(
           .get();
 
         assert.strictEqual(next.id, id + 1n);
-        const session = db
-          .insert(schema.sessions)
+        const note = db
+          .insert(schema.notes)
           .values({
-            title: 'Session',
+            title: 'Note',
             title_source: 'user',
             created_at: 1n,
             updated_at: 1n
@@ -112,15 +112,15 @@ testStable(
           .returning()
           .get();
 
-        db.insert(schema.project_sessions).values({ project_id: id, session_id: session.id }).run();
-        assert.strictEqual(db.select().from(schema.project_sessions).get()?.project_id, id);
+        db.insert(schema.project_notes).values({ project_id: id, note_id: note.id }).run();
+        assert.strictEqual(db.select().from(schema.project_notes).get()?.project_id, id);
         assertThrowsMatching(
           () =>
             db
-              .insert(schema.project_sessions)
+              .insert(schema.project_notes)
               .values({
                 project_id: Schema.decodeUnknownSync(projectIdSchema)(id + 100n),
-                session_id: session.id
+                note_id: note.id
               })
               .run(),
           (error: unknown) =>
@@ -130,7 +130,7 @@ testStable(
             error.cause.errcode === 787
         );
         db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
-        assert.strictEqual(db.select().from(schema.sessions).get()?.id, session.id);
+        assert.strictEqual(db.select().from(schema.notes).get()?.id, note.id);
         db.insert(schema.projects)
           .values({
             id,
@@ -219,20 +219,20 @@ testStable('current schema enforces Ask retirement and reply publication guards'
         'message_fts_ai',
         'message_fts_ad',
         'message_fts_finish',
-        'conversation_recording_posts_validate_insert',
-        'session_retired_intents_owner',
-        'session_retired_intents_update',
-        'session_retired_intents_delete',
-        'session_retired_intent_recapture',
-        'conversation_reply_sources_capture',
-        'conversation_reply_sources_immutable',
-        'conversation_reply_sources_retained'
+        'note_recording_posts_validate_insert',
+        'note_retired_intents_owner',
+        'note_retired_intents_update',
+        'note_retired_intents_delete',
+        'note_retired_intent_recapture',
+        'note_reply_sources_capture',
+        'note_reply_sources_immutable',
+        'note_reply_sources_retained'
       ])
         assert.ok(names.has(name), name);
 
       assert.throws(() =>
-        connection.orm.run(sql`INSERT INTO session_retired_intents
-        (session_id,intent_key,request_id,reason) VALUES (1,'forged','missing','input_retired')`)
+        connection.orm.run(sql`INSERT INTO note_retired_intents
+        (note_id,intent_key,request_id,reason) VALUES (1,'forged','missing','input_retired')`)
       );
       expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {

@@ -83,16 +83,16 @@ function Toggle({
   );
 }
 
-/** Applies the welcome or session canvas layout through the shared workspace surface. */
+/** Applies the welcome or note canvas layout through the shared workspace surface. */
 
 function Root({
   className,
   variant,
   ...props
-}: ComponentProps<'div'> & { variant: 'welcome' | 'session' | 'desk' | 'practice' }) {
+}: ComponentProps<'div'> & { variant: 'welcome' | 'note' | 'desk' | 'practice' }) {
   return (
     <div
-      className={cn('ui-workspace', variant !== 'welcome' && 'session-canvas', className)}
+      className={cn('ui-workspace', variant !== 'welcome' && 'note-canvas', className)}
       data-variant={variant}
       {...props}
     />
@@ -160,7 +160,7 @@ function Card({
       hidden={props.hidden ?? (context ? !context.open : undefined)}
       className={cn(
         'ui-workspace-card',
-        variant === 'attachments' && 'session-attachments-card',
+        variant === 'attachments' && 'note-attachments-card',
         className
       )}
     />
@@ -191,18 +191,18 @@ export const WorkspaceSurface = {
   Heading,
   Dock,
   Controls,
-  Container: part('section', 'session-workspace'),
-  Section: part('div', 'session-section'),
-  Deletion: part('section', 'session-delete'),
-  ContextDialogBody: part('div', 'session-context-dialog-body'),
-  SubjectIdentity: part('span', 'session-subject-identity'),
-  Footer: part('div', 'session-workspace-meta'),
+  Container: part('section', 'note-workspace'),
+  Section: part('div', 'note-section'),
+  Deletion: part('section', 'note-delete'),
+  ContextDialogBody: part('div', 'note-context-dialog-body'),
+  SubjectIdentity: part('span', 'note-subject-identity'),
+  Footer: part('div', 'note-workspace-meta'),
   ComposerHint,
   ComposerSubmit
 };
 
 export const WorkspaceChanges = {
-  Actions: part('div', 'session-context-actions')
+  Actions: part('div', 'note-context-actions')
 };
 
 function AttachmentItem({
@@ -219,29 +219,24 @@ function AttachmentItem({
   tone?: ComponentProps<typeof AttachmentIcon>['tone'];
 }) {
   return (
-    <Button
-      {...props}
-      size="sm"
-      variant="ghost"
-      className={cn('session-attachment-item', className)}
-    >
+    <Button {...props} size="sm" variant="ghost" className={cn('note-attachment-item', className)}>
       <AttachmentIcon tone={tone} size="compact">
         {icon}
       </AttachmentIcon>
-      <span className="session-attachment-copy">
-        <span className="session-attachment-name">{label}</span>
-        <span className="session-attachment-meta">{meta}</span>
+      <span className="note-attachment-copy">
+        <span className="note-attachment-name">{label}</span>
+        <span className="note-attachment-meta">{meta}</span>
       </span>
-      <ArrowUpRight className="session-attachment-open" aria-hidden="true" />
+      <ArrowUpRight className="note-attachment-open" aria-hidden="true" />
     </Button>
   );
 }
 
 export const WorkspaceAttachments = {
-  Heading: part('header', 'session-page-index-heading'),
-  Empty: part('p', 'session-page-index-empty'),
-  List: part('div', 'session-page-index'),
-  Rows: part('div', 'session-attachment-rows'),
+  Heading: part('header', 'note-page-index-heading'),
+  Empty: part('p', 'note-page-index-empty'),
+  List: part('div', 'note-page-index'),
+  Rows: part('div', 'note-attachment-rows'),
   Item: AttachmentItem
 };
 

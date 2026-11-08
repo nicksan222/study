@@ -1,5 +1,5 @@
-import type { summarySchema } from '@study/contracts/documents/schemas';
 import type { ContentInput } from '@study/contracts/inputs';
+import type { summarySchema } from '@study/contracts/pages/schemas';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -12,26 +12,26 @@ import type { Dispatch, SetStateAction } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 export function QuizInputPicker({
-  documents,
+  pages,
   inputs,
   onChange,
   disabled
 }: {
-  documents: UseQueryResult<(typeof summarySchema.Type)[]>;
+  pages: UseQueryResult<(typeof summarySchema.Type)[]>;
   inputs: ContentInput[];
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
 }) {
   const { t } = useI18n();
-  const rows = documents.data ?? [];
+  const rows = pages.data ?? [];
 
   return (
     <Practice.SourceInputs>
       <Settings.Section title={t('QuizChooseInputs')}>
         <Settings.Intro>{t('QuizChooseInputsHelp')}</Settings.Intro>
-        <Practice.DocumentChoices>
-          {documents.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
-          {documents.isError && (
+        <Practice.PageChoices>
+          {pages.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
+          {pages.isError && (
             <ErrorState
               layout="inline"
               title={t('QuizInputsError')}
@@ -39,7 +39,7 @@ export function QuizInputPicker({
                 <RetryButton
                   variant="outline"
                   onClick={() => {
-                    void documents.refetch();
+                    void pages.refetch();
                   }}
                   label={t('Retry')}
                 />
@@ -48,7 +48,7 @@ export function QuizInputPicker({
           )}
           <Settings.Group>
             {rows.map((document) => (
-              <DocumentInput
+              <PageInput
                 key={String(document.id)}
                 document={document}
                 inputs={inputs}
@@ -57,11 +57,11 @@ export function QuizInputPicker({
               />
             ))}
           </Settings.Group>
-          {rows.length === 0 && documents.isSuccess && (
+          {rows.length === 0 && pages.isSuccess && (
             <Settings.Feedback>{t('QuizNoProjectInputs')}</Settings.Feedback>
           )}
-        </Practice.DocumentChoices>
-        {documents.isSuccess && rows.length > 0 && (
+        </Practice.PageChoices>
+        {pages.isSuccess && rows.length > 0 && (
           <Practice.SetupActions>
             <Button
               size="sm"
@@ -71,7 +71,7 @@ export function QuizInputPicker({
                 onChange(
                   rows.flatMap((doc) =>
                     doc.headVersionId
-                      ? [{ kind: 'document' as const, versionId: doc.headVersionId }]
+                      ? [{ kind: 'page' as const, versionId: doc.headVersionId }]
                       : []
                   )
                 )
@@ -97,7 +97,7 @@ export function QuizInputPicker({
   );
 }
 
-function DocumentInput({
+function PageInput({
   document,
   inputs,
   onChange,
@@ -110,13 +110,13 @@ function DocumentInput({
 }) {
   const { t } = useI18n();
   const selected = inputs.some(
-    (input) => input.kind === 'document' && input.versionId === document.headVersionId
+    (input) => input.kind === 'page' && input.versionId === document.headVersionId
   );
 
   return (
     <Settings.ToggleRow
       title={document.title}
-      description={t('SessionEntryDocument')}
+      description={t('NoteEntryPage')}
       checked={selected}
       disabled={disabled || (!selected && inputs.length >= 20)}
       onCheckedChange={(checked) => {
@@ -127,10 +127,10 @@ function DocumentInput({
         onChange((current) => {
           if (!checked)
             return current.filter(
-              (input) => input.kind !== 'document' || input.versionId !== versionId
+              (input) => input.kind !== 'page' || input.versionId !== versionId
             );
 
-          return current.length >= 20 ? current : [...current, { kind: 'document', versionId }];
+          return current.length >= 20 ? current : [...current, { kind: 'page', versionId }];
         });
       }}
     />

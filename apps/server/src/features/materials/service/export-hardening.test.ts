@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { DocumentsRpc } from '@study/contracts/documents/rpc';
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import type { materialContentInputSchema } from '@study/contracts/materials/schemas';
+import { PagesRpc } from '@study/contracts/pages/rpc';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
 import { eq, and } from '@study/db';
 import { material_flashcard_entries } from '@study/db/schema';
@@ -27,11 +27,11 @@ import { RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Documents } from '#server/features/documents/index';
-import { DocumentsRpcLive } from '#server/features/documents/rpc/index';
 import { Materials } from '#server/features/materials/index';
 import { makeCitations } from '#server/features/materials/store/citations';
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
+import { Pages } from '#server/features/pages/index';
+import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { exportBudget } from '#server/platform/content-export/budget';
@@ -47,10 +47,10 @@ function fixture() {
   const location = createTestDatabase();
   const context = new ServerContext(location.open());
   const database = Layer.succeed(Database, { store: context });
-  const services = Layer.mergeAll(Materials.layer, Sources.layer, Documents.layer).pipe(
+  const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
     Layer.provideMerge(database)
   );
-  const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive, DocumentsRpcLive).pipe(
+  const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive, PagesRpcLive).pipe(
     Layer.provideMerge(services)
   );
 
@@ -73,8 +73,8 @@ for (const retirement of ['deletion', 'prune'] as const) {
       try {
         await Effect.runPromise(
           Effect.gen(function* () {
-            const rpc = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
-            const ancestor = yield* rpc('documents.create', {
+            const rpc = yield* RpcTest.makeClient(PagesRpc, { flatten: true });
+            const ancestor = yield* rpc('pages.create', {
               createKey: `export-${retirement}`,
               title: 'Ancestor',
               document: deletionDocument('Retained ancestor'),
@@ -87,11 +87,11 @@ for (const retirement of ['deletion', 'prune'] as const) {
             let input = ancestor.version.id;
 
             for (let depth = 0; depth < 4; depth++) {
-              const next = yield* rpc('documents.create', {
+              const next = yield* rpc('pages.create', {
                 createKey: `${retirement}-${depth}`,
                 title: `Depth ${depth}`,
                 document: deletionDocument(`Derived ${depth}`),
-                inputs: [{ kind: 'document', versionId: input }],
+                inputs: [{ kind: 'page', versionId: input }],
                 citations: []
               });
 
@@ -101,54 +101,54 @@ for (const retirement of ['deletion', 'prune'] as const) {
             }
 
             const key = { id: input, format: 'markdown' as const };
-            const before = yield* rpc('documents.exportFile', key);
+            const before = yield* rpc('pages.exportFile', key);
 
             assert.ok(new TextDecoder().decode(before.bytes).includes('Derived 3'));
 
             if (retirement === 'prune')
-              yield* rpc('documents.save', {
-                documentId: ancestor.id,
+              yield* rpc('pages.save', {
+                pageId: ancestor.id,
                 expectedVersionId: ancestor.version.id,
                 key: 'replace',
                 document: deletionDocument('Replacement')
               });
 
-            const scope = { documentId: ancestor.id, keepLatest: 1 };
+            const scope = { pageId: ancestor.id, keepLatest: 1 };
             const preview =
               retirement === 'prune'
-                ? yield* rpc('documents.previewHistory', scope)
-                : yield* rpc('documents.previewDeletion', { id: ancestor.id });
+                ? yield* rpc('pages.previewHistory', scope)
+                : yield* rpc('pages.previewDeletion', { id: ancestor.id });
 
             expect(preview.blockedVersionIds).toStrictEqual([ancestor.version.id]);
             const attempted =
               retirement === 'prune'
-                ? rpc('documents.retireHistory', { ...scope, token: preview.token })
-                : rpc('documents.delete', { documentId: ancestor.id, token: preview.token });
+                ? rpc('pages.retireHistory', { ...scope, token: preview.token })
+                : rpc('pages.delete', { pageId: ancestor.id, token: preview.token });
 
             assert.ok((yield* Effect.flip(attempted)).kind === 'invalid_input');
-            expect(yield* rpc('documents.exportFile', key)).toStrictEqual(before);
+            expect(yield* rpc('pages.exportFile', key)).toStrictEqual(before);
 
             for (const descendant of chain.slice(1).reverse()) {
-              const selected = yield* rpc('documents.previewDeletion', { id: descendant.id });
+              const selected = yield* rpc('pages.previewDeletion', { id: descendant.id });
 
               expect(selected.blockedVersionIds).toStrictEqual([]);
-              yield* rpc('documents.delete', { documentId: descendant.id, token: selected.token });
+              yield* rpc('pages.delete', { pageId: descendant.id, token: selected.token });
             }
 
             const released =
               retirement === 'prune'
-                ? yield* rpc('documents.previewHistory', scope)
-                : yield* rpc('documents.previewDeletion', { id: ancestor.id });
+                ? yield* rpc('pages.previewHistory', scope)
+                : yield* rpc('pages.previewDeletion', { id: ancestor.id });
 
             expect(released.blockedVersionIds).toStrictEqual([]);
 
             if (retirement === 'prune')
-              yield* rpc('documents.retireHistory', { ...scope, token: released.token });
-            else yield* rpc('documents.delete', { documentId: ancestor.id, token: released.token });
+              yield* rpc('pages.retireHistory', { ...scope, token: released.token });
+            else yield* rpc('pages.delete', { pageId: ancestor.id, token: released.token });
 
             assert.ok(
               (yield* Effect.flip(
-                rpc('documents.exportFile', { id: ancestor.version.id, format: 'markdown' })
+                rpc('pages.exportFile', { id: ancestor.version.id, format: 'markdown' })
               )).kind === 'not_found'
             );
           }).pipe(Effect.scoped, Effect.provide(f.handlers))
@@ -171,9 +171,9 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
 
-            const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
+            const docs = yield* RpcTest.makeClient(PagesRpc, { flatten: true });
             const document = deletionDocument('Evidence é😀');
-            const owner = yield* docs('documents.create', {
+            const owner = yield* docs('pages.create', {
               createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
@@ -181,7 +181,7 @@ testStable(
               document
             });
 
-            yield* docs('documents.version', {
+            yield* docs('pages.version', {
               id: owner.version!.id
             });
             const contents: (typeof materialContentInputSchema.Type)[] = [
@@ -207,7 +207,7 @@ testStable(
             for (const content of contents) {
               const aid = yield* rpc('materials.create', {
                 title: content.kind,
-                inputs: [{ kind: 'document', versionId: owner.version!.id }],
+                inputs: [{ kind: 'page', versionId: owner.version!.id }],
                 publish: false,
                 content
               });
@@ -217,7 +217,7 @@ testStable(
                 citations: [
                   {
                     marker: 4294967295n,
-                    input: { kind: 'document' as const, versionId: owner.version!.id },
+                    input: { kind: 'page' as const, versionId: owner.version!.id },
                     anchor: { type: 'authored' },
                     quote: 'Evidence',
                     target: {
@@ -285,7 +285,7 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
 
-            yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
+            yield* RpcTest.makeClient(PagesRpc, { flatten: true });
             const cells = [
               '=1+1',
               '  +SUM(A1)',
@@ -356,16 +356,16 @@ testStable(
           Effect.gen(function* () {
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
 
-            const docs = yield* RpcTest.makeClient(DocumentsRpc, { flatten: true });
+            const docs = yield* RpcTest.makeClient(PagesRpc, { flatten: true });
             const body = deletionDocument('é😀'.repeat(32 * 1024));
-            const owner = yield* docs('documents.create', {
+            const owner = yield* docs('pages.create', {
               createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               title: 'Large',
               document: body
             });
-            const later = yield* docs('documents.create', {
+            const later = yield* docs('pages.create', {
               createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
@@ -373,21 +373,21 @@ testStable(
               document: deletionDocument('Later')
             });
 
-            yield* docs('documents.version', {
+            yield* docs('pages.version', {
               id: owner.version!.id
             });
             const claim = yield* rpc('materials.create', {
               title: 'Bounded',
               publish: false,
               inputs: [
-                { kind: 'document', versionId: owner.version!.id },
-                { kind: 'document', versionId: later.version!.id }
+                { kind: 'page', versionId: owner.version!.id },
+                { kind: 'page', versionId: later.version!.id }
               ],
               content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' }
             });
             const first = {
               marker: 1n,
-              input: { kind: 'document' as const, versionId: owner.version!.id },
+              input: { kind: 'page' as const, versionId: owner.version!.id },
               anchor: { type: 'authored' as const },
               quote: 'é',
               target: {
@@ -420,7 +420,7 @@ testStable(
                 { ...first, marker: 2n },
                 {
                   marker: 3n,
-                  input: { kind: 'document' as const, versionId: later.version!.id },
+                  input: { kind: 'page' as const, versionId: later.version!.id },
                   anchor: { type: 'authored' },
                   quote: 'Later'
                 }
@@ -438,13 +438,12 @@ testStable(
             );
 
             expect(actual).toStrictEqual(expected);
-            const preview = yield* docs('documents.previewDeletion', { id: later.id });
+            const preview = yield* docs('pages.previewDeletion', { id: later.id });
 
             expect(preview.blockedVersionIds).toStrictEqual([later.version!.id]);
             assert.ok(
-              (yield* Effect.flip(
-                docs('documents.delete', { documentId: later.id, token: preview.token })
-              )).kind === 'invalid_input'
+              (yield* Effect.flip(docs('pages.delete', { pageId: later.id, token: preview.token })))
+                .kind === 'invalid_input'
             );
             assert.ok((yield* Effect.flip(snapshot(exact))).kind === 'invalid_input');
             const bounded = yield* snapshot(MAX_EXPORT_BYTES);

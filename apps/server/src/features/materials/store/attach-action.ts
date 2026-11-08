@@ -18,12 +18,12 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof attachInputSchema.Type;
 
-import { makeSessionMembership } from '#server/features/materials/store/session-membership';
+import { makeNoteMembership } from '#server/features/materials/store/note-membership';
 
 export function makeAttachAction(resources: StoreResources) {
-  const { attachMaterialTransaction } = makeSessionMembership(resources);
+  const { attachMaterialTransaction } = makeNoteMembership(resources);
   const attach = (input: Input) => {
-    attachMaterialTransaction(input.sessionId, input.materialId);
+    attachMaterialTransaction(input.noteId, input.materialId);
 
     return input;
   };

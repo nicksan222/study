@@ -27,8 +27,8 @@ export const ProjectsRpcLive = defineRpc(
     return {
       'projects.addMaterial': (input) => projects.addMaterial(input),
       'projects.removeMaterial': (input) => projects.removeMaterial(input),
-      'projects.addSession': (input) => projects.addSession(input),
-      'projects.removeSession': (input) => projects.removeSession(input),
+      'projects.addNote': (input) => projects.addNote(input),
+      'projects.removeNote': (input) => projects.removeNote(input),
       'projects.project': ({ id }) => projects.project(id),
       'projects.findProject': ({ id }) => projects.findProject(id),
       'projects.projects': (input) => projects.projects(input),

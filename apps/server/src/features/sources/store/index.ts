@@ -348,10 +348,7 @@ export const SourceStore = defineStore({
               .where(eq(tables.content_snapshots.source_id, id))
               .run();
 
-            db.orm
-              .delete(tables.session_sources)
-              .where(eq(tables.session_sources.source_id, id))
-              .run();
+            db.orm.delete(tables.note_sources).where(eq(tables.note_sources.source_id, id)).run();
 
             return (
               db.orm.delete(tables.sources).where(eq(tables.sources.id, id)).run().changes !== 0n
@@ -624,7 +621,7 @@ export const SourceSnapshotStore = defineStore({
 
 export const SourceDocumentStore = defineStore({
   name: 'study/SourceDocumentStore',
-  entity: { singular: 'sourceDocument', plural: 'sourceDocuments' },
+  entity: { singular: 'sourceDocument', plural: 'sourcePages' },
   make: ({ db, clock }) => {
     const { readDocument, find } = makeHelpers({ db, clock });
 

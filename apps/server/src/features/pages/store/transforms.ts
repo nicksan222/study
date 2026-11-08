@@ -1,0 +1,249 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Persists exact Page transform captures, publication receipts and guarded           │
+ * │ retries.                                                                                 │
+ * │                                                                                          │
+ * │ Responsibilities:                                                                        │
+ * │ - Persists exact Page transform captures, publication receipts and guarded retries.      │
+ * │                                                                                          │
+ * │ Boundaries:                                                                              │
+ * │ Private synchronous persistence stays inside Pages ownership; callers own                │
+ * │ transaction scope.                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
+import { StudyError } from '@study/contracts/errors';
+import { noteIdSchema } from '@study/contracts/ids';
+import * as t from '@study/contracts/pages/transform';
+import { and, eq, lt, desc, inArray, or } from '@study/db';
+import { page_transform_requests as requests } from '@study/db/schema';
+import { Schema, Option } from 'effect';
+
+import { intentHash } from '#server/features/pages/decoders/intent';
+import {
+  transformRequestCodec as requestCodec,
+  transformReportCodec as reportCodec
+} from '#server/features/pages/decoders/transform-request';
+import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+import { unixSeconds } from '#server/platform/time/index';
+
+export function decodeTransformRequest(row: typeof requests.$inferSelect) {
+  const request = Schema.decodeUnknownSync(requestCodec)(row.request);
+
+  if (request.contextRequestId !== row.context_request_id)
+    throw new StudyError('invalid_input', 'Page generation capture identity is inconsistent');
+
+  return Schema.decodeUnknownSync(t.transformSnapshotSchema)({
+    ...request,
+    id: row.id,
+    noteId: row.note_id,
+    instruction: row.instruction,
+    eventId: row.event_id,
+    cancelled: row.cancelled,
+    errorKind: row.error_kind,
+    resultVersionId: row.result_version_id,
+    report: row.report === null ? null : Schema.decodeUnknownSync(reportCodec)(row.report)
+  });
+}
+
+export const PageTransformsStore = defineStore({
+  name: 'study/PageTransformsStore',
+  entity: { singular: 'transform', plural: 'transforms' },
+  make: ({ db, clock }) => {
+    function read({ requestId }: typeof t.transformKeySchema.Type) {
+      const row = db.orm.select().from(requests).where(eq(requests.id, requestId)).get();
+
+      if (!row) throw new StudyError('not_found', 'Page generation is unavailable');
+
+      return decodeTransformRequest(row);
+    }
+
+    return {
+      queries: {
+        findTransform: storeQuery({
+          role: 'optional',
+          input: t.transformKeySchema,
+          output: Schema.Option(t.transformSnapshotSchema),
+          run: (v) =>
+            db.orm
+              .select({ id: requests.id })
+              .from(requests)
+              .where(eq(requests.id, v.requestId))
+              .get()
+              ? Option.some(read(v))
+              : Option.none()
+        }),
+        transform: storeQuery({
+          role: 'required',
+          input: t.transformKeySchema,
+          output: t.transformSnapshotSchema,
+          run: read
+        }),
+        transforms: storeQuery({
+          role: 'collection',
+          input: Schema.Struct({
+            noteId: noteIdSchema,
+            limit: Schema.Int,
+            before: Schema.optional(Schema.String)
+          }),
+          output: Schema.Array(t.transformSnapshotSchema),
+          run: ({ noteId, limit, before }) =>
+            db.orm
+              .select({ requestId: requests.id })
+              .from(requests)
+              .where(
+                and(
+                  eq(requests.note_id, noteId),
+                  before === undefined ? undefined : lt(requests.id, before)
+                )
+              )
+              .orderBy(desc(requests.id))
+              .limit(limit)
+              .all()
+              .map(read)
+        })
+      },
+      mutations: {
+        retireNoteRequests: storeMutation({
+          input: Schema.Struct({
+            noteId: noteIdSchema,
+            contextIds: Schema.Array(Schema.String)
+          }),
+          output: Schema.Array(Schema.String),
+          run: (v) => {
+            const rows = db.orm
+              .select()
+              .from(requests)
+              .where(
+                or(
+                  eq(requests.note_id, v.noteId),
+                  inArray(requests.context_request_id, [...v.contextIds])
+                )
+              )
+              .all();
+
+            for (const row of rows)
+              if (row.result_version_id === null)
+                db.orm
+                  .update(requests)
+                  .set({ cancelled: true, error_kind: 'cancelled' })
+                  .where(eq(requests.id, row.id))
+                  .run();
+
+            return rows.map((row) => row.id);
+          }
+        }),
+        requestTransform: storeMutation({
+          input: Schema.Struct({
+            ...t.storedTransformRequestSchema.fields,
+            noteId: Schema.NullOr(noteIdSchema),
+            instruction: Schema.String
+          }),
+          output: Schema.Struct({ created: Schema.Boolean, request: t.transformSnapshotSchema }),
+          run: (value) => {
+            const requestId = `document/${value.contextRequestId}`;
+            const hash = intentHash(
+              Schema.Struct({
+                ...t.storedTransformRequestSchema.fields,
+                noteId: Schema.NullOr(noteIdSchema),
+                instruction: Schema.String
+              }),
+              value
+            );
+            const existing = db.orm.select().from(requests).where(eq(requests.id, requestId)).get();
+
+            if (existing && existing.intent_hash !== hash)
+              throw new StudyError('invalid_input', 'Page request already has another intent');
+
+            if (!existing)
+              db.orm
+                .insert(requests)
+                .values({
+                  id: requestId,
+                  context_request_id: value.contextRequestId,
+                  note_id: value.noteId,
+                  request: Schema.encodeSync(requestCodec)(value),
+                  intent_hash: hash,
+                  instruction: value.instruction,
+                  event_id: requestId,
+                  created_at: unixSeconds(clock)
+                })
+                .run();
+
+            return { created: !existing, request: read({ requestId }) };
+          }
+        }),
+        finishTransform: storeMutation({
+          input: Schema.Struct({
+            ...t.transformPublicationSchema.fields,
+            versionId: t.transformSnapshotSchema.fields.resultVersionId
+          }),
+          output: t.transformSnapshotSchema,
+          run: (value) => {
+            const old = read(value);
+            const hash = intentHash(t.transformPublicationSchema, {
+              ...value,
+              citations: [...value.citations].sort((a, b) => a.marker - b.marker)
+            });
+            const committed = db.orm
+              .select({ hash: requests.result_hash })
+              .from(requests)
+              .where(eq(requests.id, value.requestId))
+              .get();
+
+            if (old.resultVersionId !== null && committed?.hash !== hash)
+              throw new StudyError(
+                'invalid_input',
+                'Page result differs from its publication receipt'
+              );
+
+            if (old.cancelled || old.eventId !== value.generationEventId)
+              throw new StudyError('cancelled', 'Page generation is no longer active');
+
+            if (old.resultVersionId !== null && old.resultVersionId !== value.versionId)
+              throw new StudyError('invalid_input', 'Page generation already published');
+
+            db.orm
+              .update(requests)
+              .set({
+                result_version_id: value.versionId,
+                result_hash: hash,
+                report: Schema.encodeSync(reportCodec)(value.report),
+                error_kind: null
+              })
+              .where(eq(requests.id, value.requestId))
+              .run();
+
+            return read(value);
+          }
+        }),
+        changeTransform: storeMutation({
+          input: Schema.Struct({
+            ...t.transformKeySchema.fields,
+            eventId: Schema.optional(Schema.String),
+            cancel: Schema.Boolean,
+            errorKind: t.transformSnapshotSchema.fields.errorKind
+          }),
+          output: t.transformSnapshotSchema,
+          run: (value) => {
+            const old = read(value);
+
+            if (old.resultVersionId !== null) return old;
+
+            db.orm
+              .update(requests)
+              .set({
+                event_id: value.eventId ?? old.eventId,
+                cancelled: value.cancel || old.cancelled,
+                error_kind: value.errorKind
+              })
+              .where(eq(requests.id, value.requestId))
+              .run();
+
+            return read(value);
+          }
+        })
+      }
+    };
+  }
+});

@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useAssistant, useAssistantComposer } from '#web/features/assistant/index.ts';
 
-/** Owns composer focus and keyboard submission while the application retains the conversation. */
+/** Owns composer focus and keyboard submission while the application retains the note. */
 export function usePage() {
-  const conversation = useAssistant();
-  const composer = useAssistantComposer(conversation);
+  const note = useAssistant();
+  const composer = useAssistantComposer(note);
   const [cardVisible, setCardVisible] = useState(false);
   const historyPanel = useRef<HTMLElement>(null);
 
@@ -14,11 +14,11 @@ export function usePage() {
   }, [cardVisible]);
 
   return {
-    ...conversation,
+    ...note,
     ...composer,
     historyPanel,
-    selectChat: (id: Parameters<typeof conversation.selectChat>[0]) => {
-      conversation.selectChat(id);
+    selectChat: (id: Parameters<typeof note.selectChat>[0]) => {
+      note.selectChat(id);
       setCardVisible(false);
     },
     cardVisible,

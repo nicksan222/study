@@ -66,7 +66,7 @@ testStable(
 
 testStable('retired contracts and implementation paths are rejected even from tests', () => {
   const diagnostics = lintRule('retired-module-boundary', {
-    'src/features/conversations/replay.test.ts':
+    'src/features/notes/replay.test.ts':
       "import '@study/contracts/jobs'; import '@study/contracts/material/schemas'; import '@study/contracts/practice/schemas'; import '@study/contracts/study'; import '@study/contracts/ingestion/schemas'; import '#server/domains/jobs/index';",
     'src/domains/abandoned.test.ts': 'export const abandoned = true;'
   });

@@ -28,7 +28,7 @@ function InlineFields({
         label={
           <>
             {' '}
-            {t('DocumentText')} {index + 1}{' '}
+            {t('PageText')} {index + 1}{' '}
           </>
         }
       >
@@ -78,7 +78,7 @@ function ContentFields({
 
   if (content.type === 'code')
     return (
-      <Field label={<> {t('DocumentCode')} </>}>
+      <Field label={<> {t('PageCode')} </>}>
         <Textarea
           font="mono"
           value={content.code}
@@ -89,7 +89,7 @@ function ContentFields({
 
   if (content.type === 'math')
     return (
-      <Field label={<> {t('DocumentMath')} </>}>
+      <Field label={<> {t('PageMath')} </>}>
         <Textarea
           font="mono"
           value={content.expression}
@@ -99,7 +99,7 @@ function ContentFields({
     );
 
   return (
-    <Field label={<> {t('DocumentImageAlt')} </>}>
+    <Field label={<> {t('PageImageAlt')} </>}>
       <Textarea
         value={content.alt}
         onChange={(event) => change({ ...content, alt: event.target.value })}
@@ -121,11 +121,11 @@ export function BlockEditor({
 
   return (
     <DocumentEditing.Blocks disabled={disabled}>
-      <p>{t('DocumentStructurePreserved')}</p>
+      <p>{t('PageStructurePreserved')}</p>
       {document.blocks.map((block, index) => (
         <fieldset key={block.id}>
           <legend>
-            {t('DocumentBlock')} {index + 1}
+            {t('PageBlock')} {index + 1}
           </legend>
           <ContentFields
             content={block.content}
@@ -151,7 +151,7 @@ export function BlockEditor({
                 change({ ...document, blocks });
               }}
             >
-              {t('DocumentMoveUp')}
+              {t('PageMoveUp')}
             </Button>
             <Button
               variant="ghost"
@@ -162,7 +162,7 @@ export function BlockEditor({
                 })
               }
             >
-              {t('DocumentRemoveBlock')}
+              {t('PageRemoveBlock')}
             </Button>
           </DocumentEditing.BlockActions>
         </fieldset>
@@ -179,7 +179,7 @@ export function BlockEditor({
           })
         }
       >
-        {t('DocumentAddParagraph')}
+        {t('PageAddParagraph')}
       </Button>
     </DocumentEditing.Blocks>
   );
@@ -281,7 +281,7 @@ function TableCell({
   return (
     <fieldset>
       <legend>
-        {t('DocumentCell')} {row + 1} · {column + 1}
+        {t('PageCell')} {row + 1} · {column + 1}
       </legend>
       {positions(cell.paragraphs).map(({ value: paragraph, position, key }) => (
         <InlineFields key={key} items={paragraph} change={(inlines) => change(position, inlines)} />

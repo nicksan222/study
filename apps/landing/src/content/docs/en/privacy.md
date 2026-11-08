@@ -5,13 +5,13 @@ section: reference
 order: 5
 ---
 
-Study keeps your saved workspace in a SQLite database on your computer. Subjects, sessions, documents and saved practice belong to that local workspace. The desktop app runs its own private server process to serve the interface and application services.
+Study keeps your saved workspace in a SQLite database on your computer. Subjects, notes, pages and saved practice belong to that local workspace. The desktop app runs its own private server process to serve the interface and application services.
 
 ## What goes to ChatGPT
 
-When you request model work, Study uses the ChatGPT connection you configured. Depending on the task, requests can include source content, saved notes, selected document text, your instructions or a practice answer.
+When you request model work, Study uses the ChatGPT connection you configured. Depending on the task, requests can include source content, saved notes, selected page text, your instructions or a practice answer.
 
-Examples include reading supported source material, answering a question, transforming sessions into a document, generating practice and grading written answers. The content needed for these operations leaves the local workspace for processing by the provider.
+Examples include reading supported source material, answering a question, transforming notes into a page, generating practice and grading written answers. The content needed for these operations leaves the local workspace for processing by the provider.
 
 Use **Settings** to review the connected account and sign out when you want to disconnect. Your plan's access and usage limits apply to the work you send through it.
 
@@ -25,7 +25,7 @@ Fetching a link also uses the network to contact the source you supplied. Local 
 
 The desktop app uses the operating system's application data directory. Its default database filename is `study.sqlite`. Development and explicitly configured environments can use a different database location.
 
-Use the app's data and backup controls rather than relying on paths from an older installation guide. Original source content, extracted material and authored documents have distinct roles; review what a backup contains before restoring it.
+Use the app's data and backup controls rather than relying on paths from an older installation guide. Original source content, extracted material and authored pages have distinct roles; review what a backup contains before restoring it.
 
 ## Keep a backup
 

@@ -45,14 +45,14 @@ testStable(
 
     render(
       <TooltipProvider delay={0}>
-        <AiActivity label="Reading your documents" />
+        <AiActivity label="Reading your pages" />
       </TooltipProvider>
     );
     const status = screen.getByRole('status');
 
-    expect(status).toHaveAccessibleName('Reading your documents');
-    expect(within(status).getByText('Reading your documents')).toHaveClass('sr-only');
+    expect(status).toHaveAccessibleName('Reading your pages');
+    expect(within(status).getByText('Reading your pages')).toHaveClass('sr-only');
     await user.hover(status);
-    expect(await screen.findByRole('tooltip')).toHaveTextContent('Reading your documents');
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Reading your pages');
   }
 );

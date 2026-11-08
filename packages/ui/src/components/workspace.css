@@ -86,7 +86,7 @@
   font-size: 0.8125rem;
   line-height: 1.5;
 }
-.ui-workspace[data-variant='session'] > .ui-workspace-card {
+.ui-workspace[data-variant='note'] > .ui-workspace-card {
   top: 4rem;
 }
 .ui-workspace-card-group {
@@ -143,7 +143,7 @@
   opacity: 0.5;
   cursor: default;
 }
-/* Leave the conversation centered while reserving its neighboring context rail. */
+/* Leave the note centered while reserving its neighboring context rail. */
 @container (min-width: 960px) and (max-width: 1408px) {
   .ui-workspace-body,
   .ui-workspace-dock,
@@ -160,7 +160,7 @@
 
 @container (max-width: 959px) {
   .ui-workspace-card,
-  .ui-workspace[data-variant='session'] > .ui-workspace-card {
+  .ui-workspace[data-variant='note'] > .ui-workspace-card {
     position: relative;
     top: auto;
     right: auto;
@@ -187,7 +187,7 @@
     padding-top: 0;
   }
   .ui-workspace-card,
-  .ui-workspace[data-variant='session'] > .ui-workspace-card {
+  .ui-workspace[data-variant='note'] > .ui-workspace-card {
     position: relative;
     top: auto;
     right: auto;
@@ -338,7 +338,7 @@
 }
 
 /* Empty sections stay quiet while retaining the rhythm of populated rows. */
-.session-attachments-card :is(.session-page-index-empty, .ui-workspace-work-empty) {
+.note-attachments-card :is(.note-page-index-empty, .ui-workspace-work-empty) {
   margin: 0.625rem 0.25rem 0.25rem;
   padding: 0.75rem 0.875rem;
   border-radius: 0.625rem;

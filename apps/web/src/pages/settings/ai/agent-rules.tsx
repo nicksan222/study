@@ -11,7 +11,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { useAgentRules } from './use-agent-rules';
 
 const tasks = {
-  [AgentRule.Documents.key]: { title: 'AgentRulesDocuments', help: 'AgentRulesDocumentsHelp' },
+  [AgentRule.Pages.key]: { title: 'AgentRulesPages', help: 'AgentRulesPagesHelp' },
   [AgentRule.Titles.key]: { title: 'AgentRulesTitles', help: 'AgentRulesTitlesHelp' },
   [AgentRule.Replies.key]: { title: 'AgentRulesReplies', help: 'AgentRulesRepliesHelp' },
   [AgentRule.Quizzes.key]: { title: 'AgentRulesQuizzes', help: 'AgentRulesQuizzesHelp' },

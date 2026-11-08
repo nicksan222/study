@@ -28,14 +28,14 @@ export function SourcePage() {
         }
         onDeleted={() => {
           void navigate({
-            to: '/sessions',
+            to: '/notes',
             search: search.project ? { project: search.project } : {}
           });
         }}
-        onOpenDocument={(document) => {
+        onOpenPage={(document) => {
           void navigate({
-            to: '/documents/$documentId',
-            params: { documentId: String(document.id) }
+            to: '/pages/$pageId',
+            params: { pageId: String(document.id) }
           });
         }}
       />

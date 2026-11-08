@@ -3,11 +3,11 @@ import { choice, openQuestion } from '#tooling/seed/builders/quiz';
 import {
   createProject,
   createSource,
-  createDocument,
+  createPage,
   createFlashcards,
   createQuiz,
   createDiagram,
-  createConversation
+  createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
 
@@ -29,7 +29,7 @@ export function createEnvironment(seed: SeedHarness) {
     project,
     textFile(new URL('../files/energy-budget.json', import.meta.url))
   );
-  const review = createDocument(project, {
+  const review = createPage(project, {
     title: 'Ecosystem systems — revision',
     description:
       'Distinguish stocks from flows, compare observations at equal effort, and connect carbon storage, energy transfer, habitat and water.',
@@ -51,7 +51,7 @@ export function createEnvironment(seed: SeedHarness) {
       )
     ]
   });
-  const workbook = createDocument(project, {
+  const workbook = createPage(project, {
     title: 'Environmental Science — workshop',
     blocks: [
       paragraph(
@@ -109,7 +109,7 @@ export function createEnvironment(seed: SeedHarness) {
     'flowchart LR\nAtmosphere -->|Photosynthesis| Biomass\nBiomass -->|Respiration| Atmosphere\nBiomass --> Soil\nSoil -->|Decomposition| Atmosphere'
   );
 
-  createConversation(project, {
+  createNote(project, {
     title: 'Carbon reservoirs',
     daysAgo: 14,
     exchanges: [
@@ -119,10 +119,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [carbonNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Photosynthesis',
     daysAgo: 13,
     exchanges: [
@@ -132,10 +132,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [survey],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Energy balance',
     daysAgo: 12,
     exchanges: [
@@ -145,10 +145,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [energyBudget],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Food webs',
     daysAgo: 11,
     exchanges: [
@@ -158,10 +158,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [carbonNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Biodiversity survey',
     daysAgo: 10,
     exchanges: [
@@ -171,10 +171,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [survey],
-    documents: [review],
+    pages: [review],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Population growth',
     daysAgo: 9,
     exchanges: [
@@ -184,10 +184,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [energyBudget],
-    documents: [workbook],
+    pages: [workbook],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Water cycle',
     daysAgo: 8,
     exchanges: [
@@ -197,10 +197,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [carbonNotes],
-    documents: [review],
+    pages: [review],
     materials: [cards]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Disturbance and succession',
     daysAgo: 7,
     exchanges: [
@@ -210,10 +210,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [survey],
-    documents: [workbook],
+    pages: [workbook],
     materials: [quiz]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Uncertainty in observations',
     daysAgo: 6,
     exchanges: [
@@ -223,10 +223,10 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [energyBudget],
-    documents: [review],
+    pages: [review],
     materials: [overview]
   });
-  createConversation(project, {
+  createNote(project, {
     title: 'Systems synthesis',
     daysAgo: 5,
     exchanges: [
@@ -236,7 +236,7 @@ export function createEnvironment(seed: SeedHarness) {
       ]
     ],
     sources: [carbonNotes],
-    documents: [workbook],
+    pages: [workbook],
     materials: [cards]
   });
 }

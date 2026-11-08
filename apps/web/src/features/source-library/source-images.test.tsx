@@ -1,5 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
-import { contentSnapshotIdSchema, sessionIdSchema } from '@study/contracts/ids';
+import { contentSnapshotIdSchema, noteIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
@@ -15,19 +15,19 @@ import type { StudyClient } from '#web/lib/study-client/client.ts';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
-import { authoredDocument } from '../document-editing/test-support';
+import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc } from '../material-library/test/support';
 import { SourcePanel } from './source-panel';
 
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
-for (const context of ['current', 'historical', 'session'] as const)
+for (const context of ['current', 'historical', 'note'] as const)
   testStable(
     `renders retained source images in ${context}, isolates retry and cleans URLs across extraction identities`,
     async () => {
       const rpc = materialRpc();
       const sourceId = importedSource.id;
-      const base = authoredDocument().version!;
+      const base = authoredPage().version!;
       const figure = createBlock({
         type: 'image',
         sourceId,
@@ -90,9 +90,8 @@ for (const context of ['current', 'historical', 'session'] as const)
       const props = {
         sourceId,
         exact: context === 'historical' ? { revision: 1n, snapshotId: base.snapshotId } : undefined,
-        sessionId:
-          context === 'session' ? Schema.decodeUnknownSync(sessionIdSchema)(3n) : undefined,
-        onOpenDocument: vi.fn()
+        noteId: context === 'note' ? Schema.decodeUnknownSync(noteIdSchema)(3n) : undefined,
+        onOpenPage: vi.fn()
       };
       const view = render(
         <Providers queryClient={cache}>

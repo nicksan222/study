@@ -11,18 +11,18 @@ import {
   index,
   check
 } from '../schema-builder.ts';
-import { conversation_reply_requests } from './conversations.ts';
+import { note_reply_requests } from './notes.ts';
 import { source_snapshots, source_extraction_revisions } from './source-processing.ts';
 
-export const conversation_reply_sources = defineTable({
+export const note_reply_sources = defineTable({
   role: 'internal',
   reason: 'Private operational state outside searchable published content'
 })(
-  'conversation_reply_sources',
+  'note_reply_sources',
   {
     request_id: text()
       .notNull()
-      .references(() => conversation_reply_requests.request_id, { onDelete: 'cascade' }),
+      .references(() => note_reply_requests.request_id, { onDelete: 'cascade' }),
     part_id: integer().$type<PartId>().notNull(),
     source_id: integer().$type<SourceId>().notNull(),
     revision: integer().$type<bigint>().notNull(),
@@ -42,8 +42,8 @@ export const conversation_reply_sources = defineTable({
         source_extraction_revisions.snapshot_id
       ]
     }),
-    index('conversation_reply_sources_revision').on(t.source_id, t.revision),
-    index('conversation_reply_sources_snapshot').on(t.snapshot_id),
-    check('conversation_reply_source_identity', sql`${t.part_id}>0 AND ${t.revision}>0`)
+    index('note_reply_sources_revision').on(t.source_id, t.revision),
+    index('note_reply_sources_snapshot').on(t.snapshot_id),
+    check('note_reply_source_identity', sql`${t.part_id}>0 AND ${t.revision}>0`)
   ]
 );

@@ -14,8 +14,8 @@
 
 import { randomUUID } from 'node:crypto';
 
-import type { copySessionContentSchema } from '@study/contracts/conversations/sessions';
-import type { RecordingId, SessionId } from '@study/contracts/ids';
+import type { RecordingId, NoteId } from '@study/contracts/ids';
+import type { copyNoteContentSchema } from '@study/contracts/notes/notes';
 import type {
   postRecordingInputSchema,
   appendRecordingInputSchema,
@@ -53,7 +53,7 @@ export const Recordings = defineService(
       recordingPostSnapshot: snapshots.recordingPostSnapshot,
       recordings: (input: typeof recordingPageInputSchema.Type) =>
         pageById(recordings.recordings, input),
-      createRecording: (id: SessionId) =>
+      createRecording: (id: NoteId) =>
         transaction((tx) => tx.store(RecordingStore).createRecording(id)),
       appendRecording: (input: typeof appendRecordingInputSchema.Type) =>
         transaction((tx) => tx.store(RecordingStore).appendRecording(input)),
@@ -74,7 +74,7 @@ export const Recordings = defineService(
               eventId: requestId,
               requestId,
               recordingId: snapshot.recordingId,
-              sessionId: snapshot.sessionId,
+              noteId: snapshot.noteId,
               projectId: snapshot.projectId,
               causationId: null,
               correlationId: requestId,
@@ -96,7 +96,7 @@ export const Recordings = defineService(
     };
   }),
   {
-    copySessionsInTransaction: (tx: Transaction, input: typeof copySessionContentSchema.Type) =>
+    copyNotesInTransaction: (tx: Transaction, input: typeof copyNoteContentSchema.Type) =>
       tx.store(RecordingCopyStore).copy(input)
   }
 );

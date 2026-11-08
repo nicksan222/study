@@ -1,12 +1,12 @@
 /** Exact readable content inputs shared by captures and learning artifacts. */
 import { Schema } from 'effect';
 
-import { contentSnapshotIdSchema, sourceIdSchema, studyDocumentVersionIdSchema } from './ids.ts';
+import { contentSnapshotIdSchema, sourceIdSchema, pageVersionIdSchema } from './ids.ts';
 import { blockIdSchema, documentSchema } from './sources/schemas.ts';
 
 const authoredVersionInputSchema = Schema.Struct({
-  kind: Schema.Literal('document'),
-  versionId: studyDocumentVersionIdSchema
+  kind: Schema.Literal('page'),
+  versionId: pageVersionIdSchema
 });
 
 const extractedSourceInputSchema = Schema.Struct({
@@ -24,8 +24,8 @@ export const contentInputSchema = Schema.Union([
 export type ContentInput = typeof contentInputSchema.Type;
 
 export function contentInputKey(input: ContentInput): string {
-  return input.kind === 'document'
-    ? `document:${input.versionId}`
+  return input.kind === 'page'
+    ? `page:${input.versionId}`
     : `source:${input.sourceId}:${input.revision}:${input.snapshotId}`;
 }
 

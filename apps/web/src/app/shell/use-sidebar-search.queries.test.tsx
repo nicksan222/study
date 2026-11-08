@@ -63,7 +63,7 @@ testStable(
       query: 'newest',
       project,
       limit: 30,
-      kinds: ['session', 'message']
+      kinds: ['note', 'message']
     });
   }
 );
@@ -94,7 +94,7 @@ testStable(
     const view = renderHook(
       ({ content }) =>
         useSidebarSearch({ query: 'notes', project, global: true, canSearch: true, content }),
-      { initialProps: { content: 'documents' as 'documents' | 'workspace' }, wrapper }
+      { initialProps: { content: 'pages' as 'pages' | 'workspace' }, wrapper }
     );
 
     await act(async () => {

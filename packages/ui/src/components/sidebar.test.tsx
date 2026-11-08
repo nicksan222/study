@@ -110,14 +110,14 @@ testStable(
   () => {
     render(
       <Sidebar.Footer trailing={<Sidebar.Utility title="Settings" variant="secondary" />}>
-        <Sidebar.Utility title="Sessions" />
+        <Sidebar.Utility title="Notes" />
       </Sidebar.Footer>
     );
     const settings = screen.getByRole('button', { name: 'Settings' });
 
     expect(settings.parentElement).toHaveClass('study-sidebar-footer-trailing');
     expect(settings).toHaveClass('bg-secondary');
-    expect(screen.getByRole('button', { name: 'Sessions' }).parentElement).toHaveClass(
+    expect(screen.getByRole('button', { name: 'Notes' }).parentElement).toHaveClass(
       'study-sidebar-footer'
     );
   }
@@ -217,9 +217,9 @@ testStable('keeps settled-group disclosure usable in the collapsed rail', async 
 
   render(
     <Sidebar.Frame collapsed resizeLabel="Resize sidebar" resizeHint="Drag to resize">
-      <Sidebar.SessionGroup title="Settled" count={1}>
-        <a href="/sessions/42">Settled session</a>
-      </Sidebar.SessionGroup>
+      <Sidebar.NoteGroup title="Settled" count={1}>
+        <a href="/notes/42">Settled note</a>
+      </Sidebar.NoteGroup>
     </Sidebar.Frame>
   );
   const summary = screen.getByText('Settled').closest('summary')!;
@@ -228,27 +228,27 @@ testStable('keeps settled-group disclosure usable in the collapsed rail', async 
   expect(group).not.toHaveAttribute('open');
   await user.click(summary);
   expect(group).toHaveAttribute('open');
-  expect(screen.getByRole('link', { name: 'Settled session' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
   await user.click(summary);
   expect(group).not.toHaveAttribute('open');
 });
 
-testStable('preserves supporting activity and counts in compact session rows', () => {
+testStable('preserves supporting activity and counts in compact note rows', () => {
   render(
     <Sidebar.Item
       layout="compact"
-      label="Session"
+      label="Note"
       icon={<span>Icon</span>}
       timestamp={<time>Now</time>}
       description={
         <>
           <span>Writing</span>
-          <Sidebar.SessionCount>3</Sidebar.SessionCount>
+          <Sidebar.NoteCount>3</Sidebar.NoteCount>
         </>
       }
     />
   );
-  const row = screen.getByRole('button', { name: /Session/ });
+  const row = screen.getByRole('button', { name: /Note/ });
 
   expect(row).toHaveAttribute('data-layout', 'compact');
   expect(screen.getByText('Writing')).toBeInTheDocument();
@@ -259,9 +259,9 @@ testStable(
   'slides settled content closed before removing the native open state and restores it on reopening',
   async () => {
     render(
-      <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
-        <a href="/sessions/42">Settled session</a>
-      </Sidebar.SessionGroup>
+      <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
+        <a href="/notes/42">Settled note</a>
+      </Sidebar.NoteGroup>
     );
     const summary = screen.getByText('Settled').closest('summary')!;
     const group = summary.closest('details')!;
@@ -269,16 +269,16 @@ testStable(
     fireEvent.click(summary);
     expect(summary).toHaveAttribute('aria-expanded', 'false');
     expect(group).toHaveAttribute('open');
-    const body = group.querySelector('.study-session-group-body')!;
+    const body = group.querySelector('.study-note-group-body')!;
 
     expect(body).toHaveAttribute('aria-hidden', 'true');
     expect(body).toHaveAttribute('inert');
-    fireEvent.transitionEnd(group.querySelector('.study-session-group-slide')!);
+    fireEvent.transitionEnd(group.querySelector('.study-note-group-slide')!);
     expect(group).not.toHaveAttribute('open');
     fireEvent.click(summary);
     expect(group).toHaveAttribute('open');
     await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
-    expect(screen.getByRole('link', { name: 'Settled session' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Settled note' })).toBeVisible();
   }
 );
 
@@ -286,18 +286,16 @@ testStable(
   'keeps a reopened settled group open when the previous close transition finishes',
   async () => {
     render(
-      <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
-        <a href="/sessions/42">Settled session</a>
-      </Sidebar.SessionGroup>
+      <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
+        <a href="/notes/42">Settled note</a>
+      </Sidebar.NoteGroup>
     );
     const summary = screen.getByText('Settled').closest('summary')!;
 
     fireEvent.click(summary);
     fireEvent.click(summary);
     await waitFor(() => expect(summary).toHaveAttribute('aria-expanded', 'true'));
-    fireEvent.transitionEnd(
-      summary.closest('details')!.querySelector('.study-session-group-slide')!
-    );
+    fireEvent.transitionEnd(summary.closest('details')!.querySelector('.study-note-group-slide')!);
     expect(summary.closest('details')).toHaveAttribute('open');
   }
 );
@@ -307,9 +305,9 @@ testStable('closes settled content immediately when reduced motion is enabled', 
 
   try {
     render(
-      <Sidebar.SessionGroup title="Settled" count={1} defaultOpen variant="settled">
-        <a href="/sessions/42">Settled session</a>
-      </Sidebar.SessionGroup>
+      <Sidebar.NoteGroup title="Settled" count={1} defaultOpen variant="settled">
+        <a href="/notes/42">Settled note</a>
+      </Sidebar.NoteGroup>
     );
     const summary = screen.getByText('Settled').closest('summary')!;
 
@@ -341,15 +339,15 @@ testStable(
     );
     const layout = (count: number) => (
       <Sidebar.Content style={{ rowGap: 12 }}>
-        <Sidebar.SessionGroups>
-          <Sidebar.SessionEntry>Draft card</Sidebar.SessionEntry>
-          <Sidebar.SessionGroup title="Open" count={10} defaultOpen>
-            <p>Open sessions</p>
-          </Sidebar.SessionGroup>
-          <Sidebar.SessionGroup title="Settled" count={count} defaultOpen variant="settled">
-            <Sidebar.SettledRows>{count > 0 && <p>Settled session</p>}</Sidebar.SettledRows>
-          </Sidebar.SessionGroup>
-        </Sidebar.SessionGroups>
+        <Sidebar.NoteGroups>
+          <Sidebar.NoteEntry>Draft card</Sidebar.NoteEntry>
+          <Sidebar.NoteGroup title="Open" count={10} defaultOpen>
+            <p>Open notes</p>
+          </Sidebar.NoteGroup>
+          <Sidebar.NoteGroup title="Settled" count={count} defaultOpen variant="settled">
+            <Sidebar.SettledRows>{count > 0 && <p>Settled note</p>}</Sidebar.SettledRows>
+          </Sidebar.NoteGroup>
+        </Sidebar.NoteGroups>
       </Sidebar.Content>
     );
     const view = render(layout(0));

@@ -1,6 +1,6 @@
 // The site's icons and link previews, drawn at build time from the same sources as the app:
 // the logo masters in packages/ui/assets/logo, the app's fonts in packages/ui, the hero's headline and a
-// capture of a session, so none of them is a file to keep up to date by hand.
+// capture of a note, so none of them is a file to keep up to date by hand.
 import satori from 'satori';
 import sharp from 'sharp';
 
@@ -33,7 +33,7 @@ export async function mark(size: number): Promise<Response> {
   );
 }
 
-const captures = import.meta.glob<string>('./assets/shots/session-*-light.webp', {
+const captures = import.meta.glob<string>('./assets/shots/note-*-light.webp', {
   eager: true,
   query: '?inline',
   import: 'default'
@@ -42,14 +42,14 @@ const captures = import.meta.glob<string>('./assets/shots/session-*-light.webp',
 /** The bytes behind a `data:` URL that Vite inlined. */
 const bytes = (url: string) => Buffer.from(url.slice(url.indexOf(',') + 1), 'base64');
 
-/** The 1200×630 card a link to the site shows in `lang`: the mark, the headline and a session. */
+/** The 1200×630 card a link to the site shows in `lang`: the mark, the headline and a note. */
 export async function preview(lang: Lang): Promise<Response> {
-  const capture = captures[`./assets/shots/session-${lang}-light.webp`];
+  const capture = captures[`./assets/shots/note-${lang}-light.webp`];
 
   if (!capture)
-    throw new Error(`no session capture in ${lang}: restore the committed session capture asset`);
+    throw new Error(`no note capture in ${lang}: restore the committed note capture asset`);
 
-  const session = await sharp(bytes(capture)).resize({ width: 1080 }).png().toBuffer();
+  const note = await sharp(bytes(capture)).resize({ width: 1080 }).png().toBuffer();
   const words = t(lang).hero.title.split(' ');
   const last = words.pop();
 
@@ -81,7 +81,7 @@ export async function preview(lang: Lang): Promise<Response> {
         },
         undefined,
         {
-          src: `data:image/png;base64,${session.toString('base64')}`
+          src: `data:image/png;base64,${note.toString('base64')}`
         }
       ),
       node(

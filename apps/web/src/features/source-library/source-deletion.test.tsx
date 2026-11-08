@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { Effect, Option } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import { authoredDocument } from '../document-editing/test-support';
+import { authoredPage } from '../document-editing/test-support';
 import {
   importedSource,
   locationIs,
@@ -38,9 +38,9 @@ testStable(
       '/sources/7?sourceRevision=1&sourceSnapshot=1101',
       rpc
     );
-    const independent = authoredDocument(41n);
+    const independent = authoredPage(41n);
 
-    queryClient.setQueryData(['documents', 'detail', '41'], independent);
+    queryClient.setQueryData(['pages', 'detail', '41'], independent);
     const user = userEvent.setup();
     const dialog = await openDeletion(user);
 
@@ -58,10 +58,10 @@ testStable(
     await waitFor(() => expect(name).toBeEnabled());
     await user.type(name, importedSource.name);
     await user.click(confirm);
-    await locationIs(router, '/sessions');
+    await locationIs(router, '/notes');
     expect(rpc['sources.deleteSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.findSource']).not.toHaveBeenCalled();
-    expect(queryClient.getQueryData(['documents', 'detail', '41'])).toBe(independent);
+    expect(queryClient.getQueryData(['pages', 'detail', '41'])).toBe(independent);
     expect(queryClient.getQueryData(['sources', 'extraction', '7', '1', '1101'])).toBeUndefined();
   }
 );
@@ -78,7 +78,7 @@ testStable(
         revisionCount: 2n,
         extractionCount: 3n,
         blockedBy: ['exact_inputs', 'image_assets'],
-        retainedCopies: 'authored_outputs_and_raw_session_records'
+        retainedCopies: 'authored_outputs_and_raw_note_records'
       })
     );
     mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
@@ -102,7 +102,7 @@ testStable(
 );
 
 testStable(
-  'recovers a lost deletion response through durable source absence and returns to Sessions',
+  'recovers a lost deletion response through durable source absence and returns to Notes',
   async () => {
     const rpc = materialRpc();
 
@@ -126,7 +126,7 @@ testStable(
     await user.click(
       within(dialog).getByRole('button', { name: catalogs.english.SourceDeleteConfirm })
     );
-    await locationIs(router, '/sessions');
+    await locationIs(router, '/notes');
     expect(rpc['sources.findSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.deleteSource']).toHaveBeenCalledTimes(1);
   }

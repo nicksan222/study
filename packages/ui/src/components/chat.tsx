@@ -11,7 +11,7 @@ function readingViewport(node: HTMLDivElement | null) {
   return node?.closest<HTMLDivElement>('[data-notebook-scroll-host]') ?? node;
 }
 
-/** Adapted from coss Chat UI's conversation contract: follow only while the reader is at the end. */
+/** Adapted from coss Chat UI's note contract: follow only while the reader is at the end. */
 
 function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstItemKey?: string }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -82,7 +82,7 @@ function useChatScroll({ itemCount, firstItemKey }: { itemCount: number; firstIt
 
 /** The data owner supplies paging keys; the viewport owns only reading position and end following. */
 
-export function ChatConversation({
+export function ChatNote({
   children,
   label,
   jumpLabel,
@@ -139,11 +139,7 @@ export function ChatConversation({
   );
 
   return (
-    <div
-      className="chat-conversation"
-      data-slot="chat-conversation"
-      data-navigation={!!navigation || undefined}
-    >
+    <div className="chat-note" data-slot="chat-note" data-navigation={!!navigation || undefined}>
       {overlay ? createPortal(controls, overlay) : controls}
       <div
         ref={attachViewport}
@@ -161,14 +157,14 @@ export function ChatConversation({
   );
 }
 
-/** Shared timeline entry; session notes and generated material use the same reading direction. */
+/** Shared timeline entry; note notes and generated material use the same reading direction. */
 
 export function ChatMessage({ className, ...props }: ComponentPropsWithRef<'article'>) {
   return (
     <article
       {...props}
       data-slot="chat-message"
-      className={cn('session-entry chat-message', className)}
+      className={cn('note-entry chat-message', className)}
     />
   );
 }
@@ -220,7 +216,7 @@ export function ChatMessageActionToolbar({ className, ...props }: ComponentProps
       {...props}
       role="group"
       data-slot="chat-message-actions"
-      className={cn('session-row-tools chat-message-actions', className)}
+      className={cn('note-row-tools chat-message-actions', className)}
     />
   );
 }

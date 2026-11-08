@@ -48,12 +48,12 @@ testStable(
       await waitFor(() =>
         expect(result.current.rules).toEqual({
           ...defaultAgentRules,
-          documents: 'Keep examples.',
+          pages: 'Keep examples.',
           titles: 'Use short titles.'
         })
       );
       act(() => result.current.select('unsupported-category'));
-      expect(result.current.selected).toBe(AgentRule.Documents);
+      expect(result.current.selected).toBe(AgentRule.Pages);
       expect(result.current.changed).toBe(true);
     } finally {
       unmount();

@@ -19,10 +19,10 @@ import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 import { materialsOptions } from '../material-library';
-import { sessionPagesOptions } from '../session-workspace';
+import { paginatedNotesOptions } from '../note-workspace';
 import { SubjectIconEditor, SubjectIdentity } from '../subjects';
 import { useCollectionState, validCollectionName } from './collection-state';
-import { materialMembership, sessionMembership } from './collections.queries';
+import { materialMembership, noteMembership } from './collections.queries';
 import { useCollectionsView } from './collections.queries';
 
 type CollectionsView = ReturnType<typeof useCollectionsView>;
@@ -76,7 +76,7 @@ function ReadState({
   ) : null;
 }
 
-/** Uses shared subject drafts while keeping material and session memberships independently editable. */
+/** Uses shared subject drafts while keeping material and note memberships independently editable. */
 function Collection({
   project,
   busy,
@@ -102,8 +102,8 @@ function Collection({
         <SubjectIconEditor project={project} disabled={busy} />
       </CollectionPanel.IdentityHeader>
       <CollectionPanel.Navigation>
-        <Link to="/sessions" search={{ project: String(project.id) }}>
-          <CollectionPanel.LinkText>{t('collections.sessions')}</CollectionPanel.LinkText>
+        <Link to="/notes" search={{ project: String(project.id) }}>
+          <CollectionPanel.LinkText>{t('collections.notes')}</CollectionPanel.LinkText>
         </Link>
       </CollectionPanel.Navigation>
       <CollectionPanel.RenameForm
@@ -139,7 +139,7 @@ function Collection({
         </Button>
       </CollectionPanel.RenameForm>
       <Members project={project.id} kind="materials" busy={busy} mutate={mutate} />
-      <Members project={project.id} kind="sessions" busy={busy} mutate={mutate} />
+      <Members project={project.id} kind="notes" busy={busy} mutate={mutate} />
       <Button variant="destructive-outline" disabled={busy} onClick={() => setDeleting(true)}>
         {t('collections.delete')}
       </Button>
@@ -182,7 +182,7 @@ function Members({
   mutate
 }: {
   project: ProjectId;
-  kind: 'materials' | 'sessions';
+  kind: 'materials' | 'notes';
   busy: boolean;
   mutate: (action: () => Promise<unknown>) => Promise<void>;
 }) {
@@ -192,24 +192,24 @@ function Members({
     ...materialsOptions(picker ? undefined : project),
     enabled: kind === 'materials'
   });
-  const sessions = useInfiniteQuery({
-    ...sessionPagesOptions(picker ? undefined : project),
-    enabled: kind === 'sessions'
+  const notes = useInfiniteQuery({
+    ...paginatedNotesOptions(picker ? undefined : project),
+    enabled: kind === 'notes'
   });
-  const state = kind === 'materials' ? materials : sessions;
+  const state = kind === 'materials' ? materials : notes;
   const members =
     kind === 'materials'
       ? materials.data?.pages
           .flatMap((page) => page.items)
           .map((item) => ({ ...item, action: () => materialMembership(project, item.id, picker) }))
-      : sessions.data?.pages
+      : notes.data?.pages
           .flatMap((page) => page.items)
-          .map((item) => ({ ...item, action: () => sessionMembership(project, item.id, picker) }));
+          .map((item) => ({ ...item, action: () => noteMembership(project, item.id, picker) }));
 
   return (
     <CollectionPanel.Members>
       <CollectionPanel.MemberHeading>
-        {t(kind === 'materials' ? 'collections.library' : 'collections.sessions')}
+        {t(kind === 'materials' ? 'collections.library' : 'collections.notes')}
       </CollectionPanel.MemberHeading>
       <CollectionPanel.Muted>{t('collections.detachHelp')}</CollectionPanel.Muted>
       <Button aria-pressed={picker} onClick={() => setPicker(!picker)}>
