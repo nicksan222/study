@@ -83,3 +83,67 @@ testStable('retired runtime adapters cannot return as imports or unreferenced so
 
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
+
+testStable(
+  'rejects retired Notes and Pages import paths across packages and relative edges',
+  () => {
+    const diagnostics = lintRule('retired-module-boundary', {
+      'src/features/notes/example.ts': `
+      import '@study/contracts/conversations/schemas';
+      export * from '@study/contracts/documents';
+      import('#server/features/documents/index');
+      require('#server/features/conversations/index');
+    `,
+      'src/features/pages/example.ts': `import '../../../web/src/features/authored-documents';`
+    });
+    const web = lintRule(
+      'retired-module-boundary',
+      {
+        'apps/web/src/app/example.ts': `
+      import '../features/authored-documents';
+      import '../features/session-workspace';
+      import '@study/ui/session-workspace';
+    `,
+        'packages/contracts/src/notes/example.ts': `export * from '../documents/schemas';`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+    assert.strictEqual(web.length, 4, JSON.stringify(web));
+  }
+);
+
+testStable('rejects retired domain files even without importers', () => {
+  const diagnostics = lintRule(
+    'retired-module-boundary',
+    {
+      'apps/server/src/features/conversations/orphan.ts': 'export const orphan = true;',
+      'apps/web/src/features/authored-documents/orphan.ts': 'export const orphan = true;',
+      'packages/contracts/src/documents/orphan.ts': 'export const orphan = true;'
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+});
+
+testStable(
+  'keeps canonical source content, document presentation and OAuth session modules',
+  () => {
+    const diagnostics = lintRule(
+      'retired-module-boundary',
+      {
+        'apps/server/src/features/notes/example.ts': `
+      import '@study/contracts/sources/document';
+      import '#server/platform/ai/providers/chatgpt/session';
+      import '@study/contracts/pages/types';
+    `,
+        'apps/web/src/features/pages/example.ts': `import '../document-presentation';`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 0, JSON.stringify(diagnostics));
+  }
+);
