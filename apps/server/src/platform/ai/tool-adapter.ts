@@ -180,3 +180,8 @@ export function adaptUsageRecorder(
       )
     );
 }
+
+/** Resolve private credentials at the SDK call boundary without retaining queued secrets. */
+export function adaptCredentialReader(read: Effect.Effect<string, StudyError>) {
+  return (signal?: AbortSignal) => Effect.runPromise(read, { signal });
+}

@@ -132,12 +132,12 @@ export const settingsTools = {
   ),
   update_model_settings: updateTool(
     schemas.llmSettingsSchema,
-    'Change ChatGPT model assignments for task tiers.',
+    'Change AI provider and model assignments for task tiers.',
     {
       when: 'Change tiny, medium or smart tier selection.',
       examples: ['Use Sol for everyday tasks.'],
       limits:
-        'Provider must remain 1. Models: 1=Luna, 2=Sol, 3=Astra. Each supplied tier is a complete replacement; omit model inside that tier to restore automatic selection. Never changes sign-in credentials.'
+        'ChatGPT uses provider 1 and models 1=Luna, 2=Sol, 3=Astra. API providers use their registered provider ID and one of their registered model IDs. Each supplied tier is a complete replacement; omit model inside that tier to restore automatic selection. Never changes sign-in credentials.'
     },
     (settings) => settings.llmSettings(),
     (settings, input) => settings.saveLlmSettings(input)
@@ -195,7 +195,7 @@ export const settingsTools = {
       when: 'Control background model workload.',
       examples: ['Run one AI task at a time.'],
       limits:
-        'Active work is preserved; limits apply to admission. Do not bypass ChatGPT plan limits.'
+        'Active work is preserved; limits apply to admission. Do not bypass provider usage limits.'
     },
     (settings) => settings.concurrencySettings(),
     (settings, input) =>

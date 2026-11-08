@@ -23,6 +23,7 @@ import {
   concurrencySettingsSchema,
   appearancePreferencesSchema,
   llmSettingsSchema,
+  tierSetupSchema,
   materialSettingsSchema,
   reviewSettingsSchema
 } from '@study/contracts/settings/schemas';
@@ -53,6 +54,7 @@ import type { UsageQuery } from '@study/contracts/settings/usage';
 import { Effect, Schema } from 'effect';
 
 import { SettingsStore } from '#server/features/settings/store/index';
+import { getApiKeyProvider } from '#server/platform/ai/providers/registry';
 import { defineService } from '#server/platform/definitions/define-service';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 import { UsageStore } from '#server/platform/observability/usage-store';
@@ -72,13 +74,19 @@ const appSettings = (v: Preferences): AppSettings => ({
 });
 
 const llmSettings = (v: Preferences): LlmSettings => {
-  const setup = (key: string) => ({
-    provider: LlmProvider.CHAT_GPT,
-    model:
-      typeof v[key] === 'number' && Object.values(LlmModel).some((model) => model === v[key])
-        ? (v[key] as LlmSettings['tiny']['model'])
-        : undefined
-  });
+  const setup = (key: string): LlmSettings['tiny'] => {
+    const saved = v[key];
+
+    if (Schema.is(tierSetupSchema)(saved)) return saved;
+
+    return {
+      provider: LlmProvider.CHAT_GPT,
+      model:
+        typeof saved === 'number' && Object.values(LlmModel).some((model) => model === saved)
+          ? (saved as LlmModel)
+          : undefined
+    };
+  };
 
   return { tiny: setup('tiny'), medium: setup('medium'), smart: setup('smart') };
 };
@@ -213,6 +221,15 @@ const make = Effect.gen(function* () {
       !Schema.is(llmSettingsSchema)(input)
         ? Effect.fail(new StudyError('invalid_input', 'Invalid settings'))
         : transaction((tx) => {
+            for (const setup of Object.values(input)) {
+              if (typeof setup.provider === 'string') {
+                const provider = getApiKeyProvider(setup.provider);
+
+                if (setup.model !== undefined && !provider.models.includes(setup.model))
+                  throw new StudyError('invalid_input', 'Unknown provider model');
+              }
+            }
+
             tx.store(SettingsStore).saveLlmSettings(input);
 
             return {};
@@ -245,22 +262,44 @@ const make = Effect.gen(function* () {
         ),
     model: (tier: 'tiny' | 'medium' | 'smart') =>
       store.preference('llm').pipe(
-        Effect.map((v) => {
-          const selected =
-            llmSettings(v)[tier].model ??
-            { tiny: LlmModel.GPT6_LUNA, medium: LlmModel.GPT61_SOL, smart: LlmModel.GPT6_ASTRA }[
-              tier
-            ];
-          const id = {
-            [LlmModel.GPT6_LUNA]: 'gpt-6-luna',
-            [LlmModel.GPT61_SOL]: 'gpt-6.1-sol',
-            [LlmModel.GPT6_ASTRA]: 'gpt-6-astra'
-          }[selected];
+        Effect.flatMap((v) =>
+          Effect.try({
+            try: () => {
+              const setup = llmSettings(v)[tier];
 
-          if (!id) throw new StudyError('config', 'Invalid configured model');
+              if (typeof setup.provider === 'string') {
+                const provider = getApiKeyProvider(setup.provider);
 
-          return id;
-        })
+                if (setup.model !== undefined && !provider.models.includes(setup.model))
+                  throw new StudyError('config', 'Unknown configured provider model');
+
+                return {
+                  provider: setup.provider,
+                  modelId: setup.model ?? provider.defaults[tier]
+                };
+              }
+
+              const selected =
+                setup.model ??
+                {
+                  tiny: LlmModel.GPT6_LUNA,
+                  medium: LlmModel.GPT61_SOL,
+                  smart: LlmModel.GPT6_ASTRA
+                }[tier];
+              const modelId = {
+                [LlmModel.GPT6_LUNA]: 'gpt-6-luna',
+                [LlmModel.GPT61_SOL]: 'gpt-6.1-sol',
+                [LlmModel.GPT6_ASTRA]: 'gpt-6-astra'
+              }[selected];
+
+              return { provider: setup.provider, modelId };
+            },
+            catch: (error) =>
+              error instanceof StudyError
+                ? error
+                : new StudyError('config', 'Invalid configured model')
+          })
+        )
       )
   };
 });

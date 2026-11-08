@@ -121,9 +121,9 @@ export const SettingsStore = defineStore({
           output: Schema.Void,
           run: (input) =>
             replace('llm', {
-              tiny: input.tiny.model ?? null,
-              medium: input.medium.model ?? null,
-              smart: input.smart.model ?? null
+              tiny: { ...input.tiny },
+              medium: { ...input.medium },
+              smart: { ...input.smart }
             })
         }),
         saveMaterialSettings: storeMutation({

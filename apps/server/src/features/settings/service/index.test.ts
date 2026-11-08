@@ -91,9 +91,15 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
         expect(yield* settings.materialSettings()).toStrictEqual({ sift: true });
         expect(yield* settings.reviewSettings()).toStrictEqual({ newCardsPerDay: 20 });
         assert.strictEqual(yield* settings.language(), 'english');
-        assert.strictEqual(yield* settings.model('tiny'), 'gpt-6-luna');
-        assert.strictEqual(yield* settings.model('medium'), 'gpt-6.1-sol');
-        assert.strictEqual(yield* settings.model('smart'), 'gpt-6-astra');
+        expect(yield* settings.model('tiny')).toStrictEqual({ provider: 1, modelId: 'gpt-6-luna' });
+        expect(yield* settings.model('medium')).toStrictEqual({
+          provider: 1,
+          modelId: 'gpt-6.1-sol'
+        });
+        expect(yield* settings.model('smart')).toStrictEqual({
+          provider: 1,
+          modelId: 'gpt-6-astra'
+        });
         const app = {
           language: Language.ITALIAN,
           appearance: Appearance.LIGHT,
@@ -114,12 +120,11 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
         };
 
         yield* settings.saveLlmSettings(llm);
-        expect(yield* settings.llmSettings()).toStrictEqual({
-          ...llm,
-          medium: { ...llm.medium, model: undefined },
-          smart: { ...llm.smart, model: undefined }
+        expect(yield* settings.llmSettings()).toStrictEqual(llm);
+        expect(yield* settings.model('tiny')).toStrictEqual({
+          provider: 1,
+          modelId: 'gpt-6-astra'
         });
-        assert.strictEqual(yield* settings.model('tiny'), 'gpt-6-astra');
         yield* settings.saveMaterialSettings({ sift: false });
         yield* settings.saveReviewSettings({ newCardsPerDay: 42 });
         expect(yield* settings.materialSettings()).toStrictEqual({ sift: false });
@@ -356,3 +361,52 @@ testStable(
     }
   }
 );
+
+testStable('registered provider models round-trip and reject undeclared model IDs', async () => {
+  const location = createTestDatabase();
+  const context = new ServerContext(location.open());
+  const layer = Settings.layer.pipe(
+    Layer.provideMerge(Layer.succeed(Database, { store: context }))
+  );
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const settings = yield* Settings;
+        const selection = {
+          tiny: { provider: 'deepseek' },
+          medium: { provider: 'anthropic', model: 'claude-sonnet-5-5' },
+          smart: { provider: 1 as const }
+        };
+
+        yield* settings.saveLlmSettings(selection);
+        expect(yield* settings.llmSettings()).toStrictEqual(selection);
+        expect(yield* settings.model('tiny')).toStrictEqual({
+          provider: 'deepseek',
+          modelId: 'deepseek-flash'
+        });
+        expect(yield* settings.model('medium')).toStrictEqual({
+          provider: 'anthropic',
+          modelId: 'claude-sonnet-5-5'
+        });
+        const invalid = yield* Effect.flip(
+          settings.saveLlmSettings({ ...selection, tiny: { provider: 'unknown' } })
+        );
+
+        expect(invalid.kind).toBe('invalid_input');
+        const invalidModel = yield* Effect.flip(
+          settings.saveLlmSettings({
+            ...selection,
+            medium: { provider: 'anthropic', model: 'undeclared-model' }
+          })
+        );
+
+        expect(invalidModel.kind).toBe('invalid_input');
+        expect(yield* settings.llmSettings()).toStrictEqual(selection);
+      }).pipe(Effect.provide(layer))
+    );
+  } finally {
+    context.close();
+    location.cleanup();
+  }
+});

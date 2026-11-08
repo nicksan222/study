@@ -28,7 +28,8 @@ vi.mock('#web/lib/study-client/ai-settings.ts', () => ({
   finishChatGptSignIn: vi.fn(),
   cancelChatGptSignIn: vi.fn(),
   signOutChatGpt: vi.fn(),
-  saveAiSettings: vi.fn()
+  saveAiSettings: vi.fn(),
+  saveProviderApiKey: vi.fn()
 }));
 
 const settings = {
@@ -40,6 +41,7 @@ const settings = {
 function mount(Section = AiAccountSettings) {
   vi.mocked(operations.loadAiSettings).mockResolvedValue({
     settings,
+    providers: [],
     status: { signedIn: false, email: null, sharing: false }
   });
   const client = new QueryClient({
@@ -58,7 +60,7 @@ testStable('saves a canonical model change while preserving the other tiers', as
   mount(AiModelSettings);
   const user = userEvent.setup();
 
-  await user.click(await screen.findByRole('combobox', { name: 'Everyday tasks' }));
+  await user.click((await screen.findAllByRole('combobox', { name: 'Model' }))[1]!);
   await user.click(await screen.findByRole('option', { name: 'GPT-6 Astra' }));
   await waitFor(() =>
     expect(operations.saveAiSettings).toHaveBeenCalledWith({
@@ -153,6 +155,7 @@ testStable(
     vi.mocked(operations.finishChatGptSignIn).mockImplementation(async () => {
       vi.mocked(operations.loadAiSettings).mockResolvedValue({
         settings,
+        providers: [],
         status: { signedIn: true, email: 'learner@example.com', sharing: true }
       });
 

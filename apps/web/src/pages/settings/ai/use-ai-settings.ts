@@ -1,6 +1,4 @@
 import { StudyError } from '@study/contracts/errors';
-import type { ModelTier } from '@study/contracts/settings/schemas';
-import type { LlmModel, LlmSettings } from '@study/contracts/settings/types';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
@@ -13,10 +11,10 @@ import {
   finishSignInOptions,
   cancelSignInOptions,
   signOutOptions,
-  saveModelsOptions,
   disposeSignIn
 } from './ai.queries';
 import type { SignInAttempt } from './ai.queries';
+import { useProviderSettings } from './use-provider-settings';
 
 function requestState(results: readonly { isPending: boolean; isError: boolean }[]) {
   return {
@@ -39,9 +37,19 @@ async function openAttemptBrowser(browser: SignInBrowser | undefined, attempt: S
   }
 }
 
-export function useAiSettings() {
+/** Keep settings refresh ownership shared by sign-in and provider configuration. */
+function useSettingsQuery() {
   const client = useQueryClient();
   const query = useQuery(aiSettingsQueryOptions());
+
+  return {
+    query,
+    refresh: () => client.invalidateQueries({ queryKey: aiSettingsQueryOptions().queryKey })
+  };
+}
+
+export function useAiSettings() {
+  const { query, refresh } = useSettingsQuery();
   const [attempt, setAttempt] = useState<SignInAttempt>();
   const [popupBlocked, setPopupBlocked] = useState(false);
   const browser = useRef<SignInBrowser | undefined>(undefined);
@@ -52,7 +60,6 @@ export function useAiSettings() {
   const owned = useRef<SignInAttempt | undefined>(undefined);
   const mounted = useRef(true);
   const finishing = useRef<AbortController | undefined>(undefined);
-  const refresh = () => client.invalidateQueries({ queryKey: aiSettingsQueryOptions().queryKey });
   const start = useMutation({
     ...startSignInOptions(),
     onSuccess: async (value) => {
@@ -110,7 +117,7 @@ export function useAiSettings() {
     }
   });
   const signOut = useMutation({ ...signOutOptions(), onSuccess: refresh });
-  const save = useMutation({ ...saveModelsOptions(), onSuccess: refresh });
+  const models = useProviderSettings(query.data, refresh);
 
   useEffect(() => {
     mounted.current = true;
@@ -124,28 +131,17 @@ export function useAiSettings() {
     };
   }, []);
 
-  function setModel(tier: ModelTier, model: LlmModel | undefined) {
-    if (!query.data) return;
-
-    const settings: LlmSettings = {
-      ...query.data.settings,
-      [tier]: { provider: query.data.settings[tier].provider, model }
-    };
-
-    save.mutate(settings);
-  }
-
   return {
     data: query.data,
     signInUnsupported: isUnsupportedSignIn(start.error),
     loading: query.isPending,
     ...requestState([
-      { isPending: false, isError: query.isError },
+      { isPending: false, isError: query.isError || models.error },
       start,
       { isPending: finish.isPending, isError: finish.isError && !cancel.isPending },
       cancel,
       signOut,
-      save
+      { isPending: models.pending, isError: false }
     ]),
     cancelling: cancel.isPending,
     attempt,
@@ -155,7 +151,7 @@ export function useAiSettings() {
       finish.reset();
       cancel.reset();
       signOut.reset();
-      save.reset();
+      models.retry();
       void query.refetch();
     },
     start: () => {
@@ -169,7 +165,11 @@ export function useAiSettings() {
       if (attempt) cancel.mutate(attempt.attemptId);
     },
     signOut: () => signOut.mutate(),
-    setModel
+    credentialProvider: models.credentialProvider,
+    selectCredentialProvider: models.selectCredentialProvider,
+    setModel: models.setModel,
+    setProvider: models.setProvider,
+    saveApiKey: models.saveApiKey
   };
 }
 

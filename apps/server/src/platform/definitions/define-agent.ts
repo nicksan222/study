@@ -46,7 +46,7 @@ const toolDeclaration = Symbol('AgentTool');
 /** Provider-executed capabilities must be explicitly declared in an agent's tools. */
 export interface ProviderTool {
   readonly [toolDeclaration]: true;
-  provider: 'openai.web_search';
+  provider: 'web_search';
   description: string;
   wiki: ToolWiki;
   mutates: false;

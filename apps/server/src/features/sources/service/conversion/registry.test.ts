@@ -35,7 +35,7 @@ testStable(
     ]);
 
     expect(registry.list('english')).toEqual([
-      { id: 'test', name: 'ChatGPT', supportedInputs: ['text'] }
+      { id: 'test', name: 'AI text conversion', supportedInputs: ['text'] }
     ]);
     expect(
       await Effect.runPromise(registry.convert('test', { kind: 'text', text: 'Original' }, context))

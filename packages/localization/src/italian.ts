@@ -78,7 +78,7 @@ export const italian = Object.freeze({
   UsageTokens: 'Token',
   UsageShare: 'Quota',
   UsageExplanation:
-    'Registra da ora l’utilizzo riportato dai provider in Study, inclusi i passaggi degli strumenti e i tentativi che riportano token. Le chiamate interrotte senza dati non sono disponibili. La cache è inclusa nell’input; il ragionamento nell’output. Non rappresenta l’utilizzo dell’intero account o il limite del piano ChatGPT.',
+    'Registra da ora l’utilizzo riportato dai provider in Study, inclusi i passaggi degli strumenti e i tentativi che riportano token. Le chiamate interrotte senza dati non sono disponibili. La cache è inclusa nell’input; il ragionamento nell’output. Non rappresenta l’utilizzo dell’intero account o una fattura del provider.',
 
   AssistantHistory: 'Cronologia chat',
   AssistantNewChat: 'Nuova chat',
@@ -166,7 +166,7 @@ export const italian = Object.freeze({
   AssistantEarlier: 'Messaggi precedenti',
   AssistantReplyFailed: 'L’Assistente non ha potuto completare la risposta.',
   AssistantStopped: 'Risposta interrotta.',
-  AssistantSignIn: 'Accedi da Impostazioni → Account ChatGPT, poi riprova.',
+  AssistantSignIn: 'Collega un provider in Impostazioni → Provider IA, poi riprova.',
   AssistantActionFailed: 'Impossibile completare l’azione. Riprova.',
   AssistantStop: 'Interrompi risposta',
   AssistantLoadFailed: 'Impossibile caricare o inviare la conversazione. La bozza è ancora qui.',
@@ -217,11 +217,11 @@ export const italian = Object.freeze({
   SessionConversionFailedHelp:
     'La nota originale è conservata. Riprova la conversione salvata o elimina il tentativo non riuscito.',
   SessionDiscardConversion: 'Elimina conversione',
-  ConversionChatGpt: 'ChatGPT',
+  ConversionChatGpt: 'Conversione testo con IA',
   SessionConvertText: 'Converti in testo',
   WorkspaceConversionMode: 'Conversione del testo',
   WorkspaceConversionModeHelp:
-    'Crea una versione di testo ripulita delle note su più righe e degli allegati PDF dopo il salvataggio. Le versioni originali vengono conservate. I documenti vengono inviati a ChatGPT.',
+    'Crea una versione di testo ripulita delle note su più righe e degli allegati PDF dopo il salvataggio. Le versioni originali vengono conservate. I documenti vengono inviati al provider selezionato per l’attività.',
   WorkspaceConversionManual: 'Manuale',
   WorkspaceConversionAutomatic: 'Automatica',
   WorkspaceConversionStrategy: 'Metodo di conversione',
@@ -447,7 +447,7 @@ export const italian = Object.freeze({
   DocumentsMergeInstruction: 'Istruzioni (facoltative)',
   DocumentsMerging: 'Unione dei documenti…',
   DocumentsMergeSetup:
-    'Accedi a ChatGPT nelle Impostazioni, poi riprova l’unione. Gli originali sono ancora disponibili.',
+    'Collega un provider IA nelle Impostazioni, poi riprova l’unione. Gli originali sono ancora disponibili.',
   DocumentsMergeInputsChanged:
     'Un documento selezionato è cambiato o non è disponibile. Annulla questa unione e seleziona i documenti attuali.',
   DocumentsMergeFailed: 'Impossibile completare l’unione. Gli originali sono ancora disponibili.',
@@ -1209,7 +1209,7 @@ export const italian = Object.freeze({
     'L’appunto potrebbe essere già salvato. Controlla il quaderno prima di inviarlo di nuovo. Non è stato ritentato automaticamente.',
   SessionReviewedHistory: 'Ho controllato il quaderno; conserva la bozza',
   SessionAuthError:
-    'Accedi a ChatGPT nelle impostazioni, poi ritenta la richiesta. La bozza è conservata.',
+    'Controlla la connessione o la chiave API del provider IA selezionato nelle Impostazioni, poi riprova. La bozza è conservata.',
   SessionConflict:
     'La richiesta non corrisponde più allo stato salvato. Le modifiche sono conservate; controlla la selezione prima di inviare di nuovo.',
   SessionRequestError:
@@ -1217,7 +1217,7 @@ export const italian = Object.freeze({
   SessionThinking: 'Sto pensando…',
   SessionPending: 'Richiesta accettata; in attesa del risultato.',
   SessionWaiting:
-    'Il lavoro è in attesa. Se non prosegue, controlla l’accesso a ChatGPT nelle impostazioni.',
+    'Il lavoro è in attesa. Se non prosegue, controlla il provider IA selezionato nelle Impostazioni.',
   SessionCompleted: 'Lavoro completato',
   SessionCancelled: 'Lavoro annullato',
   SessionCancelling: 'Annullamento richiesto',
@@ -1387,7 +1387,7 @@ export const italian = Object.freeze({
   ReaderOmitMarkup: 'Markup non supportato',
   LibraryPrevious: 'Torna alla vista precedente',
 
-  AiSettingsAccount: 'Account ChatGPT',
+  AiSettingsAccount: 'Provider IA',
   AiSettingsChatGpt: 'ChatGPT',
   AiSettingsPlanDescription:
     'Collega il tuo account ChatGPT per eseguire le attività IA con il tuo piano.',
@@ -1401,14 +1401,27 @@ export const italian = Object.freeze({
   AiSettingsWaiting: 'In attesa dell’accesso a ChatGPT.',
   AiSettingsFailed:
     'Impossibile aggiornare le impostazioni IA. Riprova per verificare la connessione.',
+  AiSettingsProvider: 'Provider',
+  AiSettingsCredentialsIntro:
+    'Collega un account o salva una chiave API, poi scegli le attività che lo usano in Modelli per attività.',
+  AiSettingsApiProviders: 'Provider API',
+  AiSettingsApiProvidersDescription:
+    'Facoltativo: usa le tue chiavi API. Le richieste sono fatturate dal provider selezionato. Le chiavi restano nel database locale e sono escluse dai backup.',
+  AiSettingsProviderBrand: '{provider}',
+  AiSettingsApiKey: 'Chiave API',
+  AiSettingsSaveKey: 'Salva chiave',
+  AiSettingsRemoveKey: 'Rimuovi chiave',
+  AiSettingsKeySaved: 'Chiave salvata. Inserisci una nuova chiave per sostituirla.',
+  AiSettingsKeyMissing: 'Nessuna chiave salvata.',
+  AiSettingsModel: 'Modello',
   AiSettingsModels: 'Modelli per attività',
   AiSettingsDefaultModel: 'Usa predefinito',
   AiSettingsTiny: 'Attività rapide',
-  AiSettingsTinyDescription: 'Predefinito: GPT-6 Luna.',
+  AiSettingsTinyDescription: 'Per titoli e altre attività brevi.',
   AiSettingsMedium: 'Attività quotidiane',
-  AiSettingsMediumDescription: 'Predefinito: GPT-6.1 Sol.',
+  AiSettingsMediumDescription: 'Per risposte e attività di studio quotidiane.',
   AiSettingsSmart: 'Attività complesse',
-  AiSettingsSmartDescription: 'Predefinito: GPT-6 Astra.',
+  AiSettingsSmartDescription: 'Per ragionamento e materiale di studio complesso.',
   AiSettingsLuna: 'GPT-6 Luna',
   AiSettingsSol: 'GPT-6.1 Sol',
   AiSettingsAstra: 'GPT-6 Astra',
@@ -1550,9 +1563,9 @@ export const italian = Object.freeze({
   OnboardingReplayDescription: 'Scopri le sessioni, gli strumenti di studio e come iniziare.',
   OnboardingSaveFailed:
     'Non è stato possibile salvare i progressi. Riprova per completare il benvenuto.',
-  OnboardingConnectTitle: 'Collega il tuo ChatGPT',
+  OnboardingConnectTitle: 'Collega un provider IA',
   OnboardingConnectDescription:
-    'Accedi con il tuo piano ChatGPT per fare domande e creare materiale di studio. Puoi farlo anche in seguito dalle Impostazioni.',
+    'Collega un account o aggiungi una chiave API per fare domande e creare materiale di studio. Puoi farlo anche in seguito dalle Impostazioni.',
   OnboardingLanguageIntro: 'Scegli la lingua in cui ti senti a casa.',
   OnboardingAppearanceIntro: 'Segui il sistema o scegli il tema chiaro o scuro.',
   OnboardingWelcomeSimple:
@@ -1604,13 +1617,14 @@ export const italian = Object.freeze({
   OnboardingNotesHint: 'Solo un appunto che menziona @study riceve una risposta.',
   OnboardingAiTitle: "Dove lavora l'IA",
   OnboardingAiIntro:
-    "Study legge, scrive e risponde con il tuo piano ChatGPT. Solo l'ascolto delle registrazioni e la ricerca funzionano qui, in privato, una volta scaricati i loro modelli.",
+    'Study legge, scrive e risponde con il provider IA selezionato. Le funzionalità locali vengono eseguite su questo computer.',
   OnboardingAiDownload: 'Scarica ciò che funziona qui',
   OnboardingAiDownloading: "Download dei modelli… può richiedere un po' di tempo.",
   OnboardingAiDownloaded: 'Tutto ciò che funziona qui è scaricato.',
   OnboardingAiChatGpt:
-    'Accedi con ChatGPT Plus o Pro: la lettura dei file, il materiale di studio e le risposte usano il tuo piano.',
-  OnboardingAiChatGptReady: 'I modelli linguistici usano il tuo piano ChatGPT.',
+    'Collega un provider e scegli un modello per ogni tipo di attività nelle Impostazioni.',
+  OnboardingAiChatGptReady:
+    'I modelli linguistici usano il provider selezionato per ogni attività.',
   OnboardingAiWaitForModels:
     'Quando continui, ciò che funziona qui si scarica in background e intanto puoi già studiare.',
   OnboardingAiLater: 'Puoi cambiare tutto in seguito dalle Impostazioni, alla voce IA.',
@@ -1762,7 +1776,7 @@ export const italian = Object.freeze({
   VersionFailed: 'Non riuscita',
   VersionNew: 'Nuova versione',
   StopVersion: 'Ferma la nuova versione',
-  VersionWaitingSignIn: "In attesa dell'accesso a ChatGPT",
+  VersionWaitingSignIn: 'In attesa della connessione a un provider IA',
   VersionSignIn: 'Accedi',
   RewriteInstructionHint: 'Invio per eseguire',
   AiEdit: 'Modifica con IA',
@@ -2082,7 +2096,7 @@ export const italian = Object.freeze({
   StopJob: 'Ferma',
   RetryJob: 'Riprova',
   JobActionError: 'Impossibile modificare questa attività. Riprova.',
-  SetupSignIn: 'Accedi a ChatGPT',
+  SetupSignIn: 'Collega un provider',
   SetupAction: 'Configura',
   StageFetch: 'Recupero del link',
   StageTranscription: 'Trascrizione',
@@ -2106,7 +2120,8 @@ export const italian = Object.freeze({
   ActivityWorking: 'Al lavoro',
   ActivityWriting: 'Scrittura',
   ActivityChecking: 'Correzione',
-  ProblemSignIn: 'ChatGPT non ha accettato il tuo accesso. Accedi di nuovo nelle Impostazioni.',
+  ProblemSignIn:
+    'Il provider selezionato ha rifiutato le credenziali. Controlla la connessione o la chiave API nelle Impostazioni.',
   ProblemConnection:
     'Impossibile raggiungere il servizio online. Controlla la connessione a internet e riprova.',
   ProblemBusy: 'Il servizio online è occupato in questo momento. Riprova tra un minuto.',
@@ -2213,10 +2228,10 @@ export const italian = Object.freeze({
   AiSetUp: 'Configura',
   AiOpen: 'Apri',
   AiPrivacyNote:
-    'Trascrizione e ricerca funzionano su questo computer, e ciò che leggono non lo lascia mai. Il resto passa dal tuo piano ChatGPT, che riceve solo ciò che serve a ogni attività.',
-  SetupLlmTitle: 'Collega il tuo piano ChatGPT',
+    'Le funzionalità locali vengono eseguite su questo computer. Le attività IA inviano al provider selezionato solo il materiale necessario.',
+  SetupLlmTitle: 'Collega un provider IA',
   SetupLlmBody:
-    'Study scrive diagrammi, flashcard e risposte con il tuo piano ChatGPT. Accedi una volta e vale per tutto.',
+    'Collega un account o inserisci una chiave API, poi scegli i modelli per diagrammi, flashcard e risposte.',
   SetupTranscriptionTitle: 'Scarica il modello di trascrizione',
   SetupTranscriptionBody:
     'Le registrazioni diventano testo su questo computer, senza mai lasciarlo. Il modello si scarica una volta sola.',
@@ -2230,23 +2245,23 @@ export const italian = Object.freeze({
   CountError: 'Usa un numero intero di copie del modello, da 1 a 4.',
   TestConnection: 'Prova la connessione',
   TestingConnection: 'Prova della connessione…',
-  ConnectionOk: 'Connesso. ChatGPT ha accettato una richiesta di prova.',
-  ConnectionFailed: "ChatGPT non ha accettato la prova. Controlla l'accesso e i nomi dei modelli.",
+  ConnectionOk: 'Connesso. Il provider ha accettato una richiesta di prova.',
+  ConnectionFailed:
+    'Il provider non ha accettato la prova. Controlla le credenziali e l’ID del modello.',
   ModelInstalled: 'Installato',
   DownloadModel: 'Scarica il modello',
   DownloadingModel: 'Download del modello…',
   ModelDownloadError: 'Impossibile scaricare il modello. Controlla la connessione e riprova.',
   Transcription: 'Trascrizione',
   TranscriptionDescription:
-    'Study trasforma lezioni e registrazioni in testo su questo computer; il tuo piano ChatGPT poi corregge ciò che ha sentito.',
+    'Study trasforma le registrazioni in testo e usa il provider IA selezionato per eventuali correzioni della trascrizione.',
   TranscriptionMenuSubtitle: 'Riconoscimento vocale su questo computer',
   TranscriptionLoadError: 'Impossibile caricare le impostazioni di trascrizione. Riprova.',
   ModelCopiesHint: 'Ogni copia usa circa 2 GB di memoria e trascrive in parallelo.',
   LocalModelReady: 'Il modello è scaricato e pronto.',
   LocalModelMissing: 'Il modello non è ancora stato scaricato.',
   Llm: 'Modelli linguistici',
-  LlmDescription:
-    'Study usa il tuo piano ChatGPT: accedi, poi scegli il modello per ogni tipo di attività.',
+  LlmDescription: 'Collega un provider, poi scegli il modello per ogni tipo di attività.',
   LlmMenuSubtitle: 'Modelli per ogni tipo di attività',
   LlmLoadError: 'Impossibile caricare le impostazioni dei modelli linguistici. Riprova.',
   LlmProviderChatGpt: 'Il tuo piano ChatGPT',

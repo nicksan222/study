@@ -7,7 +7,8 @@ import {
   finishChatGptSignIn,
   cancelChatGptSignIn,
   signOutChatGpt,
-  saveAiSettings
+  saveAiSettings,
+  saveProviderApiKey
 } from '#web/lib/study-client/ai-settings.ts';
 
 export type SignInAttempt = Awaited<ReturnType<typeof startChatGptSignIn>>;
@@ -37,3 +38,6 @@ export const saveModelsOptions = () =>
 
 // This owns only the attempt started by this mounted settings section.
 export const disposeSignIn = (attemptId: string) => cancelChatGptSignIn(attemptId);
+
+export const saveApiKeyOptions = () =>
+  mutationOptions({ mutationFn: saveProviderApiKey, gcTime: 0 });

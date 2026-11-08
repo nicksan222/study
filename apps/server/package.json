@@ -17,7 +17,10 @@
     "start": "bun src/runtime/main.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "3.0.135",
+    "@ai-sdk/google": "3.0.139",
     "@ai-sdk/openai": "3.0.132",
+    "@ai-sdk/openai-compatible": "2.0.87",
     "@ai-sdk/provider": "3.0.19",
     "@effect/platform-node": "4.0.7",
     "@huggingface/transformers": "4.3.2",
