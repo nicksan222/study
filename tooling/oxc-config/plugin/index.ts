@@ -8,6 +8,7 @@ import persistenceRules from './persistence-rules.ts';
 import activityHarness from './rules/activity-harness.ts';
 import assertionBoundary from './rules/assertion-boundary.ts';
 import browserBoundary from './rules/browser-boundary.ts';
+import cleanupHarness from './rules/cleanup-harness.ts';
 import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
 import decodePersistedJson from './rules/decode-persisted-json.ts';
@@ -62,6 +63,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'cleanup-harness': cleanupHarness,
     'activity-harness': activityHarness,
     'definition-generators': definitionGenerators,
     'assertion-boundary': assertionBoundary,
