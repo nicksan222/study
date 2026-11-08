@@ -12,7 +12,7 @@ const isComparison = Schema.is(comparisonSchema);
 
 const isExtraction = Schema.is(exactExtractionSchema);
 
-const isSourceCopy = Schema.is(Schema.Struct({ document: detailSchema }));
+const isSourceCopy = Schema.is(Schema.Struct({ page: detailSchema }));
 
 function comparisonBody(data: unknown, owner: PageOwner, ids: Set<string>) {
   return (
@@ -89,8 +89,8 @@ export async function releaseBodyPreviews(cache: QueryClient, owner: PageOwner |
       if (queryKey[0] === 'source-copy') {
         return (
           isSourceCopy(state.data) &&
-          String(state.data.document.id) === owner.pageId &&
-          ids.has(String(state.data.document.version?.id))
+          String(state.data.page.id) === owner.pageId &&
+          ids.has(String(state.data.page.version?.id))
         );
       }
 

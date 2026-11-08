@@ -226,7 +226,7 @@ for (const scenario of [
               instruction: 'Clarify',
               preferences: {}
             });
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               title: 'Proposal',
               contextRequestId: context.requestId,
               operations: ['clarity'],
@@ -314,7 +314,7 @@ for (const scenario of [
               { ...value, key: 'wrong-expected', expectedVersionId: setup.input.version.id }
             ]) {
               assert.ok(
-                (yield* Effect.flip(chats.applyDocumentProposal(invalid))).kind === 'invalid_input'
+                (yield* Effect.flip(chats.applyPageProposal(invalid))).kind === 'invalid_input'
               );
               expect(output()).toStrictEqual(before);
             }
@@ -323,21 +323,21 @@ for (const scenario of [
               f.context.db.exec(
                 "CREATE TRIGGER reject_proposal_event BEFORE INSERT ON workflow_events WHEN NEW.type='PagePublished' BEGIN SELECT RAISE(ABORT,'injected apply failure'); END"
               );
-              yield* Effect.flip(chats.applyDocumentProposal(value));
+              yield* Effect.flip(chats.applyPageProposal(value));
               expect(output()).toStrictEqual(before);
               f.context.db.exec('DROP TRIGGER reject_proposal_event');
             }
 
-            const result = yield* chats.applyDocumentProposal(value);
+            const result = yield* chats.applyPageProposal(value);
 
             assert.strictEqual(result.outcome, scenario === 'apply' ? 'applied' : 'conflict');
             const after = output();
 
-            assert.ok((yield* chats.applyDocumentProposal(value)).replayed === true);
+            assert.ok((yield* chats.applyPageProposal(value)).replayed === true);
             expect(output()).toStrictEqual(after);
             assert.ok(
               (yield* Effect.flip(
-                chats.keepDocumentProposal({
+                chats.keepPageProposal({
                   requestId: value.requestId,
                   key: value.key,
                   title: 'Independent'
@@ -346,7 +346,7 @@ for (const scenario of [
             );
             assert.ok(
               (yield* Effect.flip(
-                chats.applyDocumentProposal({
+                chats.applyPageProposal({
                   ...value,
                   expectedVersionId: setup.input.version.id
                 })
@@ -365,7 +365,7 @@ for (const scenario of [
                 "CREATE TRIGGER reject_keep_event BEFORE INSERT ON workflow_events WHEN NEW.type='PagePublished' BEGIN SELECT RAISE(ABORT,'injected keep failure'); END"
               );
               yield* Effect.flip(
-                chats.keepDocumentProposal({
+                chats.keepPageProposal({
                   requestId: setup.request.id,
                   key: 'keep',
                   title: 'Independent'
@@ -374,12 +374,12 @@ for (const scenario of [
               expect(output()).toStrictEqual(beforeKeep);
               f.context.db.exec('DROP TRIGGER reject_keep_event');
               assert.ok(
-                (yield* Effect.flip(chats.applyDocumentProposal({ ...value, key: 'second-apply' })))
+                (yield* Effect.flip(chats.applyPageProposal({ ...value, key: 'second-apply' })))
                   .kind === 'invalid_input'
               );
             }
 
-            const kept = yield* chats.keepDocumentProposal({
+            const kept = yield* chats.keepPageProposal({
               requestId: setup.request.id,
               key: 'keep',
               title: 'Independent'
@@ -393,7 +393,7 @@ for (const scenario of [
             expect(independent.inputs).toStrictEqual(proposal.inputs);
             expect(independent.citations).toStrictEqual(proposal.citations);
             assert.ok(
-              (yield* chats.keepDocumentProposal({
+              (yield* chats.keepPageProposal({
                 requestId: setup.request.id,
                 key: 'keep',
                 title: 'Independent'
@@ -402,7 +402,7 @@ for (const scenario of [
             yield* assertSupport(docs, independent.id, undefined);
             assert.ok(
               (yield* Effect.flip(
-                chats.keepDocumentProposal({
+                chats.keepPageProposal({
                   requestId: setup.request.id,
                   key: 'second-keep',
                   title: 'Independent'
@@ -455,7 +455,7 @@ for (const scenario of [
 
             assert.ok((yield* docs.version({ id: outcomes.independentId })).status === 'published');
             assert.ok(
-              (yield* chats.keepDocumentProposal({
+              (yield* chats.keepPageProposal({
                 requestId: setup.request.id,
                 key: 'keep',
                 title: 'Independent'
@@ -522,7 +522,7 @@ for (const barrier of ['cancel', 'delete'] as const)
               instruction: '',
               preferences: {}
             });
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               title: 'Proposal',
               contextRequestId: context.requestId,
               operations: ['structure'],
@@ -590,7 +590,7 @@ testStable(
 
             expect(context.inputs[0]?.scope).toStrictEqual({ kind: 'document' });
             expect(context.inputs[0]?.excerpts.map(({ text }) => text)).toStrictEqual([block.text]);
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               title: 'Whole-document target',
               contextRequestId: context.requestId,
               operations: ['clarity'],

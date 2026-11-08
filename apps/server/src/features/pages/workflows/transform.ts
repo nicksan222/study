@@ -97,7 +97,7 @@ export const pageTransformHandler = ({ event }: typeof pageTransformWorkflow.pay
         error: failureSchema,
         execute: withPublicationGuard(
           database.store,
-          request.merge ? docs.publishMerge(output) : notes.publishDocumentTransform(output)
+          request.merge ? docs.publishMerge(output) : notes.publishPageTransform(output)
         )
       });
     }).pipe(

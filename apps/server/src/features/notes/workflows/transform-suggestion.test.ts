@@ -200,6 +200,7 @@ testStable(
       assert.ok(bodies[0]!.includes('Mitosis produces two daughter cells.'));
       assert.ok(bodies[0]!.includes('Chloroplasts capture light.'));
       assert.ok(bodies[0]!.includes('Italian'));
+      assert.ok(bodies[0]!.includes('Write a concise Page title'));
       assert.ok(bodies[0]!.includes('Chromosomes carry genetic information.'));
       assert.strictEqual(
         (await run(Effect.flatMap(Notes, (c) => c.note(first.id)))).title,

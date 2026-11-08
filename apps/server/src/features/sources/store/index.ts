@@ -621,7 +621,7 @@ export const SourceSnapshotStore = defineStore({
 
 export const SourceDocumentStore = defineStore({
   name: 'study/SourceDocumentStore',
-  entity: { singular: 'sourceDocument', plural: 'sourcePages' },
+  entity: { singular: 'sourceDocument', plural: 'sourceDocuments' },
   make: ({ db, clock }) => {
     const { readDocument, find } = makeHelpers({ db, clock });
 

@@ -97,10 +97,10 @@ function NoteFiles({
         <NotePageCard
           key={String(material.id)}
           noteId={id}
-          document={material}
+          page={material}
           active={false}
           compact
-          onOpen={(document) => onOpenPage?.(document)}
+          onOpen={(page) => onOpenPage?.(page)}
         />
       ))}
       {thread.hasNextPage && (

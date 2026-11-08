@@ -19,18 +19,18 @@ import {
   notebookDeletionPreviewOptions
 } from './notebook-deletion.queries';
 
-/** Notebook actions keep whole-document deletion separate from one exact historical body. */
+/** Notebook actions keep whole-page deletion separate from one exact historical body. */
 export function PageNotebookDeletion({
-  document,
+  page,
   onDeleted,
   renderActions
 }: {
-  document: PageSummary;
+  page: PageSummary;
   onDeleted?: () => void;
   renderActions?: (actions: ItemDeletionActions) => ReactNode;
 }) {
   const { t } = useI18n();
-  const model = usePageNotebookDeletion(document, onDeleted);
+  const model = usePageNotebookDeletion(page, onDeleted);
   const { mode, open } = model;
 
   return (
@@ -85,44 +85,42 @@ function PageDeletionDialog({ model }: { model: Model }) {
 
 function usePageDeletionCopy(model: Model) {
   const { t } = useI18n();
-  const { document, mode, confirming, selectedVersion, versionId, preview } = model;
+  const { page, mode, confirming, selectedVersion, versionId, preview } = model;
   const label = t(mode === 'item' ? 'NoteDeleteItem' : 'NoteDeleteVersion');
   const title = mode === 'version' && !confirming ? t('NoteDeleteChooseVersion') : label;
-  let description = document.title;
+  let description = page.title;
 
   if (mode === 'item') description = t('NoteDeleteItemHelp');
   else if (confirming)
     description = t('NoteDeleteChosenVersionHelp', {
       version: t('ReaderVersion') + ' ' + String(selectedVersion?.number),
-      name: document.title
+      name: page.title
     });
 
   const confirmation = confirming
     ? {
         identity:
-          String(document.id) + ':' + mode + ':' + String(versionId) + ':' + preview.data?.token,
-        value: document.title,
-        label: t('DeleteConfirmationInstruction', { word: document.title })
+          String(page.id) + ':' + mode + ':' + String(versionId) + ':' + preview.data?.token,
+        value: page.title,
+        label: t('DeleteConfirmationInstruction', { word: page.title })
       }
     : null;
 
   return { label, title, description, confirmation };
 }
 
-function usePageNotebookDeletion(document: PageSummary, onDeleted?: () => void) {
+function usePageNotebookDeletion(page: PageSummary, onDeleted?: () => void) {
   const cache = useQueryClient();
   const [mode, setMode] = useState<'item' | 'version'>();
   const [versionId, setVersionId] = useState<PageVersionId>();
   const history = useInfiniteQuery({
-    ...pageHistoryOptions(document.id),
+    ...pageHistoryOptions(page.id),
     enabled: mode === 'version'
   });
-  const preview = useQuery(
-    notebookDeletionPreviewOptions({ pageId: document.id, mode, versionId })
-  );
+  const preview = useQuery(notebookDeletionPreviewOptions({ pageId: page.id, mode, versionId }));
   const remove = useMutation({
     ...notebookDeletionOptions({
-      pageId: document.id,
+      pageId: page.id,
       mode,
       versionId,
       token: preview.data?.token
@@ -132,7 +130,7 @@ function usePageNotebookDeletion(document: PageSummary, onDeleted?: () => void) 
 
       await releaseBodyPreviews(cache, {
         kind: 'page',
-        pageId: String(document.id),
+        pageId: String(page.id),
         versionIds: preview.data.versionIds.map(String)
       });
       await invalidatePages(cache);
@@ -144,7 +142,7 @@ function usePageNotebookDeletion(document: PageSummary, onDeleted?: () => void) 
       if (preview.data)
         await releaseBodyPreviews(cache, {
           kind: 'page',
-          pageId: String(document.id),
+          pageId: String(page.id),
           versionIds: preview.data.versionIds.map(String)
         });
     }
@@ -165,7 +163,7 @@ function usePageNotebookDeletion(document: PageSummary, onDeleted?: () => void) 
   }
 
   return {
-    document,
+    page,
     mode,
     setMode,
     versionId,
@@ -184,7 +182,7 @@ type Model = ReturnType<typeof usePageNotebookDeletion>;
 
 function PageVersionChoices({ model }: { model: Model }) {
   const { t, date } = useI18n();
-  const { document, versionId, setVersionId, history, preview } = model;
+  const { page, versionId, setVersionId, history, preview } = model;
   const versions = history.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
@@ -195,8 +193,8 @@ function PageVersionChoices({ model }: { model: Model }) {
           id: version.id,
           label: t('ReaderVersion') + ' ' + String(version.number),
           description: date(version.createdAt),
-          disabled: version.id === document.headVersionId,
-          status: version.id === document.headVersionId ? t('ReaderCurrent') : undefined
+          disabled: version.id === page.headVersionId,
+          status: version.id === page.headVersionId ? t('ReaderCurrent') : undefined
         }))}
         selected={versionId}
         pending={preview.isFetching}

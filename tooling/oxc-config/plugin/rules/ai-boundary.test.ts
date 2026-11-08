@@ -88,7 +88,7 @@ testStable(
       import { generateAgent } from '#server/platform/ai/agents';
       export const generate = (input) => generateAgent(agent, input, { maxRetries: 0, preflight: check });
     `,
-      'src/features/materials/workflows/document-transform.ts': `
+      'src/features/pages/workflows/page-transform.ts': `
       import { Activity } from 'effect/workflow';
       import { Effect } from 'effect';
       import { generateAgent } from '#server/platform/ai/agents';

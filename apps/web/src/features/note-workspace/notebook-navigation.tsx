@@ -37,15 +37,15 @@ export function NotebookNavigation({
       )}
       {entries.map((entry) => {
         if (entry.kind === 'page') {
-          const target = notebookTargetId(id, 'page', entry.document.id);
+          const target = notebookTargetId(id, 'page', entry.page.id);
 
           return (
             <NotebookRail.Marker
               key={target}
               target={target}
               kind="page"
-              label={entry.document.title}
-              preview={entry.document.title}
+              label={entry.page.title}
+              preview={entry.page.title}
               onSelect={() => jumpToNotebookTarget(target)}
             />
           );

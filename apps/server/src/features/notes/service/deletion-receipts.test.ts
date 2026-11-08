@@ -22,7 +22,7 @@ import { assert } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import {
-  validDocumentTransformOutput,
+  validPageTransformOutput,
   setup,
   cleanup,
   assertScrubbed,
@@ -42,7 +42,7 @@ testStable(
 
       f.replies.push(
         { kind: 'sources', query: 'independent' },
-        { kind: 'output', output: validDocumentTransformOutput('Independent proposal [1]') }
+        { kind: 'output', output: validPageTransformOutput('Independent proposal [1]') }
       );
       await f.executeAuthored(f.authoredEvent(saved.request.id), 'exact-receipt-proposal');
       const keepValue = {
@@ -58,8 +58,8 @@ testStable(
       const retained = await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;
-          const keep = yield* chats.keepDocumentProposal(keepValue);
-          const apply = yield* chats.applyDocumentProposal(applyValue);
+          const keep = yield* chats.keepPageProposal(keepValue);
+          const apply = yield* chats.applyPageProposal(applyValue);
 
           assert.ok(apply.outcome === 'applied');
           assert.ok(keep.resultVersionId);
@@ -77,23 +77,23 @@ testStable(
           Effect.gen(function* () {
             const chats = yield* Notes;
 
-            expect(yield* chats.keepDocumentProposal(keepValue)).toStrictEqual({
+            expect(yield* chats.keepPageProposal(keepValue)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
-            expect(yield* chats.applyDocumentProposal(applyValue)).toStrictEqual({
+            expect(yield* chats.applyPageProposal(applyValue)).toStrictEqual({
               ...retained.apply,
               replayed: true
             });
             const wrongVersion = retained.ids[0]!;
 
             for (const action of [
-              chats.keepDocumentProposal({ ...keepValue, title: 'Substituted title' }),
-              chats.keepDocumentProposal({ ...keepValue, requestId: 'different' }),
-              chats.keepDocumentProposal({ ...keepValue, key: applyValue.key }),
-              chats.applyDocumentProposal({ ...applyValue, expectedVersionId: wrongVersion }),
-              chats.applyDocumentProposal({ ...applyValue, requestId: 'different' }),
-              chats.applyDocumentProposal({ ...applyValue, key: keepValue.key })
+              chats.keepPageProposal({ ...keepValue, title: 'Substituted title' }),
+              chats.keepPageProposal({ ...keepValue, requestId: 'different' }),
+              chats.keepPageProposal({ ...keepValue, key: applyValue.key }),
+              chats.applyPageProposal({ ...applyValue, expectedVersionId: wrongVersion }),
+              chats.applyPageProposal({ ...applyValue, requestId: 'different' }),
+              chats.applyPageProposal({ ...applyValue, key: keepValue.key })
             ])
               assert.ok((yield* Effect.flip(action)).kind === 'invalid_input');
           }).pipe(Effect.provide(f.domain()))
@@ -140,8 +140,8 @@ testStable(
           const chats = yield* Notes;
 
           for (const action of [
-            chats.keepDocumentProposal({ ...keepValue, key: 'brand-new' }),
-            chats.applyDocumentProposal({ ...applyValue, key: 'brand-new' })
+            chats.keepPageProposal({ ...keepValue, key: 'brand-new' }),
+            chats.applyPageProposal({ ...applyValue, key: 'brand-new' })
           ])
             assert.ok((yield* Effect.flip(action)).kind === 'not_found');
         }).pipe(Effect.provide(f.domain()))

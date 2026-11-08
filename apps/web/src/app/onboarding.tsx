@@ -115,7 +115,7 @@ function WelcomeVisual({ kind }: { kind: (typeof slides)[number]['id'] }) {
         notesLabel={t('Notes')}
         note={t('OnboardingSampleNote')}
         pagesLabel={t('NoteSelectionPages')}
-        document={t('OnboardingSamplePageTitle')}
+        page={t('OnboardingSamplePageTitle')}
       />
     );
 

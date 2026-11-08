@@ -8,7 +8,7 @@ export function authoredPage(id = 2n, text = '', versionId = 10n) {
   return Schema.decodeUnknownSync(detailSchema)({
     id,
     projectIds: [],
-    title: 'New document',
+    title: 'New page',
     description: null,
     createdAt: 1n,
     updatedAt: 1n,

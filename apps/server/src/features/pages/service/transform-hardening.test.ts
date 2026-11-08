@@ -59,10 +59,7 @@ function publish(f: Fixture, value: Publication) {
   return Effect.gen(function* () {
     const chats = yield* Notes;
 
-    yield* withTestPublication(
-      f.context,
-      chats.publishDocumentTransform(value).pipe(Effect.asVoid)
-    );
+    yield* withTestPublication(f.context, chats.publishPageTransform(value).pipe(Effect.asVoid));
   }).pipe(Effect.provide(f.domain()));
 }
 
@@ -113,7 +110,7 @@ function capture(exactTarget: boolean) {
       instruction: 'Clarify',
       preferences: {}
     });
-    const request = yield* chats.requestDocumentTransform({
+    const request = yield* chats.requestPageTransform({
       contextRequestId: snapshot.requestId,
       title: 'Selected only',
       operations: ['clarity'],
@@ -337,7 +334,7 @@ testStable(
             instruction: 'Explain',
             preferences: {}
           });
-          const request = yield* chats.requestDocumentTransform({
+          const request = yield* chats.requestPageTransform({
             contextRequestId: context.requestId,
             title: 'Empty table',
             operations: ['explain']

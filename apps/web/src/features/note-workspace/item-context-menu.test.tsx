@@ -82,7 +82,7 @@ testStable.each([false, true])(
   }
 );
 
-testStable('opens the exact authored document from its context menu', async () => {
+testStable('opens the exact authored page from its context menu', async () => {
   const document = authoredPage();
   const open = vi.fn();
   const client = new QueryClient();
@@ -90,12 +90,12 @@ testStable('opens the exact authored document from its context menu', async () =
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
-      <NotePageCard document={document} active={false} onOpen={open} />
+      <NotePageCard page={document} active={false} onOpen={open} />
     </QueryClientProvider>
   );
   expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
-  fireEvent.contextMenu(screen.getByRole('button', { name: /New document/ }), {
+  fireEvent.contextMenu(screen.getByRole('button', { name: /New page/ }), {
     button: 2,
     clientX: 80,
     clientY: 80
@@ -153,13 +153,13 @@ testStable.each(['page', 'source'] as const)(
     render(
       <QueryClientProvider client={client}>
         {kind === 'page' ? (
-          <NotePageCard noteId={noteId} document={document} active={false} onOpen={vi.fn()} />
+          <NotePageCard noteId={noteId} page={document} active={false} onOpen={vi.fn()} />
         ) : (
           <AttachmentCards noteId={noteId} parts={[part]} compact onOpenSource={vi.fn()} />
         )}
       </QueryClientProvider>
     );
-    const name = kind === 'page' ? /New document/ : 'Lecture.pdf';
+    const name = kind === 'page' ? /New page/ : 'Lecture.pdf';
 
     await screen.findByRole('button', { name });
     await vi.waitFor(() => expect(screen.getByRole('button', { name })).toBeEnabled());

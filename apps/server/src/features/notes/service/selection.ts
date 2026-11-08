@@ -94,7 +94,7 @@ function exactContent(tx: Transaction, target: typeof noteSelectionTargetSchema.
   if (version.status !== 'published')
     throw new StudyError('invalid_input', 'Selected authored version is unpublished');
 
-  const document = Pages.pageInTransaction(tx, { id: version.pageId });
+  const page = Pages.pageInTransaction(tx, { id: version.pageId });
 
-  return { ...version, name: document.title };
+  return { ...version, name: page.title };
 }

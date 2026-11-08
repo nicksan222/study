@@ -161,7 +161,7 @@ export const Pages = defineService(
         publicationTransaction((tx) => {
           const request = tx.store(PageTransformsStore).transform(v);
 
-          if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+          if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
 
           return publishTransform(
             tx,
@@ -173,7 +173,7 @@ export const Pages = defineService(
         transaction((tx) => {
           const request = tx.store(PageTransformsStore).transform(v);
 
-          if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+          if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
 
           return retryTransform(tx, v);
         }),

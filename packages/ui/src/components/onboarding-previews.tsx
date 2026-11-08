@@ -14,7 +14,7 @@ export function OnboardingSubject({
   notesLabel,
   note,
   pagesLabel,
-  document
+  page
 }: {
   label: string;
   name: string;
@@ -22,7 +22,7 @@ export function OnboardingSubject({
   notesLabel: string;
   note: string;
   pagesLabel: string;
-  document: string;
+  page: string;
 }) {
   return (
     <figure className="ui-onboarding-preview">
@@ -51,7 +51,7 @@ export function OnboardingSubject({
           </List.Leading>
           <List.Main>
             <List.Title>{pagesLabel}</List.Title>
-            <List.Description>{document}</List.Description>
+            <List.Description>{page}</List.Description>
           </List.Main>
         </List.Row>
       </List.Root>
@@ -59,7 +59,7 @@ export function OnboardingSubject({
   );
 }
 
-/** Uses the document's Markdown renderer for a quiet, read-only sample page. */
+/** Uses the page's Markdown renderer for a quiet, read-only sample page. */
 export function OnboardingPage({
   label,
   title,
@@ -75,7 +75,7 @@ export function OnboardingPage({
         <FileText aria-hidden="true" />
         {label}
       </figcaption>
-      <article className="ui-onboarding-document">
+      <article className="ui-onboarding-page">
         <h3>{title}</h3>
         <RichNoteContent value={content} />
       </article>
@@ -103,25 +103,25 @@ export function OnboardingWorkflow({
   captureLabel: string;
   pagesLabel: string;
 }) {
-  const [document, setPage] = useState(false);
+  const [showPage, setShowPage] = useState(false);
 
   return (
     <div className="ui-onboarding-workflow">
       <div className="ui-onboarding-workflow-path">
-        <span data-current={!document}>{captureLabel}</span>
+        <span data-current={!showPage}>{captureLabel}</span>
         <ArrowRight aria-hidden="true" />
-        <span data-current={document}>{pagesLabel}</span>
+        <span data-current={showPage}>{pagesLabel}</span>
       </div>
       <div aria-live="polite">
-        {document ? (
+        {showPage ? (
           <OnboardingPage label={label} title={title} content={content} />
         ) : (
           <OnboardingNotebook label={label} note={note} file={file} />
         )}
       </div>
-      <Button variant="outline" onClick={() => setPage((value) => !value)}>
-        {document ? captureLabel : transformLabel}
-        {!document && <ArrowRight aria-hidden="true" />}
+      <Button variant="outline" onClick={() => setShowPage((value) => !value)}>
+        {showPage ? captureLabel : transformLabel}
+        {!showPage && <ArrowRight aria-hidden="true" />}
       </Button>
     </div>
   );

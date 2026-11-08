@@ -6,7 +6,7 @@
  * │ - Keeps notebook visibility and archive ordering consistent within transactions.         │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Document and source membership mutations remain inside their owning features.            │
+ * │ Page and source membership mutations remain inside their owning features.                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -204,7 +204,7 @@ export const NoteMaterialMembershipStore = defineStore({
             threadRoot: Schema.optional(partIdSchema)
           }),
           output: Schema.Struct({
-            documents: Schema.Array(pageIdSchema),
+            pages: Schema.Array(pageIdSchema),
             sources: Schema.Array(sourceIdSchema),
             deferredSourceIds: Schema.Array(sourceIdSchema)
           }),
@@ -212,7 +212,7 @@ export const NoteMaterialMembershipStore = defineStore({
             reads.assertNote(noteId);
 
             return {
-              documents: db.orm
+              pages: db.orm
                 .select({ id: note_pages.page_id })
                 .from(note_pages)
                 .innerJoin(pages, eq(pages.id, note_pages.page_id))

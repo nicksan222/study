@@ -68,7 +68,7 @@ testStable(
               instruction: 'Organize notes',
               preferences: {}
             });
-            const transform = yield* chats.requestDocumentTransform({
+            const transform = yield* chats.requestPageTransform({
               contextRequestId: capture.requestId,
               title: 'Study guide',
               operations: ['clarity']

@@ -209,7 +209,7 @@ testStable(
           Effect.gen(function* () {
             yield* withTestPublication(
               context,
-              (yield* Notes).publishDocumentTransform(value).pipe(Effect.asVoid)
+              (yield* Notes).publishPageTransform(value).pipe(Effect.asVoid)
             );
           }).pipe(Effect.provide(domain))
         );
@@ -340,7 +340,7 @@ testStable(
               instruction: 'Explain',
               preferences: {}
             });
-            const request = yield* (yield* Notes).requestDocumentTransform({
+            const request = yield* (yield* Notes).requestPageTransform({
               contextRequestId: capture.requestId,
               title: mode,
               operations: ['explain']
@@ -355,7 +355,7 @@ testStable(
               );
 
               assert.strictEqual(persisted?.cancelled, 1n);
-              const duplicate = yield* chats.requestDocumentTransform({
+              const duplicate = yield* chats.requestPageTransform({
                 contextRequestId: capture.requestId,
                 title: mode,
                 operations: ['explain']
@@ -367,7 +367,7 @@ testStable(
 
             assert.strictEqual(
               (yield* Effect.flip(
-                (yield* Notes).retryDocumentTransform({
+                (yield* Notes).retryPageTransform({
                   requestId: request.id,
                   retryId: mode + '-retry'
                 })
@@ -379,7 +379,7 @@ testStable(
               withTestPublication(
                 context,
                 (yield* Notes)
-                  .publishDocumentTransform({
+                  .publishPageTransform({
                     requestId: request.id,
                     generationEventId: request.eventId,
                     document: { blocks: [output], meta },

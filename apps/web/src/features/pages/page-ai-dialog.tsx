@@ -16,11 +16,11 @@ import { PageActionDialog } from './page-action-dialog';
 import { pageNoteOptions } from './page-context.queries';
 
 export function PageAiDialog({
-  document,
+  page,
   project,
   onClose
 }: {
-  document: Page;
+  page: Page;
   project?: ProjectId;
   onClose: () => void;
 }) {
@@ -59,12 +59,12 @@ export function PageAiDialog({
       {mutation.error && <ContentReadError error={mutation.error} />}
       <DialogFooter>
         <Button
-          disabled={!selected[0] || !document.headVersionId || mutation.isPending}
+          disabled={!selected[0] || !page.headVersionId || mutation.isPending}
           onClick={() => {
-            if (selected[0] && document.headVersionId)
+            if (selected[0] && page.headVersionId)
               mutation.mutate({
-                pageId: document.id,
-                versionId: document.headVersionId,
+                pageId: page.id,
+                versionId: page.headVersionId,
                 noteId: selected[0].id
               });
           }}

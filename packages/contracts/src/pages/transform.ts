@@ -62,7 +62,7 @@ export const mergeRequestSchema = Schema.Struct({
   projectId: Schema.optional(projectIdSchema)
 });
 
-/** Note captures and standalone document captures share the generation contract. */
+/** Note captures and standalone page captures share the generation contract. */
 export const pageTransformContextSchema = Schema.Struct({
   ...runSelectionContextSchema.fields,
   noteId: Schema.NullOr(noteIdSchema)

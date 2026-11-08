@@ -31,7 +31,7 @@ export const PagesRpcLive = defineRpc(
       'pages.merge': (v) => pages.merge(v),
       'pages.requestTransform': (v) =>
         Option.isSome(notes)
-          ? notes.value.requestDocumentTransform(v)
+          ? notes.value.requestPageTransform(v)
           : Effect.fail(new StudyError('unsupported', 'Note service is unavailable')),
       'pages.transform': (v) => pages.transform(v),
       'pages.cancelTransform': (v) => pages.cancelTransform(v),
@@ -42,16 +42,16 @@ export const PagesRpcLive = defineRpc(
           if (request.merge) return yield* pages.retryMerge(v);
 
           return yield* Option.isSome(notes)
-            ? notes.value.retryDocumentTransform(v)
+            ? notes.value.retryPageTransform(v)
             : Effect.fail(new StudyError('unsupported', 'Note service is unavailable'));
         }),
       'pages.updateMetadata': (v) => pages.updateMetadata(v),
       'pages.compareProposal': (v) => pages.compareProposal(v),
       'pages.proposal': (v) => pages.proposal(v),
       'pages.applyProposal': (v) =>
-        Option.isSome(notes) ? notes.value.applyDocumentProposal(v) : pages.applyProposal(v),
+        Option.isSome(notes) ? notes.value.applyPageProposal(v) : pages.applyProposal(v),
       'pages.keepProposal': (v) =>
-        Option.isSome(notes) ? notes.value.keepDocumentProposal(v) : pages.keepProposal(v),
+        Option.isSome(notes) ? notes.value.keepPageProposal(v) : pages.keepProposal(v),
       'pages.assessCitation': (v) => pages.assessCitation(v),
       'pages.assessments': (v) => pages.assessments(v),
       'pages.annotations': (v) => pages.annotations(v),

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-/** Shared close guard and accessible heading for pending document actions. */
+/** Shared close guard and accessible heading for pending page actions. */
 export function PageActionDialog({
   pending,
   onClose,

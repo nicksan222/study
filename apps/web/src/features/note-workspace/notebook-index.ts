@@ -25,10 +25,10 @@ export function notebookMessages(noteId: NoteId, messages: readonly ChatMessage[
 export function notebookTimeline(messages: readonly ChatMessage[], pages: readonly PageSummary[]) {
   const entries = [
     ...messages.map((message) => ({ kind: 'message' as const, message, time: message.createdAt })),
-    ...[...new Map(pages.map((document) => [document.id, document])).values()].map((document) => ({
+    ...[...new Map(pages.map((page) => [page.id, page])).values()].map((page) => ({
       kind: 'page' as const,
-      document,
-      time: document.createdAt
+      page,
+      time: page.createdAt
     }))
   ];
 

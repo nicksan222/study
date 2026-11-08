@@ -5,19 +5,19 @@ import { useState } from 'react';
 import { invalidatePages } from '#web/lib/study-client/pages.queries.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
-export function usePageMetadata(document: Page) {
+export function usePageMetadata(page: Page) {
   const cache = useQueryClient();
-  const [title, setTitle] = useState(document.title);
-  const [description, setDescription] = useState(document.description ?? '');
-  const [expectedDescription] = useState(document.description ?? null);
+  const [title, setTitle] = useState(page.title);
+  const [description, setDescription] = useState(page.description ?? '');
+  const [expectedDescription] = useState(page.description ?? null);
   const mutation = useMutation({
     mutationFn: async () => {
       return request((rpc) =>
         rpc['pages.updateMetadata']({
-          id: document.id,
+          id: page.id,
           title: title.trim(),
           description: description.trim() || null,
-          expectedTitle: document.title,
+          expectedTitle: page.title,
           expectedDescription
         })
       );

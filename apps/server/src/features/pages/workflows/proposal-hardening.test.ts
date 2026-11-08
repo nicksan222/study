@@ -325,13 +325,13 @@ testStable(
               editTargetVersionId: target?.version!.id
             };
 
-            const request = yield* chats.requestDocumentTransform(value);
+            const request = yield* chats.requestPageTransform(value);
 
-            assert.strictEqual((yield* chats.requestDocumentTransform(value)).id, request.id);
+            assert.strictEqual((yield* chats.requestPageTransform(value)).id, request.id);
 
             assert.ok(
               (yield* Effect.flip(
-                chats.requestDocumentTransform({
+                chats.requestPageTransform({
                   ...value,
                   editTargetVersionId: target === a ? b.version.id : a.version.id
                 })
@@ -491,7 +491,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
               preferences: {}
             });
 
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               title: 'Proposal',
               contextRequestId: capture.requestId,
               operations: ['clarity'],
@@ -588,7 +588,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
             const chats = yield* Notes;
 
             yield* Effect.flip(
-              chats.applyDocumentProposal({
+              chats.applyPageProposal({
                 requestId: setup.request.id,
                 key: 'late-apply',
                 expectedVersionId: setup.target.version.id
@@ -596,7 +596,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
             );
 
             yield* Effect.flip(
-              chats.keepDocumentProposal({
+              chats.keepPageProposal({
                 requestId: setup.request.id,
                 key: 'late-keep',
                 title: 'Late copy'

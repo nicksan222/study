@@ -247,7 +247,7 @@ testStable(
 
       const error = await target.app.nativeRuntime.runPromise(
         Effect.flip(
-          restored.requestDocumentTransform({
+          restored.requestPageTransform({
             contextRequestId: capture.requestId,
             title: 'Cannot resume',
             operations: ['clarity']

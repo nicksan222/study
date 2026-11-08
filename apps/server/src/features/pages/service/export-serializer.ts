@@ -297,7 +297,7 @@ export function serializePageVersion(version: PageVersion, format: 'markdown' | 
   return {
     versionId: version.id,
     format,
-    filename: `document-${version.id}.${html ? 'html' : 'md'}`,
+    filename: `page-${version.id}.${html ? 'html' : 'md'}`,
     mediaType: html
       ? ('text/html; charset=utf-8' as const)
       : ('text/markdown; charset=utf-8' as const),

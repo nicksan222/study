@@ -115,16 +115,16 @@ export function History({
             id={notebookTargetId(
               id,
               entry.kind,
-              entry.kind === 'page' ? entry.document.id : entry.message.id
+              entry.kind === 'page' ? entry.page.id : entry.message.id
             )}
             tabIndex={-1}
           >
             {entry.kind === 'page' ? (
               <NotePageCard
                 noteId={id}
-                document={entry.document}
+                page={entry.page}
                 onOpen={(material) => onOpenPage?.(material)}
-                active={String(entry.document.id) === activeAuthoredPage}
+                active={String(entry.page.id) === activeAuthoredPage}
               />
             ) : (
               <HistoryMessage
@@ -147,7 +147,7 @@ function timelineKey(entry: ReturnType<typeof notebookTimeline>[number] | undefi
 
   return entry.kind === 'message'
     ? 'message-' + String(entry.message.id)
-    : 'material-' + String(entry.document.id);
+    : 'material-' + String(entry.page.id);
 }
 
 function HistoryMessage({

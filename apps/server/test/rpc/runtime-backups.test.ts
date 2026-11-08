@@ -38,7 +38,7 @@ import {
   acceptance,
   backupFixture,
   changedArtifact,
-  createDocument,
+  createPage,
   meta,
   packet,
   repack
@@ -76,7 +76,7 @@ testStable(
     const server = await serve(f.app);
 
     try {
-      await createDocument(f.app);
+      await createPage(f.app);
 
       const before = f.app.store.db.contentIdentity();
 
@@ -189,7 +189,7 @@ testStable(
     const f = await backupFixture();
 
     try {
-      const saved = await createDocument(f.app);
+      const saved = await createPage(f.app);
 
       const source = await f.app.nativeRuntime.runPromise(
         Effect.flatMap(Sources, (sources) =>
@@ -363,7 +363,7 @@ testStable(
     const f = await backupFixture();
 
     try {
-      await createDocument(f.app);
+      await createPage(f.app);
 
       const api = await f.api();
 
@@ -448,7 +448,7 @@ testStable(
           })
         )
       ).rejects.toSatisfy(() => true);
-      await createDocument(f.app, 'Changed target');
+      await createPage(f.app, 'Changed target');
       await expect(
         f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)))
       ).rejects.toSatisfy(() => true);
@@ -466,7 +466,7 @@ testStable(
       await expect(
         f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }))
       ).rejects.toSatisfy(() => true);
-      await createDocument(f.app, 'Changed after acceptance');
+      await createPage(f.app, 'Changed after acceptance');
 
       const before = f.app.store.db.contentIdentity();
 
@@ -569,7 +569,7 @@ testStable(
 
       const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
 
-      await createDocument(f.app, 'Current target');
+      await createPage(f.app, 'Current target');
 
       const before = f.app.store.db.contentIdentity();
 

@@ -35,7 +35,7 @@ export const NoteMergeStore = defineStore({
         role: 'required',
         input: copyNoteContentSchema.fields.noteIds,
         output: Schema.Struct({
-          documents: Schema.Array(
+          pages: Schema.Array(
             Schema.Struct({ id: pageIdSchema, archivedAt: Schema.NullOr(Schema.BigInt) })
           ),
           sources: Schema.Array(
@@ -44,7 +44,7 @@ export const NoteMergeStore = defineStore({
           materials: Schema.Array(materialIdSchema)
         }),
         run: (ids) => ({
-          documents: resources.db.orm
+          pages: resources.db.orm
             .select({
               id: s.note_pages.page_id,
               archivedAt: s.note_pages.archived_at
@@ -127,7 +127,7 @@ export const NoteMergeStore = defineStore({
           )
             throw new StudyError(
               'invalid_input',
-              'Finish or cancel document generation before merging'
+              'Finish or cancel page generation before merging'
             );
 
           const decode = Schema.decodeUnknownSync(

@@ -27,13 +27,13 @@ import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import {
   backupFixture,
-  createDocument,
+  createPage,
   document as backupPage,
   exportSnapshot,
   restoreSnapshot
 } from '#testing/managed-backups';
 import { processSource } from '#testing/material-history';
-import { validDocumentTransformOutput } from '#testing/note-deletion';
+import { validPageTransformOutput } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const action of ['apply', 'keep'] as const)
@@ -82,7 +82,7 @@ for (const action of ['apply', 'keep'] as const)
               preferences: {}
             });
 
-            const request = yield* c.requestDocumentTransform({
+            const request = yield* c.requestPageTransform({
               contextRequestId: capture.requestId,
               title: 'Proposal',
               operations: ['clarity'],
@@ -97,7 +97,7 @@ for (const action of ['apply', 'keep'] as const)
           { kind: 'sources', query: 'Target body' },
           {
             kind: 'output',
-            output: validDocumentTransformOutput('Completed proposal [1]')
+            output: validPageTransformOutput('Completed proposal [1]')
           }
         );
 
@@ -115,7 +115,7 @@ for (const action of ['apply', 'keep'] as const)
 
         const outcome = await Effect.runPromise(
           Effect.flatMap(Notes, (c) =>
-            action === 'apply' ? c.applyDocumentProposal(input) : c.keepDocumentProposal(input)
+            action === 'apply' ? c.applyPageProposal(input) : c.keepPageProposal(input)
           ).pipe(Effect.provide(source.domain()))
         );
 
@@ -133,7 +133,7 @@ for (const action of ['apply', 'keep'] as const)
         const m = await app.nativeRuntime.runPromise(Pages);
 
         const replay = await app.nativeRuntime.runPromise(
-          action === 'apply' ? c.applyDocumentProposal(input) : c.keepDocumentProposal(input)
+          action === 'apply' ? c.applyPageProposal(input) : c.keepPageProposal(input)
         );
 
         expect(replay).toStrictEqual({ ...outcome, replayed: true });
@@ -156,9 +156,7 @@ for (const action of ['apply', 'keep'] as const)
         assert.ok(
           (
             await app.nativeRuntime.runPromise(
-              Effect.flip(
-                action === 'apply' ? c.applyDocumentProposal(late) : c.keepDocumentProposal(late)
-              )
+              Effect.flip(action === 'apply' ? c.applyPageProposal(late) : c.keepPageProposal(late))
             )
           ).kind === 'not_found'
         );
@@ -183,7 +181,7 @@ testStable(
     let target: Awaited<ReturnType<typeof restoreSnapshot>> | undefined;
 
     try {
-      const document = await createDocument(source.app);
+      const document = await createPage(source.app);
 
       const saved = await source.app.nativeRuntime.runPromise(
         Effect.gen(function* () {

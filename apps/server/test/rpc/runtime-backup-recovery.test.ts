@@ -22,19 +22,19 @@ import { assert, expect } from 'vite-plus/test';
 import { ManagedBackups } from '#server/platform/database/backups';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { backupPolicy } from '#server/runtime/backups';
-import { acceptance, backupFixture, createDocument } from '#testing/managed-backups';
+import { acceptance, backupFixture, createPage } from '#testing/managed-backups';
 
 async function stagedFixture() {
   const f = await backupFixture();
 
   try {
-    await createDocument(f.app, 'Restored publication');
+    await createPage(f.app, 'Restored publication');
 
     const api = await f.api();
 
     const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
 
-    await createDocument(f.app, 'Current independent publication');
+    await createPage(f.app, 'Current independent publication');
 
     const before = f.app.store.db.contentIdentity();
 

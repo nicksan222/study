@@ -3,7 +3,7 @@ import { mutationOptions } from '@tanstack/react-query';
 
 import { request } from '#web/lib/study-client/request.ts';
 
-/** Pins the exact document version without replacing the note's other selected context. */
+/** Pins the exact page version without replacing the note's other selected context. */
 export const pageNoteOptions = () =>
   mutationOptions({
     retry: false,
@@ -39,10 +39,8 @@ export const pageNoteOptions = () =>
     }
   });
 
-export const archivePageOptions = (document: { id: PageId; archivedAt: bigint | null }) =>
+export const archivePageOptions = (page: { id: PageId; archivedAt: bigint | null }) =>
   mutationOptions({
     mutationFn: () =>
-      request((rpc) =>
-        rpc['pages.archive']({ id: document.id, archived: document.archivedAt === null })
-      )
+      request((rpc) => rpc['pages.archive']({ id: page.id, archived: page.archivedAt === null }))
   });

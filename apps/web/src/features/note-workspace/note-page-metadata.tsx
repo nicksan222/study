@@ -16,13 +16,13 @@ import { DescriptionField } from './description-field';
 import { usePageMetadata } from './note-page-metadata.queries';
 import { NoteError } from './status';
 
-export function PageMetadata({ document }: { document: Page }) {
+export function PageMetadata({ page }: { page: Page }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   return (
     <PageMetadataDialog
-      document={document}
+      page={page}
       open={open}
       onOpenChange={setOpen}
       trigger={
@@ -35,12 +35,12 @@ export function PageMetadata({ document }: { document: Page }) {
 }
 
 export function PageMetadataDialog({
-  document,
+  page,
   open,
   onOpenChange,
   trigger
 }: {
-  document: Page;
+  page: Page;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger?: ReactElement;
@@ -55,16 +55,16 @@ export function PageMetadataDialog({
           title={<> {t('PageEditing')} </>}
           description={<> {t('NoteDescriptionHelp')} </>}
         />
-        {open && <MetadataForm document={document} onSaved={() => onOpenChange(false)} />}
+        {open && <MetadataForm page={page} onSaved={() => onOpenChange(false)} />}
       </DialogPopup>
     </Dialog>
   );
 }
 
-function MetadataForm({ document, onSaved }: { document: Page; onSaved: () => void }) {
+function MetadataForm({ page, onSaved }: { page: Page; onSaved: () => void }) {
   const { t } = useI18n();
-  const { title, setTitle, description, setDescription, mutation } = usePageMetadata(document);
-  const fieldId = `document-description-${document.id}`;
+  const { title, setTitle, description, setDescription, mutation } = usePageMetadata(page);
+  const fieldId = `page-description-${page.id}`;
 
   return (
     <form

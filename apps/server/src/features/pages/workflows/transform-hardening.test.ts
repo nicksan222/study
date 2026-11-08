@@ -91,7 +91,7 @@ function capture(blocks: Block[]) {
       instruction: 'Keep the uncertainty',
       preferences: { detail: 'brief' }
     });
-    const request = yield* chats.requestDocumentTransform({
+    const request = yield* chats.requestPageTransform({
       contextRequestId: snapshot.requestId,
       title: 'Derivative',
       operations: ['clarity', 'translate']
@@ -256,7 +256,7 @@ for (const mode of ['fake-id', 'fake-revision', 'alt-range'] as const) {
               instruction: 'Explain selected alt text',
               preferences: {}
             });
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               contextRequestId: snapshot.requestId,
               title: 'Whole image authorization',
               operations: ['explain']
@@ -402,7 +402,7 @@ testStable(
         Effect.gen(function* () {
           const materials = yield* Pages;
           const read = yield* materials.version({ id: result });
-          const retry = yield* (yield* Notes).retryDocumentTransform({
+          const retry = yield* (yield* Notes).retryPageTransform({
             requestId: setup.request.id,
             retryId: 'completed-retry'
           });
@@ -438,7 +438,7 @@ testStable(
             instruction: 'Explain new input',
             preferences: {}
           });
-          const request = yield* chats.requestDocumentTransform({
+          const request = yield* chats.requestPageTransform({
             contextRequestId: snapshot.requestId,
             title: 'New derivative',
             operations: ['explain']
@@ -533,7 +533,7 @@ testStable(
             );
             yield* engine.resume(pageTransformWorkflow, 'cancel-before-publication');
             const error = yield* Effect.flip(
-              (yield* Notes).retryDocumentTransform({
+              (yield* Notes).retryPageTransform({
                 requestId: setup.request.id,
                 retryId: 'cancelled-retry'
               })
@@ -690,7 +690,7 @@ testStable(
             instruction: 'Compare the selected occurrences',
             preferences: {}
           });
-          const request = yield* chats.requestDocumentTransform({
+          const request = yield* chats.requestPageTransform({
             contextRequestId: snapshot.requestId,
             title: 'Duplicate evidence',
             operations: ['combine']

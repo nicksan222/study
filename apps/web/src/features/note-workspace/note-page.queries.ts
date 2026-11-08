@@ -64,8 +64,8 @@ export function useBlankPageCreation(owner: PageOwner) {
   const cache = useQueryClient();
   const key =
     owner.kind === 'note'
-      ? ['note-drafts', String(owner.noteId), 'document-creation']
-      : ['document-drafts', owner.projectId?.toString() ?? 'global', 'creation'];
+      ? ['note-drafts', String(owner.noteId), 'page-creation']
+      : ['page-drafts', owner.projectId?.toString() ?? 'global', 'creation'];
   const initial: Creation = { pending: false };
   const state = useQuery({
     queryKey: key,
@@ -83,7 +83,7 @@ export function useBlankPageCreation(owner: PageOwner) {
     cache.setQueryData<Creation>(key, { pending: true, input });
 
     try {
-      const document = await request((rpc) => rpc['pages.create'](input));
+      const createdPage = await request((rpc) => rpc['pages.create'](input));
 
       cache.setQueryData(key, initial);
 
@@ -92,15 +92,15 @@ export function useBlankPageCreation(owner: PageOwner) {
 
         await cache.cancelQueries({ queryKey: listKey, exact: true });
         cache.setQueryData<{ items: PageSummary[]; nextCursor: null }>(listKey, (page) => ({
-          items: [document, ...(page?.items ?? []).filter((item) => item.id !== document.id)],
+          items: [createdPage, ...(page?.items ?? []).filter((item) => item.id !== createdPage.id)],
           nextCursor: null
         }));
       }
 
-      cache.setQueryData(notePageOptions(document.id).queryKey, document);
+      cache.setQueryData(notePageOptions(createdPage.id).queryKey, createdPage);
       void invalidatePages(cache);
 
-      return document;
+      return createdPage;
     } catch (error) {
       cache.setQueryData<Creation>(key, { pending: false, input, error });
 
@@ -148,24 +148,24 @@ type Draft = {
 
 const draftKey = (id: PageId) => ['note-page-drafts', String(id)] as const;
 
-function initialDraft(document: Page): Draft {
-  if (!document.version)
+function initialDraft(page: Page): Draft {
+  if (!page.version)
     throw new StudyError('invalid_input', 'Only authored pages can be edited directly');
 
   return {
-    document: document.version.document,
-    saved: document.version.document,
-    versionId: document.version.id,
+    document: page.version.document,
+    saved: page.version.document,
+    versionId: page.version.id,
     pending: false
   };
 }
 
 /** Pages owns versioned content; the cache holds only unsaved edits and retry receipts. */
-export function useNotePageAutosave(document: Page) {
+export function useNotePageAutosave(page: Page) {
   const { autosaveIntervalSeconds } = useWorkspacePreferences();
   const cache = useQueryClient();
-  const initial = initialDraft(document);
-  const key = draftKey(document.id);
+  const initial = initialDraft(page);
+  const key = draftKey(page.id);
   const state = useQuery({
     queryKey: key,
     queryFn: () => initial,
@@ -174,7 +174,7 @@ export function useNotePageAutosave(document: Page) {
     gcTime: Infinity
   });
   const draft = state.data;
-  const id = document.id;
+  const id = page.id;
 
   useEffect(() => {
     const stop = repeatRequest(() => persistPage(cache, id), autosaveIntervalSeconds * 1000);
@@ -185,17 +185,17 @@ export function useNotePageAutosave(document: Page) {
     };
   }, [cache, id, autosaveIntervalSeconds]);
   useEffect(() => {
-    cache.setQueryData<Draft>(draftKey(document.id), (current) =>
+    cache.setQueryData<Draft>(draftKey(page.id), (current) =>
       current &&
       !current.pending &&
       !current.attempt &&
       equalDocument(current.document, current.saved) &&
-      document.version !== null &&
-      document.version.id > current.versionId
-        ? initialDraft(document)
+      page.version !== null &&
+      page.version.id > current.versionId
+        ? initialDraft(page)
         : current
     );
-  }, [cache, document]);
+  }, [cache, page]);
 
   return {
     document: draft.document,

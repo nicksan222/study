@@ -84,10 +84,10 @@ testStable(
     `,
       'src/features/materials/store/generation.ts': `
       import { Schema } from 'effect';
-      import { documentTransformReportSchema } from '@study/contracts/materials/schemas';
-      const codec = Schema.fromJsonString(Schema.toCodecJson(documentTransformReportSchema));
+      import { transformReportSchema } from '@study/contracts/pages/transform';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(transformReportSchema));
       const report = Schema.decodeUnknownSync(codec)(row.result_metadata);
-      const unsafe: typeof documentTransformReportSchema.Type = JSON.parse(row.result_metadata);
+      const unsafe: typeof transformReportSchema.Type = JSON.parse(row.result_metadata);
     `
     });
 
@@ -122,10 +122,10 @@ testStable(
     const diagnostics = lintRule('decode-persisted-json', {
       'src/features/materials/store/note-retirement.ts': `
       import { Schema } from 'effect';
-      import { keepDocumentProposalSchema } from '@study/contracts/materials/editing';
-      const codec = Schema.fromJsonString(Schema.toCodecJson(keepDocumentProposalSchema));
+      import { keepProposalSchema } from '@study/contracts/pages/editing';
+      const codec = Schema.fromJsonString(Schema.toCodecJson(keepProposalSchema));
       const safe = Schema.decodeUnknownSync(codec)(row.intent);
-      const unsafe = JSON.parse(row.intent) as typeof keepDocumentProposalSchema.Type;
+      const unsafe = JSON.parse(row.intent) as typeof keepProposalSchema.Type;
     `,
       'src/features/workflows/store/index.ts': `const unsafe: ExecutionMetadata = JSON.parse(row.payload);`
     });

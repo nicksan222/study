@@ -122,6 +122,7 @@ testStable(
             const key = { id: material.version!.id, format: 'html' as const };
             const first = yield* rpc('pages.exportFile', key);
 
+            expect(first.filename).toBe(`page-${material.version!.id}.html`);
             expect(first).toStrictEqual(yield* rpc('pages.exportFile', key));
             const text = new TextDecoder().decode(first.bytes);
 

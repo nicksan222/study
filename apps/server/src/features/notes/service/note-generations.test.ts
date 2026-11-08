@@ -71,7 +71,7 @@ testStable(
               instruction: 'Private discovery instruction',
               preferences: {}
             });
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               contextRequestId: capture.requestId,
               title: 'Transform',
               operations: ['clarity']

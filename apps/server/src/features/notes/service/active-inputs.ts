@@ -3,7 +3,7 @@
  * │ @file Resolves complete active note material for immutable context capture.              │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Uses published document and source identities from public feature services.            │
+ * │ - Uses published page and source identities from public feature services.                │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ All material resolution runs within the caller owned synchronous transaction.            │
@@ -37,7 +37,7 @@ export function activeNoteTargets(
   });
   const targets: Array<typeof noteSelectionTargetSchema.Type> = [];
 
-  for (const id of ids.documents) {
+  for (const id of ids.pages) {
     const owner = Pages.pageInTransaction(tx, { id });
     const version = owner.version;
 

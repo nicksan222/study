@@ -47,10 +47,10 @@ export function QuizInputPicker({
             />
           )}
           <Settings.Group>
-            {rows.map((document) => (
+            {rows.map((page) => (
               <PageInput
-                key={String(document.id)}
-                document={document}
+                key={String(page.id)}
+                page={page}
                 inputs={inputs}
                 onChange={onChange}
                 disabled={disabled}
@@ -98,29 +98,29 @@ export function QuizInputPicker({
 }
 
 function PageInput({
-  document,
+  page,
   inputs,
   onChange,
   disabled
 }: {
-  document: typeof summarySchema.Type;
+  page: typeof summarySchema.Type;
   inputs: ContentInput[];
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
 }) {
   const { t } = useI18n();
   const selected = inputs.some(
-    (input) => input.kind === 'page' && input.versionId === document.headVersionId
+    (input) => input.kind === 'page' && input.versionId === page.headVersionId
   );
 
   return (
     <Settings.ToggleRow
-      title={document.title}
+      title={page.title}
       description={t('NoteEntryPage')}
       checked={selected}
       disabled={disabled || (!selected && inputs.length >= 20)}
       onCheckedChange={(checked) => {
-        const versionId = document.headVersionId;
+        const versionId = page.headVersionId;
 
         if (!versionId) return;
 

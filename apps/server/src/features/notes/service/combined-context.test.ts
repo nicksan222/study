@@ -103,7 +103,7 @@ testStable(
             kind: 'page',
             versionId: material.version!.id
           });
-          const generation = yield* notes.requestDocumentTransform({
+          const generation = yield* notes.requestPageTransform({
             contextRequestId: capture.requestId,
             title: 'Combined',
             operations: ['combine', 'structure']
@@ -195,7 +195,7 @@ testStable(
 
           assert.ok(unavailable.kind === 'not_found');
           const retry = yield* Effect.flip(
-            notes.retryDocumentTransform({
+            notes.retryPageTransform({
               requestId: generation.id,
               retryId: 'after-deletion'
             })

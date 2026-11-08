@@ -22,7 +22,7 @@ import { assert, expect } from 'vite-plus/test';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { deletionDocument } from '#testing/material-deletion';
-import { assertScrubbed, cleanup, validDocumentTransformOutput } from '#testing/note-deletion';
+import { assertScrubbed, cleanup, validPageTransformOutput } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const mode of ['history', 'delete'] as const)
@@ -66,7 +66,7 @@ for (const mode of ['history', 'delete'] as const)
               instruction: 'Retained authored generation instruction',
               preferences: {}
             });
-            const request = yield* chats.requestDocumentTransform({
+            const request = yield* chats.requestPageTransform({
               contextRequestId: capture.requestId,
               title: 'Authored output',
               operations: ['clarity']
@@ -79,7 +79,7 @@ for (const mode of ['history', 'delete'] as const)
 
         f.replies.push(
           { kind: 'sources', query: 'Generation evidence' },
-          { kind: 'output', output: validDocumentTransformOutput('INTENTIONAL_AUTHORED_BODY [1]') }
+          { kind: 'output', output: validPageTransformOutput('INTENTIONAL_AUTHORED_BODY [1]') }
         );
         const resultId = await f.executeAuthored(event, 'authored-generation');
         // Exercise every private native storage location, including recovery registrations.

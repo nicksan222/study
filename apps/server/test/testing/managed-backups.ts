@@ -107,7 +107,7 @@ export async function backupFixture(t?: TestContext) {
   };
 }
 
-export async function createDocument(app: App, text = 'Retained rich content') {
+export async function createPage(app: App, text = 'Retained rich content') {
   return app.nativeRuntime.runPromise(
     Effect.flatMap(Pages, (m) =>
       m

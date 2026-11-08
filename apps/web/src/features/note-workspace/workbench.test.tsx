@@ -161,39 +161,36 @@ testStable(
   }
 );
 
-testStable(
-  'isolates document tabs by note and restores them when returning to the note',
-  async () => {
-    const view = mount();
+testStable('isolates page tabs by note and restores them when returning to the note', async () => {
+  const view = mount();
 
-    act(() =>
-      view.result.current.open({
-        kind: 'page',
-        pageId: pageIdSchema.make(1n),
-        title: 'First note page'
-      })
-    );
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-    const firstIdentity = view.result.current.active;
+  act(() =>
+    view.result.current.open({
+      kind: 'page',
+      pageId: pageIdSchema.make(1n),
+      title: 'First note page'
+    })
+  );
+  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+  const firstIdentity = view.result.current.active;
 
-    view.rerender({ noteId: otherId });
-    expect(view.result.current.tabs).toHaveLength(0);
-    expect(view.result.current.visible).toBe(false);
-    act(() =>
-      view.result.current.open({
-        kind: 'page',
-        pageId: pageIdSchema.make(2n),
-        title: 'Second note page'
-      })
-    );
-    await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
-    expect(view.result.current.active).not.toBe(firstIdentity);
-    view.rerender({ noteId: id });
-    expect(view.result.current.active).toBe(firstIdentity);
-    expect(view.result.current.tabs).toHaveLength(1);
-    expect(view.result.current.visible).toBe(true);
-  }
-);
+  view.rerender({ noteId: otherId });
+  expect(view.result.current.tabs).toHaveLength(0);
+  expect(view.result.current.visible).toBe(false);
+  act(() =>
+    view.result.current.open({
+      kind: 'page',
+      pageId: pageIdSchema.make(2n),
+      title: 'Second note page'
+    })
+  );
+  await waitFor(() => expect(view.result.current.tabs).toHaveLength(1));
+  expect(view.result.current.active).not.toBe(firstIdentity);
+  view.rerender({ noteId: id });
+  expect(view.result.current.active).toBe(firstIdentity);
+  expect(view.result.current.tabs).toHaveLength(1);
+  expect(view.result.current.visible).toBe(true);
+});
 
 testStable('uses the configured initial width until the user manually changes it', async () => {
   preferences.expandPages = true;

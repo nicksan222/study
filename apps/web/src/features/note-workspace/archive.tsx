@@ -263,20 +263,19 @@ function ArchivedMessage({ id, noteId, onDeleted }: PreviewProps & { id: Message
 
 function ArchivedPage({ id, noteId, onDeleted }: PreviewProps & { id: PageId }) {
   const { t } = useI18n();
-  const document = useQuery(notePageOptions(id));
+  const page = useQuery(notePageOptions(id));
 
-  if (document.error)
-    return <NoteReadError error={document.error} retry={() => void document.refetch()} />;
+  if (page.error) return <NoteReadError error={page.error} retry={() => void page.refetch()} />;
 
-  if (!document.data) return <Loading label={t('LoadingStudy')} />;
+  if (!page.data) return <Loading label={t('LoadingStudy')} />;
 
   return (
     <Surface.ArchiveFrame>
       <Surface.ArchiveReading>
         <Surface.ArchiveContent>
           <ArchiveContext>
-            {document.data.version ? (
-              <DocumentReader document={document.data.version.document} />
+            {page.data.version ? (
+              <DocumentReader document={page.data.version.document} />
             ) : (
               <Notebook.Status>{t('NoteReadUnavailable')}</Notebook.Status>
             )}
@@ -284,7 +283,7 @@ function ArchivedPage({ id, noteId, onDeleted }: PreviewProps & { id: PageId }) 
         </Surface.ArchiveContent>
       </Surface.ArchiveReading>
       <PageNotebookDeletion
-        document={document.data}
+        page={page.data}
         onDeleted={onDeleted}
         renderActions={(actions) => (
           <ArchiveActions noteId={noteId} target={{ kind: 'page', id }} blocked={actions.open}>

@@ -341,7 +341,7 @@ testStable(
               })
             )).kind
           ).toBe('not_enough');
-          const transform = yield* c.requestDocumentTransform({
+          const transform = yield* c.requestPageTransform({
             contextRequestId: captured.requestId,
             title: 'Merged notes',
             operations: ['structure']

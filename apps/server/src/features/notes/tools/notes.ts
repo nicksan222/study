@@ -88,7 +88,7 @@ export const noteTools = {
       when: 'Review notes, questions and replies from a note.',
       examples: ['What did we cover in my last biology note?'],
       limits:
-        'At most 100 messages per page. Pass next as before for older messages until null. Read each message’s activeVersionId to identify its current text; message versions are historical variants. Optional threadRoot restricts a thread. Does not include linked document bodies.'
+        'At most 100 messages per page. Pass next as before for older messages until null. Read each message’s activeVersionId to identify its current text; message versions are historical variants. Optional threadRoot restricts a thread. Does not include linked page bodies.'
     },
     input: r.threadInputSchema,
     output: r.threadPageSchema,
@@ -117,7 +117,7 @@ function membershipTool(description: string, example: string, add: boolean) {
       when: 'Change which subjects contain a note.',
       examples: [example],
       limits:
-        'Resolve both exact IDs first. Notes may belong to several subjects. Preserves messages and documents; retries are safe.'
+        'Resolve both exact IDs first. Notes may belong to several subjects. Preserves messages and pages; retries are safe.'
     },
     input: p.projectNoteInputSchema,
     output: Schema.Boolean,

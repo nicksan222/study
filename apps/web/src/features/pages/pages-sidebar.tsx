@@ -71,7 +71,7 @@ export function PagesSidebar({
         );
 
         return (
-          <PageContextMenu key={String(item.id)} document={item} project={project}>
+          <PageContextMenu key={String(item.id)} page={item} project={project}>
             <Sidebar.Item
               layout={preferences.sidebarDensity === 'compact' ? 'compact' : 'detailed'}
               label={item.title}

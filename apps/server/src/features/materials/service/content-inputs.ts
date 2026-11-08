@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Resolves exact readable evidence through its public source and Document owners.    │
+ * │ @file Resolves exact readable evidence through its public source and Page owners.        │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Resolves exact readable evidence through its public source and Document owners.        │
+ * │ - Resolves exact readable evidence through its public source and Page owners.            │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Feature policy coordinates public services and private stores within caller-owned        │
@@ -45,18 +45,18 @@ export function readContentInput(
   }
 
   const version = Pages.versionInTransaction(tx, input.versionId);
-  const document = Pages.pageInTransaction(tx, { id: version.pageId });
+  const page = Pages.pageInTransaction(tx, { id: version.pageId });
 
-  if (version.status !== 'published' || (!allowArchived && document.archivedAt !== null))
+  if (version.status !== 'published' || (!allowArchived && page.archivedAt !== null))
     throw new StudyError('invalid_input', 'Learning requires a published authored version');
 
-  if (projectId !== undefined && !document.projectIds.includes(projectId))
-    throw new StudyError('invalid_input', 'Document is outside the requested project');
+  if (projectId !== undefined && !page.projectIds.includes(projectId))
+    throw new StudyError('invalid_input', 'Page is outside the requested project');
 
   return Schema.decodeUnknownSync(resolvedContentInputSchema)({
     input,
     ...version,
-    name: document.title
+    name: page.title
   });
 }
 

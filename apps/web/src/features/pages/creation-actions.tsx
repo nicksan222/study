@@ -10,7 +10,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { useBlankPageCreation } from '../note-workspace';
 
-/** Keeps document creation receipts and navigation retries shared across entry points. */
+/** Keeps page creation receipts and navigation retries shared across entry points. */
 export function useNewBlankPage(project?: ProjectId) {
   const { t } = useI18n();
   const creation = useBlankPageCreation({ kind: 'project', projectId: project });

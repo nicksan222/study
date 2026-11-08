@@ -111,7 +111,7 @@ export function SourcePanel({
   sourceId: SourceId;
   exact?: { revision: bigint; snapshotId: ContentSnapshotId };
   noteId?: NoteId;
-  onOpenPage: (document: Page) => void;
+  onOpenPage: (page: Page) => void;
   onDeleted?: () => void;
 }) {
   const { t } = useI18n();
@@ -124,8 +124,8 @@ export function SourcePanel({
   function editCopy() {
     if (!state.isSuccess || !source.isSuccess || !state.data) return;
 
-    void copy.copy(state.data).then((document) => {
-      if (document) onOpenPage(document);
+    void copy.copy(state.data).then((page) => {
+      if (page) onOpenPage(page);
     });
   }
 
@@ -146,7 +146,7 @@ export function SourcePanel({
       <SourceHistory sourceId={sourceId} onSelect={setSelected} />
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
       <SourceOriginal sourceId={sourceId} revision={originalRevision(selected, state.data)} />
-      {copy.document && (
+      {copy.page && (
         <Button variant="ghost" onClick={copy.acknowledge}>
           {t('PageEditAnotherCopy')}
         </Button>

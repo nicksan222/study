@@ -300,7 +300,7 @@ export const Notes = defineService(
               answerQuestion(tx, input);
             });
         }),
-      applyDocumentProposal: (value: typeof editing.applyProposalSchema.Type) =>
+      applyPageProposal: (value: typeof editing.applyProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Pages.findProposalReceiptInTransaction(tx, {
             ...value,
@@ -327,7 +327,7 @@ export const Notes = defineService(
 
           return Pages.applyProposalInTransaction(tx, value, relevantValid);
         }),
-      keepDocumentProposal: (value: typeof editing.keepProposalSchema.Type) =>
+      keepPageProposal: (value: typeof editing.keepProposalSchema.Type) =>
         transaction((tx) => {
           const replay = Pages.findProposalReceiptInTransaction(tx, {
             ...value,
@@ -347,7 +347,7 @@ export const Notes = defineService(
 
           return Pages.keepProposalInTransaction(tx, value);
         }),
-      requestDocumentTransform: (value: typeof transformRequestSchema.Type) =>
+      requestPageTransform: (value: typeof transformRequestSchema.Type) =>
         transaction((tx) =>
           Pages.requestTransformInTransaction(
             tx,
@@ -361,11 +361,11 @@ export const Notes = defineService(
           const context = readCapturedContext(tx, request.contextRequestId);
 
           if (request.cancelled || context.instruction !== request.instruction)
-            throw new StudyError('cancelled', 'Document generation is unavailable');
+            throw new StudyError('cancelled', 'Page generation is unavailable');
 
           return context;
         }),
-      publishDocumentTransform: (value: typeof transformPublicationSchema.Type) =>
+      publishPageTransform: (value: typeof transformPublicationSchema.Type) =>
         publicationTransaction((tx) => {
           const request = Pages.transformInTransaction(tx, value);
           const context =
@@ -375,7 +375,7 @@ export const Notes = defineService(
 
           return Pages.publishTransformInTransaction(tx, context, value);
         }),
-      retryDocumentTransform: (value: { requestId: string; retryId: string }) =>
+      retryPageTransform: (value: { requestId: string; retryId: string }) =>
         transaction((tx) => {
           const request = Pages.transformInTransaction(tx, value);
 

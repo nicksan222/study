@@ -41,7 +41,7 @@ type Progress = NonNullable<
   ReturnType<typeof useSidebarProgress>['progress']['data']
 >['items'][number];
 
-/** Groups notes using persisted overrides, document counts, and running work. */
+/** Groups notes using persisted overrides, page counts, and running work. */
 
 export function RichSidebarNotes(props: Props) {
   return <SidebarNoteList key={String(props.project)} {...props} />;
@@ -298,7 +298,7 @@ function NoteControls(props: RowProps) {
   const blocked = settlement.isPending || !!props.progress?.running;
   const pageAction = canConvertNote(props) ? (
     <SidebarUI.SettleAction disabled={blocked} onClick={() => setPageOpen(true)}>
-      {t('SidebarTurnIntoDoc')}
+      {t('SidebarTurnIntoPage')}
     </SidebarUI.SettleAction>
   ) : null;
 
@@ -437,7 +437,7 @@ function NoteTime({ at }: { at: bigint }) {
   );
 }
 
-/** Shows workflow activity and retained generated-document counts. */
+/** Shows workflow activity and retained generated-page counts. */
 
 function NoteProgress({ progress }: { progress?: Progress }) {
   const { t } = useI18n();
@@ -461,7 +461,7 @@ function NoteProgress({ progress }: { progress?: Progress }) {
   );
 }
 
-/** Reuses the document count in both detailed and compact note rows. */
+/** Reuses the page count in both detailed and compact note rows. */
 
 function NotePageCount({ progress }: { progress?: Progress }) {
   const { t } = useI18n();

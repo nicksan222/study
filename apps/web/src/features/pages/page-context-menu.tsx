@@ -35,13 +35,13 @@ import { PageDeletionDialog } from './retirement';
 
 type Action = 'metadata' | 'ai' | 'delete';
 
-/** One menu for document links in the sidebar and the overview. */
+/** One menu for page links in the sidebar and the overview. */
 export function PageContextMenu({
-  document,
+  page,
   project,
   children
 }: {
-  document: PageSummary;
+  page: PageSummary;
   project?: ProjectId;
   children: ReactElement;
 }) {
@@ -49,7 +49,7 @@ export function PageContextMenu({
   const [action, setAction] = useState<Action>();
   const cache = useQueryClient();
   const archive = useMutation({
-    ...archivePageOptions(document),
+    ...archivePageOptions(page),
     onSuccess: () => invalidatePages(cache)
   });
   const search = project ? { project: String(project) } : {};
@@ -61,7 +61,7 @@ export function PageContextMenu({
         <ContextMenuPopup>
           <ContextMenuItem
             render={
-              <Link to="/pages/$pageId" params={{ pageId: String(document.id) }} search={search} />
+              <Link to="/pages/$pageId" params={{ pageId: String(page.id) }} search={search} />
             }
           >
             <ArrowUpRight aria-hidden="true" />
@@ -71,17 +71,17 @@ export function PageContextMenu({
             <Text aria-hidden="true" />
             {t('PageRename')}
           </ContextMenuItem>
-          <ContextMenuItem disabled={!document.headVersionId} onClick={() => setAction('ai')}>
+          <ContextMenuItem disabled={!page.headVersionId} onClick={() => setAction('ai')}>
             <Sparkles aria-hidden="true" />
             {t('PageAskAI')}
           </ContextMenuItem>
           <ContextMenuItem
-            disabled={!document.headVersionId}
+            disabled={!page.headVersionId}
             render={
               <Link
                 to="/pages/$pageId"
-                params={{ pageId: String(document.id) }}
-                search={{ ...search, pageVersion: document.headVersionId?.toString() }}
+                params={{ pageId: String(page.id) }}
+                search={{ ...search, pageVersion: page.headVersionId?.toString() }}
               />
             }
           >
@@ -89,12 +89,12 @@ export function PageContextMenu({
             {t('ReaderHistory')}
           </ContextMenuItem>
           <ContextMenuItem disabled={archive.isPending} onClick={() => archive.mutate()}>
-            {document.archivedAt === null ? (
+            {page.archivedAt === null ? (
               <Archive aria-hidden="true" />
             ) : (
               <ArchiveRestore aria-hidden="true" />
             )}
-            {t(document.archivedAt === null ? 'PagesArchive' : 'PagesUnarchive')}
+            {t(page.archivedAt === null ? 'PagesArchive' : 'PagesUnarchive')}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" onClick={() => setAction('delete')}>
@@ -106,7 +106,7 @@ export function PageContextMenu({
       {archive.error && <ContentReadError error={archive.error} />}
       {action && (
         <PageActionDialog
-          id={document.id}
+          id={page.id}
           action={action}
           project={project}
           onClose={() => setAction(undefined)}
@@ -152,7 +152,7 @@ function PageActionDialog({
   if (action === 'metadata')
     return (
       <PageMetadataDialog
-        document={state.data}
+        page={state.data}
         open
         onOpenChange={(open) => {
           if (!open) onClose();
@@ -160,7 +160,7 @@ function PageActionDialog({
       />
     );
 
-  if (action === 'delete') return <PageDeletionDialog document={state.data} onClose={onClose} />;
+  if (action === 'delete') return <PageDeletionDialog page={state.data} onClose={onClose} />;
 
-  return <PageAiDialog document={state.data} project={project} onClose={onClose} />;
+  return <PageAiDialog page={state.data} project={project} onClose={onClose} />;
 }

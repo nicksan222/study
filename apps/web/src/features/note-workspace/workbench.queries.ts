@@ -32,7 +32,7 @@ type Workbench = {
   cardHidden?: boolean;
 };
 
-/** Retains document tabs and unsent pages across note navigation without mixing them with chat drafts. */
+/** Retains page tabs and unsent pages across note navigation without mixing them with chat drafts. */
 
 export function useWorkbench(id: NoteId) {
   const cache = useQueryClient();

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Reads pending document merges and recent completed publication history.            │
+ * │ @file Reads pending page merges and recent completed publication history.                │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Read bounded pages without losing pending merge requests.                              │

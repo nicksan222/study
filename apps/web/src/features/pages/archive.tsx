@@ -56,7 +56,7 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
             )
             .map((item) => (
               <li key={String(item.id)}>
-                <PageContextMenu document={item} project={project}>
+                <PageContextMenu page={item} project={project}>
                   <Surface.Item
                     type="button"
                     aria-current={item === active ? 'page' : undefined}
@@ -99,14 +99,11 @@ function ArchiveBody({ active, empty }: { active?: PageSummary; empty: boolean }
 
 function ArchivePreview({ id }: { id: PageId }) {
   const { t } = useI18n();
-  const document = useQuery(notePageOptions(id));
+  const page = useQuery(notePageOptions(id));
 
-  if (document.isPending) return <Loading label={t('LoadingStudy')} />;
+  if (page.isPending) return <Loading label={t('LoadingStudy')} />;
 
-  if (document.error)
-    return <ContentReadError error={document.error} retry={() => void document.refetch()} />;
+  if (page.error) return <ContentReadError error={page.error} retry={() => void page.refetch()} />;
 
-  return document.data?.version ? (
-    <DocumentReader document={document.data.version.document} />
-  ) : null;
+  return page.data?.version ? <DocumentReader document={page.data.version.document} /> : null;
 }

@@ -252,7 +252,7 @@ testStable(
     const material = Schema.decodeUnknownSync(materialSummarySchema)({
       id: 90n,
       projectIds: [],
-      title: 'Working document',
+      title: 'Working page',
       description: 'A real editable attachment',
       createdAt: 2n,
       updatedAt: 2n,
@@ -280,11 +280,11 @@ testStable(
 
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent('Before the document');
-    expect(items[1]).toHaveTextContent('Working document');
+    expect(items[1]).toHaveTextContent('Working page');
     expect(items[2]).toHaveTextContent('After the document');
     fireEvent.click(
       within(items[1]!.closest('.note-index-target')!).getByRole('button', {
-        name: /Working document/
+        name: /Working page/
       })
     );
     expect(open).toHaveBeenCalledExactlyOnceWith(material);

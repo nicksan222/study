@@ -68,7 +68,7 @@ testStable(
       });
     });
     expect(rpc.copy.mock.calls[1]![0]).toEqual(attempt);
-    await waitFor(() => expect(reopened.result.current.document?.id).toBe(20n));
+    await waitFor(() => expect(reopened.result.current.page?.id).toBe(20n));
     await act(async () => {
       await reopened.result.current.copy(exact);
     });
@@ -84,7 +84,7 @@ testStable(
     });
     expect(rpc.copy.mock.calls[2]![0]).toMatchObject({ revision: 2n, snapshotId: 12n });
     expect(rpc.copy.mock.calls[2]![0].createKey).not.toBe(attempt.createKey);
-    await waitFor(() => expect(reopened.result.current.document?.id).toBe(21n));
+    await waitFor(() => expect(reopened.result.current.page?.id).toBe(21n));
     reopened.unmount();
     cache.clear();
   }

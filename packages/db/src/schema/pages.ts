@@ -184,7 +184,7 @@ export const note_pages = defineTable({ role: 'contributes', entity: 'page' })(
   ]
 );
 
-/** Exact conflict alternatives and idempotent intent belong to one authored document. */
+/** Exact conflict alternatives and idempotent intent belong to one authored page. */
 export const page_edit_receipts = defineTable({
   role: 'internal',
   reason: 'Private operational state outside searchable published content'

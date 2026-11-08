@@ -94,7 +94,7 @@ export function makePageEditing(resources: StoreResources) {
     const replay = orm.select().from(s.pages).where(eq(s.pages.create_key, v.createKey)).get();
 
     if (replay) {
-      if (generated) invalid('Generated creation key already belongs to an existing document');
+      if (generated) invalid('Generated creation key already belongs to an existing page');
 
       if (replay.creation_intent !== hash) invalid('Creation key already has another intent');
 
@@ -192,7 +192,7 @@ export function makePageEditing(resources: StoreResources) {
       expected.status !== 'published' ||
       source.status !== 'published'
     )
-      invalid('Edit requires published history of the target document');
+      invalid('Edit requires published history of the target page');
 
     assertBlockOwnership(v.document, v.pageId);
     const row = insertVersion(
@@ -257,7 +257,7 @@ export function makePageEditing(resources: StoreResources) {
       current = version(v.currentVersionId);
 
     if (new Set([before.pageId, proposed.pageId, current.pageId]).size !== 1)
-      invalid('Comparison requires one document');
+      invalid('Comparison requires one page');
 
     return {
       ...v,

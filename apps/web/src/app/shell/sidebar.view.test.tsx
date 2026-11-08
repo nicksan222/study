@@ -106,7 +106,7 @@ testStable(
   }
 );
 
-testStable('offers document creation instead of note creation in Pages', async () => {
+testStable('offers page creation instead of note creation in Pages', async () => {
   renderSidebar(
     <SidebarView
       {...sidebarModel()}

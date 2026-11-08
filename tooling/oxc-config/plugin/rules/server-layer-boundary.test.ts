@@ -221,11 +221,11 @@ testStable(
   'note transform coordinators use public participants and cannot import another feature private stores',
   () => {
     const diagnostics = lintRule('server-layer-boundary', {
-      'src/features/notes/service/document-transform.ts': `
+      'src/features/notes/service/page-transform.ts': `
       import { Materials } from '#server/features/materials/index';
       import { publicationTransaction } from '#server/platform/definitions/define-store';
       export const publish = (context, output) =>
-        publicationTransaction((tx) => Materials.publishDocumentTransform(tx, context, output));
+        publicationTransaction((tx) => Materials.publishPageTransform(tx, context, output));
     `,
       'src/features/materials/service/bypass.ts': `
       import { NoteContextStore } from '#server/features/notes/store/index';
@@ -247,11 +247,11 @@ testStable(
       'src/features/notes/service/proposals.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
-      export const apply = value => transaction(tx => Materials.applyDocumentProposal(tx, value, true));
-      export const keep = value => transaction(tx => Materials.keepDocumentProposal(tx, value));
+      export const apply = value => transaction(tx => Materials.applyPageProposal(tx, value, true));
+      export const keep = value => transaction(tx => Materials.keepPageProposal(tx, value));
     `,
       'src/features/notes/service/private.ts': `
-      import { DocumentProposalStore } from '#server/features/materials/store/document-proposals';
+      import { PageProposalStore } from '#server/features/materials/store/page-proposals';
     `,
       'src/features/materials/service/private.ts': `
       import { NoteContextValidityStore } from '#server/features/notes/store/context';

@@ -220,18 +220,18 @@
   font-size: 0.875rem;
   font-weight: 550;
 }
-.ui-onboarding-document {
+.ui-onboarding-page {
   padding: 1.25rem 1.5rem;
   font-size: 0.875rem;
   color: var(--contrast-foreground);
 }
-.ui-onboarding-document > h3 {
+.ui-onboarding-page > h3 {
   margin: 0 0 1rem;
   font-size: 1rem;
   font-weight: 550;
   line-height: 1.5;
 }
-.ui-onboarding-document .rich-note-content {
+.ui-onboarding-page .rich-note-content {
   font-size: 0.875rem;
 }
 .ui-onboarding-workflow {

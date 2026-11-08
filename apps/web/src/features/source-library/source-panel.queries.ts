@@ -42,7 +42,7 @@ export const sourceOptions = (id: SourceId | null) =>
 
 type Input = typeof sourceCopySchema.Type;
 
-type CopyState = { pending: boolean; input?: Input; document?: Page; error?: unknown };
+type CopyState = { pending: boolean; input?: Input; page?: Page; error?: unknown };
 
 /** The query cache retains an immutable copy request until its uncertain receipt is recovered. */
 
@@ -67,7 +67,7 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
 
     if (current.pending) return undefined;
 
-    if (current.document) return current.document;
+    if (current.page) return current.page;
 
     const input = current.input ?? {
       sourceId,
@@ -81,12 +81,12 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
     cache.setQueryData<CopyState>(key, { pending: true, input });
 
     try {
-      const document = await request((rpc) => rpc['pages.copySource'](input));
+      const page = await request((rpc) => rpc['pages.copySource'](input));
 
-      cache.setQueryData<CopyState>(key, { pending: false, input, document });
+      cache.setQueryData<CopyState>(key, { pending: false, input, page });
       void invalidatePages(cache);
 
-      return document;
+      return page;
     } catch (error) {
       cache.setQueryData<CopyState>(key, { pending: false, input, error });
 
@@ -97,7 +97,7 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
   function acknowledge() {
     const current = cache.getQueryData<CopyState>(key);
 
-    if (current?.document && !current.pending) cache.setQueryData<CopyState>(key, initial);
+    if (current?.page && !current.pending) cache.setQueryData<CopyState>(key, initial);
   }
 
   return { ...state.data, copy, acknowledge };

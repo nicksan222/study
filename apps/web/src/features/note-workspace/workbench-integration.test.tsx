@@ -145,7 +145,7 @@ afterEach(() => {
 });
 
 testStable(
-  'New document persists an empty attachment, adds its card, and opens its editable tab',
+  'New page persists an empty attachment, adds its card, and opens its editable tab',
   async () => {
     mount(<NoteWorkbench id={noteId} onDelete={() => undefined} />);
     fireEvent.click(screen.getByRole('button', { name: 'NoteNewPage' }));
@@ -189,7 +189,7 @@ function ImportedPanel() {
 }
 
 testStable(
-  'Edit a copy pins the exact source revision and opens its independent authored document',
+  'Edit a copy pins the exact source revision and opens its independent authored page',
   async () => {
     mount(<ImportedPanel />);
     expect(await screen.findByText('Current extraction 41', { selector: 'p' })).toBeVisible();

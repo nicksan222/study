@@ -99,7 +99,7 @@ export const italian = Object.freeze({
   NoteAssistantDescription:
     'Fai domande su note, pagine e fonti o chiedi una modifica. Questo assistente può accedere solo a questa nota.',
   AssistantCallReadNoteContext: 'Leggi il contesto della nota',
-  AssistantCallEditNoteMessage: 'Modifica una nota della nota',
+  AssistantCallEditNoteMessage: 'Modifica un messaggio della nota',
   AssistantCallListNoteSources: 'Elenca le fonti della nota',
   AssistantCallReadNoteSource: 'Leggi una fonte della nota',
   AssistantActivityCompleted: 'Azioni completate · {count}',
@@ -384,7 +384,7 @@ export const italian = Object.freeze({
   ReaderReadFailed: 'Impossibile caricare questo contenuto. Riprova.',
   ExportFormat: 'Formato di esportazione',
   ExportMarkdown: 'Markdown',
-  ExportPageJson: 'Pagina canonico (JSON)',
+  ExportPageJson: 'Pagina canonica (JSON)',
   ExportHtml: 'Pagina HTML',
   ExportAidJson: 'Materiale di studio (JSON)',
   ExportCsv: 'Foglio di calcolo (CSV)',
@@ -392,7 +392,7 @@ export const italian = Object.freeze({
   ExportFailed: 'Impossibile esportare questa versione. Riprova.',
   ExportOmissions:
     'Download completato. Immagini e formattazione del file originale potrebbero non essere conservate.',
-  SidebarTurnIntoDoc: 'Trasforma in pagina',
+  SidebarTurnIntoPage: 'Trasforma in pagina',
   SidebarSettle: 'Completa',
   SidebarReopen: 'Riapri',
   SidebarSettlementError: 'Impossibile modificare la nota. Riprova.',
@@ -437,10 +437,10 @@ export const italian = Object.freeze({
   PagesOverviewTitle: 'Le tue pagine',
   PagesOverviewDescription:
     'Appunti, esercizi svolti e guide allo studio. Riprendi da dove eri rimasto o inizia una nuova pagina.',
-  PagesSaved: 'Pagine salvati',
+  PagesSaved: 'Pagine salvate',
   PagesSelect: 'Seleziona pagine',
   PagesSelectionHelp: 'Seleziona da 2 a 20 pagine da unire.',
-  PagesSelected: '{count} selezionati',
+  PagesSelected: '{count} selezionate',
   PagesMerge: 'Unisci pagine',
   PagesMergeHelp:
     'L’IA unirà le pagine selezionate in una nuova pagina. Gli originali verranno archiviati solo al termine dell’unione. Potrai ripristinarli in qualsiasi momento.',
@@ -452,11 +452,11 @@ export const italian = Object.freeze({
   PagesMergeInputsChanged:
     'Una pagina selezionata è cambiata o non è disponibile. Annulla questa unione e seleziona le pagine attuali.',
   PagesMergeFailed: 'Impossibile completare l’unione. Gli originali sono ancora disponibili.',
-  PagesMergeDone: 'Pagina unificato pronto',
+  PagesMergeDone: 'Pagina unificata pronta',
   PagesArchive: 'Archivia',
   PagesUnarchive: 'Ripristina dall’archivio',
-  PagesArchived: 'Archiviati',
-  PagesActive: 'Pagine attivi',
+  PagesArchived: 'Archiviate',
+  PagesActive: 'Pagine attive',
   PagesArchivedEmpty: 'Nessuna pagina archiviata.',
   PagesMergeWork: 'Unioni di pagine',
   PagesMergeRetry: 'Riprova unione',
@@ -485,9 +485,9 @@ export const italian = Object.freeze({
   SidebarGenerating: 'Generazione pagine',
   SidebarProcessing: 'Lettura allegati',
   SidebarWriting: 'Scrittura',
-  SidebarGeneratedPages: 'Pagine generati',
+  SidebarGeneratedPages: 'Pagine generate',
   SidebarSettingsTitle: 'Barra delle note',
-  SidebarSettledThreshold: 'Pagine necessari per completare una nota',
+  SidebarSettledThreshold: 'Pagine necessarie per completare una nota',
   SidebarSettledDescription:
     'Le note passano a Completate dopo questo numero di pagine generate. Le note con attività in corso restano Aperte.',
   SidebarSettledValidation: 'Scegli un numero intero da 1 a 100.',
@@ -744,7 +744,7 @@ export const italian = Object.freeze({
   NoteDetailDetailed: 'Dettagliata',
   NoteItemReanswerScope:
     'Crea una nuova versione della risposta usando la cronologia fino alla sua domanda e la selezione attuale dei materiali.',
-  PageCreationSubmitted: 'Pagina inviato',
+  PageCreationSubmitted: 'Pagina inviata',
   PageCreationReviewAll:
     'Controlla tutte le pagine qui sotto, indipendentemente dal filtro della raccolta. Apri le possibili corrispondenze prima di consentire una nuova creazione.',
   PageCreationReviewEmpty: 'Questo aggiornamento non ha restituito pagine.',
@@ -942,7 +942,7 @@ export const italian = Object.freeze({
   PageEditAnotherCopy: 'Crea un’altra copia modificabile',
   SourceHistoryPrune: 'Rimuovi le estrazioni precedenti',
   SourceHistoryHelp:
-    'Rimuovi il testo estratto e i collegamenti alle immagini delle estrazioni precedenti di questa fonte. I file originali e le loro revisioni restano disponibili. I riferimenti esatti in documenti, note e materiali di studio proteggono le rispettive estrazioni.',
+    'Rimuovi il testo estratto e i collegamenti alle immagini delle estrazioni precedenti di questa fonte. I file originali e le loro revisioni restano disponibili. I riferimenti esatti in pagine, note e materiali di studio proteggono le rispettive estrazioni.',
   SourceHistoryConfirm: 'Rimuovi queste estrazioni',
   SourceHistoryKeep: 'Estrazioni da conservare',
   SourceHistoryCount: 'Estrazioni precedenti in questo gruppo',
@@ -961,10 +961,10 @@ export const italian = Object.freeze({
   SourceDeleteRevisions: 'Revisioni originali',
   SourceDeleteExtractions: 'Estrazioni esatte',
   SourceDeleteHelp:
-    'Rimuove questa fonte, i byte originali, le revisioni conservate e le estrazioni. I documenti redatti e i contenuti originali delle note restano. Le fonti conservate come prove esatte o immagini esterne non possono essere eliminate.',
+    'Rimuove questa fonte, i byte originali, le revisioni conservate e le estrazioni. Le pagine redatte e i contenuti originali delle note restano. Le fonti conservate come prove esatte o immagini esterne non possono essere eliminate.',
   SourceDeleteExactPins:
-    'Un documento redatto, un materiale didattico o una nota conservata usa una revisione esatta di questa fonte.',
-  SourceDeleteImagePins: 'Un documento redatto o un’altra fonte usa un’immagine di questa fonte.',
+    'Una pagina redatta, un materiale didattico o una nota conservata usa una revisione esatta di questa fonte.',
+  SourceDeleteImagePins: 'Una pagina redatta o un’altra fonte usa un’immagine di questa fonte.',
   SourceDeleteFailed:
     'Impossibile eliminare la fonte. Controlla gli utilizzi attuali prima di riprovare.',
   SourceDeletedNotice: 'Fonte eliminata.',
@@ -974,7 +974,7 @@ export const italian = Object.freeze({
   PageCloseDraft: 'Chiudi bozza',
   PageConflict:
     'Il materiale è cambiato. La versione inviata è conservata: confrontala con quella attuale prima di decidere cosa mantenere.',
-  PageSaved: 'Pagina salvato.',
+  PageSaved: 'Pagina salvata.',
   PageCompare: 'Confronta versioni',
   PageUndo: 'Annulla questo salvataggio',
   PageOpenCopy: 'Apri copia modificabile',
@@ -1088,7 +1088,7 @@ export const italian = Object.freeze({
   NoteSelectionReadContent: 'Leggi il contenuto incluso',
   NoteSelectionHelp:
     'Scegli versioni, blocchi o passaggi precisi. Salva la selezione prima di fare una domanda o trasformare. Rimuovere una selezione conserva il materiale nella libreria.',
-  NoteWhole: 'Pagina intero',
+  NoteWhole: 'Pagina intera',
   NoteBlocks: 'Blocchi selezionati',
   NoteRanges: 'Passaggio selezionato',
   NoteRemove: 'Rimuovi dalla selezione',
@@ -1149,7 +1149,7 @@ export const italian = Object.freeze({
   NoteOpenEditors: 'Apri pagine',
   NoteOpenPage: 'Apri pagina',
   NoteClosePage: 'Chiudi scheda pagina',
-  NotePageTabs: 'Pagine aperti',
+  NotePageTabs: 'Pagine aperte',
   NoteBackToBoard: 'Torna alla nota',
   NoteExpandEditor: 'Espandi editor',
   NoteRestoreEditor: 'Ripristina vista divisa',
@@ -1498,7 +1498,7 @@ export const italian = Object.freeze({
   SubjectActions: 'Azioni materia',
   NoPreviewAvailable: 'Anteprima non disponibile. Salva l’originale per aprirlo.',
   SaveOriginal: 'Salva originale',
-  SubjectSearchPrompt: 'Cerca nelle note, nelle note e nelle fonti di questa materia.',
+  SubjectSearchPrompt: 'Cerca nelle note, nelle pagine e nelle fonti di questa materia.',
   WorkInProgress: 'WIP',
   Save: 'Salva',
   Saving: 'Salvataggio…',

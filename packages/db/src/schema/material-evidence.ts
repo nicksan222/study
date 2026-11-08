@@ -28,7 +28,7 @@ export const material_evidence_inputs = defineTable({
     uniqueIndex('material_evidence_inputs_version_owner').on(t.id, t.version_id),
     uniqueIndex('material_evidence_inputs_version_position').on(t.version_id, t.position),
     uniqueIndex('material_evidence_inputs_request_position').on(t.request_id, t.position),
-    index('material_evidence_inputs_document').on(t.page_version_id),
+    index('material_evidence_inputs_page').on(t.page_version_id),
     index('material_evidence_inputs_source').on(
       t.source_id,
       t.source_revision,

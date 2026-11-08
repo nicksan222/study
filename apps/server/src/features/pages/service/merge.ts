@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Validates exact authored inputs and captures durable document merge requests.      │
+ * │ @file Validates exact authored inputs and captures durable page merge requests.          │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Validate immutable versions and publish durable generation requests.                   │
@@ -25,7 +25,7 @@ export function mergeContext(
 ): typeof t.pageTransformContextSchema.Type {
   const request = tx.store(PageTransformsStore).transform(v);
 
-  if (!request.merge) throw new StudyError('invalid_input', 'Not a document merge');
+  if (!request.merge) throw new StudyError('invalid_input', 'Not a page merge');
 
   const inputs = request.merge.versions.map((id) => {
     const version = tx.store(PageVersionsStore).version({ id });
@@ -110,13 +110,13 @@ export function requestMerge(tx: Transaction, input: typeof t.mergeRequestSchema
   const context = mergeContext(tx, { requestId: result.request.id });
 
   for (const input of context.inputs) {
-    const document = tx.store(PagesStore).page({ id: input.pageId! });
+    const page = tx.store(PagesStore).page({ id: input.pageId! });
 
     if (
-      document.headVersionId !== (input.input.kind === 'page' ? input.input.versionId : null) ||
-      document.archivedAt !== null
+      page.headVersionId !== (input.input.kind === 'page' ? input.input.versionId : null) ||
+      page.archivedAt !== null
     )
-      throw new StudyError('invalid_input', 'Select current, active document versions');
+      throw new StudyError('invalid_input', 'Select current, active page versions');
   }
 
   tx.emit({

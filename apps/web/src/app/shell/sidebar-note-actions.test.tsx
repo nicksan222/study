@@ -208,7 +208,7 @@ testStable(
   }
 );
 
-testStable('offers document creation in the note context menu', async () => {
+testStable('offers page creation in the note context menu', async () => {
   mount();
   fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), {
     button: 2,

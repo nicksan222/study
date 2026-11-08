@@ -41,7 +41,7 @@ function mount() {
     getParentRoute: () => root,
     path: '/',
     component: () => (
-      <PageContextMenu document={document} project={projectIdSchema.make(2n)}>
+      <PageContextMenu page={document} project={projectIdSchema.make(2n)}>
         <a href="/pages/5">Example document</a>
       </PageContextMenu>
     )
@@ -66,7 +66,7 @@ function mount() {
 }
 
 testStable(
-  'provides shared document actions and requires the existing delete confirmation before any removal',
+  'provides shared page actions and requires the existing delete confirmation before any removal',
   async () => {
     const cache = mount();
 

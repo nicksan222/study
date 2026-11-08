@@ -385,7 +385,7 @@ export const english = Object.freeze({
   ExportDownload: 'Export',
   ExportFailed: 'Could not export this version. Try again.',
   ExportOmissions: 'Downloaded. Images and original file formatting may not be preserved.',
-  SidebarTurnIntoDoc: 'Turn into doc',
+  SidebarTurnIntoPage: 'Turn into page',
   SidebarSettle: 'Settle',
   SidebarReopen: 'Reopen',
   SidebarSettlementError: 'Could not change this note. Try again.',
@@ -945,8 +945,8 @@ export const english = Object.freeze({
   SourceDeleteHelp:
     'Removes this source, its original bytes, retained revisions and extractions. Authored pages and raw note records remain. Sources retained as exact evidence or external images cannot be deleted.',
   SourceDeleteExactPins:
-    'An authored document, learning artifact or retained note capture uses an exact revision of this source.',
-  SourceDeleteImagePins: 'An authored document or another source uses an image from this source.',
+    'An authored page, learning artifact or retained note capture uses an exact revision of this source.',
+  SourceDeleteImagePins: 'An authored page or another source uses an image from this source.',
   SourceDeleteFailed:
     'The source could not be deleted. Check its current usage before trying again.',
   SourceDeletedNotice: 'Source deleted.',
@@ -1465,7 +1465,7 @@ export const english = Object.freeze({
   SubjectActions: 'Subject actions',
   NoPreviewAvailable: 'No preview is available. Save the original to open it.',
   SaveOriginal: 'Save original',
-  SubjectSearchPrompt: 'Search the notes, notes, and sources in this subject.',
+  SubjectSearchPrompt: 'Search the notes, pages, and sources in this subject.',
   WorkInProgress: 'WIP',
   Save: 'Save',
   Saving: 'Saving…',

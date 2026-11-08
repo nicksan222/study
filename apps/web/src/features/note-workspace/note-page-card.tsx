@@ -13,15 +13,15 @@ import { ItemContextMenu } from './item-context-menu';
 import { ItemDeletionMenu } from './item-deletion-menu';
 
 export function NotePageCard({
-  document,
+  page,
   noteId,
   onOpen,
   active,
   compact = false
 }: {
-  document: PageSummary;
+  page: PageSummary;
   noteId?: NoteId;
-  onOpen: (document: PageSummary) => void;
+  onOpen: (page: PageSummary) => void;
   active: boolean;
   compact?: boolean;
 }) {
@@ -29,35 +29,29 @@ export function NotePageCard({
 
   return (
     <PageNotebookDeletion
-      document={document}
+      page={page}
       renderActions={(actions) => (
         <ItemContextMenu
           label={t('NoteOpenPage')}
           actions={
             <>
-              {noteId && (
-                <ArchiveMenuItem noteId={noteId} target={{ kind: 'page', id: document.id }} />
-              )}
+              {noteId && <ArchiveMenuItem noteId={noteId} target={{ kind: 'page', id: page.id }} />}
               <ItemDeletionMenu {...actions} />
             </>
           }
           dialogOpen={actions.open}
           target={
-            <button type="button" aria-label={t('NoteOpenPage')} onClick={() => onOpen(document)} />
+            <button type="button" aria-label={t('NoteOpenPage')} onClick={() => onOpen(page)} />
           }
         >
           {compact ? (
             <WorkspaceAttachments.Item
               render={
-                <button
-                  type="button"
-                  aria-label={t('NoteOpenPage')}
-                  onClick={() => onOpen(document)}
-                />
+                <button type="button" aria-label={t('NoteOpenPage')} onClick={() => onOpen(page)} />
               }
-              title={document.title}
-              label={document.title}
-              meta={document.description ?? t('SourcePage')}
+              title={page.title}
+              label={page.title}
+              meta={page.description ?? t('SourcePage')}
               icon={<FileText aria-hidden="true" />}
               tone="blue"
             />
@@ -65,11 +59,11 @@ export function NotePageCard({
             <>
               <ChatEntryLabel>{t('NoteEntryPage')}</ChatEntryLabel>
               <Desk.PageCard
-                title={document.title}
+                title={page.title}
                 openLabel={t('NoteOpenPage')}
-                preview={document.description}
+                preview={page.description}
                 active={active}
-                onOpen={() => onOpen(document)}
+                onOpen={() => onOpen(page)}
               />
             </>
           )}

@@ -36,7 +36,7 @@ function evidence(context: typeof runSelectionContextSchema.Type) {
   );
 }
 
-/** Suggestions never rename a note or submit a Document transformation. */
+/** Suggestions never rename a note or submit a Page transformation. */
 export const suggestTransformField = (input: typeof transformSuggestionInputSchema.Type) =>
   Effect.gen(function* () {
     const notes = yield* Notes;

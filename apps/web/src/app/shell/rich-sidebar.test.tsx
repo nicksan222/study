@@ -86,13 +86,13 @@ testStable(
       .getByRole('link', { name: 'Note 1' })
       .closest('.study-note-entry') as HTMLElement;
 
-    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoDoc' })).toBeNull();
+    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
     const generatingSettle = within(generatingRow).getByRole('button', { name: 'SidebarSettle' });
 
     expect(generatingSettle).toBeDisabled();
     expect(generatingSettle.parentElement).toHaveAttribute('data-placement', 'top');
     expect(
-      within(idleRow).getByRole('button', { name: 'SidebarTurnIntoDoc' }).parentElement
+      within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement
     ).toHaveAttribute('data-placement', 'bottom');
     expect(
       within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
@@ -120,10 +120,10 @@ testStable(
     await waitFor(() => expect(compact).toHaveAttribute('data-layout', 'compact'));
     expect(within(compact).getByTitle('SidebarGeneratedPages')).toHaveTextContent('1');
     expect(within(compact).getByText('SidebarReady')).toBeInTheDocument();
-    expect(within(idleRow).getByRole('button', { name: 'SidebarTurnIntoDoc' }).parentElement).toBe(
+    expect(within(idleRow).getByRole('button', { name: 'SidebarTurnIntoPage' }).parentElement).toBe(
       within(idleRow).getByRole('button', { name: 'SidebarSettle' }).parentElement
     );
-    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoDoc' })).toBeNull();
+    expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
     expect(
       within(screen.getByRole('link', { name: 'Note 3' })).getByText('SidebarGenerating')
     ).toBeInTheDocument();
@@ -202,7 +202,7 @@ testStable(
       expect(within(group).getByRole('button', { name: 'SidebarReopen' })).toBeVisible()
     );
     expect(
-      within(group).queryByRole('button', { name: 'SidebarTurnIntoDoc' })
+      within(group).queryByRole('button', { name: 'SidebarTurnIntoPage' })
     ).not.toBeInTheDocument();
     fireEvent.click(within(group).getByRole('button', { name: 'SidebarReopen' }));
     await waitFor(() => expect(api.settle).toHaveBeenLastCalledWith({ id: 1n, settled: false }));
@@ -519,7 +519,7 @@ testStable('opens the conversion dialog from a row without navigating or settlin
   const row = link.closest('.study-note-entry') as HTMLElement;
 
   expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
-  fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoDoc' }));
+  fireEvent.click(within(row).getByRole('button', { name: 'SidebarTurnIntoPage' }));
   const dialog = await screen.findByRole('dialog', { name: 'NoteTransform' });
 
   expect(within(dialog).getByText('Note 1')).toBeVisible();

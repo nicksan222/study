@@ -185,7 +185,7 @@ export function makePageEvidence(resources: StoreResources) {
       .all();
 
     if (existing.some((x) => owner === undefined || x.pageId !== owner))
-      invalid('Editing identities belong to another document');
+      invalid('Editing identities belong to another page');
 
     if (
       owner === undefined &&

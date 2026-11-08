@@ -65,8 +65,8 @@ export const transformSuggestionHandler = ({
         const language = input.language === 'italian' ? 'Italian' : 'English';
         const instructions =
           input.field === 'title'
-            ? `Write a concise Document title in ${language}, at most 200 characters. Return only the title without quotes.`
-            : `Write a brief description of the study document to create in ${language}, phrased as transformation instructions for the student. State a concrete goal grounded in the saved material, in at most 1000 characters. Return only the instructions.`;
+            ? `Write a concise Page title in ${language}, at most 200 characters. Return only the title without quotes.`
+            : `Write a brief description of the study page to create in ${language}, phrased as transformation instructions for the student. State a concrete goal grounded in the saved material, in at most 1000 characters. Return only the instructions.`;
         const output = (yield* generateAgent(
           {
             ...titleAgent,

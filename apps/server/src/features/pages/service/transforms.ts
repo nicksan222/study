@@ -106,7 +106,7 @@ export function publishTransform(
     context.requestId !== request.contextRequestId ||
     context.instruction !== request.instruction
   )
-    throw new StudyError('not_found', 'Captured document inputs are unavailable');
+    throw new StudyError('not_found', 'Captured page inputs are unavailable');
 
   validateMergeInputs(tx, request);
 
@@ -187,10 +187,10 @@ function validateMergeInputs(tx: Transaction, request: typeof t.transformSnapsho
   if (request.merge) {
     for (const id of request.merge.versions) {
       const version = tx.store(PageVersionsStore).version({ id });
-      const document = tx.store(PagesStore).page({ id: version.pageId });
+      const page = tx.store(PagesStore).page({ id: version.pageId });
 
-      if (document.headVersionId !== id || document.archivedAt !== null)
-        throw new StudyError('invalid_input', 'A selected document changed during the merge');
+      if (page.headVersionId !== id || page.archivedAt !== null)
+        throw new StudyError('invalid_input', 'A selected page changed during the merge');
     }
   }
 }

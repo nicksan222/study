@@ -35,7 +35,7 @@ import { assert, expect } from 'vite-plus/test';
 
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
 import { App } from '#server/runtime/index';
-import { acceptance, backupFixture, createDocument } from '#testing/managed-backups';
+import { acceptance, backupFixture, createPage } from '#testing/managed-backups';
 import { inTestPhase } from '#testing/progress';
 
 async function childOwner(path: string) {
@@ -227,13 +227,13 @@ testStable(
     const f = await backupFixture();
 
     try {
-      await createDocument(f.app, 'Backup');
+      await createPage(f.app, 'Backup');
 
       const api = await f.api();
 
       const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
 
-      await createDocument(f.app, 'Current target');
+      await createPage(f.app, 'Current target');
 
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 

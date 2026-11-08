@@ -10,13 +10,13 @@ import { ContentReadError } from '../document-presentation';
 import { restorePageOptions } from './restore.queries';
 
 export function MakePageCurrent({
-  document,
+  page,
   version,
   disabled,
   onRestored,
   onBusy
 }: {
-  document: Page;
+  page: Page;
   version: PageVersion;
   disabled: boolean;
   onRestored: () => void;
@@ -24,10 +24,10 @@ export function MakePageCurrent({
 }) {
   const { t } = useI18n();
   const cache = useQueryClient();
-  const attemptKey = ['document-restore-attempt', String(document.id), String(version.id)];
+  const attemptKey = ['page-restore-attempt', String(page.id), String(version.id)];
 
   const mutation = useMutation({
-    ...restorePageOptions(cache, document, version),
+    ...restorePageOptions(cache, page, version),
     onSuccess: async (outcome) => {
       cache.removeQueries({ queryKey: attemptKey, exact: true });
       await invalidatePages(cache);

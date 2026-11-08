@@ -10,7 +10,7 @@ import { request } from '#web/lib/study-client/request.ts';
 import { releaseBodyPreviews } from '../document-presentation';
 
 export function usePageRetirement(
-  document: Page,
+  page: Page,
   initialMode?: 'history' | 'deletion',
   onClosed?: () => void
 ) {
@@ -20,16 +20,16 @@ export function usePageRetirement(
   const [keepLatest, setKeepLatest] = useState('10');
   const validKeep = validHistoryCount(keepLatest);
   const inspect = useQuery({
-    queryKey: ['pages', 'retirement-preview', String(document.id), mode, keepLatest],
+    queryKey: ['pages', 'retirement-preview', String(page.id), mode, keepLatest],
     enabled: mode !== undefined && (mode === 'deletion' || validKeep),
     gcTime: 0,
     retry: false,
     queryFn: () =>
       request((rpc) =>
         mode === 'deletion'
-          ? rpc['pages.previewDeletion']({ id: document.id })
+          ? rpc['pages.previewDeletion']({ id: page.id })
           : rpc['pages.previewHistory']({
-              pageId: document.id,
+              pageId: page.id,
               keepLatest: Number(keepLatest)
             })
       )
@@ -40,23 +40,23 @@ export function usePageRetirement(
       if (!preview) return;
 
       if (mode === 'deletion')
-        await request((rpc) => rpc['pages.delete']({ pageId: document.id, token: preview.token }));
+        await request((rpc) => rpc['pages.delete']({ pageId: page.id, token: preview.token }));
       else
         await request((rpc) =>
           rpc['pages.retireHistory']({
-            pageId: document.id,
+            pageId: page.id,
             keepLatest: Number(keepLatest),
             token: preview.token
           })
         );
 
-      await releaseVersionBodies(cache, document.id, preview.versionIds);
+      await releaseVersionBodies(cache, page.id, preview.versionIds);
 
       if (mode === 'deletion') {
-        releasePageBodies(cache, document.id);
+        releasePageBodies(cache, page.id);
         await navigate({
           to: '/pages',
-          search: document.projectIds[0] ? { project: String(document.projectIds[0]) } : {}
+          search: page.projectIds[0] ? { project: String(page.projectIds[0]) } : {}
         });
       }
 
@@ -69,7 +69,7 @@ export function usePageRetirement(
       if (preview)
         await releaseBodyPreviews(cache, {
           kind: 'page',
-          pageId: String(document.id),
+          pageId: String(page.id),
           versionIds: preview.versionIds.map(String)
         });
     },
@@ -85,7 +85,7 @@ export function usePageRetirement(
   }
 
   return {
-    document,
+    page,
     mode,
     setMode,
     keepLatest,
@@ -120,10 +120,10 @@ async function releaseVersionBodies(
     cache.removeQueries({ queryKey: ['document-editor', String(pageId), String(id)] });
   }
 
-  for (const [key, copy] of cache.getQueriesData<{ document?: Page }>({
+  for (const [key, copy] of cache.getQueriesData<{ page?: Page }>({
     queryKey: ['source-copy']
   })) {
-    const version = copy?.document?.version;
+    const version = copy?.page?.version;
 
     if (version && version.pageId === pageId && versionIds.includes(version.id))
       cache.removeQueries({ queryKey: key, exact: true });
@@ -135,8 +135,8 @@ function releasePageBodies(cache: QueryClient, pageId: PageId) {
   cache.removeQueries({ queryKey: ['pages', 'history', String(pageId)], exact: true });
   cache.removeQueries({ queryKey: ['note-page-drafts', String(pageId)] });
 
-  for (const [key, copy] of cache.getQueriesData<{ document?: Page }>({
+  for (const [key, copy] of cache.getQueriesData<{ page?: Page }>({
     queryKey: ['source-copy']
   }))
-    if (copy?.document?.id === pageId) cache.removeQueries({ queryKey: key, exact: true });
+    if (copy?.page?.id === pageId) cache.removeQueries({ queryKey: key, exact: true });
 }

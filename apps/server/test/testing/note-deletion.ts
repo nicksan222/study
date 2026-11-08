@@ -60,13 +60,13 @@ export function setup(
     Effect.gen(function* () {
       const chats = yield* Notes;
 
-      const documents = yield* Pages;
+      const pages = yield* Pages;
 
       const note = yield* chats.createUntitledNote({});
 
       const other = yield* chats.createNote({ title: 'Keep other note' });
 
-      const library = yield* documents.create({
+      const library = yield* pages.create({
         createKey: randomUUID(),
         inputs: [],
         citations: [],
@@ -106,9 +106,9 @@ export function setup(
       });
 
       if (additionalInputVersionId !== undefined) {
-        const additional = yield* documents.version({ id: additionalInputVersionId });
+        const additional = yield* pages.version({ id: additionalInputVersionId });
 
-        yield* documents.attach({ noteId: note.id, pageId: additional.pageId });
+        yield* pages.attach({ noteId: note.id, pageId: additional.pageId });
       }
 
       const capture = yield* chats.captureNoteContext({
@@ -118,7 +118,7 @@ export function setup(
         preferences: {}
       });
 
-      const request = yield* chats.requestDocumentTransform({
+      const request = yield* chats.requestPageTransform({
         contextRequestId: capture.requestId,
         title: 'Generated result',
         operations: ['clarity'],
@@ -202,7 +202,7 @@ export function assertScrubbed(
         .map((row) => {
           if (!retainAuthoredMetadata) return row;
           // Authored versions and requests intentionally retain their instructions; note cleanup
-          // removes raw captures, not independent document generation metadata.
+          // removes raw captures, not independent page generation metadata.
 
           if (table.name === 'page_versions') return { ...row, instruction: null };
 
@@ -229,15 +229,15 @@ export function assertScrubbed(
 export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVersionId[]) {
   return Effect.runPromise(
     Effect.gen(function* () {
-      const documents = yield* Pages;
+      const pages = yield* Pages;
 
       for (const id of ids) {
-        const version = yield* documents.version({ id });
+        const version = yield* pages.version({ id });
         const block = version.document.blocks[0];
 
         assert.ok(block);
 
-        const created = yield* documents.createAnnotation({
+        const created = yield* pages.createAnnotation({
           target: {
             pageId: version.pageId,
             range: {
@@ -261,16 +261,16 @@ export function annotateLibrary(fixture: DeletionFixture, ids: readonly PageVers
 export function libraryState(fixture: DeletionFixture, ids: readonly PageVersionId[]) {
   return Effect.runPromise(
     Effect.gen(function* () {
-      const documents = yield* Pages;
+      const pages = yield* Pages;
 
       const results = [];
 
       for (const id of ids) {
-        const version = yield* documents.version({ id });
+        const version = yield* pages.version({ id });
 
         const citations = version.citations;
 
-        const annotations = yield* documents.annotations({
+        const annotations = yield* pages.annotations({
           pageId: version.pageId,
           includeDeleted: true,
           limit: 100
@@ -279,7 +279,7 @@ export function libraryState(fixture: DeletionFixture, ids: readonly PageVersion
         const histories = [];
 
         for (const annotation of annotations.items)
-          histories.push(yield* documents.annotationHistory({ id: annotation.id, limit: 100 }));
+          histories.push(yield* pages.annotationHistory({ id: annotation.id, limit: 100 }));
 
         results.push({ version, citations, annotations, histories });
       }
@@ -305,7 +305,7 @@ export function awaitNativeStatus(
   });
 }
 
-export function validDocumentTransformOutput(text: string): typeof pageTransformOutputSchema.Type {
+export function validPageTransformOutput(text: string): typeof pageTransformOutputSchema.Type {
   return {
     blocks: [{ type: 'paragraph', inlines: [{ type: 'text', text, marks: [] }] }],
     notes: [

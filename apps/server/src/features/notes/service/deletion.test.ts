@@ -37,7 +37,7 @@ import {
   annotateLibrary,
   libraryState,
   awaitNativeStatus,
-  validDocumentTransformOutput
+  validPageTransformOutput
 } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
@@ -367,7 +367,7 @@ testStable(
         { kind: 'sources', query: 'independent' },
         {
           kind: 'output',
-          output: validDocumentTransformOutput('INTENTIONAL_PUBLISHED_COPY_8 [1]')
+          output: validPageTransformOutput('INTENTIONAL_PUBLISHED_COPY_8 [1]')
         }
       );
       await fixture.executeAuthored(
@@ -503,7 +503,7 @@ testStable(
         { kind: 'sources', query: 'independent' },
         {
           kind: 'output',
-          output: validDocumentTransformOutput('Late unpublished response [1]')
+          output: validPageTransformOutput('Late unpublished response [1]')
         }
       );
       fixture.beforeOutput(() =>
@@ -656,7 +656,7 @@ testStable(
         { kind: 'sources', query: 'independent' },
         {
           kind: 'output',
-          output: validDocumentTransformOutput('Retained edited result [1]')
+          output: validPageTransformOutput('Retained edited result [1]')
         }
       );
       await fixture.executeAuthored(
@@ -666,7 +666,7 @@ testStable(
       const retained = await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;
-          const keep = yield* chats.keepDocumentProposal({
+          const keep = yield* chats.keepPageProposal({
             requestId: saved.request.id,
             key: 'keep-before-delete',
             title: 'Independent kept copy'
@@ -676,7 +676,7 @@ testStable(
             key: 'apply-before-delete',
             expectedVersionId: saved.library.version.id
           };
-          const apply = yield* chats.applyDocumentProposal(applyValue);
+          const apply = yield* chats.applyPageProposal(applyValue);
 
           assert.ok(apply.outcome === 'applied');
           yield* chats.deleteNote(saved.note.id);
@@ -716,18 +716,18 @@ testStable(
           ])
             assert.ok((yield* documents.version({ id })).status === 'published');
 
-          const kept = yield* chats.keepDocumentProposal({
+          const kept = yield* chats.keepPageProposal({
             requestId: saved.request.id,
             key: 'keep-before-delete',
             title: 'Independent kept copy'
           });
-          const applied = yield* chats.applyDocumentProposal(retained.applyValue);
+          const applied = yield* chats.applyPageProposal(retained.applyValue);
 
           expect(kept).toStrictEqual({ ...retained.keep, replayed: true });
           expect(applied).toStrictEqual({ ...retained.apply, replayed: true });
           assert.ok(
             (yield* Effect.flip(
-              chats.keepDocumentProposal({
+              chats.keepPageProposal({
                 requestId: saved.request.id,
                 key: 'new-after-delete',
                 title: 'Late copy'

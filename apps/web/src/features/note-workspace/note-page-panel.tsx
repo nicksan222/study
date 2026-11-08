@@ -16,7 +16,7 @@ import { SaveRecoveryNotice } from './save-recovery';
 import { NoteReadError } from './status';
 
 type EditorActions = {
-  actions?: (document: Page, version: PageVersion, disabled: boolean) => ReactNode;
+  actions?: (page: Page, version: PageVersion, disabled: boolean) => ReactNode;
   versionId?: PageVersionId;
 };
 
@@ -31,7 +31,7 @@ export function NotePagePanel({ pageId, actions, versionId }: { pageId: PageId }
   if (!state.data) return null;
 
   return state.data.version ? (
-    <PageEditor document={state.data} actions={actions} versionId={versionId} />
+    <PageEditor page={state.data} actions={actions} versionId={versionId} />
   ) : (
     <Desk.Recovery>
       <p>{t('NoteReadUnavailable')}</p>
@@ -39,9 +39,9 @@ export function NotePagePanel({ pageId, actions, versionId }: { pageId: PageId }
   );
 }
 
-function PageEditor({ document, actions, versionId }: { document: Page } & EditorActions) {
-  const model = useNotePageAutosave(document);
-  const { historical, exact, version, unavailable } = useViewedPage(document, versionId);
+function PageEditor({ page, actions, versionId }: { page: Page } & EditorActions) {
+  const model = useNotePageAutosave(page);
+  const { historical, exact, version, unavailable } = useViewedPage(page, versionId);
   const blocked = model.dirty || model.pending || model.error !== undefined;
 
   return (
@@ -53,13 +53,13 @@ function PageEditor({ document, actions, versionId }: { document: Page } & Edito
             document={historical ? version.document : model.document}
             disabled={historical || exact.isFetching}
             snapshotId={version.snapshotId}
-            projectId={document.projectIds[0]}
+            projectId={page.projectIds[0]}
             onChange={model.change}
             toolbarEnd={
               <>
                 <PageSaveStatus model={model} />
-                <PageMetadata document={document} />
-                {actions?.(document, version, blocked || exact.isFetching)}
+                <PageMetadata page={page} />
+                {actions?.(page, version, blocked || exact.isFetching)}
               </>
             }
           />
@@ -69,11 +69,11 @@ function PageEditor({ document, actions, versionId }: { document: Page } & Edito
   );
 }
 
-function useViewedPage(document: Page, versionId?: PageVersionId) {
-  const historical = versionId !== undefined && versionId !== document.headVersionId;
+function useViewedPage(page: Page, versionId?: PageVersionId) {
+  const historical = versionId !== undefined && versionId !== page.headVersionId;
   const exact = useQuery({ ...pageVersionOptions(versionId!), enabled: historical });
-  const candidate = historical ? exact.data : document.version;
-  const version = candidate?.pageId === document.id ? candidate : undefined;
+  const candidate = historical ? exact.data : page.version;
+  const version = candidate?.pageId === page.id ? candidate : undefined;
 
   return { historical, exact, version, unavailable: historical && exact.isSuccess && !version };
 }

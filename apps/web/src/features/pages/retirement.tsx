@@ -11,15 +11,15 @@ import { usePageRetirement } from './retirement.queries';
 
 type View = ReturnType<typeof usePageRetirement>;
 
-export function PageDeletionDialog({ document, onClose }: { document: Page; onClose: () => void }) {
-  const view = usePageRetirement(document, 'deletion', onClose);
+export function PageDeletionDialog({ page, onClose }: { page: Page; onClose: () => void }) {
+  const view = usePageRetirement(page, 'deletion', onClose);
 
   return <RetirementDialog view={view} onClose={onClose} />;
 }
 
 function RetirementDialog({ view, onClose }: { view: View; onClose?: () => void }) {
   const { t } = useI18n();
-  const { document, mode, setMode, preview, retire, validKeep } = view;
+  const { page, mode, setMode, preview, retire, validKeep } = view;
   const blocked = !preview || preview.blockedVersionIds.length > 0;
 
   return (
@@ -38,9 +38,9 @@ function RetirementDialog({ view, onClose }: { view: View; onClose?: () => void 
       pending={retire.isPending}
       disabled={blocked || retire.isError || (mode === 'history' && !validKeep)}
       confirmation={{
-        identity: document.id + ':' + mode + ':' + (preview?.token ?? ''),
-        value: document.title,
-        label: t('DeleteConfirmationInstruction', { word: document.title })
+        identity: page.id + ':' + mode + ':' + (preview?.token ?? ''),
+        value: page.title,
+        label: t('DeleteConfirmationInstruction', { word: page.title })
       }}
       onConfirm={() => retire.mutate()}
     >

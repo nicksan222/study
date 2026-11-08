@@ -112,7 +112,7 @@ function PageRowContent({ item }: { item: PageSummary }) {
 function PageRow({ item, project }: { item: PageSummary; project?: ProjectId }) {
   return (
     <li>
-      <PageContextMenu document={item} project={project}>
+      <PageContextMenu page={item} project={project}>
         <Link
           to="/pages/$pageId"
           params={{ pageId: String(item.id) }}

@@ -97,7 +97,7 @@ menu without permanent overflow buttons.
 
 `WorkspaceCard` owns one compact right context panel, controlled by the square menu icon
 in the note header. It combines current-note notes, attachments, revisions and
-generated material with selection, document transformation and note deletion actions.
+generated material with selection, page transformation and note deletion actions.
 Selection and transformation open shared dialogs with readable 14px form text and one
 scrolling body. Closing either dialog returns focus to its card action; closing the panel
 keeps drafts and operation ownership mounted. Previews are read-only and retain exact

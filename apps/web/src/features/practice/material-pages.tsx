@@ -66,13 +66,13 @@ function PageLink({
   version: PageVersionId;
 }) {
   const { t } = useI18n();
-  const document = useQuery(notePageOptions(id));
+  const page = useQuery(notePageOptions(id));
 
   return (
     <WorkspaceCard.Item
-      disabled={!document.data}
+      disabled={!page.data}
       render={
-        document.data ? (
+        page.data ? (
           <Link
             to="/pages/$pageId"
             params={{ pageId: String(id) }}
@@ -82,9 +82,7 @@ function PageLink({
       }
     >
       <FileText aria-hidden="true" />
-      <span>
-        {document.data?.title ?? t(document.isError ? 'ReaderUnavailable' : 'LoadingStudy')}
-      </span>
+      <span>{page.data?.title ?? t(page.isError ? 'ReaderUnavailable' : 'LoadingStudy')}</span>
       <ArrowUpRight aria-hidden="true" />
     </WorkspaceCard.Item>
   );

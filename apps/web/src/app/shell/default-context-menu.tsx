@@ -49,11 +49,11 @@ export function DefaultContextMenu({
   const { t } = useI18n();
   const navigate = useNavigate();
   const replay = useContext(ReplayContext);
-  const document = useNewBlankPage(project);
+  const page = useNewBlankPage(project);
   const search = project ? { project: String(project) } : {};
 
   async function createPage() {
-    if (!(await document.create())) {
+    if (!(await page.create())) {
       toastManager.add({ type: 'error', title: t('NoteActionErrorTitle') });
     }
   }
@@ -77,7 +77,7 @@ export function DefaultContextMenu({
           <SquarePen aria-hidden="true" />
           {t('NewNote')}
         </ContextMenuItem>
-        <ContextMenuItem disabled={disabled || document.pending} onClick={() => void createPage()}>
+        <ContextMenuItem disabled={disabled || page.pending} onClick={() => void createPage()}>
           <FilePlus2 aria-hidden="true" />
           {t('PageNew')}
         </ContextMenuItem>

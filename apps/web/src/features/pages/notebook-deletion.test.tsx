@@ -52,7 +52,7 @@ testStable('confirms one authored note revision separately from the full item', 
   render(
     <QueryClientProvider client={client}>
       <PageNotebookDeletion
-        document={document}
+        page={document}
         renderActions={(actions) => (
           <ItemContextMenu
             target={<button type="button" aria-label="OpenMaterial" />}
@@ -132,7 +132,7 @@ testStable('shows a review-only list when the current version is the only versio
   clients.push(client);
   render(
     <QueryClientProvider client={client}>
-      <PageNotebookDeletion document={document} />
+      <PageNotebookDeletion page={document} />
     </QueryClientProvider>
   );
   await userEvent.setup().click(screen.getByRole('button', { name: en.NoteDeleteVersion }));

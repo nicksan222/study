@@ -32,10 +32,10 @@ export function SourcePage() {
             search: search.project ? { project: search.project } : {}
           });
         }}
-        onOpenPage={(document) => {
+        onOpenPage={(page) => {
           void navigate({
             to: '/pages/$pageId',
-            params: { pageId: String(document.id) }
+            params: { pageId: String(page.id) }
           });
         }}
       />

@@ -419,7 +419,7 @@ testStable(
             instruction: 'PRIVATE_CAPTURE_PRUNE',
             preferences: {}
           });
-          const generation = yield* chats.requestDocumentTransform({
+          const generation = yield* chats.requestPageTransform({
             contextRequestId: capture.requestId,
             title: 'Pending',
             operations: ['clarity']
@@ -472,7 +472,7 @@ testStable(
           assert.ok((yield* docs.transform({ requestId: saved.requestId })).cancelled === true);
           assert.ok(
             (yield* Effect.flip(
-              chats.retryDocumentTransform({
+              chats.retryPageTransform({
                 requestId: saved.requestId,
                 retryId: 'no-resurrection'
               })

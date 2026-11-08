@@ -36,7 +36,7 @@ for (const uncertain of [false, true])
       const unrelated = ['document-editor', '20', '201'];
 
       cache.setQueryData(relatedHistory, { pages: [{ items: [document.version] }] });
-      cache.setQueryData(sourceCopy, { pending: false, document });
+      cache.setQueryData(sourceCopy, { pending: false, page: document });
       const comparisonKey = ['pages', 'proposal-comparison', 'delete-target'];
 
       cache.setQueryData(

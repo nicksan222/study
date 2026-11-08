@@ -81,13 +81,13 @@ testStable(
     const view = mount(() => useNotePageCreation(id));
 
     await act(async () => {
-      await view.result.current.create('New document');
+      await view.result.current.create('New page');
     });
     const input = api.create.mock.calls[0]![0];
 
     expect(input).toMatchObject({
       noteId: id,
-      title: 'New document',
+      title: 'New page',
       document: { blocks: [{ text: '' }] }
     });
     expect(input.createKey).toBeTruthy();

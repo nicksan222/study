@@ -22,7 +22,7 @@ import { assert, expect } from 'vite-plus/test';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { deletionDocument } from '#testing/material-deletion';
-import { setup, cleanup, validDocumentTransformOutput } from '#testing/note-deletion';
+import { setup, cleanup, validPageTransformOutput } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
 for (const apply of [false, true])
@@ -52,7 +52,7 @@ for (const apply of [false, true])
           { kind: 'sources', query: 'independent' },
           {
             kind: 'output',
-            output: validDocumentTransformOutput('PUBLISHED_PROPOSAL_HISTORY_COPY [1]')
+            output: validPageTransformOutput('PUBLISHED_PROPOSAL_HISTORY_COPY [1]')
           }
         );
         const proposedId = await f.executeAuthored(event, 'history-proposal-generation');
@@ -77,7 +77,7 @@ for (const apply of [false, true])
               key: 'history-keep',
               title: 'Independent proposal copy'
             };
-            const keep = yield* chats.keepDocumentProposal(keepInput);
+            const keep = yield* chats.keepPageProposal(keepInput);
 
             assert.ok(keep.resultVersionId);
             const applyInput = {
@@ -85,7 +85,7 @@ for (const apply of [false, true])
               key: 'history-apply',
               expectedVersionId: saved.library.version.id
             };
-            const applied = apply ? yield* chats.applyDocumentProposal(applyInput) : null;
+            const applied = apply ? yield* chats.applyPageProposal(applyInput) : null;
 
             if (applied) {
               assert.ok(applied.outcome === 'applied');
@@ -172,20 +172,20 @@ for (const apply of [false, true])
               (yield* Effect.flip(docs.version({ id: additional.version!.id }))).kind ===
                 'not_found'
             );
-            expect(yield* chats.keepDocumentProposal(retained.keepInput)).toStrictEqual({
+            expect(yield* chats.keepPageProposal(retained.keepInput)).toStrictEqual({
               ...retained.keep,
               replayed: true
             });
 
             if (retained.applied)
-              expect(yield* chats.applyDocumentProposal(retained.applyInput)).toStrictEqual({
+              expect(yield* chats.applyPageProposal(retained.applyInput)).toStrictEqual({
                 ...retained.applied,
                 replayed: true
               });
 
             assert.ok(
               (yield* Effect.flip(
-                chats.keepDocumentProposal({ ...retained.keepInput, key: 'new-after-retirement' })
+                chats.keepPageProposal({ ...retained.keepInput, key: 'new-after-retirement' })
               )).kind === 'not_found'
             );
             assert.ok(

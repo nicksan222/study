@@ -37,10 +37,10 @@ export const mergeNotes = (input: typeof mergeNotesInputSchema.Type) =>
       tx.store(NoteMergeStore).copyMessages({ ...copying, recordingCopies });
       const content = tx.store(NoteMergeStore).noteMerge(input.noteIds);
 
-      for (const link of content.documents)
+      for (const link of content.pages)
         Pages.attachInTransaction(tx, { noteId: result.id, pageId: link.id });
 
-      for (const link of archivedLinks(content.documents)) {
+      for (const link of archivedLinks(content.pages)) {
         Pages.archiveNoteInTransaction(tx, {
           noteId: result.id,
           pageId: link.id,

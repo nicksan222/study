@@ -4,16 +4,16 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { request } from '#web/lib/study-client/request.ts';
 
-export function restorePageOptions(cache: QueryClient, document: Page, version: PageVersion) {
-  const attemptKey = ['document-restore-attempt', String(document.id), String(version.id)];
+export function restorePageOptions(cache: QueryClient, page: Page, version: PageVersion) {
+  const attemptKey = ['page-restore-attempt', String(page.id), String(version.id)];
 
-  cache.setQueryDefaults(['document-restore-attempt'], { gcTime: Infinity });
+  cache.setQueryDefaults(['page-restore-attempt'], { gcTime: Infinity });
 
   return {
     mutationFn: async () => {
       const input = cache.getQueryData<typeof restoreSchema.Type>(attemptKey) ?? {
-        pageId: document.id,
-        expectedVersionId: document.headVersionId!,
+        pageId: page.id,
+        expectedVersionId: page.headVersionId!,
         restoreVersionId: version.id,
         key: crypto.randomUUID()
       };

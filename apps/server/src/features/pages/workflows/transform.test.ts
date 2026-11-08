@@ -147,7 +147,7 @@ testStable(
             instruction: 'Keep uncertainty',
             preferences: { language: 'italian', detail: 'brief' }
           });
-          const request = yield* (yield* Notes).requestDocumentTransform({
+          const request = yield* (yield* Notes).requestPageTransform({
             contextRequestId: capture.requestId,
             title: 'Output',
             operations: [
@@ -257,12 +257,12 @@ testStable(
             instruction: 'New work',
             preferences: {}
           });
-          const request = yield* (yield* Notes).requestDocumentTransform({
+          const request = yield* (yield* Notes).requestPageTransform({
             contextRequestId: capture.requestId,
             title: 'Late',
             operations: ['summarize']
           });
-          const retry = yield* (yield* Notes).retryDocumentTransform({
+          const retry = yield* (yield* Notes).retryPageTransform({
             requestId: request.id,
             retryId: 'exact-retry'
           });

@@ -17,11 +17,15 @@ export function AuthoredPageReader({
   initialVersion?: string;
 }) {
   return (
-    <DocumentReader key={`${id}:${initialVersion ?? ''}`} id={id} initialVersion={initialVersion} />
+    <PageReaderContent
+      key={`${id}:${initialVersion ?? ''}`}
+      id={id}
+      initialVersion={initialVersion}
+    />
   );
 }
 
-function DocumentReader({ id, initialVersion }: { id: PageId; initialVersion?: string }) {
+function PageReaderContent({ id, initialVersion }: { id: PageId; initialVersion?: string }) {
   const [selected, setSelected] = useState<PageVersionId | undefined>(() =>
     initialVersion
       ? Schema.decodeUnknownSync(pageVersionIdSchema)(BigInt(initialVersion))
@@ -35,20 +39,20 @@ function DocumentReader({ id, initialVersion }: { id: PageId; initialVersion?: s
   const [restoring, setRestoring] = useState(false);
 
   const actions = useCallback(
-    (document: Page, version: PageVersion, disabled: boolean) => (
+    (page: Page, version: PageVersion, disabled: boolean) => (
       <>
         <PageVersionStepper
           pageId={id}
           version={version}
-          headVersionId={document.headVersionId}
+          headVersionId={page.headVersionId}
           onChange={setSelected}
           pending={disabled || restoring}
         />
-        {version.id !== document.headVersionId && (
+        {version.id !== page.headVersionId && (
           <MakePageCurrent
             key={String(version.id)}
             onBusy={setRestoring}
-            document={document}
+            page={page}
             version={version}
             disabled={disabled}
             onRestored={() => setSelected(undefined)}
