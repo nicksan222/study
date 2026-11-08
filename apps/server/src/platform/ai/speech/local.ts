@@ -87,7 +87,7 @@ export const transcribeAudio = (directory: string, bytes: Uint8Array) =>
           catch: (cause) =>
             cause instanceof StudyError
               ? cause
-              : new StudyError('model_unavailable', 'Local transcription failed', { cause })
+              : new StudyError('internal', 'Local transcription failed', { cause })
         });
       })
     )

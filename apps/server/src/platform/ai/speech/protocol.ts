@@ -28,5 +28,9 @@ export const transcriptSchema = Schema.Struct({
 
 // The subset is schema checked without a runtime workspace import in the packaged worker.
 export const speechFailureSchema = Schema.Struct({
-  error: Schema.Literals(['invalid_input', 'model_unavailable'] satisfies readonly ErrorKind[])
+  error: Schema.Literals([
+    'invalid_input',
+    'model_unavailable',
+    'internal'
+  ] satisfies readonly ErrorKind[])
 });

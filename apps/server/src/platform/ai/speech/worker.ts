@@ -19,8 +19,9 @@ import { Voz } from '@desert-ant-labs/voz';
 import { Schema } from 'effect';
 import * as ort from 'onnxruntime-node';
 
+import { runSpeechInference } from './inference.ts';
 import { vozModel } from './model.ts';
-import { speechInputSchema, transcriptSchema } from './protocol.ts';
+import { speechInputSchema } from './protocol.ts';
 
 const input = Schema.decodeUnknownSync(speechInputSchema)(workerData);
 
@@ -68,14 +69,12 @@ async function transcribe() {
     return;
   }
 
-  try {
-    const voz = await Voz.load({ ort, modelBaseUrl: base, cache: false, webnn: false });
-    const result = await voz.transcribe(samples);
-
-    parentPort?.postMessage(Schema.decodeUnknownSync(transcriptSchema)(result));
-  } catch {
-    parentPort?.postMessage({ error: 'model_unavailable' });
-  }
+  parentPort?.postMessage(
+    await runSpeechInference(
+      () => Voz.load({ ort, modelBaseUrl: base, cache: false, webnn: false }),
+      samples
+    )
+  );
 }
 
 await transcribe();

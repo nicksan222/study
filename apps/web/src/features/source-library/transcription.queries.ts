@@ -1,5 +1,11 @@
 import type { SourceId } from '@study/contracts/ids';
-import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  queryOptions,
+  skipToken,
+  useMutation,
+  useQuery,
+  useQueryClient
+} from '@tanstack/react-query';
 
 import { request } from '#web/lib/study-client/request.ts';
 
@@ -54,15 +60,16 @@ export function useTranscriptionState(id: SourceId) {
     queryFn: ({ signal }) => request((rpc) => rpc['sources.sourceProcessing']({ id }), signal),
     refetchInterval: 3000
   });
+  const requestId = processing.data?.requestId;
   const execution = useQuery({
-    queryKey: ['source-transcription-execution', processing.data?.requestId],
-    queryFn: ({ signal }) =>
-      request(
-        (rpc) =>
-          rpc['workflows.executions']({ correlationId: processing.data!.requestId!, limit: 1 }),
-        signal
-      ),
-    enabled: !!processing.data?.requestId,
+    queryKey: ['source-transcription-execution', requestId],
+    queryFn: requestId
+      ? ({ signal }) =>
+          request(
+            (rpc) => rpc['workflows.executions']({ correlationId: requestId, limit: 1 }),
+            signal
+          )
+      : skipToken,
     refetchInterval: 3000
   });
   const last = execution.data?.items[0];
