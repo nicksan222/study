@@ -26,35 +26,42 @@ export type StructuredEditorValue = JSONContent;
 
 const identity = Extension.create({
   name: 'pageIdentity',
-  addGlobalAttributes: () => [
-    {
-      types: [
-        'paragraph',
-        'heading',
-        'codeBlock',
-        'bulletList',
-        'orderedList',
-        'listItem',
-        'table',
-        'image'
-      ],
-      attributes: {
-        blockId: {
-          default: null,
-          renderHTML: (attrs) =>
-            attrs.blockId ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId } : {}
-        },
-        sourceKind: { default: null, rendered: false },
-        sourceHref: { default: null, rendered: false },
-        continuation: { default: false, rendered: false },
-        continuationStart: { default: null, rendered: false },
-        itemStart: {
-          default: null,
-          renderHTML: (attrs) => (attrs.itemStart === null ? {} : { value: attrs.itemStart })
+  addOptions: () => ({ anchors: false }),
+  addGlobalAttributes() {
+    return [
+      {
+        types: [
+          'paragraph',
+          'heading',
+          'codeBlock',
+          'bulletList',
+          'orderedList',
+          'listItem',
+          'table',
+          'image'
+        ],
+        attributes: {
+          blockId: {
+            keepOnSplit: false,
+            default: null,
+            renderHTML: (attrs) =>
+              this.options.anchors && attrs.blockId
+                ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId }
+                : {}
+          },
+          sourceKind: { default: null, rendered: false },
+          sourceHref: { default: null, rendered: false },
+          continuation: { default: false, rendered: false, keepOnSplit: false },
+          continuationStart: { default: null, rendered: false, keepOnSplit: false },
+          itemStart: {
+            keepOnSplit: false,
+            default: null,
+            renderHTML: (attrs) => (attrs.itemStart === null ? {} : { value: attrs.itemStart })
+          }
         }
       }
-    }
-  ]
+    ];
+  }
 });
 
 const retainedList = Node.create({
@@ -63,6 +70,7 @@ const retainedList = Node.create({
   content: '(bulletList | orderedList)*',
   addAttributes: () => ({
     blockId: {
+      keepOnSplit: false,
       default: null,
       renderHTML: (attrs) =>
         attrs.blockId ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId } : {}
@@ -80,6 +88,7 @@ const math = Node.create({
   code: true,
   addAttributes: () => ({
     blockId: {
+      keepOnSplit: false,
       default: null,
       renderHTML: (attrs) =>
         attrs.blockId ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId } : {}
@@ -172,9 +181,13 @@ export function StructuredEditor(props: StructuredEditorProps) {
 function StructuredDocumentPreview(props: StructuredEditorProps) {
   const extensions = useMemo(
     () =>
-      structuredEditorExtensions.map((extension) =>
-        extension === image ? image.configure({ resize: { enabled: false } }) : extension
-      ),
+      structuredEditorExtensions.map((extension) => {
+        if (extension === identity) return identity.configure({ anchors: true });
+
+        if (extension === image) return image.configure({ resize: { enabled: false } });
+
+        return extension;
+      }),
     []
   );
   const editor = useStructuredEditor({ ...props, readOnly: true }, extensions);

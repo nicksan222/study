@@ -262,12 +262,21 @@ function canonicalMarks(node: Node): TextMark[] {
 const nodeText = (node: Node): string => node.text ?? (node.content ?? []).map(nodeText).join('');
 
 function canonicalList(node: Node, depth = 0): ListItem[] {
-  return (node.content ?? []).flatMap((item, index) =>
-    item.type === 'listItem' ? canonicalListItem(node, item, index, depth) : []
-  );
+  let start = Number(node.attrs?.start ?? 1);
+
+  return (node.content ?? []).flatMap((item) => {
+    if (item.type !== 'listItem') return [];
+
+    start = Number(item.attrs?.itemStart ?? start);
+    const items = canonicalListItem(node, item, start, depth);
+
+    start++;
+
+    return items;
+  });
 }
 
-function canonicalListItem(list: Node, item: Node, index: number, depth: number): ListItem[] {
+function canonicalListItem(list: Node, item: Node, start: number, depth: number): ListItem[] {
   return (item.content ?? []).flatMap((child) => {
     if (child.type === 'bulletList' || child.type === 'orderedList')
       return canonicalList(child, depth + 1);
@@ -276,16 +285,12 @@ function canonicalListItem(list: Node, item: Node, index: number, depth: number)
       {
         depth,
         ordered: list.type === 'orderedList',
-        start: child.attrs?.continuationStart ?? listItemStart(list, item, index),
+        start: child.attrs?.continuationStart ?? start,
         ...(child.attrs?.continuation ? { continuation: true } : {}),
         inlines: canonicalInlines(child.content)
       }
     ];
   });
-}
-
-function listItemStart(list: Node, item: Node, index: number): number {
-  return Number(item.attrs?.itemStart ?? Number(list.attrs?.start ?? 1) + index);
 }
 
 type ContentReader = (node: Node) => BlockContent;

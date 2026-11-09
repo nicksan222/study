@@ -646,3 +646,52 @@ testStable(
     expect(onChange).not.toHaveBeenCalled();
   }
 );
+
+testStable(
+  'splitting authored content keeps original anchors and continues explicit list numbering',
+  () => {
+    const paragraph = createBlock({ type: 'paragraph', inlines: plain('Paragraph') });
+    const list = createBlock({
+      type: 'list_item',
+      items: [
+        { depth: 0, ordered: true, start: 3, inlines: plain('Third') },
+        { depth: 0, ordered: true, start: 8, inlines: plain('Eighth') }
+      ]
+    });
+    const document = { ...blankDocument(), blocks: [paragraph, list] };
+    const { container } = render(
+      <StructuredEditor
+        value={documentToEditor(document)}
+        onChange={() => {}}
+        labels={labels}
+        label="Document"
+        placeholder="Write"
+      />
+    );
+    const editor = (
+      screen.getByRole('textbox', { name: 'Document' }) as HTMLElement & {
+        editor: StructuredEditorInstance;
+      }
+    ).editor;
+
+    act(() => {
+      editor.state.doc.descendants((node, position) => {
+        if (node.text === 'Eighth') editor.commands.setTextSelection(position + node.nodeSize);
+      });
+      editor.commands.splitListItem('listItem');
+    });
+    const items = container.querySelectorAll('li');
+
+    expect(items[1]).toHaveAttribute('value', '8');
+    expect(items[2]).not.toHaveAttribute('value');
+    expect(editorToDocument(editor.getJSON(), document).blocks[1]!.content).toMatchObject({
+      items: [{ start: 3 }, { start: 8 }, { start: 9 }]
+    });
+    act(() => {
+      editor.commands.setTextSelection(5);
+      editor.commands.splitBlock();
+    });
+    expect(container.querySelectorAll(`[id="block-${paragraph.id}"]`)).toHaveLength(0);
+    expect(editor.getJSON().content![0]!.attrs!.blockId).toBe(paragraph.id);
+  }
+);

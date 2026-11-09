@@ -11,8 +11,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 import { documentToEditor } from './document-editor-content';
-import { DocumentOmissions } from './document-reader';
-import { DocumentReader } from './document-reader';
+import { DocumentOmissions, DocumentReader } from './document-reader';
 import { useDocumentEditorImages } from './editor-images.queries';
 import { retainedImageOptions } from './retained-document.queries';
 import { useStructuredEditorLabels } from './structured-editor-labels';
