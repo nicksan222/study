@@ -168,6 +168,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
     'Sidebar',
     'Writing',
     'Reading & exports',
+    'Analytics',
     'AI providers',
     'Models by task',
     'Custom instructions',
@@ -194,7 +195,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
     .map((button) => button.querySelector('svg')?.innerHTML);
 
   expect(new Set(icons).size).toBe(labels.length);
-  expect(labels).toHaveLength(20);
+  expect(labels).toHaveLength(21);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'
@@ -226,6 +227,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
 
 testStable.each([
   ['Concurrent', 'Performance', 'performance'],
+  ['Search logs', 'Analytics', 'analytics'],
   ['Sidebar spacing', 'Sidebar', 'sidebar'],
   ['export', 'Reading & exports', 'reading'],
   ['Custom instructions', 'Custom instructions', 'instructions'],

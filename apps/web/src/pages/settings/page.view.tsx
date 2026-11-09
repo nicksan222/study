@@ -15,6 +15,7 @@ import {
   FileText,
   Sparkles,
   Gauge,
+  Activity,
   ListChecks,
   ChartNoAxesColumn,
   TextCursorInput,
@@ -31,6 +32,7 @@ import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AiAccountSettings, AiModelSettings } from './ai';
 import { AgentRulesSettings } from './ai/agent-rules';
+import { AnalyticsSettings } from './analytics';
 import { AppearanceStatus } from './appearance-status';
 import { DataSettings } from './data';
 import { GeneralSettings } from './general';
@@ -140,6 +142,12 @@ const sections = [
     keywords: ['UsageTokens', 'UsageProvider', 'UsageAgents']
   },
   {
+    id: 'analytics',
+    label: 'AnalyticsTitle',
+    Icon: Activity,
+    keywords: ['AnalyticsSearch', 'AnalyticsLevel']
+  },
+  {
     id: 'performance',
     label: 'SettingsPerformance',
     Icon: Gauge,
@@ -223,7 +231,7 @@ export type SettingsSectionId = (typeof sections)[number]['id'];
 const navigationGroups = [
   {
     label: 'SettingsGroupWorkspace',
-    ids: ['general', 'appearance', 'sidebar', 'writing', 'reading']
+    ids: ['general', 'appearance', 'sidebar', 'writing', 'reading', 'analytics']
   },
   {
     label: 'SettingsAi',
@@ -400,6 +408,7 @@ function SectionContent({
     instructions: <AgentRulesSettings />,
     automation: <AiWritingSettings />,
     performance: <PerformanceSettings />,
+    analytics: <AnalyticsSettings />,
     usage: <UsageSettings />,
     flashcards: <StudySettings />,
     quizzes: <QuizSettings />,

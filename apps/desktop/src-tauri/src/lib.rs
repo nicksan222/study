@@ -16,6 +16,15 @@ async fn server_connection(
 ) -> Result<transport::Connection, NativeError> {
     Ok(shell.server.lock().await.client.connection())
 }
+#[tauri::command]
+async fn diagnostic_log(app: tauri::AppHandle) -> Result<String, NativeError> {
+    let data = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| NativeError::internal(e.to_string()))?;
+    diagnostics::recent(&data.join("diagnostics.log"))
+        .map_err(|e| NativeError::internal(e.to_string()))
+}
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -68,6 +77,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             server_connection,
+            diagnostic_log,
             updater::check_for_update,
             updater::install_update
         ])

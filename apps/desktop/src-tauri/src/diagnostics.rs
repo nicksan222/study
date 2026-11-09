@@ -7,13 +7,39 @@
 //! same file, keeps writing to it.
 
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 
 type Result<T> = io::Result<T>;
 
 /// How many of the most recent lines the log keeps.
 pub const KEPT_LINES: usize = 10_000;
+
+/// Read a bounded snapshot of the newest complete lines.
+pub fn recent(path: &Path) -> Result<String> {
+    const MAX_BYTES: u64 = 1024 * 1024;
+    let mut file = match File::open(path) {
+        Ok(file) => file,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(String::new()),
+        Err(error) => return Err(error),
+    };
+    let length = file.metadata()?.len();
+    let start = length.saturating_sub(MAX_BYTES);
+    file.seek(SeekFrom::Start(start))?;
+    let mut bytes = Vec::new();
+    file.take(MAX_BYTES).read_to_end(&mut bytes)?;
+    let bytes = if start > 0 {
+        match bytes.iter().position(|&byte| byte == b'\n') {
+            Some(index) => &bytes[index + 1..],
+            None => &[],
+        }
+    } else {
+        &bytes[..]
+    };
+    let skip = lines(bytes).count().saturating_sub(KEPT_LINES);
+    let kept: Vec<u8> = lines(bytes).skip(skip).flatten().copied().collect();
+    Ok(String::from_utf8_lossy(&kept).into_owned())
+}
 
 #[cfg(test)]
 const LOG_FILE: &str = "diagnostics.log";
@@ -117,6 +143,26 @@ fn lines(contents: &[u8]) -> impl DoubleEndedIterator<Item = &[u8]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recent_handles_missing_and_byte_boundary() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join(LOG_FILE);
+        assert_eq!(recent(&path)?, "");
+        let content = format!("{}é\nlast\n", "a".repeat(1024 * 1024));
+        fs::write(&path, content)?;
+        assert_eq!(recent(&path)?, "last\n");
+        Ok(())
+    }
+
+    #[test]
+    fn recent_limits_lines() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join(LOG_FILE);
+        fs::write(&path, "line\n".repeat(KEPT_LINES + 1))?;
+        assert_eq!(recent(&path)?.lines().count(), KEPT_LINES);
+        Ok(())
+    }
 
     fn read_lines(path: &Path) -> Vec<String> {
         fs::read_to_string(path)
