@@ -559,3 +559,90 @@ testStable(
     expect(saved.blocks[1]!.id).toBe(document.blocks[1]!.id);
   }
 );
+
+testStable('read-only rendering preserves anchors and removes editing controls', () => {
+  const block = createBlock({ type: 'heading', level: 2, inlines: plain('Source heading') });
+  const onChange = vi.fn();
+  const { container } = render(
+    <StructuredEditor
+      value={documentToEditor({ ...blankDocument(), blocks: [block] })}
+      onChange={onChange}
+      labels={labels}
+      label="Source"
+      placeholder="Write"
+      readOnly
+    />
+  );
+
+  expect(screen.getByRole('heading', { name: 'Source heading' })).toHaveAttribute(
+    'id',
+    `block-${block.id}`
+  );
+  expect(container.querySelector('[contenteditable="false"]')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Text style' })).not.toBeInTheDocument();
+  fireEvent.contextMenu(screen.getByText('Source heading'));
+  expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+  expect(onChange).not.toHaveBeenCalled();
+});
+
+testStable(
+  'source previews retain list continuations, explicit numbering and reference destinations',
+  () => {
+    const document = {
+      ...blankDocument(),
+      blocks: [
+        createBlock({
+          type: 'list_item',
+          items: [
+            { depth: 0, ordered: true, start: 3, inlines: plain('Parent') },
+            { depth: 1, ordered: false, start: 1, inlines: plain('Child') },
+            {
+              depth: 0,
+              ordered: true,
+              start: 3,
+              continuation: true,
+              inlines: plain('Continuation')
+            },
+            { depth: 0, ordered: true, start: 8, inlines: plain('Next') }
+          ]
+        }),
+        createBlock({
+          type: 'reference',
+          href: 'https://example.com',
+          inlines: plain('Reference')
+        }),
+        createBlock({
+          type: 'image',
+          sourceId: Schema.decodeUnknownSync(sourceIdSchema)(42n),
+          revision: 1,
+          alt: 'Diagram',
+          width: 120,
+          height: 80
+        })
+      ]
+    };
+    const onChange = vi.fn();
+    const { container } = render(
+      <StructuredEditor
+        value={documentToEditor(document, { '42:1': 'data:image/png;base64,' }, true)}
+        onChange={onChange}
+        labels={labels}
+        label="Source"
+        placeholder="Write"
+        readOnly
+      />
+    );
+
+    expect(screen.getByText('Continuation').closest('li')).toBe(
+      screen.getByText('Parent').closest('li')
+    );
+    expect(screen.getByText('Next').closest('li')).toHaveAttribute('value', '8');
+    expect(screen.getByRole('link', { name: 'https://example.com' })).toHaveAttribute(
+      'href',
+      'https://example.com'
+    );
+    expect(container.querySelector('[data-resize-handle]')).toBeNull();
+    expect(screen.getByRole('img', { name: 'Diagram' })).toHaveAttribute('width', '120');
+    expect(onChange).not.toHaveBeenCalled();
+  }
+);

@@ -12,7 +12,7 @@ import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { RetainedDocumentReader, ContentReadError } from '../document-presentation';
+import { RetainedDocumentPreview, ContentReadError } from '../document-presentation';
 import { SourceDeletion } from './deletion';
 import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
@@ -89,7 +89,7 @@ function SourceBody({
       <Button size="sm" variant="outline" disabled={pending} onClick={onCopy}>
         {t(pending ? 'NoteSaving' : 'PageEditCopy')}
       </Button>
-      <RetainedDocumentReader document={document} snapshotId={snapshotId} />
+      <RetainedDocumentPreview document={document} snapshotId={snapshotId} />
     </Desk.Editor>
   );
 }

@@ -151,6 +151,7 @@ export function RichNoteEditorSurface({
   disabled,
   toolbarEnd,
   structured = false,
+  readOnly = false,
   controls,
   notice,
   children,
@@ -162,6 +163,7 @@ export function RichNoteEditorSurface({
   disabled: boolean;
   toolbarEnd?: ReactNode;
   structured?: boolean;
+  readOnly?: boolean;
   controls?: ReactNode;
   notice?: ReactNode;
   children?: ReactNode;
@@ -185,17 +187,19 @@ export function RichNoteEditorSurface({
   }, [disabled, editor, spellcheck, fontSize]);
 
   return (
-    <div className="rich-note-editor" data-disabled={disabled || undefined}>
-      <div className="rich-note-ribbon">
-        <RichNoteFormatting
-          editor={editor}
-          labels={labels}
-          disabled={disabled}
-          structured={structured}
-          controls={controls}
-        />
-        {toolbarEnd && <div className="rich-note-toolbar-end">{toolbarEnd}</div>}
-      </div>
+    <div className="rich-note-editor" data-disabled={(disabled && !readOnly) || undefined}>
+      {!readOnly && (
+        <div className="rich-note-ribbon">
+          <RichNoteFormatting
+            editor={editor}
+            labels={labels}
+            disabled={disabled}
+            structured={structured}
+            controls={controls}
+          />
+          {toolbarEnd && <div className="rich-note-toolbar-end">{toolbarEnd}</div>}
+        </div>
+      )}
       {notice}
       {children ?? <EditorContent editor={editor} className="rich-note-content" />}
     </div>

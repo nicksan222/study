@@ -181,6 +181,26 @@ export function DocumentReader({
 
   return (
     <MaterialLibrary.Prose fontSize={preferences.readerFontSize}>
+      <DocumentOmissions document={document} />
+      {document.blocks.length === 0 && <p>{t('ReaderNoText')}</p>}
+      {document.blocks.map((block) => (
+        <section id={`block-${block.id}`} key={block.id} data-block-id={block.id}>
+          {block.content.type === 'image' && renderImage ? (
+            renderImage(block)
+          ) : (
+            <Content content={block.content} image={images[block.id]} />
+          )}
+        </section>
+      ))}
+    </MaterialLibrary.Prose>
+  );
+}
+
+export function DocumentOmissions({ document }: { document: typeof documentSchema.Type }) {
+  const { t } = useI18n();
+
+  return (
+    <>
       {document.meta.omissions.length > 0 && (
         <MaterialLibrary.NoticeAside>
           {t('ReaderOmissions')}
@@ -205,17 +225,7 @@ export function DocumentReader({
           </ul>
         </MaterialLibrary.NoticeAside>
       )}
-      {document.blocks.length === 0 && <p>{t('ReaderNoText')}</p>}
-      {document.blocks.map((block) => (
-        <section id={`block-${block.id}`} key={block.id} data-block-id={block.id}>
-          {block.content.type === 'image' && renderImage ? (
-            renderImage(block)
-          ) : (
-            <Content content={block.content} image={images[block.id]} />
-          )}
-        </section>
-      ))}
-    </MaterialLibrary.Prose>
+    </>
   );
 }
 
