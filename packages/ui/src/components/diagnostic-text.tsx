@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+/** Displays diagnostic text with preserved line breaks in a bounded, wrapping scroll area. */
 export function DiagnosticText({ children }: { children: ReactNode }) {
   return (
     <pre

@@ -16,6 +16,7 @@ async fn server_connection(
 ) -> Result<transport::Connection, NativeError> {
     Ok(shell.server.lock().await.client.connection())
 }
+/// Returns a bounded snapshot of the canonical desktop diagnostic log.
 #[tauri::command]
 async fn diagnostic_log(app: tauri::AppHandle) -> Result<String, NativeError> {
     let data = app

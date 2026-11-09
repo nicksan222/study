@@ -30,6 +30,7 @@ export function diagnosticEntries(snapshot: string) {
   return entries;
 }
 
+/** Presents desktop diagnostic snapshots with local filters and complete snapshot export. */
 export function AnalyticsSettings() {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
