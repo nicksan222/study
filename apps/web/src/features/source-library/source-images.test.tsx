@@ -100,13 +100,26 @@ for (const context of ['current', 'historical', 'note'] as const)
       );
 
       try {
-        const image = await screen.findByRole('img', { name: 'Replacement figure' });
-        const url = image.getAttribute('src');
+        await screen.findByRole('img', { name: 'Replacement figure' });
+
+        await waitFor(() =>
+          expect(screen.getByRole('img', { name: 'Replacement figure' })).toHaveAttribute(
+            'src',
+            expect.stringMatching(/^blob:/)
+          )
+        );
+
+        const url = screen.getByRole('img', { name: 'Replacement figure' }).getAttribute('src');
 
         await userEvent
           .setup()
           .click(await screen.findByRole('button', { name: catalogs.english.ReaderRetryImage }));
-        expect(await screen.findByRole('img', { name: 'Exact original figure' })).toBeVisible();
+        await waitFor(() =>
+          expect(screen.getByRole('img', { name: 'Exact original figure' })).toHaveAttribute(
+            'src',
+            expect.stringMatching(/^blob:/)
+          )
+        );
         expect(screen.getByRole('img', { name: 'Replacement figure' })).toHaveAttribute('src', url);
         expect(rpc['sources.exportRevision'].mock.calls.map(([v]) => v.revision)).toEqual([
           1n,

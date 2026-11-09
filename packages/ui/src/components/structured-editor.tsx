@@ -20,42 +20,64 @@ import { StructuredTableDialog } from './structured-editor-table';
 import type { EditorImageReference, StructuredEditorLabels } from './structured-editor-types';
 
 export type { Editor as StructuredEditorInstance } from '@tiptap/core';
-export type { EditorImageReference, StructuredEditorLabels } from './structured-editor-types';
+export type { StructuredEditorLabels } from './structured-editor-types';
 
 export type StructuredEditorValue = JSONContent;
 
 const identity = Extension.create({
   name: 'pageIdentity',
-  addGlobalAttributes: () => [
-    {
-      types: [
-        'paragraph',
-        'heading',
-        'codeBlock',
-        'bulletList',
-        'orderedList',
-        'listItem',
-        'table',
-        'image'
-      ],
-      attributes: {
-        blockId: { default: null, rendered: false },
-        sourceKind: { default: null, rendered: false },
-        sourceHref: { default: null, rendered: false },
-        continuation: { default: false, rendered: false },
-        itemStart: { default: null, rendered: false }
+  addOptions: () => ({ anchors: false }),
+  addGlobalAttributes() {
+    return [
+      {
+        types: [
+          'paragraph',
+          'heading',
+          'codeBlock',
+          'bulletList',
+          'orderedList',
+          'listItem',
+          'table',
+          'image'
+        ],
+        attributes: {
+          blockId: {
+            keepOnSplit: false,
+            default: null,
+            renderHTML: (attrs) =>
+              this.options.anchors && attrs.blockId
+                ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId }
+                : {}
+          },
+          sourceKind: { default: null, rendered: false },
+          sourceHref: { default: null, rendered: false },
+          continuation: { default: false, rendered: false, keepOnSplit: false },
+          continuationStart: { default: null, rendered: false, keepOnSplit: false },
+          itemStart: {
+            keepOnSplit: false,
+            default: null,
+            renderHTML: (attrs) => (attrs.itemStart === null ? {} : { value: attrs.itemStart })
+          }
+        }
       }
-    }
-  ]
+    ];
+  }
 });
 
 const retainedList = Node.create({
   name: 'pageList',
   group: 'block',
   content: '(bulletList | orderedList)*',
-  addAttributes: () => ({ blockId: { default: null, rendered: false } }),
+  addAttributes: () => ({
+    blockId: {
+      keepOnSplit: false,
+      default: null,
+      renderHTML: (attrs) =>
+        attrs.blockId ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId } : {}
+    }
+  }),
   parseHTML: () => [{ tag: 'div[data-document-list]' }],
-  renderHTML: () => ['div', { 'data-document-list': '' }, 0]
+  renderHTML: ({ HTMLAttributes }) => ['div', { ...HTMLAttributes, 'data-document-list': '' }, 0]
 });
 
 const math = Node.create({
@@ -64,9 +86,16 @@ const math = Node.create({
   content: 'text*',
   marks: '',
   code: true,
-  addAttributes: () => ({ blockId: { default: null, rendered: false } }),
+  addAttributes: () => ({
+    blockId: {
+      keepOnSplit: false,
+      default: null,
+      renderHTML: (attrs) =>
+        attrs.blockId ? { id: `block-${attrs.blockId}`, 'data-block-id': attrs.blockId } : {}
+    }
+  }),
   parseHTML: () => [{ tag: 'pre[data-document-math]' }],
-  renderHTML: () => ['pre', { 'data-document-math': '' }, 0]
+  renderHTML: ({ HTMLAttributes }) => ['pre', { ...HTMLAttributes, 'data-document-math': '' }, 0]
 });
 
 const inlineMath = Node.create({
@@ -125,7 +154,59 @@ const structuredEditorExtensions = [
 ];
 
 /** A structured editor leaves serialization and durable document ownership to its caller. */
-export function StructuredEditor({
+type EditorDialog = 'table' | 'link' | 'image';
+
+type StructuredEditorProps = {
+  value: StructuredEditorValue;
+  onChange: (value: StructuredEditorValue) => void;
+  label: string;
+  placeholder: string;
+  labels: StructuredEditorLabels;
+  toolbarEnd?: ReactNode;
+  uploadImage?: (file: File) => Promise<EditorImageReference>;
+  disabled?: boolean;
+  readOnly?: boolean;
+  spellcheck?: boolean;
+  fontSize?: number;
+};
+
+export function StructuredEditor(props: StructuredEditorProps) {
+  return props.readOnly ? (
+    <StructuredDocumentPreview {...props} />
+  ) : (
+    <StructuredEditableEditor {...props} />
+  );
+}
+
+function StructuredDocumentPreview(props: StructuredEditorProps) {
+  const extensions = useMemo(
+    () =>
+      structuredEditorExtensions.map((extension) => {
+        if (extension === identity) return identity.configure({ anchors: true });
+
+        if (extension === image) return image.configure({ resize: { enabled: false } });
+
+        return extension;
+      }),
+    []
+  );
+  const editor = useStructuredEditor({ ...props, readOnly: true }, extensions);
+
+  useEditorValue(editor, props.value);
+
+  return (
+    <RichNoteEditorSurface
+      editor={editor}
+      labels={props.labels}
+      disabled
+      readOnly
+      spellcheck={false}
+      fontSize={props.fontSize}
+    />
+  );
+}
+
+function StructuredEditableEditor({
   value,
   onChange,
   label,
@@ -136,51 +217,30 @@ export function StructuredEditor({
   disabled = false,
   spellcheck = true,
   fontSize = 16
-}: {
-  value: StructuredEditorValue;
-  onChange: (value: StructuredEditorValue) => void;
-  label: string;
-  placeholder: string;
-  labels: StructuredEditorLabels;
-  toolbarEnd?: ReactNode;
-  uploadImage?: (file: File) => Promise<EditorImageReference>;
-  disabled?: boolean;
-  spellcheck?: boolean;
-  fontSize?: number;
-}) {
+}: StructuredEditorProps) {
   const images = useEditorImageInsertion(uploadImage);
   const imagePosition = useRef(0);
-  const [dialog, setDialog] = useState<'table' | 'link' | 'image'>();
+  const [dialog, setDialog] = useState<EditorDialog>();
   const extensions = useMemo(
     () => editorExtensions(Boolean(uploadImage), images.insert),
     [images.insert, uploadImage]
   );
-  const editor = useEditor({
-    extensions,
-    content: value,
-    editable: !disabled,
-    shouldRerenderOnTransaction: false,
-    editorProps: {
-      attributes: {
-        role: 'textbox',
-        'aria-label': label,
-        'aria-multiline': 'true',
-        'data-placeholder': placeholder,
-        spellcheck: String(spellcheck),
-        style: `font-size: ${fontSize}px`
-      }
-    },
-    onUpdate: ({ editor: current }) => {
-      onChange(current.getJSON());
-    }
-  });
+  const editor = useStructuredEditor(
+    { value, onChange, label, placeholder, disabled, spellcheck, fontSize },
+    extensions
+  );
 
   useEditorValue(editor, value);
 
   const { file, chooseImage, upload } = useEditorFileInput(editor, uploadImage, images.insert);
-  const closeDialog = (open: boolean) => {
-    if (!open) setDialog(undefined);
+
+  const insertTable = () => setDialog('table');
+  const editLink = () => setDialog('link');
+  const editImage = () => {
+    imagePosition.current = editor.state.selection.from;
+    setDialog('image');
   };
+  const uploadDisabled = disabled || images.pending;
 
   return (
     <>
@@ -199,8 +259,8 @@ export function StructuredEditor({
             disabled={disabled}
             uploading={images.pending}
             onInsertImage={chooseImage}
-            onInsertTable={() => setDialog('table')}
-            onEditLink={() => setDialog('link')}
+            onInsertTable={insertTable}
+            onEditLink={editLink}
           />
         }
         notice={
@@ -211,13 +271,10 @@ export function StructuredEditor({
           editor={editor}
           labels={labels}
           disabled={disabled}
-          onInsertTable={() => setDialog('table')}
-          onEditLink={() => setDialog('link')}
+          onInsertTable={insertTable}
+          onEditLink={editLink}
           onInsertImage={chooseImage}
-          onEditImage={() => {
-            imagePosition.current = editor.state.selection.from;
-            setDialog('image');
-          }}
+          onEditImage={editImage}
           upload={upload}
         >
           <EditorContent editor={editor} className="rich-note-content" />
@@ -226,9 +283,39 @@ export function StructuredEditor({
       <ImageFileInput
         inputRef={file}
         label={labels.imageFile}
-        disabled={disabled || images.pending}
+        disabled={uploadDisabled}
         upload={upload}
       />
+      <StructuredEditorDialogs
+        editor={editor}
+        labels={labels}
+        dialog={dialog}
+        close={() => setDialog(undefined)}
+        imagePosition={imagePosition.current}
+      />
+    </>
+  );
+}
+
+function StructuredEditorDialogs({
+  editor,
+  labels,
+  dialog,
+  close,
+  imagePosition
+}: {
+  editor: Editor;
+  labels: StructuredEditorLabels;
+  dialog: EditorDialog | undefined;
+  close: () => void;
+  imagePosition: number;
+}) {
+  const closeDialog = (open: boolean) => {
+    if (!open) close();
+  };
+
+  return (
+    <>
       <StructuredTableDialog
         editor={editor}
         labels={labels}
@@ -243,7 +330,7 @@ export function StructuredEditor({
       />
       <StructuredImageDescription
         editor={editor}
-        position={imagePosition.current}
+        position={imagePosition}
         labels={labels}
         open={dialog === 'image'}
         onOpenChange={closeDialog}
@@ -266,6 +353,40 @@ function useEditorFileInput(
     : undefined;
 
   return { file, chooseImage, upload };
+}
+
+function useStructuredEditor(
+  {
+    value,
+    onChange,
+    label,
+    placeholder,
+    disabled,
+    readOnly,
+    spellcheck,
+    fontSize
+  }: Omit<StructuredEditorProps, 'labels'>,
+  extensions: ReturnType<typeof editorExtensions>
+) {
+  return useEditor({
+    extensions,
+    content: value,
+    editable: !disabled && !readOnly,
+    shouldRerenderOnTransaction: false,
+    editorProps: {
+      attributes: {
+        role: readOnly ? 'document' : 'textbox',
+        'aria-label': label,
+        'aria-multiline': 'true',
+        'data-placeholder': placeholder,
+        spellcheck: String(spellcheck),
+        style: `font-size: ${fontSize}px`
+      }
+    },
+    onUpdate: ({ editor: current }) => {
+      onChange(current.getJSON());
+    }
+  });
 }
 
 function useEditorValue(editor: Editor, value: StructuredEditorValue) {

@@ -53,13 +53,25 @@ function editorInlines(inlines: readonly Inline[]): Node[] {
 /** Retains source block identity separately from the editor's transient node positions. */
 export function documentToEditor(
   document: EditableDocument,
-  images: Record<string, string> = {}
+  images: Record<string, string> = {},
+  readOnly = false
 ): Node {
   return {
     type: 'doc',
     content: document.blocks.length
       ? document.blocks.map((block) => {
           const node = contentToEditor(block.content, images);
+
+          if (readOnly && block.content.type === 'reference')
+            node.content = [
+              ...(node.content ?? []),
+              { type: 'hardBreak' },
+              {
+                type: 'text',
+                text: block.content.href,
+                marks: [{ type: 'link', attrs: { href: block.content.href } }]
+              }
+            ];
 
           return { ...node, attrs: { ...node.attrs, blockId: block.id } };
         })
@@ -154,9 +166,18 @@ function editorLists(items: readonly ListItem[]): Node[] {
   const levels: Array<{ lists: Node[]; list: Node; item: Node }> = [];
 
   for (const item of items) {
-    const lists = item.depth === 0 ? roots : (levels[item.depth - 1]!.item.content ??= []);
+    const previous = levels[item.depth]?.item;
+
+    if (appendContinuation(previous, item)) {
+      levels.length = item.depth + 1;
+      continue;
+    }
+
+    const parent = levels[item.depth - 1];
+    const lists = listChildren(parent?.item, roots);
     const type = item.ordered ? 'orderedList' : 'bulletList';
-    let list = levels[item.depth]?.lists === lists ? levels[item.depth]?.list : undefined;
+    const level = levels[item.depth];
+    let list = level?.lists === lists ? level.list : undefined;
 
     if (!list || list.type !== type) {
       list = { type, attrs: { start: item.start }, content: [] };
@@ -173,6 +194,18 @@ function editorLists(items: readonly ListItem[]): Node[] {
   return roots;
 }
 
+function listChildren(parent: Node | undefined, roots: Node[]): Node[] {
+  return parent ? (parent.content ??= []) : roots;
+}
+
+function appendContinuation(previous: Node | undefined, item: ListItem): boolean {
+  if (!item.continuation || !previous) return false;
+
+  previous.content!.push(...editorListItem(item).content!);
+
+  return true;
+}
+
 function editorListItem(item: ListItem): Node {
   return {
     type: 'listItem',
@@ -180,7 +213,10 @@ function editorListItem(item: ListItem): Node {
     content: [
       {
         type: 'paragraph',
-        attrs: { continuation: item.continuation ?? false },
+        attrs: {
+          continuation: item.continuation ?? false,
+          continuationStart: item.continuation ? item.start : null
+        },
         content: editorInlines(item.inlines)
       }
     ]
@@ -226,12 +262,21 @@ function canonicalMarks(node: Node): TextMark[] {
 const nodeText = (node: Node): string => node.text ?? (node.content ?? []).map(nodeText).join('');
 
 function canonicalList(node: Node, depth = 0): ListItem[] {
-  return (node.content ?? []).flatMap((item, index) =>
-    item.type === 'listItem' ? canonicalListItem(node, item, index, depth) : []
-  );
+  let start = Number(node.attrs?.start ?? 1);
+
+  return (node.content ?? []).flatMap((item) => {
+    if (item.type !== 'listItem') return [];
+
+    start = Number(item.attrs?.itemStart ?? start);
+    const items = canonicalListItem(node, item, start, depth);
+
+    start++;
+
+    return items;
+  });
 }
 
-function canonicalListItem(list: Node, item: Node, index: number, depth: number): ListItem[] {
+function canonicalListItem(list: Node, item: Node, start: number, depth: number): ListItem[] {
   return (item.content ?? []).flatMap((child) => {
     if (child.type === 'bulletList' || child.type === 'orderedList')
       return canonicalList(child, depth + 1);
@@ -240,16 +285,12 @@ function canonicalListItem(list: Node, item: Node, index: number, depth: number)
       {
         depth,
         ordered: list.type === 'orderedList',
-        start: listItemStart(list, item, index),
+        start: child.attrs?.continuationStart ?? start,
         ...(child.attrs?.continuation ? { continuation: true } : {}),
         inlines: canonicalInlines(child.content)
       }
     ];
   });
-}
-
-function listItemStart(list: Node, item: Node, index: number): number {
-  return Number(item.attrs?.itemStart ?? Number(list.attrs?.start ?? 1) + index);
 }
 
 type ContentReader = (node: Node) => BlockContent;

@@ -2,7 +2,7 @@ import type { StructuredEditorLabels } from '@study/ui/structured-editor';
 
 import { useI18n } from '#web/lib/i18n.tsx';
 
-import { useNoteLabels } from './note-editor';
+import { useNoteLabels } from './note-labels';
 
 export function useStructuredEditorLabels(): StructuredEditorLabels {
   const { t } = useI18n();

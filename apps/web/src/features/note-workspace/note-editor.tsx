@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
+import { useNoteLabels } from '../document-presentation';
+
 /** Adapts the shared text editor to the note's bilingual controls. */
 export function NoteEditor({
   value,
@@ -40,26 +42,3 @@ export function NoteEditor({
 export const NoteContent = RichNoteContent;
 
 export const NoteSummary = RichNoteSummary;
-
-export function useNoteLabels() {
-  const { t } = useI18n();
-
-  return {
-    formatting: t('NoteFormatting'),
-    bold: t('NoteFormatBold'),
-    italic: t('NoteFormatItalic'),
-    underline: t('NoteFormatUnderline'),
-    strike: t('NoteFormatStrike'),
-    paragraph: t('NoteFormatParagraph'),
-    textStyle: t('NoteFormatStyle'),
-    clear: t('NoteFormatClear'),
-    heading: t('NoteFormatHeading'),
-    subheading: t('NoteFormatSubheading'),
-    bullets: t('NoteFormatBullets'),
-    numbered: t('NoteFormatNumbered'),
-    quote: t('NoteFormatQuote'),
-    code: t('NoteFormatCode'),
-    undo: t('NoteFormatUndo'),
-    redo: t('NoteFormatRedo')
-  };
-}

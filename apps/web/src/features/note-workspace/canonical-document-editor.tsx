@@ -7,10 +7,13 @@ import { useI18n } from '#web/lib/i18n.tsx';
 import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
 import { ContentReadError } from '../document-presentation';
-import { documentToEditor, editorToDocument } from './document-editor-content';
-import type { EditableDocument } from './document-editor-content';
-import { useDocumentEditorImages } from './editor-images.queries';
-import { useStructuredEditorLabels } from './structured-editor-labels';
+import {
+  documentToEditor,
+  editorToDocument,
+  useDocumentEditorImages,
+  useStructuredEditorLabels
+} from '../document-presentation';
+import type { EditableDocument } from '../document-presentation';
 
 /** Adapts the shared editor to Study's canonical, versioned document format. */
 export function CanonicalDocumentEditor({

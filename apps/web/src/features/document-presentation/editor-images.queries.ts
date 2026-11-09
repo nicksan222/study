@@ -4,12 +4,12 @@ import type { revisionExportSchema } from '@study/contracts/sources/rpc';
 import { sniff } from '@study/contracts/sources/sniff';
 import { useQueries, useQueryClient } from '@tanstack/react-query';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { request } from '#web/lib/study-client/request.ts';
 
-import { retainedImageOptions } from '../document-presentation';
 import type { EditableDocument } from './document-editor-content';
+import { retainedImageOptions } from './retained-document.queries';
 
 type ImageBytes = typeof revisionExportSchema.Type;
 
@@ -35,7 +35,9 @@ export function useDocumentEditorImages(
     ),
     combine: imageResults
   });
-  const previews = useMemo(() => imagePreviewStore(assets.data), [assets.data]);
+  const previews = useMemo(() => imagePreviewStore(), []);
+
+  useEffect(() => previews.update(assets.data), [previews, assets.data]);
   const urls = useSyncExternalStore(previews.subscribe, previews.getSnapshot);
 
   const upload = useCallback(
@@ -63,33 +65,57 @@ export function useDocumentEditorImages(
     urls,
     upload,
     error: assets.error,
-    retry: () => void cache.invalidateQueries({ queryKey: ['sources', 'image'] })
+    retry: () =>
+      void cache.invalidateQueries({
+        queryKey: ['sources', 'image'],
+        predicate: (query) => query.state.status === 'error'
+      })
   };
 }
 
-function imagePreviewStore(images: (ImageBytes | undefined)[]) {
+function imagePreviewStore() {
   let urls: Record<string, string> = {};
+  const retained = new Map<ImageBytes, string>();
+  let notify = () => {};
 
   return {
     getSnapshot: () => urls,
-    subscribe: (notify: () => void) => {
+    subscribe: (listener: () => void) => {
+      notify = listener;
+
+      return () => {
+        retained.forEach((url) => URL.revokeObjectURL(url));
+        retained.clear();
+        urls = {};
+      };
+    },
+    update: (images: (ImageBytes | undefined)[]) => {
+      for (const [image, url] of retained) {
+        if (images.includes(image)) continue;
+
+        URL.revokeObjectURL(url);
+        retained.delete(image);
+      }
+
       const next: Record<string, string> = {};
 
       for (const image of images) {
         if (!image) continue;
 
-        next[`${image.sourceId}:${image.revision}`] = URL.createObjectURL(
-          new Blob([new Uint8Array(image.bytes)], { type: image.mime })
-        );
+        let url = retained.get(image);
+
+        if (!url) {
+          url = URL.createObjectURL(new Blob([new Uint8Array(image.bytes)], { type: image.mime }));
+          retained.set(image, url);
+        }
+
+        next[`${image.sourceId}:${image.revision}`] = url;
       }
+
+      if (JSON.stringify(next) === JSON.stringify(urls)) return;
 
       urls = next;
       notify();
-
-      return () => {
-        urls = {};
-        Object.values(next).forEach((url) => URL.revokeObjectURL(url));
-      };
     }
   };
 }

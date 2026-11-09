@@ -3,13 +3,18 @@ import type { documentSchema } from '@study/contracts/sources/schemas';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
+import { StructuredEditor } from '@study/ui/structured-editor';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
+import { useWorkspacePreferences } from '#web/lib/study-client/workspace-preferences.queries.ts';
 
-import { DocumentReader } from './document-reader';
+import { documentToEditor } from './document-editor-content';
+import { DocumentOmissions, DocumentReader } from './document-reader';
+import { useDocumentEditorImages } from './editor-images.queries';
 import { retainedImageOptions } from './retained-document.queries';
+import { useStructuredEditorLabels } from './structured-editor-labels';
 
 type Document = typeof documentSchema.Type;
 /** Canonical image references resolve retained original revisions through Sources. */
@@ -35,6 +40,45 @@ export function RetainedDocumentReader({
         ) : null
       }
     />
+  );
+}
+
+export function RetainedDocumentPreview({
+  document,
+  snapshotId
+}: {
+  document: Document;
+  snapshotId: ContentSnapshotId;
+}) {
+  const { t } = useI18n();
+  const preferences = useWorkspacePreferences();
+  const labels = useStructuredEditorLabels();
+  const images = useDocumentEditorImages(document, snapshotId);
+  const value = useMemo(
+    () => documentToEditor(document, images.urls, true),
+    [document, images.urls]
+  );
+
+  return (
+    <>
+      <DocumentOmissions document={document} />
+      {images.error && (
+        <ErrorState
+          title={t('ReaderImageUnavailable')}
+          action={<Button onClick={images.retry}>{t('ReaderRetryImage')}</Button>}
+        />
+      )}
+      {document.blocks.length === 0 && <p>{t('ReaderNoText')}</p>}
+      <StructuredEditor
+        value={value}
+        onChange={() => {}}
+        readOnly
+        fontSize={preferences.readerFontSize}
+        label={t('NotePageEditor')}
+        placeholder={t('NotePagePlaceholder')}
+        labels={labels}
+      />
+    </>
   );
 }
 
