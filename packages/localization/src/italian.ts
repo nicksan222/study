@@ -1,6 +1,25 @@
 import type { english } from './english.ts';
 
 export const italian = Object.freeze({
+  AnalyticsTitle: 'Analisi',
+  AnalyticsDescription:
+    'Eventi diagnostici recenti del desktop. La raccolta è limitata all’ultimo MiB o a 10.000 righe e può contenere percorsi di file sensibili. I log del server non sono inclusi.',
+  AnalyticsDesktop: 'Apri Study sul desktop per vedere i log diagnostici.',
+  AnalyticsSearch: 'Cerca nei log',
+  AnalyticsLevel: 'Gravità',
+  AnalyticsTrace: 'Traccia',
+  AnalyticsDebug: 'Debug',
+  AnalyticsInfo: 'Informazione',
+  AnalyticsWarning: 'Avviso',
+  AnalyticsErrorLevel: 'Errore',
+  AnalyticsAll: 'Tutti i livelli',
+  AnalyticsRefresh: 'Aggiorna',
+  AnalyticsExport: 'Esporta raccolta',
+  AnalyticsLoading: 'Caricamento log…',
+  AnalyticsError: 'Impossibile caricare i log. Riprova ad aggiornare.',
+  AnalyticsEmpty: 'Nessun evento diagnostico.',
+  AnalyticsNoMatches: 'Nessun evento corrisponde ai filtri.',
+  AnalyticsCount: 'Visualizzati {shown} eventi su {total}',
   AiSettingsModelOption: '{provider} — {model}',
   ServerConnectionTitle: 'Impossibile connettersi al server',
   ServerConnectionDescription:
