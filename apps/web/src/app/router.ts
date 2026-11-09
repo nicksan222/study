@@ -15,6 +15,12 @@ export function createAppRouter(
 
   return createRouter({
     routeTree,
+    // Custom-scheme URLs serialize with a null origin, making internal rewrites external.
+    origin:
+      typeof window !== 'undefined' &&
+      (window.origin === 'tauri://localhost' || window.location.protocol === 'tauri:')
+        ? 'http://localhost'
+        : undefined,
     rewrite: projectUrlRewrite,
     history,
     context: { queryClient },
