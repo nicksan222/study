@@ -11,15 +11,22 @@ import {
 } from '#web/lib/desktop-updates.queries.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
-export function UpdatesSettings() {
-  const { t } = useI18n();
+function useUpdates() {
   const status = useQuery(desktopUpdateStatusQueryOptions());
   const update = useQuery({ ...desktopUpdateQueryOptions(), enabled: false });
   const install = useMutation(installDesktopUpdateMutationOptions());
   const installing = useIsMutating({ mutationKey: ['desktop-update-install'] }) > 0;
-  const supported = isTauri() && status.data?.supported;
   const busy = update.isFetching || installing;
   const failed = status.isError || update.isError || install.isError;
+
+  return { status, update, install, installing, busy, failed };
+}
+
+export function UpdatesSettings() {
+  const { t } = useI18n();
+  const model = useUpdates();
+  const { status, failed } = model;
+  const supported = isTauri() && status.data?.supported;
 
   return (
     <Settings.Section title={t('Updates')}>
@@ -47,39 +54,46 @@ export function UpdatesSettings() {
           {t('UpdateFailed')}
         </Settings.Status>
       )}
-      {supported && (
-        <>
-          <Settings.Actions>
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => {
-                install.reset();
-                void update.refetch();
-              }}
-            >
-              {t(update.isFetching ? 'UpdateChecking' : 'UpdateCheck')}
-            </Button>
-            {update.data && (
-              <Button disabled={busy} onClick={() => install.mutate(update.data!)}>
-                {t('UpdateInstall')}
-              </Button>
-            )}
-          </Settings.Actions>
-          <div role="status" aria-live="polite">
-            {installing ? (
-              t('UpdateInstalling')
-            ) : update.data ? (
-              <>
-                <p>{t('DesktopUpdateAvailable', { version: update.data })}</p>
-                <p>{t('UpdateReady')}</p>
-              </>
-            ) : update.isSuccess && !failed && !update.isFetching ? (
-              t('UpdateCurrent')
-            ) : null}
-          </div>
-        </>
-      )}
+      {supported && <UpdateControls model={model} />}
     </Settings.Section>
+  );
+}
+
+function UpdateControls({ model }: { model: ReturnType<typeof useUpdates> }) {
+  const { t } = useI18n();
+  const { update, install, installing, busy, failed } = model;
+
+  return (
+    <>
+      <Settings.Actions>
+        <Button
+          variant="outline"
+          disabled={busy}
+          onClick={() => {
+            install.reset();
+            void update.refetch();
+          }}
+        >
+          {t(update.isFetching ? 'UpdateChecking' : 'UpdateCheck')}
+        </Button>
+        {update.data && (
+          <Button disabled={busy} onClick={() => install.mutate(update.data!)}>
+            {t('UpdateInstall')}
+          </Button>
+        )}
+      </Settings.Actions>
+      <div role="status" aria-live="polite">
+        {installing ? (
+          t('UpdateInstalling')
+        ) : update.data ? (
+          <>
+            <p>{t('DesktopUpdateAvailable', { version: update.data })}</p>
+            <p>{t('UpdateReady')}</p>
+          </>
+        ) : update.isSuccess && !failed && !update.isFetching ? (
+          t('UpdateCurrent')
+        ) : null}
+      </div>
+    </>
   );
 }
