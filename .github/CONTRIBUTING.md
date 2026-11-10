@@ -8,6 +8,8 @@ Thank you for helping with Study.
   people as much as to agents. Everything else is in the code, beginning with each crate's
   `src/lib.rs`.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
+- Dependabot pull requests targeting `main` use squash auto-merge after the required
+  `Test and build` check passes on the current base.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build, generated database drift,
   tooling tests, server package checks, and the website's Bun type check. CI runs these gates, with independent jobs for Oxlint/formatting/Fallow, web checks,
