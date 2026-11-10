@@ -1069,8 +1069,8 @@
   flex: none;
 }
 .study-note-group[data-variant='settled']:not(
-  .study-note-group[data-variant='settled'] ~ .study-note-group
-) {
+    .study-note-group[data-variant='settled'] ~ .study-note-group
+  ) {
   margin-block-start: auto;
 }
 .study-note-group::details-content {
