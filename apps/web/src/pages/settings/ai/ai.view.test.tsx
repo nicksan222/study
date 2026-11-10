@@ -95,7 +95,9 @@ testStable(
     render(<AiModelSettingsView model={model} />);
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('combobox', { name: 'Attività rapide' }));
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toStrictEqual([
+    expect(
+      (await screen.findAllByRole('option')).map((option) => option.textContent)
+    ).toStrictEqual([
       'ChatGPT — Usa predefinito',
       'ChatGPT — GPT-6 Luna',
       'ChatGPT — GPT-6.1 Sol',
