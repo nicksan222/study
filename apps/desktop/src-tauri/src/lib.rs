@@ -79,6 +79,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             server_connection,
             diagnostic_log,
+            updater::desktop_update_status,
             updater::check_for_update,
             updater::install_update
         ])

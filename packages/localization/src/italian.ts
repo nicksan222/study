@@ -2164,6 +2164,7 @@ export const italian = Object.freeze({
   UpdatesDescription:
     'Cerca una nuova versione di Study. Gli aggiornamenti vengono scaricati solo quando scegli di installarli.',
   UpdatesMenuSubtitle: 'Versione e aggiornamenti',
+  UpdateVersion: 'Versione installata',
   UpdateCheck: 'Cerca aggiornamenti',
   UpdateInstall: 'Installa e riavvia',
   UpdateChecking: 'Ricerca aggiornamenti…',

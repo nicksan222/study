@@ -2120,6 +2120,7 @@ export const english = Object.freeze({
   UpdatesDescription:
     'Check for a new version of Study. Updates are downloaded only when you choose to install them.',
   UpdatesMenuSubtitle: 'Version and updates',
+  UpdateVersion: 'Installed version',
   UpdateCheck: 'Check for updates',
   UpdateInstall: 'Install and restart',
   UpdateChecking: 'Checking for updates…',
