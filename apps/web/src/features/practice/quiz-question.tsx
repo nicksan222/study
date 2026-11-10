@@ -17,6 +17,8 @@ import { Textarea } from '@study/ui/textarea';
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 type Question = (typeof quizAttemptInProgressSchema.Type)['questions'][number];
@@ -42,18 +44,18 @@ export function QuizQuestion({
   error?: ReactNode;
 }) {
   const { t } = useI18n();
+  const readiness = useAiReadiness('medium');
+  const needsAi = question.kind === 'open' || question.kind === 'fill_blank';
+  const blocked = needsAi && readiness !== 'ready';
   const prompt = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     prompt.current?.focus();
   }, [question.id]);
-  const [text, setText] = useState(question.answer?.type === 'open' ? question.answer.answer : '');
-  const [selected, setSelected] = useState(
-    question.answer?.type === 'choice' ? question.answer.choiceIds : []
-  );
-  const [associations, setAssociations] = useState(
-    question.answer?.type === 'matching' ? question.answer.associations : []
-  );
+  const restored = restoredAnswer(question.answer);
+  const [text, setText] = useState(restored.text);
+  const [selected, setSelected] = useState(restored.selected);
+  const [associations, setAssociations] = useState(restored.associations);
   const [order, setOrder] = useState(() => initialOrder(question));
   const valid = validAnswer(question, text, selected, associations, order);
 
@@ -66,36 +68,17 @@ export function QuizQuestion({
 
   /** Trims text answers and submits a single valid response while no save is pending. */
   function send() {
-    if (!valid || pending) return;
+    if (!valid || pending || blocked) return;
 
     submit(answerValue(question, text, selected, associations, order));
   }
 
+  const selectChoice = (id: QuizChoiceId) =>
+    setSelected((previous) => toggleChoice(previous, id, question.kind !== 'multiple_choice'));
+
   return (
     <Practice.Question
-      onKeyDown={(event) => {
-        if (event.nativeEvent.isComposing) return;
-
-        if (event.target instanceof HTMLButtonElement || question.kind === 'matching') return;
-
-        if (event.key === 'Enter' && question.kind !== 'open') {
-          event.preventDefault();
-          send();
-
-          return;
-        }
-
-        if (pending || !('choices' in question) || hasModifier(event)) return;
-
-        const choice = question.choices[Number(event.key) - 1];
-
-        if (choice) {
-          event.preventDefault();
-          setSelected((previous) =>
-            toggleChoice(previous, choice.id, question.kind !== 'multiple_choice')
-          );
-        }
-      }}
+      onKeyDown={(event) => questionKey(event, question, pending, send, selectChoice)}
       onSubmit={(event) => {
         event.preventDefault();
         send();
@@ -113,11 +96,7 @@ export function QuizQuestion({
             text={text}
             setText={setText}
             selected={selected}
-            select={(id) =>
-              setSelected((previous) =>
-                toggleChoice(previous, id, question.kind !== 'multiple_choice')
-              )
-            }
+            select={selectChoice}
             associations={associations}
             associate={associate}
             clear={(termId) =>
@@ -128,17 +107,54 @@ export function QuizQuestion({
             send={send}
           />
         </Practice.Answers>
+        {needsAi && <AiReadinessNotice state={readiness} />}
         {error}
       </Practice.StageBody>
       <QuestionFooter
         previous={previous}
         review={review}
         last={last}
-        valid={valid}
+        valid={valid && !blocked}
         pending={pending}
       />
     </Practice.Question>
   );
+}
+
+function restoredAnswer(answer: Question['answer']) {
+  return {
+    text: answer?.type === 'open' ? answer.answer : '',
+    selected: answer?.type === 'choice' ? answer.choiceIds : [],
+    associations: answer?.type === 'matching' ? answer.associations : []
+  };
+}
+
+function questionKey(
+  event: KeyboardEvent<HTMLFormElement>,
+  question: Question,
+  pending: boolean,
+  send: () => void,
+  select: (id: QuizChoiceId) => void
+) {
+  if (event.nativeEvent.isComposing) return;
+
+  if (event.target instanceof HTMLButtonElement || question.kind === 'matching') return;
+
+  if (event.key === 'Enter' && question.kind !== 'open') {
+    event.preventDefault();
+    send();
+
+    return;
+  }
+
+  if (pending || !('choices' in question) || hasModifier(event)) return;
+
+  const choice = question.choices[Number(event.key) - 1];
+
+  if (choice) {
+    event.preventDefault();
+    select(choice.id);
+  }
 }
 
 /** Keeps browser and application shortcuts out of numeric choice selection. */

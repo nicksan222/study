@@ -12,7 +12,10 @@ export const pageTransformOutputSchema = Schema.Struct({
     Schema.Struct({
       kind: transformReportSchema.fields.notes.value.fields.kind,
       explanation: transformReportSchema.fields.notes.value.fields.explanation,
-      blockOrdinals: Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)))
+      blockOrdinals: Schema.Array(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))).annotate({
+        description:
+          'Zero-based indexes into the returned blocks array: 0 is the first block and blocks.length - 1 is the last. Use [] for a note about the whole page.'
+      })
     })
   ).check(Schema.isBetweenLength(1, 200))
 });

@@ -25,13 +25,15 @@ export function AiButton({
   pending = false,
   children,
   disabled,
+  disabledReason,
   ...props
 }: Omit<ComponentProps<typeof Button>, 'aria-label'> & {
   label: string;
   workingLabel?: string;
   pending?: boolean;
+  disabledReason?: string;
 }) {
-  const description = pending ? workingLabel : label;
+  const description = pending ? workingLabel : disabled && disabledReason ? disabledReason : label;
 
   return (
     <ActionTooltip

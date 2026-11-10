@@ -34,6 +34,8 @@ const rpc = vi.hoisted(() => ({
   strategies: vi.fn()
 }));
 
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));

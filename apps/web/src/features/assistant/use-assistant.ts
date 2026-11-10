@@ -4,6 +4,9 @@ import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
+import type { AiReadiness } from '#web/lib/ai-readiness.ts';
+
 import {
   assistantAskOptions,
   assistantChatsOptions,
@@ -20,6 +23,7 @@ import { useAssistantDraft, useAssistantSelection } from './note';
 /** Reads committed history and keeps idempotent sends recoverable after transport failures. */
 export function useAssistant(scope?: NoteId) {
   const cache = useQueryClient();
+  const readiness = useAiReadiness('smart');
   const { selectedId, select, takeNewChatKey, clearNewChatKey, clearSentDraft } =
     useAssistantSelection();
   const note = useQuery(assistantNoteOptions(selectedId, scope));
@@ -67,6 +71,7 @@ export function useAssistant(scope?: NoteId) {
     },
     onError: () => cache.invalidateQueries({ queryKey: assistantKey })
   });
+  const blocked = sendBlocked(readiness, busy, mutation.isPending, history.isSuccess);
 
   return {
     chats,
@@ -89,7 +94,8 @@ export function useAssistant(scope?: NoteId) {
     note,
     mutation,
     draft: draft.text,
-    blocked: busy || mutation.isPending || !history.isSuccess,
+    readiness,
+    blocked,
     error: [note, history, mutation, provenance, work].find((result) => result.error)?.error,
     retry: () => {
       if (mutation.isError) mutation.reset();
@@ -104,7 +110,7 @@ export function useAssistant(scope?: NoteId) {
     send: () => {
       const text = draft.text.trim();
 
-      if (!text || busy || mutation.isPending || !history.isSuccess) return false;
+      if (blocked || !text) return false;
 
       const intentKey = draft.intent?.text === text ? draft.intent.key : crypto.randomUUID();
 
@@ -114,6 +120,15 @@ export function useAssistant(scope?: NoteId) {
       return true;
     }
   };
+}
+
+function sendBlocked(
+  readiness: AiReadiness,
+  busy: boolean,
+  sending: boolean,
+  historyReady: boolean
+) {
+  return readiness !== 'ready' || busy || sending || !historyReady;
 }
 
 function pendingReply(message: ChatMessage) {

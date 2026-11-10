@@ -3,7 +3,6 @@ import type { ContentInput } from '@study/contracts/inputs';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
-import { AiButton } from '@study/ui/ai-button';
 import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogDismissButton } from '@study/ui/dialog-form-actions';
 import { DialogHeading } from '@study/ui/dialog-heading';
@@ -25,6 +24,9 @@ import {
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 
+import { AiActionButton as AiButton } from '#web/lib/ai-action-button.tsx';
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { quizSettingsOptions } from '#web/lib/study-client/quiz-settings.queries.ts';
 
@@ -75,10 +77,12 @@ function GenerationDialog({
       <DialogTrigger
         render={
           <AiButton
+            tier="medium"
             size={inline ? 'default' : 'icon'}
             variant={inline ? 'outline' : 'ghost-muted'}
             label={t(inline ? 'PracticeGenerateFromPages' : 'PracticeGenerate')}
-            disabled={disabled}
+            disabled={disabled || projectId === undefined}
+            disabledReason={projectId === undefined ? t('PracticeChooseSubject') : undefined}
             pending={requests.length > 0}
             workingLabel={t('QuizGenerating')}
           >
@@ -117,6 +121,7 @@ function GenerationDialog({
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
   const client = useQueryClient();
+  const readiness = useAiReadiness('medium');
   const [kind, setKind] = useState<
     'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false' | 'ordering'
   >('quiz');
@@ -150,7 +155,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   const questionKind = kind !== 'quiz' && kind !== 'flashcards' ? kind : configuredQuestionKind;
   /** Starts generation after sources and preferences are ready; specialized practice remains a quiz material. */
   const create = () => {
-    if (hasSources && preferences.isSuccess)
+    if (readiness === 'ready' && projectId !== undefined && hasSources && preferences.isSuccess)
       start.mutate({
         projectId,
         title: t(titleKey[kind]),
@@ -171,6 +176,7 @@ function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) 
   };
 
   return {
+    readiness,
     kind,
     setKind,
     instruction,
@@ -298,6 +304,7 @@ function GenerationPanel({
         </Practice.GenerationPages>
       </Practice.GenerationLayout>
       <Practice.GenerationStatus>
+        <AiReadinessNotice state={model.readiness} />
         <GenerationStatus model={model} />
       </Practice.GenerationStatus>
       <DialogFooter>
@@ -346,10 +353,16 @@ function GenerationAction({ model }: { model: GenerationModel }) {
 
   return (
     <AiButton
+      tier="medium"
       label={t('PracticeGenerateStart')}
       workingLabel={t('QuizGenerating')}
       pending={model.busy}
-      disabled={!model.hasSources || model.busy || !model.preferences.isSuccess}
+      disabled={
+        model.readiness !== 'ready' ||
+        !model.hasSources ||
+        model.busy ||
+        !model.preferences.isSuccess
+      }
       onClick={model.create}
     >
       {t('PracticeGenerateStart')}

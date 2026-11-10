@@ -6,6 +6,11 @@ import { expect, vi } from 'vite-plus/test';
 
 import { api, message, mountAssistant } from '#web/test/assistant.tsx';
 
+const readiness = vi.hoisted(() => ({ state: 'ready' }));
+
+vi.mock('#web/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+
 testStable(
   'reuses the same intent after an uncertain send failure and preserves the draft',
   async () => {
@@ -175,3 +180,21 @@ testStable(
     await waitFor(() => expect(input).toHaveValue('Same text'));
   }
 );
+
+testStable('blocks new sends while setup is needed and keeps the draft editable', async () => {
+  readiness.state = 'setup';
+
+  try {
+    mountAssistant();
+    const input = await screen.findByRole('textbox', { name: 'Message' });
+
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Keep this draft' } });
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(api.ask).not.toHaveBeenCalled();
+    expect(input).toHaveValue('Keep this draft');
+  } finally {
+    readiness.state = 'ready';
+  }
+});

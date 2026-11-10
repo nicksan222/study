@@ -64,6 +64,7 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                   <ContextMenuItem
                     key={mode}
                     disabled={
+                      (mode !== 'edit' && mode !== 'activate' && model.readiness !== 'ready') ||
                       model.blocked ||
                       !!model.draft.mode ||
                       (mode === 'activate' ? model.active : !model.active)
@@ -83,6 +84,7 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                     !model.active ||
                     model.blocked ||
                     !!model.draft.mode ||
+                    model.conversion.readiness !== 'ready' ||
                     model.conversion.blocked ||
                     model.conversion.mutation.isPending
                   }

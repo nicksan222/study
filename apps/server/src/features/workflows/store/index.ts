@@ -15,12 +15,13 @@
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import { sourceProcessingRequestedSchema } from '@study/contracts/events';
 import {
+  configurationWaitReasonSchema,
   executionIdSchema,
   executionSchema,
   executionsInputSchema
 } from '@study/contracts/workflows/schemas';
-import { and, desc, eq, lt, or, sql } from '@study/db';
-import { workflow_executions } from '@study/db/schema';
+import { and, desc, eq, getTableColumns, lt, or, sql } from '@study/db';
+import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
 import { Cause, Exit, Option, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
 
@@ -63,11 +64,34 @@ function executionOutcome(
   return { outcome, failureKind };
 }
 
-function view(row: typeof workflow_executions.$inferSelect): typeof executionSchema.Type {
+const columns = {
+  ...getTableColumns(workflow_executions),
+  // Single-table selections strip Column qualifiers; table/name chunks preserve correlation.
+  waitReason: sql<
+    string | null
+  >`(SELECT reason FROM ${workflow_configuration_waits} WHERE execution_id = ${workflow_executions}.${sql.identifier(workflow_executions.execution_id.name)} AND reason IS NOT NULL ORDER BY deferred_name LIMIT 1)`
+};
+
+function configurationReason(
+  value: string | null,
+  status: typeof executionSchema.Type.status,
+  outcome: typeof executionSchema.Type.outcome
+) {
+  return status === 'suspended' &&
+    outcome === null &&
+    Schema.is(configurationWaitReasonSchema)(value)
+    ? value
+    : null;
+}
+
+function view(
+  row: typeof workflow_executions.$inferSelect & { waitReason: string | null }
+): typeof executionSchema.Type {
   const pending = row.result === '"__interrupt_safe__"' || row.result === '"__interrupt_unsafe__"';
   const result =
     row.result !== null && !pending ? Schema.decodeUnknownSync(resultCodec)(row.result) : null;
   const { outcome, failureKind } = executionOutcome(row.status, result);
+  const status = pending ? 'cancelling' : row.status;
 
   let correlationId: string | null = null;
 
@@ -81,10 +105,11 @@ function view(row: typeof workflow_executions.$inferSelect): typeof executionSch
     id: Schema.decodeUnknownSync(executionIdSchema)(row.execution_id),
     workflow: row.workflow_tag,
     correlationId,
-    status: pending ? 'cancelling' : row.status,
+    status,
     outcome,
     failureKind,
-    canCancel: !pending && (row.status === 'running' || row.status === 'suspended'),
+    configurationWaitReason: configurationReason(row.waitReason, status, outcome),
+    canCancel: ['running', 'suspended'].includes(status),
     createdAtMs: row.created_at,
     updatedAtMs: row.updated_at
   };
@@ -93,7 +118,7 @@ function view(row: typeof workflow_executions.$inferSelect): typeof executionSch
 function makeHelpers({ db }: StoreResources) {
   function find(id: typeof executionIdSchema.Type) {
     const row = db.orm
-      .select()
+      .select(columns)
       .from(workflow_executions)
       .where(eq(workflow_executions.execution_id, id))
       .get();
@@ -136,7 +161,7 @@ export const ExecutionStore = defineStore({
           output: Schema.Array(executionSchema),
           run: (input) =>
             db.orm
-              .select()
+              .select(columns)
               .from(workflow_executions)
               .where(
                 and(

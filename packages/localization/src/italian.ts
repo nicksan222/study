@@ -185,6 +185,10 @@ export const italian = Object.freeze({
   AssistantIntro: 'Ragioniamo insieme, impariamo qualcosa o sviluppiamo un’idea.',
   AssistantEmptyDescription:
     'Fai una domanda o condividi ciò su cui stai lavorando. La conversazione viene salvata su questo dispositivo.',
+  AiReadinessChecking: 'Verifica del provider IA…',
+  AiReadinessUnavailable:
+    'Impossibile verificare il provider IA. Riprova quando le impostazioni sono disponibili.',
+  AiReadinessSetup: 'Configura un provider IA nelle Impostazioni per continuare.',
   AssistantThinking: 'Sto pensando…',
   AssistantLoading: 'Caricamento della conversazione…',
   AssistantEarlier: 'Messaggi precedenti',
@@ -444,6 +448,9 @@ export const italian = Object.freeze({
   NoteWorkTitle: 'Assegnazione titolo',
   NoteWorkStopping: 'Interruzione…',
   NoteWorkRunning: 'In corso',
+  NoteWaitAuth: 'Accedi per continuare questa attività.',
+  NoteWaitConfig: 'Aggiorna le impostazioni IA per continuare questa attività.',
+  NoteWaitModel: 'Scegli un modello disponibile per continuare questa attività.',
   NoteWorkWaiting: 'In attesa',
   NoteWorkAttention: 'Richiede attenzione',
   NoteWorkStop: 'Interrompi {title}',
@@ -1959,6 +1966,7 @@ export const italian = Object.freeze({
     'Per esempio: un quiz sull’isolamento delle transazioni o flashcard con le definizioni principali.',
   PracticeGenerateLimit: 'Scegli fino a 20 pagine. Deseleziona alcune pagine per continuare.',
   PracticeGenerateStart: 'Genera',
+  PracticeChooseSubject: 'Scegli una materia prima di generare gli esercizi.',
   PracticeOpenGenerated: 'Apri gli esercizi',
   PracticeActions: 'Azioni delle esercitazioni',
   PracticeArchivePreview: 'Anteprima del materiale archiviato',
@@ -1990,7 +1998,7 @@ export const italian = Object.freeze({
   PracticeQuizOverview: 'Prima di iniziare',
   PracticeQuestionOutline: 'Domande di questo quiz',
   PracticeQuizSaveHint: 'Le risposte vengono salvate man mano.',
-  PracticeReviewNote: 'Nota di ripasso',
+  PracticeReviewProgress: 'Ripassate',
   PracticeSpaceKey: 'Spazio',
   PracticeLibraryTitle: 'Il tuo materiale per esercitarti',
   PracticeLibraryIntro:

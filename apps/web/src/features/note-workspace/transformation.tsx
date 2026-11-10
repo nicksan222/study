@@ -3,7 +3,6 @@ import type { NoteId, PageVersionId } from '@study/contracts/ids';
 import type { noteGenerationSchema } from '@study/contracts/notes/rpc';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { RetryButton } from '@study/ui/action-button';
-import { AiButton } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { Disclosure } from '@study/ui/disclosure';
 import { Input } from '@study/ui/input';
@@ -21,6 +20,9 @@ import {
 import { Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
+import { AiActionButton as AiButton } from '#web/lib/ai-action-button.tsx';
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { pageVersionOptions, invalidatePages } from '#web/lib/study-client/pages.queries.ts';
@@ -69,6 +71,8 @@ function useTransformation(
   active = true
 ) {
   const { t, locale } = useI18n();
+  const readiness = useAiReadiness('medium');
+  const suggestionReadiness = useAiReadiness('tiny');
   const cache = useQueryClient();
   const additionalNoteIds = [
     ...new Set(notes?.map((note) => note.id).filter((value) => value !== id) ?? [])
@@ -123,7 +127,7 @@ function useTransformation(
   function start(attempt: Attempt) {
     const current = cache.getQueryData<TransformDraft>(key);
 
-    if (current?.pending || current?.unavailable) return;
+    if (readiness !== 'ready' || current?.pending || current?.unavailable) return;
 
     setDraft({ attempt, pending: true, unavailable: false });
     submit.mutate(attempt);
@@ -133,6 +137,8 @@ function useTransformation(
   return {
     id,
     active,
+    readiness,
+    suggestionReadiness,
     suggestionIdentity,
     suggestionReady: [...contextNotes, ...contextSelections].every((query) => query.isSuccess),
     suggestionContext: () =>
@@ -223,6 +229,10 @@ function TransformFields({ model }: { model: TransformationModel }) {
 
   return (
     <>
+      <AiReadinessNotice state={model.readiness} />
+      {model.suggestionReadiness !== model.readiness && (
+        <AiReadinessNotice state={model.suggestionReadiness} />
+      )}
       <TransformSuggestion key={`title/${model.suggestionIdentity}`} model={model} field="title" />
       <Notebook.Muted>{t('NoteOutputTitleHelp')}</Notebook.Muted>
       <Input
@@ -301,10 +311,12 @@ function CreateTransform({ model }: { model: TransformationModel }) {
   return (
     <>
       <AiButton
+        tier="medium"
         label={t('NoteCreatePage')}
         workingLabel={t('NoteWorkTransform')}
         pending={pending}
         disabled={
+          model.readiness !== 'ready' ||
           pending ||
           !!draft.attempt ||
           !draft.title.trim() ||
@@ -313,6 +325,7 @@ function CreateTransform({ model }: { model: TransformationModel }) {
         }
         onClick={() => {
           if (
+            model.readiness !== 'ready' ||
             !selection.data ||
             cache.getQueryData<TransformDraft>(key)?.attempt ||
             cache.getQueryData<TransformDraft>(key)?.pending
@@ -352,7 +365,11 @@ function TransformFailure({ model }: { model: TransformationModel }) {
       {submit.error && !draft.unavailable && (
         <NoteError
           error={submit.error}
-          retry={draft.attempt && !pending ? () => start(draft.attempt!) : undefined}
+          retry={
+            model.readiness === 'ready' && draft.attempt && !pending
+              ? () => start(draft.attempt!)
+              : undefined
+          }
         />
       )}
       {submit.error instanceof StudyError &&
@@ -380,7 +397,12 @@ function TransformRecovery({ model }: { model: TransformationModel }) {
   return (
     <>
       {retryable && !submit.error && (
-        <RetryButton variant="outline" onClick={() => start(draft.attempt!)} label={t('Retry')} />
+        <RetryButton
+          variant="outline"
+          disabled={model.readiness !== 'ready'}
+          onClick={() => start(draft.attempt!)}
+          label={t('Retry')}
+        />
       )}
       {retryable && <p>{t('NoteTransformRetryHelp')}</p>}
       {draft.attempt && draft.unavailable && !draft.requestId && (
@@ -437,6 +459,7 @@ function TransformReceipt({ model }: { model: TransformationModel }) {
 }
 
 function useTransformResult(requestId: string) {
+  const readiness = useAiReadiness('medium');
   const { t } = useI18n();
   const cache = useQueryClient();
   const retryKey = ['note-drafts', 'transform-retry', requestId];
@@ -488,6 +511,7 @@ function useTransformResult(requestId: string) {
 
   return {
     requestId,
+    readiness,
     t,
     cache,
     retryKey,
@@ -496,6 +520,17 @@ function useTransformResult(requestId: string) {
     latest,
     cancel,
     retry,
+    retryNew: () => {
+      if (readiness !== 'ready') return;
+
+      const key = attempt && !attempt.acknowledged ? attempt.key : crypto.randomUUID();
+
+      cache.setQueryData(retryKey, { key, acknowledged: false });
+      retry.mutate(key);
+    },
+    retrySubmit: (key: string) => {
+      if (readiness === 'ready') retry.mutate(key);
+    },
     retryableFailure,
     active
   };
@@ -526,30 +561,27 @@ function TransformResult({ requestId }: { requestId: string }) {
 }
 
 function TransformControls({ model }: { model: TransformResultModel }) {
-  const { state, t, active, cancel, retry, retryableFailure, attempt, cache, retryKey, latest } =
-    model;
+  const { state, t, active, cancel, retry, retryableFailure, latest } = model;
 
   return (
     <>
       {active && (
-        <Button
-          variant="outline"
-          disabled={cancel.isPending || latest?.canCancel === false}
-          onClick={() => cancel.mutate()}
-        >
-          {t('NoteCancel')}
-        </Button>
+        <>
+          <AiReadinessNotice state={model.readiness} />
+          <Button
+            variant="outline"
+            disabled={cancel.isPending || latest?.canCancel === false}
+            onClick={() => cancel.mutate()}
+          >
+            {t('NoteCancel')}
+          </Button>
+        </>
       )}
       {active && retryableFailure && (
         <RetryButton
           variant="outline"
-          disabled={retry.isPending}
-          onClick={() => {
-            const key = attempt && !attempt.acknowledged ? attempt.key : crypto.randomUUID();
-
-            cache.setQueryData(retryKey, { key, acknowledged: false });
-            retry.mutate(key);
-          }}
+          disabled={retry.isPending || model.readiness !== 'ready'}
+          onClick={model.retryNew}
           label={t('Retry')}
         />
       )}
@@ -679,8 +711,11 @@ function TransformRetryError({ model }: { model: TransformResultModel }) {
         <NoteError
           error={retry.error}
           retry={
-            !state.data?.cancelled && attempt && !attempt.acknowledged
-              ? () => retry.mutate(attempt.key)
+            model.readiness === 'ready' &&
+            !state.data?.cancelled &&
+            attempt &&
+            !attempt.acknowledged
+              ? () => model.retrySubmit(attempt.key)
               : undefined
           }
         />

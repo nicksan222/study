@@ -38,7 +38,7 @@ Summarize permits omissions: record them. Combine must synthesize the captured n
 Explain/expand must label added explanations. Translation preserves uncertainty and meaning limits.
 Factual correction only proposes evidence-backed corrections; never certify truth or invent verification.
 Return rich blocks and an honest report of additions, omissions, conflicts, correction proposals,
-uncertainty and limits, targeting output blockOrdinals where practical. Include at least one limit note;
+uncertainty and limits, targeting output blockOrdinals where practical. These are ZERO-BASED array indexes: 0 is the first returned block, and the largest valid index is blocks.length - 1. Never use one-based numbering. Use [] for page-wide notes or when no particular block applies. Include at least one limit note;
 never claim guaranteed meaning preservation. Cite captured passages using [n] from the sources tool.
 Only copy image sourceId/revision pairs explicitly authorized in captured content. Text-only ranges
 never authorize images. No external research. No claims of factual verification.`

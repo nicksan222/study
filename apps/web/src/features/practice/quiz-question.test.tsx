@@ -4,8 +4,9 @@ import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
-import { expect, vi } from 'vite-plus/test';
+import { afterEach, expect, vi } from 'vite-plus/test';
 
+import type { AiReadiness } from '#web/lib/ai-readiness.ts';
 import { LanguageProvider } from '#web/lib/i18n.tsx';
 
 import { QuizQuestion } from './quiz-question';
@@ -276,3 +277,40 @@ testStable(
     expect(submit).toHaveBeenCalledExactlyOnceWith({ type: 'ordering', itemIds: [7n, 8n, 9n] });
   }
 );
+
+const readiness = vi.hoisted(() => ({ value: 'ready' as AiReadiness }));
+
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.value }));
+vi.mock('#web/lib/ai-readiness-notice.tsx', () => ({ AiReadinessNotice: () => null }));
+afterEach(() => {
+  readiness.value = 'ready';
+});
+
+testStable('preserves typed answers but blocks AI grading until setup is ready', async () => {
+  readiness.value = 'setup';
+  const submit = vi.fn();
+  const question = Schema.decodeUnknownSync(quizAttemptInProgressSchema)({
+    ...attempt,
+    questions: [{ id: 4n, position: 0n, kind: 'open', prompt: 'Explain cells.', answer: null }]
+  }).questions[0]!;
+  const user = userEvent.setup();
+
+  render(<QuizQuestion question={question} pending={false} submit={submit} last />);
+  const answer = screen.getByRole('textbox', { name: catalogs.english.YourAnswer });
+
+  await user.type(answer, 'Cells are basic units of life.');
+  expect(answer).toBeEnabled();
+  expect(screen.getByRole('button', { name: catalogs.english.SubmitAnswer })).toBeDisabled();
+  await user.keyboard('{Control>}{Enter}{/Control}');
+  expect(submit).not.toHaveBeenCalled();
+});
+
+testStable('keeps deterministic answers usable without provider setup', async () => {
+  readiness.value = 'setup';
+  const submit = vi.fn();
+  const user = userEvent.setup();
+
+  render(<QuizQuestion question={attempt.questions[0]!} pending={false} submit={submit} last />);
+  await user.keyboard('12{Enter}');
+  expect(submit).toHaveBeenCalledWith({ type: 'choice', choiceIds: [5n, 6n] });
+});

@@ -5,6 +5,7 @@ import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { MessageSquare, ArrowDownToLine, StickyNote } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { jumpToNotebookTarget, notebookTargetId } from './notebook-index';
@@ -43,6 +44,7 @@ export function QuestionActions({
           versionId={model.answerVersion.id}
         />
       )}
+      {model.isQuestion && <AiReadinessNotice state={model.readiness} />}
       <QuestionFeedback model={model} />
     </>
   );
@@ -63,7 +65,7 @@ function QuestionResponse({ model, message }: { model: Model; message: ChatMessa
       {model.canRetry ? (
         <QuestionToolbarButton
           label={t('NoteRetryAnswer')}
-          disabled={model.blocked}
+          disabled={model.blocked || model.readiness !== 'ready'}
           onClick={model.submitAnswer}
         >
           <MessageSquare size={15} aria-hidden="true" />
@@ -87,12 +89,8 @@ function QuestionKindAction({ model }: { model: Model }) {
             size="icon-sm"
             variant="ghost"
             label={label}
-            disabled={model.blocked}
-            onClick={() => {
-              model.answer.reset();
-              model.restore.reset();
-              model.mark.mutate(model.isQuestion ? 'note' : 'question');
-            }}
+            disabled={model.blocked || (!model.isQuestion && model.readiness !== 'ready')}
+            onClick={model.submitMark}
           />
         }
       >
@@ -132,7 +130,7 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
   return (
     <QuestionToolbarButton
       label={t(model.answer.isPending ? 'NoteRequestingAnswer' : 'NoteAnswerQuestion')}
-      disabled={model.blocked}
+      disabled={model.blocked || model.readiness !== 'ready'}
       onClick={model.submitAnswer}
     >
       <MessageSquare size={15} aria-hidden="true" />

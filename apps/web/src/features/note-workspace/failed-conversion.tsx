@@ -3,6 +3,7 @@ import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { useFailedConversion } from './failed-conversion.queries';
@@ -17,10 +18,11 @@ export function FailedMessageConversion({
   version: MessageVersion;
 }) {
   const { t } = useI18n();
-  const { snapshot, mutation, canRetry } = useFailedConversion(message, version);
+  const { snapshot, mutation, canRetry, readiness } = useFailedConversion(message, version);
 
   return (
     <>
+      <AiReadinessNotice state={readiness} />
       <ErrorState
         title={t('NoteConversionFailed')}
         description={t('NoteConversionFailedHelp')}
@@ -50,9 +52,17 @@ export function FailedMessageConversion({
       {mutation.error && (
         <NoteError
           error={mutation.error}
-          retry={() => {
-            if (mutation.variables) mutation.mutate(mutation.variables);
-          }}
+          retry={
+            mutation.variables === 'discard' || readiness === 'ready'
+              ? () => {
+                  if (
+                    mutation.variables &&
+                    (mutation.variables === 'discard' || readiness === 'ready')
+                  )
+                    mutation.mutate(mutation.variables);
+                }
+              : undefined
+          }
         />
       )}
     </>

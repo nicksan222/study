@@ -58,7 +58,11 @@ export function SidebarNoteActions({
             <FileText aria-hidden="true" />
             {t('NoteTransform')}
           </ContextMenuItem>
-          <ContextMenuItem disabled={title.pending} onClick={title.regenerate}>
+          <ContextMenuItem
+            disabled={title.pending || title.readiness !== 'ready'}
+            onClick={title.regenerate}
+            title={title.readiness === 'setup' ? t('AiReadinessSetup') : undefined}
+          >
             <AiIcon working={title.pending} />
             {t('RegenerateTitle')}
           </ContextMenuItem>

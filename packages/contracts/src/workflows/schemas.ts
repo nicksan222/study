@@ -10,6 +10,12 @@ const timestampSchema = Schema.BigInt.check(
   Schema.isBetweenBigInt({ minimum: 0n, maximum: 9223372036854775807n })
 );
 
+export const configurationWaitReasonSchema = Schema.Literals([
+  'auth',
+  'config',
+  'model_unavailable'
+]);
+
 export const executionSchema = Schema.Struct({
   id: executionIdSchema,
   workflow: Schema.String,
@@ -17,6 +23,7 @@ export const executionSchema = Schema.Struct({
   status: Schema.Literals(['running', 'suspended', 'completed', 'cancelled', 'cancelling']),
   outcome: Schema.NullOr(Schema.Literals(['success', 'failure'])),
   failureKind: Schema.NullOr(errorKindSchema),
+  configurationWaitReason: Schema.NullOr(configurationWaitReasonSchema),
   canCancel: Schema.Boolean,
   createdAtMs: timestampSchema,
   updatedAtMs: timestampSchema
