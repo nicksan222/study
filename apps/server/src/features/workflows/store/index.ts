@@ -66,9 +66,10 @@ function executionOutcome(
 
 const columns = {
   ...getTableColumns(workflow_executions),
+  // Single-table selections strip Column qualifiers; table/name chunks preserve correlation.
   waitReason: sql<
     string | null
-  >`(SELECT reason FROM ${workflow_configuration_waits} WHERE execution_id = ${workflow_executions.execution_id} AND reason IS NOT NULL ORDER BY deferred_name LIMIT 1)`
+  >`(SELECT reason FROM ${workflow_configuration_waits} WHERE execution_id = ${workflow_executions}.${sql.identifier(workflow_executions.execution_id.name)} AND reason IS NOT NULL ORDER BY deferred_name LIMIT 1)`
 };
 
 function configurationReason(

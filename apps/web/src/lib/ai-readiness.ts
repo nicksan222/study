@@ -9,7 +9,7 @@ type AiSettings = Awaited<ReturnType<typeof loadAiSettings>>;
 export function aiReadiness(data: AiSettings, tier: ModelTier): boolean {
   const setup = data.settings[tier];
 
-  if (setup.provider === 1) return data.status.signedIn;
+  if (setup.provider === 1) return data.status.signedIn && data.status.sharing;
 
   return data.providers.some((provider) => provider.id === setup.provider && provider.configured);
 }

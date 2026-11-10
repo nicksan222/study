@@ -34,8 +34,11 @@ describe('AI readiness', () => {
     expect(aiReadiness(data, 'tiny')).toBe(false);
     expect(aiReadiness(data, 'medium')).toBe(true);
     expect(aiReadiness({ ...data, status: { ...data.status, signedIn: true } }, 'smart')).toBe(
-      true
+      false
     );
+    expect(
+      aiReadiness({ ...data, status: { ...data.status, signedIn: true, sharing: true } }, 'smart')
+    ).toBe(true);
     expect(aiReadiness({ ...data, providers: [] }, 'medium')).toBe(false);
     expect(
       aiReadiness({ ...data, providers: [{ ...data.providers[0]!, configured: false }] }, 'medium')
@@ -64,7 +67,10 @@ testStable(
         finish(data);
       });
       await waitFor(() => expect(hook.result.current).toBe('setup'));
-      settings.load.mockResolvedValue({ ...data, status: { ...data.status, signedIn: true } });
+      settings.load.mockResolvedValue({
+        ...data,
+        status: { ...data.status, signedIn: true, sharing: true }
+      });
       await act(async () => {
         await client.invalidateQueries({ queryKey: ['ai-settings'] });
       });

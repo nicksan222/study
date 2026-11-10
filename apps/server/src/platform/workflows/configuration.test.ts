@@ -332,3 +332,77 @@ for (const kind of ['invalid_input', 'transient'] as const) {
     }
   );
 }
+
+testStable(
+  'configuration reasons stay correlated to their own execution in detail and lists',
+  async () => {
+    const location = createTestDatabase();
+    const context = new ServerContext(location.open());
+    const first = executionIdSchema.make('configuration-first');
+    const second = executionIdSchema.make('configuration-second');
+
+    try {
+      context.db.orm
+        .insert(workflow_executions)
+        .values(
+          [first, second].map((id) => ({
+            execution_id: id,
+            workflow_tag: 'configuration-correlation-test',
+            version: 1,
+            payload: '{}',
+            status: 'suspended' as const,
+            created_at: 1n,
+            updated_at: 1n
+          }))
+        )
+        .run();
+      context.db.orm
+        .insert(workflow_configuration_waits)
+        .values({
+          execution_id: first,
+          deferred_name: 'setup',
+          observed_revision: 'before',
+          reason: 'auth'
+        })
+        .run();
+
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const store = yield* useStore(ExecutionStore);
+
+          assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
+          assert.strictEqual((yield* store.execution(second)).configurationWaitReason, null);
+          let listed = yield* store.executions({ limit: 10 });
+
+          assert.strictEqual(
+            listed.find((row) => row.id === second)?.configurationWaitReason,
+            null
+          );
+          context.db.orm
+            .insert(workflow_configuration_waits)
+            .values({
+              execution_id: second,
+              deferred_name: 'setup',
+              observed_revision: 'before',
+              reason: 'config'
+            })
+            .run();
+          assert.strictEqual((yield* store.execution(first)).configurationWaitReason, 'auth');
+          assert.strictEqual((yield* store.execution(second)).configurationWaitReason, 'config');
+          listed = yield* store.executions({ limit: 10 });
+          assert.strictEqual(
+            listed.find((row) => row.id === first)?.configurationWaitReason,
+            'auth'
+          );
+          assert.strictEqual(
+            listed.find((row) => row.id === second)?.configurationWaitReason,
+            'config'
+          );
+        }).pipe(Effect.provide(Layer.succeed(Database, { store: context })), Effect.scoped)
+      );
+    } finally {
+      context.close();
+      location.cleanup();
+    }
+  }
+);
