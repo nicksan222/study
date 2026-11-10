@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { useItemArchive } from './archive.queries';
@@ -58,6 +59,10 @@ export function MessageActions({
           questionAction={questionAction}
         />
       </MessageContextMenu>
+      <AiReadinessNotice state={model.readiness} />
+      {model.conversion.available && model.conversion.readiness !== model.readiness && (
+        <AiReadinessNotice state={model.conversion.readiness} />
+      )}
       {model.conversion.mutation.error && (
         <NoteError error={model.conversion.mutation.error} retry={model.conversion.retry} />
       )}
@@ -185,6 +190,7 @@ function MessageConversionButton({ model }: { model: MessageActionsModel }) {
               !model.active ||
               model.blocked ||
               !!model.draft.mode ||
+              model.conversion.readiness !== 'ready' ||
               model.conversion.blocked ||
               model.conversion.mutation.isPending
             }
@@ -255,7 +261,12 @@ function MessageActionButton({
           <Button
             size="sm"
             variant="ghost"
-            disabled={disabled || model.blocked || !!model.draft.mode}
+            disabled={
+              disabled ||
+              model.blocked ||
+              !!model.draft.mode ||
+              (mode !== 'edit' && mode !== 'activate' && model.readiness !== 'ready')
+            }
             onClick={() => model.open(mode)}
           />
         }
@@ -370,7 +381,7 @@ function MessageRecovery({ model }: { model: MessageActionsModel }) {
         <NoteError
           error={draft.error}
           retry={
-            draft.attempt?.askInput && !draft.pending
+            draft.attempt?.askInput && !draft.pending && model.readiness === 'ready'
               ? () => void execute(draft.attempt!)
               : undefined
           }
@@ -390,7 +401,11 @@ function MessageAttemptRecovery({ model }: { model: MessageActionsModel }) {
     <Notebook.ActionRecovery>
       <p>{t(draft.attempt.askInput ? 'NoteAskRetryHelp' : 'NoteItemActionUncertain')}</p>
       {!draft.error && draft.attempt.askInput && (
-        <Button size="sm" onClick={() => void execute(draft.attempt!)}>
+        <Button
+          size="sm"
+          disabled={model.readiness !== 'ready'}
+          onClick={() => void execute(draft.attempt!)}
+        >
           {t('NoteRetryAsk')}
         </Button>
       )}
@@ -413,8 +428,14 @@ function MessageAttemptRecovery({ model }: { model: MessageActionsModel }) {
   );
 }
 
-function messageActionDisabled({ draft, blocked, selection }: MessageActionsModel) {
-  if (blocked) return true;
+function messageActionDisabled({
+  draft,
+  blocked,
+  selection,
+  readiness: modelReadiness
+}: MessageActionsModel) {
+  if (blocked || (draft.mode !== 'edit' && draft.mode !== 'activate' && modelReadiness !== 'ready'))
+    return true;
 
   if (draft.mode === 'edit') return !draft.text.trim();
 

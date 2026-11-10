@@ -224,6 +224,7 @@ testStable(
                     'status',
                     'outcome',
                     'failureKind',
+                    'configurationWaitReason',
                     'canCancel',
                     'createdAtMs',
                     'updatedAtMs'

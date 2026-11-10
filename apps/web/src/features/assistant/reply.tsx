@@ -5,6 +5,7 @@ import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { RichNoteContent } from '@study/ui/rich-note';
 
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { useReply } from './use-reply';
@@ -26,6 +27,7 @@ export function AssistantReply({
     <>
       <ReplyText model={model} />
       <ReplyFailure model={model} />
+      {model.failed && <AiReadinessNotice state={model.readiness} />}
       {model.actionError && <ErrorState layout="inline" title={t('AssistantActionFailed')} />}
       {model.canStop && (
         <Button size="sm" variant="ghost" disabled={model.stopping} onClick={model.stop}>
@@ -75,7 +77,7 @@ function ReplyFailure({ model }: { model: ReplyModel }) {
           size="sm"
           variant="outline"
           label={t('Retry')}
-          disabled={model.retrying}
+          disabled={model.retrying || model.readiness !== 'ready'}
           onClick={model.retry}
         />
       }

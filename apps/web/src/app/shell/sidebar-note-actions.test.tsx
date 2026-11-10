@@ -270,3 +270,4 @@ testStable('refreshes titles when background generation completes', async () => 
   await waitFor(() => expect(client.getQueryState(['notes'])?.isInvalidated).toBe(true));
   expect(client.getQueryState(['search', 'cells'])?.isInvalidated).toBe(true);
 });
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));

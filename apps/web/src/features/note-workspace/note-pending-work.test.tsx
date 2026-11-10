@@ -11,6 +11,13 @@ import { NotePendingWork } from './note-pending-work';
 
 const api = vi.hoisted(() => ({ work: vi.fn(), cancel: vi.fn(), transform: vi.fn() }));
 
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  )
+}));
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({
     t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
@@ -38,6 +45,7 @@ const row: typeof noteWorkItemSchema.Type = {
     status: 'running',
     outcome: null,
     failureKind: null,
+    configurationWaitReason: null,
     canCancel: true,
     createdAtMs: 1n,
     updatedAtMs: 1n
@@ -157,4 +165,24 @@ testStable('retains honest cancellation error and disables replay until refreshe
   expect(await screen.findByRole('alert')).toHaveTextContent('NoteWorkStopError');
   expect(screen.getByRole('button', { name: 'NoteWorkStop NoteWorkReply' })).toBeDisabled();
   expect(api.cancel).toHaveBeenCalledTimes(1);
+});
+
+testStable('shows actionable guidance for configuration waits', async () => {
+  api.work.mockResolvedValue({
+    items: [
+      {
+        ...row,
+        kind: 'transform',
+        execution: {
+          ...row.execution,
+          status: 'suspended',
+          configurationWaitReason: 'model_unavailable'
+        }
+      }
+    ],
+    next: null
+  });
+  mount();
+  expect(await screen.findByText('NoteWaitModel')).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Settings' })).toBeEnabled();
 });

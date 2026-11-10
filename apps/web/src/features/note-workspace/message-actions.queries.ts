@@ -4,6 +4,7 @@ import type { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { request } from '#web/lib/study-client/request.ts';
 
@@ -57,6 +58,7 @@ export function useMessageActions({
   onActive: () => void;
 }) {
   const { t, locale } = useI18n();
+  const readiness = useAiReadiness('medium');
   const conversion = useMessageConversion(message, versionId);
   const cache = useQueryClient();
   const key = ['note-drafts', String(message.noteId), 'message-action', String(message.id)];
@@ -122,7 +124,11 @@ export function useMessageActions({
   async function execute(attempt: Attempt) {
     const current = cache.getQueryData<State>(key);
 
-    if (current?.pending) return;
+    if (
+      current?.pending ||
+      (!['edit', 'activate'].includes(attempt.action) && readiness !== 'ready')
+    )
+      return;
 
     patch({ pending: true, attempt, error: undefined, reviewed: false });
 
@@ -144,7 +150,7 @@ export function useMessageActions({
   }
 
   function open(mode: Action) {
-    if (!blocked) {
+    if (!blocked && (['edit', 'activate'].includes(mode) || readiness === 'ready')) {
       launcher.current =
         document.activeElement instanceof HTMLElement ? document.activeElement : null;
       patch({
@@ -179,7 +185,13 @@ export function useMessageActions({
   }
 
   function submit() {
-    if (!draft.mode || blocked || !version) return;
+    if (
+      !draft.mode ||
+      blocked ||
+      !version ||
+      (draft.mode !== 'edit' && draft.mode !== 'activate' && readiness !== 'ready')
+    )
+      return;
 
     const attempt: Attempt = {
       action: draft.mode,
@@ -217,6 +229,7 @@ export function useMessageActions({
     message,
     versionId,
     conversion,
+    readiness,
     t,
     locale,
     cache,

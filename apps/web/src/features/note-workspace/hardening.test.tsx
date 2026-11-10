@@ -151,6 +151,7 @@ const execution = (name: string) =>
     status: 'completed',
     outcome: 'failure',
     failureKind: 'transient',
+    configurationWaitReason: null,
     canCancel: false,
     createdAtMs: 1n,
     updatedAtMs: 2n
@@ -1408,3 +1409,4 @@ testStable('ignores obsolete selection drafts when starting a note transformatio
   });
   await waitFor(() => expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled());
 });
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));

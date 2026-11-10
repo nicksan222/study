@@ -182,6 +182,9 @@ export const english = Object.freeze({
   AssistantIntro: 'Think it through, learn something new, or work on an idea together.',
   AssistantEmptyDescription:
     'Ask a question or share what you are working on. Your conversation is saved on this device.',
+  AiReadinessChecking: 'Checking AI provider…',
+  AiReadinessUnavailable: 'Could not check AI provider. Try again when settings are available.',
+  AiReadinessSetup: 'Set up an AI provider in Settings to continue.',
   AssistantThinking: 'Thinking…',
   AssistantLoading: 'Loading your conversation…',
   AssistantEarlier: 'Earlier messages',
@@ -436,6 +439,9 @@ export const english = Object.freeze({
   NoteWorkTitle: 'Naming this note',
   NoteWorkStopping: 'Stopping…',
   NoteWorkRunning: 'Running',
+  NoteWaitAuth: 'Sign in to continue this work.',
+  NoteWaitConfig: 'Update AI settings to continue this work.',
+  NoteWaitModel: 'Choose an available model to continue this work.',
   NoteWorkWaiting: 'Waiting',
   NoteWorkAttention: 'Needs attention',
   NoteWorkStop: 'Stop {title}',
@@ -1914,6 +1920,7 @@ export const english = Object.freeze({
   PracticeGenerateLimit:
     'Choose up to 20 pages to generate practice. Deselect some pages to continue.',
   PracticeGenerateStart: 'Generate',
+  PracticeChooseSubject: 'Choose a subject before generating practice.',
   PracticeOpenGenerated: 'Open practice',
   PracticeActions: 'Practice actions',
   PracticeArchivePreview: 'Archived material preview',
@@ -1945,7 +1952,7 @@ export const english = Object.freeze({
   PracticeQuizOverview: 'Before you begin',
   PracticeQuestionOutline: 'Questions in this quiz',
   PracticeQuizSaveHint: 'Your answers are saved as you go.',
-  PracticeReviewNote: 'Review note',
+  PracticeReviewProgress: 'Reviewed',
   PracticeSpaceKey: 'Space',
   PracticeLibraryTitle: 'Your practice material',
   PracticeLibraryIntro:

@@ -19,6 +19,7 @@ import { createServer } from 'node:http';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { StudyError } from '@study/contracts/errors';
+import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
 import { AgentRule } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
@@ -1118,3 +1119,42 @@ testStable('retains provider-reported tokens when ChatGPT truncates a response',
     }
   );
 });
+
+testStable(
+  'decodes JSON optional identifiers in structured agent output before publication',
+  async () => {
+    const generated = {
+      title: 'Cells',
+      content: {
+        kind: 'flashcards',
+        cards: [
+          { cardId: null, front: 'Nucleus?', back: 'Stores DNA' },
+          { cardId: '7', front: 'Ribosome?', back: 'Makes proteins' }
+        ]
+      }
+    };
+
+    await peer(
+      (_req, res) => send(res, JSON.stringify(generated)),
+      async (base, auth) => {
+        const result = await Effect.runPromise(
+          generateAgent(
+            { ...objectDefinition, output: titledFlashcardsGenerationOutputSchema },
+            'Cells'
+          ).pipe(Effect.provide(service(base, auth)))
+        );
+
+        expect(result).toStrictEqual({
+          ...generated,
+          content: {
+            ...generated.content,
+            cards: [
+              { ...generated.content.cards[0], cardId: undefined },
+              { ...generated.content.cards[1], cardId: 7n }
+            ]
+          }
+        });
+      }
+    );
+  }
+);

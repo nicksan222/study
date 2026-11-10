@@ -11,6 +11,13 @@ const api = vi.hoisted(() => ({ executions: vi.fn() }));
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => createLocalization('english')
 }));
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, ...props }: React.ComponentProps<'a'> & { to: string }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  )
+}));
 vi.mock('./note-workspace.queries', () => ({
   executionOptions: (id: string) => ({ queryKey: ['work-log', id], queryFn: api.executions })
 }));
@@ -73,4 +80,29 @@ testStable('keeps actionable authentication errors below the work row', async ()
   mount();
   expect(await screen.findByText(catalogs.english.NoteAuthError)).toBeInTheDocument();
   expect(screen.getByText('Generate reply')).toBeInTheDocument();
+});
+
+testStable('explains a configuration wait and offers settings', async () => {
+  api.executions.mockResolvedValue({
+    items: [
+      {
+        id: 'wait',
+        workflow: 'document-transform/v1',
+        createdAtMs: 1000n,
+        updatedAtMs: 2000n,
+        status: 'suspended',
+        outcome: null,
+        configurationWaitReason: 'auth'
+      }
+    ],
+    next: null
+  });
+  mount();
+  await screen.findByText('Rewrite page');
+  screen.getByText('Rewrite page').click();
+  expect(await screen.findByText(catalogs.english.NoteWaitAuth)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: catalogs.english.Settings })).toHaveAttribute(
+    'href',
+    '/settings'
+  );
 });

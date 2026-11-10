@@ -133,7 +133,8 @@ export function retryResumableActivity<
                       .values({
                         execution_id: owner.executionId,
                         deferred_name: deferred.name,
-                        observed_revision: observed
+                        observed_revision: observed,
+                        reason: needsSetup(result.failure.kind) ? result.failure.kind : null
                       })
                       .onConflictDoNothing()
                       .run().changes
