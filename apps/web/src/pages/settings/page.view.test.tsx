@@ -169,6 +169,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
     'Writing',
     'Reading & exports',
     'Analytics',
+    'Updates',
     'AI providers',
     'Models by task',
     'Custom instructions',
@@ -195,7 +196,7 @@ testStable('groups settings navigation and shows relevant cross-section search r
     .map((button) => button.querySelector('svg')?.innerHTML);
 
   expect(new Set(icons).size).toBe(labels.length);
-  expect(labels).toHaveLength(21);
+  expect(labels).toHaveLength(22);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'
@@ -276,3 +277,29 @@ testStable.each(['english', 'italian'] as const)(
     expect(within(matches).getAllByRole('button')).toHaveLength(1);
   }
 );
+
+for (const locale of ['english', 'italian'] as const) {
+  testStable(`finds updates through settings search in ${locale}`, () => {
+    const change = vi.fn();
+    const catalog = catalogs[locale];
+
+    render(
+      <LanguageProvider locale={locale}>
+        <PageView
+          open
+          onClose={vi.fn()}
+          model={appearanceModel()}
+          search={catalog.UpdateCheck}
+          onSectionChange={change}
+        />
+      </LanguageProvider>
+    );
+    fireEvent.click(
+      within(screen.getByRole('region', { name: catalog.SettingsSearchMatches })).getByRole(
+        'button',
+        { name: catalog.Updates }
+      )
+    );
+    expect(change).toHaveBeenCalledWith('updates');
+  });
+}

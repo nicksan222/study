@@ -1,17 +1,18 @@
 import { toastManager } from '@study/ui/toast';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
-
-import { useI18n } from '#web/lib/i18n.tsx';
 
 import {
   desktopUpdateQueryOptions,
   installDesktopUpdateMutationOptions
-} from './desktop-updates.queries';
+} from '#web/lib/desktop-updates.queries.ts';
+import { useI18n } from '#web/lib/i18n.tsx';
 
 /** Checks signed desktop builds quietly and downloads only after explicit consent. */
 export function DesktopUpdates() {
   const { t } = useI18n();
+  const client = useQueryClient();
+  const installing = useIsMutating({ mutationKey: ['desktop-update-install'] }) > 0;
   const announced = useRef<string | null>(null);
   const progress = useRef<string | null>(null);
   const notice = useRef<string | null>(null);
@@ -41,7 +42,11 @@ export function DesktopUpdates() {
         actionProps: {
           children: t('Retry'),
           onClick: () => {
-            if (announced.current !== version) return;
+            if (
+              announced.current !== version ||
+              client.isMutating({ mutationKey: ['desktop-update-install'] })
+            )
+              return;
 
             closeNotice();
             install.mutate(version);
@@ -50,6 +55,10 @@ export function DesktopUpdates() {
       });
     }
   });
+
+  useEffect(() => {
+    if (installing) closeNotice();
+  }, [installing, closeNotice]);
 
   useEffect(() => {
     const version = update.data ?? null;
@@ -68,14 +77,18 @@ export function DesktopUpdates() {
       actionProps: {
         children: t('DesktopUpdateInstall'),
         onClick: () => {
-          if (announced.current !== version) return;
+          if (
+            announced.current !== version ||
+            client.isMutating({ mutationKey: ['desktop-update-install'] })
+          )
+            return;
 
           closeNotice();
           install.mutate(version);
         }
       }
     });
-  }, [update.data, install, t, closeNotice]);
+  }, [update.data, install, t, closeNotice, client]);
 
   return null;
 }

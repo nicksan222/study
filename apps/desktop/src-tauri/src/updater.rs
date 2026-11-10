@@ -13,23 +13,37 @@ pub struct PendingUpdate {
     shutdown_started: Arc<AtomicBool>,
 }
 
+#[derive(serde::Serialize)]
+pub struct UpdateStatus {
+    version: String,
+    supported: bool,
+}
+
+#[tauri::command]
+pub fn desktop_update_status(app: tauri::AppHandle) -> UpdateStatus {
+    let supported = !cfg!(debug_assertions)
+        && app
+            .config()
+            .plugins
+            .0
+            .get("updater")
+            .and_then(|config| config.get("pubkey"))
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|key| !key.is_empty());
+    UpdateStatus {
+        version: app.package_info().version.to_string(),
+        supported,
+    }
+}
+
 #[tauri::command]
 pub async fn check_for_update(
     app: tauri::AppHandle,
     pending: tauri::State<'_, PendingUpdate>,
 ) -> Result<Option<String>, NativeError> {
     let mut update = pending.update.lock().await;
-    let key = app
-        .config()
-        .plugins
-        .0
-        .get("updater")
-        .and_then(|c| c.get("pubkey"));
-    if cfg!(debug_assertions)
-        || key
-            .and_then(serde_json::Value::as_str)
-            .is_none_or(str::is_empty)
-    {
+    if !desktop_update_status(app.clone()).supported {
+        *update = None;
         return Ok(None);
     }
     let handle = app.clone();
@@ -58,8 +72,11 @@ pub async fn install_update(
     pending: tauri::State<'_, PendingUpdate>,
     expected_version: String,
 ) -> Result<(), NativeError> {
-    // Keep the lock through installation so concurrent commands cannot install twice.
-    let checked = pending.update.lock().await;
+    // Reject concurrent commands rather than queuing another install after this one.
+    let checked = pending
+        .update
+        .try_lock()
+        .map_err(|_| NativeError::internal("update operation already in progress"))?;
     let update = checked
         .as_ref()
         .ok_or_else(|| NativeError::internal("no checked update"))?;
@@ -111,3 +128,7 @@ mod tests {
         assert!(verify_announced_version("0.1.42", "").is_err());
     }
 }
+
+#[cfg(test)]
+#[path = "updater_tests.rs"]
+mod integration_tests;
