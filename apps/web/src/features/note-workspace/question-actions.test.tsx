@@ -3,15 +3,25 @@ import { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
 import { ChatMessageActionToolbar } from '@study/ui/chat';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type * as Router from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
+import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
 import { QuestionActions } from './question-actions';
 
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
+vi.mock('@tanstack/react-router', async (load) => ({
+  ...(await load<typeof Router>()),
+  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+}));
+
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
@@ -31,6 +41,7 @@ const restore = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(useAiReadiness).mockReturnValue('ready');
   executions.mockResolvedValue({ items: [] });
   vi.mocked(request).mockImplementation(async (invoke) =>
     invoke({
@@ -322,5 +333,42 @@ testStable.each(['completed', 'cancelled', 'running'])(
 
     if (status === 'running') expect(executions.mock.calls.length).toBeGreaterThan(1);
     else expect(executions).toHaveBeenCalledOnce();
+  }
+);
+
+testStable(
+  'blocks marking a note as a question without a provider but permits marking it back',
+  () => {
+    vi.mocked(useAiReadiness).mockReturnValue('setup');
+    const view = mount(note('note'));
+    const question = screen.getByRole('button', { name: 'NoteMarkAsQuestion' });
+
+    expect(question).toBeDisabled();
+    fireEvent.click(question);
+    expect(mark).not.toHaveBeenCalled();
+    view.update(note('question'));
+    const plain = screen.getByRole('button', { name: 'NoteMarkAsNote' });
+
+    expect(plain).toBeEnabled();
+    fireEvent.click(plain);
+  }
+);
+
+testStable(
+  'removes an AI retry after provider setup is removed and restores it afterward',
+  async () => {
+    answer.mockRejectedValueOnce(new StudyError('transient', 'Unavailable'));
+    const message = note();
+    const view = mount(message);
+
+    fireEvent.click(screen.getByRole('button', { name: 'NoteAnswerQuestion' }));
+    await screen.findByRole('button', { name: 'Retry' });
+    vi.mocked(useAiReadiness).mockReturnValue('setup');
+    view.update(message);
+    expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+    expect(answer).toHaveBeenCalledTimes(1);
+    vi.mocked(useAiReadiness).mockReturnValue('ready');
+    view.update(message);
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeEnabled();
   }
 );

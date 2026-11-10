@@ -1,7 +1,9 @@
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
+
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
 
 import { api, mountAssistant as mount } from '#web/test/assistant.tsx';
 

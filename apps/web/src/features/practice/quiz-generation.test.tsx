@@ -20,6 +20,10 @@ import {
 } from '#web/features/material-library/test/support.tsx';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 
+const readiness = vi.hoisted(() => ({ state: 'ready' }));
+
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 vi.mock('../agent-progress', () => ({
@@ -138,6 +142,30 @@ function rpcFixture(linked = true) {
       )
   };
 }
+
+testStable('blocks generation while provider setup is needed', async () => {
+  readiness.state = 'setup';
+
+  try {
+    const rpc = rpcFixture();
+
+    mountLibraryRoute('/practice/41?project=1', rpc);
+    expect(
+      await screen.findByRole('button', { name: en.PracticeGenerateFromPages })
+    ).toBeDisabled();
+    expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
+  } finally {
+    readiness.state = 'ready';
+  }
+});
+
+testStable('requires a subject before offering practice generation', async () => {
+  const rpc = rpcFixture();
+
+  mountLibraryRoute('/practice', rpc);
+  expect(await screen.findByRole('button', { name: en.PracticeGenerate })).toBeDisabled();
+  expect(rpc['materials.requestMaterialGeneration']).not.toHaveBeenCalled();
+});
 
 testStable('starts generation with saved settings and closes the dialog', async () => {
   const rpc = rpcFixture();

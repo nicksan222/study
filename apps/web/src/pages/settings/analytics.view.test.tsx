@@ -43,7 +43,7 @@ testStable('searches continuation context and exports the entire snapshot', asyn
 
     expect(await screen.findByText(/stack: Needle/)).toBeInTheDocument();
     await user.click(screen.getByRole('combobox', { name: 'Severity' }));
-    await user.click(screen.getByRole('option', { name: 'Error' }));
+    await user.click(await screen.findByRole('option', { name: 'Error' }));
     expect(screen.queryByText(/INFO ready/)).not.toBeInTheDocument();
     await user.type(screen.getByRole('searchbox', { name: 'Search logs' }), 'needle');
     expect(screen.getByText(/ERROR panic/)).toHaveTextContent('stack: Needle');

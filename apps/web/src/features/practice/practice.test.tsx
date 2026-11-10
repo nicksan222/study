@@ -24,6 +24,8 @@ import {
 } from '#web/features/material-library/test/support.tsx';
 import type { StudyClient } from '#web/lib/study-client/client.ts';
 
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+
 vi.mock('#web/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const en = catalogs.english;

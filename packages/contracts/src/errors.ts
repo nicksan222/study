@@ -44,6 +44,6 @@ export function isRetryable(kind: ErrorKind): boolean {
   return kind === 'transient' || kind === 'rate_limited';
 }
 
-export function needsSetup(kind: ErrorKind): boolean {
+export function needsSetup(kind: ErrorKind): kind is 'auth' | 'config' | 'model_unavailable' {
   return kind === 'auth' || kind === 'config' || kind === 'model_unavailable';
 }

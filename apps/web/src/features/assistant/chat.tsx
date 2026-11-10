@@ -17,6 +17,7 @@ import { WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 
+import { AiReadinessNotice } from '#web/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AssistantMessage } from './message';
@@ -130,6 +131,7 @@ export function AssistantComposer({ model }: { model: ComposerModel }) {
               <ArrowUp size={18} aria-hidden="true" />
             </WorkspaceSurface.ComposerSubmit>
           </ComposerSurface.Footer>
+          <AiReadinessNotice state={model.readiness} />
           <WorkspaceSurface.ComposerHint id={model.hintId}>
             {t('StudyChatSendHint')}
           </WorkspaceSurface.ComposerHint>

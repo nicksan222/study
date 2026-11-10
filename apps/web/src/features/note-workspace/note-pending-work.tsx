@@ -13,6 +13,7 @@ import { Activity, X } from 'lucide-react';
 import { useI18n } from '#web/lib/i18n.tsx';
 
 import { AgentProgress } from '../agent-progress';
+import { ConfigurationWait } from './configuration-wait';
 import { noteWorkKey, noteWorkOptions, stopNoteWorkOptions } from './note-pending-work.queries';
 import type { NoteWorkItem } from './note-pending-work.queries';
 import { NoteReadError } from './status';
@@ -112,6 +113,11 @@ function WorkRow({
       >
         <X size={14} aria-hidden="true" />
       </IconButton>
+      {!stopping && item.execution.configurationWaitReason && (
+        <WorkspaceWork.Progress>
+          <ConfigurationWait reason={item.execution.configurationWaitReason} />
+        </WorkspaceWork.Progress>
+      )}
       {!stopping && (
         <WorkspaceWork.Progress>
           <Disclosure summary={t('NoteWorkDetails')}>

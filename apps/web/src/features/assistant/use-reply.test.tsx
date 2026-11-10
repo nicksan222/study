@@ -7,6 +7,8 @@ import { expect, vi } from 'vite-plus/test';
 
 import { api, message, mountAssistant } from '#web/test/assistant.tsx';
 
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
+
 const execution = {
   id: 'run',
   workflow: 'conversation-reply/v1',

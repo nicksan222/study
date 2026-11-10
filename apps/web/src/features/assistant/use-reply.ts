@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
 import { useAgentProgress } from '#web/features/agent-progress/index.tsx';
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { applyAppearance } from '#web/lib/appearance.ts';
 
 import {
@@ -18,6 +19,7 @@ import {
 /** Keeps cancellation, retry and live progress tied to the exact durable reply request. */
 export function useReply(requestId: string, messageId: MessageId) {
   const cache = useQueryClient();
+  const readiness = useAiReadiness('smart');
   const progress = useAgentProgress({ correlationId: requestId });
   const observedTools = useRef(new Set<string>());
   const completedTools = progress.runs.flatMap((run) =>
@@ -65,8 +67,11 @@ export function useReply(requestId: string, messageId: MessageId) {
     ...outcome,
     actionError: [retry, stop, work].some((result) => result.isError),
     stopping: stop.isPending || outcome.cancelling,
+    readiness,
     retrying: retry.isPending,
-    retry: () => retry.mutate(messageId),
+    retry: () => {
+      if (readiness === 'ready') retry.mutate(messageId);
+    },
     stop: () => {
       if (execution) stop.mutate(execution.id);
     }

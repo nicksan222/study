@@ -1,9 +1,9 @@
 import type { transformSuggestionInputSchema } from '@study/contracts/notes/rpc';
-import { AiButton } from '@study/ui/ai-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/note-workspace';
 import { useMutation } from '@tanstack/react-query';
 
+import { AiActionButton as AiButton } from '#web/lib/ai-action-button.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
 import { transformSuggestionMutationOptions } from './note-workspace.queries';
@@ -49,6 +49,7 @@ export function TransformSuggestion({
   model: TransformationModel;
   field: typeof transformSuggestionInputSchema.Type.field;
 }) {
+  const readiness = model.suggestionReadiness;
   const { id, t, locale, additionalNoteIds, cache, key, setDraft } = model;
   const { label, action, revisionKey, errorTitle } = suggestionFields[field];
   const exceedsNoteLimit = additionalNoteIds.length > 19;
@@ -66,14 +67,28 @@ export function TransformSuggestion({
       <Notebook.FieldHeading>
         <label htmlFor={`transform-${field}-${id}`}>{t(label)}</label>
         <AiButton
+          tier="tiny"
           size="icon-sm"
           variant="ghost"
           label={t(action)}
           pending={mutation.isPending}
           workingLabel={t('NoteGeneratingSuggestion')}
           aria-busy={mutation.isPending}
-          disabled={exceedsNoteLimit || mutation.isPending || suggestionUnavailable(model)}
+          disabled={
+            readiness !== 'ready' ||
+            exceedsNoteLimit ||
+            mutation.isPending ||
+            suggestionUnavailable(model)
+          }
           onClick={() => {
+            if (
+              readiness !== 'ready' ||
+              exceedsNoteLimit ||
+              mutation.isPending ||
+              suggestionUnavailable(model)
+            )
+              return;
+
             const context = model.suggestionContext();
             const revision = cache.getQueryData<TransformDraft>(key)?.[revisionKey] ?? 0;
 

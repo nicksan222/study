@@ -3,6 +3,7 @@ import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 import { request } from '#web/lib/study-client/request.ts';
 
@@ -10,6 +11,7 @@ import { executionOptions, noteKey } from './note-workspace.queries';
 
 /** Shares version-bound question mutations and polls only active answer executions. */
 export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
+  const readiness = useAiReadiness('medium');
   const cache = useQueryClient();
   const key = [...noteKey(message.noteId), 'question', String(message.id), String(versionId)];
   const target = { messageId: message.id, expectedActiveVersionId: versionId };
@@ -63,16 +65,20 @@ export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
   const blocked = state.blocked || answerState.answering;
   const error = [answer.error, mark.error, restore.error].find((value) => value !== null);
   const submitAnswer = () => {
+    if (readiness !== 'ready') return;
+
     mark.reset();
     restore.reset();
     answer.mutate();
   };
-  const retry = questionErrorRetryable(blocked, error)
+  const retryNeedsAi = questionRetryNeedsAi(answer, mark);
+  const retry = questionErrorRetryable(blocked || (retryNeedsAi && readiness !== 'ready'), error)
     ? () => retryQuestionAction({ answer, mark, restore })
     : undefined;
 
   return {
     answer,
+    readiness,
     mark,
     restore,
     canRetry,
@@ -82,6 +88,13 @@ export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
     ...answerState,
     error,
     submitAnswer,
+    submitMark: () => {
+      if (!state.isQuestion && readiness !== 'ready') return;
+
+      answer.reset();
+      restore.reset();
+      mark.mutate(state.isQuestion ? 'note' : 'question');
+    },
     retry
   };
 }
@@ -137,4 +150,11 @@ function questionActionState(message: ChatMessage, versionId: VersionId, pending
 /** Exposes retry only for transient failures on an available question version. */
 function questionErrorRetryable(blocked: boolean, error: unknown) {
   return !blocked && !!error && isRetryable(toStudyError(error).kind);
+}
+
+function questionRetryNeedsAi(
+  answer: { error: unknown },
+  mark: { error: unknown; variables?: 'note' | 'question' }
+) {
+  return !!answer.error || (!!mark.error && mark.variables === 'question');
 }

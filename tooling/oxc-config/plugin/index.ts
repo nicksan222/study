@@ -6,6 +6,7 @@ import factoryRules from './factory-rules.ts';
 import observabilityRules from './observability-rules.ts';
 import persistenceRules from './persistence-rules.ts';
 import activityHarness from './rules/activity-harness.ts';
+import aiReadiness from './rules/ai-readiness.ts';
 import assertionBoundary from './rules/assertion-boundary.ts';
 import browserBoundary from './rules/browser-boundary.ts';
 import cleanupHarness from './rules/cleanup-harness.ts';
@@ -117,6 +118,7 @@ export default definePlugin({
     'effect-v4-api': effectV4Api,
     'browser-boundary': browserBoundary,
     'package-boundary': packageBoundary,
+    'ai-readiness': aiReadiness,
     'feature-preview-boundary': featurePreviewBoundary,
     'integration-test-environment': integrationTestEnvironment,
     'no-deep-relative-imports': noDeepRelativeImports,

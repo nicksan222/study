@@ -8,6 +8,7 @@ import { Brain, Check, CircleAlert, CircleSlash, Clock, ChevronRight } from 'luc
 import { useI18n } from '#web/lib/i18n.tsx';
 import { toStudyError } from '#web/lib/study-client/errors.ts';
 
+import { ConfigurationWait } from './configuration-wait';
 import { executionOptions } from './note-workspace.queries';
 import { workflowLabel } from './workflow-label';
 
@@ -113,6 +114,9 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
                 })}
               </dd>
             </Notebook.WorkMetadata>
+            {item.configurationWaitReason && (
+              <ConfigurationWait reason={item.configurationWaitReason} />
+            )}
             {failure && <NoteError error={new StudyError(item.failureKind ?? 'internal', '')} />}
           </Notebook.WorkItem>
         );

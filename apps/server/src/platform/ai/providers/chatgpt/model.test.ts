@@ -16,8 +16,10 @@
 
 import { createServer } from 'node:http';
 
+import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
+import { Output, streamText } from 'ai';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
@@ -25,6 +27,7 @@ import { titleAgent } from '#server/features/notes/agents/title';
 import { generateAgent, layer } from '#server/platform/ai/agents';
 import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
+import { standardSchema } from '#server/platform/ai/schema';
 
 testStable('Responses adapter retries 401 with rotated OAuth token and consumes SSE', async () => {
   const bodies: Record<string, unknown>[] = [];
@@ -117,3 +120,98 @@ testStable('Responses adapter retries 401 with rotated OAuth token and consumes 
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+testStable(
+  'page generation transmits a closed strict schema through the Responses adapter',
+  async () => {
+    let body: { text: { format: { type: string; strict: boolean; schema: unknown } } } | undefined;
+    const output = {
+      blocks: [
+        {
+          type: 'paragraph',
+          inlines: [{ type: 'link', text: 'Cells', href: 'https://example.com', marks: null }]
+        }
+      ],
+      notes: [{ kind: 'limit', explanation: 'Captured material only', blockOrdinals: [] }]
+    };
+    const server = createServer(async (req, res) => {
+      const chunks: Buffer[] = [];
+
+      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+
+      body = JSON.parse(Buffer.concat(chunks).toString());
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+
+      for (const event of [
+        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'gpt-test' } },
+        {
+          type: 'response.output_item.added',
+          output_index: 0,
+          item: { type: 'message', id: 'item' }
+        },
+        { type: 'response.output_text.delta', item_id: 'item', delta: JSON.stringify(output) },
+        { type: 'response.completed', response: {} }
+      ])
+        res.write(`data: ${JSON.stringify(event)}\n\n`);
+
+      res.end('data: [DONE]\n\n');
+    });
+
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+
+    if (!address || typeof address === 'string') throw Error('missing address');
+
+    const auth = new AuthManager({
+      issuer: `http://127.0.0.1:${address.port}`,
+      saveRefresh: async () => {}
+    });
+
+    try {
+      await auth.replace(
+        { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'test' },
+        { accessToken: 'test', expiresIn: 3600 }
+      );
+      const model = createChatGptModel({
+        auth,
+        modelId: 'gpt-test',
+        baseUrl: `http://127.0.0.1:${address.port}`
+      });
+      const result = streamText({
+        model,
+        prompt: 'Write a page.',
+        output: Output.object({ schema: standardSchema(pageTransformOutputSchema) })
+      });
+
+      expect(await result.output).toStrictEqual(output);
+      expect(body?.text.format.type).toBe('json_schema');
+      expect(body?.text.format.strict).toBe(true);
+      let objects = 0;
+
+      function inspect(value: unknown) {
+        if (Array.isArray(value)) value.forEach(inspect);
+        else if (value !== null && typeof value === 'object') {
+          if (
+            'properties' in value &&
+            value.properties !== null &&
+            typeof value.properties === 'object'
+          ) {
+            objects++;
+            expect(value).toMatchObject({
+              additionalProperties: false,
+              required: Object.keys(value.properties)
+            });
+          }
+
+          Object.values(value).forEach(inspect);
+        }
+      }
+
+      inspect(body?.text.format.schema);
+      expect(objects).toBeGreaterThan(10);
+    } finally {
+      await auth.dispose();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  }
+);

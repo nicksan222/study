@@ -156,6 +156,8 @@ export function streamAgent<
       try: () => Schema.decodeUnknownSync(definition.input)(input),
       catch: () => new StudyError('invalid_input', 'Invalid agent input')
     });
+    const outputSchema =
+      definition.mode === 'object' ? Schema.toCodecJson(definition.output) : definition.output;
     const model = yield* service.model(definition.model);
     const language =
       typeof service.language === 'string' ? service.language : yield* service.language;
@@ -262,7 +264,11 @@ export function streamAgent<
                   maxRetries: 0,
                   abortSignal: controller.signal,
                   ...(definition.mode === 'object'
-                    ? { output: Output.object({ schema: standardSchema(definition.output) }) }
+                    ? {
+                        output: Output.object({
+                          schema: standardSchema(Schema.toEncoded(outputSchema))
+                        })
+                      }
                     : {})
                 });
               },
@@ -320,7 +326,7 @@ export function streamAgent<
                 ? yield* Effect.tryPromise({ try: () => result.output, catch: failure })
                 : text;
             const output = yield* Effect.try({
-              try: () => Schema.decodeUnknownSync(definition.output)(raw),
+              try: () => Schema.decodeUnknownSync(outputSchema)(raw),
               catch: failure
             });
 

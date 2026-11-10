@@ -7,7 +7,13 @@ import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { Transformation } from './transformation';
 
-const api = vi.hoisted(() => ({ suggest: vi.fn() }));
+const api = vi.hoisted(() => ({ suggest: vi.fn(), readiness: 'ready' as string }));
+
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: () => api.readiness }));
+vi.mock('#web/lib/ai-readiness-notice.tsx', () => ({
+  AiReadinessNotice: ({ state }: { state: string }) =>
+    state === 'ready' ? null : <p>Readiness: {state}</p>
+}));
 
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
@@ -29,6 +35,7 @@ let cache: QueryClient;
 
 beforeEach(() => {
   vi.resetAllMocks();
+  api.readiness = 'ready';
   cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => {
@@ -185,4 +192,15 @@ testStable('offers retry guidance for invalid model output', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
   expect(await screen.findByText('NoteSuggestionError')).toBeVisible();
   expect(screen.queryByText('NoteSuggestionContextError')).toBeNull();
+});
+
+testStable('blocks new suggestions and page creation when setup is missing', async () => {
+  api.readiness = 'setup';
+  mount();
+  expect(screen.getAllByText('Readiness: setup')).toHaveLength(1);
+  await waitFor(() => expect(screen.getByLabelText('NoteOutputTitle')).toBeEnabled());
+  fireEvent.change(screen.getByLabelText('NoteOutputTitle'), { target: { value: 'Title' } });
+  expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
+  expect(api.suggest).not.toHaveBeenCalled();
 });

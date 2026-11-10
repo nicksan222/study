@@ -2,10 +2,13 @@ import { StudyError } from '@study/contracts/errors';
 import { noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type * as Router from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 
 import { Composer } from './composer';
 import type { Draft } from './draft';
@@ -21,6 +24,11 @@ import { Transformation } from './transformation';
 import { UnavailableAttempt } from './unavailable-attempt';
 
 const reads = vi.hoisted(() => ({ selection: vi.fn(), thread: vi.fn(), runs: vi.fn() }));
+
+vi.mock('@tanstack/react-router', async (load) => ({
+  ...(await load<typeof Router>()),
+  Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
+}));
 
 vi.mock('#web/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
@@ -74,6 +82,7 @@ function mount(
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(useAiReadiness).mockReturnValue('ready');
   reads.selection.mockResolvedValue({ revision: 8n, targets: [] });
   reads.thread.mockResolvedValue({ items: [], next: null });
   reads.runs.mockResolvedValue({ items: [], next: null });
@@ -219,6 +228,14 @@ testStable(
       operations: ['clarity']
     });
     second.unmount();
+    vi.mocked(useAiReadiness).mockReturnValue('setup');
+    const unavailable = mount(<Transformation id={id} />, first.client);
+
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(captureContext).toHaveBeenCalledTimes(1);
+    unavailable.unmount();
+    vi.mocked(useAiReadiness).mockReturnValue('ready');
     const third = mount(<Transformation id={id} />, first.client);
 
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -399,3 +416,4 @@ testStable(
     );
   }
 );
+vi.mock('#web/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));

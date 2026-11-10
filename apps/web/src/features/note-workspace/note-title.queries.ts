@@ -3,6 +3,7 @@ import { toastManager } from '@study/ui/toast';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import { useAiReadiness } from '#web/lib/ai-readiness.ts';
 import { useI18n } from '#web/lib/i18n.tsx';
 import { request } from '#web/lib/study-client/request.ts';
 
@@ -24,6 +25,7 @@ export function useNoteTitle(id: NoteId) {
 
 /** Tracks an explicit title request through durable completion before refreshing navigation. */
 export function useRegenerateNoteTitle(id: NoteId) {
+  const readiness = useAiReadiness('tiny');
   const cache = useQueryClient();
   const { t } = useI18n();
   const [requestId, setRequestId] = useState<string>();
@@ -80,8 +82,10 @@ export function useRegenerateNoteTitle(id: NoteId) {
 
   return {
     pending,
+    readiness,
     regenerate: () => {
-      if (pending || cache.isMutating({ mutationKey, exact: true })) return;
+      if (readiness !== 'ready' || pending || cache.isMutating({ mutationKey, exact: true }))
+        return;
 
       mutation.mutate();
     }

@@ -1,0 +1,1 @@
+ALTER TABLE `workflow_configuration_waits` ADD `reason` text;

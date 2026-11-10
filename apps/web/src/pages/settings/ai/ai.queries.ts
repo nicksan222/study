@@ -1,8 +1,8 @@
 import type { LlmSettings } from '@study/contracts/settings/types';
-import { mutationOptions, queryOptions } from '@tanstack/react-query';
+import { mutationOptions } from '@tanstack/react-query';
 
+import { aiSettingsQueryOptions } from '#web/lib/study-client/ai-settings.queries.ts';
 import {
-  loadAiSettings,
   startChatGptSignIn,
   finishChatGptSignIn,
   cancelChatGptSignIn,
@@ -13,12 +13,7 @@ import {
 
 export type SignInAttempt = Awaited<ReturnType<typeof startChatGptSignIn>>;
 
-export function aiSettingsQueryOptions() {
-  return queryOptions({
-    queryKey: ['ai-settings'],
-    queryFn: ({ signal }) => loadAiSettings(signal)
-  });
-}
+export { aiSettingsQueryOptions };
 
 export const startSignInOptions = () => mutationOptions({ mutationFn: startChatGptSignIn });
 
