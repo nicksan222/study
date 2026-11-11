@@ -119,21 +119,8 @@ jobs:
           PYTHON
 
   javascript:
-    name: ${{ matrix.name }}
+    name: 🔎 JavaScript checks
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: 🔎 Oxlint, formatting and Fallow
-            task: lint
-            command: bun run lint && bun run fallow:check
-          - name: 🖼️ Web checks
-            task: web
-            command: bun run typecheck && bun run test && bun run web:e2e && bun --bun vp run --fail-if-no-match --filter @study/web build
-          - name: 🛠️ Tooling tests
-            task: tooling
-            command: just tooling-test
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -143,34 +130,43 @@ jobs:
         with:
           bun-version-file: apps/landing/package.json
       - name: 📦 Install workspace dependencies
+        id: dependencies
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile
       - name: 🌐 Install Chromium for web tests
-        if: matrix.task == 'web'
         run: bunx --bun playwright install --with-deps chromium
       - name: 🌍 Install landing dependencies for Fallow
-        if: matrix.task == 'lint'
         working-directory: apps/landing
         run: bun install --frozen-lockfile
       - name: ⚙️ Install tooling test dependencies
-        if: matrix.task == 'tooling'
         uses: taiki-e/install-action@v2
         with:
           tool: just@1.40.0
       - name: 🔏 Install release test dependency
-        if: matrix.task == 'tooling'
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
-      - name: 🧪 Run checks
-        run: ${{ matrix.command }}
+      - name: 🔎 Check lint, formatting and Fallow
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run lint && bun run fallow:check
+      - name: 🧩 Type-check web packages
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run typecheck
+      - name: 🧪 Test web packages
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run test
+      - name: 🌐 Test browser flows
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run web:e2e
+      - name: 📦 Build web app
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun --bun vp run --fail-if-no-match --filter @study/web build
+      - name: 🛠️ Test tooling
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: just tooling-test
 
   server_tests:
-    name: 🧪 Server tests (${{ matrix.shard }}/2)
+    name: 🧪 Server tests
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
     env:
       # RAM-backed real files preserve WAL, locking, backup and process-restart coverage.
       TMPDIR: /dev/shm
@@ -189,7 +185,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: 🧪 Test server, AI, database and localization
         timeout-minutes: 10
-        run: bun run server:test --shard=${{ matrix.shard }}/2
+        run: bun run server:test
 
   integrations:
     name: 🔌 Real integration tests
