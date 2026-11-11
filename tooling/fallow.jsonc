@@ -230,6 +230,8 @@
       "requireAllFiles": true
     }
   },
+  // Astro's native compiler consumes this pinned transitive runtime without a source import.
+  "ignoreDependencies": ["@emnapi/runtime"],
   // Compile-only contracts and the subprocess-only fixture are entry points.
   // Vite aliases production hooks to these exact build-only fixture exports.
   "ignoreExports": [
