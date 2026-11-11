@@ -134,20 +134,30 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile
+      - name: 🌍 Use the public Ubuntu package mirror
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/apt-mirrors*.txt
       - name: 🌐 Install Chromium for web tests
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bunx --bun playwright install --with-deps chromium
       - name: 🌍 Install landing dependencies for Fallow
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         working-directory: apps/landing
         run: bun install --frozen-lockfile
       - name: ⚙️ Install tooling test dependencies
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         uses: taiki-e/install-action@v2
         with:
           tool: just@1.40.0
       - name: 🔏 Install release test dependency
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
-      - name: 🔎 Check lint, formatting and Fallow
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run lint && bun run fallow:check
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
+      - name: 🔎 Check lint and formatting
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run lint
+      - name: 🔎 Check Fallow
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run fallow:check
       - name: 🧩 Type-check web packages
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run typecheck

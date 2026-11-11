@@ -56,7 +56,7 @@ The devcontainer installs root and landing dependencies from their committed loc
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
-all application features, and capture generation is unavailable. Run `npx playwright install chromium` once before `npm run web:e2e` or `just check`; the browser suite uses isolated databases.
+all application features, and capture generation is unavailable. Run `bunx --bun playwright install chromium` once before `bun run web:e2e` or `just check`; the browser suite uses isolated databases.
 
 ### On your own Linux machine
 
