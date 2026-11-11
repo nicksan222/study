@@ -231,8 +231,12 @@
     }
   },
   // Compile-only contracts and the subprocess-only fixture are entry points.
-  // Vite aliases the reader's production hook to this exact build-only fixture export.
+  // Vite aliases production hooks to these exact build-only fixture exports.
   "ignoreExports": [
+    {
+      "file": "apps/landing/src/previews/ai-readiness.ts",
+      "exports": ["useAiReadiness"]
+    },
     {
       "file": "apps/landing/src/previews/workspace-preferences.ts",
       "exports": ["useWorkspacePreferences"]

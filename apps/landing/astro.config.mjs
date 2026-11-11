@@ -49,7 +49,10 @@ export default defineConfig({
     resolve: {
       alias: {
         '#brand': fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)),
-        // Only the static preview build replaces this data hook; production stays untouched.
+        // Static previews replace data hooks; production keeps the real services.
+        '#web/lib/ai-readiness.ts': fileURLToPath(
+          new URL('./src/previews/ai-readiness.ts', import.meta.url)
+        ),
         '#web/lib/study-client/workspace-preferences.queries.ts': fileURLToPath(
           new URL('./src/previews/workspace-preferences.ts', import.meta.url)
         ),

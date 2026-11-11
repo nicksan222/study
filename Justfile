@@ -201,9 +201,9 @@ landing:
 landing-build:
     cd apps/landing && bun install --frozen-lockfile && npm run build
 
-# Check website types and content without requiring captures.
+# Check website types and build every static preview from committed assets.
 landing-check:
-    cd apps/landing && bun install --frozen-lockfile && bun run check
+    cd apps/landing && bun install --frozen-lockfile && bun run check && bun run build
 
 # Build the distributable desktop binary.
 build:

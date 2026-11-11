@@ -47,6 +47,9 @@ devcontainer up --workspace-folder .
 devcontainer exec --workspace-folder . bash
 ```
 
+`just landing-check` checks website types and builds every localized static preview, so
+preview rendering failures are caught by pull-request CI before deployment.
+
 The devcontainer installs root and landing dependencies from their committed locks. To
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
