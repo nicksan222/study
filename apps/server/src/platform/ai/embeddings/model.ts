@@ -99,18 +99,22 @@ export const validateEmbeddingModel = (directory: string) =>
   });
 
 /** Stream into an exclusive private temporary file and reject oversized downloads immediately. */
-async function writeDownload(body: ReadableStream<Uint8Array>, path: string, maximumBytes: number) {
+export async function writeDownload(
+  body: ReadableStream<Uint8Array>,
+  path: string,
+  maximumBytes: number
+) {
   const fs = await fileSystem;
 
-  await runFileSystemPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const handle = yield* fs.open(path, { flag: 'wx', mode: 0o600 });
-        let bytes = 0;
+  const reader = body.getReader();
 
-        const reader = body.getReader();
+  try {
+    await runFileSystemPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const handle = yield* fs.open(path, { flag: 'wx', mode: 0o600 });
+          let bytes = 0;
 
-        try {
           for (;;) {
             const item = yield* Effect.tryPromise(() => reader.read());
 
@@ -125,12 +129,16 @@ async function writeDownload(body: ReadableStream<Uint8Array>, path: string, max
           }
 
           yield* handle.sync;
-        } finally {
-          reader.releaseLock();
-        }
-      })
-    )
-  );
+        })
+      )
+    );
+  } catch (cause) {
+    await reader.cancel(cause).catch(() => {});
+
+    throw cause;
+  } finally {
+    reader.releaseLock();
+  }
 }
 
 /** Reuse verified assets or atomically publish a bounded, verified download with cancellation cleanup. */

@@ -210,6 +210,8 @@ testStable(
         'scratch.sqlite',
         'scratch.sqlite-wal',
         'scratch.sqlite-shm',
+        `scratch.sqlite.${crypto.randomUUID()}.partial`,
+        `previous.sqlite.${crypto.randomUUID()}.partial`,
         'restore.sqlite',
         'restore.sqlite.writing',
         'restore.json.writing',
@@ -217,10 +219,13 @@ testStable(
       ])
         await Bun.write(path.join(root, name), 'private interrupted bytes');
 
+      const unrelated = 'scratch.sqlite.not-a-snapshot.partial';
+
+      await Bun.write(path.join(root, unrelated), 'unrelated file');
       await f.reopen();
-      expect(await Effect.runPromise(fs.readDirectory(root))).toStrictEqual([
-        backup.id + '.studybackup'
-      ]);
+      expect((await Effect.runPromise(fs.readDirectory(root))).sort()).toStrictEqual(
+        [backup.id + '.studybackup', unrelated].sort()
+      );
       assert.strictEqual(
         (await f.app.nativeRuntime.runPromise((await f.api()).backups()))[0]?.id,
         backup.id
@@ -331,3 +336,58 @@ testStable(
     }
   }
 );
+
+if (process.platform === 'darwin')
+  testStable(
+    'SQLite runtime setup failure preserves accepted restore bytes for the next startup',
+    async () => {
+      const { f, api, preview, root } = await stagedFixture();
+
+      try {
+        await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
+        await f.suspend();
+        const journal = await Bun.file(path.join(root, 'restore.json')).text();
+        const staged = await Bun.file(path.join(root, 'restore.sqlite')).arrayBuffer();
+        const directory = path.join(root, 'isolated-runtime');
+        const executable = path.join(directory, 'bun');
+
+        await Effect.runPromise(fs.makeDirectory(directory));
+        await Effect.runPromise(fs.copyFile(process.execPath, executable));
+        await Effect.runPromise(fs.chmod(executable, 0o700));
+        const child = Bun.spawn(
+          [
+            executable,
+            '--eval',
+            `import { ManagedBackups } from ${JSON.stringify(Bun.fileURLToPath(new URL('../../src/platform/database/backups.ts', import.meta.url)))};
+         import { backupPolicy } from ${JSON.stringify(Bun.fileURLToPath(new URL('../../src/runtime/backups.ts', import.meta.url)))};
+         await ManagedBackups.activate(Bun.env.STUDY_TEST_DATABASE, backupPolicy);`
+          ],
+          {
+            env: { ...process.env, PATH: directory, STUDY_TEST_DATABASE: f.location.path },
+            stdout: 'pipe',
+            stderr: 'pipe'
+          }
+        );
+        const [status, stdout, stderr] = await Promise.all([
+          child.exited,
+          new Response(child.stdout).text(),
+          new Response(child.stderr).text()
+        ]);
+
+        assert.strictEqual(await Bun.file(path.join(root, 'restore.json')).text(), journal);
+        assert.notStrictEqual(status, 0, `${stdout}\n${stderr}`);
+        assert.deepStrictEqual(
+          await Bun.file(path.join(root, 'restore.sqlite')).arrayBuffer(),
+          staged
+        );
+        await f.reopen();
+        assert.strictEqual(f.app.store.db.orm.select().from(s.pages).all().length, 1);
+        assert.strictEqual(
+          (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state,
+          'applied'
+        );
+      } finally {
+        await f.close();
+      }
+    }
+  );

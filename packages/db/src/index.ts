@@ -1,4 +1,5 @@
 export { Db } from './db.ts';
+export { configureSqliteRuntime } from './sqlite-runtime.ts';
 export type { DbTransaction } from './db.ts';
 
 export {

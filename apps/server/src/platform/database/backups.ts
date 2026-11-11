@@ -25,10 +25,10 @@ import {
 } from '@study/contracts/system/backups';
 import type { BackupId, BackupManifest, RestorePreview } from '@study/contracts/system/backups';
 import type { backupScopeSchema, restoreStatusSchema } from '@study/contracts/system/backups';
-import { Db } from '@study/db';
+import { Db, configureSqliteRuntime } from '@study/db';
 import { CryptoHasher } from 'bun';
 import type { Clock } from 'effect';
-import { Context, Effect, Option, Schema } from 'effect';
+import { Context, Effect, Schema } from 'effect';
 
 import { fileSystem, nativePaths, runFileSystemPromise } from '#server/platform/filesystem/index';
 import { liveClock } from '#server/platform/time/index';
@@ -126,11 +126,20 @@ async function boundedRead(path: string, maximum: number): Promise<Buffer> {
 
         if (stat.type !== 'File' || size > maximum || size < 1) throw invalid();
 
-        const result = yield* file.readAlloc(size + 1);
+        const result = Buffer.allocUnsafe(size + 1);
+        let offset = 0;
 
-        if (Option.isNone(result) || result.value.length !== size) throw invalid();
+        while (offset < result.length) {
+          const read = Number(yield* file.read(result.subarray(offset)));
 
-        return Buffer.from(result.value);
+          if (read === 0) break;
+
+          offset += read;
+        }
+
+        if (offset !== size) throw invalid();
+
+        return result.subarray(0, size);
       })
     )
   );
@@ -213,8 +222,11 @@ async function cleanInterrupted(root: string) {
 
   for (const name of await runFileSystemPromise((await fileSystem).readDirectory(root))) {
     if (
-      name.endsWith('.studybackup.writing') &&
-      Schema.is(backupIdSchema)(name.slice(0, -'.studybackup.writing'.length))
+      /^(scratch|previous)\.sqlite\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.partial$/i.test(
+        name
+      ) ||
+      (name.endsWith('.studybackup.writing') &&
+        Schema.is(backupIdSchema)(name.slice(0, -'.studybackup.writing'.length)))
     )
       await remove(join(root, name));
   }
@@ -722,6 +734,9 @@ async function createRecoveryCopy(current: Db, previous: string, root: string) {
 
 /** Recover the target before activation without applying migrations. */
 async function openActivationTarget(path: string, journal: Journal): Promise<Db | undefined> {
+  // Runtime setup must succeed before an accepted restore can be classified as incompatible.
+  await configureSqliteRuntime();
+
   try {
     return await Db.openSnapshot(path);
   } catch {
