@@ -53,11 +53,11 @@ async function listenerClosed(url: URL) {
   );
 }
 
-async function waitForClose(closed: Promise<void>) {
+async function waitForSocketEvent(event: Promise<void>) {
   await Promise.race([
-    closed,
+    event,
     Bun.sleep(2000).then(() => {
-      throw new Error('Socket did not close');
+      throw new Error('Socket event timed out');
     })
   ]);
 }
@@ -236,6 +236,10 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
             ) === 'invalid_input'
           );
           const redirect = callback(attempt.url);
+          let onAccepted!: () => void;
+          const accepted = new Promise<void>((resolve) => {
+            onAccepted = resolve;
+          });
           let onClose!: () => void;
           const closed = new Promise<void>((resolve) => {
             onClose = resolve;
@@ -246,10 +250,11 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
               port: Number(redirect.port),
               socket: {
                 open(connection) {
-                  // Linux defers accepting empty TCP connections until their first bytes arrive.
-                  connection.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
+                  connection.write('GET /unknown HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n');
                 },
-                data() {},
+                data() {
+                  onAccepted();
+                },
                 close() {
                   onClose();
                 }
@@ -257,8 +262,11 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
             })
           );
 
+          // A response proves this same keep-alive connection was accepted before cancellation.
+          yield* Effect.promise(() => waitForSocketEvent(accepted));
+          socket.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
           yield* Fiber.interrupt(pending);
-          yield* Effect.promise(() => waitForClose(closed));
+          yield* Effect.promise(() => waitForSocketEvent(closed));
           socket.end();
           yield* Effect.promise(() => listenerClosed(redirect));
           assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
