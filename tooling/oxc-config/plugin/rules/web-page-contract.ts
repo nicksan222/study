@@ -1,10 +1,11 @@
-import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
+import { BunPath } from '@effect/platform-bun';
+import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { typeOnly, webFile } from '../web-files.ts';
+
+const { dirname } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -65,7 +66,8 @@ export default defineRule({
                 ]
               : [];
         const missing = required.filter(
-          (name) => !existsSync(join(dirname(context.filename), name))
+          (name) =>
+            !Array.from(new Bun.Glob(name).scanSync({ cwd: dirname(context.filename) })).length
         );
 
         if (missing.length)

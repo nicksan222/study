@@ -1,31 +1,23 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { cssColorViolations } from './plugin/theme-color-values.ts';
 
-const root = fileURLToPath(new URL('../../', import.meta.url));
+const root = Bun.fileURLToPath(new URL('../../', import.meta.url));
 
-function check(directory: string): boolean {
-  let failed = false;
+let failed = false;
 
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const path = join(directory, entry.name);
+for (const directory of ['apps/web/src', 'packages/ui/src']) {
+  for await (const path of new Bun.Glob('**/*.css').scan({
+    cwd: `${root}${directory}`,
+    absolute: true
+  })) {
+    const relative = path.slice(root.length);
 
-    if (entry.isDirectory()) failed = check(path) || failed;
-    else if (
-      entry.name.endsWith('.css') &&
-      relative(root, path).replaceAll('\\', '/') !== 'packages/ui/src/theme.css'
-    ) {
-      for (const violation of cssColorViolations(readFileSync(path, 'utf8'))) {
-        process.stderr.write(`${relative(root, path)}: use a theme color: ${violation}\n`);
-        failed = true;
-      }
+    if (relative === 'packages/ui/src/theme.css') continue;
+
+    for (const violation of cssColorViolations(await Bun.file(path).text())) {
+      process.stderr.write(`${relative}: use a theme color: ${violation}\n`);
+      failed = true;
     }
   }
-
-  return failed;
 }
 
-if (['apps/web/src', 'packages/ui/src'].map((path) => check(join(root, path))).some(Boolean))
-  process.exitCode = 1;
+if (failed) process.exitCode = 1;

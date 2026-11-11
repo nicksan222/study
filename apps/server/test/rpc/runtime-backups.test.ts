@@ -11,17 +11,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyRpc } from '@study/contracts/rpc';
 import { createBlock } from '@study/contracts/sources/document';
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
 import { Db, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/vitest';
-import { Effect, Schema } from 'effect';
+import { Effect, FileSystem, Path, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
@@ -44,6 +41,10 @@ import {
   repack
 } from '#testing/managed-backups';
 import { inTestPhase } from '#testing/progress';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const path = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
 testStable('System native API inventory includes the managed backup lifecycle', async () => {
   const { SystemRpc } = await import('@study/contracts/system/rpc');
@@ -114,9 +115,9 @@ testStable(
     const f = await backupFixture();
 
     try {
-      const marker = 'PRIVATE_AUTH_BACKUP_MARKER_' + randomUUID();
+      const marker = 'PRIVATE_AUTH_BACKUP_MARKER_' + crypto.randomUUID();
 
-      const previousMarker = 'PRIVATE_PREVIOUS_AUTH_' + randomUUID();
+      const previousMarker = 'PRIVATE_PREVIOUS_AUTH_' + crypto.randomUUID();
 
       f.app.store.db.orm
         .insert(s.preferences)
@@ -174,8 +175,9 @@ testStable(
         (await f.app.nativeRuntime.runPromise((await f.api()).restoreStatus())).state === 'applied'
       );
       assert.ok(
-        readFileSync(f.location.path + '.backups/previous.sqlite').includes(Buffer.from(marker)) ===
-          true
+        Buffer.from(
+          await Bun.file(f.location.path + '.backups/previous.sqlite').arrayBuffer()
+        ).includes(Buffer.from(marker)) === true
       );
     } finally {
       await f.close();
@@ -214,7 +216,7 @@ testStable(
       await f.app.nativeRuntime.runPromise(
         Effect.flatMap(Pages, (documents) =>
           documents.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'Managed image',
@@ -349,7 +351,9 @@ testStable(
 
       assert.ok(status.recoveryCopy === true);
       await f.app.nativeRuntime.runPromise((await f.api()).discardRestoreRecovery());
-      assert.ok(existsSync(f.location.path + '.backups/previous.sqlite') === false);
+      assert.ok(
+        (await Effect.runPromise(fs.exists(f.location.path + '.backups/previous.sqlite'))) === false
+      );
       assert.ok(restored.select().from(s.projects).get()!.name === 'Collection');
     } finally {
       await f.close();
@@ -385,12 +389,12 @@ testStable(
         repack(future.manifest, future.sqlite),
         corrupt.toString('base64'),
         Buffer.from(bytes, 'base64').subarray(0, 100).toString('base64'),
-        changedArtifact(f.location.dir, bytes, (db) =>
+        await changedArtifact(f.location.dir, bytes, (db) =>
           db.exec(
             'CREATE TRIGGER untrusted AFTER INSERT ON projects BEGIN DELETE FROM projects; END'
           )
         ),
-        changedArtifact(f.location.dir, bytes, (db, manifest) => {
+        await changedArtifact(f.location.dir, bytes, (db, manifest) => {
           db.orm.run(
             sql`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(999,'import','text','text/plain','Missing original',1,${Buffer.alloc(32)},1)`
           );
@@ -398,7 +402,7 @@ testStable(
             scope: { ...manifest.scope, sources: manifest.scope.sources + 1 }
           });
         }),
-        changedArtifact(f.location.dir, bytes, (db, manifest) => {
+        await changedArtifact(f.location.dir, bytes, (db, manifest) => {
           db.exec(
             "INSERT INTO content_snapshots(extractor_version,meta,created_at) VALUES(1,'{}',1)"
           );
@@ -444,7 +448,7 @@ testStable(
         f.app.nativeRuntime.runPromise(
           api.acceptRestore({
             ...acceptance(preview),
-            token: Schema.decodeUnknownSync(restoreTokenSchema)(randomUUID())
+            token: Schema.decodeUnknownSync(restoreTokenSchema)(crypto.randomUUID())
           })
         )
       ).rejects.toSatisfy(() => true);
@@ -551,7 +555,9 @@ testStable(
         () => true
       );
       assert.strictEqual(f.app.store.db.contentIdentity(), before);
-      assert.ok(existsSync(f.location.path + '.backups/scratch.sqlite') === false);
+      assert.ok(
+        (await Effect.runPromise(fs.exists(f.location.path + '.backups/scratch.sqlite'))) === false
+      );
       assert.ok(f.app.store.db.orm.select().from(s.note_deletions).get()!.status === 'failed');
     } finally {
       await f.close();
@@ -576,7 +582,7 @@ testStable(
       const preview = await f.app.nativeRuntime.runPromise(api.previewRestore({ id: backup.id }));
 
       await f.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
-      writeFileSync(
+      await Bun.write(
         f.location.path + '.backups/restore.sqlite',
         Buffer.from('interrupted staging')
       );
@@ -656,7 +662,7 @@ testStable(
       await inTestPhase(t, 'app-close-before-replacement', () => f.app.close());
       // Simulate process loss after atomic rename, before journal settlement.
 
-      const old = Db.openSnapshot(f.location.path);
+      const old = await Db.openSnapshot(f.location.path);
 
       await inTestPhase(t, 'previous-snapshot', () =>
         old.snapshot(f.location.path + '.backups/previous.sqlite')
@@ -664,7 +670,9 @@ testStable(
       console.debug('study-test-phase:replacement-sync:start');
       old.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode=DELETE;');
       old.close();
-      renameSync(f.location.path + '.backups/restore.sqlite', f.location.path);
+      await Effect.runPromise(
+        fs.rename(f.location.path + '.backups/restore.sqlite', f.location.path)
+      );
       console.debug('study-test-phase:replacement-sync:complete');
       await inTestPhase(t, 'reopen-after-replacement', () => f.reopen());
 
@@ -722,15 +730,15 @@ testStable(
 
       const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
 
-      const external = join(f.location.dir, 'user-saved.studybackup');
+      const external = path.join(f.location.dir, 'user-saved.studybackup');
 
-      writeFileSync(external, 'External copy');
+      await Bun.write(external, 'External copy');
       assert.throws(() => Schema.decodeUnknownSync(backupIdSchema)('../user-saved'));
 
       const before = f.app.store.db.contentIdentity();
 
       await f.app.nativeRuntime.runPromise(api.deleteBackup({ id: backup.id }));
-      assert.ok(readFileSync(external, 'utf8') === 'External copy');
+      assert.ok((await Bun.file(external).text()) === 'External copy');
       assert.strictEqual(f.app.store.db.contentIdentity(), before);
       assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
     } finally {

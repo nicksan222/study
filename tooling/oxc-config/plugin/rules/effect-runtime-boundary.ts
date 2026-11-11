@@ -19,16 +19,37 @@ export default defineRule({
     const syncObservation = path.endsWith('/apps/server/src/platform/observability/index.ts');
     const construct = webRuntime || /\/apps\/server\/src\/runtime\/(?:main|layers)\.ts$/.test(path);
 
-    function httpPromiseBridge(node: any, name: string): boolean {
-      if (!path.endsWith('/apps/server/src/platform/http/index.ts') || name !== 'Effect.runPromise')
-        return false;
+    function approvedBridge(node: any, name: string): boolean {
+      const bridges = [
+        {
+          suffix: '/apps/server/src/platform/http/index.ts',
+          runner: 'Effect.runPromise',
+          name: 'runHttpPromise',
+          exported: true
+        },
+        {
+          suffix: '/apps/server/src/platform/filesystem/index.ts',
+          runner: 'Effect.runPromise',
+          name: 'runFileSystemPromise',
+          exported: true
+        },
+        {
+          suffix: '/apps/server/src/platform/filesystem/index.ts',
+          runner: 'Effect.runSync',
+          name: 'runFileSystemSync',
+          exported: false
+        }
+      ];
+      const bridge = bridges.find((entry) => path.endsWith(entry.suffix) && name === entry.runner);
+
+      if (!bridge) return false;
 
       for (let owner = node.parent; owner; owner = owner.parent) {
         if (/^(?:FunctionDeclaration|FunctionExpression|ArrowFunctionExpression)$/.test(owner.type))
           return (
             owner.type === 'FunctionDeclaration' &&
-            owner.id?.name === 'runHttpPromise' &&
-            owner.parent?.type === 'ExportNamedDeclaration'
+            owner.id?.name === bridge.name &&
+            owner.parent?.type === (bridge.exported ? 'ExportNamedDeclaration' : 'Program')
           );
       }
 
@@ -46,7 +67,7 @@ export default defineRule({
             name
           ) &&
             !execute &&
-            !httpPromiseBridge(node, name) &&
+            !approvedBridge(node, name) &&
             !(syncObservation && name === 'Effect.runSyncWith')) ||
             (name === 'ManagedRuntime.make' && !construct))
         )

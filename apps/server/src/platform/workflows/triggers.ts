@@ -14,12 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { workflowEventSchema } from '@study/contracts/events';
 import type { WorkflowEvent } from '@study/contracts/events';
 import { and, eq, lt, sql } from '@study/db';
 import { workflowEvents, workflowReceipts, workflow_executions } from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 import type { Workflow } from 'effect/workflow';
 
@@ -46,7 +45,7 @@ export function triggeredExecutionId(
   event: Pick<WorkflowEvent, 'eventId' | 'inputVersion'>,
   trigger: Pick<Trigger, 'subscription' | 'workflowVersion'>
 ) {
-  return createHash('sha256')
+  return new CryptoHasher('sha256')
     .update(
       JSON.stringify([
         event.eventId,
@@ -116,9 +115,8 @@ export function dispatchPending(
     identities.add(trigger.subscription);
   }
 
-  const db = context.db.orm;
-
-  return context.transaction(() => {
+  return context.transaction((context) => {
+    const db = context.db.orm;
     let scheduled = 0;
 
     for (const trigger of triggers) {

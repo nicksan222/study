@@ -14,9 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
-
 import { failureSchema } from '@study/contracts/errors';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
@@ -59,47 +56,47 @@ testStable(
   async () => {
     let calls = 0;
     let duringCall: (() => Promise<void>) | undefined;
-    const peer = createServer(async (request, response) => {
-      for await (const _ of request) {
-        /* consume request */
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (request) => {
+        let events = '';
+
+        await request.text();
+
+        calls++;
+
+        if (duringCall) {
+          const action = duringCall;
+
+          duringCall = undefined;
+          await action();
+        }
+
+        for (const event of [
+          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'item' }
+          },
+          {
+            type: 'response.output_text.delta',
+            item_id: 'item',
+            delta: JSON.stringify({ verdict: 'partly', feedback: 'Good' })
+          },
+          { type: 'response.completed', response: {} }
+        ])
+          events += `data: ${JSON.stringify(event)}\n\n`;
+
+        return new Response(events + 'data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' }
+        });
       }
-
-      calls++;
-
-      if (duringCall) {
-        const action = duringCall;
-
-        duringCall = undefined;
-        await action();
-      }
-
-      response.writeHead(200, { 'content-type': 'text/event-stream' });
-
-      for (const event of [
-        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-        {
-          type: 'response.output_item.added',
-          output_index: 0,
-          item: { type: 'message', id: 'item' }
-        },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'item',
-          delta: JSON.stringify({ verdict: 'partly', feedback: 'Good' })
-        },
-        { type: 'response.completed', response: {} }
-      ])
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      response.end('data: [DONE]\n\n');
     });
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-    const address = peer.address();
-
-    assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(peer.port, 'missing address');
+    const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     await auth.replace(
@@ -107,8 +104,8 @@ testStable(
       { accessToken: 'token', expiresIn: 3600 }
     );
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
@@ -246,7 +243,7 @@ testStable(
         sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay'`
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await execute(current, 'replay');
       assert.strictEqual(calls, 1);
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
@@ -348,8 +345,8 @@ testStable(
     } finally {
       await auth.dispose();
       context.close();
-      location.cleanup();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
+      await location.cleanup();
+      await peer.stop(true);
     }
   }
 );
@@ -357,8 +354,8 @@ testStable(
 testStable(
   'practice slot workflow reuses its generation request and ignores manual publication',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const dbLayer = Layer.succeed(Database, { store: context });
     const services = Layer.mergeAll(
       Learning.layer.pipe(
@@ -383,7 +380,7 @@ testStable(
             const learning = yield* Learning;
             const engine = yield* WorkflowEngine.WorkflowEngine;
             const doc = yield* (yield* Pages).create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               projectId: project.id,
@@ -785,7 +782,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

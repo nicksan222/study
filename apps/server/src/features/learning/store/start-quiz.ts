@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomInt } from 'node:crypto';
-
 import type { startQuizInputSchema } from '@study/contracts/learning/rpc';
 import { eq } from '@study/db';
 import * as s from '@study/db/schema';
@@ -30,7 +28,14 @@ function shuffled<T>(items: readonly T[]): T[] {
   const result = [...items];
 
   for (let i = result.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
+    const range = i + 1;
+    const limit = Math.floor(0x1_0000_0000 / range) * range;
+    const random = new Uint32Array(1);
+
+    do crypto.getRandomValues(random);
+    while (random[0]! >= limit);
+
+    const j = random[0]! % range;
 
     [result[i], result[j]] = [result[j]!, result[i]!];
   }

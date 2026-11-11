@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { writeFileSync } from 'node:fs';
-
 import { Db, sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
@@ -31,10 +29,10 @@ import { createServerTest } from './server-test.ts';
 const mode = process.env.STUDY_TEST_SCENARIO;
 
 if (mode === 'setup-failure') {
-  beforeEach((t) => {
+  beforeEach(async (t) => {
     const { path } = createServerTest(t as TestContext, { app: false });
 
-    writeFileSync(path, 'setup failed');
+    await Bun.write(path, 'setup failed');
     console.log('FIXTURE_PATH', JSON.stringify(path));
 
     throw new Error('intentional setup failure');
@@ -76,7 +74,7 @@ if (
       assert.throws(() => reopened.exec('SELECT 1'));
       console.log('EXTRA_CONNECTION_CLOSED');
     });
-    reopened = f.manage(Db.open(f.path));
+    reopened = f.manage(await Db.open(f.path));
 
     try {
       assert.strictEqual(
@@ -116,7 +114,7 @@ if (mode === 'concurrent') {
 
   testStable.concurrent.for(['a', 'b'])('concurrent database %s', async (name, context) => {
     const { path, manage } = createServerTest(context, { app: false });
-    const db = manage(Db.open(path));
+    const db = manage(await Db.open(path));
 
     paths.push(path);
     console.log('FIXTURE_PATH', JSON.stringify(path));
@@ -142,7 +140,7 @@ if (mode === 'retry-sync' || mode === 'retry-async') {
     const database = createServerTest(t, { app: false });
     let attempts = 0;
 
-    writeFileSync(database.path, 'resource exists');
+    await Bun.write(database.path, 'resource exists');
     console.log('FIXTURE_PATH', JSON.stringify(database.path));
     database.dispose(() => {
       assert.strictEqual(attempts, 2);

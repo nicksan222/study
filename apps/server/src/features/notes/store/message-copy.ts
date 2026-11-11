@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, PartId, VersionId } from '@study/contracts/ids';
 import { copyNoteContentSchema, recordingCopySchema } from '@study/contracts/notes/notes';
@@ -125,7 +123,7 @@ function makeQuestionCopies({ db }: StoreResources) {
           .values({
             ...answer,
             version_id: newVersion,
-            request_id: randomUUID(),
+            request_id: crypto.randomUUID(),
             answer_version_id: versions.get(answer.answer_version_id)!,
             answer_message_id: messages.get(answer.answer_message_id)!
           })

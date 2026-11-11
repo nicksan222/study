@@ -14,10 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { types } from 'node:util';
-
-import { StudyError } from '@study/contracts/errors';
 import { Db, sql } from '@study/db';
+import type { DbTransaction } from '@study/db';
 import type { Clock } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';
@@ -25,8 +23,8 @@ import { liveClock } from '#server/platform/time/index';
 
 /** One connection with synchronous transactions and committed refresh hints. */
 export class ServerContext {
-  private transactionDepth = 0;
   private readonly listeners = new Set<() => void>();
+  readonly transactionOwner = Symbol();
   readonly db: Db;
   readonly clock: Clock.Clock;
 
@@ -36,8 +34,8 @@ export class ServerContext {
     this.transaction(() => {});
   }
 
-  static open(path: string, clock?: Clock.Clock): ServerContext {
-    const db = Db.open(path);
+  static async open(path: string, clock?: Clock.Clock): Promise<ServerContext> {
+    const db = await Db.open(path);
 
     try {
       return new ServerContext(db, clock);
@@ -48,31 +46,14 @@ export class ServerContext {
     }
   }
 
-  assertTransactionActive(): void {
-    if (this.transactionDepth === 0)
-      throw new StudyError('internal', 'An active server transaction is required');
-  }
-
-  transaction<T>(work: () => T): T {
-    if (types.isAsyncFunction(work))
+  transaction<T>(work: (context: ServerTransactionContext) => T): T {
+    if (Object.prototype.toString.call(work) === '[object AsyncFunction]')
       throw new TypeError('transaction callback must be synchronous');
 
-    const nested = this.transactionDepth > 0;
-    const before = nested ? null : this.changes();
-    const result = this.db.transaction(() => {
-      this.transactionDepth++;
+    const before = this.changes();
+    const result = this.db.transaction((db) => work(transactionContext(this, db)));
 
-      try {
-        const value = work();
-
-        return value;
-      } finally {
-        this.transactionDepth--;
-      }
-    });
-
-    // A caught inner rollback may produce an extra hint. Readers always requery SQLite.
-    if (!nested && before !== this.changes()) {
+    if (before !== this.changes()) {
       for (const listener of this.listeners) {
         try {
           listener();
@@ -98,4 +79,25 @@ export class ServerContext {
   private changes(): bigint {
     return requireRow(this.db.orm.get<{ n: bigint }>(sql`SELECT total_changes() AS n`)).n;
   }
+}
+
+/** Access to the same owner through an expiring transaction capability. */
+export interface ServerTransactionContext {
+  readonly transactionOwner: symbol;
+  readonly db: DbTransaction;
+  readonly clock: Clock.Clock;
+  assertTransactionActive(): void;
+  transaction<T>(work: (context: ServerTransactionContext) => T): T;
+}
+
+function transactionContext(owner: ServerContext, db: DbTransaction): ServerTransactionContext {
+  return {
+    transactionOwner: owner.transactionOwner,
+    db,
+    clock: owner.clock,
+    assertTransactionActive: () => {
+      void db.orm;
+    },
+    transaction: (work) => db.transaction((nested) => work(transactionContext(owner, nested)))
+  };
 }

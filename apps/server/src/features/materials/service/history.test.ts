@@ -467,7 +467,7 @@ testStable(
       );
 
       await cleanupNote(f, saved.noteId);
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const docs = yield* Pages;

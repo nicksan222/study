@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 import { sniff } from '@study/contracts/sources/sniff';
 import {
   sources,
@@ -8,6 +6,7 @@ import {
   source_extraction_revisions,
   source_processing
 } from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 
 import type { SourceFixture } from '../types.ts';
 import type { ProjectHarness } from './scope.ts';
@@ -25,7 +24,7 @@ export function createSource(project: ProjectHarness, fixture: SourceFixture) {
       ...detected,
       name: fixture.name,
       size_bytes: BigInt(bytes.length),
-      sha256: createHash('sha256').update(bytes).digest(),
+      sha256: new CryptoHasher('sha256').update(bytes).digest(),
       created_at: time
     })
     .returning()

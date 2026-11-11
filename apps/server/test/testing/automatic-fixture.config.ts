@@ -11,12 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { fileURLToPath } from 'node:url';
-
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
-  root: fileURLToPath(new URL('../../../../', import.meta.url)),
+  root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
   test: {
     include: ['apps/server/test/testing/automatic-fixture-scenario.ts'],
     setupFiles: ['./apps/server/test/testing/preload.ts'],

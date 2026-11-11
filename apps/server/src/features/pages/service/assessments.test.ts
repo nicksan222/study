@@ -43,8 +43,8 @@ const body = (text: string) => ({
 testStable(
   'native authored assessments retain exact judgments, reject foreign passages, paginate and become stale independently of evidence availability',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Pages.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -154,7 +154,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
 import type { ProjectId, NoteId, SourceId } from '@study/contracts/ids';
@@ -111,7 +109,7 @@ export const Sources = defineService(
     ) => {
       tx.emit({
         type: 'SourceProcessingRequested',
-        eventId: randomUUID(),
+        eventId: crypto.randomUUID(),
         causationId,
         correlationId: requestId,
         inputVersion: revision,
@@ -195,7 +193,7 @@ export const Sources = defineService(
       document: historical.document,
       createSource: (input: { name: string; bytes: Uint8Array; projectId: ProjectId | null }) =>
         transaction((tx) => {
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
 
           const detected = sniff(input.name, input.bytes);
 
@@ -211,7 +209,7 @@ export const Sources = defineService(
         transaction((tx) => {
           const uri = validateLink(input.url);
 
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
 
           const source = tx.store(SourceStore).createSource({
             name: input.name ?? uri,
@@ -284,7 +282,7 @@ export const Sources = defineService(
         bytes: Uint8Array;
       }) =>
         transaction((tx) => {
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
 
           const detected = sniff(input.name.trim(), input.bytes);
 
@@ -321,7 +319,7 @@ export const Sources = defineService(
           const result = tx.store(SourceHistoryStore).retireSourceHistory(input);
 
           if (result.candidates.length) {
-            const eventId = randomUUID();
+            const eventId = crypto.randomUUID();
 
             tx.emit({
               type: 'SourceHistoryPruned',
@@ -356,7 +354,7 @@ export const Sources = defineService(
           if (deleted) Workflows.scrubRetiredCorrelations(tx, ids);
 
           if (deleted) {
-            const eventId = randomUUID();
+            const eventId = crypto.randomUUID();
 
             tx.emit({
               type: 'SourceDeleted',
@@ -376,7 +374,7 @@ export const Sources = defineService(
         ),
       requestSourceProcessing: (input: { id: SourceId; expectedRevision: number }) =>
         transaction((tx) => {
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
 
           const result = tx.store(SourceStore).requestSourceProcessing({ ...input, requestId });
 
@@ -395,7 +393,7 @@ export const Sources = defineService(
           const state = tx.store(SourceProcessingStore).sourceProcessing(input.id);
 
           if (before.projectId !== input.projectId) {
-            const eventId = randomUUID();
+            const eventId = crypto.randomUUID();
 
             tx.emit({
               type: 'SourceProjectChanged',
@@ -409,7 +407,7 @@ export const Sources = defineService(
           }
 
           if (before.projectId !== input.projectId && state.documentId !== null) {
-            const eventId = randomUUID();
+            const eventId = crypto.randomUUID();
 
             tx.emit({
               type: 'SourceIndexed',
@@ -428,13 +426,13 @@ export const Sources = defineService(
         }),
       correctBlock: (input: typeof correctBlockInputSchema.Type) =>
         transaction((tx) => {
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
 
           const result = tx.store(SourceStore).requestCorrection({ ...input, requestId });
 
           tx.emit({
             type: 'SourceCorrectionRequested',
-            eventId: randomUUID(),
+            eventId: crypto.randomUUID(),
             causationId: null,
             correlationId: requestId,
             inputVersion: result.revision,
@@ -484,7 +482,7 @@ export const Sources = defineService(
           if (published)
             tx.emit({
               type: 'SourceIndexed',
-              eventId: randomUUID(),
+              eventId: crypto.randomUUID(),
               causationId: input.event.eventId,
               correlationId: input.event.correlationId,
               inputVersion: input.event.inputVersion,
@@ -505,7 +503,7 @@ export const Sources = defineService(
       tx: Transaction,
       input: { name: string; bytes: Uint8Array; projectId: ProjectId | null }
     ) => {
-      const requestId = randomUUID();
+      const requestId = crypto.randomUUID();
       const detected = sniff(input.name, input.bytes);
       const source = tx
         .store(SourceStore)
@@ -513,7 +511,7 @@ export const Sources = defineService(
 
       tx.emit({
         type: 'SourceProcessingRequested',
-        eventId: randomUUID(),
+        eventId: crypto.randomUUID(),
         causationId: null,
         correlationId: requestId,
         inputVersion: 1,

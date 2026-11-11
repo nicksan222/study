@@ -43,9 +43,9 @@ import { materialRpcHandlers } from '#testing/material-rpc';
 
 import { serializeMaterialVersion } from './export-serializer.ts';
 
-function fixture() {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+async function fixture() {
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const database = Layer.succeed(Database, { store: context });
   const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
     Layer.provideMerge(database)
@@ -57,9 +57,9 @@ function fixture() {
   return {
     handlers,
     context,
-    close() {
+    async close() {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -68,7 +68,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
   testStable(
     `exact authored export and ancestor ${retirement} honor retained descendant pins`,
     async () => {
-      const f = fixture();
+      const f = await fixture();
 
       try {
         await Effect.runPromise(
@@ -154,7 +154,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
           }).pipe(Effect.scoped, Effect.provide(f.handlers))
         );
       } finally {
-        f.close();
+        await f.close();
       }
     }
   );
@@ -163,7 +163,7 @@ for (const retirement of ['deletion', 'prune'] as const) {
 testStable(
   'native aid JSON decodes complete canonical versions and exact citations for every aid kind',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -269,7 +269,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -277,7 +277,7 @@ testStable(
 testStable(
   'native CSV preserves quoted multiline text and neutralizes formula prefixes without altering ordinary text',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -340,7 +340,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -348,7 +348,7 @@ testStable(
 testStable(
   'citation snapshot accepts its exact UTF-8 budget without expanding retained evidence bodies',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -431,10 +431,8 @@ testStable(
               id: claim.version.id,
               limit: 10
             })).items;
-            const actual = f.context.transaction(() =>
-              makeCitations({ db: f.context.db, clock: f.context.clock }).readCitations(
-                claim.version.id
-              )
+            const actual = f.context.transaction((tx) =>
+              makeCitations({ db: tx.db, clock: tx.clock }).readCitations(claim.version.id)
             );
 
             expect(actual).toStrictEqual(expected);
@@ -458,7 +456,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -466,7 +464,7 @@ testStable(
 testStable(
   'native capability reports local routes and keeps vision and absent-provider support conservative',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -539,7 +537,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );

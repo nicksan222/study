@@ -56,17 +56,15 @@ testStable(
 );
 
 testStable('a rejected second application open never acquires another database', async (t) => {
-  const { existsSync } = await import('node:fs');
-
   const resources = createServerTest(t, { app: false });
 
   const app = await resources.openApp();
 
   const second = `${resources.path}.second`;
 
-  assert.ok(existsSync(second) === false);
+  assert.ok((await Bun.file(second).exists()) === false);
   await expect(resources.openApp({ path: second })).rejects.toSatisfy(() => true);
-  assert.ok(existsSync(second) === false);
+  assert.ok((await Bun.file(second).exists()) === false);
   await app.close();
 });
 
@@ -74,8 +72,6 @@ for (const failPersistence of [false, true])
   testStable(
     `shutdown ${failPersistence ? 'can retry' : 'persists'} an in-flight credential rotation before releasing Auth and SQLite`,
     async (t) => {
-      const { createServer } = await import('node:http');
-
       const { Effect, Option } = await import('effect');
 
       const { AuthStore } = await import('#server/features/auth/store/index');
@@ -100,35 +96,30 @@ for (const failPersistence of [false, true])
         release = resolve;
       });
 
-      const peer = createServer(async (request, response) => {
-        for await (const _part of request) {
-          /* Drain the real OAuth request. */
-        }
+      const peer = Bun.serve({
+        hostname: '127.0.0.1',
+        port: 0,
+        async fetch(request) {
+          await request.arrayBuffer();
+          entered();
+          await gate;
 
-        entered();
-        await gate;
-        response
-          .writeHead(200, { 'content-type': 'application/json' })
-          .end(
-            JSON.stringify({ access_token: 'access', refresh_token: 'rotated', expires_in: 3600 })
-          );
+          return Response.json({
+            access_token: 'access',
+            refresh_token: 'rotated',
+            expires_in: 3600
+          });
+        }
       });
 
       t.onTestFinished(async () => {
         release();
-        peer.closeAllConnections();
-        await new Promise<void>((resolve) => peer.close(() => resolve()));
+        await peer.stop(true);
       });
-
-      await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-
-      const address = peer.address();
-
-      assert.ok(!(!address || typeof address === 'string'), 'OAuth listener missing');
 
       const resources = createServerTest(t, { app: false });
 
-      const context = new ServerContext(resources.openDb());
+      const context = new ServerContext(await resources.openDb());
 
       await Effect.runPromise(
         transaction((tx) =>
@@ -144,7 +135,7 @@ for (const failPersistence of [false, true])
       );
       context.close();
 
-      const options = { path: resources.path, issuer: `http://127.0.0.1:${address.port}` };
+      const options = { path: resources.path, issuer: `http://127.0.0.1:${peer.port}` };
 
       let app = await resources.openApp(options);
 
@@ -196,7 +187,7 @@ for (const failPersistence of [false, true])
         try {
           await app.close();
         } finally {
-          await new Promise<void>((resolve) => peer.close(() => resolve()));
+          await peer.stop(true);
         }
       }
     }

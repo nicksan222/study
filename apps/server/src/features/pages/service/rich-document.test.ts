@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sourceIdSchema } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { NotesRpc } from '@study/contracts/notes/rpc';
@@ -45,8 +43,8 @@ const text = (value: string) => [{ type: 'text' as const, text: value, marks: []
 testStable(
   'rich authored pages round-trip native RPC and reopen with independent identities, exact assets and Unicode ranges',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(
         Pages.layer,
@@ -136,7 +134,7 @@ testStable(
             const note = yield* rpc['notes.createNote']({ title: 'Asset copy' });
             const create = (title: string, document: typeof documentSchema.Type) =>
               rpc['pages.create']({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title,
                 document,
                 inputs: [],
@@ -144,7 +142,7 @@ testStable(
                 projectId: setup.collection.id
               });
             const original = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Rich',
               document: content,
               inputs: [],
@@ -162,7 +160,7 @@ testStable(
             const edit = yield* rpc['pages.save']({
               pageId: original.id,
               expectedVersionId: original.version.id,
-              key: randomUUID(),
+              key: crypto.randomUUID(),
               document: { ...content, blocks: [inserted, ...content.blocks.toReversed()] }
             });
             const revised = yield* rpc['pages.version']({ id: edit.submittedVersionId });
@@ -290,7 +288,7 @@ testStable(
           assert.ok(
             (yield* Effect.flip(
               docs.create({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title: 'Foreign location',
                 document: invalid,
                 inputs: [],
@@ -307,7 +305,7 @@ testStable(
           assert.ok(
             (yield* Effect.flip(
               docs.create({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title: 'Wrong media',
                 document: {
                   ...content,
@@ -341,7 +339,7 @@ testStable(
         assert.throws(() => context.db.orm.run(statement));
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const projects = yield* Projects;
@@ -369,7 +367,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

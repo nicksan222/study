@@ -29,8 +29,8 @@ const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 testStable(
   'settings patches preserve unrelated preferences and reject values outside canonical bounds',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -68,7 +68,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -76,8 +76,8 @@ testStable(
 testStable(
   'subject creation reuses exact names and branded IDs round-trip through JSON tool schemas',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -119,7 +119,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

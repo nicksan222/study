@@ -11,7 +11,7 @@ import { seedDatabase } from './seed.ts';
 testStable(
   'seeded coursework opens through the real application RPC without workers or external requests',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
     await seedDatabase(location.path);
 
@@ -82,7 +82,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

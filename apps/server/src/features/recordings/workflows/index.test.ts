@@ -37,8 +37,8 @@ for (const deleteCommittedMessage of [false, true])
   testStable(
     `recording replay after checkpoint failure preserves ${deleteCommittedMessage ? 'deleted' : 'retained'} messages`,
     async () => {
-      const location = createTestDatabase();
-      let context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      let context = new ServerContext(await location.open());
       const services = () =>
         Layer.mergeAll(Projects.layer, Notes.layer, Sources.layer, Recordings.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -180,7 +180,7 @@ for (const deleteCommittedMessage of [false, true])
           sql`UPDATE workflow_executions SET status='suspended',result=NULL,owner_token=NULL WHERE execution_id=${event.requestId}`
         );
         context.close();
-        context = new ServerContext(location.open());
+        context = new ServerContext(await location.open());
         const result = await execute();
 
         assert.ok(result.messageId);
@@ -284,7 +284,7 @@ for (const deleteCommittedMessage of [false, true])
         );
       } finally {
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );

@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { sql } from '@study/db';
 import { preferences } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -52,62 +50,60 @@ async function peer() {
   const tokenAbort = new Promise<void>((resolve) => {
     tokenClosed = resolve;
   });
-  const server = createServer(async (request, response) => {
-    let body = '';
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: async (request) => {
+      const body = await request.text();
 
-    for await (const part of request) body += part;
+      const form = new URLSearchParams(body);
 
-    const form = new URLSearchParams(body);
+      assert.ok(new URL(request.url).pathname === '/api/accounts/oauth/token');
 
-    assert.ok(request.url === '/api/accounts/oauth/token');
+      if (form.get('grant_type') === 'refresh_token') {
+        if (rotate) {
+          refreshStarted();
+          await refreshRelease;
 
-    if (form.get('grant_type') === 'refresh_token') {
-      if (rotate) {
-        refreshStarted();
-        await refreshRelease;
-        response
-          .writeHead(200, { 'content-type': 'application/json' })
-          .end(JSON.stringify({ access_token: 'rotated-access', refresh_token: 'rotated-secret' }));
-      } else response.writeHead(400).end();
+          return Response.json({ access_token: 'rotated-access', refresh_token: 'rotated-secret' });
+        } else return new Response(null, { status: 400 });
+      }
 
-      return;
-    }
+      assert.ok(form.get('grant_type') === 'authorization_code');
 
-    assert.ok(form.get('grant_type') === 'authorization_code');
+      if (blockToken) {
+        request.signal.addEventListener('abort', tokenClosed, { once: true });
+        tokenStarted();
 
-    if (blockToken) {
-      response.on('close', tokenClosed);
-      tokenStarted();
+        return new Promise<Response>((resolve) =>
+          request.signal.addEventListener('abort', () => resolve(new Response(null)), {
+            once: true
+          })
+        );
+      }
 
-      return;
-    }
+      const claims = {
+        iss: issuer,
+        aud: 'client',
+        sub: 'person',
+        nonce,
+        exp: Date.now() / 1000 + 3600,
+        email: 'p@example.test'
+      };
+      const idToken = `header.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
 
-    const claims = {
-      iss: issuer,
-      aud: 'client',
-      sub: 'person',
-      nonce,
-      exp: Date.now() / 1000 + 3600,
-      email: 'p@example.test'
-    };
-    const idToken = `header.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.signature`;
-
-    response.writeHead(200, { 'content-type': 'application/json' }).end(
-      JSON.stringify({
+      return Response.json({
         id_token: idToken,
         access_token: 'access-secret',
         refresh_token: 'refresh-secret',
         expires_in: 3600,
         scope: 'chatgpt.tokens.use.direct'
-      })
-    );
+      });
+    }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(address && typeof address !== 'string');
-  issuer = `http://127.0.0.1:${address.port}`;
+  assert.ok(server.port);
+  issuer = server.url.origin;
 
   return {
     issuer,
@@ -133,10 +129,7 @@ async function peer() {
 
       return redirect;
     },
-    close: () =>
-      new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      )
+    close: () => server.stop(true)
   };
 }
 
@@ -149,8 +142,8 @@ async function withAuth(
   ) => Promise<void>
 ) {
   const oauth = await peer();
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: oauth.issuer, saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
     Layer.provideMerge(
@@ -166,7 +159,7 @@ async function withAuth(
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
     await oauth.close();
   }
 }
@@ -281,8 +274,8 @@ testStable(
     const oauth = await peer();
 
     oauth.startRotation();
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const previous = {
       subject: 'person',
       clientId: 'client',
@@ -364,7 +357,7 @@ testStable(
       oauth.releaseRefresh();
       await manager.dispose();
       context.close();
-      location.cleanup();
+      await location.cleanup();
       await oauth.close();
     }
   }

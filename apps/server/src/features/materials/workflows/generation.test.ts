@@ -42,8 +42,8 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
 
 testStable('rejects mismatched generation event before reaching a provider', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const database = Layer.succeed(Database, { store: context });
   const domain = Layer.mergeAll(Projects.layer, Materials.layer, Sources.layer, Pages.layer).pipe(
     Layer.provideMerge(database)
@@ -123,18 +123,17 @@ testStable('rejects mismatched generation event before reaching a provider', asy
     ).rejects.toSatisfy(() => true);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'generates and publishes all material kinds with captured evidence and replays receipts',
   async () => {
-    const { createServer } = await import('node:http');
     const { createChatGptModel } = await import('#server/platform/ai/providers/chatgpt/model');
     const { AuthManager } = await import('#server/platform/ai/providers/chatgpt/session');
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     let calls = 0;
     let tool = true;
     let output = '';
@@ -142,63 +141,60 @@ testStable(
     let duringCall: (() => Promise<void>) | undefined;
     let cancel: (() => Promise<void>) | undefined;
     const bodies: string[] = [];
-    const peer = createServer(async (req, res) => {
-      let body = '';
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (req) => {
+        const body = await req.text();
 
-      for await (const chunk of req) body += chunk;
+        bodies.push(body);
+        calls++;
+        const action = duringCall;
 
-      bodies.push(body);
-      calls++;
-      const action = duringCall;
+        duringCall = undefined;
+        await action?.();
+        const call = {
+          type: 'function_call',
+          id: 'item1',
+          call_id: 'call1',
+          name: 'sources',
+          arguments: '{"query":"alpha"}'
+        };
+        const events = tool
+          ? [
+              { type: 'response.output_item.added', output_index: 0, item: call },
+              {
+                type: 'response.output_item.done',
+                output_index: 0,
+                item: { ...call, status: 'completed' }
+              },
+              { type: 'response.completed', response: {} }
+            ]
+          : [
+              {
+                type: 'response.output_item.added',
+                output_index: 0,
+                item: { type: 'message', id: 'item' }
+              },
+              {
+                type: 'response.output_text.delta',
+                item_id: 'item',
+                delta: output
+              },
+              { type: 'response.completed', response: {} }
+            ];
 
-      duringCall = undefined;
-      await action?.();
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
-      const call = {
-        type: 'function_call',
-        id: 'item1',
-        call_id: 'call1',
-        name: 'sources',
-        arguments: '{"query":"alpha"}'
-      };
+        tool = false;
 
-      const events = tool
-        ? [
-            { type: 'response.output_item.added', output_index: 0, item: call },
-            {
-              type: 'response.output_item.done',
-              output_index: 0,
-              item: { ...call, status: 'completed' }
-            },
-            { type: 'response.completed', response: {} }
-          ]
-        : [
-            {
-              type: 'response.output_item.added',
-              output_index: 0,
-              item: { type: 'message', id: 'item' }
-            },
-            {
-              type: 'response.output_text.delta',
-              item_id: 'item',
-              delta: output
-            },
-            { type: 'response.completed', response: {} }
-          ];
-
-      tool = false;
-
-      for (const event of events) res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      res.end('data: [DONE]\n\n');
+        return new Response(
+          events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') + 'data: [DONE]\n\n',
+          { headers: { 'content-type': 'text/event-stream' } }
+        );
+      }
     });
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-    const address = peer.address();
-
-    if (!address || typeof address === 'string') throw Error('missing address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(peer.port, 'missing address');
+    const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     await auth.replace(
@@ -374,7 +370,7 @@ testStable(
             sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = ${event.requestId}`
           );
           context.close();
-          context = new ServerContext(location.open());
+          context = new ServerContext(await location.open());
           const replayed = await execute();
 
           assert.strictEqual(
@@ -397,7 +393,7 @@ testStable(
         const before = calls;
 
         context.close();
-        context = new ServerContext(location.open());
+        context = new ServerContext(await location.open());
         assert.strictEqual(await execute(), id);
         assert.strictEqual(calls, before);
         const version = await Effect.runPromise(
@@ -790,8 +786,8 @@ testStable(
     } finally {
       await auth.dispose();
       context.close();
-      location.cleanup();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
+      await location.cleanup();
+      await peer.stop(true);
     }
   }
 );

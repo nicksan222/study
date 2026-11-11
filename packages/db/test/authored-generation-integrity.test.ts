@@ -4,9 +4,9 @@ import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-function fixture(patch: Record<string, unknown> = {}, generationNote: number | null = null) {
-  const location = createTestDatabase();
-  const db = location.open();
+async function fixture(patch: Record<string, unknown> = {}, generationNote: number | null = null) {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   db.exec(`INSERT INTO notes(id,title,title_source,created_at,updated_at) VALUES(1,'Proposal','user',1,1),(2,'Other','user',1,1);
  INSERT INTO pages(id,title,created_at,updated_at) VALUES(1,'Target',1,1),(3,'Other',1,1);
@@ -42,20 +42,20 @@ function fixture(patch: Record<string, unknown> = {}, generationNote: number | n
 
   return {
     db,
-    close() {
+    async close() {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
 
-function retain(db: ReturnType<typeof fixture>['db']) {
+function retain(db: Awaited<ReturnType<typeof fixture>>['db']) {
   db.exec(
     "INSERT INTO page_proposals(request_id,base_version_id,proposed_version_id) VALUES('document/capture',1,4)"
   );
 }
 
-function receipt(db: ReturnType<typeof fixture>['db']) {
+function receipt(db: Awaited<ReturnType<typeof fixture>>['db']) {
   db.exec("UPDATE page_generation_requests SET result_version_id=4 WHERE id='document/capture'");
 }
 
@@ -105,8 +105,8 @@ const mutations = [
 ] as const;
 
 for (const [name, mutation, retained] of mutations)
-  testStable(`authored generation receipt rejects ${name}`, () => {
-    const f = fixture();
+  testStable(`authored generation receipt rejects ${name}`, async () => {
+    const f = await fixture();
 
     try {
       assert.throws(() => {
@@ -123,7 +123,7 @@ for (const [name, mutation, retained] of mutations)
         null
       );
     } finally {
-      f.close();
+      await f.close();
     }
   });
 
@@ -169,21 +169,21 @@ const invalidCaptures = [
 ] as const;
 
 for (const [name, patch] of invalidCaptures)
-  testStable(`authored first receipt rejects ${name}`, () => {
-    const f = fixture(patch);
+  testStable(`authored first receipt rejects ${name}`, async () => {
+    const f = await fixture(patch);
 
     try {
       retain(f.db);
       assert.throws(() => receipt(f.db));
     } finally {
-      f.close();
+      await f.close();
     }
   });
 
 testStable(
   'an exact retained authored proposal commits one immutable result without publishing its draft',
-  () => {
-    const f = fixture();
+  async () => {
+    const f = await fixture();
 
     try {
       retain(f.db);
@@ -211,7 +211,7 @@ testStable(
 
       expect(f.db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -223,8 +223,8 @@ for (const [name, operation, outcome, current, result] of [
   ['draft independent result', 'keep', 'kept', 3, 4],
   ['unchanged target retained as independent', 'keep', 'kept', 3, 3]
 ] as const)
-  testStable(`authored proposal receipts reject ${name}`, () => {
-    const f = fixture();
+  testStable(`authored proposal receipts reject ${name}`, async () => {
+    const f = await fixture();
 
     try {
       retain(f.db);
@@ -235,13 +235,13 @@ for (const [name, operation, outcome, current, result] of [
         )
       );
     } finally {
-      f.close();
+      await f.close();
     }
   });
 
 for (const result of [1, 3, 5])
-  testStable(`generation cannot claim unrelated authored result ${result}`, () => {
-    const f = fixture();
+  testStable(`generation cannot claim unrelated authored result ${result}`, async () => {
+    const f = await fixture();
 
     try {
       retain(f.db);
@@ -251,17 +251,20 @@ for (const result of [1, 3, 5])
         )
       );
     } finally {
-      f.close();
+      await f.close();
     }
   });
 
-testStable('authored generation cannot claim another note as its publication metadata', () => {
-  const f = fixture({}, 2);
+testStable(
+  'authored generation cannot claim another note as its publication metadata',
+  async () => {
+    const f = await fixture({}, 2);
 
-  try {
-    retain(f.db);
-    assert.throws(() => receipt(f.db));
-  } finally {
-    f.close();
+    try {
+      retain(f.db);
+      assert.throws(() => receipt(f.db));
+    } finally {
+      await f.close();
+    }
   }
-});
+);

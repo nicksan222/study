@@ -109,8 +109,8 @@ testStable(
 );
 
 testStable('publication checkpoints capture the real activity lease inside execution', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   let writes = 0;
   const workflow = Workflow.make('publication-harness', {
     payload: {},
@@ -124,7 +124,7 @@ testStable('publication checkpoints capture the real activity lease inside execu
     execute: Effect.gen(function* () {
       const guard = yield* PublicationGuard;
 
-      return context.transaction(() => {
+      return context.transaction((context) => {
         guard.assert(context);
 
         return ++writes;
@@ -151,15 +151,15 @@ testStable('publication checkpoints capture the real activity lease inside execu
     assert.strictEqual(writes, 1);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'resumable checkpoint keeps terminal failures and honors a zero retry budget',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     let calls = 0;
     const workflow = Workflow.make('resumable-harness', {
       payload: {},
@@ -203,7 +203,7 @@ testStable(
       assert.strictEqual(calls, 1);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

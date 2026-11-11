@@ -27,8 +27,8 @@ import { Database } from '#server/platform/database/database';
 import { ThemesRpcLive } from './index.ts';
 
 testStable('native themes RPC exposes the catalog and typed failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = ThemesRpcLive.pipe(
     Layer.provide(Themes.layer),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -59,6 +59,6 @@ testStable('native themes RPC exposes the catalog and typed failures', async () 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

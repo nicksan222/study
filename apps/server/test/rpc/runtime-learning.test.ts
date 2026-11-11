@@ -35,10 +35,10 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
     `an RPC open answer waits durably when ${accountState} and keeps a manual grade`,
     { timeout: 10000 },
     async () => {
-      const location = createTestDatabase();
+      const location = await createTestDatabase();
 
       if (accountState === 'not-shared') {
-        const context = new ServerContext(location.open());
+        const context = new ServerContext(await location.open());
 
         try {
           await Effect.runPromise(
@@ -129,7 +129,7 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
       } finally {
         await server.close();
         await app.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );

@@ -29,7 +29,7 @@ import { Workflows } from '#server/features/workflows/index';
 import type { SnapshotPolicy } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
+import { transaction, transactionDatabase } from '#server/platform/definitions/define-store';
 
 import { runNative } from './layers.ts';
 
@@ -90,6 +90,9 @@ export const backupPolicy: SnapshotPolicy = {
   inspect: (db) =>
     participate(
       db,
-      transaction((tx) => ({ scope: System.backupScope(tx), identity: db.contentIdentity() }))
+      transaction((tx) => ({
+        scope: System.backupScope(tx),
+        identity: transactionDatabase(tx).contentIdentity()
+      }))
     )
 };

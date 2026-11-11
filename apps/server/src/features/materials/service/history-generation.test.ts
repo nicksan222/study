@@ -122,7 +122,7 @@ for (const attemptInputFirst of [false, true])
         assert.ok(owner?.kind === 'generation');
         assert.ok(owner.operation_id === 'history-output');
         await cleanupHistory(f, 'history-output');
-        f.reopen();
+        await f.reopen();
         assertRetired(f, saved.request.id);
         assertScrubbed(f, 'HISTORY_PRIVATE_GENERATION');
         const native = workflowStore(f.context).execution('history-generated');
@@ -216,7 +216,7 @@ testStable(
       await acceptHistory(f, owner, 'scrub-shape-proof');
       assert.ok(retirement().isScrubbed(saved.request.id) === false);
       await cleanupHistory(f, 'scrub-shape-proof');
-      f.reopen();
+      await f.reopen();
       assert.ok(retirement().isScrubbed(saved.request.id) === true);
       assert.ok(retirement().isScrubbed('missing') === false);
 

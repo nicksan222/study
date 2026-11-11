@@ -27,8 +27,8 @@ const environment = { language: 'en', searchSources: () => Effect.succeed([]) };
 testStable(
   'notebook tools scope exact-name retries, page history and preserve memberships',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -117,7 +117,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

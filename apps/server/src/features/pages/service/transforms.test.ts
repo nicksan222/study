@@ -49,8 +49,8 @@ const paragraph = (text: string) =>
 testStable(
   'quick-note RPC captures exact note pages and publishes one independent derivative atomically',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -306,7 +306,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -314,8 +314,8 @@ testStable(
 testStable(
   'cancelled and deleted note captures reject retries and late publication without saved output',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -405,7 +405,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

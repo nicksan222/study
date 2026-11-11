@@ -15,7 +15,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { Db } from '@study/db';
+import type { Db, DbTransaction } from '@study/db';
 import { and, eq, getTableColumns, gt, inArray, isNull, lte, or, sql } from '@study/db';
 import {
   workflow_activities,
@@ -27,7 +27,7 @@ import {
   workflow_retired_executions
 } from '@study/db/schema';
 
-import type { ServerContext } from '#server/platform/database/context';
+import type { ServerContext, ServerTransactionContext } from '#server/platform/database/context';
 import { requireRow } from '#server/platform/database/rows';
 import { isTerminalExecution } from '#server/platform/workflows/status';
 
@@ -36,30 +36,32 @@ const leaseMs = 30_000;
 const recoveryBatchSize = 1000;
 
 /** Synchronous durable checkpoints. The owner token fences stale execution fibers. */
-export function workflowStore(context: ServerContext) {
+export function workflowStore(context: ServerContext | ServerTransactionContext) {
   const db = context.db.orm;
-  const executionRetired = (id: string) =>
-    !!db
+  const executionRetired = (id: string, scopedDb = db) =>
+    !!scopedDb
       .select()
       .from(workflow_retired_executions)
       .where(eq(workflow_retired_executions.execution_id, id))
+      .get();
+  const execution = (id: string, scopedDb = db) =>
+    scopedDb
+      .select()
+      .from(workflow_executions)
+      .where(eq(workflow_executions.execution_id, id))
       .get();
   const now = () => BigInt(context.clock.currentTimeMillisUnsafe());
 
   return {
     retired: (id: string) => executionRetired(id),
-    execution: (id: string) =>
-      db.select().from(workflow_executions).where(eq(workflow_executions.execution_id, id)).get(),
+    execution: (id: string) => execution(id),
     start(id: string, tag: string, payload: string, parent: string | undefined) {
-      return context.transaction(() => {
-        const row = db
-          .select()
-          .from(workflow_executions)
-          .where(eq(workflow_executions.execution_id, id))
-          .get();
+      return context.transaction((context) => {
+        const db = context.db.orm;
+        const row = execution(id, db);
 
         if (row) {
-          if (executionRetired(id)) return row;
+          if (executionRetired(id, db)) return row;
 
           if (row.workflow_tag !== tag || row.payload !== payload)
             throw new Error('Workflow execution identity collision');
@@ -96,12 +98,9 @@ export function workflowStore(context: ServerContext) {
       });
     },
     interrupt(id: string, mode: 'safe' | 'unsafe') {
-      context.transaction(() => {
-        const row = db
-          .select()
-          .from(workflow_executions)
-          .where(eq(workflow_executions.execution_id, id))
-          .get();
+      context.transaction((context) => {
+        const db = context.db.orm;
+        const row = execution(id, db);
 
         if (!row || isTerminalExecution(row.status)) return;
 
@@ -128,8 +127,10 @@ export function workflowStore(context: ServerContext) {
     },
     /** Atomically claim an eligible lease and discard previews captured by replaced owners. */
     claim(id: string, owner: string) {
-      return context.transaction(() => {
-        if (executionRetired(id)) return false;
+      return context.transaction((context) => {
+        const db = context.db.orm;
+
+        if (executionRetired(id, db)) return false;
 
         const time = now();
 
@@ -238,8 +239,10 @@ export function workflowStore(context: ServerContext) {
         .get()?.result;
     },
     saveActivity(id: string, owner: string, name: string, attempt: number, result: string) {
-      context.transaction(() => {
-        this.assertOwner(id, owner);
+      context.transaction((context) => {
+        const db = context.db.orm;
+
+        workflowStore(context).assertOwner(id, owner);
 
         db.insert(workflow_activities)
           .values({ execution_id: id, name, attempt, result })
@@ -272,10 +275,12 @@ export function workflowStore(context: ServerContext) {
       if (!row) throw new Error('Workflow owner was fenced');
     },
     saveDeferred(id: string, name: string, result: string, source?: { id: string; owner: string }) {
-      return context.transaction(() => {
-        if (executionRetired(id)) return false;
+      return context.transaction((context) => {
+        const db = context.db.orm;
 
-        if (source) this.assertOwner(source.id, source.owner);
+        if (executionRetired(id, db)) return false;
+
+        if (source) workflowStore(context).assertOwner(source.id, source.owner);
 
         return (
           Number(
@@ -335,8 +340,10 @@ export function workflowStore(context: ServerContext) {
         .run();
     },
     clock(id: string, name: string, deferredName: string, due: bigint, owner: string) {
-      return context.transaction(() => {
-        this.assertOwner(id, owner);
+      return context.transaction((context) => {
+        const db = context.db.orm;
+
+        workflowStore(context).assertOwner(id, owner);
         db.insert(workflow_clocks)
           .values({ execution_id: id, name, deferred_name: deferredName, due_at: due })
           .onConflictDoNothing()
@@ -355,7 +362,7 @@ export function workflowStore(context: ServerContext) {
 }
 
 /** Remove captured native state only for an execution with a durable retirement fence. */
-export function scrubRetiredExecution(db: Db, executionId: string) {
+export function scrubRetiredExecution(db: Db | DbTransaction, executionId: string) {
   if (
     !db.orm
       .select()
@@ -386,7 +393,7 @@ export function scrubRetiredExecution(db: Db, executionId: string) {
 }
 
 /** Preserve successful correction output activities while scrubbing retired private inputs. */
-export function scrubRetiredCorrectionExecution(db: Db, executionId: string) {
+export function scrubRetiredCorrectionExecution(db: Db | DbTransaction, executionId: string) {
   if (
     !db.orm
       .select()

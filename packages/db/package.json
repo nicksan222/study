@@ -9,20 +9,21 @@
     "./schema-builder": "./src/schema-builder.ts"
   },
   "scripts": {
-    "check:generated": "vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\"",
-    "check:schema": "drizzle-kit check",
-    "test": "vp test run --config ../../vite.config.ts --project server packages/db",
-    "gen": "drizzle-kit generate",
-    "gen:check": "vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\""
+    "check:generated": "bun --bun vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\"",
+    "check:schema": "bun --bun drizzle-kit check",
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/db",
+    "gen": "bun --bun drizzle-kit generate",
+    "gen:check": "bun --bun vp test run --config ../../vite.config.ts --project server packages/db/test/schema.test.ts -t \"Drizzle generation\""
   },
   "dependencies": {
+    "@effect/platform-bun": "4.0.7",
     "@study/contracts": "*",
     "@study/theme": "*",
-    "drizzle-orm": "1.0.0-rc.5"
+    "drizzle-orm": "1.0.0-rc.5",
+    "effect": "4.0.7"
   },
   "devDependencies": {
     "@study/testing": "*",
-    "drizzle-kit": "1.0.0-rc.5",
-    "effect": "4.0.7"
+    "drizzle-kit": "1.0.0-rc.5"
   }
 }

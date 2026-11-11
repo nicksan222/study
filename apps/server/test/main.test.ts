@@ -13,11 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { createInterface } from 'node:readline';
-import { fileURLToPath } from 'node:url';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
@@ -33,45 +28,55 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
     { timeout: 30_000 },
     async (t) => {
       const testDatabase = createServerTest(t, { app: false });
-      const env: NodeJS.ProcessEnv = {
+      const env: Record<string, string | undefined> = {
         ...process.env,
         STUDY_DATABASE: testDatabase.path
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = spawn(
-        process.execPath,
-        [fileURLToPath(new URL('../src/runtime/main.ts', import.meta.url))],
-        {
-          env,
-          stdio: ['pipe', 'pipe', 'pipe']
+      const child = Bun.spawn({
+        cmd: [
+          process.execPath,
+          Bun.fileURLToPath(new URL('../src/runtime/main.ts', import.meta.url))
+        ],
+        env,
+        stdin: 'pipe',
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+      const exit = child.exited;
+      const stderr = new Response(child.stderr).text();
+      const reader = child.stdout.getReader();
+      const stdout: string[] = [];
+      const decoder = new TextDecoder();
+      let partial = '';
+      const output = (async () => {
+        for (;;) {
+          const { value, done } = await reader.read();
+
+          partial += decoder.decode(value, { stream: !done });
+          const lines = partial.split('\n');
+
+          partial = lines.pop()!;
+          stdout.push(...lines);
+
+          if (done) return;
         }
-      );
-      const exit = once(child, 'exit');
+      })();
 
       testDatabase.dispose(async () => {
-        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        if (child.exitCode === null) child.kill('SIGKILL');
 
         await exit;
       });
-      let stderr = '';
-
-      child.stderr.on('data', (chunk) => {
-        stderr += String(chunk);
-      });
-      const lines = createInterface({ input: child.stdout });
-      const stdout: string[] = [];
-
-      lines.on('line', (line) => stdout.push(line));
 
       try {
-        const line = await Promise.race([
-          once(lines, 'line'),
-          exit.then(() => {
-            throw new Error(stderr);
-          })
-        ]);
-        const endpoint = JSON.parse(line[0] as string) as {
+        while (stdout.length === 0 && child.exitCode === null) await Bun.sleep(10);
+
+        assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
+
+        const line = stdout[0]!;
+        const endpoint = JSON.parse(line) as {
           url: string;
         };
 
@@ -88,7 +93,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
         );
 
         assert.ok(typeof project.id === 'bigint');
-        const database = createServerTest(t, { app: false }).openDb(env.STUDY_DATABASE!);
+        const database = await createServerTest(t, { app: false }).openDb(env.STUDY_DATABASE!);
 
         try {
           const saved = database.orm.get<{ id: bigint; name: string }>(
@@ -106,11 +111,10 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
 
         const result = await exit;
 
-        assert.strictEqual(result[0], 0, stderr);
+        await output;
+        assert.strictEqual(result, 0, await stderr);
         expect(stdout).toStrictEqual([JSON.stringify(endpoint)]);
       } finally {
-        lines.close();
-
         if (child.exitCode === null) child.kill('SIGKILL');
 
         await exit;

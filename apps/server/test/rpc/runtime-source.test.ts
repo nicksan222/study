@@ -30,7 +30,7 @@ testStable(
   'runtime consumes source requests made over HTTP and recovers pending requests on reopen',
   { timeout: 15000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let app = await App.open({ path: location.path });
     let server = await serve(app);
 
@@ -103,7 +103,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -112,7 +112,7 @@ testStable(
   'running worker processes a source created through HTTP',
   { timeout: 10000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -156,7 +156,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -165,7 +165,7 @@ testStable(
   'HTTP source upload retains exact original bytes and extraction history without authoring or projecting a Material',
   { timeout: 15000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -259,7 +259,7 @@ testStable(
           })
         )
       );
-      const check = location.open();
+      const check = await location.open();
 
       try {
         const snapshots = check.orm.all(
@@ -279,7 +279,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

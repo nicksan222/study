@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('database connection and schema factories stay with their owners', () => {
-  const diagnostics = lintRule(
+testStable('database connection and schema factories stay with their owners', async () => {
+  const diagnostics = await lintRule(
     'database-ownership',
     {
       'apps/server/src/core-migrate.ts': "import { migrateSync } from 'drizzle-orm/sqlite-core';\n",
@@ -88,8 +88,8 @@ testStable('database connection and schema factories stay with their owners', ()
   );
 });
 
-testStable('owner reexports cannot evade ownership by preceding imports', () => {
-  const diagnostics = lintRule(
+testStable('owner reexports cannot evade ownership by preceding imports', async () => {
+  const diagnostics = await lintRule(
     'database-ownership',
     {
       'packages/db/src/db.ts':
@@ -120,8 +120,8 @@ testStable('owner reexports cannot evade ownership by preceding imports', () => 
 
 testStable(
   'snapshot machinery uses Db primitives without acquiring a second raw driver in runtime or storage',
-  () => {
-    const diagnostics = lintRule('database-ownership', {
+  async () => {
+    const diagnostics = await lintRule('database-ownership', {
       'src/platform/database/backups.ts': "import { backup as snapshot } from 'node:sqlite';",
       'src/runtime/backups.ts': "import * as driver from 'node:sqlite';",
       'src/runtime/composition.ts': "import { Db } from '@study/db'; Db.openSnapshot(path);"
@@ -131,8 +131,8 @@ testStable(
   }
 );
 
-testStable('the metadata wrapper may construct tables without exposing raw factories', () => {
-  const diagnostics = lintRule(
+testStable('the metadata wrapper may construct tables without exposing raw factories', async () => {
+  const diagnostics = await lintRule(
     'database-ownership',
     {
       'packages/db/src/table.ts':

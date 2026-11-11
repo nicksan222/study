@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
@@ -32,8 +30,8 @@ import { Database } from '#server/platform/database/database';
 testStable(
   'authored images retain exact source bytes through replacement, unrelated draft cleanup and project deletion',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Pages.layer, Materials.layer, Sources.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -70,7 +68,7 @@ testStable(
             }
           };
           const image = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Image',
             projectId: project.id,
             document,
@@ -157,7 +155,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

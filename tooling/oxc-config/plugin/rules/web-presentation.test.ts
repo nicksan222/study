@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('web markup cannot bypass shared presentation with native styles', () => {
-  const diagnostics = lintRule(
+testStable('web markup cannot bypass shared presentation with native styles', async () => {
+  const diagnostics = await lintRule(
     'web-presentation',
     {
       'apps/web/src/example.tsx': `export const view = <div className="layout"><span style={{ fontSize: 20 }} /><nav {...{ ['className']: 'footer' }} /></div>;`,
@@ -17,8 +17,8 @@ testStable('web markup cannot bypass shared presentation with native styles', ()
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('only the web bootstrap imports approved global stylesheets', () => {
-  const diagnostics = lintRule(
+testStable('only the web bootstrap imports approved global stylesheets', async () => {
+  const diagnostics = await lintRule(
     'web-presentation',
     {
       'apps/web/src/main.tsx': `import './styles.css'; import '@study/ui/styles.css'; import './sidebar.css';`,
@@ -31,9 +31,9 @@ testStable('only the web bootstrap imports approved global stylesheets', () => {
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('web composition remains free to use semantic props and unstyled HTML', () => {
+testStable('web composition remains free to use semantic props and unstyled HTML', async () => {
   expect(
-    lintRule(
+    await lintRule(
       'web-presentation',
       {
         'apps/web/src/example.tsx': `import { Sidebar } from '@study/ui/sidebar'; export const view = <Sidebar.Footer trailing={<Sidebar.Utility variant="secondary" />}><form aria-label="Create" /></Sidebar.Footer>;`

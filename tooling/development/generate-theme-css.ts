@@ -1,15 +1,18 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
+import { BunFileSystem } from '@effect/platform-bun';
+import { BunPath } from '@effect/platform-bun';
 import { Db, eq } from '@study/db';
 import { themes } from '@study/db/schema';
 import { defaultThemeId, parseTheme, renderThemeCss } from '@study/theme';
+import { Effect, FileSystem, Path } from 'effect';
 
-const dir = mkdtempSync(join(tmpdir(), 'study-theme-css-'));
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const dir = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-theme-css-' }));
 
 try {
-  const db = Db.open(join(dir, 'study.db'));
+  const db = await Db.open(join(dir, 'study.db'));
 
   try {
     const row = db.orm.select().from(themes).where(eq(themes.id, defaultThemeId)).get();
@@ -18,7 +21,7 @@ try {
 
     const theme = parseTheme(JSON.stringify(row.definition));
     const path = new URL('../../packages/ui/src/theme.css', import.meta.url);
-    const current = readFileSync(path, 'utf8');
+    const current = await Bun.file(path).text();
     const marker = '/* Generated from the T3 Code database theme. */';
     const boundary = current.indexOf(marker);
 
@@ -30,10 +33,10 @@ try {
 
     if (check && current !== expected) throw new Error('Theme CSS is stale. Run bun gen.');
 
-    if (!check) writeFileSync(path, expected);
+    if (!check) await Bun.write(path, expected);
   } finally {
     db.close();
   }
 } finally {
-  rmSync(dir, { recursive: true, force: true });
+  await Effect.runPromise(fs.remove(dir, { recursive: true, force: true }));
 }

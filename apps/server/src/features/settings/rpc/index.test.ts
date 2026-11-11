@@ -35,8 +35,8 @@ import { Database } from '#server/platform/database/database';
 import { SettingsRpcLive } from './index.ts';
 
 testStable('settings RPC exposes typed settings and maps service failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = SettingsRpcLive.pipe(
     Layer.provide(Settings.layer),
     Layer.provide(admissionLayer(makeAdmission())),
@@ -138,15 +138,15 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'saving concurrency immediately resizes the shared gate after commit and preserves active work',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const owner = makeAdmission({ concurrency: 2, maxWaiting: 2 });
     const handlers = SettingsRpcLive.pipe(
       Layer.provide(Settings.layer),
@@ -237,7 +237,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

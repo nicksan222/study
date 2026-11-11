@@ -1,22 +1,24 @@
-import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem } from '@effect/platform-bun';
+import { BunPath } from '@effect/platform-bun';
 import { Db, sql } from '@study/db';
 import { projects, source_blobs, sources, page_versions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
 import { testStable } from '@study/testing/vitest';
+import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { seedDatabase } from './seed.ts';
 
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
 testStable(
   'replaces all old content with readable, linked pages and repeatable study data',
   async () => {
-    const location = createTestDatabase();
-    let db = location.open();
+    const location = await createTestDatabase();
+    let db = await location.open();
 
     db.orm
       .insert(projects)
@@ -26,7 +28,7 @@ testStable(
 
     try {
       await seedDatabase(location.path);
-      db = location.open();
+      db = await location.open();
       expect(db.orm.select().from(projects).all()).toHaveLength(5);
       expect(db.orm.all(sql`SELECT * FROM projects WHERE name = 'Old private subject'`)).toEqual(
         []
@@ -77,7 +79,7 @@ testStable(
 
       db.close();
       await seedDatabase(location.path);
-      db = location.open();
+      db = await location.open();
       expect(
         db.orm
           .select()
@@ -88,58 +90,63 @@ testStable(
       expect(db.orm.get(sql`SELECT count(*) n FROM projects`)?.n).toBe(5n);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('refuses an owned database without modifying it', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   db.close();
 
-  const before = readFileSync(location.path);
+  const before = new Uint8Array(await Bun.file(location.path).arrayBuffer());
   const owner = await acquireDatabaseOwnership(location.path);
 
   try {
     await expect(seedDatabase(location.path)).rejects.toMatchObject({ kind: 'transient' });
-    expect(readFileSync(location.path)).toEqual(before);
-    expect(readdirSync(location.dir)).toEqual([location.path.split('/').at(-1)]);
+    expect(new Uint8Array(await Bun.file(location.path).arrayBuffer())).toEqual(before);
+    expect(await Effect.runPromise(fs.readDirectory(location.dir))).toEqual([
+      location.path.split('/').at(-1)
+    ]);
   } finally {
     await owner.release();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('creates a missing parent directory and leaves no staging database', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
   const path = join(location.dir, 'nested', 'study.sqlite');
 
   try {
     await seedDatabase(path);
-    expect(existsSync(path)).toBe(true);
-    expect(readdirSync(join(location.dir, 'nested'))).toEqual(['study.sqlite']);
-    expect(Db.validateSnapshot(path)).toBeTruthy();
+    expect(await Bun.file(path).exists()).toBe(true);
+    expect(await Effect.runPromise(fs.readDirectory(join(location.dir, 'nested')))).toEqual([
+      'study.sqlite'
+    ]);
+    expect(await Db.validateSnapshot(path)).toBeTruthy();
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
-testStable('bun seed honors STUDY_DATABASE and help leaves its target untouched', () => {
-  const location = createTestDatabase();
+testStable('bun seed honors STUDY_DATABASE and help leaves its target untouched', async () => {
+  const location = await createTestDatabase();
   const env = { ...process.env, STUDY_DATABASE: location.path };
 
   try {
-    const help = execFileSync('bun', ['seed', '--help'], { env, encoding: 'utf8' });
+    const help = Bun.spawnSync(['bun', 'seed', '--help'], { env });
 
-    expect(help).toContain('STUDY_DATABASE');
-    expect(existsSync(location.path)).toBe(false);
-    expect(() => execFileSync('bun', ['seed', '--unknown'], { env, stdio: 'pipe' })).toThrow();
-    expect(existsSync(location.path)).toBe(false);
-    execFileSync('bun', ['seed'], { env, encoding: 'utf8' });
+    expect(help.exitCode).toBe(0);
+    expect(help.stdout.toString()).toContain('STUDY_DATABASE');
+    expect(await Bun.file(location.path).exists()).toBe(false);
+    expect(Bun.spawnSync(['bun', 'seed', '--unknown'], { env }).exitCode).not.toBe(0);
+    expect(await Bun.file(location.path).exists()).toBe(false);
+    expect(Bun.spawnSync(['bun', 'seed'], { env }).exitCode).toBe(0);
 
-    const db = location.open();
+    const db = await location.open();
 
     try {
       expect(db.orm.select().from(projects).all()).toHaveLength(5);
@@ -147,13 +154,13 @@ testStable('bun seed honors STUDY_DATABASE and help leaves its target untouched'
       db.close();
     }
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('reset does not migrate the database being discarded', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   db.exec('DROP TABLE __drizzle_migrations; CREATE TABLE __drizzle_migrations (legacy TEXT)');
   db.close();
@@ -161,7 +168,7 @@ testStable('reset does not migrate the database being discarded', async () => {
   try {
     await seedDatabase(location.path);
 
-    const seeded = location.open();
+    const seeded = await location.open();
 
     try {
       expect(seeded.orm.select().from(projects).all()).toHaveLength(5);
@@ -169,13 +176,13 @@ testStable('reset does not migrate the database being discarded', async () => {
       seeded.close();
     }
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('busy SQLite writers prevent replacement and retain the original content', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   db.orm
     .insert(projects)
@@ -195,7 +202,7 @@ testStable('busy SQLite writers prevent replacement and retain the original cont
   }
 
   try {
-    const retained = location.open();
+    const retained = await location.open();
 
     try {
       expect(
@@ -209,27 +216,28 @@ testStable('busy SQLite writers prevent replacement and retain the original cont
       retained.close();
     }
 
-    expect(readdirSync(location.dir)).toEqual([location.path.split('/').at(-1)]);
+    expect(await Effect.runPromise(fs.readDirectory(location.dir))).toEqual([
+      location.path.split('/').at(-1)
+    ]);
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'a missing target cannot replay orphaned WAL pages over the seeded database',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
     try {
-      const crashed = spawnSync(
-        process.execPath,
+      const crashed = Bun.spawnSync(
         [
-          '--input-type=module',
+          process.execPath,
           '-e',
           `
       import { Db } from '@study/db';
       import { projects } from '@study/db/schema';
-      const db = Db.open(process.argv[1]);
+      const db = await Db.open(process.argv[1]);
       db.orm.insert(projects).values({
         name: 'Old WAL subject', created_at: 1n, updated_at: 1n
       }).run();
@@ -237,15 +245,15 @@ testStable(
     `,
           location.path
         ],
-        { cwd: fileURLToPath(new URL('..', import.meta.url)) }
+        { cwd: Bun.fileURLToPath(new URL('..', import.meta.url)) }
       );
 
-      expect(crashed.signal).toBe('SIGKILL');
-      expect(statSync(location.path + '-wal').size).toBeGreaterThan(0);
-      rmSync(location.path);
+      expect(crashed.signalCode).toBe('SIGKILL');
+      expect(Bun.file(location.path + '-wal').size).toBeGreaterThan(0);
+      await Effect.runPromise(fs.remove(location.path));
       await seedDatabase(location.path);
 
-      const db = location.open();
+      const db = await location.open();
 
       try {
         expect(db.orm.select().from(projects).all()).toHaveLength(5);
@@ -257,7 +265,7 @@ testStable(
         db.close();
       }
     } finally {
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -4,7 +4,7 @@ import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-type TestDb = ReturnType<ReturnType<typeof createTestDatabase>['open']>;
+type TestDb = Awaited<ReturnType<Awaited<ReturnType<typeof createTestDatabase>>['open']>>;
 
 function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio') {
   const mime = {
@@ -29,16 +29,16 @@ function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio'
  INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'flowchart LR; A-->B','Answer' FROM material_versions WHERE id=1;`);
 }
 
-function fixture(run: (db: TestDb) => void) {
-  const location = createTestDatabase();
-  const db = location.open();
+async function fixture(run: (db: TestDb) => void) {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   try {
     run(db);
     expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 }
 
@@ -50,8 +50,8 @@ function pin(db: TestDb, revision = 1, snapshotId = 1) {
 
 testStable(
   'learning consumes an immutable exact source extraction rather than a source-backed Material',
-  () =>
-    fixture((db) => {
+  async () =>
+    await fixture((db) => {
       source(db);
 
       for (const [revision, snapshot] of [
@@ -78,8 +78,8 @@ testStable(
 
 testStable(
   'publishing a learning draft after source replacement keeps its captured old extraction',
-  () =>
-    fixture((db) => {
+  async () =>
+    await fixture((db) => {
       source(db);
       pin(db);
       db.exec(`INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(1,2,X'020304','text','text/plain');
@@ -98,33 +98,35 @@ testStable(
     })
 );
 
-testStable('exact source ownership rejects another source paired with the original snapshot', () =>
-  fixture((db) => {
-    source(db);
-    db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(2,'attachment','text','text/plain','Other',1,zeroblob(32),1);
+testStable(
+  'exact source ownership rejects another source paired with the original snapshot',
+  async () =>
+    await fixture((db) => {
+      source(db);
+      db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(2,'attachment','text','text/plain','Other',1,zeroblob(32),1);
  INSERT INTO source_snapshots(source_id,revision,bytes,kind,mime) VALUES(2,1,X'02','text','text/plain');`);
-    assert.throws(() =>
-      db.exec(
-        'INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,2,1,1)'
-      )
-    );
-    assert.throws(() =>
-      db.exec(
-        'INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(2,1,1)'
-      )
-    );
-    pin(db);
-    assert.throws(() =>
-      db.exec('UPDATE material_evidence_inputs SET source_id=2 WHERE version_id=1')
-    );
-  })
+      assert.throws(() =>
+        db.exec(
+          'INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,2,1,1)'
+        )
+      );
+      assert.throws(() =>
+        db.exec(
+          'INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(2,1,1)'
+        )
+      );
+      pin(db);
+      assert.throws(() =>
+        db.exec('UPDATE material_evidence_inputs SET source_id=2 WHERE version_id=1')
+      );
+    })
 );
 
 for (const kind of ['audio', 'video', 'image', 'link'] as const)
   testStable(
     `retained ${kind} source revisions seal exact format, URI and bytes independently of replacement`,
-    () =>
-      fixture((db) => {
+    async () =>
+      await fixture((db) => {
         source(db, kind);
         const original = db.orm.get(
           sql`SELECT * FROM source_snapshots WHERE source_id=1 AND revision=1`

@@ -1,14 +1,14 @@
-import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { integrationPlanSchema } from '@study/contracts/integrations/schemas';
 import { testStable } from '@study/testing/vitest';
-import { Schema } from 'effect';
+import { Effect, FileSystem, Path, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { Db, sql } from '../src/index.ts';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const migration = '20261108023348_notes-pages';
 
@@ -88,19 +88,19 @@ function assertDurableReplay(db: Db) {
 
 testStable(
   'Notes and Pages upgrade preserves authored content, exact evidence and durable replay',
-  () => {
-    const folder = mkdtempSync(join(tmpdir(), 'study-notes-pages-'));
+  async () => {
+    const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-notes-pages-' }));
     const previous = join(folder, 'previous');
     const path = join(folder, 'study.sqlite');
-    const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
+    const migrations = Bun.fileURLToPath(new URL('../drizzle', import.meta.url));
     let db: Db | undefined;
 
     try {
-      for (const name of readdirSync(migrations))
+      for (const name of await Effect.runPromise(fs.readDirectory(migrations)))
         if (name < migration)
-          cpSync(join(migrations, name), join(previous, name), { recursive: true });
+          await Effect.runPromise(fs.copy(join(migrations, name), join(previous, name)));
 
-      db = Db.open(path, previous);
+      db = await Db.open(path, previous);
       db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Biology',1,1);
       INSERT INTO sessions(id,title,title_source,created_at,updated_at) VALUES(1,'Lecture','user',1,1),(99,'Deleted','user',1,1);
       DELETE FROM sessions WHERE id=99;
@@ -151,7 +151,7 @@ testStable(
       );
 
       db.close();
-      db = Db.open(path);
+      db = await Db.open(path);
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       expect(db.orm.all(sql`SELECT * FROM blocks ORDER BY document_id`)).toStrictEqual(blocks);
       expect(
@@ -197,7 +197,7 @@ testStable(
       expect(row(db, 'SELECT max(id) AS id FROM pages')?.id).toBe(100n);
     } finally {
       db?.close();
-      rmSync(folder, { recursive: true, force: true });
+      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
     }
   }
 );

@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
@@ -36,22 +34,24 @@ testStable(
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const peer = createServer(async (_request, response) => {
-      await gate;
-      response.writeHead(200, { 'content-type': 'text/plain' }).end('Captured alpha evidence');
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      async fetch() {
+        await gate;
+
+        return new Response('Captured alpha evidence', {
+          headers: { 'content-type': 'text/plain' }
+        });
+      }
     });
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
     fixture.dispose(async () => {
       release();
-      peer.closeAllConnections();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
+      await peer.stop(true);
     });
-    const address = peer.address();
-
-    assert.ok(!(!address || typeof address === 'string'), 'missing source peer address');
-
-    const evidenceUrl = `http://127.0.0.1:${address.port}/evidence.txt`;
+    assert.ok(peer.port, 'missing source peer address');
+    const evidenceUrl = new URL('/evidence.txt', peer.url).href;
     const server = fixture.manage(await serve(fixture.app));
 
     function* verifyAttachmentReadinessWake() {

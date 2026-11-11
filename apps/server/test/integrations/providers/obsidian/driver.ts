@@ -10,29 +10,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { spawn } from 'node:child_process';
-import { once } from 'node:events';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { createServer } from 'node:net';
-import { join } from 'node:path';
-import { setTimeout } from 'node:timers/promises';
-
+import { fs, path, run } from '#integration-tests/filesystem';
 import { requireIntegrationContainer } from '#integration-tests/guard';
 
 async function unusedPort() {
-  const server = createServer();
+  const server = Bun.listen({
+    hostname: '127.0.0.1',
+    port: 0,
+    socket: { data() {} }
+  });
+  const port = server.port;
 
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  const address = server.address();
+  server.stop();
 
-  if (!address || typeof address === 'string') throw new Error('No DevTools port');
-
-  await new Promise<void>((resolve, reject) =>
-    server.close((error) => (error ? reject(error) : resolve()))
-  );
-
-  return address.port;
+  return port;
 }
 
 async function renderer(port: number) {
@@ -50,7 +41,12 @@ async function renderer(port: number) {
 
   const socket = new WebSocket(page.webSocketDebuggerUrl);
 
-  await once(socket, 'open');
+  await new Promise<void>((resolve, reject) => {
+    socket.addEventListener('open', () => resolve(), { once: true });
+    socket.addEventListener('error', () => reject(new Error('DevTools connection failed')), {
+      once: true
+    });
+  });
   let sequence = 0;
   const pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
 
@@ -88,56 +84,61 @@ async function renderer(port: number) {
 export { requireIntegrationContainer as requireObsidianContainer } from '#integration-tests/guard';
 
 export async function startObsidian(directory: string) {
-  const executable = requireIntegrationContainer('obsidian');
+  const executable = await requireIntegrationContainer('obsidian');
 
-  const profile = join(directory, 'profile');
-  const vault = join(directory, 'vault');
+  const profile = path.join(directory, 'profile');
+  const vault = path.join(directory, 'vault');
 
-  await mkdir(join(vault, '.obsidian'), { recursive: true });
-  await mkdir(profile, { recursive: true });
-  await writeFile(
-    join(profile, 'obsidian.json'),
+  await run(fs.makeDirectory(path.join(vault, '.obsidian'), { recursive: true }));
+  await run(fs.makeDirectory(profile, { recursive: true }));
+  await Bun.write(
+    path.join(profile, 'obsidian.json'),
     JSON.stringify({ vaults: { studyE2E: { path: vault, ts: Date.now(), open: true } } })
   );
-  await writeFile(join(vault, '.obsidian/app.json'), '{}');
+  await Bun.write(path.join(vault, '.obsidian/app.json'), '{}');
   const port = await unusedPort();
-  const app = spawn(
-    executable,
-    [
+  const app = Bun.spawn({
+    cmd: [
+      executable,
       `--user-data-dir=${profile}`,
       `--remote-debugging-port=${port}`,
       '--remote-debugging-address=127.0.0.1',
       '--no-sandbox'
     ],
-    { stdio: ['ignore', 'pipe', 'pipe'] }
-  );
+    stdin: 'ignore',
+    stdout: 'pipe',
+    stderr: 'pipe'
+  });
   let logs = '';
-  let launchError: Error | undefined;
+  const collect = async (stream: ReadableStream<Uint8Array>) => {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
 
-  app.on('error', (error) => {
-    launchError = error;
-  });
+    for (;;) {
+      const { value, done } = await reader.read();
 
-  app.stdout.on('data', (chunk) => {
-    logs += chunk;
-  });
-  app.stderr.on('data', (chunk) => {
-    logs += chunk;
-  });
+      if (done) {
+        logs += decoder.decode();
+
+        return;
+      }
+
+      logs += decoder.decode(value, { stream: true });
+    }
+  };
+  const output = Promise.all([collect(app.stdout), collect(app.stderr)]);
   const stop = async () => {
-    if (!app.pid || app.exitCode !== null || app.signalCode !== null) return;
+    if (app.exitCode === null) app.kill('SIGTERM');
 
-    app.kill('SIGTERM');
-    await once(app, 'exit');
-    await writeFile(join(directory, 'obsidian.log'), logs);
+    await app.exited;
+    await output;
+    await Bun.write(path.join(directory, 'obsidian.log'), logs);
   };
 
   try {
     const connection = await waitForRenderer(
       port,
       () => {
-        if (launchError) throw launchError;
-
         return app.exitCode !== null;
       },
       () => logs
@@ -162,17 +163,20 @@ export async function startObsidian(directory: string) {
 }
 
 export async function readVault(vault: string) {
-  const { readdir } = await import('node:fs/promises');
-  const files = await readdir(vault, { recursive: true, withFileTypes: true });
+  const entries = await run(fs.readDirectory(vault, { recursive: true }));
+  const files = await Promise.all(
+    entries.map(async (entry) => ({
+      entry,
+      info: await run(fs.lstat(path.join(vault, entry)))
+    }))
+  );
 
   return Promise.all(
     files
-      .filter((entry) => entry.isFile())
-      .map(async (entry) => ({
-        path: join(entry.parentPath, entry.name)
-          .slice(vault.length + 1)
-          .replaceAll('\\', '/'),
-        content: (await readFile(join(entry.parentPath, entry.name))).toString('base64')
+      .filter(({ info }) => info.type === 'File')
+      .map(async ({ entry }) => ({
+        path: entry.replaceAll('\\', '/'),
+        content: new Uint8Array(await Bun.file(path.join(vault, entry)).arrayBuffer()).toBase64()
       }))
   );
 }
@@ -185,7 +189,7 @@ async function waitForRenderer(port: number, exited: () => boolean, logs: () => 
 
     if (connection) return connection;
 
-    await setTimeout(200);
+    await Bun.sleep(200);
   }
 
   throw new Error(`Obsidian DevTools did not start: ${logs()}`);
@@ -203,7 +207,7 @@ async function waitForVault(evaluate: (expression: string) => Promise<unknown>) 
     await evaluate(
       `Array.from(document.querySelectorAll('button')).find(button => /trust author|trust.*vault|enter vault/i.test(button.textContent))?.click()`
     );
-    await setTimeout(200);
+    await Bun.sleep(200);
   }
 
   throw new Error(`Obsidian vault did not open: ${await evaluate('document.body.innerText')}`);

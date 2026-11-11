@@ -9,6 +9,7 @@
     "./development/rpc-proxy": "./development/rpc-proxy.ts"
   },
   "devDependencies": {
+    "@effect/platform-bun": "4.0.7",
     "@study/contracts": "*",
     "@study/db": "*",
     "@study/localization": "*",

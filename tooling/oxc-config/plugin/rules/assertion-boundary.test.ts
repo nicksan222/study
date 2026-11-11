@@ -3,8 +3,8 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports assertion module edges and production runner imports', () => {
-  const diagnostics = lintRule('assertion-boundary', {
+testStable('reports assertion module edges and production runner imports', async () => {
+  const diagnostics = await lintRule('assertion-boundary', {
     'src/a.ts': `import a from 'node:assert'; export * from 'assert/strict'; const b = require('node:assert/strict'); import('assert'); import { expect } from 'vite-plus/test';`,
     'src/a.test.ts': `import { expect } from 'vite-plus/test'; const fixture = "import a from 'assert'"; function f(require: (x: string) => unknown) { require('assert'); }`
   });
@@ -14,8 +14,8 @@ testStable('reports assertion module edges and production runner imports', () =>
 
 testStable(
   'blocks runner wrappers in production while permitting the canonical adapter and test helpers',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'assertion-boundary',
       {
         'apps/server/src/production.ts': "import { testStable } from '@study/testing/vitest';",

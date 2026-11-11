@@ -25,8 +25,10 @@ import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
 
-const openContext = (location: ReturnType<typeof createTestDatabase>): ServerContext => {
-  const db = location.open();
+const openContext = async (
+  location: Awaited<ReturnType<typeof createTestDatabase>>
+): Promise<ServerContext> => {
+  const db = await location.open();
 
   return new ServerContext(db);
 };
@@ -74,33 +76,33 @@ testStable('automatic trigger cycles are rejected', () => {
   );
 });
 
-testStable('dispatch commits bounded executions and receipts and survives reopening', () => {
-  const location = createTestDatabase();
-  let context = openContext(location);
+testStable('dispatch commits bounded executions and receipts and survives reopening', async () => {
+  const location = await createTestDatabase();
+  let context = await openContext(location);
 
   try {
-    context.transaction(() => {
+    context.transaction((context) => {
       for (let i = 0; i < 3; i++) emitEvent(context, event(String(i)), i);
     });
     assert.strictEqual(dispatchPending(context, [trigger], 10, 2), 2);
     context.close();
-    context = openContext(location);
+    context = await openContext(location);
     assert.strictEqual(dispatchPending(context, [trigger], 11, 2), 1);
     assert.strictEqual(dispatchPending(context, [trigger], 12, 2), 0);
     assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 3);
     assert.strictEqual(context.db.orm.select().from(workflow_executions).all().length, 3);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
-testStable('a disabled subscription does not starve an enabled subscription', () => {
-  const location = createTestDatabase();
-  const context = openContext(location);
+testStable('a disabled subscription does not starve an enabled subscription', async () => {
+  const location = await createTestDatabase();
+  const context = await openContext(location);
 
   try {
-    context.transaction(() => emitEvent(context, event('one'), 1));
+    context.transaction((context) => emitEvent(context, event('one'), 1));
     assert.strictEqual(
       dispatchPending(
         context,
@@ -112,16 +114,16 @@ testStable('a disabled subscription does not starve an enabled subscription', ()
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
-testStable('a scheduling failure rolls back execution and receipt together', () => {
-  const location = createTestDatabase();
-  const context = openContext(location);
+testStable('a scheduling failure rolls back execution and receipt together', async () => {
+  const location = await createTestDatabase();
+  const context = await openContext(location);
 
   try {
-    context.transaction(() => {
+    context.transaction((context) => {
       emitEvent(context, event('one'), 1);
       emitEvent(context, event('two'), 2);
     });
@@ -138,17 +140,17 @@ testStable('a scheduling failure rolls back execution and receipt together', () 
     assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
-testStable('re-enabling a policy delivers its retained events', () => {
-  const location = createTestDatabase();
-  const context = openContext(location);
+testStable('re-enabling a policy delivers its retained events', async () => {
+  const location = await createTestDatabase();
+  const context = await openContext(location);
   let enabled = false;
 
   try {
-    context.transaction(() => emitEvent(context, event('one'), 1));
+    context.transaction((context) => emitEvent(context, event('one'), 1));
     const policy = { ...trigger, enabled: () => enabled };
 
     assert.strictEqual(dispatchPending(context, [policy], 2), 0);
@@ -157,22 +159,22 @@ testStable('re-enabling a policy delivers its retained events', () => {
     assert.strictEqual(dispatchPending(context, [policy], 4), 0);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'committed outbox executions recover through the native engine after reopening',
   async () => {
-    const location = createTestDatabase();
-    let context = openContext(location);
+    const location = await createTestDatabase();
+    let context = await openContext(location);
     let calls = 0;
 
     try {
-      context.transaction(() => emitEvent(context, event('recover'), 1));
+      context.transaction((context) => emitEvent(context, event('recover'), 1));
       assert.strictEqual(dispatchPending(context, [trigger], 2), 1);
       context.close();
-      context = openContext(location);
+      context = await openContext(location);
 
       function* resumeCommittedExecution() {
         const engine = yield* WorkflowEngine.WorkflowEngine;
@@ -206,29 +208,32 @@ testStable(
       assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 1);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
-testStable('subscription validation rejects duplicates and excessive automatic fanout', () => {
-  const location = createTestDatabase();
-  const context = openContext(location);
+testStable(
+  'subscription validation rejects duplicates and excessive automatic fanout',
+  async () => {
+    const location = await createTestDatabase();
+    const context = await openContext(location);
 
-  try {
-    assert.throws(() => dispatchPending(context, [trigger, trigger], 1), /duplicate/);
-    assert.throws(
-      () =>
-        validateTriggerGraph([
-          { event: 'SourceIndexed', emits: Array(17).fill('MaterialPublished') }
-        ]),
-      /fanout/
-    );
-  } finally {
-    context.close();
-    location.cleanup();
+    try {
+      assert.throws(() => dispatchPending(context, [trigger, trigger], 1), /duplicate/);
+      assert.throws(
+        () =>
+          validateTriggerGraph([
+            { event: 'SourceIndexed', emits: Array(17).fill('MaterialPublished') }
+          ]),
+        /fanout/
+      );
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
 testStable('material publication events identify a published material version', () => {
   const value = {
@@ -264,18 +269,18 @@ testStable('registered workflows accept canonical failure values', async () => {
   );
 });
 
-testStable('disabled subscriptions leave events unscheduled', () => {
-  const location = createTestDatabase();
-  const context = openContext(location);
+testStable('disabled subscriptions leave events unscheduled', async () => {
+  const location = await createTestDatabase();
+  const context = await openContext(location);
 
   try {
-    context.transaction(() => emitEvent(context, event('disabled'), 1));
+    context.transaction((context) => emitEvent(context, event('disabled'), 1));
     assert.strictEqual(dispatchPending(context, [{ ...trigger, enabled: () => false }], 2), 0);
     assert.strictEqual(context.db.orm.select().from(workflow_executions).all().length, 0);
     assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 

@@ -212,13 +212,13 @@ export const ProjectsStore = defineStore({
               .update(projects)
               .set({ name: input.name, updated_at: unixSeconds(clock) })
               .where(eq(projects.id, input.id))
-              .run().changes !== 0n
+              .run().changes !== 0
         }),
         deleteProject: storeMutation({
           input: deleteInput,
           output: Schema.Boolean,
           run: (input) =>
-            db.orm.delete(projects).where(eq(projects.id, input.id)).run().changes !== 0n
+            db.orm.delete(projects).where(eq(projects.id, input.id)).run().changes !== 0
         }),
         setIcon: storeMutation({
           input: setProjectIconInputSchema,
@@ -248,7 +248,7 @@ export const ProjectsStore = defineStore({
               .update(projects)
               .set({ exam_on: input.examOn, updated_at: unixSeconds(clock) })
               .where(eq(projects.id, input.id))
-              .run().changes !== 0n
+              .run().changes !== 0
         })
       }
     };

@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import type { NoteId } from '@study/contracts/ids';
@@ -60,7 +58,7 @@ import { requestMerge, mergeContext } from './merge.ts';
 import { requestTransform, publishTransform, retryTransform } from './transforms.ts';
 
 function pagePublished(tx: Transaction, versionId: PageVersionId) {
-  const eventId = randomUUID();
+  const eventId = crypto.randomUUID();
 
   tx.emit({
     type: 'PagePublished',
@@ -94,7 +92,7 @@ function proposalCommitted(tx: Transaction, result: typeof e.proposalOutcomeSche
 
 function annotationChanged(tx: Transaction, result: typeof evidence.annotationOutcomeSchema.Type) {
   if (result.outcome === 'saved') {
-    const eventId = randomUUID();
+    const eventId = crypto.randomUUID();
 
     tx.emit({
       type: 'PageAnnotationChanged',

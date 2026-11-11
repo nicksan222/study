@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { pageVersionIdSchema } from '@study/contracts/ids';
 import type { citationSchema } from '@study/contracts/pages/schemas';
 import type { transformPublicationSchema } from '@study/contracts/pages/transform';
@@ -66,7 +64,7 @@ function publish(f: Fixture, value: Publication) {
 function create(title: string, blocks = [paragraph('alpha evidence')]) {
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
-      createKey: randomUUID(),
+      createKey: crypto.randomUUID(),
       title,
       document: { blocks, meta },
       inputs: [],
@@ -218,7 +216,7 @@ testStable(
         expect(state(f)).toStrictEqual(after);
       }
 
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(publish(f, saved.publication));
       expect(state(f)).toStrictEqual(after);
       await Effect.runPromise(
@@ -264,7 +262,7 @@ testStable(
           };
           const write = (value: typeof citationSchema.Type) =>
             docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Cited output',
               document: { blocks: [paragraph('echo [1]')], meta },
               inputs: [input],
@@ -408,7 +406,7 @@ for (const table of ['page_proposals', 'page_transform_requests'] as const)
         );
         await Effect.runPromise(publish(f, saved.publication));
         expect(state(f)).toStrictEqual(after);
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(publish(f, saved.publication));
         expect(state(f)).toStrictEqual(after);
         expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);

@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -58,7 +56,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
             });
             const create = (title: string) =>
               docs.create({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title,
                 document:
                   kind === 'image'
@@ -104,7 +102,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
           }).pipe(Effect.provide(f.domain()))
         );
 
-        f.reopen();
+        await f.reopen();
 
         for (const mutation of [
           sql`DELETE FROM source_snapshots WHERE source_id=${saved.source.id}`,
@@ -148,7 +146,7 @@ for (const kind of ['file', 'image', 'recording'] as const)
             ).toStrictEqual(saved.original.bytes);
           }).pipe(Effect.provide(f.domain()))
         );
-        f.reopen();
+        await f.reopen();
         assert.strictEqual(
           f.context.db.orm
             .select()

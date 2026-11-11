@@ -8,14 +8,14 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 - One devcontainer installs every tool. Add system dependencies to `.devcontainer/Dockerfile`,
   never inside recipes: GTK3, WebKitGTK 4.1, libsoup3, dbus, ALSA, compiler/linker and the
   optional sway/noVNC desktop. Keep it installed, but never auto-start it or its viewer.
-  Node is pinned for Vite/Tauri; Bun runs the root development script and landing.
-- Root frontend dependencies use `npm ci` and the committed `package-lock.json`. Landing
+  Bun is pinned for Vite/Tauri, the server, tests, development scripts and landing.
+- Root frontend dependencies use `bun install --frozen-lockfile` and the committed `bun.lock`. Landing
   uses Bun and its own lock. Vite+ supplies the local `vp` CLI, Oxfmt, Oxlint, Vite and
   frontend Vitest; keep its Vite alias and Vitest override aligned with the installed bundle.
   Root `vite.config.ts` owns format/lint policy for server, frontend, tests and tooling.
-  Server tests run in Node and type checking stays with `tsc`.
+  Run Vite+ and its Vitest workers with `bun --bun vp`; type checking stays with `tsc`.
   No browser/network install occurs during tests.
-- Keep `.github/actions/setup`'s apt dependencies and Node/just pins aligned with Dockerfile.
+- Keep `.github/actions/setup`'s apt dependencies and Bun/just pins aligned with Dockerfile.
   Rust comes from `rust-toolchain.toml`. Preserve `--locked` and `target/devcontainer`.
 - `just check` includes Rust formatting, Clippy, dependencies, tests/doctests/docs, repository-wide Vite+ format/lint, frontend
   type/tests/build, generated database drift, tooling tests, server checks, and the

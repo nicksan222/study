@@ -11,26 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { fork } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { once } from 'node:events';
-import {
-  linkSync,
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync
-} from 'node:fs';
-import { createServer } from 'node:net';
-import { basename, join, relative } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts/errors';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
+import { Effect, FileSystem, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
@@ -38,20 +24,31 @@ import { App } from '#server/runtime/index';
 import { acceptance, backupFixture, createPage } from '#testing/managed-backups';
 import { inTestPhase } from '#testing/progress';
 
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const paths = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
+
 async function childOwner(path: string) {
-  const child = fork(
-    fileURLToPath(new URL('../testing/database-owner-child.ts', import.meta.url)),
-    [path],
-    {
-      execArgv: [],
-      stdio: ['ignore', 'ignore', 'inherit', 'ipc']
+  let received!: (message: unknown) => void;
+  const messagePromise = new Promise<unknown>((resolve) => {
+    received = resolve;
+  });
+  const child = Bun.spawn({
+    cmd: [
+      process.execPath,
+      Bun.fileURLToPath(new URL('../testing/database-owner-child.ts', import.meta.url)),
+      path
+    ],
+    stdin: 'ignore',
+    stdout: 'ignore',
+    stderr: 'inherit',
+    ipc(message) {
+      received(message);
     }
-  );
-
-  const exited = once(child, 'exit');
-
-  const [message] = await Promise.race([
-    once(child, 'message'),
+  });
+  const exited = child.exited;
+  const message = await Promise.race([
+    messagePromise,
     exited.then((): never => {
       throw new Error('Owner child exited before reporting acquisition');
     })
@@ -68,19 +65,19 @@ testStable(
     try {
       const root = f.location.path + '.backups';
 
-      mkdirSync(root);
+      await Effect.runPromise(fs.makeDirectory(root));
 
-      const scratch = join(root, 'scratch.sqlite');
+      const scratch = paths.join(root, 'scratch.sqlite');
 
-      const journal = join(root, 'restore.json');
+      const journal = paths.join(root, 'restore.json');
 
-      writeFileSync(scratch, 'active snapshot');
-      writeFileSync(journal, 'active journal');
+      await Bun.write(scratch, 'active snapshot');
+      await Bun.write(journal, 'active journal');
       await expect(App.open({ path: f.location.path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
-      assert.ok(readFileSync(scratch, 'utf8') === 'active snapshot');
-      assert.ok(readFileSync(journal, 'utf8') === 'active journal');
+      assert.ok((await Bun.file(scratch).text()) === 'active snapshot');
+      assert.ok((await Bun.file(journal).text()) === 'active journal');
     } finally {
       await f.close();
     }
@@ -93,18 +90,18 @@ testStable(
     const f = await backupFixture();
 
     try {
-      const alias = join(f.location.dir, 'alias.sqlite');
+      const alias = paths.join(f.location.dir, 'alias.sqlite');
 
-      symlinkSync(f.location.path, alias);
+      await Effect.runPromise(fs.symlink(f.location.path, alias));
 
-      for (const path of [alias, relative(process.cwd(), f.location.path)])
+      for (const path of [alias, paths.relative(process.cwd(), f.location.path)])
         await expect(acquireDatabaseOwnership(path)).rejects.toSatisfy(
           (error: unknown) => error instanceof StudyError && error.kind === 'transient'
         );
 
-      const hard = join(f.location.dir, 'hard.sqlite');
+      const hard = paths.join(f.location.dir, 'hard.sqlite');
 
-      linkSync(f.location.path, hard);
+      await Effect.runPromise(fs.link(f.location.path, hard));
       await expect(acquireDatabaseOwnership(hard)).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'unsupported'
       );
@@ -115,7 +112,7 @@ testStable(
 );
 
 testStable('distinct paths and in-memory instances have independent path leases', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   const leases: Awaited<ReturnType<typeof acquireDatabaseOwnership>>[] = [];
 
@@ -126,22 +123,22 @@ testStable('distinct paths and in-memory instances have independent path leases'
     assert.strictEqual(leases.length, 4);
   } finally {
     await Promise.all(leases.map((lease) => lease.release()));
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'failed activation releases ownership so the same canonical target can retry',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
     try {
       const root = location.path + '.backups';
 
-      mkdirSync(root);
-      writeFileSync(join(root, 'restore.json'), '{');
+      await Effect.runPromise(fs.makeDirectory(root));
+      await Bun.write(paths.join(root, 'restore.json'), '{');
       await expect(App.open({ path: location.path })).rejects.toSatisfy(() => true);
-      rmSync(join(root, 'restore.json'));
+      await Effect.runPromise(fs.remove(paths.join(root, 'restore.json')));
 
       const app = await App.open({ path: location.path });
 
@@ -151,7 +148,7 @@ testStable(
 
       await reopened.close();
     } finally {
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -161,7 +158,7 @@ for (const termination of ['close', 'SIGKILL'] as const)
     `supported private/development App overlap rejects and ${termination} releases ownership`,
     { timeout: 15000 },
     async () => {
-      const location = createTestDatabase();
+      const location = await createTestDatabase();
 
       const owner = await childOwner(location.path);
 
@@ -188,7 +185,7 @@ for (const termination of ['close', 'SIGKILL'] as const)
       } finally {
         owner.child.kill('SIGKILL');
         await owner.exited;
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );
@@ -196,27 +193,29 @@ for (const termination of ['close', 'SIGKILL'] as const)
 testStable(
   'occupied deterministic endpoint fails closed without acquiring an alternate lease',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
-    const canonical = join(realpathSync(location.dir), basename(location.path));
+    const canonical = paths.join(
+      await Effect.runPromise(fs.realPath(location.dir)),
+      paths.basename(location.path)
+    );
 
     const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
 
-    const port = 1024 + (createHash('sha256').update(identity).digest().readUInt32BE(0) % 64512);
+    const hash = new Bun.CryptoHasher('sha256').update(identity).digest();
 
-    const listener = createServer();
+    const port =
+      1024 + (new DataView(hash.buffer, hash.byteOffset, hash.byteLength).getUint32(0) % 64512);
+
+    const listener = Bun.listen({ hostname: '127.0.0.1', port, socket: { data() {} } });
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        listener.once('error', reject);
-        listener.listen({ host: '127.0.0.1', port, exclusive: true }, resolve);
-      });
       await expect(App.open({ path: location.path })).rejects.toSatisfy(
         (error: unknown) => error instanceof StudyError && error.kind === 'transient'
       );
     } finally {
-      await new Promise<void>((resolve) => listener.close(() => resolve()));
-      location.cleanup();
+      listener.stop();
+      await location.cleanup();
     }
   }
 );
@@ -263,18 +262,18 @@ testStable(
 testStable(
   'failed ordinary database acquisition releases its lease and auth owner for retry',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
     try {
-      writeFileSync(location.path, 'not a SQLite database');
+      await Bun.write(location.path, 'not a SQLite database');
       await expect(App.open({ path: location.path })).rejects.toSatisfy(() => true);
-      rmSync(location.path);
+      await Effect.runPromise(fs.remove(location.path));
 
       const app = await App.open({ path: location.path });
 
       await app.close();
     } finally {
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -325,14 +324,14 @@ testStable(
 
       const scratch = f.location.path + '.backups/scratch.sqlite';
 
-      const bytes = readFileSync(scratch);
+      const bytes = new Uint8Array(await Bun.file(scratch).arrayBuffer());
 
       const contender = await inTestPhase(t, 'contender-start', () => childOwner(f.location.path));
 
       try {
         expect(contender.message).toStrictEqual({ state: 'rejected', kind: 'transient' });
         await inTestPhase(t, 'contender-exit', () => contender.exited);
-        expect(readFileSync(scratch)).toStrictEqual(bytes);
+        expect(new Uint8Array(await Bun.file(scratch).arrayBuffer())).toStrictEqual(bytes);
       } finally {
         contender.child.kill('SIGKILL');
       }

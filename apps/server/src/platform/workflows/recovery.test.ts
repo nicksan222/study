@@ -26,14 +26,14 @@ import { workflowStore } from '#server/platform/workflows/store';
 
 testStable(
   'recovery scans bound eligible known executions and due clocks without starvation',
-  () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+  async () => {
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const store = workflowStore(context);
     const now = BigInt(Date.now());
 
     try {
-      context.transaction(() => {
+      context.transaction((context) => {
         for (let i = 0; i < 1002; i++) {
           for (const [prefix, tag, owner, updated] of [
             ['unknown', 'retired', null, 0n],
@@ -108,7 +108,7 @@ testStable(
       assert.strictEqual(store.dueClocks(['known']).length, 2);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -120,8 +120,8 @@ testStable(
     const { Workflow, WorkflowEngine } = await import('effect/workflow');
     const { recoverWorkflowEngine, workflowEngineLayer } =
       await import('#server/platform/workflows/engine');
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const workflow = Workflow.make('batch-recovery', {
       payload: { id: Schema.String },
       idempotencyKey: ({ id }) => id
@@ -129,11 +129,13 @@ testStable(
     const store = workflowStore(context);
 
     try {
-      context.transaction(() => {
+      context.transaction((context) => {
+        const scopedStore = workflowStore(context);
+
         for (let i = 0; i < 1001; i++) {
           const id = String(i);
 
-          store.start(id, workflow._tag, JSON.stringify({ id }), undefined);
+          scopedStore.start(id, workflow._tag, JSON.stringify({ id }), undefined);
         }
       });
       await Effect.runPromise(
@@ -151,20 +153,20 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable(
   'expired leases and interruption markers remain recoverable; only live due clocks are delivered',
-  () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+  async () => {
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const store = workflowStore(context);
 
     try {
-      context.transaction(() => {
+      context.transaction((context) => {
         for (const [id, status, owner, result, due] of [
           ['safe', 'running', 'expired', '"__interrupt_safe__"', 0n],
           ['unsafe', 'running', null, '"__interrupt_unsafe__"', 0n],
@@ -212,7 +214,7 @@ testStable(
       expect(store.dueClocks([])).toStrictEqual([]);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -224,8 +226,8 @@ testStable(
     const { Workflow, WorkflowEngine } = await import('effect/workflow');
     const { recoverWorkflowEngine, workflowEngineLayer } =
       await import('#server/platform/workflows/engine');
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const workflow = Workflow.make('clock-recovery', {
       payload: { id: Schema.String },
       idempotencyKey: ({ id }) => id
@@ -233,7 +235,7 @@ testStable(
     const store = workflowStore(context);
 
     try {
-      context.transaction(() => {
+      context.transaction((context) => {
         for (let i = 0; i < 1002; i++) {
           const id = String(i);
 
@@ -278,7 +280,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

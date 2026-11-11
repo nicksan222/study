@@ -10,10 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID, randomBytes } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
-import { matchingTermIdSchema, matchingDefinitionIdSchema } from '@study/contracts/ids';
+import { identifyMatchingPair } from '@study/contracts/ids';
 import { quizOrderingItemIdSchema } from '@study/contracts/ids';
 import type { MaterialVersionId } from '@study/contracts/ids';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
@@ -61,14 +59,7 @@ export function makeContent({ db: store }: StoreResources) {
           kind: q.kind,
           prompt: q.prompt,
           explanation: q.explanation,
-          matching_pairs:
-            q.kind === 'matching'
-              ? q.pairs.map((pair) => ({
-                  ...pair,
-                  termId: Schema.decodeUnknownSync(matchingTermIdSchema)(randomUUID()),
-                  definitionId: Schema.decodeUnknownSync(matchingDefinitionIdSchema)(randomUUID())
-                }))
-              : null
+          matching_pairs: q.kind === 'matching' ? q.pairs.map(identifyMatchingPair) : null
         })
         .returning()
         .get();
@@ -78,7 +69,7 @@ export function makeContent({ db: store }: StoreResources) {
           .values(
             q.items.map((item, position) => ({
               id: Schema.decodeUnknownSync(quizOrderingItemIdSchema)(
-                randomBytes(8).readBigUInt64BE() & 0x7fffffffffffffffn || 1n
+                crypto.getRandomValues(new BigUint64Array(1))[0]! & 0x7fffffffffffffffn || 1n
               ),
               question_id: row.id,
               position: BigInt(position),

@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { ContentInput } from '@study/contracts/inputs';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -66,7 +64,7 @@ for (const kind of ['document', 'source'] as const)
               ? await Effect.runPromise(
                   Effect.flatMap(Pages, (docs) =>
                     docs.create({
-                      createKey: randomUUID(),
+                      createKey: crypto.randomUUID(),
                       title: 'Evidence',
                       document: deletionDocument('Historical exact evidence'),
                       inputs: [],
@@ -373,7 +371,7 @@ for (const kind of ['document', 'source'] as const)
               })
             ).pipe(Effect.provide(f.services()))
           );
-          f.reopen();
+          await f.reopen();
           await Effect.runPromise(
             Effect.gen(function* () {
               const chats = yield* Notes;

@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { ErrorKind } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
@@ -59,7 +57,7 @@ import { materialHistoryOperations } from './history.ts';
 function published(tx: Transaction, version: MaterialVersionDetailDto) {
   if (version.status !== 'published') return;
 
-  const eventId = randomUUID();
+  const eventId = crypto.randomUUID();
 
   tx.emit({
     type: 'MaterialPublished',
@@ -206,7 +204,7 @@ function* makeMaterials() {
       }),
     requestMaterialGeneration: (value: typeof input.requestMaterialGenerationInputSchema.Type) =>
       transaction((tx) => {
-        const requestId = randomUUID();
+        const requestId = crypto.randomUUID();
 
         assertContentInputs(tx, value.inputs, value.projectId, true);
 

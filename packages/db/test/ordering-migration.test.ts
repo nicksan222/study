@@ -1,29 +1,32 @@
-import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
+import { Effect, FileSystem, Path } from 'effect';
 import { assert } from 'vite-plus/test';
 
 import { Db, sql } from '../src/index.ts';
 
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
 testStable(
   'ordering migration preserves populated quiz attempts and all existing trigger guards',
-  () => {
-    const folder = mkdtempSync(join(tmpdir(), 'study-ordering-migration-'));
-    const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
+  async () => {
+    const folder = await Effect.runPromise(
+      fs.makeTempDirectory({ prefix: 'study-ordering-migration-' })
+    );
+    const migrations = Bun.fileURLToPath(new URL('../drizzle', import.meta.url));
     const previous = join(folder, 'migrations');
     const path = join(folder, 'study.sqlite');
     const current = join(folder, 'current-migrations');
     let connection: Db | undefined;
 
     try {
-      for (const name of readdirSync(migrations))
+      for (const name of await Effect.runPromise(fs.readDirectory(migrations)))
         if (name < '20261107155014_ordering-practice')
-          cpSync(join(migrations, name), join(previous, name), { recursive: true });
+          await Effect.runPromise(fs.copy(join(migrations, name), join(previous, name)));
 
-      connection = Db.open(path, previous);
+      connection = await Db.open(path, previous);
       const db = connection.orm;
       const statements = [
         "INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'quiz','Recall',1,1)",
@@ -61,11 +64,11 @@ testStable(
       connection.close();
       connection = undefined;
 
-      for (const name of readdirSync(migrations))
+      for (const name of await Effect.runPromise(fs.readDirectory(migrations)))
         if (name <= '20261107155014_ordering-practice')
-          cpSync(join(migrations, name), join(current, name), { recursive: true });
+          await Effect.runPromise(fs.copy(join(migrations, name), join(current, name)));
 
-      connection = Db.open(path, current);
+      connection = await Db.open(path, current);
       assert.deepEqual(
         tables.map((table) => connection!.orm.all(sql.raw(`SELECT * FROM ${table}`))),
         before
@@ -91,7 +94,7 @@ testStable(
       );
     } finally {
       connection?.close();
-      rmSync(folder, { recursive: true, force: true });
+      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
     }
   }
 );

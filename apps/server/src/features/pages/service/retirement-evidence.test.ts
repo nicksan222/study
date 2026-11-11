@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { PageVersion } from '@study/contracts/pages/types';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -28,7 +26,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 function create(title: string, text: string) {
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
-      createKey: randomUUID(),
+      createKey: crypto.randomUUID(),
       title,
       document: deletionDocument(text),
       inputs: [],
@@ -179,7 +177,7 @@ testStable(
         );
 
       await visible();
-      f.reopen();
+      await f.reopen();
       await visible();
       assert.strictEqual(
         f.context.db.orm.select().from(s.page_annotation_revisions).all().length,
@@ -213,7 +211,7 @@ for (const mode of ['delete', 'prune'] as const)
 
             for (const note of ['Removed judgment', 'Retained judgment']) {
               const claim = yield* docs.create({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title: 'Claim',
                 document: deletionDocument('Claim text [1]'),
                 inputs: [input],
@@ -277,10 +275,10 @@ for (const mode of ['delete', 'prune'] as const)
           f.context.db.orm.select().from(s.page_citation_assessments).all().length,
           2
         );
-        f.reopen();
+        await f.reopen();
         f.context.db.exec('DROP TRIGGER reject_retirement');
         await Effect.runPromise(retire());
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
@@ -331,7 +329,7 @@ for (const mode of ['delete', 'prune'] as const)
               quote: 'Evidence'
             };
             const claim = yield* docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Claim',
               document: deletionDocument('Claim [1]'),
               inputs: [input],
@@ -417,7 +415,7 @@ for (const mode of ['delete', 'prune'] as const)
           }).pipe(Effect.provide(f.domain()))
         );
 
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
@@ -429,7 +427,7 @@ for (const mode of ['delete', 'prune'] as const)
             assert.ok(
               (yield* Effect.flip(
                 docs.create({
-                  createKey: randomUUID(),
+                  createKey: crypto.randomUUID(),
                   title: 'No resurrection',
                   document: deletionDocument('Claim'),
                   inputs: [saved.input],

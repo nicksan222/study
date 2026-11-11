@@ -5,13 +5,13 @@ import type { TestContext } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-function fixture(t: TestContext) {
-  const location = createTestDatabase();
-  const db = location.open();
+async function fixture(t: TestContext) {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
-  t.onTestFinished(() => {
+  t.onTestFinished(async () => {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   });
   db.exec(`INSERT INTO content_snapshots(id,extractor_version,meta,created_at)
     VALUES (1,0,'{}',1),(2,0,'{}',1),(3,0,'{}',1);
@@ -29,8 +29,8 @@ function fixture(t: TestContext) {
 
 testStable(
   'authored documents have independent identity and survive all note links being removed',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     db.exec(`INSERT INTO notes(id,title,title_source,created_at,updated_at)
     VALUES (1,'One','user',1,1),(2,'Two','user',1,1);
@@ -43,8 +43,8 @@ testStable(
   }
 );
 
-testStable('authored ancestry and edit receipts cannot refer to another document', (t) => {
-  const db = fixture(t);
+testStable('authored ancestry and edit receipts cannot refer to another document', async (t) => {
+  const db = await fixture(t);
 
   db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id IN (1,3);
     INSERT INTO page_version_parents(version_id,parent_version_id,page_id)
@@ -67,8 +67,8 @@ testStable('authored ancestry and edit receipts cannot refer to another document
 
 testStable(
   'publication seals authored versions, ancestry and canonical blocks at SQLite level',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id=1;
     INSERT INTO page_version_parents(version_id,parent_version_id,page_id)
@@ -88,8 +88,8 @@ testStable(
   }
 );
 
-testStable('publication cannot use empty, source-owned or already-owned snapshots', (t) => {
-  const db = fixture(t);
+testStable('publication cannot use empty, source-owned or already-owned snapshots', async (t) => {
+  const db = await fixture(t);
 
   db.exec(`INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES (4,0,'{}',1);
     INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at)
@@ -113,8 +113,8 @@ testStable('publication cannot use empty, source-owned or already-owned snapshot
 
 testStable(
   'superseded generic document kinds and payload storage cannot claim authored snapshots',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     assert.throws(() =>
       db.exec(
@@ -129,18 +129,21 @@ testStable(
   }
 );
 
-testStable('authored publication rejects an exact input draft or retired dependent body', (t) => {
-  const db = fixture(t);
+testStable(
+  'authored publication rejects an exact input draft or retired dependent body',
+  async (t) => {
+    const db = await fixture(t);
 
-  db.exec(`INSERT INTO page_inputs(version_id,position,page_version_id) VALUES(1,0,3);`);
-  assert.throws(() =>
-    db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id=1`)
-  );
-  db.exec(
-    `UPDATE page_versions SET status='published',published_at=2 WHERE id=3; UPDATE page_versions SET status='published',published_at=2 WHERE id=1;`
-  );
-  assert.throws(() =>
-    db.exec(`INSERT INTO page_retirements(version_id,reason,created_at) VALUES(3,'history',3)`)
-  );
-  expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-});
+    db.exec(`INSERT INTO page_inputs(version_id,position,page_version_id) VALUES(1,0,3);`);
+    assert.throws(() =>
+      db.exec(`UPDATE page_versions SET status='published',published_at=2 WHERE id=1`)
+    );
+    db.exec(
+      `UPDATE page_versions SET status='published',published_at=2 WHERE id=3; UPDATE page_versions SET status='published',published_at=2 WHERE id=1;`
+    );
+    assert.throws(() =>
+      db.exec(`INSERT INTO page_retirements(version_id,reason,created_at) VALUES(3,'history',3)`)
+    );
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+  }
+);

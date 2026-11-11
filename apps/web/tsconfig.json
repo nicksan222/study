@@ -4,7 +4,6 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "../../packages/ui/src/**/*.ts",
-    "../../packages/ui/src/**/*.tsx",
-    "vite.config.ts"
+    "../../packages/ui/src/**/*.tsx"
   ]
 }

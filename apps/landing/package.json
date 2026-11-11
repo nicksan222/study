@@ -7,10 +7,10 @@
     "#landing/*": "./src/*"
   },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "check": "astro check",
-    "preview": "astro preview"
+    "dev": "bun --bun astro dev",
+    "build": "bun --bun astro build",
+    "check": "bun --bun astro check",
+    "preview": "bun --bun astro preview"
   },
   "dependencies": {
     "@astrojs/markdown-remark": "^7.3.0",
@@ -22,7 +22,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
     "@emnapi/runtime": "1.11.3",
-    "@types/node": "^26.6.4",
+    "@types/bun": "1.3.13",
     "typescript": "^6"
   },
   "peerDependencies": {

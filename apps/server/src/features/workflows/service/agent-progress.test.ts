@@ -28,8 +28,8 @@ import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { workflowStore } from '#server/platform/workflows/store';
 
 testStable('coalesces commit bursts before rereading the latest preview', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const executionId = executionIdSchema.make('burst');
   const owner = { executionId, ownerToken: 'owner', activityName: 'generate', attempt: 0 };
   const store = workflowStore(context);
@@ -90,6 +90,6 @@ testStable('coalesces commit bursts before rereading the latest preview', async 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

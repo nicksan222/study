@@ -1,20 +1,22 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { Effect, FileSystem, Path } from 'effect';
 import { assert } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 
-testStable('learning tables enforce typed content and ownership', (t) => {
-  const folder = mkdtempSync(join(tmpdir(), 'study-learning-'));
-  const db = Db.open(join(folder, 'study.db'));
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
-  t.onTestFinished(() => {
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+testStable('learning tables enforce typed content and ownership', async (t) => {
+  const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-learning-' }));
+  const db = await Db.open(join(folder, 'study.db'));
+
+  t.onTestFinished(async () => {
     db.close();
-    rmSync(folder, { recursive: true, force: true });
+    await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
   });
   const run = (query: ReturnType<typeof sql>) => db.orm.run(query);
 

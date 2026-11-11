@@ -48,8 +48,8 @@ function publicationTypeAssertions() {
 void publicationTypeAssertions;
 
 testStable('missing activity ownership is rejected', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     const error = await Effect.runPromise(Effect.flip(withPublicationGuard(context, guarded)));
@@ -57,15 +57,15 @@ testStable('missing activity ownership is rejected', async () => {
     assert.ok(error instanceof StudyError);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'publication is fenced within the transaction by the captured activity lease',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const store = workflowStore(context);
 
     context.db.orm.run(sql`CREATE TABLE publication_probe (value INTEGER)`);
@@ -77,8 +77,8 @@ testStable(
 
     function* verifyPublicationFencing() {
       const guard = yield* PublicationGuard;
-      const secondLocation = createTestDatabase();
-      const second = new ServerContext(secondLocation.open());
+      const secondLocation = yield* Effect.promise(() => createTestDatabase());
+      const second = new ServerContext(yield* Effect.promise(() => secondLocation.open()));
       const probe = defineStore({
         name: 'test/PublicationProbe',
         entity: { singular: 'probe', plural: 'probes' },
@@ -116,7 +116,7 @@ testStable(
       try {
         assert.throws(
           () =>
-            context.transaction(() => {
+            context.transaction((context) => {
               context.db.orm.run(sql`INSERT INTO publication_probe VALUES (99)`);
               const rejected = Effect.runSync(
                 mismatched.pipe(
@@ -155,16 +155,16 @@ testStable(
         );
       } finally {
         second.close();
-        secondLocation.cleanup();
+        yield* Effect.promise(() => secondLocation.cleanup());
       }
 
       assert.throws(() => guard.assert(context), StudyError);
-      context.transaction(() => {
+      context.transaction((context) => {
         guard.assert(context);
         context.db.orm.run(sql`INSERT INTO publication_probe VALUES (1)`);
       });
       store.interrupt('publication', 'safe');
-      assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
+      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
       context.db.orm
         .update(workflow_executions)
         .set({ result: null })
@@ -175,7 +175,7 @@ testStable(
         .set({ status: 'suspended' })
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
-      assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
+      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
       context.db.orm
         .update(workflow_executions)
         .set({ status: 'running' })
@@ -186,12 +186,12 @@ testStable(
         .set({ updated_at: 0n })
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
-      assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
+      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
       assert.ok(store.claim('publication', 'replacement') === true);
-      assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
+      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
       assert.throws(
         () =>
-          context.transaction(() => {
+          context.transaction((context) => {
             context.db.orm.run(sql`INSERT INTO publication_probe VALUES (2)`);
             guard.assert(context);
           }),
@@ -202,7 +202,7 @@ testStable(
         .delete(workflow_executions)
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
-      assert.throws(() => context.transaction(() => guard.assert(context)), StudyError);
+      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
       assertionsCompleted = true;
     }
 
@@ -240,7 +240,7 @@ testStable(
       if (rejected?.type === 'Counter') assert.strictEqual(rejected.state.count, 8);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

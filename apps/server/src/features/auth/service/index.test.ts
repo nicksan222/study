@@ -29,8 +29,8 @@ import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 
 testStable('auth uses private SQLite account and guards refresh rotation', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
     Layer.provideMerge(
@@ -77,13 +77,13 @@ testStable('auth uses private SQLite account and guards refresh rotation', async
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('persisted account is public-safe and refresh rotation is atomic', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const account = {
     subject: 'person',
     clientId: 'client',
@@ -133,13 +133,13 @@ testStable('persisted account is public-safe and refresh rotation is atomic', as
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('concurrent finish rejects and cancelling closes the real listener', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
     Layer.provideMerge(
@@ -177,13 +177,13 @@ testStable('concurrent finish rejects and cancelling closes the real listener', 
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('failed sign-out persistence restores the account and session', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const account = { subject: 'person', clientId: 'client', refreshToken: 'secret', sharing: true };
 
   context.db.orm
@@ -221,13 +221,13 @@ testStable('failed sign-out persistence restores the account and session', async
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('closing the service scope closes an unfinished listener', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
     Layer.provideMerge(
@@ -254,13 +254,13 @@ testStable('closing the service scope closes an unfinished listener', async () =
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('cancelling during listener acquisition releases the acquired listener', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
     Layer.provideMerge(
@@ -310,13 +310,13 @@ testStable('cancelling during listener acquisition releases the acquired listene
     SignIn.start = original;
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('API keys stay private and persist independently', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
   const layer = Auth.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context })),
@@ -353,6 +353,6 @@ testStable('API keys stay private and persist independently', async () => {
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

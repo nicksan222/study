@@ -31,8 +31,8 @@ import { Database } from '#server/platform/database/database';
 testStable(
   'note work RPC scopes active executions, paginates, and preserves canonical cancellation state',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -161,7 +161,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

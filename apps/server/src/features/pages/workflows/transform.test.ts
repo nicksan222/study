@@ -203,7 +203,7 @@ testStable(
       assert.ok(prompt.includes('italian'));
       assert.ok(prompt.includes('OUTSIDE alpha selected OUTSIDE'));
       assert.ok(!prompt.includes('NEW MESSAGE SECRET'));
-      fixture.reopen();
+      await fixture.reopen();
       expect(await execute(setup.event, 'document-replay')).toStrictEqual(result);
       assert.strictEqual(bodies.length, calls);
       await Effect.runPromise(

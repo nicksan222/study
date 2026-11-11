@@ -3,7 +3,7 @@ import { expect } from 'vite-plus/test';
 
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
-function lint(files: Record<string, string>) {
+async function lint(files: Record<string, string>) {
   const sources = Object.fromEntries(
     Object.entries(files).map(([path, source]) => [
       path,
@@ -12,47 +12,53 @@ ${source}`
     ])
   );
 
-  return lintRulePaths('workflow-persistence-boundary', sources);
+  return await lintRulePaths('workflow-persistence-boundary', sources);
 }
 
-testStable('only progress persistence and retirement cleanup may write generation previews', () => {
-  expect(
-    lint({
-      'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress); db.update(workflow_agent_progress);`,
-      'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.delete(workflow_agent_progress);`,
-      'apps/server/src/features/notes/store/index.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress);`,
-      'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.update(workflow_agent_progress);`
-    })
-  ).toStrictEqual([
-    'apps/server/src/features/notes/store/index.ts',
-    'apps/server/src/platform/ai/agents.ts'
-  ]);
-});
+testStable(
+  'only progress persistence and retirement cleanup may write generation previews',
+  async () => {
+    expect(
+      await lint({
+        'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress); db.update(workflow_agent_progress);`,
+        'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.delete(workflow_agent_progress);`,
+        'apps/server/src/features/notes/store/index.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.insert(workflow_agent_progress);`,
+        'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db/schema'; db.update(workflow_agent_progress);`
+      })
+    ).toStrictEqual([
+      'apps/server/src/features/notes/store/index.ts',
+      'apps/server/src/platform/ai/agents.ts'
+    ]);
+  }
+);
 
-testStable('restricts workflow table mutations to their exact owners while allowing reads', () => {
-  expect(
-    lint({
-      'apps/server/src/features/workflows/store.ts': `import { workflow_executions as executions, workflowEvents } from '@study/db/schema'; db.select().from(executions); db.update(executions).set({}); db.insert(workflowEvents).values({});`,
-      'apps/server/src/platform/workflows/store.ts': `import { workflow_executions, workflow_activities } from '@study/db'; db.insert(workflow_executions); db.delete(workflow_activities);`,
-      'apps/server/src/platform/workflows/control.ts': `import { workflow_executions } from '@study/db'; db.delete(workflow_executions);`,
-      'apps/server/src/platform/workflows/triggers.ts': `import { workflow_executions, workflowReceipts } from '@study/db/schema'; db.insert(workflow_executions); db.insert(workflowReceipts);`,
-      'apps/server/src/platform/workflows/events.ts': `import { workflowEvents } from '@study/db/schema'; db.insert(workflowEvents);`,
-      'apps/server/src/platform/workflows/retry.ts': `import { workflow_configuration_waits } from '@study/db/schema'; db.insert(workflow_configuration_waits);`,
-      'apps/server/src/platform/workflows/configuration.ts': `import { workflow_configuration_waits } from '@study/db/schema'; db.delete(workflow_configuration_waits);`,
-      'apps/server/src/feature.test.ts': `import { workflow_executions } from '@study/db/schema'; db.delete(workflow_executions);`
-    })
-  ).toStrictEqual([
-    'apps/server/src/features/workflows/store.ts',
-    'apps/server/src/features/workflows/store.ts',
-    'apps/server/src/platform/workflows/control.ts'
-  ]);
-});
+testStable(
+  'restricts workflow table mutations to their exact owners while allowing reads',
+  async () => {
+    expect(
+      await lint({
+        'apps/server/src/features/workflows/store.ts': `import { workflow_executions as executions, workflowEvents } from '@study/db/schema'; db.select().from(executions); db.update(executions).set({}); db.insert(workflowEvents).values({});`,
+        'apps/server/src/platform/workflows/store.ts': `import { workflow_executions, workflow_activities } from '@study/db'; db.insert(workflow_executions); db.delete(workflow_activities);`,
+        'apps/server/src/platform/workflows/control.ts': `import { workflow_executions } from '@study/db'; db.delete(workflow_executions);`,
+        'apps/server/src/platform/workflows/triggers.ts': `import { workflow_executions, workflowReceipts } from '@study/db/schema'; db.insert(workflow_executions); db.insert(workflowReceipts);`,
+        'apps/server/src/platform/workflows/events.ts': `import { workflowEvents } from '@study/db/schema'; db.insert(workflowEvents);`,
+        'apps/server/src/platform/workflows/retry.ts': `import { workflow_configuration_waits } from '@study/db/schema'; db.insert(workflow_configuration_waits);`,
+        'apps/server/src/platform/workflows/configuration.ts': `import { workflow_configuration_waits } from '@study/db/schema'; db.delete(workflow_configuration_waits);`,
+        'apps/server/src/feature.test.ts': `import { workflow_executions } from '@study/db/schema'; db.delete(workflow_executions);`
+      })
+    ).toStrictEqual([
+      'apps/server/src/features/workflows/store.ts',
+      'apps/server/src/features/workflows/store.ts',
+      'apps/server/src/platform/workflows/control.ts'
+    ]);
+  }
+);
 
 testStable(
   'resolves imported tables through aliases, destructuring, wrappers and lexical scopes',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/jobs/store.ts': `
       import * as schema from '@study/db/schema';
       import { workflow_clocks as clocks } from '@study/db';
@@ -67,9 +73,9 @@ testStable(
   }
 );
 
-testStable('recognizes raw SQL writes without treating reads or values as mutations', () => {
+testStable('recognizes raw SQL writes without treating reads or values as mutations', async () => {
   expect(
-    lint({
+    await lint({
       'apps/server/src/features/jobs/store.ts': `
       import { sql as query } from 'drizzle-orm';
       import * as schema from '@study/db/schema';
@@ -89,9 +95,9 @@ testStable('recognizes raw SQL writes without treating reads or values as mutati
   ).toStrictEqual(Array(6).fill('apps/server/src/features/jobs/store.ts'));
 });
 
-testStable('each protected table is restricted to its mapped owners', () => {
+testStable('each protected table is restricted to its mapped owners', async () => {
   expect(
-    lint({
+    await lint({
       'apps/server/src/platform/workflows/engine.ts': `import { workflow_activities, workflow_deferreds, workflow_clocks, workflow_configuration_waits, workflowReceipts } from '@study/db/schema'; db.insert(workflow_activities); db.update(workflow_deferreds); db.delete(workflow_clocks); db.insert(workflow_configuration_waits); db.insert(workflowReceipts);`,
       'apps/server/src/platform/workflows/store.ts': `import { workflow_deferreds, workflow_clocks } from '@study/db/schema'; db.insert(workflow_deferreds); db.update(workflow_clocks);`,
       'apps/server/src/platform/workflows/events.ts': `import { workflow_executions } from '@study/db/schema'; db.insert(workflow_executions);`
@@ -102,9 +108,9 @@ testStable('each protected table is restricted to its mapped owners', () => {
   ]);
 });
 
-testStable('unrelated APIs and SQL identifiers are not workflow writers', () => {
+testStable('unrelated APIs and SQL identifiers are not workflow writers', async () => {
   expect(
-    lint({
+    await lint({
       'apps/server/src/features/example/store.ts': `
       import { workflow_executions } from '@study/db';
       logger.update(workflow_executions);
@@ -122,8 +128,8 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
     `WITH ${identifier} AS (SELECT 1) DELETE FROM workflow_events WHERE id = 1`,
     `SELECT ${identifier} FROM ordinary; DELETE FROM workflow_events WHERE id = 1`
   ]) {
-    testStable(`detects protected SQL writes after ${statement}`, () => {
-      const diagnostics = lintRule('workflow-persistence-boundary', {
+    testStable(`detects protected SQL writes after ${statement}`, async () => {
+      const diagnostics = await lintRule('workflow-persistence-boundary', {
         'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute(${JSON.stringify(statement)});`
       });
 
@@ -136,9 +142,9 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
 
 testStable(
   'retirement may write its fences but checkpoint and event mutations retain existing canonical owners',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/platform/workflows/retirement.ts': `
       import * as s from '@study/db/schema';
       db.insert(s.workflow_retired_correlations); db.insert(s.workflow_retired_executions);
@@ -166,9 +172,9 @@ testStable(
 
 testStable(
   'Material cleanup cannot acquire native execution, checkpoint, event or fence writer authority',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/deletion.ts': `
       import * as s from '@study/db/schema';
       import { sql } from '@study/db';
@@ -190,9 +196,9 @@ testStable(
 
 testStable(
   'history participants cannot mutate native payloads, checkpoints, deferreds or fences',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/generation-cleanup.ts': `
       import * as schema from '@study/db/schema';
       const { workflow_activities: checkpoints, workflow_retired_executions: retired } = schema;
@@ -222,9 +228,9 @@ testStable(
 
 testStable(
   'snapshot sanitizers cannot clear native payloads or receipts outside the canonical workflow owners',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/system/store/backup.ts': `
       import * as s from '@study/db/schema'; import { sql } from '@study/db';
       db.select().from(s.workflow_executions);

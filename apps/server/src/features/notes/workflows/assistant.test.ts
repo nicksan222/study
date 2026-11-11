@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import type { MessageId, NoteId, VersionId } from '@study/contracts/ids';
 import { NoteMode } from '@study/contracts/notes/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
@@ -72,70 +70,71 @@ function scriptedCall(
 testStable(
   'Assistant uses durable capability-guided replies, retains history across reopen and stays out of notebooks',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const bodies: string[] = [];
     const agents: string[] = [];
     let failTool = false;
     let scopedEdit: { messageId: MessageId; versionId: VersionId } | undefined;
-    const peer = createServer(async (request, response) => {
-      let body = '';
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (request) => {
+        let events = '';
+        const body = await request.text();
 
-      for await (const chunk of request) body += chunk;
+        bodies.push(body);
 
-      bodies.push(body);
-      response.writeHead(200, { 'content-type': 'text/event-stream' });
+        const requestBody = JSON.parse(body);
+        const toolStep = (requestBody.input ?? []).filter(
+          (item: { type: string }) => item.type === 'function_call_output'
+        ).length;
 
-      const requestBody = JSON.parse(body);
-      const toolStep = (requestBody.input ?? []).filter(
-        (item: { type: string }) => item.type === 'function_call_output'
-      ).length;
+        const callStep = scriptedCall(requestBody.tools ?? [], toolStep, failTool, scopedEdit);
 
-      const callStep = scriptedCall(requestBody.tools ?? [], toolStep, failTool, scopedEdit);
+        if (callStep) {
+          const call = {
+            type: 'function_call',
+            id: `item${toolStep}`,
+            call_id: `call${toolStep}`,
+            ...callStep
+          };
 
-      if (callStep) {
-        const call = {
-          type: 'function_call',
-          id: `item${toolStep}`,
-          call_id: `call${toolStep}`,
-          ...callStep
-        };
+          for (const event of [
+            { type: 'response.output_item.added', output_index: 0, item: call },
+            {
+              type: 'response.output_item.done',
+              output_index: 0,
+              item: { ...call, status: 'completed' }
+            },
+            { type: 'response.completed', response: {} }
+          ])
+            events += `data: ${JSON.stringify(event)}\n\n`;
+
+          return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
+        }
 
         for (const event of [
-          { type: 'response.output_item.added', output_index: 0, item: call },
           {
-            type: 'response.output_item.done',
+            type: 'response.output_item.added',
             output_index: 0,
-            item: { ...call, status: 'completed' }
+            item: { type: 'message', id: 'm' }
+          },
+          {
+            type: 'response.output_text.delta',
+            item_id: 'm',
+            delta: 'Hello **learner**. Index array[0], then consider [1].'
           },
           { type: 'response.completed', response: {} }
         ])
-          response.write(`data: ${JSON.stringify(event)}\n\n`);
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-        response.end();
-
-        return;
+        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       }
-
-      for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-        {
-          type: 'response.output_text.delta',
-          item_id: 'm',
-          delta: 'Hello **learner**. Index array[0], then consider [1].'
-        },
-        { type: 'response.completed', response: {} }
-      ])
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      response.end();
     });
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-    const address = peer.address();
-
-    assert.ok(address && typeof address !== 'string');
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(peer.port, 'missing address');
+    const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     await auth.replace(
@@ -333,7 +332,7 @@ testStable(
       await execute('unused', 'assistant-retrospective', compactedReply.messageId);
       expect(agents.filter((id) => id === 'assistant-compaction')).toHaveLength(compactedRuns);
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Notes;
@@ -399,7 +398,7 @@ testStable(
       expect(scopedRequest).toContain('SESSION_SCOPE_ORIGINAL_NOTE');
       expect(scopedRequest).not.toContain('PRIVATE_OTHER_NOTE');
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const c = yield* Notes;
@@ -416,9 +415,9 @@ testStable(
       );
     } finally {
       await auth.dispose();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
+      await peer.stop(true);
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -426,8 +425,8 @@ testStable(
 testStable(
   'Assistant can send a new turn after a cancelled reply without an unfinished shell',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -473,14 +472,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('Assistant bounds model context while retaining older persisted messages', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const domain = Layer.mergeAll(Notes.layer, Sources.layer, Pages.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -513,13 +512,13 @@ testStable('Assistant bounds model context while retaining older persisted messa
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('Assistant chats retain separate histories and replay new-chat intents', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const domain = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
@@ -559,15 +558,15 @@ testStable('Assistant chats retain separate histories and replay new-chat intent
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'Assistant retries an unfinished first reply while retaining its message identity',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -586,7 +585,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

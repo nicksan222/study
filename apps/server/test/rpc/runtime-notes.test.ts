@@ -30,7 +30,7 @@ testStable(
   'a reply requested over RPC reaches the durable sign-in wait',
   { timeout: 10000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -111,7 +111,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -119,7 +119,7 @@ testStable(
 testStable(
   'atomic Ask returns its note and exact request over native HTTP RPC after process reopen',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let app = await App.open({ path: location.path });
     let server = await serve(app);
 
@@ -178,7 +178,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -186,7 +186,7 @@ testStable(
 testStable(
   'native Material search binds bounded canonical targets without mixing catalog kinds',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -229,7 +229,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

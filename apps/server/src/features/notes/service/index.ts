@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
 import type { MessageId, ProjectId, NoteId, SourceId } from '@study/contracts/ids';
@@ -142,13 +140,13 @@ function readWorkspacePreferences() {
 
 /** Captures at most one automatic title request per provisional note revision. */
 function scheduleAutomaticTitle(tx: Transaction, noteId: NoteId) {
-  const requestId = randomUUID();
+  const requestId = crypto.randomUUID();
   const snapshot = tx.store(TitleStore).captureAutomaticTitle({ noteId, requestId });
 
   if (Option.isSome(snapshot))
     tx.emit({
       type: 'NoteTitleRequested',
-      eventId: randomUUID(),
+      eventId: crypto.randomUUID(),
       causationId: null,
       correlationId: requestId,
       inputVersion: 1,
@@ -245,7 +243,7 @@ export const Notes = defineService(
         const context = captureContext(
           tx,
           { ...intent, throughMessageId: note.id },
-          randomUUID(),
+          crypto.randomUUID(),
           true
         );
         const result = tx
@@ -417,7 +415,7 @@ export const Notes = defineService(
             preferences: { language: input.language }
           };
           const existing = tx.store(NoteContextIntentStore).findNoteContextIntent(capture);
-          const context = captureContext(tx, capture, randomUUID());
+          const context = captureContext(tx, capture, crypto.randomUUID());
           const event = {
             type: 'TransformSuggestionRequested' as const,
             eventId: `suggest/${context.requestId}`,
@@ -436,7 +434,7 @@ export const Notes = defineService(
           return event;
         }),
       captureNoteContext: (input: typeof captureNoteContextSchema.Type) =>
-        transaction((tx) => captureContext(tx, input, randomUUID())),
+        transaction((tx) => captureContext(tx, input, crypto.randomUUID())),
       inspectNoteContext: retainedContexts.retainedNoteContext,
       noteContext: (input: { requestId: string }) =>
         transaction((tx) => {
@@ -480,13 +478,13 @@ export const Notes = defineService(
       }),
       requestTitle: (input: { noteId: NoteId }) =>
         transaction((tx) => {
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
 
           const snapshot = tx.store(TitleStore).captureTitle({ ...input, requestId });
 
           tx.emit({
             type: 'NoteTitleRequested',
-            eventId: randomUUID(),
+            eventId: crypto.randomUUID(),
             causationId: null,
             correlationId: requestId,
             inputVersion: 1,
@@ -656,7 +654,7 @@ export const Notes = defineService(
           const intent = {
             noteId: input.noteId,
             threadRoot: input.threadRoot,
-            intentKey: input.intentKey ?? randomUUID(),
+            intentKey: input.intentKey ?? crypto.randomUUID(),
             instruction: input.instruction ?? '',
             preferences: input.preferences ?? {}
           };
@@ -679,7 +677,7 @@ export const Notes = defineService(
 
           tx.store(ReplyStore).prepareReply(input);
 
-          const context = captureContext(tx, intent, randomUUID(), true);
+          const context = captureContext(tx, intent, crypto.randomUUID(), true);
 
           const requestId = context.requestId;
 
@@ -764,7 +762,7 @@ export const Notes = defineService(
           const mentioned = mentionsAssistant(input.text);
 
           if (input.requestReply ?? mentioned) {
-            const requestId = randomUUID();
+            const requestId = crypto.randomUUID();
 
             tx.store(ReplyStore).prepareReply({
               noteId: input.noteId,
@@ -793,7 +791,7 @@ export const Notes = defineService(
             retainExplicitQuestionAnswer(tx, message, result);
             tx.emit({
               type: 'NoteGenerationRequested',
-              eventId: randomUUID(),
+              eventId: crypto.randomUUID(),
               causationId: null,
               correlationId: requestId,
               inputVersion: 1,
@@ -965,7 +963,7 @@ export const Notes = defineService(
 
           const status = tx
             .store(NoteDeletionStore)
-            .accept({ noteId: id, operationId: randomUUID() });
+            .accept({ noteId: id, operationId: crypto.randomUUID() });
 
           const generations = Pages.prepareNoteRetirement(tx, {
             noteId: id,
@@ -1038,7 +1036,7 @@ function requestTarget(
     | typeof rewriteMessageInputSchema.Type
     | (typeof reanswerInputSchema.Type & { origin: 'answer' })
 ) {
-  const requestId = randomUUID();
+  const requestId = crypto.randomUUID();
 
   tx.store(ReplyStore).retireTargetPending(input);
 
@@ -1072,7 +1070,7 @@ function emitReplyRequest(
 ) {
   tx.emit({
     type: 'NoteGenerationRequested',
-    eventId: randomUUID(),
+    eventId: crypto.randomUUID(),
     causationId: null,
     correlationId: result.requestId,
     inputVersion: 1,
@@ -1268,7 +1266,7 @@ function scheduleQuestion(tx: Transaction, message: ChatMessage, reclassify = fa
     tx,
     message,
     versionId,
-    reclassify ? randomUUID() : `question/${message.id}/${versionId}`
+    reclassify ? crypto.randomUUID() : `question/${message.id}/${versionId}`
   );
 }
 
@@ -1303,7 +1301,7 @@ function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchem
   }
 
   const message = tx.store(MessageStore).message(input.messageId);
-  const intentKey = `question/${message.id}/${input.expectedActiveVersionId}/${randomUUID()}`;
+  const intentKey = `question/${message.id}/${input.expectedActiveVersionId}/${crypto.randomUUID()}`;
   const context = captureContext(
     tx,
     {
@@ -1314,7 +1312,7 @@ function answerQuestion(tx: Transaction, input: typeof questionVersionInputSchem
       instruction: '',
       preferences: {}
     },
-    randomUUID(),
+    crypto.randomUUID(),
     true
   );
 

@@ -1,11 +1,13 @@
-import { mkdir } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-
+import { BunFileSystem } from '@effect/platform-bun';
+import { BunPath } from '@effect/platform-bun';
+import { Effect, FileSystem, Path } from 'effect';
 import { createServer } from 'vite-plus';
 import type { ViteDevServer } from 'vite-plus';
 
 import { developmentDatabasePath } from './database-path.ts';
 import { studyRpcProxy } from './rpc-proxy.ts';
+
+const { dirname, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const [major = 0, minor = 0, patch = 0] =
   process.versions.bun?.split(/[.-]/).slice(0, 3).map(Number) ?? [];
@@ -21,7 +23,14 @@ const root = resolve(import.meta.dirname, '../..');
 
 const database = developmentDatabasePath();
 
-await mkdir(dirname(database), { recursive: true });
+await Effect.runPromise(
+  Effect.provide(
+    Effect.flatMap(FileSystem.FileSystem, (fs) =>
+      fs.makeDirectory(dirname(database), { recursive: true })
+    ),
+    BunFileSystem.layer
+  )
+);
 
 const app = await App.open({ path: database });
 

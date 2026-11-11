@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sql } from '@study/db';
 import { preferences } from '@study/db/schema';
 import { Option, Schema } from 'effect';
@@ -30,7 +28,7 @@ const providerScope = 'private.ai-providers';
 
 function makeHelpers({ db }: StoreResources) {
   function replaceGeneration() {
-    const value = JSON.stringify(randomUUID());
+    const value = JSON.stringify(crypto.randomUUID());
 
     db.orm
       .insert(preferences)
@@ -80,7 +78,7 @@ export const AuthStore = defineStore({
 
             if (row) return Schema.decodeUnknownSync(Schema.String)(JSON.parse(row.value));
 
-            const hostId = `urn:uuid:${randomUUID()}`;
+            const hostId = `urn:uuid:${crypto.randomUUID()}`;
 
             db.orm
               .insert(preferences)

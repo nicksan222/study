@@ -45,8 +45,8 @@ const probe = defineStore({
 testStable(
   'validated mutation rejects inputs and rolls back a typed store write on failure',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const failure = new StudyError('internal', 'write failed');
     const save = validatedMutation({
       input: Schema.Int,
@@ -79,7 +79,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

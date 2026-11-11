@@ -29,8 +29,8 @@ import { Database } from '#server/platform/database/database';
 import { ProjectsRpcLive } from './index.ts';
 
 testStable('native RPC handlers return projects and typed failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = ProjectsRpcLive.pipe(
     Layer.provide(Projects.layer),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -90,6 +90,6 @@ testStable('native RPC handlers return projects and typed failures', async () =>
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

@@ -1,9 +1,13 @@
 import type { ProjectId } from '@study/contracts/ids';
-import type { Db } from '@study/db';
+import type { DbTransaction } from '@study/db';
 
 import type { SeedSummary } from '../types.ts';
 
-export type SeedHarness = { readonly db: Db; readonly now: bigint; readonly summary: SeedSummary };
+export type SeedHarness = {
+  readonly db: DbTransaction;
+  readonly now: bigint;
+  readonly summary: SeedSummary;
+};
 
 export type ProjectHarness = SeedHarness & { readonly projectId: ProjectId; readonly time: bigint };
 

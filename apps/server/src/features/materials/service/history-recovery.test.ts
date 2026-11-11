@@ -105,7 +105,7 @@ for (const failSettlement of [false, true]) {
 
         if (failSettlement) f.context.db.orm.run(sql`DROP TRIGGER reject_history_failure`);
 
-        f.reopen();
+        await f.reopen();
 
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -150,7 +150,7 @@ for (const failSettlement of [false, true]) {
 
         await cleanupHistory(f, state.operationId);
 
-        f.reopen();
+        await f.reopen();
 
         assertScrubbed(f, 'ROLLBACK_HISTORY_PRIVATE');
 
@@ -179,7 +179,7 @@ for (const failSettlement of [false, true]) {
 
         await cleanupMaterial(f, saved.root.id);
 
-        f.reopen();
+        await f.reopen();
 
         assertScrubbed(f, 'ROLLBACK_CURRENT_KEEP');
       } finally {

@@ -12,57 +12,62 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
+import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { inTestPhase } from '#testing/progress';
 
-const runner = fileURLToPath(new URL('../../../node_modules/vitest/vitest.mjs', import.meta.url));
+const runner = Bun.fileURLToPath(
+  new URL('../../../node_modules/vitest/vitest.mjs', import.meta.url)
+);
 
 for (const mode of ['pass', 'fail', 'imported-fail']) {
   const fails = mode !== 'pass';
 
-  testStable(`progress keeps test results and filters diagnostics for ${mode}`, () => {
-    const directory = mkdtempSync(join(tmpdir(), 'study-reporter-'));
-    const fixture = join(directory, 'fixture.test.mjs');
-    const definition = mode === 'imported-fail' ? join(directory, 'definition.mjs') : fixture;
-    const config = join(directory, 'vite.config.mjs');
+  testStable(`progress keeps test results and filters diagnostics for ${mode}`, async () => {
+    const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+    const paths = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+    const directory = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-reporter-' }));
+    const fixture = paths.join(directory, 'fixture.test.mjs');
+    const definition = mode === 'imported-fail' ? paths.join(directory, 'definition.mjs') : fixture;
+    const config = paths.join(directory, 'vite.config.mjs');
 
     try {
-      symlinkSync(
-        fileURLToPath(new URL('../../../node_modules', import.meta.url)),
-        join(directory, 'node_modules'),
-        'dir'
+      await Effect.runPromise(
+        fs.symlink(
+          Bun.fileURLToPath(new URL('../../../node_modules', import.meta.url)),
+          paths.join(directory, 'node_modules')
+        )
       );
-      writeFileSync(
+      await Bun.write(
         config,
         `export default { test: { fsModuleCache: false, include: ['*.test.mjs'], reporters: ['verbose'], silent: 'passed-only', maxWorkers: 1 } };`
       );
-      writeFileSync(
-        join(directory, 'passing.test.mjs'),
+      await Bun.write(
+        paths.join(directory, 'passing.test.mjs'),
         `import { testStable } from '@study/testing/vitest'; testStable('other passing result', () => console.log('other passing output'));`
       );
-      writeFileSync(
+      await Bun.write(
         definition,
         `import { testStable } from '@study/testing/vitest'; import { assert } from 'vite-plus/test'; testStable('visible test result', () => { console.log('fixture stdout'); console.error('fixture stderr'); console.debug('fixture phase'); if (${fails}) assert.fail('intentional failure'); });`
       );
 
-      if (definition !== fixture) writeFileSync(fixture, `import './definition.mjs';`);
+      if (definition !== fixture) await Bun.write(fixture, `import './definition.mjs';`);
 
-      const child = spawnSync(
-        process.execPath,
-        [runner, 'run', '--root', directory, '--config', config],
-        { encoding: 'utf8' }
+      const child = Bun.spawn(
+        [process.execPath, '--bun', runner, 'run', '--root', directory, '--config', config],
+        { stdout: 'pipe', stderr: 'pipe' }
       );
-      const output = child.stdout + child.stderr;
+      const [stdout, stderr, status] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited
+      ]);
+      const output = stdout + stderr;
 
-      expect(child.status, output).toBe(fails ? 1 : 0);
+      expect(status, output).toBe(fails ? 1 : 0);
       expect(output).toMatch(/visible test result/);
       expect(output).toMatch(/other passing result/);
       expect(output).not.toMatch(/other passing output/);
@@ -73,7 +78,7 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
 
       if (fails) expect(output).toMatch(/intentional failure/);
     } finally {
-      rmSync(directory, { recursive: true, force: true });
+      await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
     }
   });
 }

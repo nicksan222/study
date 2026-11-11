@@ -31,9 +31,9 @@ const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Proj
  INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'flashcards',1,'agent','generate',1);
  INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'flowchart TD; A-->B','Answer' FROM material_versions WHERE id=2;`;
 
-function fixture(scoped = false, autoTitle = false) {
-  const location = createTestDatabase();
-  const db = location.open();
+async function fixture(scoped = false, autoTitle = false) {
+  const location = await createTestDatabase();
+  const db = await location.open();
   const intent = autoTitle
     ? seed.replace('"title":"Requested",', '"title":"Requested","autoTitle":true,')
     : seed;
@@ -54,18 +54,18 @@ function fixture(scoped = false, autoTitle = false) {
 
   return {
     db,
-    close: () => {
+    close: async () => {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
 
 testStable(
   'automatic titles permit bounded generated names while ordinary requests keep exact title intent',
-  () => {
+  async () => {
     for (const autoTitle of [false, true]) {
-      const { db, close } = fixture(false, autoTitle);
+      const { db, close } = await fixture(false, autoTitle);
 
       try {
         db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
@@ -78,38 +78,41 @@ testStable(
         if (autoTitle) assert.doesNotThrow(publish);
         else assert.throws(publish);
       } finally {
-        close();
+        await close();
       }
     }
   }
 );
 
-testStable('automatic titles reject unbounded or blank names and malformed title intent', () => {
-  const { db, close } = fixture(false, true);
+testStable(
+  'automatic titles reject unbounded or blank names and malformed title intent',
+  async () => {
+    const { db, close } = await fixture(false, true);
 
-  try {
-    db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
+    try {
+      db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
     UPDATE material_versions SET generation_request_id='request' WHERE id=2;`);
 
-    for (const title of ['', ' ', ' Evidence ', 'x'.repeat(201)]) {
-      assert.throws(() => {
-        db.orm.run(sql`UPDATE materials SET title=${title} WHERE id=2`);
-        db.exec(`UPDATE material_versions SET status='published',published_at=2 WHERE id=2`);
-      });
+      for (const title of ['', ' ', ' Evidence ', 'x'.repeat(201)]) {
+        assert.throws(() => {
+          db.orm.run(sql`UPDATE materials SET title=${title} WHERE id=2`);
+          db.exec(`UPDATE material_versions SET status='published',published_at=2 WHERE id=2`);
+        });
+      }
+
+      assert.throws(() =>
+        db.exec(
+          `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"diagram","inputs":[{"kind":"page","versionId":"1"}]}',1)`
+        )
+      );
+    } finally {
+      await close();
     }
-
-    assert.throws(() =>
-      db.exec(
-        `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"flashcards","inputs":[{"kind":"page","versionId":"1"}]}',1)`
-      )
-    );
-  } finally {
-    close();
   }
-});
+);
 
-testStable('a receipt cannot select an unrelated draft', () => {
-  const { db, close } = fixture();
+testStable('a receipt cannot select an unrelated draft', async () => {
+  const { db, close } = await fixture();
 
   try {
     assert.throws(() =>
@@ -118,39 +121,44 @@ testStable('a receipt cannot select an unrelated draft', () => {
       )
     );
   } finally {
-    close();
-  }
-});
-
-testStable('captured generation intent and ordered inputs cannot be rewritten or deleted', () => {
-  const { db, close } = fixture();
-
-  try {
-    assert.throws(() =>
-      db.exec(
-        `UPDATE material_generation_requests SET payload=json_set(payload,'$.title','Changed') WHERE id='request'`
-      )
-    );
-    assert.throws(() =>
-      db.exec(`UPDATE material_evidence_inputs SET page_version_id=3 WHERE request_id='request'`)
-    );
-    assert.throws(() => db.exec(`DELETE FROM material_evidence_inputs WHERE request_id='request'`));
-    assert.throws(() =>
-      db.exec(
-        `INSERT INTO material_evidence_inputs(request_id,page_version_id,position) VALUES('request',3,1)`
-      )
-    );
-    assert.throws(() => db.exec(`DELETE FROM material_generation_requests WHERE id='request'`));
-    assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
-  } finally {
-    close();
+    await close();
   }
 });
 
 testStable(
+  'captured generation intent and ordered inputs cannot be rewritten or deleted',
+  async () => {
+    const { db, close } = await fixture();
+
+    try {
+      assert.throws(() =>
+        db.exec(
+          `UPDATE material_generation_requests SET payload=json_set(payload,'$.title','Changed') WHERE id='request'`
+        )
+      );
+      assert.throws(() =>
+        db.exec(`UPDATE material_evidence_inputs SET page_version_id=3 WHERE request_id='request'`)
+      );
+      assert.throws(() =>
+        db.exec(`DELETE FROM material_evidence_inputs WHERE request_id='request'`)
+      );
+      assert.throws(() =>
+        db.exec(
+          `INSERT INTO material_evidence_inputs(request_id,page_version_id,position) VALUES('request',3,1)`
+        )
+      );
+      assert.throws(() => db.exec(`DELETE FROM material_generation_requests WHERE id='request'`));
+      assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
+    } finally {
+      await close();
+    }
+  }
+);
+
+testStable(
   'a completed receipt stays bound to its published output and permits project deletion',
-  () => {
-    const { db, close } = fixture();
+  async () => {
+    const { db, close } = await fixture();
 
     try {
       db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
@@ -167,13 +175,13 @@ testStable(
       );
       assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
     } finally {
-      close();
+      await close();
     }
   }
 );
 
-testStable('closed scopes fence direct publication of a valid generated draft', () => {
-  const { db, close } = fixture(true);
+testStable('closed scopes fence direct publication of a valid generated draft', async () => {
+  const { db, close } = await fixture(true);
 
   try {
     db.exec(`INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0);
@@ -185,48 +193,54 @@ testStable('closed scopes fence direct publication of a valid generated draft', 
     );
     assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
   } finally {
-    close();
-  }
-});
-
-testStable('generation publication rejects a captured input removed from its collection', () => {
-  const { db, close } = fixture();
-
-  try {
-    db.exec(
-      "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_pages WHERE page_id=1;"
-    );
-    assert.throws(() =>
-      db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2")
-    );
-  } finally {
-    close();
-  }
-});
-
-testStable('the first generation receipt rejects an input removed after output publication', () => {
-  const { db, close } = fixture();
-
-  try {
-    db.exec(
-      "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_pages WHERE page_id=1;"
-    );
-    assert.throws(() =>
-      db.exec(
-        "UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
-          '0'.repeat(64) +
-          "' WHERE id='request'"
-      )
-    );
-  } finally {
-    close();
+    await close();
   }
 });
 
 testStable(
+  'generation publication rejects a captured input removed from its collection',
+  async () => {
+    const { db, close } = await fixture();
+
+    try {
+      db.exec(
+        "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; DELETE FROM project_pages WHERE page_id=1;"
+      );
+      assert.throws(() =>
+        db.exec("UPDATE material_versions SET status='published',published_at=2 WHERE id=2")
+      );
+    } finally {
+      await close();
+    }
+  }
+);
+
+testStable(
+  'the first generation receipt rejects an input removed after output publication',
+  async () => {
+    const { db, close } = await fixture();
+
+    try {
+      db.exec(
+        "INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0); UPDATE material_versions SET generation_request_id='request' WHERE id=2; UPDATE material_versions SET status='published',published_at=2 WHERE id=2; DELETE FROM project_pages WHERE page_id=1;"
+      );
+      assert.throws(() =>
+        db.exec(
+          "UPDATE material_generation_requests SET result_version_id=2,result_hash='" +
+            '0'.repeat(64) +
+            "' WHERE id='request'"
+        )
+      );
+    } finally {
+      await close();
+    }
+  }
+);
+
+testStable(
   'a committed generation receipt remains stable after its input leaves the collection',
-  () => {
-    const { db, close } = fixture();
+  async () => {
+    const { db, close } = await fixture();
 
     try {
       db.exec(
@@ -249,7 +263,7 @@ testStable(
         )
       );
     } finally {
-      close();
+      await close();
     }
   }
 );
@@ -257,8 +271,8 @@ testStable(
 for (const stage of ['publication', 'receipt']) {
   testStable(
     `every captured input needs membership at first ${stage}, even when shared elsewhere`,
-    () => {
-      const { db, close } = fixture();
+    async () => {
+      const { db, close } = await fixture();
 
       try {
         db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(2,'Elsewhere',1,1);
@@ -285,7 +299,7 @@ for (const stage of ['publication', 'receipt']) {
 
         assertThrowsMatching(
           () => db.exec(write),
-          (error: unknown) => error instanceof Error && 'errcode' in error && error.errcode === 1811
+          (error: unknown) => error instanceof Error && 'errno' in error && error.errno === 1811
         );
         assert.strictEqual(
           db.orm.get(
@@ -301,7 +315,7 @@ for (const stage of ['publication', 'receipt']) {
         assert.doesNotThrow(() => db.exec(write));
         expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
       } finally {
-        close();
+        await close();
       }
     }
   );
@@ -309,8 +323,8 @@ for (const stage of ['publication', 'receipt']) {
 
 testStable(
   'publication cannot replace a captured revision with another revision of the same member',
-  () => {
-    const { db, close } = fixture();
+  async () => {
+    const { db, close } = await fixture();
 
     try {
       db.exec("UPDATE material_versions SET generation_request_id='request' WHERE id=2");
@@ -335,7 +349,7 @@ testStable(
       ).toStrictEqual([1n]);
       expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
-      close();
+      await close();
     }
   }
 );

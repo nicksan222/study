@@ -13,12 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import * as h from '@study/contracts/materials/history';
 import { eq, and, desc, inArray } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
@@ -31,7 +30,7 @@ import { makeHistoryBodyBytes } from './history-bytes.ts';
 import { makeReads, required } from './reads.ts';
 
 export function historyHash(value: unknown) {
-  return createHash('sha256')
+  return new CryptoHasher('sha256')
     .update(JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? String(v) : v)))
     .digest('hex');
 }

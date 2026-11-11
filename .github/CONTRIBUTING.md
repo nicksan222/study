@@ -12,16 +12,18 @@ Thank you for helping with Study.
   `Test and build` check passes on the current base.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build and browser E2E, generated database drift,
-  tooling tests, server package checks, and the website's Bun type check. CI runs these gates, with independent jobs for Oxlint/formatting/Fallow, web checks,
-  tooling tests, server tests, real integrations, and native/package checks. JavaScript jobs
-  skip the Rust and Linux GUI setup. The required `Test and build` check requires every job. Package gates continue after
-  earlier failures, and run summaries list their outcomes. The web build reuses its earlier
-  type check.
+  tooling tests, server package checks, and the website's Bun type check. CI uses explicit
+  sequential steps for Oxlint/formatting/Fallow, web checks and tooling tests in one
+  JavaScript job. Server tests, real integrations and native/package checks have separate
+  jobs. The JavaScript and server jobs skip Rust and Linux GUI setup. The required
+  `Test and build` check requires every job. Package gates continue after earlier
+  failures, and native/package run summaries list their outcomes. The web build reuses
+  its earlier type check.
 - CI also requires real integrations (`bun run integrations:e2e`, with Docker) and the
   packaged-runtime smoke test (`bun run desktop:runtime`, then
   `python3 tooling/release/smoke_runtime.py target/desktop-runtime`). These are additional
   gates beyond `just check`.
-- **CI splits server tests into two disjoint shards**, each retaining two Vitest workers.
+- **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
   Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
   tests use the normal temporary directory; each test still owns its database.
@@ -54,7 +56,7 @@ The devcontainer installs root and landing dependencies from their committed loc
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
-all application features, and capture generation is unavailable. Run `npx playwright install chromium` once before `npm run web:e2e` or `just check`; the browser suite uses isolated databases.
+all application features, and capture generation is unavailable. Run `bunx --bun playwright install chromium` once before `bun run web:e2e` or `just check`; the browser suite uses isolated databases.
 
 ### On your own Linux machine
 
@@ -68,7 +70,7 @@ sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-d
 ```
 
 Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` picks the version) and
-[just](https://github.com/casey/just), Node 26 for build tooling and Bun 1.4.4 for the application runtime. Run `bun install --frozen-lockfile` and
+[just](https://github.com/casey/just), Bun 1.4.4 for the application and build tooling. Run `bun install --frozen-lockfile` and
 `bun install --cwd apps/landing --frozen-lockfile`, then `just check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the
@@ -93,18 +95,18 @@ Routine browser work needs none of these native helpers.
 The root scripts and Just recipes share the project commands; `just --list` lists all tasks. Web Vite, router and TypeScript
 configs live in `apps/web`; shared TypeScript settings live in `tooling/typescript`.
 Rust lint and dependency policy live in `tooling/rust`; `.cargo/config.toml` points Clippy
-there for both recipes and direct Cargo invocations. Root npm scripts select the web
+there for both recipes and direct Cargo invocations. Root package scripts select the web
 workspace and server TypeScript config. Vite+ (`vp`) owns web development, builds,
 Vitest for every TypeScript and JavaScript test suite, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
 shared policies from `tooling/oxc-config`; these apply to server, frontend, tests and tooling.
-Run `npm run format` to format, `npm run format:check` to check formatting, and `npm run lint`
+Run `bun run format` to format, `bun run format:check` to check formatting, and `bun run lint`
 for the combined format/lint gate with warnings denied.
 The Vite+ pipeline uses syntax-only lint analysis, React stability rules and package-manifest
 sorting; dedicated TypeScript checks and Study's architecture rules remain required. Database test fixtures lazily copy an empty database migrated once per test module, then
 open it through the regular `Db.open` path. Each test still owns a private file with WAL,
 foreign keys and recursive triggers; custom migration folders always run their own migrations.
-Server tests keep the actual Node
-runtime (`npm run server:test`) with one result per test. Passing server test files hide
+Server tests use the Bun
+runtime (`bun run server:test`) with one result per test. Passing server test files hide
 stdout, stderr and fixture diagnostics; a failing file prints its captured output alongside
 assertion details. Console events are file-scoped, so diagnostics include the whole failing
 file. Fixture phases still identify setup, body operations and cleanup. The inherited test
@@ -113,7 +115,7 @@ automatic resource/database cleanup hooks have a thirty-second timeout. These bo
 tests; they do not cancel arbitrary promises or guarantee a blocked event loop can recover.
 The CI server test step fails after ten minutes; frontend tests keep the verbose Vitest
 reporter and show console output only for failing tests. TypeScript checks keep `tsc`.
-Run `npm run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
+Run `bun run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
 It checks the full repository for dead code, code health and duplication and fails on
 any reported issue. Local `just check` and the required CI `Test and build` job both
 run it; there is no baseline or new-issues-only mode. `tooling/fallow.jsonc` enforces maximum
@@ -132,7 +134,7 @@ without changing the database schema. The equivalent Just recipes are `just gen`
 Desktop inspection recipes call `swaymsg` and `jq` directly. The scripts in
 `.devcontainer/desktop/` manage the virtual desktop; `lifecycle.py` owns private D-Bus
 startup, reuse and shutdown, plus bounded process waiting. Desktop commands need no
-Node package or Cargo build.
+JavaScript package or Cargo build.
 
 | Command                      | What it does                                               |
 | ---------------------------- | ---------------------------------------------------------- |
@@ -201,7 +203,7 @@ After successful publication, main CI keeps five published releases: the current
 updater target and the four most recently published others. Older releases and their
 assets are deleted; drafts and Git tags are preserved.
 
-Generate a signing key using `npx tauri signer generate -w /secure/location/study.key`.
+Generate a signing key using `bun --bun tauri signer generate -w /secure/location/study.key`.
 Keep a secure backup; never commit it. Set the repository variable `STUDY_UPDATE_PUBLIC_KEY`
 to the base64 encoded public key printed by Tauri (not raw Minisign text), secrets `TAURI_SIGNING_PRIVATE_KEY` and
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` to the private key/password, and allow Actions to
@@ -266,8 +268,8 @@ operation. Tests use fresh SQLite databases and actual services. `apps/server/sr
 starts and stops the server process. The app is local only; ChatGPT provider sign-in is retained.
 
 Test assertions come from `vite-plus/test`; classified registrations come from
-`@study/testing/vitest`. `node:assert` imports are forbidden. `npm run server:test`
-runs the server and package suites; `npm run quality:test` runs lint, development,
+`@study/testing/vitest`. `node:assert` imports are forbidden. `bun run server:test`
+runs the server and package suites; `bun run quality:test` runs lint, development,
 desktop permission, and shared runner tests. Server fixtures use Vitest lifecycle
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
 of production modules.
@@ -313,3 +315,5 @@ python3 tooling/release/size_report.py --runtime target/desktop-runtime --app PA
 (after staging the runtime and building the application). Repeat `--artifact`
 for each download; identical paths are counted once. Redirect output outside the
 checkout when keeping a baseline.
+
+The server suite runs a Bun-hosted server against a disposable database, kills it after a durable request is committed, and verifies recovery after restart. This test uses real loopback networking and runs with the other server tests in `just server-check`.

@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sql } from '@study/db';
@@ -41,47 +39,47 @@ import { withTestPublication } from '#testing/publication';
 import { noteTitleHandler, noteTitleWorkflow } from './title.ts';
 
 testStable('title workflow checkpoints and fences stale and renamed notes', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
   let calls = 0;
   let during: (() => Promise<void>) | undefined;
   let output = 'Cell Biology';
   const bodies: string[] = [];
-  const peer = createServer(async (request, response) => {
-    let body = '';
+  const peer = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: async (request) => {
+      let events = '';
+      const body = await request.text();
 
-    for await (const chunk of request) body += chunk;
+      bodies.push(body);
 
-    bodies.push(body);
+      calls++;
+      const action = during;
 
-    calls++;
-    const action = during;
+      during = undefined;
+      await action?.();
 
-    during = undefined;
-    await action?.();
-    response.writeHead(200, { 'content-type': 'text/event-stream' });
+      for (const event of [
+        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
+        {
+          type: 'response.output_item.added',
+          output_index: 0,
+          item: { type: 'message', id: 'item' }
+        },
+        { type: 'response.output_text.delta', item_id: 'item', delta: output },
+        { type: 'response.completed', response: {} }
+      ])
+        events += `data: ${JSON.stringify(event)}\n\n`;
 
-    for (const event of [
-      { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-      {
-        type: 'response.output_item.added',
-        output_index: 0,
-        item: { type: 'message', id: 'item' }
-      },
-      { type: 'response.output_text.delta', item_id: 'item', delta: output },
-      { type: 'response.completed', response: {} }
-    ])
-      response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    response.end('data: [DONE]\n\n');
+      return new Response(events + 'data: [DONE]\n\n', {
+        headers: { 'content-type': 'text/event-stream' }
+      });
+    }
   });
 
-  await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-  const address = peer.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
+  assert.ok(peer.port, 'missing address');
+  const base = peer.url.origin;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
   await auth.replace(
@@ -183,7 +181,7 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
       sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay-title'`
     );
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     await execute(current, 'replay-title');
     assert.strictEqual(calls, 1);
     assert.ok(
@@ -258,16 +256,16 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
   } finally {
     await auth.dispose();
     context.close();
-    location.cleanup();
-    await new Promise<void>((resolve) => peer.close(() => resolve()));
+    await location.cleanup();
+    await peer.stop(true);
   }
 });
 
 testStable(
   'explicit title requests replace existing titles and fence subsequent manual edits',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
     try {
@@ -307,7 +305,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -315,8 +313,8 @@ testStable(
 testStable(
   'automatic note titles are opt-in, durable, replay-safe and respect user titles',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -366,7 +364,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -374,8 +372,8 @@ testStable(
 testStable(
   'automatic titles and replies commit together while title snapshots skip pending assistants',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -425,7 +423,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -433,8 +431,8 @@ testStable(
 testStable(
   'reply publication refreshes automatic titles durably and idempotently without replacing user titles',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -526,7 +524,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -33,6 +33,9 @@ The native shell owns windows, devices, and the private server process. Native E
     credit or mention an AI assistant: no `Co-Authored-By` trailers for one, no "Generated
     with" lines, no model names in authorship. This overrides any harness default that adds
     them. Tooling that runs an assistant (the devcontainer, `.agents/team`) may name it.
+11. **Bun owns JavaScript execution.** Use Bun/Web APIs and official Effect Bun services.
+    First-party code does not import Node built-ins or add Node compatibility fallbacks.
+    Run Vite+ with `bun --bun vp` so its tools and test workers execute in Bun.
 
 ## UI/UX skills
 
@@ -87,9 +90,9 @@ Bilingual copy lives in `packages/localization`.
   typechecking/tests, repository-wide Vite+ format/lint, Fallow dead-code/complexity/duplication/architecture checks, frontend type/tests/build, database generation drift, tooling tests and landing
   checks. Run it before calling a change done.
 - `just server-check` and `just frontend-check`: focused package checks.
-- `just fallow-check` / `npm run fallow:check`: pinned full-repository Fallow gate; keep `tooling/fallow.jsonc` strict and document any narrow analyzer exceptions there.
-- `npm run lint`: repository-wide `vp check --deny-warnings` (Oxfmt and Oxlint).
-  `npm run format` applies formatting; `npm run format:check` checks it.
+- `just fallow-check` / `bun run fallow:check`: pinned full-repository Fallow gate; keep `tooling/fallow.jsonc` strict and document any narrow analyzer exceptions there.
+- `bun run lint`: repository-wide `vp check --deny-warnings` (Oxfmt and Oxlint).
+  `bun run format` applies formatting; `bun run format:check` checks it.
 - `just check-crate <package>`: focused Rust formatting, lint, tests and docs.
 - `bun gen` / `bun gen:check`: generate/check database schema; generation also
   refreshes web routes. Feature and platform behavior has real SQLite and native RPC tests.

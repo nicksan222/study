@@ -3,15 +3,15 @@ import { expect } from 'vite-plus/test';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-function lint(files: Record<string, string>) {
-  return lintRulePaths('operation-conventions', files);
+async function lint(files: Record<string, string>) {
+  return await lintRulePaths('operation-conventions', files);
 }
 
 testStable(
   'checks literal store roles, names and collection input and service public reads',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/a/store/index.ts': `import { Schema as S } from 'effect'; import { defineStore as create, storeQuery as query } from '#server/platform/definitions/define-store'; const f = create; export const A = f({ entity: { singular: 'item', plural: 'items' }, make: ({db}) => ({queries: { getItem: query({role:'required', input: S.String}), items: query({role:'collection', input: S.Struct({})}) }, mutations: {}}) });`,
         'apps/server/src/features/b/store/index.ts': `import * as api from '#server/platform/definitions/define-store'; export const B = api.defineStore({ entity: { singular:'item', plural:'items' }, make: ({db}) => ({queries: { item: api.storeQuery({role:'required'}), findItem: api.storeQuery({role:'optional'}), items: api.storeQuery({role:'collection', input: S.Struct({limit:S.Int})}) }, mutations:{}}) });`,
         'apps/server/src/features/c/service/index.ts': `import { defineService as create } from '#server/platform/definitions/define-service'; import { Effect } from 'effect'; const getLocal = () => 1; export const C = create('C', Effect.gen(function* () { return { getItem: () => x, saveItem: () => x }; }));`,
@@ -31,18 +31,18 @@ testStable(
 
 testStable(
   'schema field composition relies on runtime bounds when the imported shape is opaque',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/learning/store/index.ts': `import { Schema } from 'effect'; import { defineStore, storeQuery } from '#server/platform/definitions/define-store'; import { pageInput } from '@study/contracts/learning/rpc'; defineStore({ entity: {singular:'card', plural:'cards'}, make: ({db}) => ({ queries: { cards: storeQuery({role:'collection',input:Schema.Struct({...pageInput.fields, newCardsPerDay:Schema.Int}), run: input => input}) }, mutations: {} }) });`
       })
     ).toStrictEqual([]);
   }
 );
 
-testStable('checks queries returned by a store make callback', () => {
+testStable('checks queries returned by a store make callback', async () => {
   expect(
-    lint({
+    await lint({
       'apps/server/src/features/items/store/index.ts': `import { defineStore, storeQuery } from '#server/platform/definitions/define-store'; defineStore({ entity: { singular: 'item', plural: 'items' }, make: ({db}) => ({ queries: { getItem: storeQuery({ role: 'required' }) }, mutations: {} }) });`
     })
   ).toStrictEqual(['apps/server/src/features/items/store/index.ts']);
@@ -50,9 +50,9 @@ testStable('checks queries returned by a store make callback', () => {
 
 testStable(
   'native generation queries retain entity-derived names and canonical required roles',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/index.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({
@@ -93,9 +93,9 @@ testStable(
 
 testStable(
   'proposal, receipt, comparison and context-validity stores use their own canonical descriptors',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/proposals.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'documentProposal',plural:'documentProposals'},make:()=>({queries:{documentProposal:storeQuery({role:'required'})},mutations:{}})});
@@ -118,28 +118,31 @@ testStable(
   }
 );
 
-testStable('deletion aggregates require their own canonical descriptors beside status', () => {
-  expect(
-    lint({
-      'apps/server/src/features/notes/store/deletion.ts': `
+testStable(
+  'deletion aggregates require their own canonical descriptors beside status',
+  async () => {
+    expect(
+      await lint({
+        'apps/server/src/features/notes/store/deletion.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'noteDeletion',plural:'noteDeletions'},make:()=>({queries:{noteDeletion:storeQuery({role:'required'}),findNoteDeletion:storeQuery({role:'optional'})},mutations:{}})});
       defineStore({entity:{singular:'deletionOwnership',plural:'deletionOwnerships'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'})},mutations:{}})});
       defineStore({entity:{singular:'deletionCorrelation',plural:'deletionCorrelations'},make:()=>({queries:{deletionCorrelation:storeQuery({role:'required'})},mutations:{}})});
     `,
-      'apps/server/src/features/notes/store/bypass.ts': `
+        'apps/server/src/features/notes/store/bypass.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'noteDeletion',plural:'noteDeletions'},make:()=>({queries:{deletionOwnership:storeQuery({role:'required'}),deletionCorrelations:storeQuery({role:'required'})},mutations:{}})});
     `
-    })
-  ).toStrictEqual(Array(2).fill('apps/server/src/features/notes/store/bypass.ts'));
-});
+      })
+    ).toStrictEqual(Array(2).fill('apps/server/src/features/notes/store/bypass.ts'));
+  }
+);
 
 testStable(
   'Material deletion status, preview and participants bind their own canonical store query names',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/deletion.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'materialDeletion',plural:'materialDeletions'},make:()=>({queries:{materialDeletion:storeQuery({role:'required'}),findMaterialDeletion:storeQuery({role:'optional'})},mutations:{}})});
@@ -161,9 +164,9 @@ testStable(
 
 testStable(
   'history status, preview, publication and source impact keep canonical singular descriptors',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/history.ts': `
       import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
       defineStore({entity:{singular:'materialHistory',plural:'materialHistories'},make:()=>({queries:{materialHistory:storeQuery({role:'required'}),findMaterialHistory:storeQuery({role:'optional'})},mutations:{}})});
@@ -188,9 +191,9 @@ testStable(
 
 testStable(
   'exact readers and reply provenance bind required queries to separate singular entities',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/reader.ts': `
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
         defineStore({entity:{singular:'materialVersionDocument',plural:'materialVersionPages'},make:()=>({queries:{materialVersionDocument:storeQuery({role:'required'})},mutations:{}})});
@@ -220,9 +223,9 @@ testStable(
 
 testStable(
   'export aggregates use required singular descriptors while collections still require limits',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'apps/server/src/features/materials/store/export.ts': `
         import { Schema } from 'effect';
         import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

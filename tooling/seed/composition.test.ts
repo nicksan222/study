@@ -45,14 +45,14 @@ function createSmallCourse(seed: SeedHarness) {
 }
 
 testStable('creator sequences reuse library fixtures across any number of notes', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   try {
     const summary = await seedDatabase(location.path, [createSmallCourse]);
 
     expect(summary).toEqual({ projects: 1, notes: 2, sources: 1, pages: 1, materials: 1 });
 
-    const db = location.open();
+    const db = await location.open();
 
     try {
       expect(db.orm.get(sql`SELECT count(*) n FROM notes`)?.n).toBe(2n);
@@ -66,15 +66,15 @@ testStable('creator sequences reuse library fixtures across any number of notes'
       db.close();
     }
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'cross-project fixture references abort the candidate and preserve the existing database',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     const before = db.contentIdentity();
 
     db.close();
@@ -100,7 +100,7 @@ testStable(
         ])
       ).rejects.toThrow(RangeError);
 
-      const retained = location.open();
+      const retained = await location.open();
 
       try {
         expect(retained.contentIdentity()).toBe(before);
@@ -108,13 +108,13 @@ testStable(
         retained.close();
       }
     } finally {
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('notes can mix multiple turns and omit unrelated fixture kinds', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   try {
     await seedDatabase(location.path, [
@@ -136,7 +136,7 @@ testStable('notes can mix multiple turns and omit unrelated fixture kinds', asyn
       }
     ]);
 
-    const db = location.open();
+    const db = await location.open();
 
     try {
       expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
@@ -145,6 +145,6 @@ testStable('notes can mix multiple turns and omit unrelated fixture kinds', asyn
       db.close();
     }
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });

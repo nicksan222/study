@@ -12,12 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import { and, eq } from '@study/db';
 import * as tables from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Option, Schema } from 'effect';
 
 import { validateRecordingImport } from '#server/features/sources/decoders/recording';
@@ -35,7 +34,7 @@ const inputSchema = Schema.Struct({
 const receiptSchema = Schema.Struct({ sourceId: sourceIdSchema, hash: Schema.Uint8Array });
 
 function hash(input: typeof inputSchema.Type) {
-  return createHash('sha256')
+  return new CryptoHasher('sha256')
     .update(
       JSON.stringify([
         input.requestId,

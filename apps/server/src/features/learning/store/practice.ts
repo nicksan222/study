@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { errorKindSchema, failureSchema } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import { projectIdSchema, quizQuestionIdSchema } from '@study/contracts/ids';
@@ -206,7 +204,7 @@ function makePractice(resources: StoreResources) {
     ordinal: bigint,
     inputs: readonly ContentInput[]
   ) {
-    const id = randomUUID();
+    const id = crypto.randomUUID();
 
     db.orm
       .insert(slots)
@@ -248,7 +246,7 @@ function makePractice(resources: StoreResources) {
     )
       invalid('invalid practice inputs');
 
-    const epoch = randomUUID();
+    const epoch = crypto.randomUUID();
 
     db.orm
       .insert(controls)

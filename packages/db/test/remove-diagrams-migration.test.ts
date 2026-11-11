@@ -187,7 +187,7 @@ function assertPreserved(db: Db) {
 
 testStable(
   'migration deletes diagram ancestry, evidence and pending work while preserving unrelated content',
-  () => {
+  async () => {
     const folder = mkdtempSync(join(tmpdir(), 'study-remove-diagrams-'));
     const previous = join(folder, 'previous');
     const path = join(folder, 'study.sqlite');
@@ -199,16 +199,16 @@ testStable(
         if (name < migration)
           cpSync(join(migrations, name), join(previous, name), { recursive: true });
 
-      db = Db.open(path, previous);
+      db = await Db.open(path, previous);
       seedContent(db);
       seedWorkflows(db);
       db.close();
       db = undefined;
-      db = Db.open(path);
+      db = await Db.open(path);
       assertPreserved(db);
       db.close();
       db = undefined;
-      db = Db.open(path);
+      db = await Db.open(path);
       assertPreserved(db);
       db.exec(
         "INSERT INTO materials(kind,title,created_at,updated_at) VALUES('quiz','New quiz',3,3)"
