@@ -61,6 +61,7 @@ for (const failSettlement of [false, true]) {
         await acceptHistory(f, saved.root.id, 'history-rollback');
 
         const before = f.context.db.orm.select().from(s.material_flashcard_versions).all();
+        const entriesBefore = f.context.db.orm.select().from(s.material_flashcard_entries).all();
 
         f.context.db.orm.run(
           sql`CREATE TRIGGER reject_history_cleanup BEFORE DELETE ON material_flashcard_versions BEGIN SELECT RAISE(ABORT,'injected cleanup'); END`
@@ -89,6 +90,9 @@ for (const failSettlement of [false, true]) {
 
         expect(f.context.db.orm.select().from(s.material_flashcard_versions).all()).toStrictEqual(
           before
+        );
+        expect(f.context.db.orm.select().from(s.material_flashcard_entries).all()).toStrictEqual(
+          entriesBefore
         );
 
         assert.ok(
