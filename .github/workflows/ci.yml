@@ -249,3 +249,33 @@ jobs:
       contents: write
     uses: ./.github/workflows/release.yml
     secrets: inherit
+
+  release_cleanup:
+    name: Keep only five published releases
+    needs: release
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: release-cleanup
+      cancel-in-progress: false
+    steps:
+      - name: Delete older releases and their assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          latest_id=$(gh api "repos/$GH_REPO/releases/latest" --jq '.id')
+          gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" > releases.json
+          # Always retain the updater target when older builds finish out of order.
+          jq --argjson latest "$latest_id" '
+            [.[][] | select(.draft == false)]
+            | sort_by([(.id == $latest), .published_at, .id]) | reverse
+            | .[5:] | .[].id
+          ' releases.json > obsolete-releases.txt
+          while read -r release_id; do
+            gh api --method DELETE "repos/$GH_REPO/releases/$release_id"
+          done < obsolete-releases.txt
