@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { notes, workflowEvents } from '@study/db/schema';
@@ -43,8 +41,8 @@ const content = {
 testStable(
   'materials versions, links, citations and note membership preserve SQLite invariants',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
       Projects.layer,
       Sources.layer,
@@ -73,7 +71,7 @@ testStable(
           );
           const docs = yield* Pages;
           const evidence = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Evidence',
             document: {
               blocks: [plainBlock('paragraph', 'Canonical material', { type: 'authored' })],
@@ -150,7 +148,7 @@ testStable(
           expect((yield* materials.materialVersion({ id: next.id })).inputs).toStrictEqual([input]);
           yield* materials.publishVersion({ id: next.id });
           const foreign = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Foreign',
             projectId: another.id,
             document: {
@@ -219,14 +217,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('native materials RPC uses the service and maps canonical failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const services = Layer.mergeAll(Projects.layer, Sources.layer, Materials.layer, Pages.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -264,6 +262,6 @@ testStable('native materials RPC uses the service and maps canonical failures', 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

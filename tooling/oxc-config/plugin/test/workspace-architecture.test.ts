@@ -25,8 +25,8 @@ const valid = {
 
 testStable('the lockfile cannot split Effect schema identity or Drizzle instances', () => {
   const packages = {
-    'node_modules/effect': { version: '4.0.7' },
-    'node_modules/drizzle-orm': { version: '1.0.0-rc.5' }
+    effect: ['effect@4.0.7'],
+    'drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
   };
 
   expect(dependencyIdentity(packages, '4.0.7')).toStrictEqual([]);
@@ -34,8 +34,8 @@ testStable('the lockfile cannot split Effect schema identity or Drizzle instance
     dependencyIdentity(
       {
         ...packages,
-        'apps/server/node_modules/effect': { version: '4.1.0' },
-        'packages/db/node_modules/drizzle-orm': { version: '1.0.0-rc.5' }
+        'apps/server/effect': ['effect@4.1.0'],
+        'packages/db/drizzle-orm': ['drizzle-orm@1.0.0-rc.5']
       },
       '4.0.7'
     ).length,

@@ -22,18 +22,18 @@ import { inTestPhase } from './progress.ts';
 type Cleanup = () => void | Promise<void>;
 
 export type TestState = {
-  database: ReturnType<typeof createTestDatabase>;
+  database: Awaited<Awaited<ReturnType<typeof createTestDatabase>>>;
   resources: Cleanup[];
 };
 
 const states = new WeakMap<TestContext, TestState>();
 
-const databases: ReturnType<typeof createTestDatabase>[] = [];
+const databases: Awaited<Awaited<ReturnType<typeof createTestDatabase>>>[] = [];
 
-export function registerTest(t: TestContext) {
+export async function registerTest(t: TestContext) {
   console.debug('study-test-phase:automatic-setup:start');
 
-  const database = createTestDatabase();
+  const database = await createTestDatabase();
   const state: TestState = { database, resources: [] };
 
   databases.push(database);
@@ -56,12 +56,12 @@ export function registerTest(t: TestContext) {
   console.debug('study-test-phase:automatic-setup:complete');
 }
 
-export function cleanupTestFile() {
+export async function cleanupTestFile() {
   const errors: unknown[] = [];
 
   for (const database of databases) {
     try {
-      database.cleanup();
+      await database.cleanup();
     } catch (error) {
       errors.push(error);
     }

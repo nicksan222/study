@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { ProjectId } from '@study/contracts/ids';
 import { MaterialsRpc, requestMaterialGenerationInputSchema } from '@study/contracts/materials/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
@@ -55,7 +53,7 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
       ...input,
-      createKey: randomUUID(),
+      createKey: crypto.randomUUID(),
       document: document(),
       inputs: [],
       citations: []
@@ -70,8 +68,8 @@ function createEvidence(input: { projectId: ProjectId; title: string }) {
 }
 
 testStable('quiz settings persist as request intent and reject changed settings', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -137,15 +135,15 @@ testStable('quiz settings persist as request intent and reject changed settings'
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'generation requests persist immutable published document inputs and an outbox event',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -180,14 +178,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('generation validation, rollback, RPC, and persistent snapshots', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
   const makeServices = () =>
     Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -215,13 +213,13 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       yield* docs.save({
         pageId: draftOwner.id,
         expectedVersionId: draftOwner.version.id,
-        key: randomUUID(),
+        key: crypto.randomUUID(),
         document: document()
       });
       const alternative = yield* docs.save({
         pageId: draftOwner.id,
         expectedVersionId: draftOwner.version.id,
-        key: randomUUID(),
+        key: crypto.randomUUID(),
         document: document()
       });
       const draft = yield* docs.version({ id: alternative.submittedVersionId });
@@ -321,7 +319,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       yield* docs.save({
         pageId: doc.id,
         expectedVersionId: doc.version.id,
-        key: randomUUID(),
+        key: crypto.randomUUID(),
         document: document()
       });
       const otherRequest = yield* materials.requestMaterialGeneration({
@@ -345,7 +343,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       )
     );
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     await Effect.runPromise(
       Effect.gen(function* () {
         const materials = yield* Materials;
@@ -374,15 +372,15 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'caller-owned generation keys replay the same request and reject changed intent',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -434,7 +432,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -442,8 +440,8 @@ testStable(
 testStable(
   'generation scopes retain tombstones and fence requests by project and intent',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -510,7 +508,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -518,8 +516,8 @@ testStable(
 testStable(
   'explicit generation retries are idempotent and require active captured intent',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -599,7 +597,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -607,8 +605,8 @@ testStable(
 testStable(
   'active practice generations recover across reads and exclude cancelled and other subjects',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -652,7 +650,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -15,9 +15,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-import { createServer } from 'node:http';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
 import { testStable } from '@study/testing/vitest';
@@ -55,106 +52,100 @@ for (const mode of [
       };
       let invalidResponse = mode === 'invalid-model';
       let transient = mode === 'transient-exhausted';
-      const peer = createServer(async (request, response) => {
-        let body = '';
+      const peer = Bun.serve({
+        hostname: '127.0.0.1',
+        port: 0,
+        fetch: async (request) => {
+          const body = await request.text();
 
-        for await (const chunk of request) body += chunk;
+          if (new URL(request.url).pathname === '/api/accounts/oauth/token') {
+            mark('token', 200);
 
-        if (request.url === '/api/accounts/oauth/token') {
-          mark('token', 200);
-          response.writeHead(200, { 'content-type': 'application/json' }).end(
-            JSON.stringify({
+            return Response.json({
               access_token: 'token',
               refresh_token: 'rotated',
               expires_in: 3600
-            })
+            });
+          }
+
+          const toolResult = body.includes('function_call_output');
+          const open = body.includes('exactly one open question');
+
+          mark(toolResult ? 'tool-result' : 'generation', transient ? 503 : 200);
+
+          if (!toolResult) generations++;
+
+          if (!transient && !toolResult) healthyStarts++;
+
+          if (transient) {
+            failedCalls++;
+
+            return Response.json(
+              { error: { message: 'busy', type: 'server_error' } },
+              { status: 503 }
+            );
+          }
+
+          const content = practiceContent(open);
+          const events = providerEvents();
+
+          function providerEvents() {
+            const call = {
+              type: 'function_call',
+              id: 'tool-item',
+              call_id: 'source-call',
+              name: 'sources',
+              arguments: '{"query":"alpha"}'
+            };
+            const invalid = toolResult && invalidResponse;
+
+            if (invalid) invalidResponse = false;
+
+            const events = toolResult
+              ? [
+                  {
+                    type: 'response.output_item.added',
+                    output_index: 0,
+                    item: { type: 'message', id: 'answer' }
+                  },
+                  {
+                    type: 'response.output_text.delta',
+                    item_id: 'answer',
+                    delta: JSON.stringify(
+                      invalid
+                        ? { ...content, questions: [content.questions[0], content.questions[0]] }
+                        : content
+                    )
+                  },
+                  { type: 'response.completed', response: {} }
+                ]
+              : [
+                  { type: 'response.output_item.added', output_index: 0, item: call },
+                  {
+                    type: 'response.output_item.done',
+                    output_index: 0,
+                    item: { ...call, status: 'completed' }
+                  },
+                  { type: 'response.completed', response: {} }
+                ];
+
+            return events;
+          }
+
+          return new Response(
+            events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join('') +
+              'data: [DONE]\n\n',
+            { headers: { 'content-type': 'text/event-stream' } }
           );
-
-          return;
         }
-
-        const toolResult = body.includes('function_call_output');
-        const open = body.includes('exactly one open question');
-
-        mark(toolResult ? 'tool-result' : 'generation', transient ? 503 : 200);
-
-        if (!toolResult) generations++;
-
-        if (!transient && !toolResult) healthyStarts++;
-
-        if (transient) {
-          failedCalls++;
-          response
-            .writeHead(503, { 'content-type': 'application/json' })
-            .end(JSON.stringify({ error: { message: 'busy', type: 'server_error' } }));
-
-          return;
-        }
-
-        const content = practiceContent(open);
-        const events = providerEvents();
-
-        function providerEvents() {
-          const call = {
-            type: 'function_call',
-            id: 'tool-item',
-            call_id: 'source-call',
-            name: 'sources',
-            arguments: '{"query":"alpha"}'
-          };
-          const invalid = toolResult && invalidResponse;
-
-          if (invalid) invalidResponse = false;
-
-          const events = toolResult
-            ? [
-                {
-                  type: 'response.output_item.added',
-                  output_index: 0,
-                  item: { type: 'message', id: 'answer' }
-                },
-                {
-                  type: 'response.output_text.delta',
-                  item_id: 'answer',
-                  delta: JSON.stringify(
-                    invalid
-                      ? { ...content, questions: [content.questions[0], content.questions[0]] }
-                      : content
-                  )
-                },
-                { type: 'response.completed', response: {} }
-              ]
-            : [
-                { type: 'response.output_item.added', output_index: 0, item: call },
-                {
-                  type: 'response.output_item.done',
-                  output_index: 0,
-                  item: { ...call, status: 'completed' }
-                },
-                { type: 'response.completed', response: {} }
-              ];
-
-          return events;
-        }
-
-        response.writeHead(200, { 'content-type': 'text/event-stream' });
-
-        for (const event of events) response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-        response.end('data: [DONE]\n\n');
       });
 
-      await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
       resources.dispose(async () => {
-        peer.closeAllConnections();
-        await new Promise<void>((resolve) => peer.close(() => resolve()));
+        await peer.stop(true);
       });
-      const address = peer.address();
-
-      assert.ok(!(!address || typeof address === 'string'), 'missing peer address');
-
-      const base = `http://127.0.0.1:${address.port}`;
-      const context = new ServerContext(resources.openDb());
+      assert.ok(peer.port, 'missing peer address');
+      const base = peer.url.origin;
+      const context = new ServerContext(await resources.openDb());
 
       await Effect.runPromise(
         transaction((tx) =>
@@ -186,7 +177,7 @@ for (const mode of [
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const project = yield* client['projects.createProject']({ name: 'Practice' });
             const document = yield* client['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               projectId: project.id,

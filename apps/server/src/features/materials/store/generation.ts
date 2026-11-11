@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
@@ -28,6 +26,7 @@ import {
 import { validBlockTextRange } from '@study/contracts/sources/document';
 import { and, desc, eq, isNull, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { canonicalJson } from '#server/features/materials/decoders/edit-intent';
@@ -339,7 +338,7 @@ export function makeGeneration(resources: StoreResources) {
 
     const event = assertGenerationEvent(request, value.generationEventId);
 
-    const failureId = `material-generation-failed/${createHash('sha256').update(value.generationEventId).digest('hex')}`;
+    const failureId = `material-generation-failed/${new CryptoHasher('sha256').update(value.generationEventId).digest('hex')}`;
 
     const row = db.orm
       .select()
@@ -379,7 +378,7 @@ export function makeGeneration(resources: StoreResources) {
       a.marker < b.marker ? -1 : a.marker > b.marker ? 1 : 0
     );
 
-    const hash = createHash('sha256')
+    const hash = new CryptoHasher('sha256')
       .update(
         canonicalJson(
           Schema.encodeSync(publicationCodec)({

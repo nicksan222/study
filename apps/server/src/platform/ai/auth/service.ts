@@ -25,6 +25,6 @@ export class ChatGptSession extends Context.Service<
     readonly manager: AuthManager;
     readonly issuer: string;
     readonly hostId?: string;
-    readonly request?: typeof fetch;
+    readonly request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
   }
 >()('study/ChatGptSession') {}

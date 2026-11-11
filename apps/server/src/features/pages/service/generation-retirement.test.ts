@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/vitest';
@@ -38,7 +36,7 @@ for (const mode of ['history', 'delete'] as const)
 
             const chats = yield* Notes;
             const input = yield* docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Evidence',
               document: deletionDocument('Generation evidence'),
               inputs: [],
@@ -120,7 +118,7 @@ for (const mode of ['history', 'delete'] as const)
               { kind: 'page', versionId: saved.input.version.id }
             ]);
             const copy = yield* docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Independent intentional copy',
               document: deletionDocument('Independent intentional copy'),
               inputs: [],
@@ -193,7 +191,7 @@ for (const mode of ['history', 'delete'] as const)
         );
         // Reopen with the raw note retained: retiring its independent output is sufficient.
 
-        f.reopen();
+        await f.reopen();
         assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
         assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
         assert.ok(
@@ -233,7 +231,7 @@ for (const mode of ['history', 'delete'] as const)
           }).pipe(Effect.provide(f.domain()))
         );
         await cleanup(f, saved.note.id);
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;

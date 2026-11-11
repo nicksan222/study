@@ -10,9 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { testStable } from '@study/testing/vitest';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 
@@ -33,7 +32,7 @@ testStable('page intents retain persisted receipt digests across renamed identit
     input: { kind: 'document', versionId: '5' },
     sessionId: '7'
   };
-  const expected = createHash('sha256').update(JSON.stringify(historical)).digest('hex');
+  const expected = new CryptoHasher('sha256').update(JSON.stringify(historical)).digest('hex');
 
   expect(
     intentHash(schema, {
@@ -82,5 +81,5 @@ testStable('historical intent encoding preserves annotation notes and canonical 
       document,
       input: { kind: 'page', versionId: 5n }
     })
-  ).toBe(createHash('sha256').update(JSON.stringify(historical)).digest('hex'));
+  ).toBe(new CryptoHasher('sha256').update(JSON.stringify(historical)).digest('hex'));
 });

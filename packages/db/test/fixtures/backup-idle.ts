@@ -1,7 +1,7 @@
 import { Db } from '@study/db';
 
 async function main() {
-  const db = Db.openSnapshot(process.env.STUDY_BACKUP_IDLE_SOURCE!);
+  const db = await Db.openSnapshot(process.env.STUDY_BACKUP_IDLE_SOURCE!);
 
   // A long-lived server/test timer must not be needed to deliver native completion.
   let watchdogFired = false;

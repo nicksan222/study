@@ -4,9 +4,9 @@ import { expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-testStable('workflow pagination queries can use the matching SQLite indexes', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable('workflow pagination queries can use the matching SQLite indexes', async () => {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   try {
     const plans = [
@@ -22,6 +22,6 @@ testStable('workflow pagination queries can use the matching SQLite indexes', ()
     expect(plans[1]![0]!.detail).toMatch(/workflow_executions_correlation_pagination_idx/);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

@@ -24,8 +24,6 @@ testStable('wiring rejects missing, unknown, disabled and untested rules', () =>
 });
 
 testStable('production registry, config and sibling test files agree', async () => {
-  const { readdirSync } = await import('node:fs');
-  const { join } = await import('node:path');
   const { default: plugin } = await import('../index.ts');
   const { lint } = await import('#tooling/oxc-config/lint');
   const { pluginPath, root } = await import('./utils.ts');
@@ -33,7 +31,7 @@ testStable('production registry, config and sibling test files agree', async () 
   checkWiring(
     Object.keys(plugin.rules),
     lint.rules,
-    readdirSync(join(root, pluginPath, 'rules')),
+    Array.from(new Bun.Glob('*').scanSync({ cwd: `${root}${pluginPath}/rules` })),
     lint.overrides.map(({ rules }) => rules)
   );
 });

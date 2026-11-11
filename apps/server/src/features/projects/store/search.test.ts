@@ -23,37 +23,42 @@ import { transaction } from '#server/platform/definitions/define-store';
 
 import { makeProjectSearchProjections } from './search.ts';
 
-testStable('project projections reflect new names and deletions using canonical identities', () => {
-  const location = createTestDatabase();
-  const db = location.open();
-  const read = makeProjectSearchProjections({ db, clock: Effect.runSync(Clock.Clock) });
+testStable(
+  'project projections reflect new names and deletions using canonical identities',
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
+    const read = makeProjectSearchProjections({ db, clock: Effect.runSync(Clock.Clock) });
 
-  try {
-    db.orm.run(sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'Physics',1,1)`);
-    expect(read()).toStrictEqual([
-      {
-        target: { type: 'project', id: 1n },
-        title: 'Physics',
-        text: 'Physics',
-        projectIds: [1n],
-        revision: '1'
-      }
-    ]);
-    db.orm.run(sql`UPDATE projects SET name='Biology',updated_at=2 WHERE id=1`);
-    expect(read()[0]?.text).toBe('Biology');
-    db.orm.run(sql`DELETE FROM projects WHERE id=1`);
-    expect(read()).toStrictEqual([]);
-  } finally {
-    db.close();
-    location.cleanup();
+    try {
+      db.orm.run(
+        sql`INSERT INTO projects (id,name,created_at,updated_at) VALUES (1,'Physics',1,1)`
+      );
+      expect(read()).toStrictEqual([
+        {
+          target: { type: 'project', id: 1n },
+          title: 'Physics',
+          text: 'Physics',
+          projectIds: [1n],
+          revision: '1'
+        }
+      ]);
+      db.orm.run(sql`UPDATE projects SET name='Biology',updated_at=2 WHERE id=1`);
+      expect(read()[0]?.text).toBe('Biology');
+      db.orm.run(sql`DELETE FROM projects WHERE id=1`);
+      expect(read()).toStrictEqual([]);
+    } finally {
+      db.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
 testStable(
   'public projection participant validates pagination through the owning feature store',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       context.db.orm.run(
@@ -74,7 +79,7 @@ testStable(
       expect((await Effect.runPromise(Effect.flip(page(0, 1001)))).kind).toBe('invalid_input');
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

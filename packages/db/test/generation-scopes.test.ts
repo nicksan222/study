@@ -5,9 +5,9 @@ import { createTestDatabase } from '../src/testing.ts';
 
 testStable(
   'generation scope closure and identity survive direct writes and allow project cascades',
-  () => {
-    const location = createTestDatabase();
-    const db = location.open();
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
 
     try {
       db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
@@ -28,14 +28,14 @@ testStable(
       expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
-testStable('scoped generation requests require a live scope in their own project', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable('scoped generation requests require a live scope in their own project', async () => {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   try {
     db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1),(2,'Two',1,1);
@@ -61,6 +61,6 @@ testStable('scoped generation requests require a live scope in their own project
     );
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

@@ -27,7 +27,7 @@ import {
 } from '@study/db/schema';
 import { Effect, Option, Schema } from 'effect';
 
-import type { ServerContext } from '#server/platform/database/context';
+import type { ServerContext, ServerTransactionContext } from '#server/platform/database/context';
 import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { withPublicationGuard, PublicationGuard } from '#server/platform/workflows/publication';
 
@@ -120,7 +120,7 @@ export function observeAgentProgress(context: ServerContext) {
 
           yield* Effect.try({
             try: () =>
-              context.transaction(() => {
+              context.transaction((context) => {
                 guard.assert(context);
                 const value = Schema.decodeUnknownSync(agentObservationSchema)(observation);
                 const event = value.event;
@@ -195,7 +195,7 @@ export function observeAgentProgress(context: ServerContext) {
  * Completed previews rely on claim-time cleanup because checkpoints clear owner tokens.
  */
 export function agentProgressSnapshot(
-  context: Pick<ServerContext, 'db'>,
+  context: Pick<ServerContext | ServerTransactionContext, 'db'>,
   input: typeof agentProgressInputSchema.Type,
   limit = 100
 ): (typeof agentProgressSchema.Type)[] {

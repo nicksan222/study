@@ -3,8 +3,8 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports the prohibited pattern', () => {
-  const diagnostics = lintRule(
+testStable('reports the prohibited pattern', async () => {
+  const diagnostics = await lintRule(
     'environment-boundary',
     { 'src/domain.ts': 'const key = process.env.KEY;' },
     false
@@ -13,8 +13,8 @@ testStable('reports the prohibited pattern', () => {
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('recognizes aliases and destructuring without confusing shadowed process', () => {
-  const diagnostics = lintRule('environment-boundary', {
+testStable('recognizes aliases and destructuring without confusing shadowed process', async () => {
+  const diagnostics = await lintRule('environment-boundary', {
     'src/a.ts':
       "const p = process; const { env } = p; const value = p['env'].KEY; function f(process: any) { return process.env.KEY; }",
     'src/runtime/config.ts': 'const value = process.env.KEY;',
@@ -26,8 +26,8 @@ testStable('recognizes aliases and destructuring without confusing shadowed proc
 
 testStable(
   'traces process imports, global aliases and nested destructuring at startup boundaries',
-  () => {
-    const diagnostics = lintRule('environment-boundary', {
+  async () => {
+    const diagnostics = await lintRule('environment-boundary', {
       'src/a.ts':
         "import proc, { env as vars } from 'node:process'; const p = globalThis.process; const { env: { KEY } } = p; const x = proc.env.KEY; const y = vars.KEY; function f(globalThis: any) { return globalThis.process.env.X; }",
       'src/main.ts': 'const x = process.env.X;',

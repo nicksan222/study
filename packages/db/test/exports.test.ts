@@ -6,9 +6,9 @@ import { projects } from '../src/schema.ts';
 
 testStable(
   'database facade executes parameterized queries and schema predicates on its connection',
-  () => {
+  async () => {
     assert.strictEqual(typeof database.sql, 'function');
-    const db = database.Db.open(':memory:');
+    const db = await database.Db.open(':memory:');
     const name = "a quoted ' project";
 
     try {

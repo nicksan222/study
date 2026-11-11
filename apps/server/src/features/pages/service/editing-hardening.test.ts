@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -45,9 +43,9 @@ const meta = {
   omissions: []
 };
 
-function fixture() {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+async function fixture() {
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
 
   return {
     get context() {
@@ -57,13 +55,13 @@ function fixture() {
       Layer.mergeAll(Pages.layer, Sources.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       ),
-    reopen() {
+    async reopen() {
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
     },
-    close() {
+    async close() {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -71,7 +69,7 @@ function fixture() {
 testStable(
   'an image exclusive to a losing autosave retains its association and exact snapshot after reopen',
   async () => {
-    const f = fixture();
+    const f = await fixture();
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
     try {
@@ -92,7 +90,7 @@ testStable(
           });
           const target = yield* pages.create({
             title: 'Target',
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             document: { blocks: [paragraph('Base')], meta }
@@ -118,7 +116,7 @@ testStable(
         }).pipe(Effect.provide(f.services()))
       );
 
-      f.reopen();
+      await f.reopen();
       const associations = f.context.db.orm
         .select()
         .from(s.document_assets)
@@ -172,7 +170,7 @@ testStable(
       );
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -180,7 +178,7 @@ testStable(
 testStable(
   'authored restoration keeps its exact source revision after replacement without following the mutable source head',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -202,14 +200,14 @@ testStable(
           const stable = createBlock({ type: 'math', expression: 'a²' });
           const derivative = yield* pages.create({
             title: 'Authored',
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [input],
             citations: [],
             document: { blocks: [stable, paragraph('Authored reading')], meta }
           });
           const foreign = yield* pages.create({
             title: 'Other Page',
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             document: { blocks: [paragraph('Foreign editing identity')], meta }
@@ -306,7 +304,7 @@ testStable(
       );
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );

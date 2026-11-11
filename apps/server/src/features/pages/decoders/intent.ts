@@ -10,8 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 /** Schema codecs preserve bigint identity; sorted object keys make replay property-order independent. */
@@ -22,7 +21,7 @@ export function intentHash<S extends Schema.ConstraintEncoder<unknown>>(
   const encoded = Schema.encodeSync(Schema.fromJsonString(Schema.toCodecJson(schema)))(value);
   const canonical = JSON.stringify(historicalIntent(JSON.parse(encoded)));
 
-  return createHash('sha256').update(canonical).digest('hex');
+  return new CryptoHasher('sha256').update(canonical).digest('hex');
 }
 
 /** Durable receipt digests keep their established encoding across domain terminology changes. */

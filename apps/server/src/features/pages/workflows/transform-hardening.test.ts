@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { createBlock } from '@study/contracts/sources/document';
 import type { Block } from '@study/contracts/sources/document';
@@ -67,7 +65,7 @@ function capture(blocks: Block[]) {
     const note = yield* chats.createNote({ title: 'Transform' });
     const original = yield* materials.create({
       noteId: note.id,
-      createKey: randomUUID(),
+      createKey: crypto.randomUUID(),
       inputs: [],
       citations: [],
       title: 'Immutable original',
@@ -148,7 +146,7 @@ testStable(
 
       assert.strictEqual(fixture.bodies.length, 2);
       assert.strictEqual(fixture.replies.length, 0);
-      fixture.reopen();
+      await fixture.reopen();
       assert.strictEqual(await fixture.executeAuthored(event, 'json-image-replay'), result);
       assert.strictEqual(fixture.bodies.length, 2);
       await Effect.runPromise(
@@ -358,7 +356,7 @@ testStable(
             yield* (yield* Pages).save({
               pageId: setup.original.id,
               expectedVersionId: setup.original.version.id,
-              key: randomUUID(),
+              key: crypto.randomUUID(),
               document: document([paragraph('LATEST SECRET')])
             });
             yield* (yield* Notes).updateNoteSelection({
@@ -414,7 +412,7 @@ testStable(
           ]);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      fixture.reopen();
+      await fixture.reopen();
       assert.strictEqual(
         await fixture.executeAuthored(fixture.authoredEvent(setup.request.id), 'retry-reopen'),
         result
@@ -545,7 +543,7 @@ testStable(
       );
       assert.strictEqual(fixture.bodies.length, 2);
       assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 1);
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -641,7 +639,7 @@ testStable(
         ).pipe(Effect.provide(fixture.services()), Effect.timeout('10 seconds'))
       );
 
-      fixture.reopen();
+      await fixture.reopen();
       assert.strictEqual(await fixture.executeAuthored(event, 'publication-wins-replay'), result);
       assert.strictEqual(fixture.bodies.length, 2);
       assert.strictEqual(fixture.context.db.orm.select().from(s.pages).all().length, 2);
@@ -714,7 +712,7 @@ testStable(
           yield* (yield* Notes).deleteNote(setup.note.id);
         }).pipe(Effect.provide(fixture.domain()))
       );
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Pages;

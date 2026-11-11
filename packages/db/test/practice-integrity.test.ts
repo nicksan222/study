@@ -3,9 +3,9 @@ import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-testStable('practice keeps bounded immutable slots and durable control epochs', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable('practice keeps bounded immutable slots and durable control epochs', async () => {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   try {
     db.exec(`INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'One',1,1);
@@ -58,6 +58,6 @@ testStable('practice keeps bounded immutable slots and durable control epochs', 
     expect(db.orm.all('PRAGMA foreign_key_check')).toStrictEqual([]);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

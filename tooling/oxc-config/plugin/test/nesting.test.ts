@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintFiles } from './utils.ts';
 
-testStable('production config rejects four nested control-flow blocks', () => {
-  const diagnostics = lintFiles(
+testStable('production config rejects four nested control-flow blocks', async () => {
+  const diagnostics = await lintFiles(
     {
       'apps/web/src/lib/nesting.ts': `
       export function nested(a, b, c, d) {
@@ -33,8 +33,8 @@ testStable('production config rejects four nested control-flow blocks', () => {
   );
 });
 
-testStable('production config rejects four nested callbacks', () => {
-  const diagnostics = lintFiles(
+testStable('production config rejects four nested callbacks', async () => {
+  const diagnostics = await lintFiles(
     {
       'apps/web/src/lib/callbacks.ts': `
       export function nested(items) {
@@ -59,8 +59,8 @@ testStable('production config rejects four nested callbacks', () => {
   );
 });
 
-testStable('production config accepts guard clauses and three callback levels', () => {
-  const diagnostics = lintFiles(
+testStable('production config accepts guard clauses and three callback levels', async () => {
+  const diagnostics = await lintFiles(
     {
       'apps/web/src/lib/shallow.ts': `
       export function guarded(a, b, c) {

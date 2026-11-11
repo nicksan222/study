@@ -33,8 +33,8 @@ import { workflowEngineLayer } from './engine.ts';
 testStable(
   'unsafe control interrupts a provider fiber after its durable source capture was retired and scrubbed',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const workflow = Workflow.make('retired-source-control-test', {
       payload: { event: sourceProcessingRequestedSchema },
       idempotencyKey: ({ event }) => event.eventId
@@ -105,7 +105,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

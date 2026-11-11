@@ -3,8 +3,8 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports the prohibited pattern', () => {
-  const diagnostics = lintRule(
+testStable('reports the prohibited pattern', async () => {
+  const diagnostics = await lintRule(
     'contract-schema',
     { 'packages/contracts/src/user.ts': 'export interface User { id: string }' },
     true
@@ -15,8 +15,8 @@ testStable('reports the prohibited pattern', () => {
 
 testStable(
   'recognizes Effect schema aliases and leaves unrelated values and derived types alone',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'contract-schema',
       {
         'packages/contracts/src/user.ts':
@@ -31,21 +31,24 @@ testStable(
   }
 );
 
-testStable('rejects exported aliases to handwritten objects and inferred database types', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/a.ts':
-        'interface Hidden { x: string }; type Shape = Hidden; export type Public = Shape; type Row = typeof table.$inferSelect; export type Result = Row;'
-    },
-    true
-  );
+testStable(
+  'rejects exported aliases to handwritten objects and inferred database types',
+  async () => {
+    const diagnostics = await lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/a.ts':
+          'interface Hidden { x: string }; type Shape = Hidden; export type Public = Shape; type Row = typeof table.$inferSelect; export type Result = Row;'
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('rejects handwritten brands tied to imported Effect Brand', () => {
-  const diagnostics = lintRule(
+testStable('rejects handwritten brands tied to imported Effect Brand', async () => {
+  const diagnostics = await lintRule(
     'contract-schema',
     {
       'packages/contracts/src/a.ts':
@@ -59,8 +62,8 @@ testStable('rejects handwritten brands tied to imported Effect Brand', () => {
 
 testStable(
   'export lists, nested handwritten shapes and structural brands cannot bypass canonical schemas',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'contract-schema',
       {
         'packages/contracts/src/a.ts':
@@ -75,8 +78,8 @@ testStable(
   }
 );
 
-testStable('native RPC declarations specify payload, success and error schemas', () => {
-  const diagnostics = lintRule(
+testStable('native RPC declarations specify payload, success and error schemas', async () => {
+  const diagnostics = await lintRule(
     'contract-schema',
     {
       'packages/contracts/src/sources/rpc.ts':
@@ -90,8 +93,8 @@ testStable('native RPC declarations specify payload, success and error schemas',
 
 testStable(
   'rich content remains schema-derived rather than a parallel public editor payload',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'contract-schema',
       {
         'packages/contracts/src/pages.ts': `
@@ -112,8 +115,8 @@ testStable(
 
 testStable(
   'run metadata derives from schemas instead of unchecked preference or parallel context objects',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'contract-schema',
       {
         'packages/contracts/src/notes/capture.ts': `
@@ -134,8 +137,8 @@ testStable(
 
 testStable(
   'Material deletion scope and status derive from canonical schemas rather than parallel unchecked payloads',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'contract-schema',
       {
         'packages/contracts/src/materials/deletion.ts': `
@@ -156,8 +159,8 @@ testStable(
 
 testStable(
   'history policies, exact candidates and native operations derive from checked schemas',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'contract-schema',
       {
         'packages/contracts/src/materials/history.ts': `
@@ -186,11 +189,13 @@ testStable(
   }
 );
 
-testStable('backup descriptors and restore acknowledgements use checked canonical schemas', () => {
-  const diagnostics = lintRule(
-    'contract-schema',
-    {
-      'packages/contracts/src/system/backups.ts': `
+testStable(
+  'backup descriptors and restore acknowledgements use checked canonical schemas',
+  async () => {
+    const diagnostics = await lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/system/backups.ts': `
       import { Schema } from 'effect';
 
       export const status = Schema.Struct({state: Schema.Literals(['idle', 'restart-required', 'applied']), recoveryCopy: Schema.Boolean});
@@ -202,9 +207,10 @@ testStable('backup descriptors and restore acknowledgements use checked canonica
       export const unchecked = Schema.Struct({manifest: Schema.Unknown});
 
     `
-    },
-    true
-  );
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);

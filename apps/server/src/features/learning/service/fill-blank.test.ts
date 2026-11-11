@@ -31,8 +31,8 @@ import { Learning } from './index.ts';
 testStable(
   'blank practice persists, hides answers, filters kinds and settles a grade after completion',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
       Layer.provideMerge(Materials.layer),
@@ -188,7 +188,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

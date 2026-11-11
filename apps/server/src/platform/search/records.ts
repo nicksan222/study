@@ -12,11 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { SearchProjection } from '@study/contracts/search/schemas';
 import { searchTargetSchema } from '@study/contracts/search/schemas';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { textWindowSize } from './text-windows.ts';
@@ -27,7 +26,7 @@ const encodeTarget = Schema.encodeSync(
 
 /** Create stable opaque keys without placing entity text in SQLite primary keys. */
 function hash(text: string) {
-  return createHash('sha256').update(text).digest('hex');
+  return new CryptoHasher('sha256').update(text).digest('hex');
 }
 
 /** Include the indexing policy so a segmentation change invalidates every cached ordinal. */

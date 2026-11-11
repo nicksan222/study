@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { materialGenerationRequestedSchema } from '@study/contracts/events';
 import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
@@ -42,7 +40,7 @@ export function emitGenerationPublication(
   if (result.event && result.materialId !== undefined)
     tx.emit({
       type: 'MaterialPublished',
-      eventId: randomUUID(),
+      eventId: crypto.randomUUID(),
       causationId: result.event.eventId,
       correlationId: result.event.correlationId,
       inputVersion: 1,

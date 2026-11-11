@@ -14,10 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-import { Readable } from 'node:stream';
-import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
@@ -65,43 +61,17 @@ async function withServer(
         Stream.concat(Stream.make(1), Stream.never).pipe(Stream.ensuring(Effect.sync(end)))
     })
   });
-  const server = createServer(async (req, res) => {
-    const abort = new AbortController();
-
-    res.on('close', () => abort.abort());
-    const body = req.method === 'GET' || req.method === 'HEAD' ? undefined : Readable.toWeb(req);
-    const request = new Request(`http://localhost${req.url}`, {
-      method: req.method,
-      headers: req.headers as HeadersInit,
-      body: body as ReadableStream | undefined,
-      duplex: 'half',
-      signal: abort.signal
-    } as RequestInit);
-    const response = await app.handler(request);
-
-    res.writeHead(response.status, Object.fromEntries(response.headers));
-
-    if (response.body) {
-      const stream = Readable.fromWeb(response.body as NodeReadableStream);
-
-      res.on('close', () => stream.destroy());
-      stream.pipe(res);
-    } else res.end();
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: (request) => app.handler(request)
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(address && typeof address !== 'string');
-
   try {
-    await run(`http://127.0.0.1:${address.port}`, ended, () => calls, app.dispose);
+    await run(server.url.origin, ended, () => calls, app.dispose);
   } finally {
     await app.dispose();
-    server.closeAllConnections();
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve()))
-    );
+    await server.stop(true);
   }
 }
 

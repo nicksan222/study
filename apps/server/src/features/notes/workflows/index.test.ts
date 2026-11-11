@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import type { messageVersionSchema } from '@study/contracts/notes/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
@@ -48,8 +46,8 @@ import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 testStable(
   'reply checkpoints plain output and fences stale context and fabricated citations',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     let calls = 0;
     let output = 'A plain answer';
     let cancel: (() => Promise<void>) | undefined;
@@ -59,77 +57,71 @@ testStable(
     let duringModelResolution: (() => Promise<void>) | undefined;
     let duringLanguageResolution: (() => Promise<void>) | undefined;
     let duringToolCall: (() => Promise<void>) | undefined;
-    const peer = createServer(async (request, response) => {
-      let body = '';
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (request) => {
+        let events = '';
+        const body = await request.text();
 
-      for await (const chunk of request) body += chunk;
+        bodies.push(body);
+        calls++;
 
-      bodies.push(body);
-      calls++;
+        if (toolCall) {
+          toolCall = false;
+          const action = duringToolCall;
 
-      if (toolCall) {
-        toolCall = false;
-        const action = duringToolCall;
+          duringToolCall = undefined;
+          await action?.();
+          const call = {
+            type: 'function_call',
+            id: 'item1',
+            call_id: 'call1',
+            name: 'sources',
+            arguments: '{"query":"alpha"}'
+          };
 
-        duringToolCall = undefined;
-        await action?.();
-        const call = {
-          type: 'function_call',
-          id: 'item1',
-          call_id: 'call1',
-          name: 'sources',
-          arguments: '{"query":"alpha"}'
-        };
+          for (const event of [
+            { type: 'response.output_item.added', output_index: 0, item: call },
+            {
+              type: 'response.output_item.done',
+              output_index: 0,
+              item: { ...call, status: 'completed' }
+            },
+            { type: 'response.completed', response: {} }
+          ])
+            events += `data: ${JSON.stringify(event)}\n\n`;
 
-        response.writeHead(200, { 'content-type': 'text/event-stream' });
+          return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
+        }
+
+        if (duringCall) {
+          const action = duringCall;
+
+          duringCall = undefined;
+          await action();
+        }
 
         for (const event of [
-          { type: 'response.output_item.added', output_index: 0, item: call },
+          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
           {
-            type: 'response.output_item.done',
+            type: 'response.output_item.added',
             output_index: 0,
-            item: { ...call, status: 'completed' }
+            item: { type: 'message', id: 'item' }
           },
+          { type: 'response.output_text.delta', item_id: 'item', delta: output },
           { type: 'response.completed', response: {} }
         ])
-          response.write(`data: ${JSON.stringify(event)}\n\n`);
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-        response.end();
-
-        return;
+        return new Response(events + 'data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' }
+        });
       }
-
-      if (duringCall) {
-        const action = duringCall;
-
-        duringCall = undefined;
-        await action();
-      }
-
-      response.writeHead(200, { 'content-type': 'text/event-stream' });
-
-      for (const event of [
-        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-        {
-          type: 'response.output_item.added',
-          output_index: 0,
-          item: { type: 'message', id: 'item' }
-        },
-        { type: 'response.output_text.delta', item_id: 'item', delta: output },
-        { type: 'response.completed', response: {} }
-      ])
-        response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      response.end('data: [DONE]\n\n');
     });
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-    const address = peer.address();
-
-    assert.ok(address, 'missing address');
-    assert.ok(typeof address !== 'string', 'expected TCP address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(peer.port, 'missing address');
+    const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     await auth.replace(
@@ -276,7 +268,7 @@ testStable(
         sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay'`
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await execute(current, 'replay');
       assert.strictEqual(calls, 1);
       assert.ok(
@@ -333,7 +325,7 @@ testStable(
         sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'rewrite'`
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await execute(rewriteEvent, 'rewrite');
       assert.strictEqual(calls, beforeRewrite + 1);
       const rewritten = await run(Effect.flatMap(Notes, (c) => c.message(current.messageId)));
@@ -817,8 +809,8 @@ testStable(
     } finally {
       await auth.dispose();
       context.close();
-      location.cleanup();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
+      await location.cleanup();
+      await peer.stop(true);
     }
   }
 );

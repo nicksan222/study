@@ -34,7 +34,7 @@ type TestResources = {
   openApp: (
     options?: Omit<Parameters<typeof App.open>[0], 'path'> & { path?: string }
   ) => Promise<App>;
-  openDb: (path?: string) => Db;
+  openDb: (path?: string) => Promise<Db>;
 };
 
 export type ServerTest = TestResources & {
@@ -57,9 +57,10 @@ function resources(state: TestState): TestResources {
     openApp: async (options = {}) =>
       manageResource(
         state,
-        await App.open({ ...options, path: options.path ?? state.database.prepare() })
+        await App.open({ ...options, path: options.path ?? (await state.database.prepare()) })
       ),
-    openDb: (path) => manageResource(state, path ? Db.open(path) : state.database.open())
+    openDb: async (path) =>
+      manageResource(state, await (path ? await Db.open(path) : state.database.open()))
   };
 }
 

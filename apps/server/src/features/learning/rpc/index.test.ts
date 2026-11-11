@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { QuizAttemptId } from '@study/contracts/ids';
 import { LearningRpc } from '@study/contracts/learning/rpc';
 import { plainBlock } from '@study/contracts/sources/document';
@@ -34,8 +32,8 @@ import { Database } from '#server/platform/database/database';
 import { LearningRpcLive } from './index.ts';
 
 testStable('native learning RPC maps missing attempts to typed failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = LearningRpcLive.pipe(
     Layer.provide(
       Learning.layer.pipe(
@@ -63,14 +61,14 @@ testStable('native learning RPC maps missing attempts to typed failures', async 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('native practice RPC starts, reads, and stops project practice', async () => {
   const s = await import('@study/db/schema');
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const db = Layer.succeed(Database, { store: context });
   const services = Learning.layer.pipe(
     Layer.provideMerge(Settings.layer),
@@ -92,7 +90,7 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
         Effect.gen(function* () {
           yield* Materials;
           const doc = yield* (yield* Pages).create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             projectId: project.id,
@@ -131,15 +129,15 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'native ordering RPC keeps answers private and restores the committed sequence',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
       Layer.provideMerge(Materials.layer),
@@ -192,7 +190,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

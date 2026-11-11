@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { Worker } from 'node:worker_threads';
-
 import { StudyError } from '@study/contracts/errors';
 import { Effect, Option, Schema, Semaphore } from 'effect';
 
@@ -58,9 +56,13 @@ export function makeWorkerClient(worker: Worker) {
     releaseIdle = undefined;
   };
 
-  worker.on('error', fail);
-  worker.on('exit', (code) => fail(new Error(`Embedding worker exited (${code})`)));
-  worker.on('message', (message: unknown) => {
+  worker.addEventListener('error', (event) => fail(event.error ?? new Error(event.message)));
+  worker.addEventListener('close', (event) =>
+    fail(new Error(`Embedding worker exited (${(event as CloseEvent).code})`))
+  );
+  worker.addEventListener('message', (event: MessageEvent<unknown>) => {
+    const message = event.data;
+
     if (readyMessage(message)) {
       readyResolve?.();
       readyResolve = undefined;

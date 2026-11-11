@@ -1,12 +1,14 @@
 /** Stages the private server, its production dependencies, migrations and native Bun runtime. */
-import { execFileSync } from 'node:child_process';
-import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { Effect, FileSystem, Path } from 'effect';
 
-import { pruneOnnx } from './prune-onnx';
+import { pruneOnnx } from './prune-onnx.ts';
 
-const root = fileURLToPath(new URL('../../', import.meta.url));
+const { join, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const root = Bun.fileURLToPath(new URL('../../', import.meta.url));
 
 const output = resolve(root, 'target/desktop-runtime');
 
@@ -14,22 +16,24 @@ const server = join(output, 'server');
 
 if (!process.versions.bun) throw new Error('Run through bun run desktop:runtime');
 
-await rm(output, { recursive: true, force: true });
-await mkdir(server, { recursive: true });
+await Effect.runPromise(fs.remove(output, { recursive: true, force: true }));
+await Effect.runPromise(fs.makeDirectory(server, { recursive: true }));
 
 for (const file of ['package.json', 'bun.lock'])
-  await copyFile(join(root, file), join(server, file));
+  await Effect.runPromise(fs.copyFile(join(root, file), join(server, file)));
 
 // Keep workspace resolution and the lockfile intact while installing only server dependencies.
 for (const parent of ['apps', 'packages', 'tooling']) {
   const folders =
-    parent === 'tooling'
-      ? ['']
-      : (await readdir(join(root, parent), { withFileTypes: true }))
-          .filter((entry) => entry.isDirectory())
-          .map((entry) => entry.name);
+    parent === 'tooling' ? [''] : await Effect.runPromise(fs.readDirectory(join(root, parent)));
 
   for (const folder of folders) {
+    if (
+      parent !== 'tooling' &&
+      (await Effect.runPromise(fs.lstat(join(root, parent, folder)))).type !== 'Directory'
+    )
+      continue;
+
     await copyManifest(join(parent, folder));
   }
 }
@@ -43,11 +47,11 @@ for (const folder of [
   'packages/localization/src',
   'packages/theme/src'
 ])
-  await cp(join(root, folder), join(server, folder), { recursive: true });
+  await Effect.runPromise(fs.copy(join(root, folder), join(server, folder)));
 
-execFileSync(
-  process.execPath,
+const install = Bun.spawnSync(
   [
+    process.execPath,
     'install',
     '--production',
     '--frozen-lockfile',
@@ -56,11 +60,10 @@ execFileSync(
     '@study/server',
     ...(process.platform === 'linux' ? ['--libc', 'glibc'] : [])
   ],
-  {
-    cwd: server,
-    stdio: 'inherit'
-  }
+  { cwd: server, stdio: ['inherit', 'inherit', 'inherit'] }
 );
+
+if (install.exitCode !== 0) throw new Error(`Runtime installation failed: ${install.exitCode}`);
 
 await pruneOnnx(
   join(server, 'node_modules/onnxruntime-node/bin/napi-v6'),
@@ -72,34 +75,43 @@ await pruneOnnx(
 // from real package directories, so materialize each installed workspace before bundling.
 const workspaces = join(server, 'node_modules/@study');
 
-for (const entry of await readdir(workspaces, { withFileTypes: true })) {
-  if (!entry.isSymbolicLink()) continue;
+for (const entry of await Effect.runPromise(fs.readDirectory(workspaces))) {
+  const link = join(workspaces, entry);
 
-  const link = join(workspaces, entry.name);
-  const source = await realpath(link);
+  if ((await Effect.runPromise(fs.lstat(link))).type !== 'SymbolicLink') continue;
 
-  await rm(link, { recursive: true, force: true });
-  await cp(source, link, { recursive: true });
+  const source = await Effect.runPromise(fs.realPath(link));
+
+  await Effect.runPromise(fs.remove(link, { recursive: true, force: true }));
+  await Effect.runPromise(fs.copy(source, link));
 }
 
-await writeFile(join(server, 'main.js'), "await import('./apps/server/src/runtime/main.ts');\n");
+await Bun.write(join(server, 'main.js'), "await import('./apps/server/src/runtime/main.ts');\n");
 
 const bun = join(output, process.platform === 'win32' ? 'bun.exe' : 'bun');
 
-await copyFile(process.execPath, bun);
-await chmod(bun, 0o755);
+await Effect.runPromise(fs.copyFile(process.execPath, bun));
+await Effect.runPromise(fs.chmod(bun, 0o755));
 
 async function copyManifest(relative: string) {
   try {
-    await mkdir(join(server, relative), { recursive: true });
-    await copyFile(join(root, relative, 'package.json'), join(server, relative, 'package.json'));
+    await Effect.runPromise(fs.makeDirectory(join(server, relative), { recursive: true }));
+    await Effect.runPromise(
+      fs.copyFile(join(root, relative, 'package.json'), join(server, relative, 'package.json'))
+    );
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    if (await Bun.file(join(root, relative, 'package.json')).exists()) throw error;
   }
 }
 
 if (process.platform === 'darwin') {
-  const prefix = execFileSync('brew', ['--prefix', 'sqlite'], { encoding: 'utf8' }).trim();
+  const brew = Bun.spawnSync(['brew', '--prefix', 'sqlite']);
 
-  await copyFile(join(prefix, 'lib/libsqlite3.dylib'), join(output, 'libsqlite3.dylib'));
+  if (brew.exitCode !== 0) throw new Error('Cannot find Homebrew SQLite');
+
+  const prefix = brew.stdout.toString().trim();
+
+  await Effect.runPromise(
+    fs.copyFile(join(prefix, 'lib/libsqlite3.dylib'), join(output, 'libsqlite3.dylib'))
+  );
 }

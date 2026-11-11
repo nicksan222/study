@@ -1,8 +1,10 @@
-import { dirname, resolve } from 'node:path';
-
+import { BunPath } from '@effect/platform-bun';
+import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { boundSpecifier } from '../lexical-bindings.ts';
+
+const { dirname, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const message =
   'Server tests must use real dependencies, not mock APIs or fabricated database contexts.';

@@ -193,7 +193,7 @@ case "${1:-}" in
     normalize_apple
     unsigned=${3:-}
     cd apps/desktop
-    set -- "$repo_root/node_modules/.bin/tauri" build --config "$config" --target "$TARGET"
+    set -- bun --bun "$repo_root/node_modules/.bin/tauri" build --config "$config" --target "$TARGET"
     if [ "$unsigned" = --unsigned ]; then set -- "$@" --no-sign; fi
     "$@" -- --locked ;;
   *) fail 'usage: release.sh ci-version|ensure-tag|signing-environment|configure|check-config|prepare|assemble|apple-environment|verify-macos|build' ;;

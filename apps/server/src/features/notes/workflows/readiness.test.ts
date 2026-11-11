@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { eq } from '@study/db';
 import * as tables from '@study/db/schema';
@@ -55,38 +53,39 @@ import {
 } from './index.ts';
 
 testStable('indexed source wakes the dispatched reply using its persisted receipt', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   let calls = 0;
-  const peer = createServer(async (request, response) => {
-    for await (const _chunk of request) {
-      /* drain request */
+  const peer = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: async (request) => {
+      let events = '';
+
+      await request.text();
+
+      calls++;
+
+      for (const event of [
+        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
+        {
+          type: 'response.output_item.added',
+          output_index: 0,
+          item: { type: 'message', id: 'item' }
+        },
+        { type: 'response.output_text.delta', item_id: 'item', delta: 'Answer' },
+        { type: 'response.completed', response: {} }
+      ])
+        events += `data: ${JSON.stringify(event)}\n\n`;
+
+      return new Response(events + 'data: [DONE]\n\n', {
+        headers: { 'content-type': 'text/event-stream' }
+      });
     }
-
-    calls++;
-    response.writeHead(200, { 'content-type': 'text/event-stream' });
-
-    for (const event of [
-      { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-      {
-        type: 'response.output_item.added',
-        output_index: 0,
-        item: { type: 'message', id: 'item' }
-      },
-      { type: 'response.output_text.delta', item_id: 'item', delta: 'Answer' },
-      { type: 'response.completed', response: {} }
-    ])
-      response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    response.end('data: [DONE]\n\n');
   });
 
-  await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-  const address = peer.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
+  assert.ok(peer.port, 'missing address');
+  const base = peer.url.origin;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
   await auth.replace(
@@ -632,19 +631,17 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
     );
   } finally {
     await auth.dispose();
-    await new Promise<void>((resolve, reject) =>
-      peer.close((error) => (error ? reject(error) : resolve()))
-    );
+    await peer.stop(true);
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'a pending reply survives reopening and protects its source until raw note deletion',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
     const services = () => {
@@ -747,7 +744,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -810,7 +807,7 @@ testStable(
     } finally {
       await auth.dispose();
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

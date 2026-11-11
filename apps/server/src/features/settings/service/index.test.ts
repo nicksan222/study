@@ -35,8 +35,8 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
 testStable('settings defaults, updates, model selection and rollback use SQLite', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Settings.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -142,15 +142,15 @@ testStable('settings defaults, updates, model selection and rollback use SQLite'
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'appearance controls persist bounded preferences independently of app settings',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Settings.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -190,7 +190,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -198,8 +198,8 @@ testStable(
 testStable(
   'concurrency settings persist and reject invalid limits without changing saved capacity',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Settings.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -240,7 +240,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -248,8 +248,8 @@ testStable(
 testStable(
   'workspace preferences persist in SQLite, merge new defaults and reject invalid updates',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Settings.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -299,7 +299,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -322,8 +322,8 @@ testStable('older quiz preferences receive generation defaults during decoding',
 testStable(
   'agent rules persist, merge missing fields and reject oversized updates atomically',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Settings.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -357,14 +357,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('registered provider models round-trip and reject undeclared model IDs', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Settings.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -407,6 +407,6 @@ testStable('registered provider models round-trip and reject undeclared model ID
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

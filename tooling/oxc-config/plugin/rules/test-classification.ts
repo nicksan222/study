@@ -1,10 +1,12 @@
-import { dirname, resolve } from 'node:path';
-
+import { BunPath } from '@effect/platform-bun';
 import { classificationLabel } from '@study/testing/classification';
+import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
 import { binding, constantDeclarator, enterNode, memberName } from '../lexical-bindings.ts';
+
+const { dirname, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const runners = /^(?:node:test|test|vitest|vite-plus\/test|@jest\/globals|bun:test)$/;
 

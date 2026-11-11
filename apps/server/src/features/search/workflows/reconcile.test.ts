@@ -31,8 +31,8 @@ import { searchReconciliation } from './reconcile.ts';
 testStable(
   'native reconciliation workflow is restartable and replay does not duplicate embeddings',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     let calls = 0;
     const model = {
       chunkPassages: (text: string) => Effect.succeed([text]),
@@ -91,7 +91,7 @@ testStable(
       expect(calls).toBe(1);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

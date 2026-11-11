@@ -1,26 +1,17 @@
-import { spawnSync } from 'node:child_process';
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  symlinkSync,
-  writeFileSync
-} from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { Effect, FileSystem, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
-export const root = fileURLToPath(new URL('../../../../', import.meta.url));
+const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+export const root = Bun.fileURLToPath(new URL('../../../../', import.meta.url));
 
 const vp = join(root, 'node_modules/.bin/vp');
 
 const oxlint = join(
-  dirname(createRequire(import.meta.resolve('vite-plus')).resolve('oxlint/package.json')),
+  dirname(Bun.resolveSync('oxlint/package.json', dirname(Bun.resolveSync('vite-plus', root)))),
   'bin/oxlint'
 );
 
@@ -32,99 +23,115 @@ type Diagnostic = {
   message: string;
 };
 
-function writeManifests(directory: string, manifests: Record<string, unknown>): void {
+async function writeManifests(
+  directory: string,
+  manifests: Record<string, unknown>
+): Promise<void> {
   for (const name of ['contracts', 'ui', 'theme', 'localization', 'db', 'ai', 'server', 'web']) {
     const workspace = ['server', 'web'].includes(name) ? 'apps' : 'packages';
     const path = join(directory, workspace, name, 'package.json');
 
-    mkdirSync(dirname(path), { recursive: true });
+    await Effect.runPromise(fs.makeDirectory(dirname(path), { recursive: true }));
 
-    if (name in manifests) writeFileSync(path, JSON.stringify({ exports: manifests[name] }));
-    else if (existsSync(join(root, workspace, name, 'package.json')))
-      cpSync(join(root, workspace, name, 'package.json'), path);
+    if (name in manifests) await Bun.write(path, JSON.stringify({ exports: manifests[name] }));
+    else if (await Bun.file(join(root, workspace, name, 'package.json')).exists())
+      await Effect.runPromise(fs.copyFile(join(root, workspace, name, 'package.json'), path));
   }
 }
 
-function writeSources(files: Record<string, string>, directory: string): void {
+async function writeSources(files: Record<string, string>, directory: string): Promise<void> {
   for (const [name, source] of Object.entries(files)) {
     const filename = join(directory, name);
 
-    mkdirSync(dirname(filename), { recursive: true });
-    writeFileSync(filename, source);
+    await Effect.runPromise(fs.makeDirectory(dirname(filename), { recursive: true }));
+    await Bun.write(filename, source);
   }
 }
 
-export function lintFiles(
+async function preparePlugin(
+  directory: string,
+  manifests?: Record<string, unknown>
+): Promise<string> {
+  if (!manifests) return join(root, pluginPath, 'index.ts');
+
+  await Effect.runPromise(
+    fs.makeDirectory(join(directory, 'tooling/oxc-config'), { recursive: true })
+  );
+  await Effect.runPromise(fs.copy(join(root, pluginPath), join(directory, pluginPath)));
+  await Effect.runPromise(fs.symlink(join(root, 'node_modules'), join(directory, 'node_modules')));
+  await writeManifests(directory, manifests);
+
+  return join(directory, pluginPath, 'index.ts');
+}
+
+async function runLint(
+  directory: string,
+  server: string,
+  plugin: string,
+  rule?: string,
+  workspace = false
+): Promise<Diagnostic[]> {
+  const config = join(directory, 'oxlintrc.json');
+
+  if (rule)
+    await Bun.write(
+      config,
+      JSON.stringify({
+        jsPlugins: [{ name: 'study', specifier: plugin }],
+        categories: { correctness: 'off' },
+        rules: { [`study/${rule}`]: 'error' }
+      })
+    );
+
+  const paths: string[] = [];
+
+  for (const name of ['packages', 'apps']) {
+    const path = join(directory, name);
+
+    if (await Effect.runPromise(fs.exists(path))) paths.push(path);
+  }
+
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      rule ? oxlint : vp,
+      ...(rule ? [] : ['lint']),
+      '--config',
+      rule ? config : join(root, 'vite.config.ts'),
+      '--no-ignore',
+      '--format',
+      'json',
+      ...(workspace ? paths : [server])
+    ],
+    { cwd: root }
+  );
+  const stderr = result.stderr.toString();
+  const stdout = result.stdout.toString();
+
+  assertLintStatus(result.exitCode, stderr, stdout);
+  const output = JSON.parse(stdout) as { diagnostics: Diagnostic[] };
+
+  assert.strictEqual(result.exitCode, output.diagnostics.length ? 1 : 0, stderr);
+
+  return output.diagnostics;
+}
+
+export async function lintFiles(
   files: Record<string, string>,
   rule?: string,
   workspace = false,
   manifests?: Record<string, unknown>
-): Diagnostic[] {
-  const temporaryRoot = tmpdir();
-
-  mkdirSync(temporaryRoot, { recursive: true });
-
-  const directory = mkdtempSync(join(temporaryRoot, 'oxlint-quality-'));
+): Promise<Diagnostic[]> {
+  const directory = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'oxlint-quality-' }));
   const server = join(directory, 'apps/server');
 
   try {
-    writeSources(files, workspace ? directory : server);
+    await writeSources(files, workspace ? directory : server);
+    const plugin = await preparePlugin(directory, manifests);
 
-    let plugin = join(root, pluginPath, 'index.ts');
-
-    if (manifests) {
-      mkdirSync(join(directory, 'tooling/oxc-config'), { recursive: true });
-      cpSync(join(root, pluginPath), join(directory, pluginPath), {
-        recursive: true
-      });
-      symlinkSync(join(root, 'node_modules'), join(directory, 'node_modules'), 'dir');
-
-      writeManifests(directory, manifests);
-
-      plugin = join(directory, pluginPath, 'index.ts');
-    }
-
-    const config = join(directory, 'oxlintrc.json');
-
-    if (rule)
-      writeFileSync(
-        config,
-        JSON.stringify({
-          jsPlugins: [{ name: 'study', specifier: plugin }],
-          categories: { correctness: 'off' },
-          rules: { [`study/${rule}`]: 'error' }
-        })
-      );
-
-    const result = spawnSync(
-      rule ? oxlint : vp,
-      [
-        ...(rule ? [] : ['lint']),
-        '--config',
-        rule ? config : join(root, 'vite.config.ts'),
-        '--no-ignore',
-        '--format',
-        'json',
-        ...(workspace
-          ? ['packages', 'apps'].map((name) => join(directory, name)).filter(existsSync)
-          : [server])
-      ],
-      {
-        cwd: root,
-        encoding: 'utf8'
-      }
-    );
-
-    assert.isUndefined(result.error);
-    assertLintStatus(result.status, result.stderr, result.stdout);
-
-    const output = JSON.parse(result.stdout) as { diagnostics: Diagnostic[] };
-
-    assert.strictEqual(result.status, output.diagnostics.length ? 1 : 0, result.stderr);
-
-    return output.diagnostics;
+    return await runLint(directory, server, plugin, rule, workspace);
   } finally {
-    rmSync(directory, { recursive: true, force: true });
+    await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
   }
 }
 
@@ -133,15 +140,18 @@ export function lintRule(
   files: Record<string, string>,
   workspace = false,
   manifests?: Record<string, unknown>
-): Diagnostic[] {
+): Promise<Diagnostic[]> {
   return lintFiles(files, rule, workspace, manifests);
 }
 
 /** Run workspace fixtures through the shared runner and retain their supplied paths. */
-export function lintRulePaths(rule: string, files: Record<string, string>): string[] {
+export async function lintRulePaths(
+  rule: string,
+  files: Record<string, string>
+): Promise<string[]> {
   const paths = Object.keys(files).sort((a, b) => b.length - a.length);
 
-  return lintRule(rule, files, true)
+  return (await lintRule(rule, files, true))
     .map(({ filename }) => {
       const path = paths.find((candidate) => filename.endsWith(`/${candidate}`));
 

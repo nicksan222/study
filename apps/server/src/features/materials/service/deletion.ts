@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID, createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
@@ -22,6 +20,7 @@ import type {
   requestMaterialDeletionSchema,
   materialDeletionSchema
 } from '@study/contracts/materials/deletion';
+import { CryptoHasher } from 'bun';
 import { Context, Layer, Option } from 'effect';
 
 import {
@@ -91,7 +90,7 @@ function preview(tx: Transaction, materialId: MaterialId, participants: Particip
 
   return {
     ...base,
-    token: createHash('sha256')
+    token: new CryptoHasher('sha256')
       .update(JSON.stringify([base.token, learning.token]))
       .digest('hex'),
     privateRequestIds: [...new Set([...base.privateRequestIds, ...learning.requestIds])]
@@ -121,9 +120,11 @@ export function materialDeletionOperations() {
             ? tx.store(MaterialDeletionPreviewStore).materialDeletionPreview(input.materialId)
             : null;
 
-          const status = tx
-            .store(MaterialDeletionStore)
-            .accept({ ...input, token: base?.token ?? input.token, operationId: randomUUID() });
+          const status = tx.store(MaterialDeletionStore).accept({
+            ...input,
+            token: base?.token ?? input.token,
+            operationId: crypto.randomUUID()
+          });
 
           if (Option.isSome(previous)) return status;
 

@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { readFile } from 'node:fs/promises';
-
 import type { ContentSnapshotId } from '@study/contracts/ids';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
@@ -59,8 +57,8 @@ for (const [name, text] of [
   testStable(
     `${name} settles empty extraction as failed and preserves original bytes`,
     async () => {
-      const location = createTestDatabase();
-      const context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      const context = new ServerContext(await location.open());
       const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
       const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
       const services = Layer.mergeAll(
@@ -84,7 +82,7 @@ for (const [name, text] of [
             const materials = yield* Materials;
             const bytes = name.endsWith('.docx')
               ? yield* Effect.promise(() =>
-                  readFile(new URL('../decoders/fixtures/' + name, import.meta.url))
+                  Bun.file(new URL('../decoders/fixtures/' + name, import.meta.url)).bytes()
                 )
               : new TextEncoder().encode(text);
             const source = yield* sources.createSource({
@@ -212,7 +210,7 @@ for (const [name, text] of [
       } finally {
         await auth.dispose();
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );

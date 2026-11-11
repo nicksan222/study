@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { PagesRpc } from '@study/contracts/pages/rpc';
 import { createBlock } from '@study/contracts/sources/document';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
@@ -46,9 +44,9 @@ const body = (blocks: ReturnType<typeof createBlock>[]) => ({
   }
 });
 
-function fixture() {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+async function fixture() {
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
 
   return {
     get context() {
@@ -59,13 +57,13 @@ function fixture() {
         Layer.provideMerge(Layer.mergeAll(Pages.layer, Sources.layer)),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       ),
-    reopen() {
+    async reopen() {
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
     },
-    close() {
+    async close() {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -73,7 +71,7 @@ function fixture() {
 testStable(
   'exact authored readers and source-owned image revisions retain independent identities across reopen',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       const saved = await Effect.runPromise(
@@ -103,7 +101,7 @@ testStable(
             const empty = createBlock({ type: 'paragraph', inlines: [] });
             const document = body([imageBlock, empty]);
             const authored = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Reader',
               document,
               inputs: [],
@@ -115,7 +113,7 @@ testStable(
 
             expect(original.document).toStrictEqual(document);
             const another = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Other',
               document: body([createBlock({ type: 'paragraph', inlines: [] })]),
               inputs: [],
@@ -152,7 +150,7 @@ testStable(
         )
       );
 
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -169,7 +167,7 @@ testStable(
         )
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -177,7 +175,7 @@ testStable(
 testStable(
   'authored history retirement removes its exact reader body while an independent version retains image bytes',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       const saved = await Effect.runPromise(
@@ -197,7 +195,7 @@ testStable(
             });
             const document = body([block]);
             const authored = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'History reader',
               document,
               inputs: [],
@@ -243,7 +241,7 @@ testStable(
         )
       );
 
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -266,7 +264,7 @@ testStable(
         )
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );

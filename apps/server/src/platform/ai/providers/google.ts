@@ -14,7 +14,7 @@
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 
-import { defineApiKeyProvider } from './definition.ts';
+import { defineApiKeyProvider, sdkFetch } from './definition.ts';
 import { withProviderTools } from './tools.ts';
 
 export const google = defineApiKeyProvider({
@@ -28,7 +28,7 @@ export const google = defineApiKeyProvider({
   },
   createModel: ({ apiKey, modelId, fetch }) =>
     withProviderTools(
-      createGoogleGenerativeAI({ apiKey, fetch })(modelId),
+      createGoogleGenerativeAI({ apiKey, fetch: fetch ? sdkFetch(fetch) : undefined })(modelId),
       {
         web_search: createGoogleGenerativeAI().tools.googleSearch({})
       },

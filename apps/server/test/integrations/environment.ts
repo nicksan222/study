@@ -10,16 +10,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve, sep } from 'node:path';
-
 import { GenericContainer, getContainerRuntimeClient } from 'testcontainers';
+
+import { fs, path, run } from './filesystem.ts';
 
 /** Copy authored input only; never mount a checkout, host dependencies, credentials or test state. */
 export async function buildContext(root = process.cwd()) {
-  const directory = await mkdtemp(join(tmpdir(), 'study-integrations-image-'));
+  const directory = await run(fs.makeTempDirectory({ prefix: 'study-integrations-image-' }));
   const files = [
     'package.json',
     'bun.lock',
@@ -32,25 +29,36 @@ export async function buildContext(root = process.cwd()) {
   ];
 
   try {
-    for (const path of files) {
-      const target = join(directory, path);
+    const copy = async (relative: string): Promise<void> => {
+      if (
+        relative
+          .split('/')
+          .some(
+            (part) =>
+              ['node_modules', 'target', 'dist', '.git'].includes(part) || part.startsWith('.env')
+          )
+      )
+        return;
 
-      await mkdir(dirname(target), { recursive: true });
-      await cp(resolve(root, path), target, {
-        recursive: true,
-        filter: (source) =>
-          !relative(root, source)
-            .split(sep)
-            .some(
-              (part) =>
-                ['node_modules', 'target', 'dist', '.git'].includes(part) || part.startsWith('.env')
-            )
-      });
-    }
+      const source = path.resolve(root, relative);
+      const target = path.join(directory, relative);
+      const info = await run(fs.lstat(source));
+
+      if (info.type === 'Directory') {
+        await run(fs.makeDirectory(target, { recursive: true }));
+
+        for (const entry of await run(fs.readDirectory(source))) await copy(`${relative}/${entry}`);
+      } else {
+        await run(fs.makeDirectory(path.dirname(target), { recursive: true }));
+        await run(fs.copy(source, target));
+      }
+    };
+
+    for (const file of files) await copy(file);
 
     return directory;
   } catch (error) {
-    await rm(directory, { recursive: true, force: true });
+    await run(fs.remove(directory, { recursive: true, force: true }));
 
     throw error;
   }
@@ -63,7 +71,7 @@ export async function buildIntegrationImage() {
     throw new Error('Integration tests require Testcontainers resource-reaper cleanup');
 
   const directory = await buildContext();
-  const imageName = `study-integrations-e2e:${randomUUID()}`;
+  const imageName = `study-integrations-e2e:${crypto.randomUUID()}`;
 
   try {
     const client = await getContainerRuntimeClient();
@@ -75,7 +83,7 @@ export async function buildIntegrationImage() {
     return {
       start: (provider: string, executable: string) =>
         image
-          .withName(`study-integrations-${randomUUID()}`)
+          .withName(`study-integrations-${crypto.randomUUID()}`)
           .withAutoCleanup(true)
           .withAutoRemove(true)
           .withNetworkMode('none')
@@ -90,7 +98,7 @@ export async function buildIntegrationImage() {
       close: () => client.container.dockerode.getImage(imageName).remove({ force: true })
     };
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await run(fs.remove(directory, { recursive: true, force: true }));
   }
 }
 

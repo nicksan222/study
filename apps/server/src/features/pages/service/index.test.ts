@@ -59,9 +59,9 @@ const creation = (createKey: string, text = 'Original') => ({
   citations: []
 });
 
-function fixture() {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+async function fixture() {
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const services = Pages.layer.pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -70,9 +70,9 @@ function fixture() {
     location,
     context,
     services,
-    close: () => {
+    close: async () => {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -80,7 +80,7 @@ function fixture() {
 testStable(
   'native Pages RPC retains conflict alternatives and exact idempotent receipts across reopen',
   async () => {
-    const f = fixture();
+    const f = await fixture();
     const input = creation('native-create');
 
     try {
@@ -182,7 +182,7 @@ testStable(
         )
       );
       f.context.close();
-      const context = new ServerContext(f.location.open());
+      const context = new ServerContext(await f.location.open());
 
       try {
         await Effect.runPromise(
@@ -208,7 +208,7 @@ testStable(
         context.close();
       }
     } finally {
-      f.location.cleanup();
+      await f.location.cleanup();
     }
   }
 );
@@ -216,7 +216,7 @@ testStable(
 testStable(
   'editing ownership, transactional rollback and independent note membership are enforced',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       f.context.db.exec(
@@ -287,7 +287,7 @@ testStable(
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM pages`)?.n, 2n);
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM note_pages`)?.n, 0n);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -295,7 +295,7 @@ testStable(
 testStable(
   'source copies and message provenance pin exact inputs without giving notes ownership',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       const sourceId = Schema.decodeUnknownSync(sourceIdSchema)(7n),
@@ -377,7 +377,7 @@ testStable(
       );
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -385,7 +385,7 @@ testStable(
 testStable(
   'history and deletion require an exact preview, protect dependents, and retire bodies with backup integrity',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -454,9 +454,9 @@ testStable(
       await f.context.db.snapshot(path);
       const { Db } = await import('@study/db');
 
-      assert.strictEqual(Db.validateSnapshot(path), f.context.db.schemaIdentity());
+      assert.strictEqual(await Db.validateSnapshot(path), f.context.db.schemaIdentity());
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -464,7 +464,7 @@ testStable(
 testStable(
   'AI publication participant keeps one request intent and retains concurrent proposals',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -520,7 +520,7 @@ testStable(
         1n
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -528,7 +528,7 @@ testStable(
 testStable(
   'exact citations, Unicode annotation history, image pins and inherited retired message identities are validated',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       f.context.db
@@ -718,7 +718,7 @@ testStable(
       );
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -726,7 +726,7 @@ testStable(
 testStable(
   'independent generated publication owns the first authored version and replays one typed request',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -786,7 +786,7 @@ testStable(
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM page_versions`)?.n, 2n);
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -794,7 +794,7 @@ testStable(
 testStable(
   'authored metadata and target proposals retain independent histories and exact replay',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -930,7 +930,7 @@ testStable(
         }).pipe(Effect.provide(f.services))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -938,8 +938,8 @@ testStable(
 testStable(
   'history pagination follows logical numbers when exact version IDs have a different order',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -992,7 +992,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

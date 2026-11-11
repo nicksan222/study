@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
@@ -81,7 +79,7 @@ testStable(
           const edit = yield* client['pages.save']({
             pageId: cells.id,
             expectedVersionId: original.id,
-            key: randomUUID(),
+            key: crypto.randomUUID(),
             document: original.document
           });
 

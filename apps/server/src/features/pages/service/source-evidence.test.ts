@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { NotesRpc } from '@study/contracts/notes/rpc';
 import { PagesRpc } from '@study/contracts/pages/rpc';
 import { createBlock, correctBlockText } from '@study/contracts/sources/document';
@@ -58,8 +56,8 @@ const meta = {
 testStable(
   'source correction and replacement retain exact citations, independent authored copies and user judgments',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const handlers = Layer.mergeAll(PagesRpcLive, NotesRpcLive).pipe(
       Layer.provideMerge(Layer.mergeAll(Pages.layer, Notes.layer, Sources.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -133,7 +131,7 @@ testStable(
             });
             const request = yield* rpc['notes.requestReply']({
               noteId: note.id,
-              intentKey: randomUUID(),
+              intentKey: crypto.randomUUID(),
               instruction: 'Explain the selected passage'
             });
 
@@ -170,7 +168,7 @@ testStable(
             }
 
             const copy = yield* rpc['pages.copySource']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Independent copy',
               ...input
             });
@@ -196,7 +194,7 @@ testStable(
               inlines: [{ type: 'text', text: 'Independent [1]', marks: [] }]
             });
             const claim = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Derivative',
               document: { blocks: [claimBlock], meta },
               inputs: [input],
@@ -319,7 +317,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -145,7 +145,7 @@ def main():
     configure_git_identity()
     configure_github()
     # Root workspaces and landing each use their committed dependency lock.
-    subprocess.run(["npm", "ci"], cwd=REPO, check=True)
+    subprocess.run(["bun", "install", "--frozen-lockfile"], cwd=REPO, check=True)
     subprocess.run(["bun", "install", "--frozen-lockfile"], cwd=REPO / "apps" / "landing", check=True)
     # These commands report versions only; they do not start a model request.
     for tool in ("just", "claude", "herdr", "codex"):

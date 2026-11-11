@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('requires page presentation and behavioral tests beside each page', () => {
-  const diagnostics = lintRule(
+testStable('requires page presentation and behavioral tests beside each page', async () => {
+  const diagnostics = await lintRule(
     'web-page-contract',
     {
       'apps/web/src/pages/home/page.tsx': `export function Page() { return null; }`,
@@ -17,9 +17,9 @@ testStable('requires page presentation and behavioral tests beside each page', (
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('accepts tested static pages without inventing asynchronous logic', () => {
+testStable('accepts tested static pages without inventing asynchronous logic', async () => {
   expect(
-    lintRule(
+    await lintRule(
       'web-page-contract',
       {
         'apps/web/src/pages/home/page.tsx': `import { PageView } from './page.view'; export function Page() { return <PageView />; }`,
@@ -32,8 +32,8 @@ testStable('accepts tested static pages without inventing asynchronous logic', (
   ).toStrictEqual([]);
 });
 
-testStable('keeps route modules declarative and page composition free of state', () => {
-  const diagnostics = lintRule(
+testStable('keeps route modules declarative and page composition free of state', async () => {
+  const diagnostics = await lintRule(
     'web-page-contract',
     {
       'apps/web/src/routes/Home.tsx': `import { useState } from 'react'; export const extra = 1; export const Route = {}; const Page = () => <div />;`,
@@ -50,8 +50,8 @@ testStable('keeps route modules declarative and page composition free of state',
 
 testStable(
   'route components cannot hide lifecycle ownership behind imported hooks or inline functions',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'web-page-contract',
       {
         'apps/web/src/routes/Home.tsx': `
@@ -71,9 +71,9 @@ testStable(
 
 testStable(
   'route boundaries reference imported components and may validate or redirect inline',
-  () => {
+  async () => {
     expect(
-      lintRule(
+      await lintRule(
         'web-page-contract',
         {
           'apps/web/src/routes/Home.tsx': `

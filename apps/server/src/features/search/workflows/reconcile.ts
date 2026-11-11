@@ -47,7 +47,7 @@ export const searchReconciliation = defineWorkflowHandler(searchReconciliationWo
       execute: Effect.gen(function* () {
         const guard = yield* PublicationGuard;
 
-        return yield* service.reconcile(() => guard.assert(database.store));
+        return yield* service.reconcile((tx) => tx.assertPublication(guard));
       })
     });
   })

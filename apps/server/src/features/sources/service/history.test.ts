@@ -46,9 +46,9 @@ const document = (text: string) => ({
   }
 });
 
-function fixture() {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+async function fixture() {
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = Layer.mergeAll(PagesRpcLive, SourcesRpcLive).pipe(
     Layer.provideMerge(Layer.mergeAll(Pages.layer, Sources.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -57,9 +57,9 @@ function fixture() {
   return {
     context,
     handlers,
-    close() {
+    async close() {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -92,7 +92,7 @@ function setup() {
 testStable(
   'source history respects authored and raw citation pins even after private reply captures have gone',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -185,7 +185,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -193,7 +193,7 @@ testStable(
 testStable(
   'source history preview fences new publication and rolls body removal back with its outbox',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -284,7 +284,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );
@@ -292,7 +292,7 @@ testStable(
 testStable(
   'deletes only the selected attachment extraction through the history boundary',
   async () => {
-    const f = fixture();
+    const f = await fixture();
 
     try {
       await Effect.runPromise(
@@ -322,7 +322,7 @@ testStable(
         ).pipe(Effect.provide(f.handlers))
       );
     } finally {
-      f.close();
+      await f.close();
     }
   }
 );

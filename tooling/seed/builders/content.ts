@@ -1,11 +1,27 @@
-import { readFileSync } from 'node:fs';
-import { basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunPath } from '@effect/platform-bun';
 import { createBlock, plainBlock } from '@study/contracts/sources/document';
 import type { Block, Document } from '@study/contracts/sources/document';
+import { Effect, Path } from 'effect';
 
 import type { SourceFixture } from '../types.ts';
+
+const { basename } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+const fixtureDirectory = Bun.fileURLToPath(new URL('../fixtures/files/', import.meta.url));
+
+const fixtureBytes = new Map<string, Uint8Array>();
+
+for await (const file of new Bun.Glob('**/*').scan({ cwd: fixtureDirectory, absolute: true })) {
+  fixtureBytes.set(file, new Uint8Array(await Bun.file(file).arrayBuffer()));
+}
+
+function fixture(file: URL): Uint8Array {
+  const bytes = fixtureBytes.get(Bun.fileURLToPath(file));
+
+  if (!bytes) throw new Error(`Missing seed fixture: ${file}`);
+
+  return bytes;
+}
 
 export const paragraph = (text: string) => plainBlock('paragraph', text, { type: 'authored' });
 
@@ -53,7 +69,7 @@ export function textSource(name: string, text: string): SourceFixture {
     .trimEnd()
     .split('\n\n')
     .map((value) => {
-      const size = Buffer.byteLength(value);
+      const size = new TextEncoder().encode(value).length;
       const lines = value.split('\n').length;
       const block = plainBlock('paragraph', value, {
         type: 'text',
@@ -69,14 +85,14 @@ export function textSource(name: string, text: string): SourceFixture {
       return block;
     });
 
-  return { name, bytes: Buffer.from(text), document: document(blocks, 'text') };
+  return { name, bytes: new TextEncoder().encode(text), document: document(blocks, 'text') };
 }
 
 export function textFile(file: URL): SourceFixture {
-  return textSource(basename(fileURLToPath(file)), readFileSync(file, 'utf8'));
+  return textSource(basename(Bun.fileURLToPath(file)), new TextDecoder().decode(fixture(file)));
 }
 
 /** Any file format is supported when the fixture supplies its canonical extracted content. */
 export function assetFile(file: URL, extracted: Document): SourceFixture {
-  return { name: basename(fileURLToPath(file)), bytes: readFileSync(file), document: extracted };
+  return { name: basename(Bun.fileURLToPath(file)), bytes: fixture(file), document: extracted };
 }

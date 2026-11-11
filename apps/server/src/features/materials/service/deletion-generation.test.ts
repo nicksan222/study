@@ -90,14 +90,14 @@ testStable(
           .get()
       ).toStrictEqual(owner);
       f.context.db.exec('DROP TRIGGER reject_generation_cleanup');
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(
         Effect.flatMap(Materials, (m) => m.retryDeletion({ materialId: output.material_id })).pipe(
           Effect.provide(f.domain())
         )
       );
       await cleanupMaterial(f, output.material_id);
-      f.reopen();
+      await f.reopen();
       const retired = f.context.db.orm
         .select()
         .from(s.material_generation_requests)
@@ -159,7 +159,7 @@ testStable(
           yield* docs.delete({ pageId: saved.input.id, token: preview.token });
         }).pipe(Effect.provide(f.domain()))
       );
-      f.reopen();
+      await f.reopen();
       expect(
         f.context.db.orm
           .select()

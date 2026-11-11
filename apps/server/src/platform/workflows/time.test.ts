@@ -25,14 +25,14 @@ import { ServerContext } from '#server/platform/database/context';
 import { workflowStore } from '#server/platform/workflows/store';
 
 testStable('SQLite workflow leases and due clocks follow the native test clock', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         yield* TestClock.setTime(100_000);
         const clock = yield* Clock.Clock;
-        const context = new ServerContext(location.open(), clock);
+        const context = new ServerContext(yield* Effect.promise(() => location.open()), clock);
 
         try {
           const store = workflowStore(context);
@@ -56,7 +56,7 @@ testStable('SQLite workflow leases and due clocks follow the native test clock',
       }).pipe(Effect.provide(TestClock.layer()))
     );
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
@@ -64,13 +64,13 @@ testStable('native durable sleep persists and fires at the controlled deadline',
   const { Schema } = await import('effect');
   const { DurableClock, Workflow, WorkflowEngine } = await import('effect/workflow');
   const { workflowEngineLayer } = await import('#server/platform/workflows/engine');
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   try {
     function* verifyDurableDeadline() {
       yield* TestClock.setTime(100_000);
       const clock = yield* Clock.Clock;
-      const context = new ServerContext(location.open(), clock);
+      const context = new ServerContext(yield* Effect.promise(() => location.open()), clock);
       const workflow = Workflow.make('clock-test', {
         payload: { id: Schema.String },
         idempotencyKey: ({ id }) => id,
@@ -128,6 +128,6 @@ testStable('native durable sleep persists and fires at the controlled deadline',
       Effect.gen(verifyDurableDeadline).pipe(Effect.provide(TestClock.layer()))
     );
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });

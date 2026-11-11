@@ -5,8 +5,8 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Server tests must use real dependencies, not mock APIs or fabricated database contexts.';
 
-testStable('server tests reject mock module access and fabricated database contexts', () => {
-  const diagnostics = lintRule('server-no-mocks', {
+testStable('server tests reject mock module access and fabricated database contexts', async () => {
+  const diagnostics = await lintRule('server-no-mocks', {
     'test/namespace.ts': "import * as vitest from 'vitest';\n",
     'test/node-dynamic.ts': "const runner = import('node:test');\n",
     'test/dynamic.ts': "const mock = import('jest-mock');\n",

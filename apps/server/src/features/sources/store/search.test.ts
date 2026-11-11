@@ -20,9 +20,9 @@ import { makeSourceSearchProjections } from './search.ts';
 
 testStable(
   'source projections expose only published passages and current project membership',
-  () => {
-    const location = createTestDatabase();
-    const db = location.open();
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
 
     try {
       db.orm.run(
@@ -66,16 +66,16 @@ testStable(
       ).toStrictEqual([]);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable(
   'passage pages apply kind, offset and target filters before decoding unrelated anchors',
-  () => {
-    const location = createTestDatabase();
-    const db = location.open();
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
     const read = makeSourceSearchProjections({ db, clock: Effect.runSync(Clock.Clock) });
 
     try {
@@ -103,7 +103,7 @@ testStable(
       ).toStrictEqual([]);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

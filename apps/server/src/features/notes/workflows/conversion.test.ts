@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { readFileSync } from 'node:fs';
-
 import {
   sourceProcessingRequestedSchema,
   noteGenerationRequestedSchema
@@ -41,15 +39,15 @@ import { withTestPublication } from '#testing/publication';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
-let location: ReturnType<typeof createTestDatabase>;
+let location: Awaited<ReturnType<typeof createTestDatabase>>;
 
 let context: ServerContext;
 
 let auth: AuthManager;
 
 beforeEach(async () => {
-  location = createTestDatabase();
-  context = new ServerContext(location.open());
+  location = await createTestDatabase();
+  context = new ServerContext(await location.open());
   auth = new AuthManager({ issuer: 'http://test.invalid', saveRefresh: async () => {} });
 
   await auth.replace(
@@ -61,7 +59,7 @@ beforeEach(async () => {
 afterEach(async () => {
   await auth.dispose();
   context.close();
-  location.cleanup();
+  await location.cleanup();
 });
 
 function workflowServices(model: ReturnType<typeof createChatGptModel>) {
@@ -168,8 +166,10 @@ testStable(
           expect(bodies[0]).not.toContain('Unrelated earlier message');
           expect(bodies[0]).toContain('A complete\\nparagraph.');
           const sources = yield* Sources;
-          const bytes = new Uint8Array(
-            readFileSync(new URL('../../sources/decoders/fixtures/two-pages.pdf', import.meta.url))
+          const bytes = yield* Effect.promise(() =>
+            Bun.file(
+              new URL('../../sources/decoders/fixtures/two-pages.pdf', import.meta.url)
+            ).bytes()
           );
           const source = yield* sources.createSource({
             name: 'two-pages.pdf',

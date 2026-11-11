@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { posix } from 'node:path';
-
 import { StudyError } from '@study/contracts/errors';
 import { createBlock, plainBlock } from '@study/contracts/sources/document';
 import type { Anchor, Block } from '@study/contracts/sources/document';
@@ -24,7 +22,11 @@ import { XMLValidator } from 'fast-xml-parser';
 import { fromBufferPromise } from 'yauzl';
 import type { Entry, ZipFile } from 'yauzl';
 
+import { posixPaths } from '#server/platform/filesystem/index';
+
 import { checkAbort, document } from './common.ts';
+
+const posix = posixPaths;
 
 const MAX_ENTRIES = 5000,
   MAX_EXPANDED = 32 * 1024 * 1024;

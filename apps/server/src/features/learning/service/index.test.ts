@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { QuizAttemptId, QuizChoiceId } from '@study/contracts/ids';
@@ -37,8 +35,8 @@ import { Database } from '#server/platform/database/database';
 import { Learning } from './index.ts';
 
 testStable('missing attempts are optional or typed failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     await Effect.runPromise(
@@ -70,7 +68,7 @@ testStable('missing attempts are optional or typed failures', async () => {
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
@@ -82,8 +80,8 @@ testStable(
     const { decodeEvent, emitEvent } = await import('#server/platform/workflows/events');
     const { transaction } = await import('#server/platform/definitions/define-store');
     const { AttemptStore } = await import('#server/features/learning/store/index');
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const db = context.db.orm;
 
     try {
@@ -366,7 +364,7 @@ testStable(
               questionId
             };
 
-            context.transaction(() => emitEvent(context, foreignEvent, Date.now()));
+            context.transaction((context) => emitEvent(context, foreignEvent, Date.now()));
             assert.ok(
               (yield* Effect.flip(learning.gradingSnapshot(foreignEvent))).kind === 'invalid_input'
             );
@@ -493,7 +491,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -501,8 +499,8 @@ testStable(
 testStable('daily allowance limits new cards and review schedules persist', async () => {
   const s = await import('@study/db/schema');
   const { eq } = await import('@study/db');
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const db = context.db.orm;
 
   try {
@@ -608,14 +606,14 @@ testStable('daily allowance limits new cards and review schedules persist', asyn
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('practice starts idempotently with two captured pending slots', async () => {
   const s = await import('@study/db/schema');
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     const project = context.db.orm
@@ -629,7 +627,7 @@ testStable('practice starts idempotently with two captured pending slots', async
         const learning = yield* Learning;
         const materials = yield* Materials;
         const doc = yield* (yield* Pages).create({
-          createKey: randomUUID(),
+          createKey: crypto.randomUUID(),
           inputs: [],
           citations: [],
           projectId: project.id,
@@ -726,6 +724,6 @@ testStable('practice starts idempotently with two captured pending slots', async
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

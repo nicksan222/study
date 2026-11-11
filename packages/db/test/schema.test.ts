@@ -1,18 +1,16 @@
-import { execFileSync } from 'node:child_process';
-import { cpSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { projectIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { sql, eq, getTableName } from 'drizzle-orm';
-import { Schema } from 'effect';
+import { Effect, FileSystem, Path, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { dirname, join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
   try {
@@ -26,19 +24,19 @@ function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => b
   assert.fail('Expected function to throw');
 }
 
-function fixture(run: (path: string) => void) {
-  const folder = mkdtempSync(join(tmpdir(), 'study-schema-'));
+async function fixture(run: (path: string) => Promise<void>) {
+  const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-schema-' }));
 
   try {
-    run(join(folder, 'study.db'));
+    await run(join(folder, 'study.db'));
   } finally {
-    rmSync(folder, { recursive: true, force: true });
+    await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
   }
 }
 
 testStable('the Drizzle baseline initializes every modeled table and current code vocabulary', () =>
-  fixture((path) => {
-    const connection = Db.open(path);
+  fixture(async (path) => {
+    const connection = await Db.open(path);
     const db = connection.orm;
 
     try {
@@ -76,7 +74,7 @@ testStable('the Drizzle baseline initializes every modeled table and current cod
       connection.close();
     }
 
-    const reopened = Db.open(path);
+    const reopened = await Db.open(path);
 
     reopened.close();
   })
@@ -85,8 +83,8 @@ testStable('the Drizzle baseline initializes every modeled table and current cod
 testStable(
   'Drizzle reads and writes identities beyond Number precision without losing references',
   () =>
-    fixture((path) => {
-      const connection = Db.open(path);
+    fixture(async (path) => {
+      const connection = await Db.open(path);
       const db = connection.orm;
       const id = Schema.decodeUnknownSync(projectIdSchema)(9007199254740993n);
 
@@ -126,8 +124,8 @@ testStable(
           (error: unknown) =>
             error instanceof Error &&
             error.cause instanceof Error &&
-            'errcode' in error.cause &&
-            error.cause.errcode === 787
+            'errno' in error.cause &&
+            error.cause.errno === 787
         );
         db.delete(schema.projects).where(eq(schema.projects.id, id)).run();
         assert.strictEqual(db.select().from(schema.notes).get()?.id, note.id);
@@ -149,41 +147,63 @@ testStable(
     })
 );
 
-testStable('Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs', () => {
-  const folder = mkdtempSync(join(tmpdir(), 'study-drizzle-generate-'));
-
-  try {
-    const output = join(folder, 'drizzle');
-
-    cpSync(new URL('../drizzle', import.meta.url), output, { recursive: true });
-    const before = readdirSync(output);
-    const config = join(folder, 'drizzle.config.ts');
-
-    writeFileSync(
-      config,
-      `export default ${JSON.stringify({ dialect: 'sqlite', schema: fileURLToPath(new URL('../src/schema.ts', import.meta.url)), out: output })};`
-    );
-    const result = execFileSync(
-      process.execPath,
-      [
-        join(dirname(createRequire(import.meta.url).resolve('drizzle-kit')), 'bin.cjs'),
-        'generate',
-        '--config',
-        config
-      ],
-      { encoding: 'utf8' }
+testStable(
+  'Drizzle generation is stable and leaves SQL-managed FTS outside schema diffs',
+  async () => {
+    const folder = await Effect.runPromise(
+      fs.makeTempDirectory({ prefix: 'study-drizzle-generate-' })
     );
 
-    expect(result).toMatch(/No schema changes/);
-    expect(readdirSync(output)).toStrictEqual(before);
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
+    try {
+      const output = join(folder, 'drizzle');
+
+      await Effect.runPromise(
+        fs.copy(Bun.fileURLToPath(new URL('../drizzle', import.meta.url)), output)
+      );
+      const before = await Effect.runPromise(fs.readDirectory(output));
+      const config = join(folder, 'drizzle.config.ts');
+
+      await Bun.write(
+        config,
+        `export default ${JSON.stringify({ dialect: 'sqlite', schema: Bun.fileURLToPath(new URL('../src/schema.ts', import.meta.url)), out: output })};`
+      );
+      const child = Bun.spawn(
+        [
+          process.execPath,
+          join(
+            dirname(
+              Bun.resolveSync(
+                'drizzle-kit/package.json',
+                Bun.fileURLToPath(new URL('.', import.meta.url))
+              )
+            ),
+            'bin.cjs'
+          ),
+          'generate',
+          '--config',
+          config
+        ],
+        { stdout: 'pipe', stderr: 'pipe' }
+      );
+      const [status, result, stderr] = await Promise.all([
+        child.exited,
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text()
+      ]);
+
+      assert.strictEqual(status, 0, stderr);
+
+      expect(result).toMatch(/No schema changes/);
+      expect(await Effect.runPromise(fs.readDirectory(output))).toStrictEqual(before);
+    } finally {
+      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
+    }
   }
-});
+);
 
 testStable('retired projection tables and message job ownership are absent', () =>
-  fixture((path) => {
-    const connection = Db.open(path);
+  fixture(async (path) => {
+    const connection = await Db.open(path);
 
     try {
       const db = connection.orm;
@@ -205,8 +225,8 @@ testStable('retired projection tables and message job ownership are absent', () 
 );
 
 testStable('current schema enforces Ask retirement and reply publication guards', () =>
-  fixture((path) => {
-    const connection = Db.open(path);
+  fixture(async (path) => {
+    const connection = await Db.open(path);
 
     try {
       const names = new Set(

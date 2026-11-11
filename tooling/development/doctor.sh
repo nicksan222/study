@@ -7,7 +7,7 @@ check() {
   local name=$1; shift
   if "$@"; then printf 'ok %s\n' "$name"; else printf 'FAIL %s\n' "$name" >&2; failed=1; fi
 }
-for tool in node npm bun cargo just; do check "$tool" "$tool" --version; done
+for tool in bun cargo just; do check "$tool" "$tool" --version; done
 check 'Vite+ dependencies' test -f node_modules/vite-plus/package.json
 if [[ $(uname -s) == Linux ]]; then
   check 'GTK3 / WebKitGTK / libsoup' pkg-config --exists gtk+-3.0 webkit2gtk-4.1 libsoup-3.0

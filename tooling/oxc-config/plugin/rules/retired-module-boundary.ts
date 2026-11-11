@@ -1,9 +1,11 @@
-import { resolve, dirname } from 'node:path';
-
+import { BunPath } from '@effect/platform-bun';
+import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';
 import { retiredStudyPath } from '../retired-study-paths.ts';
+
+const { resolve, dirname } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 export default defineRule({
   meta: { type: 'problem' },

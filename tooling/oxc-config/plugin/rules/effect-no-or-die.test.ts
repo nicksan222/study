@@ -6,10 +6,10 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Preserve typed failures instead of converting them to defects with Effect.orDie or Effect.orDieWith.';
 
-testStable('reports misuse and accepts scoped alternatives', () => {
+testStable('reports misuse and accepts scoped alternatives', async () => {
   assertDiagnostics(
     'effect-no-or-die',
-    lintRule('effect-no-or-die', {
+    await lintRule('effect-no-or-die', {
       'src/procedures/bad.ts':
         "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.orDie(E.fail('bad'));",
       'src/procedures/good.ts':
@@ -20,10 +20,10 @@ testStable('reports misuse and accepts scoped alternatives', () => {
     [['src/procedures/bad.ts', message]]
   );
 });
-testStable('resolves imported namespaces, named imports, const aliases and shadowing', () => {
+testStable('resolves imported namespaces, named imports, const aliases and shadowing', async () => {
   assertDiagnostics(
     'effect-no-or-die',
-    lintRule('effect-no-or-die', {
+    await lintRule('effect-no-or-die', {
       'src/procedures/aliases.ts':
         "import * as E from 'effect/Effect'; import { orDie as operation } from 'effect/Effect'; const alias = E; alias.orDie(E.void); operation(E.void); function f(E: any, operation: any) { E.orDie(E.void); operation(E.void); }"
     }),
@@ -34,8 +34,8 @@ testStable('resolves imported namespaces, named imports, const aliases and shado
   );
 });
 
-testStable('enforces the Effect contract in browser operations', () => {
-  const diagnostics = lintRule(
+testStable('enforces the Effect contract in browser operations', async () => {
+  const diagnostics = await lintRule(
     'effect-no-or-die',
     {
       'apps/web/src/features/example/page.logic.ts':

@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { contentSnapshotIdSchema, pageVersionIdSchema } from '@study/contracts/ids';
 import { annotationSchema } from '@study/contracts/pages/evidence';
 import { PagesRpc } from '@study/contracts/pages/rpc';
@@ -50,8 +48,8 @@ const paragraph = (text: string) =>
 testStable(
   'standalone authored annotation CRUD preserves exact rich Unicode history, conflicts, outbox atomicity and reopen',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const handlers = () =>
       PagesRpcLive.pipe(
         Layer.provideMerge(Pages.layer),
@@ -74,7 +72,7 @@ testStable(
             const rpc = yield* RpcTest.makeClient(PagesRpc);
             const block = paragraph('A😀B rich');
             const document = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Standalone',
               document: { blocks: [block], meta },
               inputs: [],
@@ -159,7 +157,7 @@ testStable(
             );
             expect(state()).toStrictEqual(beforeConflicts);
             const other = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Other identity',
               document: { blocks: [paragraph('A😀B rich')], meta },
               inputs: [],
@@ -312,7 +310,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -405,7 +403,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

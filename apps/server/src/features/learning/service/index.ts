@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomUUID } from 'node:crypto';
-
 import type { ErrorKind } from '@study/contracts/errors';
 import type {
   answerQuestionInputSchema,
@@ -34,6 +32,7 @@ import type {
   retryPracticeQuestionInputSchema,
   publishPracticeSlotInputSchema
 } from '@study/contracts/learning/rpc';
+import { CryptoHasher } from 'bun';
 import { Effect, Option } from 'effect';
 
 import {
@@ -93,7 +92,7 @@ export const Learning = defineService(
     ) => {
       tx.emit({
         type: 'PracticeSlotRequested',
-        eventId: randomUUID(),
+        eventId: crypto.randomUUID(),
         causationId: null,
         correlationId: slotId,
         inputVersion: 1,
@@ -168,7 +167,7 @@ export const Learning = defineService(
           const result = tx.store(PracticeStore).answer(input);
 
           if (result.slotId && input.answer.type === 'open') {
-            const eventId = randomUUID();
+            const eventId = crypto.randomUUID();
 
             tx.emit({
               type: 'QuizAnswerSubmitted',
@@ -179,7 +178,7 @@ export const Learning = defineService(
               depth: 0,
               attemptId: result.attempt.id,
               questionId: result.questionId,
-              answerHash: createHash('sha256')
+              answerHash: new CryptoHasher('sha256')
                 .update(JSON.stringify([input.answer.answer, eventId]))
                 .digest('hex')
             });
@@ -199,7 +198,7 @@ export const Learning = defineService(
           const result = tx.store(AttemptStore).answerQuestion(input);
 
           if (input.answer.type === 'open') {
-            const eventId = randomUUID();
+            const eventId = crypto.randomUUID();
 
             tx.emit({
               type: 'QuizAnswerSubmitted',
@@ -210,7 +209,7 @@ export const Learning = defineService(
               depth: 0,
               attemptId: input.attemptId,
               questionId: input.questionId,
-              answerHash: createHash('sha256')
+              answerHash: new CryptoHasher('sha256')
                 .update(JSON.stringify([input.answer.answer, eventId]))
                 .digest('hex')
             });

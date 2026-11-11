@@ -5,8 +5,8 @@ import { lintRule } from '../test/utils.ts';
 
 testStable(
   'shared UI components reject local style props but native wrappers and type imports remain legal',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'shared-ui-variants',
       {
         'apps/web/src/example.tsx': `import { Button as Control } from "@study/ui/button";
@@ -22,8 +22,8 @@ export const view = <div className="layout"><Control className="p-2" /><Shell.He
   }
 );
 
-testStable('computed literal style props cannot bypass shared UI variants', () => {
-  const diagnostics = lintRule(
+testStable('computed literal style props cannot bypass shared UI variants', async () => {
+  const diagnostics = await lintRule(
     'shared-ui-variants',
     {
       'apps/web/src/example.tsx': `import { Button } from '@study/ui/button'; export const view = <Button {...{ ['style']: {} }} />;`

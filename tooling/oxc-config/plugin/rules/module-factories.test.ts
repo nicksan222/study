@@ -3,19 +3,19 @@ import { expect } from 'vite-plus/test';
 
 import { lintRulePaths } from '../test/utils.ts';
 
-function lint(files: Record<string, string>) {
+async function lint(files: Record<string, string>) {
   const sources = Object.fromEntries(
     Object.entries(files).map(([path, source]) => [`apps/server/src/features/${path}`, source])
   );
 
-  return lintRulePaths('module-factories', sources).map((path) =>
+  return (await lintRulePaths('module-factories', sources)).map((path) =>
     path.slice('apps/server/src/features/'.length)
   );
 }
 
-testStable('only canonical factory results and their service layers are public', () => {
+testStable('only canonical factory results and their service layers are public', async () => {
   expect(
-    lint({
+    await lint({
       'alpha/service/index.ts':
         "import { defineService as create } from '#server/platform/definitions/define-service'; const alias = create; function helper() {} const service = alias('study/Alpha', make); export { service as Alpha }; export const layer = service.layer;",
       'beta/index.ts':
@@ -46,9 +46,9 @@ testStable('only canonical factory results and their service layers are public',
 
 testStable(
   'store entry requires an exported factory even when it contains only private helpers',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'alpha/store/index.ts': 'function helper() { return 1; }',
         'beta/store/index.ts': 'export type Input = string;',
         'gamma/store/query.ts': 'function helper() { return 1; }'
@@ -57,9 +57,9 @@ testStable(
   }
 );
 
-testStable('nested entry modules cannot avoid canonical construction', () => {
+testStable('nested entry modules cannot avoid canonical construction', async () => {
   expect(
-    lint({
+    await lint({
       'sources/nested/store.ts': 'export const db = {};',
       'sources/nested/service.ts': 'export const Sources = {};'
     })
@@ -68,9 +68,9 @@ testStable('nested entry modules cannot avoid canonical construction', () => {
 
 testStable(
   'snapshot participants stay attached to the canonical service rather than detached public helpers',
-  () => {
+  async () => {
     expect(
-      lint({
+      await lint({
         'auth/service/index.ts':
           "import { defineService } from '#server/platform/definitions/define-service'; export const Auth = defineService('study/Auth', make, {sanitizeBackup: tx => tx.store(Store).sanitize(undefined)});",
         'sources/service/index.ts':
@@ -80,9 +80,9 @@ testStable(
   }
 );
 
-testStable('native generator functions must still be registered workflow handlers', () => {
+testStable('native generator functions must still be registered workflow handlers', async () => {
   expect(
-    lintRulePaths('module-factories', {
+    await lintRulePaths('module-factories', {
       'apps/server/src/features/notes/workflows/good.ts':
         "import {Effect as E} from 'effect'; import {defineWorkflowHandler as register} from '#server/platform/definitions/define-workflow-handler'; export const run = E.fnUntraced(function* () { yield* work; }); export const registration = register(workflow, {execute: run, triggers: []});",
       'apps/server/src/features/notes/workflows/bad.ts':

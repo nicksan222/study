@@ -1,5 +1,5 @@
 FROM debian:trixie-slim AS integration-base
-COPY --from=oven/bun:1.4.2 /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.4.4 /usr/local/bin/bun /usr/local/bin/bun
 RUN useradd --create-home --uid 1000 bun
 
 # This image is private test infrastructure; no host desktop or user vault is mounted.

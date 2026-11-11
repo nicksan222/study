@@ -3,8 +3,8 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports direct test guards but not nested callbacks or production', () => {
-  const diagnostics = lintRule('test-guard-assertions', {
+testStable('reports direct test guards but not nested callbacks or production', async () => {
+  const diagnostics = await lintRule('test-guard-assertions', {
     'src/a.test.ts': `import { testStable as check } from '@study/testing/vitest'; check('x', () => { if (!x) return; if (!y) { throw new Error('missing'); } [1].map(() => { return; }); });`,
     'src/a.ts': `if (!x) { throw new Error('missing'); }`
   });
@@ -12,8 +12,8 @@ testStable('reports direct test guards but not nested callbacks or production', 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('reports unbraced throws and permits a final return', () => {
-  const diagnostics = lintRule('test-guard-assertions', {
+testStable('reports unbraced throws and permits a final return', async () => {
+  const diagnostics = await lintRule('test-guard-assertions', {
     'src/a.test.ts':
       "import { testStable } from '@study/testing/vitest'; testStable('x', () => { if (!x) throw new Error('missing'); return; });"
   });
@@ -23,8 +23,8 @@ testStable('reports unbraced throws and permits a final return', () => {
 
 testStable(
   'tracks namespace and constant aliases while respecting shadowed Error and test bindings',
-  () => {
-    const diagnostics = lintRule('test-guard-assertions', {
+  async () => {
+    const diagnostics = await lintRule('test-guard-assertions', {
       'src/aliases.test.ts': `import * as runner from 'vite-plus/test'; import {testStable} from '@study/testing/vitest';
       const check = testStable;
       check('alias', () => { if (!value) throw new Error('missing'); });
@@ -37,8 +37,8 @@ testStable(
   }
 );
 
-testStable('preserves deliberate callback failures, helpers, and non-guard branches', () => {
-  const diagnostics = lintRule('test-guard-assertions', {
+testStable('preserves deliberate callback failures, helpers, and non-guard branches', async () => {
+  const diagnostics = await lintRule('test-guard-assertions', {
     'src/callbacks.test.ts': `import {testStable} from '@study/testing/vitest';
       testStable('rollback', () => { transaction(() => { throw new Error('rollback'); }); });
       testStable('helper', () => { function helper() { if (!value) return; } helper(); });

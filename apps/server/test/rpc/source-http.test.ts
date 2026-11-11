@@ -28,13 +28,13 @@ import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { Sources } from '#server/features/sources/service/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
-import { serveRpc } from '#server/platform/rpc/node';
+import { serveRpc } from '#server/platform/rpc/bun';
 
 testStable(
   'native scoped HTTP RPC reaches Source SQLite transactions and closes its listener',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const handlers = SourcesRpcLive.pipe(
       Layer.provide(Sources.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -99,7 +99,7 @@ testStable(
       await expect(fetch(`${url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

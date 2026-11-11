@@ -1,14 +1,18 @@
-import { createHash } from 'node:crypto';
-
 import type { SourceId } from '@study/contracts/ids';
 import { encodeBlockContent } from '@study/contracts/sources/document';
 import type { Document } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
-import type { Db } from '@study/db';
+import type { DbTransaction } from '@study/db';
 import { blocks, content_snapshots, chunks } from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
-export function snapshot(db: Db, document: Document, time: bigint, sourceId: SourceId | null) {
+export function snapshot(
+  db: DbTransaction,
+  document: Document,
+  time: bigint,
+  sourceId: SourceId | null
+) {
   Schema.decodeUnknownSync(documentSchema)(document);
 
   const row = db.orm
@@ -45,7 +49,7 @@ export function snapshot(db: Db, document: Document, time: bigint, sourceId: Sou
         last_block: BigInt(ordinal),
         anchor: JSON.stringify(block.anchor),
         text: block.text,
-        content_hash: createHash('sha256').update(block.text).digest()
+        content_hash: new CryptoHasher('sha256').update(block.text).digest()
       })
       .run();
   }

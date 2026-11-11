@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -33,8 +31,8 @@ import { Notes } from './index.ts';
 testStable(
   'merges independent message histories, archives originals, and queues the title atomically',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -88,14 +86,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('failed merges roll back copies and archiving, and reject changed intents', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -150,15 +148,15 @@ testStable('failed merges roll back copies and archiving, and reject changed int
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'copies attachment memberships once, keeps active links, and preserves attachments-only notes',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(
       Notes.layer,
       Settings.layer,
@@ -196,7 +194,7 @@ testStable(
           });
           const doc = yield* docs.create({
             noteId: first.id,
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Evidence',
             inputs: [],
             citations: [],
@@ -261,7 +259,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -269,8 +267,8 @@ testStable(
 testStable(
   'merges histories larger than the title context window without losing messages',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -362,7 +360,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

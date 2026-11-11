@@ -15,13 +15,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomBytes } from 'node:crypto';
-import { createServer } from 'node:http';
-import type { Server } from 'node:http';
-
 import { signInCallbackUrlSchema } from '@study/contracts/auth/schemas';
 import { StudyError } from '@study/contracts/errors';
 import { text } from '@study/localization';
+import { CryptoHasher, serve } from 'bun';
 import { Clock, Effect, Schema } from 'effect';
 
 import type { Account } from '#server/platform/ai/providers/chatgpt/session';
@@ -51,7 +48,8 @@ const decodeSignInTokens = Schema.decodeUnknownSync(Schema.fromJsonString(tokenS
 
 const decodeIdClaims = Schema.decodeUnknownSync(Schema.fromJsonString(claimsSchema));
 
-const random = () => randomBytes(32).toString('base64url');
+const random = () =>
+  crypto.getRandomValues(new Uint8Array(32)).toBase64({ alphabet: 'base64url', omitPadding: true });
 
 const resource = 'https://api.openai.com/v1';
 
@@ -63,7 +61,7 @@ export interface SignInOptions {
   clientId?: string;
   callbackUrl?: string;
   reconsent?: boolean;
-  fetch?: typeof fetch;
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
   lifetimeMs?: number;
   clock?: Clock.Clock;
 }
@@ -77,7 +75,7 @@ export interface SignInResult {
 /** A single-use loopback OAuth authorization with PKCE. */
 export class SignIn {
   readonly url: string;
-  private readonly server: Server | undefined;
+  private readonly server: { stop(closeActiveConnections?: boolean): void } | undefined;
   private readonly receiveCallback: (params: URLSearchParams) => boolean;
   private readonly options: SignInOptions;
   private readonly redirect: string;
@@ -89,7 +87,7 @@ export class SignIn {
   private readonly controller = new AbortController();
 
   private constructor(
-    server: Server | undefined,
+    server: { stop(closeActiveConnections?: boolean): void } | undefined,
     options: SignInOptions,
     redirect: string,
     verifier: string,
@@ -113,7 +111,7 @@ export class SignIn {
       client_id: clientId,
       redirect_uri: redirect,
       scope: 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct',
-      code_challenge: createHash('sha256').update(verifier).digest('base64url'),
+      code_challenge: new CryptoHasher('sha256').update(verifier).digest('base64url'),
       code_challenge_method: 'S256',
       state,
       nonce,
@@ -171,47 +169,30 @@ export class SignIn {
     };
     const server = options.callbackUrl
       ? undefined
-      : createServer({ maxHeaderSize: 16 * 1024 }, (request, response) => {
-          const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+      : serve({
+          hostname: '127.0.0.1',
+          port: 0,
+          idleTimeout: 30,
+          maxRequestBodySize: 16 * 1024,
+          fetch(request) {
+            const url = new URL(request.url);
 
-          if (url.pathname !== '/auth/callback') {
-            response.writeHead(404).end();
+            if (url.pathname !== '/auth/callback') return new Response(null, { status: 404 });
 
-            return;
+            const accepted = receiveCallback(url.searchParams);
+
+            return new Response(signInCallbackPage(accepted), {
+              status: accepted ? 200 : 400,
+              headers: {
+                'content-type': 'text/html; charset=utf-8',
+                'cache-control': 'no-store',
+                'referrer-policy': 'no-referrer'
+              }
+            });
           }
-
-          const accepted = receiveCallback(url.searchParams);
-
-          response
-            .writeHead(accepted ? 200 : 400, {
-              'content-type': 'text/html; charset=utf-8',
-              'cache-control': 'no-store',
-              'referrer-policy': 'no-referrer'
-            })
-            .end(signInCallbackPage(accepted));
         });
-    let redirect = options.callbackUrl;
-
-    if (server) {
-      server.requestTimeout = 30_000;
-      server.headersTimeout = 30_000;
-      await new Promise<void>((resolveListen, rejectListen) => {
-        server.once('error', rejectListen);
-        server.listen(0, '127.0.0.1', () => {
-          server.off('error', rejectListen);
-          resolveListen();
-        });
-      });
-      const address = server.address();
-
-      if (!address || typeof address === 'string') {
-        server.close();
-
-        throw new Error('Cannot open sign-in listener');
-      }
-
-      redirect = `http://127.0.0.1:${address.port}/auth/callback`;
-    }
+    const redirect =
+      options.callbackUrl ?? (server ? `http://127.0.0.1:${server.port}/auth/callback` : undefined);
 
     if (!redirect) throw new Error('Cannot determine sign-in callback');
 
@@ -235,8 +216,13 @@ export class SignIn {
 
     this.controller.abort(reason);
 
-    this.server?.closeAllConnections();
-    this.server?.close();
+    if (this.server) {
+      const server = this.server;
+
+      server.stop(false);
+      // Let the accepted callback response flush before closing any stalled connections.
+      void Bun.sleep(50).then(() => server.stop(true));
+    }
   }
 
   // fallow-ignore-next-line unused-class-member -- Auth service calls finish on the scoped sign-in; signin.test.ts exercises the OAuth exchange.

@@ -10,19 +10,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { AutoTokenizer } from '@huggingface/transformers';
 import { StudyError } from '@study/contracts/errors';
 import { testStable } from '@study/testing/vitest';
-import { Effect } from 'effect';
+import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { LocalEmbeddings } from './local.ts';
 import type { LocalEmbeddingModel } from './local.ts';
 import { embeddingModel, installEmbeddingModel } from './model.ts';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const modelDirectory = resolve('target/embedding-model');
 
@@ -127,7 +128,7 @@ function cosine(left: Float32Array, right: Float32Array) {
 }
 
 testStable('local embeddings reject absent and corrupt models without downloading', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'study-model-'));
+  const directory = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-model-' }));
 
   try {
     const missing = await Effect.runPromise(
@@ -138,11 +139,11 @@ testStable('local embeddings reject absent and corrupt models without downloadin
 
     if (missing._tag === 'Failure') expect(missing.failure.kind).toBe('model_unavailable');
 
-    await writeFile(
+    await Bun.write(
       join(directory, 'installation.json'),
       JSON.stringify({ identity: embeddingModel.identity })
     );
-    await writeFile(join(directory, 'config.json'), '{}');
+    await Bun.write(join(directory, 'config.json'), '{}');
     const corrupt = await Effect.runPromise(
       Effect.result(Effect.scoped(LocalEmbeddings.open(directory)))
     );
@@ -151,7 +152,7 @@ testStable('local embeddings reject absent and corrupt models without downloadin
 
     if (corrupt._tag === 'Failure') expect(corrupt.failure.kind).toBe('model_unavailable');
   } finally {
-    await rm(directory, { recursive: true, force: true });
+    await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
   }
 });
 

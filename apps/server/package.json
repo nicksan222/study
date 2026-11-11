@@ -13,7 +13,7 @@
     "./runtime/ownership": "./src/runtime/ownership.ts"
   },
   "scripts": {
-    "test": "vp test run --config ../../vite.config.ts --project server",
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project server",
     "start": "bun src/runtime/main.ts"
   },
   "dependencies": {
@@ -22,7 +22,7 @@
     "@ai-sdk/openai": "3.0.132",
     "@ai-sdk/openai-compatible": "2.0.87",
     "@ai-sdk/provider": "3.0.19",
-    "@effect/platform-node": "4.0.7",
+    "@effect/platform-bun": "4.0.7",
     "@huggingface/transformers": "4.3.2",
     "@study/contracts": "*",
     "@study/db": "*",

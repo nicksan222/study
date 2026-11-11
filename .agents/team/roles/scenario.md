@@ -48,7 +48,7 @@ then connect to the existing desktop and launch the scenario instance:
 
 ```sh
 . target/desktop.env
-XDG_DATA_HOME="$scenario_data" npm run desktop:dev
+XDG_DATA_HOME="$scenario_data" bun run desktop:dev
 ```
 
 Do not use `just run` or `just desktop-run` for this launch: they deliberately select the

@@ -96,7 +96,7 @@ class ReleaseTests(unittest.TestCase):
         environment = dict(self.env,
                            TAURI_SIGNING_PRIVATE_KEY=base64.b64encode((self.root / "encrypted-secret").read_bytes()).decode(),
                            TAURI_SIGNING_PRIVATE_KEY_PASSWORD="test-password")
-        result = subprocess.run([str(ROOT / "node_modules/.bin/tauri"), "signer", "sign", str(artifact)],
+        result = subprocess.run(["bun", "--bun", str(ROOT / "node_modules/.bin/tauri"), "signer", "sign", str(artifact)],
                                 env=environment, text=True, capture_output=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         signature = Path(str(artifact) + ".sig")
@@ -213,7 +213,11 @@ esac
         shutil.copyfile(ROOT / "apps/desktop/src-tauri/tauri.conf.json", native / "tauri.conf.json")
         tauri = checkout / "node_modules/.bin/tauri"
         tauri.parent.mkdir(parents=True)
-        tauri.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "$TEST_ARGS"\nenv > "$TEST_ENV"\nexit "${TEST_STATUS:-0}"\n')
+        tauri.write_text(r'''#!/usr/bin/env bun
+await Bun.write(Bun.env.TEST_ARGS, Bun.argv.slice(2).join("\n") + "\n");
+await Bun.write(Bun.env.TEST_ENV, Object.entries(Bun.env).map(([key, value]) => `${key}=${value}`).join("\n") + "\n");
+process.exit(Number(Bun.env.TEST_STATUS ?? 0));
+''')
         tauri.chmod(0o755)
         args_file, env_file = self.root / "args", self.root / "build-env"
         environment = dict(self.env, TEST_ARGS=str(args_file), TEST_ENV=str(env_file), APPLE_ID="", APPLE_CERTIFICATE="", APPLE_CERTIFICATE_PASSWORD="")

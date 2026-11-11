@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { ProjectId } from '@study/contracts/ids';
 import { sniff } from '@study/contracts/sources/sniff';
 
@@ -24,7 +22,7 @@ export const createUnregisteredSource = (input: {
   projectId: ProjectId | null;
 }) =>
   transaction((tx) => {
-    const requestId = randomUUID();
+    const requestId = crypto.randomUUID();
     const source = tx.store(SourceStore).createSource({
       ...input,
       ...sniff(input.name, input.bytes),
@@ -35,7 +33,7 @@ export const createUnregisteredSource = (input: {
 
     tx.emit({
       type: 'SourceProcessingRequested',
-      eventId: randomUUID(),
+      eventId: crypto.randomUUID(),
       causationId: null,
       correlationId: requestId,
       inputVersion: 1,

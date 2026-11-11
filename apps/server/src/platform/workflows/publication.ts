@@ -18,7 +18,7 @@
 import { StudyError } from '@study/contracts/errors';
 import { Context, Effect } from 'effect';
 
-import type { ServerContext } from '#server/platform/database/context';
+import type { ServerContext, ServerTransactionContext } from '#server/platform/database/context';
 import { recordPublicationRejection } from '#server/platform/observability/index';
 import { currentWorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { workflowStore } from '#server/platform/workflows/store';
@@ -30,7 +30,7 @@ export class PublicationGuard extends Context.Service<
   PublicationGuard,
   {
     readonly [publicationGuardBrand]: true;
-    readonly assert: (transactionContext: ServerContext) => void;
+    readonly assert: (transactionContext: ServerContext | ServerTransactionContext) => void;
   }
 >()('study/PublicationGuard') {}
 
@@ -43,24 +43,27 @@ export function withPublicationGuard<A, E, R>(
     Effect.flatMap((owner) => {
       const executionId = owner.executionId;
       const ownerToken = owner.ownerToken;
-      const store = workflowStore(context);
       let rejected = 0;
       const guard = {
-        assert(transactionContext: ServerContext) {
+        assert(transactionContext: ServerContext | ServerTransactionContext) {
           try {
-            if (transactionContext !== context)
+            if (
+              !('assertTransactionActive' in transactionContext) ||
+              transactionContext.transactionOwner !== context.transactionOwner
+            )
               throw new StudyError('cancelled', 'Workflow publication owner was fenced', {
                 cause: new Error('Publication transaction belongs to a different database')
               });
 
-            context.assertTransactionActive();
-            const row = store.execution(executionId);
+            transactionContext.assertTransactionActive();
+            const scopedStore = workflowStore(transactionContext);
+            const row = scopedStore.execution(executionId);
 
-            if (!row || row.status !== 'running' || store.interruptMode(executionId))
+            if (!row || row.status !== 'running' || scopedStore.interruptMode(executionId))
               throw new StudyError('cancelled', 'Workflow publication is no longer active');
 
             try {
-              store.assertOwner(executionId, ownerToken);
+              scopedStore.assertOwner(executionId, ownerToken);
             } catch (cause) {
               throw new StudyError('cancelled', 'Workflow publication owner was fenced', { cause });
             }

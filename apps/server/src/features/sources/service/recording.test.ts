@@ -53,8 +53,8 @@ function wav() {
 testStable(
   'recording imports are fenced, atomic, and replayed only for identical inputs',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -200,7 +200,7 @@ testStable(
       assert.strictEqual(context.db.orm.all(sql`SELECT * FROM source_recording_imports`).length, 1);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

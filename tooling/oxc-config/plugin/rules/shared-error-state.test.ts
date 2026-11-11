@@ -3,12 +3,16 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-function lint(source: string) {
-  return lintRule('shared-error-state', { 'apps/web/src/features/example/view.tsx': source }, true);
+async function lint(source: string) {
+  return await lintRule(
+    'shared-error-state',
+    { 'apps/web/src/features/example/view.tsx': source },
+    true
+  );
 }
 
-testStable('rejects custom alert prose and retry controls', () => {
-  const diagnostics = lint(`
+testStable('rejects custom alert prose and retry controls', async () => {
+  const diagnostics = await lint(`
     export function View() {
       return <div role="alert"><p>Could not load</p><button>Retry</button></div>;
     }
@@ -17,8 +21,8 @@ testStable('rejects custom alert prose and retry controls', () => {
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('checks boolean error branches, early returns, and status comparisons', () => {
-  const diagnostics = lint(`
+testStable('checks boolean error branches, early returns, and status comparisons', async () => {
+  const diagnostics = await lint(`
     export function View({ error, state }) {
       if (state.isError) return <p>Could not load</p>;
       return <>{error && <p>Try again</p>}
@@ -31,8 +35,8 @@ testStable('checks boolean error branches, early returns, and status comparisons
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('handles negation, compound guards, and error branches passed as props', () => {
-  const diagnostics = lint(`
+testStable('handles negation, compound guards, and error branches passed as props', async () => {
+  const diagnostics = await lint(`
     export function View({ error, enabled, result }) {
       return <>{!error ? <Content /> : <p>Failed</p>}
         {enabled && result.error && <p>Failed</p>}
@@ -44,9 +48,9 @@ testStable('handles negation, compound guards, and error branches passed as prop
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('accepts canonical imports, aliases, namespaces, and feature wrappers', () => {
+testStable('accepts canonical imports, aliases, namespaces, and feature wrappers', async () => {
   expect(
-    lint(`
+    await lint(`
     import { ErrorState as Failure } from '@study/ui/error-state';
     import * as Feedback from '@study/ui/error-state';
     export function NoteError() { return <Failure title="Failed" />; }
@@ -59,8 +63,8 @@ testStable('accepts canonical imports, aliases, namespaces, and feature wrappers
   ).toStrictEqual([]);
 });
 
-testStable('does not trust a same-named local implementation or a shadowed import', () => {
-  const diagnostics = lint(`
+testStable('does not trust a same-named local implementation or a shadowed import', async () => {
+  const diagnostics = await lint(`
     import { ErrorState } from '@study/ui/error-state';
     function LocalErrorState() { return <p role="alert">Failed</p>; }
     export function View({ error, ErrorState }) {
@@ -71,8 +75,8 @@ testStable('does not trust a same-named local implementation or a shadowed impor
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('does not let the success branch supply the canonical error presentation', () => {
-  const diagnostics = lint(`
+testStable('does not let the success branch supply the canonical error presentation', async () => {
+  const diagnostics = await lint(`
     import { ErrorState } from '@study/ui/error-state';
     export function View({ error }) {
       return error ? <p>Failed</p> : <ErrorState title="Failed" />;
@@ -82,9 +86,11 @@ testStable('does not let the success branch supply the canonical error presentat
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('accepts ordinary field validation, live statuses, and non-render error guards', () => {
-  expect(
-    lint(`
+testStable(
+  'accepts ordinary field validation, live statuses, and non-render error guards',
+  async () => {
+    expect(
+      await lint(`
     export function View({ fieldError, state, error }) {
       function retry() { if (error) return; }
       return <form><input aria-invalid={!!fieldError} aria-describedby="name-error" />
@@ -95,35 +101,39 @@ testStable('accepts ordinary field validation, live statuses, and non-render err
       </form>;
     }
   `)
-  ).toStrictEqual([]);
-});
+    ).toStrictEqual([]);
+  }
+);
 
-testStable('checks aliases of custom error markup and skips null recovery branches', () => {
-  const diagnostics = lint(`
+testStable('checks aliases of custom error markup and skips null recovery branches', async () => {
+  const diagnostics = await lint(`
     const failure = <p>Failed</p>;
     export function View({ error }) { return error ? failure : null; }
   `);
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
   expect(
-    lint(`export function View({ error }) { if (error) return null; return <Content />; }`)
+    await lint(`export function View({ error }) { if (error) return null; return <Content />; }`)
   ).toStrictEqual([]);
 });
 
-testStable('checks custom component alerts but accepts the canonical component itself', () => {
-  const diagnostics = lint(`
+testStable(
+  'checks custom component alerts but accepts the canonical component itself',
+  async () => {
+    const diagnostics = await lint(`
     import { ErrorState } from '@study/ui/error-state';
     export function View() {
       return <><Notice role={'alert'}>Failed</Notice><ErrorState role="alert" title="Failed" /></>;
     }
   `);
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('ignores tests, server code and canonical UI implementations', () => {
+testStable('ignores tests, server code and canonical UI implementations', async () => {
   expect(
-    lintRule(
+    await lintRule(
       'shared-error-state',
       {
         'apps/web/src/example.test.tsx': 'const view = <p role="alert">Failed</p>;',
@@ -135,8 +145,8 @@ testStable('ignores tests, server code and canonical UI implementations', () => 
   ).toStrictEqual([]);
 });
 
-testStable('checks shared button aliases used as a whole error presentation', () => {
-  const diagnostics = lint(`
+testStable('checks shared button aliases used as a whole error presentation', async () => {
+  const diagnostics = await lint(`
     import { Button as RetryButton } from '@study/ui/button';
     export function View({ error }) { return error && <RetryButton>{t('Retry')}</RetryButton>; }
   `);
@@ -146,15 +156,15 @@ testStable('checks shared button aliases used as a whole error presentation', ()
 
 testStable(
   'retains canonical Sidebar.Message alerts without allowing raw sidebar implementations',
-  () => {
+  async () => {
     expect(
-      lint(`
+      await lint(`
     import { Sidebar as AppSidebar } from '@study/ui/sidebar';
     import * as UI from '@study/ui/sidebar';
     export function View({ error }) { return <>{error && <AppSidebar.Message role="alert">Failed</AppSidebar.Message>}<UI.Sidebar.Message role="alert">Failed</UI.Sidebar.Message></>; }
   `)
     ).toStrictEqual([]);
-    const diagnostics = lint(`
+    const diagnostics = await lint(`
     import { Sidebar } from '@study/ui/sidebar';
     export function View({ error, Sidebar }) { return <>{error && <Sidebar.Message role="alert">Failed</Sidebar.Message>}<p role="alert">Failed</p></>; }
   `);
@@ -163,8 +173,8 @@ testStable(
   }
 );
 
-testStable('checks named error presenters even when they omit alert semantics', () => {
-  const diagnostics = lint(`
+testStable('checks named error presenters even when they omit alert semantics', async () => {
+  const diagnostics = await lint(`
     function ErrorState() { return <p>Failed</p>; }
     const RouteError = () => <section>{t('Failure')}</section>;
     const NoteError = () => { return <div>Failed</div>; };
@@ -173,6 +183,6 @@ testStable('checks named error presenters even when they omit alert semantics', 
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('declared error presenters without function bodies do not crash traversal', () => {
-  expect(lint('declare function NoteError(): JSX.Element;')).toStrictEqual([]);
+testStable('declared error presenters without function bodies do not crash traversal', async () => {
+  expect(await lint('declare function NoteError(): JSX.Element;')).toStrictEqual([]);
 });

@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { ErrorKind } from '@study/contracts/errors';
 import {
@@ -45,7 +43,7 @@ type Attempt = Key & { attempt: number };
 
 function requestImport(tx: Transaction, state: State) {
   tx.store(IntegrationImportsStore).progress(state);
-  const eventId = randomUUID();
+  const eventId = crypto.randomUUID();
 
   tx.emit({
     type: 'IntegrationImportRequested',
@@ -126,7 +124,7 @@ export const Integrations = defineService('study/Integrations', function* () {
             : new StudyError('invalid_input', 'Invalid integration content', { cause })
       });
       const state: State = {
-        id: Schema.decodeUnknownSync(integrationImportIdSchema)(randomUUID()),
+        id: Schema.decodeUnknownSync(integrationImportIdSchema)(crypto.randomUUID()),
         providerId: parsed.providerId,
         sourceKey: parsed.sourceKey,
         status: 'preview',

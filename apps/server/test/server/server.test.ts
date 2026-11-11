@@ -14,9 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { once } from 'node:events';
-import { createConnection } from 'node:net';
-
 import { projectIdSchema } from '@study/contracts/ids';
 import { StudyRpc } from '@study/contracts/rpc';
 import { Appearance, Language } from '@study/contracts/settings';
@@ -37,7 +34,7 @@ function failureKind(error: unknown) {
 }
 
 async function fixture() {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
   const app = await App.open({ path: location.path });
   const server = await serve(app);
 
@@ -48,7 +45,7 @@ async function fixture() {
     async close() {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -118,7 +115,7 @@ testStable('native HTTP RPC preserves int64 IDs, bytes, typed failures and setti
       bytes: Uint8Array;
     };
 
-    expect(Buffer.from(snapshot.bytes)).toStrictEqual(Buffer.from('hello'));
+    expect(snapshot.bytes).toStrictEqual(new TextEncoder().encode('hello'));
   } finally {
     await f.close();
   }
@@ -178,22 +175,38 @@ testStable(
   async () => {
     const f = await fixture();
     const endpoint = new URL(f.server.url);
-    const socket = createConnection({ host: endpoint.hostname, port: Number(endpoint.port) });
+    let onClose!: () => void;
+    const closed = new Promise<void>((resolve) => {
+      onClose = resolve;
+    });
+    const socket = await Bun.connect({
+      hostname: endpoint.hostname,
+      port: Number(endpoint.port),
+      socket: {
+        data() {},
+        close() {
+          onClose();
+        },
+        error(_socket, error) {
+          assert.ok('code' in error && error.code === 'ECONNRESET');
+        }
+      }
+    });
 
     try {
-      await once(socket, 'connect', { signal: AbortSignal.timeout(2000) });
-      socket.resume();
       socket.write(
         `POST /rpc HTTP/1.1\r\nHost: ${endpoint.host}\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n{`
       );
-      const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
-
-      socket.on('error', (error: NodeJS.ErrnoException) => assert.ok(error.code === 'ECONNRESET'));
       await f.server.close();
-      await closed;
+      await Promise.race([
+        closed,
+        Bun.sleep(2000).then(() => {
+          throw new Error('Socket did not close');
+        })
+      ]);
       await expect(fetch(`${f.server.url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
-      socket.destroy();
+      socket.end();
       await f.close();
     }
   }

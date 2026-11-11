@@ -4,9 +4,11 @@ import { assert, expect } from 'vite-plus/test';
 
 import { createTestDatabase } from '../src/testing.ts';
 
-function fixture(run: (db: ReturnType<ReturnType<typeof createTestDatabase>['open']>) => void) {
-  const location = createTestDatabase();
-  const db = location.open();
+async function fixture(
+  run: (db: Awaited<ReturnType<Awaited<ReturnType<typeof createTestDatabase>>['open']>>) => void
+) {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   try {
     db.exec(`
@@ -24,14 +26,14 @@ function fixture(run: (db: ReturnType<ReturnType<typeof createTestDatabase>['ope
     run(db);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 }
 
 testStable(
   'explicit attachment selection crosses collections and still rejects missing sources',
-  () =>
-    fixture((db) => {
+  async () =>
+    await fixture((db) => {
       db.exec(
         "INSERT INTO message_parts(message_id,ordinal,source_id,source_name,source_kind) VALUES(1,1,2,'Shared','text')"
       );
@@ -48,8 +50,8 @@ testStable(
     })
 );
 
-testStable('source cleanup and note or project cascades remain possible', () => {
-  fixture((db) => {
+testStable('source cleanup and note or project cascades remain possible', async () => {
+  await fixture((db) => {
     db.exec('DELETE FROM sources WHERE id=1');
     assert.strictEqual(
       db.orm.get<{ source_id: bigint | null }>(sql`SELECT source_id FROM message_parts WHERE id=1`)
@@ -57,11 +59,11 @@ testStable('source cleanup and note or project cascades remain possible', () => 
       null
     );
   });
-  fixture((db) => {
+  await fixture((db) => {
     db.exec('DELETE FROM notes WHERE id=1');
     assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`), undefined);
   });
-  fixture((db) => {
+  await fixture((db) => {
     db.exec('DELETE FROM projects WHERE id=1');
     assert.strictEqual(db.orm.get(sql`SELECT id FROM message_parts WHERE id=1`)?.id, 1n);
     expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
