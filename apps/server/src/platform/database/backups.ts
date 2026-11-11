@@ -13,23 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomUUID } from 'node:crypto';
-import {
-  chmodSync,
-  closeSync,
-  existsSync,
-  fsyncSync,
-  lstatSync,
-  mkdirSync,
-  openSync,
-  readFileSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs';
-import { dirname, join } from 'node:path';
-
 import { StudyError } from '@study/contracts/errors';
 import {
   MAX_BACKUP_BYTES,
@@ -43,9 +26,11 @@ import {
 import type { BackupId, BackupManifest, RestorePreview } from '@study/contracts/system/backups';
 import type { backupScopeSchema, restoreStatusSchema } from '@study/contracts/system/backups';
 import { Db } from '@study/db';
+import { CryptoHasher } from 'bun';
 import type { Clock } from 'effect';
-import { Context, Schema } from 'effect';
+import { Context, Effect, Option, Schema } from 'effect';
 
+import { fileSystem, nativePaths, runFileSystemPromise } from '#server/platform/filesystem/index';
 import { liveClock } from '#server/platform/time/index';
 
 type Scope = typeof backupScopeSchema.Type;
@@ -72,56 +57,109 @@ const magic = Buffer.from('STUDYBK1\n');
 
 const maxArtifact = MAX_BACKUP_BYTES + 16384;
 
-const digest = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+const digest = (bytes: Uint8Array) => new CryptoHasher('sha256').update(bytes).digest('hex');
 
 const invalid = () => new StudyError('invalid_input', 'Invalid or incompatible backup');
 
 const conflict = () =>
   new StudyError('invalid_input', 'Backup operation conflicts with current state');
 
-function syncFile(path: string) {
-  const fd = openSync(path, 'r');
+const paths = nativePaths;
 
-  try {
-    fsyncSync(fd);
-  } finally {
-    closeSync(fd);
-  }
+const { join, dirname } = paths;
+
+const exists = async (path: string) => runFileSystemPromise((await fileSystem).exists(path));
+
+const remove = async (path: string) =>
+  runFileSystemPromise((await fileSystem).remove(path, { force: true }));
+
+const rename = async (from: string, to: string) =>
+  runFileSystemPromise((await fileSystem).rename(from, to));
+
+const chmod = async (path: string, mode: number) =>
+  runFileSystemPromise((await fileSystem).chmod(path, mode));
+
+async function syncFile(path: string) {
+  const fs = await fileSystem;
+
+  await runFileSystemPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const file = yield* fs.open(path, { flag: 'r', noFollow: process.platform !== 'win32' });
+
+        yield* file.sync;
+      })
+    )
+  );
 }
 
-function syncDirectory(path: string) {
-  if (process.platform !== 'win32') syncFile(path);
+async function syncDirectory(path: string) {
+  if (process.platform !== 'win32') await syncFile(path);
 }
 
-function removeDatabase(path: string) {
-  for (const suffix of ['', '-wal', '-shm', '-journal']) rmSync(path + suffix, { force: true });
+async function removeDatabase(path: string) {
+  const fs = await fileSystem;
+
+  for (const suffix of ['', '-wal', '-shm', '-journal'])
+    await runFileSystemPromise(fs.remove(path + suffix, { force: true }));
 }
 
-function privateDirectory(path: string) {
-  mkdirSync(path, { recursive: true, mode: 0o700 });
+async function privateDirectory(path: string) {
+  const fs = await fileSystem;
 
-  if (!lstatSync(path).isDirectory() || lstatSync(path).isSymbolicLink()) throw invalid();
+  await runFileSystemPromise(fs.makeDirectory(path, { recursive: true, mode: 0o700 }));
 
-  chmodSync(path, 0o700);
+  if ((await runFileSystemPromise(fs.lstat(path))).type !== 'Directory') throw invalid();
+
+  if (process.platform !== 'win32') await runFileSystemPromise(fs.chmod(path, 0o700));
 }
 
-function boundedRead(path: string, maximum: number) {
-  const stat = lstatSync(path);
+async function boundedRead(path: string, maximum: number): Promise<Buffer> {
+  const fs = await fileSystem;
 
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.size > maximum || stat.size < 1)
-    throw invalid();
+  return runFileSystemPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const file = yield* fs.open(path, { flag: 'r', noFollow: process.platform !== 'win32' });
+        const stat = yield* file.stat;
+        const size = Number(stat.size);
 
-  return readFileSync(path);
+        if (stat.type !== 'File' || size > maximum || size < 1) throw invalid();
+
+        const result = yield* file.readAlloc(size + 1);
+
+        if (Option.isNone(result) || result.value.length !== size) throw invalid();
+
+        return Buffer.from(result.value);
+      })
+    )
+  );
 }
 
-function durableWrite(path: string, bytes: Uint8Array | string) {
+async function writeExclusive(path: string, bytes: Uint8Array | string) {
+  const fs = await fileSystem;
+  const data = typeof bytes === 'string' ? new TextEncoder().encode(bytes) : bytes;
+
+  await runFileSystemPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const file = yield* fs.open(path, { flag: 'wx', mode: 0o600 });
+
+        yield* file.writeAll(data);
+        yield* file.sync;
+      })
+    )
+  );
+}
+
+async function durableWrite(path: string, bytes: Uint8Array | string) {
+  const fs = await fileSystem;
   const temporary = path + '.writing';
 
-  rmSync(temporary, { force: true });
-  writeFileSync(temporary, bytes, { mode: 0o600, flag: 'wx' });
-  syncFile(temporary);
-  renameSync(temporary, path);
-  syncDirectory(dirname(path));
+  await runFileSystemPromise(fs.remove(temporary, { force: true }));
+  await writeExclusive(temporary, bytes);
+  await runFileSystemPromise(fs.rename(temporary, path));
+  await syncDirectory(dirname(path));
 }
 
 function encode(manifest: BackupManifest, bytes: Uint8Array) {
@@ -159,37 +197,39 @@ function decode(bytes: Buffer) {
   return { manifest, sqlite };
 }
 
-function readJournal(root: string): Journal | undefined {
+async function readJournal(root: string): Promise<Journal | undefined> {
   const path = join(root, 'restore.json');
 
-  return existsSync(path)
-    ? Schema.decodeUnknownSync(journalSchema)(JSON.parse(boundedRead(path, 4096).toString('utf8')))
+  return (await exists(path))
+    ? Schema.decodeUnknownSync(journalSchema)(
+        JSON.parse((await boundedRead(path, 4096)).toString('utf8'))
+      )
     : undefined;
 }
 
-function cleanInterrupted(root: string) {
-  privateDirectory(root);
-  removeDatabase(join(root, 'scratch.sqlite'));
+async function cleanInterrupted(root: string) {
+  await privateDirectory(root);
+  await removeDatabase(join(root, 'scratch.sqlite'));
 
-  for (const name of readdirSync(root)) {
+  for (const name of await runFileSystemPromise((await fileSystem).readDirectory(root))) {
     if (
       name.endsWith('.studybackup.writing') &&
       Schema.is(backupIdSchema)(name.slice(0, -'.studybackup.writing'.length))
     )
-      rmSync(join(root, name), { force: true });
+      await remove(join(root, name));
   }
 
   for (const name of ['restore.sqlite.writing', 'restore.json.writing'])
-    rmSync(join(root, name), { force: true });
+    await remove(join(root, name));
 }
 
-function pendingActivation(root: string): Journal | undefined {
-  cleanInterrupted(root);
+async function pendingActivation(root: string): Promise<Journal | undefined> {
+  await cleanInterrupted(root);
 
-  const journal = readJournal(root);
+  const journal = await readJournal(root);
 
   if (!journal || journal.state !== 'restart-required') {
-    removeDatabase(join(root, 'restore.sqlite'));
+    await removeDatabase(join(root, 'restore.sqlite'));
 
     return undefined;
   }
@@ -197,8 +237,8 @@ function pendingActivation(root: string): Journal | undefined {
   return journal;
 }
 
-function validateStagedDigest(staged: string, journal: Journal) {
-  const bytes = boundedRead(staged, MAX_BACKUP_BYTES);
+async function validateStagedDigest(staged: string, journal: Journal) {
+  const bytes = await boundedRead(staged, MAX_BACKUP_BYTES);
 
   if (digest(bytes) !== journal.sha256) throw invalid();
 }
@@ -223,23 +263,23 @@ export class ManagedBackups {
     this.root = db.path + '.backups';
   }
 
-  private initialize() {
+  private async initialize() {
     if (this.db.path === ':memory:')
       throw new StudyError('unsupported', 'Backups require a file database');
 
-    privateDirectory(this.root);
+    await privateDirectory(this.root);
   }
 
   private artifact(id: BackupId) {
     return join(this.root, Schema.decodeUnknownSync(backupIdSchema)(id) + '.studybackup');
   }
 
-  private journal(): Journal | undefined {
+  private async journal(): Promise<Journal | undefined> {
     return readJournal(this.root);
   }
 
-  private writeJournal(value: Journal) {
-    durableWrite(
+  private async writeJournal(value: Journal) {
+    await durableWrite(
       join(this.root, 'restore.json'),
       JSON.stringify(Schema.decodeUnknownSync(journalSchema)(value))
     );
@@ -257,7 +297,7 @@ export class ManagedBackups {
     });
 
     try {
-      this.initialize();
+      await this.initialize();
 
       return await work();
     } catch (cause) {
@@ -276,16 +316,18 @@ export class ManagedBackups {
     await this.active;
   }
 
-  private assertMutable() {
-    if (this.journal()?.state === 'restart-required') throw conflict();
+  private async assertMutable() {
+    if ((await this.journal())?.state === 'restart-required') throw conflict();
   }
 
-  private capacity() {
-    if (this.names().length >= MAX_MANAGED_BACKUPS) throw conflict();
+  private async capacity() {
+    if ((await this.names()).length >= MAX_MANAGED_BACKUPS) throw conflict();
   }
 
-  private names() {
-    const names = readdirSync(this.root).filter((name) => name.endsWith('.studybackup'));
+  private async names() {
+    const names = (await runFileSystemPromise((await fileSystem).readDirectory(this.root))).filter(
+      (name) => name.endsWith('.studybackup')
+    );
 
     if (names.length > MAX_MANAGED_BACKUPS) throw invalid();
 
@@ -293,9 +335,9 @@ export class ManagedBackups {
   }
 
   private async validateFile(path: string, manifest?: BackupManifest) {
-    const schema = Db.validateSnapshot(path);
+    const schema = await Db.validateSnapshot(path);
 
-    const snapshot = Db.openSnapshot(path);
+    const snapshot = await Db.openSnapshot(path);
 
     try {
       await this.policy.validate(snapshot);
@@ -315,11 +357,11 @@ export class ManagedBackups {
   }
 
   private async validatedArtifact(id: BackupId, scratch: string) {
-    const artifact = decode(boundedRead(this.artifact(id), maxArtifact));
+    const artifact = decode(await boundedRead(this.artifact(id), maxArtifact));
 
     if (artifact.manifest.id !== id) throw invalid();
 
-    writeFileSync(scratch, artifact.sqlite, { mode: 0o600, flag: 'wx' });
+    await writeExclusive(scratch, artifact.sqlite);
 
     const detail = await this.validateFile(scratch, artifact.manifest);
 
@@ -329,27 +371,31 @@ export class ManagedBackups {
   private async scratch<A>(work: (path: string) => Promise<A> | A): Promise<A> {
     const path = join(this.root, 'scratch.sqlite');
 
-    removeDatabase(path);
+    await removeDatabase(path);
 
     try {
       return await work(path);
     } finally {
-      removeDatabase(path);
+      await removeDatabase(path);
     }
   }
 
   create(): Promise<BackupManifest> {
     return this.exclusive(() =>
       this.scratch(async (path) => {
-        this.assertMutable();
-        this.capacity();
+        await this.assertMutable();
+        await this.capacity();
         await this.db.snapshot(path, MAX_BACKUP_BYTES);
 
-        if (lstatSync(path).size > MAX_BACKUP_BYTES) throw invalid();
+        if (
+          Number((await runFileSystemPromise((await fileSystem).lstat(path))).size) >
+          MAX_BACKUP_BYTES
+        )
+          throw invalid();
 
-        chmodSync(path, 0o600);
+        if (process.platform !== 'win32') await chmod(path, 0o600);
 
-        const snapshot = Db.openSnapshot(path);
+        const snapshot = await Db.openSnapshot(path);
 
         try {
           await this.policy.prepare(snapshot);
@@ -361,12 +407,12 @@ export class ManagedBackups {
 
         const { schema, scope } = await this.validateFile(path);
 
-        const bytes = boundedRead(path, MAX_BACKUP_BYTES);
+        const bytes = await boundedRead(path, MAX_BACKUP_BYTES);
 
         const manifest = Schema.decodeUnknownSync(backupManifestSchema)({
           format: 'study-managed-backup',
           version: 1,
-          id: randomUUID(),
+          id: crypto.randomUUID(),
           createdAtMs: this.clock.currentTimeMillisUnsafe(),
           schema,
           sha256: digest(bytes),
@@ -377,7 +423,7 @@ export class ManagedBackups {
           compatibility: 'exact-schema'
         });
 
-        durableWrite(this.artifact(manifest.id), encode(manifest, bytes));
+        await durableWrite(this.artifact(manifest.id), encode(manifest, bytes));
 
         return manifest;
       })
@@ -385,21 +431,20 @@ export class ManagedBackups {
   }
 
   list(): Promise<readonly BackupManifest[]> {
-    return this.exclusive(() =>
-      this.names()
-        .map((name) => {
-          const id = Schema.decodeUnknownSync(backupIdSchema)(
-            name.slice(0, -'.studybackup'.length)
-          );
+    return this.exclusive(async () => {
+      const manifests: BackupManifest[] = [];
 
-          const { manifest } = decode(boundedRead(this.artifact(id), maxArtifact));
+      for (const name of await this.names()) {
+        const id = Schema.decodeUnknownSync(backupIdSchema)(name.slice(0, -'.studybackup'.length));
+        const { manifest } = decode(await boundedRead(this.artifact(id), maxArtifact));
 
-          if (manifest.id !== id) throw invalid();
+        if (manifest.id !== id) throw invalid();
 
-          return manifest;
-        })
-        .sort((a, b) => b.createdAtMs - a.createdAtMs)
-    );
+        manifests.push(manifest);
+      }
+
+      return manifests.sort((a, b) => b.createdAtMs - a.createdAtMs);
+    });
   }
 
   read(id: BackupId): Promise<string> {
@@ -407,7 +452,7 @@ export class ManagedBackups {
       this.scratch(async (path) => {
         await this.validatedArtifact(id, path);
 
-        return boundedRead(this.artifact(id), maxArtifact).toString('base64');
+        return (await boundedRead(this.artifact(id), maxArtifact)).toString('base64');
       })
     );
   }
@@ -415,8 +460,8 @@ export class ManagedBackups {
   import(bytes: string): Promise<BackupManifest> {
     return this.exclusive(() =>
       this.scratch(async (path) => {
-        this.assertMutable();
-        this.capacity();
+        await this.assertMutable();
+        await this.capacity();
 
         if (
           bytes.length > Math.ceil(maxArtifact / 3) * 4 ||
@@ -426,11 +471,11 @@ export class ManagedBackups {
 
         const artifact = decode(Buffer.from(bytes, 'base64'));
 
-        writeFileSync(path, artifact.sqlite, { mode: 0o600, flag: 'wx' });
+        await writeExclusive(path, artifact.sqlite);
         await this.validateFile(path, artifact.manifest);
         // Imported unused pages are untrusted too; export only compact canonical live pages.
 
-        const snapshot = Db.openSnapshot(path);
+        const snapshot = await Db.openSnapshot(path);
 
         try {
           snapshot.exec('PRAGMA journal_mode = DELETE; VACUUM;');
@@ -438,16 +483,16 @@ export class ManagedBackups {
           snapshot.close();
         }
 
-        const compact = boundedRead(path, MAX_BACKUP_BYTES);
+        const compact = await boundedRead(path, MAX_BACKUP_BYTES);
 
         const manifest = {
           ...artifact.manifest,
-          id: Schema.decodeUnknownSync(backupIdSchema)(randomUUID()),
+          id: Schema.decodeUnknownSync(backupIdSchema)(crypto.randomUUID()),
           sha256: digest(compact),
           bytes: compact.length
         };
 
-        durableWrite(this.artifact(manifest.id), encode(manifest, compact));
+        await durableWrite(this.artifact(manifest.id), encode(manifest, compact));
 
         return manifest;
       })
@@ -455,27 +500,27 @@ export class ManagedBackups {
   }
 
   delete(id: BackupId): Promise<void> {
-    return this.exclusive(() => {
-      this.assertMutable();
-      rmSync(this.artifact(id), { force: true });
+    return this.exclusive(async () => {
+      await this.assertMutable();
+      await remove(this.artifact(id));
 
       if (this.preview?.backup.id === id) this.preview = undefined;
 
-      syncDirectory(this.root);
+      await syncDirectory(this.root);
     });
   }
 
   previewRestore(id: BackupId): Promise<RestorePreview> {
     return this.exclusive(() =>
       this.scratch(async (path) => {
-        this.assertMutable();
+        await this.assertMutable();
 
         const { manifest } = await this.validatedArtifact(id, path);
 
         const { scope: current, identity: target } = await this.policy.inspect(this.db);
 
         const preview: RestorePreview = {
-          token: Schema.decodeUnknownSync(restoreTokenSchema)(randomUUID()),
+          token: Schema.decodeUnknownSync(restoreTokenSchema)(crypto.randomUUID()),
           backup: manifest,
           current,
           target,
@@ -494,8 +539,8 @@ export class ManagedBackups {
     );
   }
 
-  private acceptedInput(input: typeof acceptRestoreSchema.Type): boolean {
-    const accepted = this.journal();
+  private async acceptedInput(input: typeof acceptRestoreSchema.Type): Promise<boolean> {
+    const accepted = await this.journal();
 
     if (
       accepted &&
@@ -529,9 +574,9 @@ export class ManagedBackups {
       this.scratch(async (path) => {
         input = Schema.decodeUnknownSync(acceptRestoreSchema)(input);
 
-        if (this.acceptedInput(input)) return this.statusUnsafe();
+        if (await this.acceptedInput(input)) return this.statusUnsafe();
 
-        this.assertMutable();
+        await this.assertMutable();
         this.assertPreview(input);
 
         const artifact = await this.validatedArtifact(input.backupId, path);
@@ -541,10 +586,10 @@ export class ManagedBackups {
 
         const staged = join(this.root, 'restore.sqlite');
 
-        if (existsSync(join(this.root, 'previous.sqlite'))) throw conflict();
+        if (await exists(join(this.root, 'previous.sqlite'))) throw conflict();
 
-        durableWrite(staged, artifact.sqlite);
-        this.writeJournal({
+        await durableWrite(staged, artifact.sqlite);
+        await this.writeJournal({
           state: 'restart-required',
           token: input.token,
           backupId: input.backupId,
@@ -559,13 +604,13 @@ export class ManagedBackups {
     );
   }
 
-  private statusUnsafe(): typeof restoreStatusSchema.Type {
-    const journal = this.journal();
+  private async statusUnsafe(): Promise<typeof restoreStatusSchema.Type> {
+    const journal = await this.journal();
 
     return {
       state: journal?.state ?? 'idle',
       backupId: journal?.backupId ?? null,
-      recoveryCopy: existsSync(join(this.root, 'previous.sqlite'))
+      recoveryCopy: await exists(join(this.root, 'previous.sqlite'))
     };
   }
 
@@ -574,23 +619,23 @@ export class ManagedBackups {
   }
 
   discardRecovery(): Promise<void> {
-    return this.exclusive(() => {
-      this.assertMutable();
-      removeDatabase(join(this.root, 'previous.sqlite'));
-      removeDatabase(join(this.root, 'restore.sqlite'));
-      rmSync(join(this.root, 'restore.json'), { force: true });
-      syncDirectory(this.root);
+    return this.exclusive(async () => {
+      await this.assertMutable();
+      await removeDatabase(join(this.root, 'previous.sqlite'));
+      await removeDatabase(join(this.root, 'restore.sqlite'));
+      await remove(join(this.root, 'restore.json'));
+      await syncDirectory(this.root);
     });
   }
 
-  private activationState(journal: Journal, staged: string, previous: string) {
+  private async activationState(journal: Journal, staged: string, previous: string) {
     const identity = this.db.contentIdentity();
 
-    if (identity === journal.restored && existsSync(previous)) return 'replaced';
+    if (identity === journal.restored && (await exists(previous))) return 'replaced';
 
     if (identity !== journal.target) {
-      this.writeJournal({ ...journal, state: 'target-changed' });
-      removeDatabase(staged);
+      await this.writeJournal({ ...journal, state: 'target-changed' });
+      await removeDatabase(staged);
 
       return 'changed';
     }
@@ -600,84 +645,96 @@ export class ManagedBackups {
 
   /** Runs before any App connection/auth/worker is acquired. Never replaces an open connection. */
   static async activate(path: string, policy: SnapshotPolicy): Promise<void> {
-    if (path === ':memory:' || !existsSync(path + '.backups')) return;
+    if (path === ':memory:' || !(await exists(path + '.backups'))) return;
 
     const root = path + '.backups';
 
-    const journal = pendingActivation(root);
+    const journal = await pendingActivation(root);
 
     if (!journal) return;
 
-    // Opening the current supported file performs SQLite's normal WAL recovery, not migrations.
+    let current = await openActivationTarget(path, journal);
 
-    let current: Db | undefined;
-
-    try {
-      current = Db.openSnapshot(path);
-    } catch {
-      // A changed application schema cannot activate format 1. Let ordinary startup migrate the target.
-      durableWrite(
-        join(path + '.backups', 'restore.json'),
-        JSON.stringify({ ...journal, state: 'activation-failed' })
-      );
-      removeDatabase(join(path + '.backups', 'restore.sqlite'));
-
-      return;
-    }
+    if (!current) return;
 
     const owner = new ManagedBackups(current, policy);
 
     try {
-      owner.initialize();
+      await owner.initialize();
 
       const staged = join(owner.root, 'restore.sqlite');
 
       const previous = join(owner.root, 'previous.sqlite');
 
-      const state = owner.activationState(journal, staged, previous);
+      const state = await owner.activationState(journal, staged, previous);
 
       if (state === 'replaced') {
         // Crash after atomic replacement and before recording activation.
         await policy.validate(current);
-        owner.writeJournal({ ...journal, state: 'applied' });
+        await owner.writeJournal({ ...journal, state: 'applied' });
 
         return;
       }
 
       if (state === 'changed') return;
 
-      validateStagedDigest(staged, journal);
+      await validateStagedDigest(staged, journal);
 
       const detail = await owner.validateFile(staged);
 
       if (detail.identity !== journal.restored) throw invalid();
 
       // Exactly one explicit private rollback copy; retained until discardRecovery.
-      removeDatabase(previous);
-      await current.snapshot(previous, MAX_BACKUP_BYTES);
-      chmodSync(previous, 0o600);
-      syncFile(previous);
-      syncDirectory(owner.root);
+      await createRecoveryCopy(current, previous, owner.root);
       current.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA journal_mode = DELETE;');
       current.close();
       current = undefined;
-      rmSync(path + '-wal', { force: true });
-      rmSync(path + '-shm', { force: true });
+      await remove(path + '-wal');
+      await remove(path + '-shm');
       // Same filesystem, one atomic replacement: after failure the target is old or new.
-      renameSync(staged, path);
-      syncFile(path);
-      syncDirectory(dirname(path));
-      syncDirectory(owner.root);
-      owner.writeJournal({ ...journal, state: 'applied' });
+      await rename(staged, path);
+      await syncFile(path);
+      await syncDirectory(dirname(path));
+      await syncDirectory(owner.root);
+      await owner.writeJournal({ ...journal, state: 'applied' });
     } catch (cause) {
       if (!current) throw cause;
 
       // Pre-commit failure leaves the old database usable and exposes an explicit retry boundary.
-      owner.writeJournal({ ...journal, state: 'activation-failed' });
-      removeDatabase(join(owner.root, 'restore.sqlite'));
+      await owner.writeJournal({ ...journal, state: 'activation-failed' });
+      await removeDatabase(join(owner.root, 'restore.sqlite'));
     } finally {
       current?.close();
     }
+  }
+}
+
+/** Preserve one private, durable rollback copy before replacing the target. */
+async function createRecoveryCopy(current: Db, previous: string, root: string) {
+  await removeDatabase(previous);
+  await current.snapshot(previous, MAX_BACKUP_BYTES);
+
+  if (process.platform !== 'win32') await chmod(previous, 0o600);
+
+  await syncFile(previous);
+  await syncDirectory(root);
+}
+
+/** Recover the target before activation without applying migrations. */
+async function openActivationTarget(path: string, journal: Journal): Promise<Db | undefined> {
+  try {
+    return await Db.openSnapshot(path);
+  } catch {
+    // A changed schema cannot activate format 1; ordinary startup may migrate the target.
+    const root = path + '.backups';
+
+    await durableWrite(
+      join(root, 'restore.json'),
+      JSON.stringify({ ...journal, state: 'activation-failed' })
+    );
+    await removeDatabase(join(root, 'restore.sqlite'));
+
+    return undefined;
   }
 }
 

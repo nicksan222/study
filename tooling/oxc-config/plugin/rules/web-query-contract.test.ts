@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('keeps Effects and runtime execution out of React and query definitions', () => {
-  const diagnostics = lintRule(
+testStable('keeps Effects and runtime execution out of React and query definitions', async () => {
+  const diagnostics = await lintRule(
     'web-query-contract',
     {
       'apps/web/src/app/shell/use-sidebar.ts': `import { Effect as E } from 'effect'; import { runRequest } from '../../lib/effect/runtime';`,
@@ -18,8 +18,8 @@ testStable('keeps Effects and runtime execution out of React and query definitio
   assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
 });
 
-testStable('requires shared query definitions rather than inline request functions', () => {
-  const diagnostics = lintRule(
+testStable('requires shared query definitions rather than inline request functions', async () => {
+  const diagnostics = await lintRule(
     'web-query-contract',
     {
       'apps/web/src/app/shell/use-sidebar.ts': `
@@ -37,9 +37,9 @@ testStable('requires shared query definitions rather than inline request functio
 
 testStable(
   'allows Schema validation, type contracts, query adapters and startup appearance',
-  () => {
+  async () => {
     expect(
-      lintRule(
+      await lintRule(
         'web-query-contract',
         {
           'apps/web/src/lib/navigation/route-contract.ts': `import { Schema, type Effect } from 'effect';`,
@@ -60,8 +60,8 @@ testStable(
   }
 );
 
-testStable('rejects nested generators including aliased Effect imports', () => {
-  const diagnostics = lintRule(
+testStable('rejects nested generators including aliased Effect imports', async () => {
+  const diagnostics = await lintRule(
     'web-query-contract',
     {
       'apps/web/src/lib/study-client/operations.ts': `
@@ -80,20 +80,22 @@ testStable('rejects nested generators including aliased Effect imports', () => {
 
 testStable(
   'Material pagination and import mutation definitions belong to shared query modules',
-  () => {
+  async () => {
     assert.strictEqual(
-      lintRule(
-        'web-query-contract',
-        {
-          'apps/web/src/features/material-library/api.ts': `import {infiniteQueryOptions} from '@tanstack/react-query'; export const options = infiniteQueryOptions({queryFn: load});`,
-          'apps/web/src/features/material-library/import-operation.ts': `import {useMutation} from '@tanstack/react-query'; export const useImport = () => useMutation({mutationFn: importSource});`
-        },
-        true
+      (
+        await lintRule(
+          'web-query-contract',
+          {
+            'apps/web/src/features/material-library/api.ts': `import {infiniteQueryOptions} from '@tanstack/react-query'; export const options = infiniteQueryOptions({queryFn: load});`,
+            'apps/web/src/features/material-library/import-operation.ts': `import {useMutation} from '@tanstack/react-query'; export const useImport = () => useMutation({mutationFn: importSource});`
+          },
+          true
+        )
       ).length,
       3
     );
     expect(
-      lintRule(
+      await lintRule(
         'web-query-contract',
         {
           'apps/web/src/features/material-library/material-library.queries.ts': `import {infiniteQueryOptions, mutationOptions} from '@tanstack/react-query'; export const page = infiniteQueryOptions({queryFn: load}); export const imported = mutationOptions({mutationFn: importSource, retry: false});`,
@@ -107,9 +109,9 @@ testStable(
 
 testStable(
   'creation recovery consumes shared infinite query options without moving page requests into the component',
-  () => {
+  async () => {
     expect(
-      lintRule(
+      await lintRule(
         'web-query-contract',
         {
           'apps/web/src/features/document-editing/creation-library-review.tsx': `
@@ -121,7 +123,7 @@ testStable(
         true
       )
     ).toStrictEqual([]);
-    const diagnostics = lintRule(
+    const diagnostics = await lintRule(
       'web-query-contract',
       {
         'apps/web/src/features/document-editing/creation-library-review.tsx': `
@@ -138,9 +140,9 @@ testStable(
 
 testStable(
   'unavailable note reconciliation consumes shared selection, thread and generation options',
-  () => {
+  async () => {
     expect(
-      lintRule(
+      await lintRule(
         'web-query-contract',
         {
           'apps/web/src/features/note-workspace/unavailable-attempt.tsx': `
@@ -159,7 +161,7 @@ testStable(
         true
       )
     ).toStrictEqual([]);
-    const diagnostics = lintRule(
+    const diagnostics = await lintRule(
       'web-query-contract',
       {
         'apps/web/src/features/note-workspace/unavailable-attempt.tsx': `

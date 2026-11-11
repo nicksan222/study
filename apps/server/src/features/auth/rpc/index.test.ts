@@ -30,8 +30,8 @@ import { Database } from '#server/platform/database/database';
 import { AuthRpcLive } from './index.ts';
 
 testStable('auth RPC exposes only public account and operations', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   context.db.orm
     .insert(preferences)
@@ -96,6 +96,6 @@ testStable('auth RPC exposes only public account and operations', async () => {
   } finally {
     await manager.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

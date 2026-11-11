@@ -74,9 +74,12 @@ export default defineRule({
         terminal &&
         item.key.name === 'requestId' &&
         item.value.type === 'CallExpression' &&
-        item.value.callee.type === 'Identifier' &&
-        item.value.callee.name === 'randomUUID' &&
-        binding(context, item.value.callee)?.defs[0]?.node?.parent?.source?.value === 'node:crypto'
+        item.value.callee.type === 'MemberExpression' &&
+        !item.value.callee.computed &&
+        item.value.callee.object.type === 'Identifier' &&
+        item.value.callee.object.name === 'crypto' &&
+        !binding(context, item.value.callee.object)?.defs.length &&
+        item.value.callee.property.name === 'randomUUID'
       );
     }
 

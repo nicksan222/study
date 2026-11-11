@@ -10,11 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { resolve } from 'node:path';
-import { Worker } from 'node:worker_threads';
-
+import { BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts/errors';
-import { Effect, Schema } from 'effect';
+import { Effect, Path, Schema } from 'effect';
 
 import { embeddingLimits } from './limits.ts';
 import { embeddingModel, validateEmbeddingModel } from './model.ts';
@@ -56,23 +54,17 @@ function open(directory: string) {
     yield* validateEmbeddingModel(directory);
     const worker = yield* Effect.acquireRelease(
       Effect.try({
-        try: () =>
-          new Worker(new URL('./worker.ts', import.meta.url), {
-            workerData: resolve(directory),
-            execArgv: []
-          }),
+        try: () => new Worker(new URL('./worker.ts', import.meta.url)),
         catch: (cause) =>
           new StudyError('model_unavailable', 'Local embedding worker could not start', { cause })
       }),
-      (worker) =>
-        Effect.tryPromise({
-          try: () => worker.terminate(),
-          catch: (cause) =>
-            new StudyError('internal', 'Local embedding worker termination failed', { cause })
-        }).pipe(Effect.orDie, Effect.asVoid)
+      (worker) => Effect.sync(() => worker.terminate())
     );
     const client = makeWorkerClient(worker);
 
+    const paths = yield* Path.Path.pipe(Effect.provide(BunPath.layer));
+
+    worker.postMessage(paths.resolve(directory));
     yield* client.ready;
 
     /** Validate bounded nonempty inputs and apply the model’s distinct query or passage prefix. */

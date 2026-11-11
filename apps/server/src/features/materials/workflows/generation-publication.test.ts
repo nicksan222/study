@@ -32,8 +32,8 @@ import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 
 testStable('guarded generation publishes once and replays its receipt', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const services = Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -517,13 +517,13 @@ testStable('guarded generation publishes once and replays its receipt', async ()
     assert.isTrue(complete);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('receipt persists across reopen and a new workflow execution', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
   let requestId = '';
   let versionId: PageVersionId;
   let resultId = 0n as MaterialVersionId;
@@ -617,7 +617,7 @@ testStable('receipt persists across reopen and a new workflow execution', async 
   try {
     await run('first-generation', false);
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     await run('second-generation', true);
     assert.strictEqual(
       context.db.orm.all(sql`SELECT * FROM workflow_events WHERE causation_id=${requestId}`).length,
@@ -626,6 +626,6 @@ testStable('receipt persists across reopen and a new workflow execution', async 
     expect(context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

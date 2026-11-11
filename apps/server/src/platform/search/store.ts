@@ -18,7 +18,7 @@ import type {
   SemanticSearchInput
 } from '@study/contracts/search/schemas';
 import { searchTargetSchema } from '@study/contracts/search/schemas';
-import type { Db } from '@study/db';
+import type { Db, DbTransaction } from '@study/db';
 import { and, eq, gt, inArray, sql } from '@study/db';
 import { semantic_search_entries as entries } from '@study/db/schema';
 import { Schema } from 'effect';
@@ -90,7 +90,7 @@ function bestHits(
 }
 
 /** Keep cached vectors subordinate to current feature visibility and model identity. */
-export function makeVectorStore(db: Db, model: EmbeddingModel) {
+export function makeVectorStore(db: Db | DbTransaction, model: EmbeddingModel) {
   /** Read cache metadata without loading embedding blobs during stale-record reconciliation. */
   function persisted(keys: readonly string[]) {
     return db.orm

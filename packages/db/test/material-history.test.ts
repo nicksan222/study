@@ -6,8 +6,8 @@ import { Db } from '../src/index.ts';
 
 testStable(
   'migrated pruning guards retain current roots, require exact proof and forbid body resurrection',
-  () => {
-    const db = Db.open(':memory:');
+  async () => {
+    const db = await Db.open(':memory:');
 
     try {
       db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','History',1,1);
@@ -66,8 +66,8 @@ testStable(
 
 testStable(
   'upgraded membership proof counts retained newer roots and binds exact operation and candidate ownership',
-  () => {
-    const db = Db.open(':memory:');
+  async () => {
+    const db = await Db.open(':memory:');
 
     try {
       db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','History',1,1),(2,'diagram','Other',1,1);
@@ -144,8 +144,8 @@ testStable(
 
 testStable(
   'exact raw attachment pins reject forged source or extraction ownership while preserving current source roots',
-  () => {
-    const db = Db.open(':memory:');
+  async () => {
+    const db = await Db.open(':memory:');
 
     try {
       db.exec(`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at) VALUES(1,'attachment','text','text/plain','source.txt',1,zeroblob(32),1),(2,'attachment','text','text/plain','other.txt',1,zeroblob(32),1);

@@ -29,8 +29,8 @@ import { withTestPublication } from '#testing/publication';
 testStable.each([1, 2] as const)(
   'marking a question starts one answer version and publishes question and answer in place in language %s',
   async (language) => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -102,7 +102,7 @@ testStable.each([1, 2] as const)(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -110,8 +110,8 @@ testStable.each([1, 2] as const)(
 testStable(
   'abandoning an in-place answer preserves the question and permits a fresh answer',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -149,14 +149,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('question answers capture their exact target and deduplicate per version', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     await Effect.runPromise(
@@ -218,15 +218,15 @@ testStable('question answers capture their exact target and deduplicate per vers
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'classification persists, fences stale work and preserves manual overrides',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
 
     const run = <A, E>(effect: Effect.Effect<A, E, Database>) =>
       Effect.runPromise(effect.pipe(Effect.provide(Layer.succeed(Database, { store: context }))));
@@ -306,7 +306,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       const read = await run(
         Effect.flatMap(Notes, (c) => c.message(saved.id)).pipe(Effect.provide(Notes.layer))
       );
@@ -314,7 +314,7 @@ testStable(
       expect(read.question?.origin).toBe('manual');
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -322,8 +322,8 @@ testStable(
 testStable(
   'automatic and manual answers share one durable receipt; archive and override fence generation',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -400,14 +400,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('explicit Ask and requested replies are reused by automatic answering', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     await Effect.runPromise(
@@ -477,15 +477,15 @@ testStable('explicit Ask and requested replies are reused by automatic answering
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'empty attachment captures and inactive-version deletion do not schedule classification',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -539,7 +539,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -547,8 +547,8 @@ testStable(
 testStable(
   'deleting a question cascades its pending answer and fences late publication',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -590,7 +590,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -598,8 +598,8 @@ testStable(
 testStable(
   'unavailable evidence preserves automatic classification and rejects a manual answer atomically',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -659,7 +659,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

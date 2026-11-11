@@ -27,7 +27,9 @@ import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { makeRegistryStore } from '#server/features/search/store/registry';
 import { Sources } from '#server/features/sources/index';
+import type { ServerTransactionContext } from '#server/platform/database/context';
 import { defineService } from '#server/platform/definitions/define-service';
+import { transactionDatabase } from '#server/platform/definitions/define-store';
 import type { Transaction } from '#server/platform/definitions/define-store';
 import { SearchConfiguration } from '#server/platform/search/configuration';
 import { SearchStorage } from '#server/platform/search/storage';
@@ -103,14 +105,14 @@ export const Search = defineService('study/Search', function* () {
 
   /** Read visibility and mutate the index within the same synchronous database transaction. */
   const commit = <A>(
-    work: (rows: Iterable<SearchProjection>) => A,
-    beforePublish?: () => void,
+    work: (rows: Iterable<SearchProjection>, db: ServerTransactionContext['db']) => A,
+    beforePublish?: (tx: Transaction) => void,
     targets?: readonly SearchTarget[]
   ) =>
     storage.transaction<A>((tx) => {
-      beforePublish?.();
+      beforePublish?.(tx);
 
-      return work(read(tx, targets));
+      return work(read(tx, targets), transactionDatabase(tx));
     });
   /** Read one bounded page; publication later revalidates its targets in a transaction. */
   const readPage = (kind: string, reader: ProjectionReader, offset: number) =>
@@ -128,7 +130,7 @@ export const Search = defineService('study/Search', function* () {
     })
   );
   /** Keep publication fences configurable without registering a runtime worker or agent. */
-  const makeIndex = (beforePublish?: () => void) =>
+  const makeIndex = (beforePublish?: (tx: Transaction) => void) =>
     storage.open({
       model: configuration.model,
       pages,
@@ -139,6 +141,6 @@ export const Search = defineService('study/Search', function* () {
   return {
     catalog: () => Effect.succeed(registry.catalog),
     search: index.search,
-    reconcile: (beforePublish?: () => void) => makeIndex(beforePublish).reconcile()
+    reconcile: (beforePublish?: (tx: Transaction) => void) => makeIndex(beforePublish).reconcile()
   };
 });

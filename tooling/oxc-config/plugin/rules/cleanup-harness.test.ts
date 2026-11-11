@@ -5,10 +5,10 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use cleanupActivity for unsafe workflow retirement so cancellation precedes guarded cleanup and failure settlement.';
 
-testStable('workflow cleanup cannot duplicate unsafe cancellation orchestration', () => {
+testStable('workflow cleanup cannot duplicate unsafe cancellation orchestration', async () => {
   assertDiagnostics(
     'cleanup-harness',
-    lintRule('cleanup-harness', {
+    await lintRule('cleanup-harness', {
       'src/features/notes/workflows/bad.ts':
         "import {WorkflowControl as Control} from '#server/platform/workflows/control'; function* work() { const control = yield* Control; yield* control.cancel({id, mode:'unsafe'}); }",
       'src/features/notes/workflows/good.ts':

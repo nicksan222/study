@@ -15,8 +15,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { agentRunIdSchema } from '@study/contracts/ai/progress';
 import type { agentObservationSchema, agentUpdateSchema } from '@study/contracts/ai/progress';
@@ -190,7 +188,7 @@ export function streamAgent<
     const annotations = yield* References.CurrentLogAnnotations;
     const callbackContext = yield* Effect.context<Requirements>();
     const run = {
-      runId: agentRunIdSchema.make(randomUUID()),
+      runId: agentRunIdSchema.make(crypto.randomUUID()),
       agentId: definition.id,
       mode: definition.mode ?? ('text' as const)
     };

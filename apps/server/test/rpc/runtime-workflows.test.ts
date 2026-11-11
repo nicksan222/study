@@ -29,7 +29,7 @@ testStable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
   { timeout: 10000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let app = await App.open({ path: location.path });
     let server = await serve(app);
 
@@ -137,7 +137,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -146,7 +146,7 @@ testStable(
   'workflow status distinguishes terminal failures and paginates without exposing checkpoints',
   { timeout: 10000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -248,7 +248,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -257,7 +257,6 @@ testStable(
   'unsafe workflow cancellation aborts an active real HTTP fetch',
   { timeout: 10000 },
   async (t) => {
-    const { createServer } = await import('node:http');
     let entered!: () => void;
     let aborted!: () => void;
     const requested = new Promise<void>((resolve) => {
@@ -266,24 +265,28 @@ testStable(
     const closed = new Promise<void>((resolve) => {
       aborted = resolve;
     });
-    const peer = createServer((_request, response) => {
-      response.on('close', aborted);
-      response.writeHead(200, { 'content-type': 'text/html' });
-      response.write('<html><body>pending');
-      entered();
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch(request) {
+        request.signal.addEventListener('abort', aborted, { once: true });
+        const stream = new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('<html><body>pending'));
+            entered();
+          },
+          cancel() {
+            aborted();
+          }
+        });
+
+        return new Response(stream, { headers: { 'content-type': 'text/html' } });
+      }
     });
 
-    t.onTestFinished(async () => {
-      peer.closeAllConnections();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
-    });
+    t.onTestFinished(() => peer.stop(true));
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-    const address = peer.address();
-
-    assert.ok(!(!address || typeof address === 'string'), 'HTTP peer missing');
-
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -295,7 +298,7 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
             const source = yield* client['sources.addLink']({
-              url: `http://127.0.0.1:${address.port}`,
+              url: `http://127.0.0.1:${peer.port}`,
               projectId: null
             });
             const processing = yield* client['sources.sourceProcessing']({ id: source.id });
@@ -323,8 +326,8 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
-      location.cleanup();
+      await peer.stop(true);
+      await location.cleanup();
     }
   }
 );

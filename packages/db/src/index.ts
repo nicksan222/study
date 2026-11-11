@@ -1,4 +1,5 @@
 export { Db } from './db.ts';
+export type { DbTransaction } from './db.ts';
 
 export {
   and,

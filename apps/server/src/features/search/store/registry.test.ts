@@ -53,8 +53,8 @@ const notes = defineTable({
 testStable(
   'automatic projection pages share bounded lookahead and require an entity kind',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       context.db.exec(
@@ -88,7 +88,7 @@ testStable(
       if (missingKind._tag === 'Failure') expect(missingKind.failure.kind).toBe('invalid_input');
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -28,8 +28,8 @@ import { Projects } from './index.ts';
 testStable(
   'projects enforce validation, distinguish missing records and page accurately',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Projects.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -65,7 +65,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -73,8 +73,8 @@ testStable(
 testStable(
   'large project IDs survive reads and deletion cascades, while constraints roll back',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Projects.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -117,7 +117,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

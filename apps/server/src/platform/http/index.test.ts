@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
@@ -42,42 +40,49 @@ testStable('HTTP transport failures preserve their private cause', async () => {
 });
 
 testStable('HTTP redirects, response size, timeout and cancellation are bounded', async () => {
-  const server = createServer((req, res) => {
-    if (req.url === '/redirect') {
-      res.writeHead(302, { location: '/page' }).end();
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(req) {
+      const path = new URL(req.url).pathname;
 
-      return;
+      if (path === '/redirect')
+        return new Response(null, { status: 302, headers: { location: '/page' } });
+
+      if (path === '/slow')
+        return new Promise<Response>((resolve) =>
+          req.signal.addEventListener('abort', () => resolve(new Response(null)), { once: true })
+        );
+
+      if (path === '/slow-body')
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('partial'));
+            }
+          }),
+          { headers: { 'content-type': 'text/plain' } }
+        );
+
+      if (path === '/stream')
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('hello'));
+              controller.enqueue(new TextEncoder().encode('world'));
+              controller.close();
+            }
+          }),
+          { headers: { 'content-type': 'text/plain' } }
+        );
+
+      return new Response('<p>hello</p>', { headers: { 'content-type': 'text/html' } });
     }
-
-    if (req.url === '/slow') return;
-
-    if (req.url === '/slow-body') {
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.write('partial');
-
-      return;
-    }
-
-    if (req.url === '/stream') {
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      res.write('hello');
-      res.end('world');
-
-      return;
-    }
-
-    res.writeHead(200, { 'content-type': 'text/html' });
-    res.end('<p>hello</p>');
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-
   try {
-    const address = server.address();
-
-    assert.ok(!(!address || typeof address === 'string'));
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(server.port);
+    const base = server.url.origin;
     const page = await fetchPage(base + '/redirect');
 
     assert.ok(new TextDecoder().decode(page.bytes) === '<p>hello</p>');
@@ -104,8 +109,7 @@ testStable('HTTP redirects, response size, timeout and cancellation are bounded'
       () => true
     );
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });
 
@@ -120,25 +124,31 @@ testStable(
     const startedPromise = new Promise<void>((resolve) => {
       started = resolve;
     });
-    const server = createServer((request, response) => {
-      if (request.url === '/slow') {
-        request.on('close', closed);
-        started();
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch(request) {
+        const path = new URL(request.url).pathname;
 
-        return;
+        if (path === '/slow') {
+          request.signal.addEventListener('abort', closed, { once: true });
+          started();
+
+          return new Promise<Response>((resolve) =>
+            request.signal.addEventListener('abort', () => resolve(new Response(null)), {
+              once: true
+            })
+          );
+        }
+
+        return new Response(null, {
+          status: path === '/rate' ? 429 : path === '/server' ? 503 : 404
+        });
       }
-
-      response
-        .writeHead(request.url === '/rate' ? 429 : request.url === '/server' ? 503 : 404)
-        .end();
     });
 
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
-
-    assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(server.port, 'missing address');
+    const base = server.url.origin;
 
     try {
       for (const [path, kind] of [
@@ -156,26 +166,32 @@ testStable(
       await expect(pending).rejects.toSatisfy(() => true);
       await closedPromise;
     } finally {
-      server.closeAllConnections();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await server.stop(true);
     }
   }
 );
 
 testStable('bounded POST reads token responses and times out while reading the body', async () => {
-  const server = createServer((request, response) => {
-    response.writeHead(200, { 'content-type': 'application/json' });
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      if (new URL(request.url).pathname === '/slow')
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{'));
+            }
+          }),
+          { headers: { 'content-type': 'application/json' } }
+        );
 
-    if (request.url === '/slow') response.write('{');
-    else response.end('{"ok":true}');
+      return new Response('{"ok":true}', { headers: { 'content-type': 'application/json' } });
+    }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
+  assert.ok(server.port, 'missing address');
+  const base = server.url.origin;
 
   try {
     const response = await Effect.runPromise(
@@ -189,8 +205,7 @@ testStable('bounded POST reads token responses and times out while reading the b
       )
     ).rejects.toMatchObject({ kind: 'transient' });
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });
 
@@ -199,20 +214,28 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
   const closedPromise = new Promise<void>((resolve) => {
     closed = resolve;
   });
-  const server = createServer((request, response) => {
-    request.on('close', closed);
-    response.writeHead(200, { 'content-type': 'text/event-stream' });
-    response.write('first');
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      request.signal.addEventListener('abort', closed, { once: true });
+
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('first'));
+          }
+        }),
+        { headers: { 'content-type': 'text/event-stream' } }
+      );
+    }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
+  assert.ok(server.port, 'missing address');
 
   try {
     const response = await streamingFetch(
-      `http://127.0.0.1:${address.port}`,
+      server.url.origin,
       {},
       { timeoutMs: 1000, maxBytes: 128 }
     );
@@ -222,34 +245,37 @@ testStable('streaming fetch keeps its scoped request alive until cancellation', 
     await reader.cancel();
     await closedPromise;
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });
 
 testStable('streaming fetch enforces byte limits without a content length', async () => {
-  const server = createServer((_request, response) => {
-    response.writeHead(200);
-    response.write('first');
-    response.end('second');
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch() {
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('first'));
+            setTimeout(() => {
+              controller.enqueue(new TextEncoder().encode('second'));
+              controller.close();
+            }, 10);
+          }
+        })
+      );
+    }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
+  assert.ok(server.port, 'missing address');
 
   try {
-    const response = await streamingFetch(
-      `http://127.0.0.1:${address.port}`,
-      {},
-      { timeoutMs: 1000, maxBytes: 7 }
-    );
+    const response = await streamingFetch(server.url.origin, {}, { timeoutMs: 1000, maxBytes: 7 });
 
     await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });
 
@@ -260,27 +286,30 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
   const disconnected = new Promise<void>((resolve) => {
     closed = resolve;
   });
-  const server = createServer((request, response) => {
-    request.on('close', closed);
-    response.writeHead(200);
-    response.write('first');
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      request.signal.addEventListener('abort', closed, { once: true });
+
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new TextEncoder().encode('first'));
+          }
+        })
+      );
+    }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
+  assert.ok(server.port, 'missing address');
 
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         const clock = yield* Clock.Clock;
         const response = yield* Effect.promise(() =>
-          streamingFetch(
-            `http://127.0.0.1:${address.port}`,
-            {},
-            { timeoutMs: 1000, maxBytes: 128, clock }
-          )
+          streamingFetch(server.url.origin, {}, { timeoutMs: 1000, maxBytes: 128, clock })
         );
         const result = (async () => {
           await expect(response.text()).rejects.toMatchObject({ kind: 'transient' });
@@ -292,7 +321,6 @@ testStable('streaming fetch body deadline follows the native clock', async () =>
       }).pipe(Effect.provide(TestClock.layer()))
     );
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });

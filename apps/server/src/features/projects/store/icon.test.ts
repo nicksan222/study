@@ -28,9 +28,9 @@ import { ProjectsStore } from './index.ts';
 testStable(
   'custom subject icon persists across SQLite reopen and automatic mode restores title-derived identity',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const clock = Effect.runSync(Clock.Clock);
-    let context = new ServerContext(location.open(), clock);
+    let context = new ServerContext(await location.open(), clock);
     const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
       Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
 
@@ -48,7 +48,7 @@ testStable(
         )
       );
       context.close();
-      context = new ServerContext(location.open(), clock);
+      context = new ServerContext(await location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
 
       expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual({
@@ -91,15 +91,15 @@ testStable(
       expect(error.kind).toStrictEqual('not_found');
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('rich icons persist their typed variant and color across SQLite reopen', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
   const clock = Effect.runSync(Clock.Clock);
-  let context = new ServerContext(location.open(), clock);
+  let context = new ServerContext(await location.open(), clock);
   const provide = <A, E>(effect: Effect.Effect<A, E, Database>) =>
     Effect.runPromise(effect.pipe(Effect.provideService(Database, { store: context })));
 
@@ -115,13 +115,13 @@ testStable('rich icons persist their typed variant and color across SQLite reope
     ] as const) {
       await provide(transaction((tx) => tx.store(ProjectsStore).setIcon({ id: created.id, icon })));
       context.close();
-      context = new ServerContext(location.open(), clock);
+      context = new ServerContext(await location.open(), clock);
       const store = await provide(useStore(ProjectsStore));
 
       expect((await Effect.runPromise(store.project(created.id))).icon).toStrictEqual(icon);
     }
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

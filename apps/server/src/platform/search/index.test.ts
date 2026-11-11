@@ -59,7 +59,7 @@ function targetedCommit(
 ): NonNullable<Parameters<typeof makeSemanticIndex>[0]['commit']> {
   return (work, targets) =>
     Effect.sync(() =>
-      db.transaction(() => {
+      db.transaction((tx) => {
         expect(targets).toBeDefined();
         windows.push(targets!.length);
         const ids = new Set<SearchProjection['projectIds'][number]>();
@@ -71,14 +71,14 @@ function targetedCommit(
         for (const row of rows)
           if (row.target.type === 'project' && ids.has(row.target.id)) visible.push(row);
 
-        return work(visible);
+        return work(visible, tx);
       })
     );
 }
 
 testStable('reconciliation purges bounded target batches before failed inference', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
   const original = Array.from({ length: 450 }, (_, n) => project(BigInt(n + 1), 'planet ' + n));
   const rows = [project(4n, 'updated painting'), ...original.slice(4)];
   const windows: number[] = [];
@@ -104,15 +104,15 @@ testStable('reconciliation purges bounded target batches before failed inference
     ).toBe(false);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'search revalidates cached rows after ranking before filling its result limit',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     const rows = [project(1n, 'planet winner'), project(2n, 'painting fallback')];
 
     try {
@@ -126,8 +126,8 @@ testStable(
         db,
         model,
         read: () => rows,
-        beforePublish: () => {
-          db.orm
+        beforePublish: (tx) => {
+          tx.orm
             .update(semantic_search_entries)
             .set({ fingerprint: 'superseded', text: 'unrelated replacement' })
             .where(eq(semantic_search_entries.key, winner.key))
@@ -144,8 +144,8 @@ testStable(
         db,
         model,
         read: () => rows,
-        beforePublish: () => {
-          db.orm.delete(semantic_search_entries).run();
+        beforePublish: (tx) => {
+          tx.orm.delete(semantic_search_entries).run();
         }
       });
 
@@ -154,7 +154,7 @@ testStable(
       ).toStrictEqual([]);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -162,8 +162,8 @@ testStable(
 testStable(
   'search ranks before targeted visibility checks and widens past unauthorized candidates',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     const rows = Array.from({ length: 220 }, (_, n) =>
       project(BigInt(n + 1), n === 219 ? 'painting scoped' : 'planet ' + n)
     );
@@ -187,14 +187,14 @@ testStable(
       expect(windows.length).toBeGreaterThan(1);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('search reads passage text only for its selected result keys', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
   const rows = [project(1n, 'planet winner'), project(2n, 'painting loser')];
 
   try {
@@ -216,13 +216,13 @@ testStable('search reads passage text only for its selected result keys', async 
     ]);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('reconciliation publishes a bounded page before reading the next page', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
   const rows = Array.from({ length: 1001 }, (_, n) => project(BigInt(n + 1), 'planet ' + n));
   let readLastPage = false;
   const pages = Stream.fromIterable([rows.slice(0, 1000), rows.slice(1000)]).pipe(
@@ -249,15 +249,15 @@ testStable('reconciliation publishes a bounded page before reading the next page
     ).toHaveLength(1);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'real sqlite-vec ranks scoped results, reconciles edits and deletions, and survives reopening',
   async () => {
-    const location = createTestDatabase();
-    let db = location.open();
+    const location = await createTestDatabase();
+    let db = await location.open();
     let rows = [
       project(1n, 'planet science'),
       project(2n, 'planet biology'),
@@ -286,7 +286,7 @@ testStable(
       ).toStrictEqual([]);
       expect(await Effect.runPromise(index.reconcile())).toMatchObject({ embedded: 1, removed: 1 });
       db.close();
-      db = location.open();
+      db = await location.open();
       index = makeSemanticIndex({ db, model, read: () => rows });
       expect(await Effect.runPromise(index.reconcile())).toMatchObject({ embedded: 0 });
       expect(
@@ -294,14 +294,14 @@ testStable(
       ).toStrictEqual({ type: 'project', id: id(2n) });
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('stale in-flight embeddings cannot replace current content', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
   let rows = [project(1n, 'old planet')];
   const changing: EmbeddingModel = {
     ...model,
@@ -322,15 +322,15 @@ testStable('stale in-flight embeddings cannot replace current content', async ()
     );
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'reconciliation scrubs deleted and edited excerpts before inference failure',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     let rows = [project(1n, 'planet'), project(2n, 'old painting')];
 
     try {
@@ -349,7 +349,7 @@ testStable(
       expect(db.orm.select().from(semantic_search_entries).all()).toStrictEqual([]);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -357,8 +357,8 @@ testStable(
 testStable(
   'multiple chunks deduplicate entities and scoped ranking fills limits beyond two hundred records',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     const rows = Array.from({ length: 220 }, (_, n) => project(BigInt(n + 1), 'planet ' + n));
 
     rows.push(project(221n, 'planet '.repeat(500)));
@@ -386,7 +386,7 @@ testStable(
       ).toBe(2);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -394,8 +394,8 @@ testStable(
 testStable(
   'oversized entities retain ordered Unicode content and do not block other indexing',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     const maximum = 2000000;
     const body =
       'x'.repeat(65536 - 'Large\n'.length - 1) + '😀' + 'x'.repeat(maximum) + ' planet tail marker';
@@ -458,7 +458,7 @@ testStable(
       ).toContain('planet tail marker');
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -466,8 +466,8 @@ testStable(
 testStable(
   'changing the chunking limit invalidates cached ordinals without changing model identity',
   async () => {
-    const location = createTestDatabase();
-    const db = location.open();
+    const location = await createTestDatabase();
+    const db = await location.open();
     const rows = [project(1n, 'planet '.repeat(30))];
     const chunked: EmbeddingModel = {
       ...model,
@@ -503,7 +503,7 @@ testStable(
       });
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

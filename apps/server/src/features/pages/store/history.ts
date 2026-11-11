@@ -11,11 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import { desc, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
@@ -123,7 +122,7 @@ export function makePageHistory(resources: StoreResources) {
         .all()
         .map((x) => String(x.project_id))
     };
-    const token = createHash('sha256')
+    const token = new CryptoHasher('sha256')
       .update(
         JSON.stringify({
           memberships,

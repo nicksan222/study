@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { projectIdSchema } from '@study/contracts/ids';
 import { PagesRpc } from '@study/contracts/pages/rpc';
 import { sql } from '@study/db';
@@ -45,7 +43,7 @@ testStable(
             const b = yield* projects.createProject({ name: 'B' });
             const note = yield* chats.createUntitledNote({});
             const document = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Independent',
               document: deletionDocument('Retained body'),
               inputs: [],
@@ -90,7 +88,7 @@ testStable(
       );
 
       await cleanup(f, saved.noteId);
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {

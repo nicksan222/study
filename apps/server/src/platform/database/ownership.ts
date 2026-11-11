@@ -11,26 +11,34 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-import { existsSync, realpathSync, statSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { basename, dirname, join, resolve } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts/errors';
+import { CryptoHasher, listen } from 'bun';
+import { Effect, FileSystem, Layer, Option, Path } from 'effect';
+
+import { runFileSystemPromise } from '#server/platform/filesystem/index';
 
 /** Path identity must survive replacing the database inode during restore. */
 
-function databasePath(path: string) {
-  const absolute = resolve(path);
+async function databasePath(path: string) {
+  return runFileSystemPromise(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const paths = yield* Path.Path;
+      const absolute = paths.resolve(path);
+      const exists = yield* fs.exists(absolute);
+      const canonical = exists
+        ? yield* fs.realPath(absolute)
+        : paths.join(yield* fs.realPath(paths.dirname(absolute)), paths.basename(absolute));
 
-  const canonical = existsSync(absolute)
-    ? realpathSync(absolute)
-    : join(realpathSync(dirname(absolute)), basename(absolute));
+      if (exists && Option.getOrElse((yield* fs.stat(canonical)).nlink, () => 0n) > 1n)
+        return yield* Effect.fail(
+          new StudyError('unsupported', 'Hard-linked database paths cannot be owned exclusively')
+        );
 
-  if (existsSync(canonical) && statSync(canonical).nlink > 1)
-    throw new StudyError('unsupported', 'Hard-linked database paths cannot be owned exclusively');
-
-  return canonical;
+      return canonical;
+    }).pipe(Effect.provide(Layer.merge(BunFileSystem.layer, BunPath.layer)))
+  );
 }
 
 /** Kernel-held loopback binding gives all supported launchers a crash-released lease.
@@ -40,33 +48,38 @@ function databasePath(path: string) {
 export async function acquireDatabaseOwnership(path: string) {
   if (path === ':memory:') return { path, release: async () => {} };
 
-  const canonical = databasePath(path);
+  const canonical = await databasePath(path);
 
   const identity = process.platform === 'win32' ? canonical.toLowerCase() : canonical;
 
-  const port = 1024 + (createHash('sha256').update(identity).digest().readUInt32BE(0) % 64512);
+  const digest = new CryptoHasher('sha256').update(identity).digest();
+  const port =
+    1024 + (new DataView(digest.buffer, digest.byteOffset, digest.byteLength).getUint32(0) % 64512);
 
-  const server = createServer((socket) => socket.destroy());
+  let server: { stop(closeActiveConnections?: boolean): void };
 
-  server.unref();
-
-  await new Promise<void>((resolveOwnership, reject) => {
-    server.once('error', (cause) =>
-      reject(new StudyError('transient', 'Database ownership is unavailable', { cause }))
-    );
-    server.listen({ host: '127.0.0.1', port, exclusive: true }, resolveOwnership);
-  });
+  try {
+    server = listen({
+      hostname: '127.0.0.1',
+      port,
+      socket: {
+        data: () => {},
+        open: (socket) => {
+          socket.end();
+        }
+      }
+    });
+  } catch (cause) {
+    throw new StudyError('transient', 'Database ownership is unavailable', { cause });
+  }
 
   let released: Promise<void> | undefined;
 
   return {
     path: canonical,
-    release: () => {
-      released ??= new Promise<void>((resolveRelease, reject) => {
-        server.close((error) => (error ? reject(error) : resolveRelease()));
-      });
-
-      return released;
-    }
+    release: () =>
+      (released ??= Promise.resolve().then(() => {
+        server.stop(true);
+      }))
   };
 }

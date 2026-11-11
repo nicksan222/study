@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -62,14 +60,14 @@ for (const kind of ['file', 'image'] as const)
             const create = (title: string) =>
               extracted
                 ? docs.copySource({
-                    createKey: randomUUID(),
+                    createKey: crypto.randomUUID(),
                     title,
                     sourceId: originalSource.id,
                     revision: 1n,
                     snapshotId: extracted.documentId
                   })
                 : docs.create({
-                    createKey: randomUUID(),
+                    createKey: crypto.randomUUID(),
                     title,
                     document: {
                       meta,
@@ -173,7 +171,7 @@ testStable(
             inputs: Parameters<typeof docs.create>[0]['inputs'] = []
           ) =>
             docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title,
               document: deletionDocument(text),
               inputs,
@@ -185,7 +183,7 @@ testStable(
           const current = yield* docs.save({
             pageId: root.id,
             expectedVersionId: root.version.id,
-            key: randomUUID(),
+            key: crypto.randomUUID(),
             document: deletionDocument('Current body')
           });
           const dependent = yield* create('Exact dependent', 'Dependent body', [

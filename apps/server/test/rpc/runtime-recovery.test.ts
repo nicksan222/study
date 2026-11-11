@@ -27,7 +27,7 @@ testStable(
   'a failed dispatcher tick recovers without restarting the application',
   { timeout: 5000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -67,7 +67,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

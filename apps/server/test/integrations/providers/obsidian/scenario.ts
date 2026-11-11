@@ -10,15 +10,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { mkdtemp } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 
+import { fs, path, run } from '#integration-tests/filesystem';
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
 
@@ -26,8 +23,10 @@ import { readVault, startObsidian, requireObsidianContainer } from './driver.ts'
 
 function scenario() {
   return Effect.gen(function* () {
-    requireObsidianContainer('obsidian');
-    const directory = yield* Effect.promise(() => mkdtemp(join(tmpdir(), 'study-obsidian-')));
+    yield* Effect.promise(() => requireObsidianContainer('obsidian'));
+    const directory = yield* Effect.promise(() =>
+      run(fs.makeTempDirectory({ prefix: 'study-obsidian-' }))
+    );
     const obsidian = yield* Effect.acquireRelease(
       Effect.promise(() => startObsidian(directory)),
       (obsidian) => Effect.promise(() => obsidian.close())
@@ -47,7 +46,7 @@ function scenario() {
 
     expect(created).toEqual(['Biology/Cells.md', 'Biology/DNA.md', 'Empty.md', 'Excluded.md']);
     const app = yield* Effect.acquireRelease(
-      Effect.promise(() => App.open({ path: join(directory, 'study.sqlite') })),
+      Effect.promise(() => App.open({ path: path.join(directory, 'study.sqlite') })),
       (app) => Effect.promise(() => app.close())
     );
     const server = yield* Effect.acquireRelease(

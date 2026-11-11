@@ -10,29 +10,39 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { parentPort, workerData } from 'node:worker_threads';
-
-import { env, pipeline } from '@huggingface/transformers';
+import type { FeatureExtractionPipeline } from '@huggingface/transformers';
 import { Schema } from 'effect';
 
 import { embeddingLimits } from './limits.ts';
 
-const port = parentPort;
+let extractor: FeatureExtractionPipeline;
 
-if (!port || typeof workerData !== 'string')
-  throw new TypeError('Embedding worker requires a local model directory');
+// Install the handler before loading the model so startup messages cannot be dropped.
+self.onmessage = async (event: MessageEvent<unknown>) => {
+  const input = event.data;
 
-env.allowRemoteModels = false;
-env.allowLocalModels = true;
-env.useBrowserCache = false;
-env.useFSCache = false;
+  if (typeof input === 'string' && !extractor) {
+    {
+      const { env, pipeline } = await import('@huggingface/transformers');
 
-const extractor = await pipeline('feature-extraction', workerData, {
-  device: 'cpu',
-  dtype: 'q8',
-  local_files_only: true,
-  session_options: { intraOpNumThreads: 1, interOpNumThreads: 1 }
-});
+      env.allowRemoteModels = false;
+      env.allowLocalModels = true;
+      env.useBrowserCache = false;
+      env.useFSCache = false;
+      extractor = await pipeline('feature-extraction', input, {
+        device: 'cpu',
+        dtype: 'q8',
+        local_files_only: true,
+        session_options: { intraOpNumThreads: 1, interOpNumThreads: 1 }
+      });
+      self.postMessage({ ready: true });
+    }
+
+    return;
+  }
+
+  await handle(input);
+};
 
 const chunkRequest = Schema.is(
   Schema.Struct({
@@ -99,12 +109,12 @@ function chunkPassages(text: string): readonly string[] {
   return passages;
 }
 
-port.on('message', async (input: unknown) => {
+async function handle(input: unknown) {
   if (chunkRequest(input)) {
     try {
-      port.postMessage({ passages: chunkPassages(input.text) });
+      self.postMessage({ passages: chunkPassages(input.text) });
     } catch {
-      port.postMessage({ error: 'internal' });
+      self.postMessage({ error: 'internal' });
     }
 
     return;
@@ -115,7 +125,7 @@ port.on('message', async (input: unknown) => {
     (input.operation === 'passage' &&
       input.texts.some((text) => tokenCount(text) > embeddingLimits.tokens))
   ) {
-    port.postMessage({ error: 'invalid_input' });
+    self.postMessage({ error: 'invalid_input' });
 
     return;
   }
@@ -130,9 +140,8 @@ port.on('message', async (input: unknown) => {
 
     const vectors = new Float32Array(data);
 
-    port.postMessage({ vectors, count: input.texts.length }, [vectors.buffer]);
+    self.postMessage({ vectors, count: input.texts.length }, [vectors.buffer]);
   } catch {
-    port.postMessage({ error: 'internal' });
+    self.postMessage({ error: 'internal' });
   }
-});
-port.postMessage({ ready: true });
+}

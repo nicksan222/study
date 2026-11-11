@@ -26,7 +26,7 @@ export interface FetchOptions {
   timeoutMs?: number;
   maxBytes?: number;
   maxRedirects?: number;
-  fetch?: typeof fetch;
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
 }
 
 export function validateLink(address: string): string {
@@ -138,7 +138,12 @@ export function fetchPage(address: string, options: FetchOptions = {}) {
 /** Send a form request and consume its response inside the request scope. */
 export function requestBytes(
   address: string,
-  options: { body: string; timeoutMs: number; maxBytes: number; fetch?: typeof fetch }
+  options: {
+    body: string;
+    timeoutMs: number;
+    maxBytes: number;
+    fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+  }
 ) {
   return Effect.scoped(
     Effect.gen(function* () {
@@ -175,7 +180,12 @@ export function runHttpPromise<A, E>(
 export function streamingFetch(
   input: string | URL | Request,
   init: RequestInit | undefined,
-  options: { timeoutMs: number; maxBytes: number; fetch?: typeof fetch; clock?: Clock.Clock }
+  options: {
+    timeoutMs: number;
+    maxBytes: number;
+    fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+    clock?: Clock.Clock;
+  }
 ): Promise<Response> {
   const cancellation = new AbortController();
   const callerSignal = init?.signal ?? (input instanceof Request ? input.signal : undefined);
@@ -256,7 +266,10 @@ function validHttpLimits(options: { timeoutMs: number; maxBytes: number }) {
   );
 }
 
-function withHttpTransport(options: { timeoutMs: number; fetch?: typeof fetch }) {
+function withHttpTransport(options: {
+  timeoutMs: number;
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+}) {
   return <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(
       Effect.mapError((error) =>

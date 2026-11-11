@@ -1,22 +1,18 @@
-import { execFile } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
-
+import { BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
-import { assert } from 'vite-plus/test';
+import { Effect, Path } from 'effect';
+import { assert, expect } from 'vite-plus/test';
 
 import { Db } from '../src/db.ts';
 import { sql } from '../src/index.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
-const execute = promisify(execFile);
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 testStable('online backup delivers completion while the event loop is otherwise idle', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
-  const db = location.open();
+  const db = await location.open();
 
   db.close();
 
@@ -27,22 +23,29 @@ testStable('online backup delivers completion while the event loop is otherwise 
   env.STUDY_BACKUP_IDLE_TARGET = join(location.dir, 'idle.sqlite');
 
   try {
-    await execute(
-      process.execPath,
-      [fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
-      { timeout: 15000, env }
+    const child = Bun.spawn(
+      [process.execPath, Bun.fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
+      {
+        env,
+        signal: AbortSignal.timeout(15000),
+        stdout: 'pipe',
+        stderr: 'pipe'
+      }
     );
+    const [status, stderr] = await Promise.all([child.exited, new Response(child.stderr).text()]);
+
+    assert.strictEqual(status, 0, stderr);
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'online backup during a concurrent transaction yields one coherent committed snapshot',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
-    const db = location.open();
+    const db = await location.open();
 
     try {
       // More than the backup API batch size: backup must traverse multiple steps.
@@ -50,7 +53,7 @@ testStable(
         'CREATE TABLE backup_pair(id INTEGER PRIMARY KEY, revision INTEGER NOT NULL, payload BLOB NOT NULL)'
       );
 
-      const writer = Db.open(location.path);
+      const writer = await Db.open(location.path);
 
       try {
         for (const id of [1, 2])
@@ -65,7 +68,7 @@ testStable(
         writer.exec('BEGIN IMMEDIATE; UPDATE backup_pair SET revision=2; COMMIT;');
         await copying;
 
-        const snapshot = Db.open(target);
+        const snapshot = await Db.open(target);
 
         try {
           const rows = snapshot.orm.all<{ revision: bigint; bytes: bigint }>(
@@ -89,7 +92,7 @@ testStable(
       }
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -97,17 +100,17 @@ testStable(
 testStable(
   'supported snapshots reject extra executable schema before writable acquisition',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
-    const db = location.open();
+    const db = await location.open();
 
     const target = join(location.dir, 'snapshot.sqlite');
 
     try {
       await db.snapshot(target);
-      assert.strictEqual(Db.validateSnapshot(target), db.schemaIdentity());
+      assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
 
-      const untrusted = Db.openSnapshot(target);
+      const untrusted = await Db.openSnapshot(target);
 
       try {
         untrusted.exec(
@@ -117,28 +120,28 @@ testStable(
         untrusted.close();
       }
 
-      assert.throws(() => Db.validateSnapshot(target));
-      assert.throws(() => Db.openSnapshot(target));
+      await expect(Db.validateSnapshot(target)).rejects.toThrow();
+      await expect(Db.openSnapshot(target)).rejects.toThrow();
       assert.strictEqual(db.schemaIdentity().length, 64);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
-testStable('snapshot allocation bounds reject before creating a destination file', () => {
-  const location = createTestDatabase();
+testStable('snapshot allocation bounds reject before creating a destination file', async () => {
+  const location = await createTestDatabase();
 
-  const db = location.open();
+  const db = await location.open();
 
   const target = join(location.dir, 'bounded.sqlite');
 
   try {
     assert.throws(() => db.snapshot(target, 1), RangeError);
-    assert.strictEqual(existsSync(target), false);
+    assert.strictEqual(await Bun.file(target).exists(), false);
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

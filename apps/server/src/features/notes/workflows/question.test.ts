@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { noteQuestionRequestedSchema } from '@study/contracts/events';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { workflowEvents } from '@study/db/schema';
@@ -41,34 +39,39 @@ import { noteQuestionHandler, noteQuestionWorkflow } from './question.ts';
 testStable(
   'classifier resumes persisted events and checkpoints generation; opt-out and obsolete work are safe',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     let calls = 0;
     let during: (() => Promise<void>) | undefined;
-    const peer = createServer(async (req, res) => {
-      for await (const _ of req) {
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (req) => {
+        let events = '';
+
+        await req.text();
+
+        calls++;
+        await during?.();
+        during = undefined;
+
+        for (const event of [
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'm' }
+          },
+          { type: 'response.output_text.delta', item_id: 'm', delta: '{"kind":"question"}' },
+          { type: 'response.completed', response: {} }
+        ])
+          events += `data: ${JSON.stringify(event)}\n\n`;
+
+        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       }
-
-      calls++;
-      await during?.();
-      during = undefined;
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-      for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-        { type: 'response.output_text.delta', item_id: 'm', delta: '{"kind":"question"}' },
-        { type: 'response.completed', response: {} }
-      ])
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      res.end();
     });
 
-    await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-    const address = peer.address();
-
-    assert.ok(address && typeof address !== 'string');
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(peer.port, 'missing address');
+    const base = peer.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     await auth.replace(
@@ -149,7 +152,7 @@ testStable(
 
       assert.ok(persisted);
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await execute(eventFor(note.id), 'question-recovered');
       expect(calls).toBe(1);
       await execute(eventFor(note.id), 'question-recovered');
@@ -221,7 +224,7 @@ testStable(
 
       assert.ok(followup);
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       const beforeManual = calls;
 
       await execute(followup, 'manual-question-recovered');
@@ -235,9 +238,9 @@ testStable(
       ).toBe(answered.question?.answerMessageId);
     } finally {
       await auth.dispose();
-      await new Promise<void>((resolve) => peer.close(() => resolve()));
+      await peer.stop(true);
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

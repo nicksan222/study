@@ -16,7 +16,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { Db } from '@study/db';
+import type { Db, DbTransaction } from '@study/db';
 import { and, eq, sql } from '@study/db';
 import {
   workflow_configuration_waits,
@@ -77,7 +77,7 @@ export function notifyConfigurationChanged(
 
       yield* Effect.try({
         try: () =>
-          context.transaction(() =>
+          context.transaction((context) =>
             context.db.orm
               .delete(workflow_configuration_waits)
               .where(
@@ -98,7 +98,7 @@ export function notifyConfigurationChanged(
 }
 
 /** A retired execution cannot retain configuration deferred names or captured revision state. */
-export function scrubRetiredConfiguration(db: Db, executionId: string) {
+export function scrubRetiredConfiguration(db: Db | DbTransaction, executionId: string) {
   db.orm
     .delete(workflow_configuration_waits)
     .where(

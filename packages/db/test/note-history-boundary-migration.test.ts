@@ -1,30 +1,32 @@
-import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { replySnapshotSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
-import { Schema } from 'effect';
+import { Effect, FileSystem, Path, Schema } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { Db, sql } from '../src/index.ts';
 
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
 testStable(
   'upgrading pending replies repairs historical boundary reasons in durable copies',
-  () => {
-    const folder = mkdtempSync(join(tmpdir(), 'study-note-boundary-'));
+  async () => {
+    const folder = await Effect.runPromise(
+      fs.makeTempDirectory({ prefix: 'study-note-boundary-' })
+    );
     const previous = join(folder, 'previous');
     const path = join(folder, 'study.sqlite');
-    const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
+    const migrations = Bun.fileURLToPath(new URL('../drizzle', import.meta.url));
     let db: Db | undefined;
 
     try {
-      for (const name of readdirSync(migrations))
+      for (const name of await Effect.runPromise(fs.readDirectory(migrations)))
         if (name <= '20261108023348_notes-pages')
-          cpSync(join(migrations, name), join(previous, name), { recursive: true });
+          await Effect.runPromise(fs.copy(join(migrations, name), join(previous, name)));
 
-      db = Db.open(path, previous);
+      db = await Db.open(path, previous);
       const historical = {
         requestId: 'reply',
         noteId: '1',
@@ -64,7 +66,7 @@ testStable(
         sql`INSERT INTO workflow_deferreds(execution_id,name,result) VALUES('reply-execution','reply',${wrapped})`
       );
       db.close();
-      db = Db.open(path);
+      db = await Db.open(path);
       const captured = JSON.parse(
         String(db.orm.get(sql`SELECT snapshot FROM note_reply_requests`)!.snapshot)
       );
@@ -92,13 +94,13 @@ testStable(
 
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       db.close();
-      db = Db.open(path);
+      db = await Db.open(path);
       expect(
         JSON.parse(String(db.orm.get(sql`SELECT snapshot FROM note_reply_requests`)!.snapshot))
       ).toStrictEqual(expected);
     } finally {
       db?.close();
-      rmSync(folder, { recursive: true, force: true });
+      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
     }
   }
 );

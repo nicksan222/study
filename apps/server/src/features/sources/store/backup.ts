@@ -12,12 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { decodeBlockContent } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
@@ -39,7 +38,7 @@ function makeAssetValidation({ db }: StoreResources) {
 
     if (
       BigInt(blob.bytes.length) !== source.size_bytes ||
-      !createHash('sha256').update(blob.bytes).digest().equals(Buffer.from(source.sha256))
+      !new CryptoHasher('sha256').update(blob.bytes).digest().equals(Buffer.from(source.sha256))
     )
       invalid();
   }

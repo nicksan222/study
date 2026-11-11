@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { mergeNotesInputSchema } from '@study/contracts/notes/rpc';
 
 import { Materials } from '#server/features/materials/index';
@@ -62,12 +60,12 @@ export const mergeNotes = (input: typeof mergeNotesInputSchema.Type) =>
       for (const materialId of content.materials)
         Materials.attachInTransaction(tx, { noteId: result.id, materialId });
 
-      const requestId = randomUUID();
+      const requestId = crypto.randomUUID();
       const snapshot = tx.store(TitleStore).captureTitle({ noteId: result.id, requestId });
 
       tx.emit({
         type: 'NoteTitleRequested',
-        eventId: randomUUID(),
+        eventId: crypto.randomUUID(),
         causationId: null,
         correlationId: requestId,
         inputVersion: 1,

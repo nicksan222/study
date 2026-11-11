@@ -24,8 +24,8 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 
 testStable('themes catalog, mutations and selection preserve transactional rules', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Themes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const json = (id: string, name = id) =>
     JSON.stringify({ version: 1, id, name, colors: { primary: ' red ' } });
@@ -78,6 +78,6 @@ testStable('themes catalog, mutations and selection preserve transactional rules
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

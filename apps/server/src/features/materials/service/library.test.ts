@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts/ids';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
@@ -62,7 +60,7 @@ const authored = () => ({
 function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
-      createKey: randomUUID(),
+      createKey: crypto.randomUUID(),
       projectId,
       title,
       document: authored(),
@@ -81,8 +79,8 @@ function createAuthored(projectId: typeof projectIdSchema.Type, title: string) {
 testStable(
   'native RPC creates an uncollected material shared by quick notes and preserves it after note deletion',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const handlers = () =>
       Layer.mergeAll(materialRpcHandlers, NotesRpcLive).pipe(
         Layer.provide(Layer.mergeAll(Materials.layer, Notes.layer, Settings.layer)),
@@ -130,7 +128,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -149,7 +147,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -157,8 +155,8 @@ testStable(
 testStable(
   'flat collections organize shared materials and notes without owning source bytes or lineage',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Sources.layer, Notes.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -247,7 +245,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Materials,
@@ -272,7 +270,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -280,8 +278,8 @@ testStable(
 testStable(
   'generation scope stays exact across shared membership removal, reopen and last collection deletion',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Projects.layer, Materials.layer, Pages.layer, Notes.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -348,7 +346,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const projects = yield* Projects;
@@ -380,7 +378,7 @@ testStable(
         }).pipe(Effect.provide(services()))
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           yield* Materials;
@@ -404,7 +402,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

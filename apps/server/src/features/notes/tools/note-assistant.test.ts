@@ -52,8 +52,8 @@ const body = (text: string) => ({
 testStable(
   'note tools enforce scope for every note, document and source and preserve edit versions',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -200,7 +200,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -208,8 +208,8 @@ testStable(
 testStable(
   'deleting a notebook retires scoped chat correlations before cascading its private messages',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -240,7 +240,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

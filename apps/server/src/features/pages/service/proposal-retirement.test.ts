@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/vitest';
@@ -35,7 +33,7 @@ for (const apply of [false, true])
         const additional = await Effect.runPromise(
           Effect.flatMap(Pages, (docs) =>
             docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Supporting evidence',
               document: deletionDocument('Additional proposal evidence'),
               inputs: [],
@@ -123,7 +121,7 @@ for (const apply of [false, true])
               })).blockedVersionIds.includes(additional.version!.id)
             );
             const independent = yield* docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Intentional independent text',
               document: deletionDocument('PUBLISHED_PROPOSAL_HISTORY_COPY'),
               inputs: [],
@@ -155,7 +153,7 @@ for (const apply of [false, true])
         );
 
         await cleanup(f, saved.note.id);
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;

@@ -11,11 +11,11 @@
     "./feature-previews/catalog": "./src/feature-previews/catalog.ts"
   },
   "scripts": {
-    "dev": "vp dev",
-    "build": "vp build",
-    "typecheck": "vp run gen:routes && vp exec tsc --noEmit",
-    "gen:routes": "vp exec tsr generate",
-    "test": "vp test run --reporter=verbose"
+    "dev": "bun --bun vp dev",
+    "build": "bun --bun vp build",
+    "typecheck": "bun --bun vp run gen:routes && bun --bun tsc --noEmit",
+    "gen:routes": "bun --bun tsr generate",
+    "test": "bun --bun vp test run --reporter=verbose"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

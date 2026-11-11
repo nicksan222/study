@@ -3,31 +3,34 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('server-layer-boundary rejects forbidden edges', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('server-layer-boundary rejects forbidden edges', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/procedures/jobs/create.ts': "import { db } from '@study/db';"
   });
 
   assert.strictEqual(diagnostics.length, 1);
 });
 
-testStable('RPC adapters delegate subscriptions instead of owning database capabilities', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
-    'src/features/workflows/rpc.ts': `
+testStable(
+  'RPC adapters delegate subscriptions instead of owning database capabilities',
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
+      'src/features/workflows/rpc.ts': `
       import { Database } from '#server/platform/database/database';
       import type { ServerContext } from '../../platform/database/context';
       import { Workflows } from './service';
     `,
-    'src/features/workflows/service.ts': `
+      'src/features/workflows/service.ts': `
       import { databaseChanges } from '#server/platform/database/database';
     `
-  });
+    });
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  }
+);
 
-testStable('store network calls follow global fetch aliases without matching shadows', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('store network calls follow global fetch aliases without matching shadows', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/jobs/jobs.store.ts':
       "const request = globalThis.fetch; const run = request; run('https://example.com'); function f(fetch: () => void) { const request = fetch; request(); }"
   });
@@ -37,8 +40,8 @@ testStable('store network calls follow global fetch aliases without matching sha
 
 testStable(
   'real SQLite tests can inspect persistence and runtime while production adapters cannot',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/procedures/projects/create/procedure.test.ts':
         "import '@study/db'; import '#server/runtime/service'; import '#server/domains/projects/store';",
       'src/procedures/projects/create/procedure.ts': "import '@study/db';"
@@ -49,8 +52,8 @@ testStable(
   }
 );
 
-testStable('feature roles enforce private stores and public cross-feature services', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('feature roles enforce private stores and public cross-feature services', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/source/source.service.ts':
       "import '#server/features/project'; import '#server/features/project/project.service'; import './source.workflow';",
     'src/features/source/source.workflow.ts':
@@ -67,8 +70,8 @@ testStable('feature roles enforce private stores and public cross-feature servic
 
 testStable(
   'feature boundaries inspect aliases and loaders without confusing shadowed require',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/source/source.workflow.ts':
         "const load = require; load('#server/features/source/source.store'); function f(require: (x: string) => void) { require('#server/features/source/source.store'); } import('#server/features/source/source.store');"
     });
@@ -79,8 +82,8 @@ testStable(
 
 testStable(
   'feature public indexes cannot expose stores and only stores own database access',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/source/index.ts':
         "export { SourceService } from './source.service'; export { SourceStore } from './source.store';",
       'src/features/source/source.service.ts':
@@ -93,8 +96,8 @@ testStable(
   }
 );
 
-testStable('retired server layers and feature public exports demand migration', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('retired server layers and feature public exports demand migration', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/domains/a/service.ts': 'export const x = 1;',
     'src/application/define-service.ts': 'export const x = 1;',
     'src/ai/agents/a.ts': 'export const x = 1;',
@@ -108,8 +111,8 @@ testStable('retired server layers and feature public exports demand migration', 
   assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
-testStable('plain role filenames enforce the same boundaries as suffixed filenames', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('plain role filenames enforce the same boundaries as suffixed filenames', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/sources/store.ts': "import '@study/db'; import './service'; fetch('/');",
     'src/features/sources/service.ts': "import './workflow'; import '@study/db';",
     'src/features/sources/workflow.ts': "import './store'; import './service';",
@@ -123,8 +126,8 @@ testStable('plain role filenames enforce the same boundaries as suffixed filenam
 
 testStable(
   'platform capabilities are valid service dependencies but private store type exports are not',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/sources/service.ts':
         "import { PublicationGuard } from '#server/platform/workflows/publication';",
       'src/features/materials/service.ts':
@@ -137,8 +140,8 @@ testStable(
   }
 );
 
-testStable('FSRS has one platform adapter rather than feature-specific copies', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('FSRS has one platform adapter rather than feature-specific copies', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/platform/scheduling/fsrs.ts': "import { fsrs } from 'ts-fsrs';",
     'src/features/learning/srs.ts': "import { fsrs } from 'ts-fsrs';",
     'src/features/practice/store.ts': "import type { Card } from 'ts-fsrs';"
@@ -147,8 +150,8 @@ testStable('FSRS has one platform adapter rather than feature-specific copies', 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('preferences are private to settings, auth, and themes stores', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('preferences are private to settings, auth, and themes stores', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/settings/store.ts': "import { preferences } from '@study/db/schema';",
     'src/features/auth/token.store.ts': "import { preferences as credentials } from '@study/db';",
     'src/features/themes/store/selection.ts':
@@ -166,8 +169,8 @@ testStable('preferences are private to settings, auth, and themes stores', () =>
   assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
-testStable('preferences checks respect shadows, type imports, and unrelated tables', () => {
-  const diagnostics = lintRule('server-layer-boundary', {
+testStable('preferences checks respect shadows, type imports, and unrelated tables', async () => {
+  const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/learning/store.ts':
       "import * as schema from '@study/db/schema'; import type { preferences } from '@study/db/schema'; schema.cards; const { cards } = schema; function f(schema: { preferences: string }) { const tables = schema; tables.preferences; const { preferences } = tables; }",
     'src/features/materials/store.ts':
@@ -179,8 +182,8 @@ testStable('preferences checks respect shadows, type imports, and unrelated tabl
 
 testStable(
   'runtime assembles feature workflows only through the dispatch and recovery registry',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/runtime/workflows.ts':
         "import { sourceIngestionHandlerLayer } from '#server/features/sources/workflow';",
       'src/runtime/native.ts':
@@ -195,8 +198,8 @@ testStable(
 
 testStable(
   'cross-feature capture uses public synchronous participants without exposing private selection stores',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/notes/service/capture.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
@@ -219,8 +222,8 @@ testStable(
 
 testStable(
   'note transform coordinators use public participants and cannot import another feature private stores',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/notes/service/page-transform.ts': `
       import { Materials } from '#server/features/materials/index';
       import { publicationTransaction } from '#server/platform/definitions/define-store';
@@ -242,8 +245,8 @@ testStable(
 
 testStable(
   'proposal coordinators compose public Materials participants instead of reaching into private stores',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/notes/service/proposals.ts': `
       import { Materials } from '#server/features/materials/index';
       import { transaction } from '#server/platform/definitions/define-store';
@@ -265,8 +268,8 @@ testStable(
 
 testStable(
   'note evidence composition consumes the public Materials participant and keeps all evidence stores private',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/notes/service/citations.ts': `
       import { Materials } from '#server/features/materials/index';
       import type { evidenceReferenceSchema } from '@study/contracts/materials/evidence';
@@ -291,8 +294,8 @@ testStable(
 
 testStable(
   'deletion coordinators compose public Materials and Workflows retirement participants',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/notes/service/deletion.ts': `
       import { Materials } from '#server/features/materials/index';
       import { Workflows } from '#server/features/workflows/index';
@@ -316,8 +319,8 @@ testStable(
 
 testStable(
   'Material cleanup composes public synchronous participants and cannot expose or import private retirement stores',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/materials/service/deletion.ts': `
       import { Sources } from '#server/features/sources/index';
       import { Notes } from '#server/features/notes/index';
@@ -345,8 +348,8 @@ testStable(
 
 testStable(
   'history pruning composes public participants without exposing private ownership stores',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/materials/service/history.ts': `
       import { Sources } from '#server/features/sources/index';
       import { Notes } from '#server/features/notes/index';
@@ -374,8 +377,8 @@ testStable(
 
 testStable(
   'backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores',
-  () => {
-    const diagnostics = lintRule('server-layer-boundary', {
+  async () => {
+    const diagnostics = await lintRule('server-layer-boundary', {
       'src/runtime/backups.ts':
         "import { Materials } from '#server/features/materials/index'; import { Notes } from '#server/features/notes/index';",
       'src/features/system/service/backup.ts':

@@ -14,7 +14,7 @@
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModelV3, LanguageModelV3CallOptions } from '@ai-sdk/provider';
 
-import { defineApiKeyProvider } from './definition.ts';
+import { defineApiKeyProvider, sdkFetch } from './definition.ts';
 import type { ProviderDefinition } from './definition.ts';
 
 /** JSON-object mode also works for providers that cannot stream strict JSON Schema. */
@@ -54,7 +54,12 @@ export function compatibleProvider<
     ...metadata,
     createModel: ({ apiKey, modelId, fetch }) =>
       withJsonMode(
-        createOpenAICompatible({ name: metadata.id, baseURL, apiKey, fetch }).chatModel(modelId)
+        createOpenAICompatible({
+          name: metadata.id,
+          baseURL,
+          apiKey,
+          fetch: fetch ? sdkFetch(fetch) : undefined
+        }).chatModel(modelId)
       )
   });
 }

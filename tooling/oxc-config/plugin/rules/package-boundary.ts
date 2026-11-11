@@ -1,10 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { builtinModules } from 'node:module';
-import { dirname, resolve } from 'node:path';
-
+import { BunPath } from '@effect/platform-bun';
+import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
+
+const { dirname, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const directories = {
   'packages/contracts': '@study/contracts',
@@ -53,24 +53,32 @@ const allowed: Record<Owner, readonly Owner[]> = {
   'study-landing': ['@study/ui', '@study/localization', '@study/contracts']
 };
 
-const exportsByPackage = new Map<string, unknown>(
-  Object.entries(directories)
-    .filter(
-      ([directory]) =>
-        directory.startsWith('packages/') ||
-        directory === 'apps/server' ||
-        directory === 'apps/web' ||
-        directory === 'tooling'
-    )
-    .map(([directory, name]) => {
-      const path = new URL(`../../../../${directory}/package.json`, import.meta.url);
-      const manifest = existsSync(path)
-        ? (JSON.parse(readFileSync(path, 'utf8')) as { exports: unknown })
-        : { exports: name === '@study/contracts' ? './src/index.ts' : undefined };
+const exportsByPackage = new Map<string, unknown>();
 
-      return [name, manifest.exports] as const;
-    })
-);
+for (const [directory, name] of Object.entries(directories)) {
+  if (
+    !directory.startsWith('packages/') &&
+    !['apps/server', 'apps/web', 'tooling'].includes(directory)
+  )
+    continue;
+
+  const file = Bun.file(new URL(`../../../../${directory}/package.json`, import.meta.url));
+  const manifest = (await file.exists())
+    ? ((await file.json()) as { exports: unknown })
+    : { exports: name === '@study/contracts' ? './src/index.ts' : undefined };
+
+  exportsByPackage.set(name, manifest.exports);
+}
+
+function isBuiltin(source: string): boolean {
+  if (source.startsWith('node:')) return true;
+
+  try {
+    return Bun.resolveSync(source, import.meta.dir).startsWith('node:');
+  } catch {
+    return false;
+  }
+}
 
 function ownerOf(path: string): Owner | undefined {
   const normalized = path.replaceAll('\\', '/');
@@ -231,7 +239,7 @@ export default defineRule({
         !/\.(?:test|spec)\.[^/]+$|\/(?:test|tests|__tests__|test-support|testing)\//.test(
           context.filename.replaceAll('\\', '/')
         ) &&
-        (source.startsWith('node:') || builtinModules.includes(source))
+        isBuiltin(source)
       ) {
         context.report({ node, message: `${owner} cannot import Node builtins in browser code.` });
 

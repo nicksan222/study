@@ -23,9 +23,11 @@ export function createApiKeyModel(
   provider: ApiKeyProvider,
   modelId: string,
   apiKey: (signal?: AbortSignal) => Promise<string>,
-  fetch?: typeof globalThis.fetch
+  fetch?: (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>
 ): LanguageModelV3 {
-  const request: typeof globalThis.fetch = (input, init) =>
+  const request: (
+    ...args: Parameters<typeof globalThis.fetch>
+  ) => ReturnType<typeof globalThis.fetch> = (input, init) =>
     streamingFetch(input, init, {
       fetch,
       timeoutMs: 120_000,

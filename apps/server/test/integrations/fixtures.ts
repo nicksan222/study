@@ -10,9 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { readFileSync } from 'node:fs';
+import fixtures from './providers.json' with { type: 'json' };
 
 /** Installation paths and scenarios share one manifest checked against provider adapters by Oxlint. */
-export const integrationFixtures = JSON.parse(
-  readFileSync(new URL('./providers.json', import.meta.url), 'utf8')
-) as Record<string, { scenario: string; executable: string }>;
+export const integrationFixtures = fixtures as Record<
+  string,
+  { scenario: string; executable: string }
+>;

@@ -14,7 +14,7 @@
 
 import { createAnthropic } from '@ai-sdk/anthropic';
 
-import { defineApiKeyProvider } from './definition.ts';
+import { defineApiKeyProvider, sdkFetch } from './definition.ts';
 import { withProviderTools } from './tools.ts';
 
 export const anthropic = defineApiKeyProvider({
@@ -23,7 +23,10 @@ export const anthropic = defineApiKeyProvider({
   models: ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5'],
   defaults: { tiny: 'claude-haiku-5-5', medium: 'claude-sonnet-5-5', smart: 'claude-opus-5-5' },
   createModel: ({ apiKey, modelId, fetch }) =>
-    withProviderTools(createAnthropic({ apiKey, fetch })(modelId), {
-      web_search: createAnthropic().tools.webSearch_20250305({})
-    })
+    withProviderTools(
+      createAnthropic({ apiKey, fetch: fetch ? sdkFetch(fetch) : undefined })(modelId),
+      {
+        web_search: createAnthropic().tools.webSearch_20250305({})
+      }
+    )
 });

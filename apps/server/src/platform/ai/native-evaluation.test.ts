@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { sourcesOutputSchema } from '@study/contracts/ai/sources';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema, Stream } from 'effect';
@@ -34,55 +32,56 @@ testStable('native structured generation stops after a grounded tool call', asyn
   let requests = 0;
   let body = '';
   let output: string | undefined;
-  const server = createServer(async (req, res) => {
-    const chunks: Buffer[] = [];
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: async (req) => {
+      let events = '';
+      const requestBody = await req.text();
 
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+      body = requestBody;
+      requests++;
 
-    body = Buffer.concat(chunks).toString();
-    requests++;
+      if (output !== undefined) {
+        for (const event of [
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'm' }
+          },
+          { type: 'response.output_text.delta', item_id: 'm', delta: output },
+          { type: 'response.completed', response: {} }
+        ])
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-    if (output !== undefined) {
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
+        return new globalThis.Response(events, {
+          headers: { 'content-type': 'text/event-stream' }
+        });
+      }
+
+      const call = {
+        type: 'function_call',
+        id: 'item1',
+        call_id: 'call1',
+        name: 'sources',
+        arguments: '{"query":"cell"}'
+      };
 
       for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-        { type: 'response.output_text.delta', item_id: 'm', delta: output },
+        { type: 'response.output_item.added', output_index: 0, item: call },
+        {
+          type: 'response.output_item.done',
+          output_index: 0,
+          item: { ...call, status: 'completed' }
+        },
         { type: 'response.completed', response: {} }
       ])
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
+        events += `data: ${JSON.stringify(event)}\n\n`;
 
-      res.end();
-
-      return;
+      return new globalThis.Response(events, { headers: { 'content-type': 'text/event-stream' } });
     }
-
-    const call = {
-      type: 'function_call',
-      id: 'item1',
-      call_id: 'call1',
-      name: 'sources',
-      arguments: '{"query":"cell"}'
-    };
-
-    res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-    for (const event of [
-      { type: 'response.output_item.added', output_index: 0, item: call },
-      {
-        type: 'response.output_item.done',
-        output_index: 0,
-        item: { ...call, status: 'completed' }
-      },
-      { type: 'response.completed', response: {} }
-    ])
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    res.end();
   });
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
+  const address = { port: server.port };
 
   if (!address || typeof address === 'string') throw Error('missing address');
 
@@ -198,6 +197,6 @@ testStable('native structured generation stops after a grounded tool call', asyn
     assert.ok(invalid.reason._tag === 'StructuredOutputError');
   } finally {
     await auth.dispose();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });

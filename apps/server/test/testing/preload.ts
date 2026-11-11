@@ -19,8 +19,8 @@ import type { TestContext } from 'vite-plus/test';
 import { cleanupTestFile, registerTest } from './automatic.ts';
 
 beforeEach((t) => registerTest(t as TestContext));
-afterAll(() => {
+afterAll(async () => {
   console.debug('study-test-phase:file-database-cleanup:start');
-  cleanupTestFile();
+  await cleanupTestFile();
   console.debug('study-test-phase:file-database-cleanup:complete');
 }, 30000);

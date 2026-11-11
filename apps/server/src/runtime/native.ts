@@ -14,9 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
+import { CryptoHasher } from 'bun';
 import { Effect, Layer, Logger } from 'effect';
 
 import { AuthRpcLive } from '#server/features/auth/rpc/index';
@@ -80,7 +79,7 @@ export function nativeLayers(
   hostId: string | undefined,
   lifecycle: WorkerLifecycle['Service'],
   control: WorkflowControl['Service'],
-  request?: typeof fetch
+  request?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>
 ) {
   const admission = admissionLayer(makeAdmission());
 
@@ -133,7 +132,7 @@ export function nativeLayers(
 
           const credentialGeneration = yield* account.credentialGeneration();
 
-          return createHash('sha256')
+          return new CryptoHasher('sha256')
             .update(JSON.stringify({ llm, publicAccount, credentialGeneration }))
             .digest('hex');
         })

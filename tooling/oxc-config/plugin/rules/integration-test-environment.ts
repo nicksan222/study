@@ -1,9 +1,12 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { Effect, FileSystem, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
 function workspace(filename: string) {
   const marker = filename.match(/^(.*)\/(?:packages\/integrations|apps\/server)\//);
@@ -11,45 +14,37 @@ function workspace(filename: string) {
   return marker?.[1];
 }
 
-function fixtureProblems(root: string): string[] {
-  const path = join(root, 'apps/server/test/integrations');
-  const manifest = join(path, 'providers.json');
-  const dockerfile = join(path, 'Dockerfile');
+const roots = new Set([process.cwd()]);
 
-  if (!existsSync(manifest) || !existsSync(dockerfile))
-    return ['Add the shared Dockerfile and providers.json.'];
+for (const arg of process.argv) {
+  const match = /^(.*)\/(?:apps|packages)(?:\/|$)/.exec(arg.replaceAll('\\', '/'));
 
-  const fixtures = JSON.parse(readFileSync(manifest, 'utf8')) as Record<
-    string,
-    { scenario?: string; executable?: string }
-  >;
-  const docker = readFileSync(dockerfile, 'utf8');
-  const providers = readdirSync(join(root, 'packages/integrations/src/providers'), {
-    withFileTypes: true
-  })
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
-  const problems = dockerfileProblems(path, dockerfile);
-
-  for (const id of new Set([...providers, ...Object.keys(fixtures)])) {
-    const fixture = fixtures[id];
-
-    if (!providers.includes(id) || !fixture) {
-      problems.push(`Provider ${id} must have exactly one shared-image fixture.`);
-      continue;
-    }
-
-    problems.push(...providerProblems(path, id, fixture, docker));
-  }
-
-  return problems;
+  if (match) roots.add(match[1]!);
 }
 
-function dockerfileProblems(path: string, dockerfile: string) {
+const problemsByRoot = new Map<string, string[]>();
+
+for (const root of roots) problemsByRoot.set(root, await fixtureProblems(root));
+
+type Fixture = { scenario?: string; executable?: string };
+
+async function providerDirectories(root: string): Promise<Set<string>> {
+  const directory = join(root, 'packages/integrations/src/providers');
+  const providers = new Set<string>();
+
+  for (const entry of await Effect.runPromise(fs.readDirectory(directory))) {
+    if ((await Effect.runPromise(fs.lstat(join(directory, entry)))).type === 'Directory')
+      providers.add(entry);
+  }
+
+  return providers;
+}
+
+async function extraDockerfiles(directory: string): Promise<string[]> {
   const problems: string[] = [];
 
-  for (const entry of readdirSync(path, { recursive: true, withFileTypes: true })) {
-    if (/dockerfile/i.test(entry.name) && join(entry.parentPath, entry.name) !== dockerfile)
+  for await (const entry of new Bun.Glob('**/*').scan({ cwd: directory })) {
+    if (/dockerfile/i.test(entry.split('/').at(-1)!) && entry !== 'Dockerfile')
       problems.push(
         'Use the shared integrations Dockerfile; provider-specific Dockerfiles are forbidden.'
       );
@@ -58,17 +53,17 @@ function dockerfileProblems(path: string, dockerfile: string) {
   return problems;
 }
 
-function providerProblems(
-  path: string,
+async function providerProblems(
+  directory: string,
   id: string,
-  fixture: { scenario?: string; executable?: string },
+  fixture: Fixture,
   docker: string
-) {
+): Promise<string[]> {
   const problems: string[] = [];
 
   if (
     fixture.scenario !== `providers/${id}/scenario.ts` ||
-    !existsSync(join(path, fixture.scenario))
+    !(await Bun.file(join(directory, fixture.scenario)).exists())
   )
     problems.push(`Provider ${id} needs providers/${id}/scenario.ts.`);
 
@@ -82,6 +77,33 @@ function providerProblems(
     problems.push(
       `Install ${id} in stage integration-${id} and copy /opt/${id} into the shared image.`
     );
+
+  return problems;
+}
+
+async function fixtureProblems(root: string): Promise<string[]> {
+  const directory = join(root, 'apps/server/test/integrations');
+  const manifest = Bun.file(join(directory, 'providers.json'));
+  const dockerfile = Bun.file(join(directory, 'Dockerfile'));
+
+  if (!(await manifest.exists()) || !(await dockerfile.exists()))
+    return ['Add the shared Dockerfile and providers.json.'];
+
+  const fixtures = (await manifest.json()) as Record<string, Fixture>;
+  const docker = await dockerfile.text();
+  const providers = await providerDirectories(root);
+  const problems = await extraDockerfiles(directory);
+
+  for (const id of new Set([...providers, ...Object.keys(fixtures)])) {
+    const fixture = fixtures[id];
+
+    if (!providers.has(id) || !fixture) {
+      problems.push(`Provider ${id} must have exactly one shared-image fixture.`);
+      continue;
+    }
+
+    problems.push(...(await providerProblems(directory, id, fixture, docker)));
+  }
 
   return problems;
 }
@@ -134,7 +156,7 @@ export default defineRule({
       },
       Program(node) {
         if (filename === join(root, 'packages/integrations/src/index.ts')) {
-          for (const reason of fixtureProblems(root))
+          for (const reason of problemsByRoot.get(root) ?? ['Cannot inspect integration fixtures.'])
             context.report({ node, messageId: 'environment', data: { reason } });
         }
       }

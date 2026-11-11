@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import {
   messageIdSchema,
@@ -23,6 +21,7 @@ import {
 } from '@study/contracts/ids';
 import { eq } from '@study/db';
 import { note_recording_posts, messages, notes, sources } from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
@@ -36,7 +35,7 @@ const inputSchema = Schema.Struct({
 });
 
 function hash(input: typeof inputSchema.Type) {
-  return createHash('sha256')
+  return new CryptoHasher('sha256')
     .update(
       JSON.stringify([
         input.requestId,

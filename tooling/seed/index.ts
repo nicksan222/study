@@ -1,16 +1,12 @@
-import { parseArgs } from 'node:util';
-
 import { text } from '@study/localization';
 
 import { developmentDatabasePath } from '../development/database-path.ts';
 
-const { values } = parseArgs({
-  options: { help: { type: 'boolean' } },
-  strict: true,
-  allowPositionals: false
-});
+const args = Bun.argv.slice(2);
 
-if (values.help) {
+if (args.some((arg) => arg !== '--help')) throw new Error('Unknown seed option');
+
+if (args.includes('--help')) {
   console.info(text('english', 'SeedHelp'));
 } else {
   const { seedDatabase } = await import('./seed.ts');

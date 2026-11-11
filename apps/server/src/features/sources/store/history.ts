@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { contentSnapshotIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import type { ContentSnapshotId } from '@study/contracts/ids';
@@ -22,6 +20,7 @@ import {
 } from '@study/contracts/sources/rpc';
 import { and, asc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -87,7 +86,7 @@ export const SourceHistoryStore = defineStore({
           .map((item) => item.snapshotId),
         semantics: 'retire_extractions_keep_original_revisions' as const
       };
-      const token = createHash('sha256')
+      const token = new CryptoHasher('sha256')
         .update(
           JSON.stringify({ value, current }, (_, v) => (typeof v === 'bigint' ? String(v) : v))
         )

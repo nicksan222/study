@@ -64,8 +64,8 @@ testStable('CSS checks declarations while ignoring comments and non-color text',
 
 testStable(
   'theme colors rule detects raw JSX styles and palette classes without flagging prose or semantic utilities',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'theme-colors',
       {
         'apps/web/src/colors.tsx': `export const view = <div className="bg-background text-foreground"><p className="hover:border-t-red-500" style={{ color: "darkslateblue" }}>A blue sky</p><div className="[color:#abc]" /><div style={{ backgroundImage: "linear-gradient(red, blue)", "color": "red" }} /></div>;`
@@ -78,27 +78,30 @@ testStable(
   }
 );
 
-testStable('theme colors rule covers template values, SVG fills and named arbitrary colors', () => {
-  const diagnostics = lintRule(
-    'theme-colors',
-    {
-      'apps/web/src/templates.tsx':
-        'export const view = <div style={{ color: `red`, "background-image": `linear-gradient(red, blue)` }}><svg fill={"red"} /><div className="border-t-[red] inset-shadow-[0_1px_red] [background-image:linear-gradient(red,_blue)]" /></div>;'
-    },
-    true
-  );
+testStable(
+  'theme colors rule covers template values, SVG fills and named arbitrary colors',
+  async () => {
+    const diagnostics = await lintRule(
+      'theme-colors',
+      {
+        'apps/web/src/templates.tsx':
+          'export const view = <div style={{ color: `red`, "background-image": `linear-gradient(red, blue)` }}><svg fill={"red"} /><div className="border-t-[red] inset-shadow-[0_1px_red] [background-image:linear-gradient(red,_blue)]" /></div>;'
+      },
+      true
+    );
 
-  assert.strictEqual(
-    diagnostics.filter(({ code }) => code.includes('theme-colors')).length,
-    4,
-    JSON.stringify(diagnostics)
-  );
-});
+    assert.strictEqual(
+      diagnostics.filter(({ code }) => code.includes('theme-colors')).length,
+      4,
+      JSON.stringify(diagnostics)
+    );
+  }
+);
 
 testStable(
   'shared feature previews retain semantic app colors while landing art stays independent',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'theme-colors',
       {
         'apps/web/src/feature-previews/index.tsx':

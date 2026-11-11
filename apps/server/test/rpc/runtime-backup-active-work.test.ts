@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
@@ -52,7 +50,7 @@ for (const action of ['apply', 'keep'] as const)
             const c = yield* Notes;
 
             const document = yield* m.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               title: 'Target',

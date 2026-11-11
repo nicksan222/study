@@ -150,7 +150,6 @@ testStable('malformed token response and ID claims do not leak their contents', 
 testStable(
   'sign-in deadline interrupts a stalled loopback token body and releases both connections',
   async () => {
-    const { createServer } = await import('node:http');
     const { Clock } = await import('effect');
     const { TestClock } = await import('effect/testing');
     let started!: () => void;
@@ -161,17 +160,25 @@ testStable(
     const bodyClosed = new Promise<void>((resolve) => {
       closed = resolve;
     });
-    const server = createServer((request, response) => {
-      request.on('close', closed);
-      response.writeHead(200, { 'content-type': 'application/json' });
-      response.write('{');
-      started();
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch(request) {
+        request.signal.addEventListener('abort', closed, { once: true });
+
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{'));
+              started();
+            }
+          }),
+          { headers: { 'content-type': 'application/json' } }
+        );
+      }
     });
 
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
-
-    assert.ok(!(!address || typeof address === 'string'), 'No loopback address');
+    assert.ok(server.port, 'No loopback address');
 
     try {
       await Effect.runPromise(
@@ -179,7 +186,7 @@ testStable(
           const clock = yield* Clock.Clock;
           const signIn = yield* Effect.promise(() =>
             SignIn.start({
-              issuer: `http://127.0.0.1:${address.port}`,
+              issuer: server.url.origin,
               hostId: 'host',
               clientId: 'client',
               clock
@@ -204,8 +211,7 @@ testStable(
         }).pipe(Effect.provide(TestClock.layer()))
       );
     } finally {
-      server.closeAllConnections();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await server.stop(true);
     }
   }
 );
@@ -272,3 +278,36 @@ for (const callbackUrl of [
       SignIn.start({ issuer: 'https://auth.example', hostId: 'host', callbackUrl })
     ).rejects.toThrow();
   });
+
+testStable('disposing sign-in closes a stalled callback connection', async () => {
+  const signIn = await SignIn.start({ issuer: 'https://auth.example', hostId: 'host' });
+  const callback = new URL(new URL(signIn.url).searchParams.get('redirect_uri')!);
+  let closed!: () => void;
+  const closure = new Promise<void>((resolve) => {
+    closed = resolve;
+  });
+  const socket = await Bun.connect({
+    hostname: '127.0.0.1',
+    port: Number(callback.port),
+    socket: {
+      open: (connection) => {
+        connection.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
+      },
+      data: () => {},
+      close: () => closed()
+    }
+  });
+
+  try {
+    signIn.dispose();
+    await Promise.race([
+      closure,
+      Bun.sleep(2000).then(() => {
+        throw new Error('Stalled callback remained open');
+      })
+    ]);
+  } finally {
+    signIn.dispose();
+    socket.end();
+  }
+});

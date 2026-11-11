@@ -6,7 +6,7 @@ import { lintFiles, lintRule, lintRulePaths } from '../test/utils.ts';
 
 testStable(
   'requires descriptions across server sources, tests, declarations and config only',
-  () => {
+  async () => {
     const files = {
       'apps/server/src/runtime/main.ts': 'export const value = 1;',
       'apps/server/src/features/demo/index.ts': 'export {};',
@@ -19,7 +19,7 @@ testStable(
       'packages/other/apps/server/main.ts': 'export {};'
     };
 
-    expect(lintRulePaths('server-file-description', files)).toStrictEqual(
+    expect(await lintRulePaths('server-file-description', files)).toStrictEqual(
       Object.keys(files)
         .filter((path) => path.startsWith('apps/server/'))
         .sort()
@@ -27,9 +27,9 @@ testStable(
   }
 );
 
-testStable('accepts framed leading headers, licenses, shebangs, wrapping and CRLF', () => {
+testStable('accepts framed leading headers, licenses, shebangs, wrapping and CRLF', async () => {
   expect(
-    lintRule('server-file-description', {
+    await lintRule('server-file-description', {
       'src/one.ts': header + '\n\nexport {};',
       'src/license.ts': '/* Copyright Study */\n' + header + '\n\nexport {};',
       'src/cli.ts': '#!/usr/bin/env node\n' + header + '\n\nexport {};',
@@ -53,7 +53,7 @@ testStable('accepts framed leading headers, licenses, shebangs, wrapping and CRL
   ).toStrictEqual([]);
 });
 
-testStable('rejects missing, late, nested and declaration-level descriptions', () => {
+testStable('rejects missing, late, nested and declaration-level descriptions', async () => {
   const files = {
     'src/absent.ts': 'export {};',
     'src/declaration.ts': '/** Returns the runtime. */\nexport function runtime() {}',
@@ -64,13 +64,13 @@ testStable('rejects missing, late, nested and declaration-level descriptions', (
     'src/no-code.ts': ''
   };
 
-  const diagnostics = lintRule('server-file-description', files);
+  const diagnostics = await lintRule('server-file-description', files);
 
   assert.strictEqual(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
   assert.ok(diagnostics.every(({ code }) => code === 'study(server-file-description)'));
 });
 
-testStable('requires substantive overview, responsibility bullets and boundary prose', () => {
+testStable('requires substantive overview, responsibility bullets and boundary prose', async () => {
   const invalid = [
     description.replace('Composes the private server runtime and feature layers.', ''),
     description.replace('Composes the private server runtime and feature layers.', 'Runtime.'),
@@ -97,12 +97,12 @@ testStable('requires substantive overview, responsibility bullets and boundary p
     invalid.map((content, index) => ['src/invalid-' + index + '.ts', framedHeader(content)])
   );
 
-  assert.strictEqual(lintRule('server-file-description', files).length, invalid.length);
+  assert.strictEqual((await lintRule('server-file-description', files)).length, invalid.length);
 });
 
 testStable(
   'enforces frame corners, row padding, width and blank separation below the header',
-  () => {
+  async () => {
     const files = {
       'src/plain.ts': '/** @file Composes the private server runtime and feature layers. */',
       'src/corner.ts': header.replace('╭', '┌'),
@@ -119,7 +119,7 @@ testStable(
       'src/comment-no-gap.ts': header + '\n// Another note\nexport {};'
     };
 
-    const diagnostics = lintRule('server-file-description', files);
+    const diagnostics = await lintRule('server-file-description', files);
 
     assert.strictEqual(diagnostics.length, Object.keys(files).length, JSON.stringify(diagnostics));
     assert.strictEqual(
@@ -129,8 +129,8 @@ testStable(
   }
 );
 
-testStable('production lint configuration enforces the framed header', () => {
-  const diagnostics = lintFiles({ 'test/undocumented.ts': 'export {};\n' });
+testStable('production lint configuration enforces the framed header', async () => {
+  const diagnostics = await lintFiles({ 'test/undocumented.ts': 'export {};\n' });
 
   assert.ok(diagnostics.some(({ code }) => code === 'study(server-file-description)'));
 });

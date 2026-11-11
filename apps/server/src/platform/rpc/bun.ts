@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Serves native Effect RPC on a loopback Node HTTP listener. The returned Effect     │
+ * │ @file Serves native Effect RPC on a loopback Bun HTTP listener . The returned Effect     │
  * │ scope owns the server and active requests, with CORS origin checks applied before        │
  * │ dispatch.                                                                                │
  * │                                                                                          │
@@ -14,9 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
-import { NodeHttpServer } from '@effect/platform-node';
+import { BunHttpServer } from '@effect/platform-bun';
 import { Context, Effect, Layer } from 'effect';
 import { HttpRouter, HttpServer, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { NetAddress } from 'effect/net';
@@ -48,8 +46,8 @@ export function serveRpc<R extends Rpc.Any, E>(
   );
   const server = HttpRouter.serve(routes, { disableLogger: true, disableListenLog: true }).pipe(
     Layer.provideMerge(
-      NodeHttpServer.layer(createServer, {
-        host: '127.0.0.1',
+      BunHttpServer.layer({
+        hostname: '127.0.0.1',
         port: options.port ?? 0,
         gracefulShutdownTimeout: '2 seconds'
       })

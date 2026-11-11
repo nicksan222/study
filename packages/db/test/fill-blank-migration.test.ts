@@ -1,130 +1,136 @@
-import { cpSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
+import { Effect, FileSystem, Path } from 'effect';
 import { assert } from 'vite-plus/test';
 
 import { Db, sql } from '../src/index.ts';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 for (const cutoff of [
   '20261107154846_fill-blank-practice',
   '20261107154929_matching-practice',
   '20261107155014_ordering-practice'
 ])
-  testStable(`${cutoff} preserves populated quiz attempts and all existing trigger guards`, () => {
-    const folder = mkdtempSync(join(tmpdir(), 'study-blank-migration-'));
-    const migrations = fileURLToPath(new URL('../drizzle', import.meta.url));
-    const previous = join(folder, 'migrations');
-    const path = join(folder, 'study.sqlite');
-    let connection: Db | undefined;
+  testStable(
+    `${cutoff} preserves populated quiz attempts and all existing trigger guards`,
+    async () => {
+      const folder = await Effect.runPromise(
+        fs.makeTempDirectory({ prefix: 'study-blank-migration-' })
+      );
+      const migrations = Bun.fileURLToPath(new URL('../drizzle', import.meta.url));
+      const previous = join(folder, 'migrations');
+      const path = join(folder, 'study.sqlite');
+      let connection: Db | undefined;
 
-    try {
-      for (const name of readdirSync(migrations))
-        if (name < cutoff)
-          cpSync(join(migrations, name), join(previous, name), { recursive: true });
+      try {
+        for (const name of await Effect.runPromise(fs.readDirectory(migrations)))
+          if (name < cutoff)
+            await Effect.runPromise(fs.copy(join(migrations, name), join(previous, name)));
 
-      connection = Db.open(path, previous);
-      const db = connection.orm;
-      const statements = [
-        "INSERT INTO ai_usage(id,runId,agent,provider,model,timestamp,input,cacheRead,cacheWrite,output,reasoning,incomplete) VALUES('call','run','reply','chatgpt','test',1,10,2,0,5,1,0)",
-        "INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'quiz','Recall',1,1)",
-        "INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'quiz',1,1)",
-        'INSERT INTO material_quiz_versions(version_id) VALUES(1)',
-        "INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(1,1,0,'open','Explain ATP','Energy'),(2,1,1,'single_choice','Select','Choice')",
-        "INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES(1,'Energy carrier')",
-        "INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES(1,2,'single_choice',0,'ATP',1),(2,2,'single_choice',1,'DNA',0)",
-        "UPDATE material_versions SET status='published',published_at=1 WHERE id=1",
-        "INSERT INTO material_quiz_attempts(id,version_id,status,started_at) VALUES(1,1,'in_progress',1)",
-        'INSERT INTO material_quiz_attempt_questions(attempt_id,version_id,question_id,position) VALUES(1,1,1,0),(1,1,2,1)',
-        'INSERT INTO material_quiz_attempt_choices(attempt_id,question_id,choice_id,position) VALUES(1,2,1,0),(1,2,2,1)',
-        "INSERT INTO material_quiz_responses(attempt_id,version_id,question_id,question_kind,answer,score,feedback) VALUES(1,1,1,'open','Energy carrier',1,'Correct'),(1,1,2,'single_choice',NULL,1,NULL)",
-        'INSERT INTO material_quiz_selections(attempt_id,question_id,choice_id) VALUES(1,2,1)',
-        "UPDATE material_quiz_attempts SET status='completed',finished_at=2 WHERE id=1"
-      ];
+        connection = await Db.open(path, previous);
+        const db = connection.orm;
+        const statements = [
+          "INSERT INTO ai_usage(id,runId,agent,provider,model,timestamp,input,cacheRead,cacheWrite,output,reasoning,incomplete) VALUES('call','run','reply','chatgpt','test',1,10,2,0,5,1,0)",
+          "INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'quiz','Recall',1,1)",
+          "INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'quiz',1,1)",
+          'INSERT INTO material_quiz_versions(version_id) VALUES(1)',
+          "INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(1,1,0,'open','Explain ATP','Energy'),(2,1,1,'single_choice','Select','Choice')",
+          "INSERT INTO material_quiz_open_answers(question_id,reference_answer) VALUES(1,'Energy carrier')",
+          "INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES(1,2,'single_choice',0,'ATP',1),(2,2,'single_choice',1,'DNA',0)",
+          "UPDATE material_versions SET status='published',published_at=1 WHERE id=1",
+          "INSERT INTO material_quiz_attempts(id,version_id,status,started_at) VALUES(1,1,'in_progress',1)",
+          'INSERT INTO material_quiz_attempt_questions(attempt_id,version_id,question_id,position) VALUES(1,1,1,0),(1,1,2,1)',
+          'INSERT INTO material_quiz_attempt_choices(attempt_id,question_id,choice_id,position) VALUES(1,2,1,0),(1,2,2,1)',
+          "INSERT INTO material_quiz_responses(attempt_id,version_id,question_id,question_kind,answer,score,feedback) VALUES(1,1,1,'open','Energy carrier',1,'Correct'),(1,1,2,'single_choice',NULL,1,NULL)",
+          'INSERT INTO material_quiz_selections(attempt_id,question_id,choice_id) VALUES(1,2,1)',
+          "UPDATE material_quiz_attempts SET status='completed',finished_at=2 WHERE id=1"
+        ];
 
-      for (const statement of statements) db.run(sql.raw(statement));
+        for (const statement of statements) db.run(sql.raw(statement));
 
-      const tables = [
-        'ai_usage',
-        'material_quiz_questions',
-        'material_quiz_open_answers',
-        'material_quiz_choices',
-        'material_quiz_attempts',
-        'material_quiz_attempt_questions',
-        'material_quiz_attempt_choices',
-        'material_quiz_responses',
-        'material_quiz_selections'
-      ];
-      const columns = tables.map((table) =>
-        db
-          .all<{ name: string }>(sql.raw(`PRAGMA table_info(${table})`))
-          .map((column) => column.name)
-          .join(',')
-      );
-      const before = tables.map((table, i) =>
-        db.all(sql.raw(`SELECT ${columns[i]} FROM ${table}`))
-      );
-      const triggers = db.all(
-        sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`
-      );
+        const tables = [
+          'ai_usage',
+          'material_quiz_questions',
+          'material_quiz_open_answers',
+          'material_quiz_choices',
+          'material_quiz_attempts',
+          'material_quiz_attempt_questions',
+          'material_quiz_attempt_choices',
+          'material_quiz_responses',
+          'material_quiz_selections'
+        ];
+        const columns = tables.map((table) =>
+          db
+            .all<{ name: string }>(sql.raw(`PRAGMA table_info(${table})`))
+            .map((column) => column.name)
+            .join(',')
+        );
+        const before = tables.map((table, i) =>
+          db.all(sql.raw(`SELECT ${columns[i]} FROM ${table}`))
+        );
+        const triggers = db.all(
+          sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`
+        );
 
-      connection.close();
-      connection = undefined;
-      const throughBlank = join(folder, 'through-blank');
+        connection.close();
+        connection = undefined;
+        const throughBlank = join(folder, 'through-blank');
 
-      for (const name of readdirSync(migrations))
-        if (name <= cutoff)
-          cpSync(join(migrations, name), join(throughBlank, name), { recursive: true });
+        for (const name of await Effect.runPromise(fs.readDirectory(migrations)))
+          if (name <= cutoff)
+            await Effect.runPromise(fs.copy(join(migrations, name), join(throughBlank, name)));
 
-      connection = Db.open(path, throughBlank);
-      assert.deepEqual(
-        tables.map((table, i) =>
-          connection!.orm.all(sql.raw(`SELECT ${columns[i]} FROM ${table}`))
-        ),
-        before
-      );
-      const afterTriggers = connection.orm.all<{ name: string }>(
-        sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`
-      );
+        connection = await Db.open(path, throughBlank);
+        assert.deepEqual(
+          tables.map((table, i) =>
+            connection!.orm.all(sql.raw(`SELECT ${columns[i]} FROM ${table}`))
+          ),
+          before
+        );
+        const afterTriggers = connection.orm.all<{ name: string }>(
+          sql`SELECT name FROM sqlite_schema WHERE type='trigger' ORDER BY name`
+        );
 
-      for (const trigger of triggers as { name: string }[])
-        assert.ok(afterTriggers.some((row) => row.name === trigger.name));
+        for (const trigger of triggers as { name: string }[])
+          assert.ok(afterTriggers.some((row) => row.name === trigger.name));
 
-      assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
-      assert.throws(() =>
-        connection!.orm.run(sql`UPDATE material_quiz_responses SET score=0 WHERE attempt_id=1`)
-      );
-      assert.throws(() =>
-        connection!.orm.run(sql`UPDATE material_quiz_questions SET prompt='Changed' WHERE id=1`)
-      );
-      const next = connection.orm;
+        assert.deepEqual(connection.orm.all(sql`PRAGMA foreign_key_check`), []);
+        assert.throws(() =>
+          connection!.orm.run(sql`UPDATE material_quiz_responses SET score=0 WHERE attempt_id=1`)
+        );
+        assert.throws(() =>
+          connection!.orm.run(sql`UPDATE material_quiz_questions SET prompt='Changed' WHERE id=1`)
+        );
+        const next = connection.orm;
 
-      next.run(
-        sql`INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(2,1,'quiz',2,1)`
-      );
-      next.run(sql`INSERT INTO material_quiz_versions(version_id) VALUES(2)`);
-      next.run(
-        sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(10,2,0,'fill_blank','ATP is made in the ____.','Energy')`
-      );
-      next.run(
-        sql`INSERT INTO material_quiz_open_answers(question_id,kind,reference_answer) VALUES(10,'fill_blank','mitochondria')`
-      );
-      assert.deepEqual(
-        next.all(
-          sql`SELECT kind, reference_answer FROM material_quiz_open_answers WHERE question_id=10`
-        ),
-        [{ kind: 'fill_blank', reference_answer: 'mitochondria' }]
-      );
-      assert.throws(() =>
         next.run(
-          sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(11,2,1,'fill_blank','____ and ____','Energy')`
-        )
-      );
-      assert.deepEqual(next.all(sql`PRAGMA foreign_key_check`), []);
-    } finally {
-      connection?.close();
-      rmSync(folder, { recursive: true, force: true });
+          sql`INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(2,1,'quiz',2,1)`
+        );
+        next.run(sql`INSERT INTO material_quiz_versions(version_id) VALUES(2)`);
+        next.run(
+          sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(10,2,0,'fill_blank','ATP is made in the ____.','Energy')`
+        );
+        next.run(
+          sql`INSERT INTO material_quiz_open_answers(question_id,kind,reference_answer) VALUES(10,'fill_blank','mitochondria')`
+        );
+        assert.deepEqual(
+          next.all(
+            sql`SELECT kind, reference_answer FROM material_quiz_open_answers WHERE question_id=10`
+          ),
+          [{ kind: 'fill_blank', reference_answer: 'mitochondria' }]
+        );
+        assert.throws(() =>
+          next.run(
+            sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES(11,2,1,'fill_blank','____ and ____','Energy')`
+          )
+        );
+        assert.deepEqual(next.all(sql`PRAGMA foreign_key_check`), []);
+      } finally {
+        connection?.close();
+        await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
+      }
     }
-  });
+  );

@@ -540,20 +540,20 @@ testStable('failed disposal retains ownership, blocks transitions and can be ret
 });
 
 testStable('seed refresh follows the native clock against a loopback token endpoint', async () => {
-  const { createServer } = await import('node:http');
   const { Clock, Effect } = await import('effect');
   const { TestClock } = await import('effect/testing');
   let calls = 0;
-  const server = createServer((_request, response) => {
-    calls++;
-    response.setHeader('content-type', 'application/json');
-    response.end(JSON.stringify({ access_token: 'refreshed', expires_in: 3600 }));
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch() {
+      calls++;
+
+      return Response.json({ access_token: 'refreshed', expires_in: 3600 });
+    }
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'No loopback address');
+  assert.ok(server.port, 'No loopback address');
 
   try {
     await Effect.runPromise(
@@ -561,7 +561,7 @@ testStable('seed refresh follows the native clock against a loopback token endpo
         yield* TestClock.setTime(1_000_000);
         const clock = yield* Clock.Clock;
         const auth = new AuthManager({
-          issuer: `http://127.0.0.1:${address.port}`,
+          issuer: server.url.origin,
           clock,
           saveRefresh: async () => {}
         });
@@ -581,8 +581,6 @@ testStable('seed refresh follows the native clock against a loopback token endpo
       }).pipe(Effect.provide(TestClock.layer()))
     );
   } finally {
-    await new Promise<void>((resolve, reject) =>
-      server.close((error) => (error ? reject(error) : resolve()))
-    );
+    await server.stop(true);
   }
 });

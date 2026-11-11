@@ -15,9 +15,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { once } from 'node:events';
-import { createConnection } from 'node:net';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { Appearance, Language, LlmProvider } from '@study/contracts/settings';
 import { createTestDatabase } from '@study/db/testing';
@@ -45,19 +42,28 @@ function callback(address: string) {
 }
 
 async function listenerClosed(url: URL) {
-  const socket = createConnection({ host: url.hostname, port: Number(url.port) });
+  await expect(
+    Bun.connect({
+      hostname: url.hostname,
+      port: Number(url.port),
+      socket: { data() {} }
+    })
+  ).rejects.toSatisfy(
+    (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ECONNREFUSED'
+  );
+}
 
-  try {
-    await expect(once(socket, 'connect', { signal: AbortSignal.timeout(2000) })).rejects.toSatisfy(
-      (error: unknown) => error instanceof Error && 'code' in error && error.code === 'ECONNREFUSED'
-    );
-  } finally {
-    socket.destroy();
-  }
+async function waitForClose(closed: Promise<void>) {
+  await Promise.race([
+    closed,
+    Bun.sleep(2000).then(() => {
+      throw new Error('Socket did not close');
+    })
+  ]);
 }
 
 async function fixture() {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
   let app = await App.open({ path: location.path });
   let server = await serve(app);
 
@@ -74,7 +80,7 @@ async function fixture() {
     async close() {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   };
 }
@@ -230,15 +236,26 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
             ) === 'invalid_input'
           );
           const redirect = callback(attempt.url);
-          const socket = createConnection({ host: redirect.hostname, port: Number(redirect.port) });
-
-          yield* Effect.promise(() =>
-            once(socket, 'connect', { signal: AbortSignal.timeout(2000) })
+          let onClose!: () => void;
+          const closed = new Promise<void>((resolve) => {
+            onClose = resolve;
+          });
+          const socket = yield* Effect.promise(() =>
+            Bun.connect({
+              hostname: redirect.hostname,
+              port: Number(redirect.port),
+              socket: {
+                data() {},
+                close() {
+                  onClose();
+                }
+              }
+            })
           );
-          const closed = once(socket, 'close', { signal: AbortSignal.timeout(2000) });
 
           yield* Fiber.interrupt(pending);
-          yield* Effect.promise(() => closed);
+          yield* Effect.promise(() => waitForClose(closed));
+          socket.end();
           yield* Effect.promise(() => listenerClosed(redirect));
           assert.strictEqual(yield* client['auth.publicAccount']({}), undefined);
         })

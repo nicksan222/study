@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('views cannot fetch, run page hooks or own application state', () => {
-  const diagnostics = lintRule(
+testStable('views cannot fetch, run page hooks or own application state', async () => {
+  const diagnostics = await lintRule(
     'web-presentation-purity',
     {
       'apps/web/src/pages/home/page.view.tsx': `import { useState as state } from 'react'; import { useNavigate } from '@tanstack/react-router'; import { Effect } from 'effect'; import { usePage } from './use-page'; import { load } from './page.logic';`,
@@ -17,23 +17,26 @@ testStable('views cannot fetch, run page hooks or own application state', () => 
   assert.strictEqual(diagnostics.length, 9, JSON.stringify(diagnostics));
 });
 
-testStable('views accept presentation hooks, declarative links and type-only contracts', () => {
-  expect(
-    lintRule(
-      'web-presentation-purity',
-      {
-        'apps/web/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; import { useI18n } from '../../lib/i18n'; import { useNowMinute } from '@study/ui/clock'; import type { Model } from './use-page'; export const PageView = () => <Link to="/Home" />;`,
-        'apps/web/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
-      },
-      true
-    )
-  ).toStrictEqual([]);
-});
+testStable(
+  'views accept presentation hooks, declarative links and type-only contracts',
+  async () => {
+    expect(
+      await lintRule(
+        'web-presentation-purity',
+        {
+          'apps/web/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; import { useI18n } from '../../lib/i18n'; import { useNowMinute } from '@study/ui/clock'; import type { Model } from './use-page'; export const PageView = () => <Link to="/Home" />;`,
+          'apps/web/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
+        },
+        true
+      )
+    ).toStrictEqual([]);
+  }
+);
 
 testStable(
   'presentation cannot access browser globals or hide DOM mutations behind aliases',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'web-presentation-purity',
       {
         'apps/web/src/pages/home/page.view.tsx': `
@@ -54,9 +57,9 @@ testStable(
   }
 );
 
-testStable('presentation permits shadowed names and prop callbacks', () => {
+testStable('presentation permits shadowed names and prop callbacks', async () => {
   expect(
-    lintRule(
+    await lintRule(
       'web-presentation-purity',
       {
         'apps/web/src/pages/home/page.view.tsx': `
@@ -70,8 +73,8 @@ testStable('presentation permits shadowed names and prop callbacks', () => {
   ).toStrictEqual([]);
 });
 
-testStable('extension-correct localization aliases remain presentation-safe', () => {
-  const diagnostics = lintRule(
+testStable('extension-correct localization aliases remain presentation-safe', async () => {
+  const diagnostics = await lintRule(
     'web-presentation-purity',
     {
       'apps/web/src/pages/home/page.view.tsx': "import {useI18n} from '#web/lib/i18n.tsx';",

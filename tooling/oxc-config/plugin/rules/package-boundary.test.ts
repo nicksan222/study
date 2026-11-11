@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule, root } from '../test/utils.ts';
 
-testStable('package ownership, public exports, and browser entrypoints are enforced', () => {
-  const diagnostics = lintRule(
+testStable('package ownership, public exports, and browser entrypoints are enforced', async () => {
+  const diagnostics = await lintRule(
     'package-boundary',
     {
       'packages/ui/src/app.ts': "import '@study/web';\n",
@@ -83,8 +83,8 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
   );
 });
 
-testStable('source and test directory imports cannot bypass package boundaries', () => {
-  const diagnostics = lintRule(
+testStable('source and test directory imports cannot bypass package boundaries', async () => {
+  const diagnostics = await lintRule(
     'package-boundary',
     {
       'apps/web/src/relative.ts': "import '../../../apps/server/src/';\n",
@@ -115,8 +115,8 @@ testStable('source and test directory imports cannot bypass package boundaries',
 
 testStable(
   'browser source forbids Node builtins but colocated tests and support may use them',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'package-boundary',
       {
         'apps/web/src/example.test.ts': "import 'node:assert/strict';\n",
@@ -141,8 +141,8 @@ testStable(
 
 testStable(
   'manifest exports honor blocked exact and more specific patterns and conditional root',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'package-boundary',
       {
         'apps/web/src/blocked.ts': "import '@study/ui/private';\n",
@@ -182,8 +182,8 @@ testStable(
 
 testStable(
   'the theme engine remains browser-safe while UI and server can consume its public API',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'package-boundary',
       {
         'packages/theme/src/bad.ts':
@@ -199,8 +199,8 @@ testStable(
   }
 );
 
-testStable('contracts are recognized and unknown workspace packages fail closed', () => {
-  const diagnostics = lintRule(
+testStable('contracts are recognized and unknown workspace packages fail closed', async () => {
+  const diagnostics = await lintRule(
     'package-boundary',
     {
       'packages/contracts/src/a.ts': "import type { A } from '@study/server';",
@@ -214,8 +214,8 @@ testStable('contracts are recognized and unknown workspace packages fail closed'
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('checks typed and aliased loader edges while honoring shadowing', () => {
-  const diagnostics = lintRule(
+testStable('checks typed and aliased loader edges while honoring shadowing', async () => {
+  const diagnostics = await lintRule(
     'package-boundary',
     {
       'apps/web/src/loader.ts':
@@ -227,8 +227,8 @@ testStable('checks typed and aliased loader edges while honoring shadowing', () 
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('loader edges follow lexical bindings and direct createRequire calls', () => {
-  const diagnostics = lintRule(
+testStable('loader edges follow lexical bindings and direct createRequire calls', async () => {
+  const diagnostics = await lintRule(
     'package-boundary',
     {
       'apps/server/src/loader.ts':
@@ -242,8 +242,8 @@ testStable('loader edges follow lexical bindings and direct createRequire calls'
 
 testStable(
   'database storage may reuse canonical contract ID types without depending on server implementation',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'package-boundary',
       {
         'packages/db/src/schema/ids.ts':
@@ -259,8 +259,8 @@ testStable(
   }
 );
 
-testStable('landing consumes only the explicit feature preview export from web', () => {
-  const diagnostics = lintRule(
+testStable('landing consumes only the explicit feature preview export from web', async () => {
+  const diagnostics = await lintRule(
     'package-boundary',
     {
       'apps/landing/src/good.ts': "export { FeaturePreview } from '@study/web/feature-previews';",

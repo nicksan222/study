@@ -1,4 +1,5 @@
-import { dirname, relative, resolve } from 'node:path';
+import { BunPath } from '@effect/platform-bun';
+import { Effect, Path } from 'effect';
 
 import {
   binding,
@@ -9,6 +10,8 @@ import {
   enterNode
 } from './lexical-bindings.ts';
 import { requireBindings } from './require-bindings.ts';
+
+const { dirname, relative, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 export function serverPath(filename: string): string | null {
   const normalized = filename.replaceAll('\\', '/');

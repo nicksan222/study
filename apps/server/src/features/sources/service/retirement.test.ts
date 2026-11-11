@@ -33,8 +33,8 @@ import { Sources } from './index.ts';
 testStable(
   'source deletion scrubs native captures before interrupting a retired provider execution',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const cancelled: string[] = [];
     const layer = Sources.layer.pipe(
       Layer.provideMerge(
@@ -105,7 +105,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -113,8 +113,8 @@ testStable(
 testStable(
   'raw reply captures pin pending and ready source revisions until their note is deleted',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -211,7 +211,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -219,8 +219,8 @@ testStable(
 testStable(
   'source preview protects external authored images while allowing deletion of its own canonical image extraction',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -304,7 +304,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

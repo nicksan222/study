@@ -14,6 +14,15 @@
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import type { ModelTier } from '@study/contracts/settings/schemas';
 
+/** Preserve runtime fetch properties while adapting an injected callable for SDK types. */
+export function sdkFetch(
+  request: (...args: Parameters<typeof globalThis.fetch>) => ReturnType<typeof globalThis.fetch>
+): typeof globalThis.fetch {
+  return new Proxy(globalThis.fetch, {
+    apply: (_target, _receiver, args) => request(...(args as Parameters<typeof globalThis.fetch>))
+  });
+}
+
 export interface ApiKeyProvider {
   readonly id: string;
   readonly name: string;
@@ -22,7 +31,7 @@ export interface ApiKeyProvider {
   readonly createModel: (options: {
     apiKey: string;
     modelId: string;
-    fetch?: typeof fetch;
+    fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
   }) => LanguageModelV3;
 }
 

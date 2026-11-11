@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
 import type { PageVersionId, NoteId } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
@@ -67,7 +65,7 @@ export function setup(
       const other = yield* chats.createNote({ title: 'Keep other note' });
 
       const library = yield* pages.create({
-        createKey: randomUUID(),
+        createKey: crypto.randomUUID(),
         inputs: [],
         citations: [],
         title: 'Shared independent input',

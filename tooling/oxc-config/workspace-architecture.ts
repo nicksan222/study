@@ -9,23 +9,21 @@ export interface WorkspaceManifest {
 
 /** Effect schemas and Drizzle objects must share one installed runtime identity. */
 export function dependencyIdentity(
-  packages: Record<string, { version?: string }>,
+  packages: Record<string, readonly unknown[]>,
   effectVersion: string
 ): string[] {
   const issues: string[] = [];
 
   for (const name of ['effect', 'drizzle-orm']) {
     const copies = Object.entries(packages).filter(
-      ([path]) => path.endsWith(`/node_modules/${name}`) || path === `node_modules/${name}`
+      ([path]) => path === name || path.endsWith(`/${name}`)
     );
 
     if (copies.length !== 1)
-      issues.push(
-        `package-lock.json: resolve exactly one ${name} installation, found ${copies.length}.`
-      );
+      issues.push(`bun.lock: resolve exactly one ${name} installation, found ${copies.length}.`);
 
-    if (name === 'effect' && copies.some(([, entry]) => entry.version !== effectVersion))
-      issues.push(`package-lock.json: every Effect installation must match ${effectVersion}.`);
+    if (name === 'effect' && copies.some(([, entry]) => entry[0] !== `${name}@${effectVersion}`))
+      issues.push(`bun.lock: every Effect installation must match ${effectVersion}.`);
   }
 
   return issues;

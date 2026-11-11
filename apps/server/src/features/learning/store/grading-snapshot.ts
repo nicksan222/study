@@ -12,13 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type { QuizAnswerSubmitted } from '@study/contracts/events';
 import { isTextQuestionKind } from '@study/contracts/materials/schemas';
 import { and, eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { decodeEvent, encodeEvent } from '#server/platform/workflows/events';
@@ -113,7 +112,7 @@ export function makeGradingSnapshot(resources: StoreResources) {
     )
       return stale();
 
-    const hash = createHash('sha256')
+    const hash = new CryptoHasher('sha256')
       .update(JSON.stringify([row.response.answer, event.eventId]))
       .digest('hex');
 

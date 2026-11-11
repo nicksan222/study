@@ -7,10 +7,10 @@ const message =
 
 testStable(
   'service access uses native accessors across aliases and preserves unrelated effects',
-  () => {
+  async () => {
     assertDiagnostics(
       'service-access',
-      lintRule('service-access', {
+      await lintRule('service-access', {
         'src/bad.ts':
           "import {Effect as E, Context} from 'effect'; import {Settings as Preferences} from '#server/features/settings/index'; import * as DB from '#server/platform/database/database'; const alias = Preferences; E.flatMap(alias, read); E.flatMap(DB.Database, read); const Local = Context.Service('local'); E.flatMap(Local, read);",
         'src/good.ts':

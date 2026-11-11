@@ -30,8 +30,8 @@ for (const truth of [true, false])
   testStable(
     `${truth ? 'True' : 'False'} statement attempts validate responses, resume and review both verdicts`,
     async () => {
-      const location = createTestDatabase();
-      const context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      const context = new ServerContext(await location.open());
       const domain = Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),
         Layer.provideMerge(Materials.layer),
@@ -147,7 +147,7 @@ for (const truth of [true, false])
         );
       } finally {
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );

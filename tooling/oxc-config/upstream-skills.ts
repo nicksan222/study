@@ -1,8 +1,6 @@
-import { readFileSync } from 'node:fs';
-
 // Preserve vendored skill snapshots without exempting Study's own skills.
 const manifest = JSON.parse(
-  readFileSync(new URL('../../.agents/skills/upstream-lock.json', import.meta.url), 'utf8')
+  await Bun.file(new URL('../../.agents/skills/upstream-lock.json', import.meta.url)).text()
 ) as { skills: { name: string }[] };
 
 export const upstreamSkillPatterns = manifest.skills.flatMap(({ name }) => [

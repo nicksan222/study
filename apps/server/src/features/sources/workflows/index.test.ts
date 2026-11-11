@@ -46,8 +46,8 @@ import { decodeEvent } from '#server/platform/workflows/events';
 testStable(
   'native ingestion lets quick notes capture a historic exact source extraction without projections',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
     const domain = () =>
@@ -221,7 +221,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       const reopened = await Effect.runPromise(
         Effect.flatMap(Notes, (notes) => notes.noteContext({ requestId: captured.requestId })).pipe(
           Effect.provide(domain())
@@ -232,7 +232,7 @@ testStable(
     } finally {
       await auth.dispose();
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -248,8 +248,8 @@ testStable(
     const { workflow_executions } = await import('@study/db/schema');
     const { SourceStore } = await import('#server/features/sources/store/index');
     const { transaction } = await import('#server/platform/definitions/define-store');
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
     const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
     const services = Layer.mergeAll(
@@ -358,7 +358,7 @@ testStable(
     } finally {
       await auth.dispose();
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -367,62 +367,58 @@ for (const input of ['attachment', 'link'] as const)
   testStable(
     `${input} PDF transcription is checkpointed and replayed after reopening SQLite`,
     async () => {
-      const { createServer } = await import('node:http');
-      const { readFile } = await import('node:fs/promises');
       const { sql } = await import('@study/db');
       let calls = 0;
       let fetches = 0;
-      const fixture = await readFile(
+      const fixture = await Bun.file(
         new URL('../decoders/fixtures/two-pages.pdf', import.meta.url)
-      );
+      ).bytes();
       let requestBody: Record<string, unknown> = {};
-      const peer = createServer(async (request, response) => {
-        if (request.method === 'GET' && request.url === '/two.pdf') {
-          fetches++;
-          response.writeHead(200, { 'content-type': 'application/pdf' });
-          response.end(fixture);
+      const peer = Bun.serve({
+        hostname: '127.0.0.1',
+        port: 0,
+        fetch: async (request) => {
+          if (request.method === 'GET' && new URL(request.url).pathname === '/two.pdf') {
+            fetches++;
 
-          return;
+            return new Response(fixture, { headers: { 'content-type': 'application/pdf' } });
+          }
+
+          const body = await request.text();
+
+          calls++;
+          requestBody = JSON.parse(body);
+          let events = '';
+
+          for (const event of [
+            { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
+            {
+              type: 'response.output_item.added',
+              output_index: 0,
+              item: { type: 'message', id: 'item' }
+            },
+            {
+              type: 'response.output_text.delta',
+              item_id: 'item',
+              delta: JSON.stringify({
+                pages: [
+                  { page: 1, blocks: [{ kind: 'heading', text: 'One' }] },
+                  { page: 2, blocks: [{ kind: 'paragraph', text: 'Two' }] }
+                ]
+              })
+            },
+            { type: 'response.completed', response: {} }
+          ])
+            events += `data: ${JSON.stringify(event)}\n\n`;
+
+          return new Response(events + 'data: [DONE]\n\n', {
+            headers: { 'content-type': 'text/event-stream' }
+          });
         }
-
-        const chunks: Buffer[] = [];
-
-        for await (const chunk of request) chunks.push(chunk as Buffer);
-
-        calls++;
-        requestBody = JSON.parse(Buffer.concat(chunks).toString());
-        response.writeHead(200, { 'content-type': 'text/event-stream' });
-
-        for (const event of [
-          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'test' } },
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'item' }
-          },
-          {
-            type: 'response.output_text.delta',
-            item_id: 'item',
-            delta: JSON.stringify({
-              pages: [
-                { page: 1, blocks: [{ kind: 'heading', text: 'One' }] },
-                { page: 2, blocks: [{ kind: 'paragraph', text: 'Two' }] }
-              ]
-            })
-          },
-          { type: 'response.completed', response: {} }
-        ])
-          response.write(`data: ${JSON.stringify(event)}\n\n`);
-
-        response.end('data: [DONE]\n\n');
       });
 
-      await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-      const address = peer.address();
-
-      assert.ok(!(!address || typeof address === 'string'), 'missing peer address');
-
-      const base = `http://127.0.0.1:${address.port}`;
+      assert.ok(peer.port, 'missing peer address');
+      const base = peer.url.origin;
       const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
       await auth.replace(
@@ -430,8 +426,8 @@ for (const input of ['attachment', 'link'] as const)
         { accessToken: 'token', expiresIn: 3600 }
       );
       const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-      const location = createTestDatabase();
-      let context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      let context = new ServerContext(await location.open());
       const services = () =>
         Layer.mergeAll(
           Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
@@ -513,7 +509,7 @@ for (const input of ['attachment', 'link'] as const)
           sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'pdf'`
         );
         context.close();
-        context = new ServerContext(location.open());
+        context = new ServerContext(await location.open());
         await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -534,17 +530,15 @@ for (const input of ['attachment', 'link'] as const)
       } finally {
         await auth.dispose();
         context.close();
-        location.cleanup();
-        peer.closeAllConnections();
-        await new Promise<void>((resolve) => peer.close(() => resolve()));
+        await location.cleanup();
+        await peer.stop(true);
       }
     }
   );
 
 testStable('ingestion publishes visible HTML, delimited text and Office documents', async () => {
-  const { readFile } = await import('node:fs/promises');
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
   const services = Layer.mergeAll(
@@ -560,7 +554,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
     workflowEngineLayer(context)
   );
   const fixture = (name: string) =>
-    readFile(new URL(`../decoders/fixtures/${name}`, import.meta.url));
+    Bun.file(new URL(`../decoders/fixtures/${name}`, import.meta.url)).bytes();
   const samples = [
     {
       name: 'page.html',
@@ -717,31 +711,31 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
   } finally {
     await auth.dispose();
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('link ingestion follows redirects and anchors HTML to the final URI', async () => {
-  const { createServer } = await import('node:http');
   let calls = 0;
-  const peer = createServer((request, response) => {
-    calls++;
+  const peer = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      calls++;
 
-    if (request.url === '/start') response.writeHead(302, { location: '/final' }).end();
-    else
-      response
-        .writeHead(200, { 'content-type': 'text/html' })
-        .end('<main><h1 id="title">Hello</h1></main>');
+      if (new URL(request.url).pathname === '/start')
+        return new Response(null, { status: 302, headers: { location: '/final' } });
+
+      return new Response('<main><h1 id="title">Hello</h1></main>', {
+        headers: { 'content-type': 'text/html' }
+      });
+    }
   });
 
-  await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-  const address = peer.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  assert.ok(peer.port, 'missing address');
+  const base = peer.url.origin;
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const services = Layer.mergeAll(
@@ -797,29 +791,28 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
   } finally {
     await auth.dispose();
     context.close();
-    location.cleanup();
-    peer.closeAllConnections();
-    await new Promise<void>((resolve) => peer.close(() => resolve()));
+    await location.cleanup();
+    await peer.stop(true);
   }
 });
 
 testStable('link fetch checkpoint survives SQLite reopen without another request', async () => {
-  const { createServer } = await import('node:http');
   const { sql } = await import('@study/db');
   let calls = 0;
-  const peer = createServer((_request, response) => {
-    calls++;
-    response.writeHead(200, { 'content-type': 'text/plain' }).end('captured');
+  const peer = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch() {
+      calls++;
+
+      return new Response('captured', { headers: { 'content-type': 'text/plain' } });
+    }
   });
 
-  await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-  const address = peer.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+  assert.ok(peer.port, 'missing address');
+  const base = peer.url.origin;
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const services = () =>
@@ -899,7 +892,7 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
       sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay-link'`
     );
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -917,14 +910,12 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
   } finally {
     await auth.dispose();
     context.close();
-    location.cleanup();
-    peer.closeAllConnections();
-    await new Promise<void>((resolve) => peer.close(() => resolve()));
+    await location.cleanup();
+    await peer.stop(true);
   }
 });
 
 testStable('interrupting link ingestion closes the active HTTP request', async () => {
-  const { createServer } = await import('node:http');
   let started!: () => void;
   let closed!: () => void;
   const startedPromise = new Promise<void>((resolve) => {
@@ -933,19 +924,23 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
   const closedPromise = new Promise<void>((resolve) => {
     closed = resolve;
   });
-  const peer = createServer((request) => {
-    request.on('close', closed);
-    started();
+  const peer = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch(request) {
+      request.signal.addEventListener('abort', closed, { once: true });
+      started();
+
+      return new Promise<Response>((resolve) =>
+        request.signal.addEventListener('abort', () => resolve(new Response(null)), { once: true })
+      );
+    }
   });
 
-  await new Promise<void>((resolve) => peer.listen(0, '127.0.0.1', resolve));
-  const address = peer.address();
-
-  assert.ok(!(!address || typeof address === 'string'), 'missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  assert.ok(peer.port, 'missing address');
+  const base = peer.url.origin;
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
   const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
   const services = Layer.mergeAll(
@@ -998,10 +993,8 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
   } finally {
     await auth.dispose();
     context.close();
-    location.cleanup();
-    peer.closeAllConnections();
-    peer.closeAllConnections();
-    await new Promise<void>((resolve) => peer.close(() => resolve()));
+    await location.cleanup();
+    await peer.stop(true);
   }
 });
 
@@ -1012,8 +1005,8 @@ testStable(
     const { sql } = await import('@study/db');
     const { SourceStore } = await import('#server/features/sources/store/index');
     const { transaction } = await import('#server/platform/definitions/define-store');
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(
         Layer.succeed(Database, { store: context }),
@@ -1147,7 +1140,7 @@ testStable(
         sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'correct'`
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -1176,7 +1169,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -295,7 +295,7 @@ testStable(
 
       assertScrubbed(fixture, marker);
 
-      fixture.reopen();
+      await fixture.reopen();
 
       assert.strictEqual(
         dispatchPending(

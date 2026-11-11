@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { RecordingId, NoteId } from '@study/contracts/ids';
 import type { copyNoteContentSchema } from '@study/contracts/notes/notes';
 import type {
@@ -60,7 +58,7 @@ export const Recordings = defineService(
         transaction((tx) => tx.store(RecordingStore).deleteRecording(id)),
       postRecording: (input: typeof postRecordingInputSchema.Type) =>
         transaction((tx) => {
-          const requestId = randomUUID();
+          const requestId = crypto.randomUUID();
           const post = tx.store(RecordingPostStore).captureRecordingPost({ ...input, requestId });
 
           if (post.requestId === requestId) {

@@ -3,8 +3,8 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('Drizzle imports and exports belong exclusively to the database package', () => {
-  const diagnostics = lintRule(
+testStable('Drizzle imports and exports belong exclusively to the database package', async () => {
+  const diagnostics = await lintRule(
     'drizzle-boundary',
     {
       'apps/server/src/direct.ts':
@@ -28,8 +28,8 @@ testStable('Drizzle imports and exports belong exclusively to the database packa
   );
 });
 
-testStable('Drizzle require calls respect lexical bindings and createRequire aliases', () => {
-  const diagnostics = lintRule(
+testStable('Drizzle require calls respect lexical bindings and createRequire aliases', async () => {
+  const diagnostics = await lintRule(
     'drizzle-boundary',
     {
       'apps/server/src/bad.ts':
@@ -46,40 +46,46 @@ testStable('Drizzle require calls respect lexical bindings and createRequire ali
   assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/require.ts')));
 });
 
-testStable('Drizzle namespace createRequire and global loader forms stay behind the facade', () => {
-  const diagnostics = lintRule(
-    'drizzle-boundary',
-    {
-      'apps/desktop/src/bad.ts':
-        "import * as modules from 'node:module'; const make = modules.createRequire; const load = make(import.meta.url); load(`drizzle-orm`); globalThis.require('drizzle-kit'); module.require('drizzle-orm');",
-      'apps/desktop/src/good.ts':
-        "import * as modules from 'node:module'; function f(modules, globalThis, module) { const load = modules.createRequire(url); load('drizzle-orm'); globalThis.require('drizzle-orm'); module.require('drizzle-orm'); }"
-    },
-    true
-  );
+testStable(
+  'Drizzle namespace createRequire and global loader forms stay behind the facade',
+  async () => {
+    const diagnostics = await lintRule(
+      'drizzle-boundary',
+      {
+        'apps/desktop/src/bad.ts':
+          "import * as modules from 'node:module'; const make = modules.createRequire; const load = make(import.meta.url); load(`drizzle-orm`); globalThis.require('drizzle-kit'); module.require('drizzle-orm');",
+        'apps/desktop/src/good.ts':
+          "import * as modules from 'node:module'; function f(modules, globalThis, module) { const load = modules.createRequire(url); load('drizzle-orm'); globalThis.require('drizzle-orm'); module.require('drizzle-orm'); }"
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/apps/desktop/src/bad.ts')));
+  }
+);
 
-testStable('TypeScript CommonJS import declarations cannot bypass the database facade', () => {
-  const diagnostics = lintRule(
-    'drizzle-boundary',
-    {
-      'apps/server/src/direct.cts': "import orm = require('drizzle-orm'); export { orm };",
-      'packages/db/src/driver.cts': "import orm = require('drizzle-orm'); export { orm };"
-    },
-    true
-  );
+testStable(
+  'TypeScript CommonJS import declarations cannot bypass the database facade',
+  async () => {
+    const diagnostics = await lintRule(
+      'drizzle-boundary',
+      {
+        'apps/server/src/direct.cts': "import orm = require('drizzle-orm'); export { orm };",
+        'packages/db/src/driver.cts': "import orm = require('drizzle-orm'); export { orm };"
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts')));
-});
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.some(({ filename }) => filename.endsWith('/packages/db/src/driver.cts')));
+  }
+);
 
 testStable(
   'schema declarations cannot bypass mandatory table metadata through raw Drizzle imports',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'drizzle-boundary',
       {
         'packages/db/src/schema/bypass.ts': `

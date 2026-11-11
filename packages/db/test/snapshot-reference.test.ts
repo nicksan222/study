@@ -1,14 +1,16 @@
-import { join } from 'node:path';
-
+import { BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
-import { assert, vi } from 'vite-plus/test';
+import { Effect, Path } from 'effect';
+import { assert, expect, vi } from 'vite-plus/test';
 
 import { Db } from '../src/db.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+
 testStable('snapshot checks build one trusted reference but inspect every candidate', async () => {
-  const location = createTestDatabase();
-  const db = location.open();
+  const location = await createTestDatabase();
+  const db = await location.open();
   const target = join(location.dir, 'snapshot.sqlite');
   const open = vi.spyOn(Db, 'open');
 
@@ -16,11 +18,11 @@ testStable('snapshot checks build one trusted reference but inspect every candid
     await db.snapshot(target);
 
     for (let index = 0; index < 3; index++)
-      assert.strictEqual(Db.validateSnapshot(target), db.schemaIdentity());
+      assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
 
     assert.strictEqual(open.mock.calls.filter((call) => call[0] === ':memory:').length, 1);
 
-    const candidate = Db.openSnapshot(target);
+    const candidate = await Db.openSnapshot(target);
 
     try {
       candidate.exec("UPDATE __drizzle_migrations SET hash='tampered'");
@@ -28,12 +30,12 @@ testStable('snapshot checks build one trusted reference but inspect every candid
       candidate.close();
     }
 
-    assert.throws(() => Db.validateSnapshot(target), /Unsupported snapshot schema/);
-    assert.strictEqual(Db.validateSnapshot(location.path), db.schemaIdentity());
+    await expect(Db.validateSnapshot(target)).rejects.toThrow(/Unsupported snapshot schema/);
+    assert.strictEqual(await Db.validateSnapshot(location.path), db.schemaIdentity());
     assert.strictEqual(open.mock.calls.filter((call) => call[0] === ':memory:').length, 1);
   } finally {
     open.mockRestore();
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

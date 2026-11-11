@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { readFile } from 'node:fs/promises';
-
 import { testStable } from '@study/testing/vitest';
 import { assert, expect } from 'vite-plus/test';
 
@@ -44,7 +42,7 @@ testStable('text decoding preserves UTF-8 byte anchors and markdown fences', () 
 });
 
 testStable('PDF decoding validates and counts pages', async () => {
-  const fixture = await readFile(new URL('./fixtures/two-pages.pdf', import.meta.url));
+  const fixture = await Bun.file(new URL('./fixtures/two-pages.pdf', import.meta.url)).bytes();
 
   assert.strictEqual(await decodePdf(fixture), 2);
   await expect(decodePdf(bytes('not a PDF'))).rejects.toMatchObject({ kind: 'invalid_input' });
@@ -114,7 +112,8 @@ testStable(
   'Office decoders preserve structures and reject malformed or oversized archives',
   async () => {
     const { decodeOffice } = await import('#server/features/sources/decoders/office');
-    const fixture = (name: string) => readFile(new URL(`./fixtures/${name}`, import.meta.url));
+    const fixture = (name: string) =>
+      Bun.file(new URL(`./fixtures/${name}`, import.meta.url)).bytes();
 
     for (const [name, kind, expected] of [
       ['sample.docx', 'document', ['Heading', 'First paragraph']],
@@ -257,7 +256,7 @@ testStable('Office retains extracted marks and cells and reports nested-table lo
   const { decodeOffice } = await import('#server/features/sources/decoders/office');
   const word = await decodeOffice({
     kind: 'document',
-    bytes: await readFile(new URL('./fixtures/sample.docx', import.meta.url))
+    bytes: await Bun.file(new URL('./fixtures/sample.docx', import.meta.url)).bytes()
   });
 
   expect(
@@ -268,7 +267,7 @@ testStable('Office retains extracted marks and cells and reports nested-table lo
   ).toStrictEqual({ type: 'text', text: 'First paragraph', marks: ['emphasis'] });
   const table = await decodeOffice({
     kind: 'document',
-    bytes: await readFile(new URL('./fixtures/table.docx', import.meta.url))
+    bytes: await Bun.file(new URL('./fixtures/table.docx', import.meta.url)).bytes()
   });
 
   expect(
@@ -279,7 +278,7 @@ testStable('Office retains extracted marks and cells and reports nested-table lo
   ).toStrictEqual(['Left', 'Right']);
   const nested = await decodeOffice({
     kind: 'document',
-    bytes: await readFile(new URL('./fixtures/nested-tables.docx', import.meta.url))
+    bytes: await Bun.file(new URL('./fixtures/nested-tables.docx', import.meta.url)).bytes()
   });
 
   assert.ok(nested.meta.omissions.includes('nested_table'));

@@ -27,7 +27,7 @@ import { App, serve } from '#server/runtime/index';
 testStable(
   'scoped native client exchanges projects, settings, bytes and typed errors over HTTP',
   async () => {
-    const database = createTestDatabase();
+    const database = await createTestDatabase();
     const app = await App.open({ path: database.path });
     const server = await serve(app);
     let discoveries = 0;
@@ -93,7 +93,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      database.cleanup();
+      await database.cleanup();
     }
   }
 );

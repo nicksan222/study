@@ -11,12 +11,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import * as e from '@study/contracts/pages/editing';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { eq, and } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { intentHash } from '#server/features/pages/decoders/intent';
@@ -236,9 +235,7 @@ export function makePageProposals(resources: StoreResources) {
           blocks: proposed.document.blocks.map((b) => ({
             ...b,
             id: Schema.decodeUnknownSync(blockIdSchema)(
-              createHash('sha256')
-                .update(v.key + ':' + b.id)
-                .digest('hex')
+              new CryptoHasher('sha256').update(v.key + ':' + b.id).digest('hex')
             )
           }))
         },

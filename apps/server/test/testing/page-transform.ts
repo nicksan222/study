@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import type { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
 import type { pageGenerationRequestedSchema } from '@study/contracts/events';
 import type { materialGenerationRequestedSchema } from '@study/contracts/events';
@@ -113,11 +111,11 @@ export async function pageTransformFixture() {
   }
 
   try {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
-    cleanups.push(() => location.cleanup());
-    const openContext = () => {
-      const db = location.open();
+    cleanups.push(async () => await location.cleanup());
+    const openContext = async () => {
+      const db = await location.open();
 
       try {
         return new ServerContext(db);
@@ -127,7 +125,7 @@ export async function pageTransformFixture() {
         throw error;
       }
     };
-    let context = openContext();
+    let context = await openContext();
     let contextOpen = true;
     const closeContext = () => {
       if (!contextOpen) return;
@@ -140,47 +138,36 @@ export async function pageTransformFixture() {
     const bodies: string[] = [];
     const replies: Reply[] = [];
     let beforeResponse: (() => Promise<void>) | undefined;
-    const peer = createServer(async (req, res) => {
-      let body = '';
+    const peer = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      async fetch(req) {
+        bodies.push(await req.text());
+        const reply = replies.shift();
+        const action = beforeResponse;
 
-      for await (const chunk of req) body += chunk;
+        beforeResponse = undefined;
+        await action?.();
 
-      bodies.push(body);
-      const reply = replies.shift();
+        if (!reply || reply.kind === 'transient') {
+          return Response.json(
+            { error: { message: 'Controlled unavailable transport' } },
+            { status: 503 }
+          );
+        }
 
-      const action = beforeResponse;
+        const events = responseEvents(reply, bodies.length)
+          .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+          .join('');
 
-      beforeResponse = undefined;
-      await action?.();
-
-      if (!reply || reply.kind === 'transient') {
-        res.writeHead(503, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ error: { message: 'Controlled unavailable transport' } }));
-
-        return;
+        return new Response(`${events}data: [DONE]\n\n`, {
+          headers: { 'content-type': 'text/event-stream' }
+        });
       }
-
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-      for (const event of responseEvents(reply, bodies.length))
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      res.end('data: [DONE]\n\n');
     });
 
-    cleanups.push(() => closePeer(peer));
-    await new Promise<void>((resolve, reject) => {
-      peer.once('error', reject);
-      peer.listen(0, '127.0.0.1', () => {
-        peer.off('error', reject);
-        resolve();
-      });
-    });
-    const address = peer.address();
-
-    if (!address || typeof address === 'string') throw new Error('Missing provider address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    cleanups.push(() => peer.stop(true));
+    const base = `http://127.0.0.1:${peer.port}`;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     cleanups.push(() => auth.dispose());
@@ -251,9 +238,9 @@ export async function pageTransformFixture() {
           beforeResponse = action;
         };
       },
-      reopen() {
+      async reopen() {
         closeContext();
-        context = openContext();
+        context = await openContext();
         contextOpen = true;
       },
       authoredEvent(requestId: string): typeof pageGenerationRequestedSchema.Type {
@@ -344,13 +331,4 @@ async function disposeFixture(cleanups: (() => void | Promise<void>)[]) {
   }
 
   if (errors.length) throw new AggregateError(errors, 'Document fixture cleanup failed');
-}
-
-async function closePeer(peer: ReturnType<typeof createServer>) {
-  if (!peer.listening) return;
-
-  await new Promise<void>((resolve, reject) => {
-    peer.close((error) => (error ? reject(error) : resolve()));
-    peer.closeAllConnections();
-  });
 }

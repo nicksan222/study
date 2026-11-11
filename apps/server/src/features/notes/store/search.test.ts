@@ -18,9 +18,9 @@ import { expect } from 'vite-plus/test';
 
 import { makeNoteSearchProjections } from './search.ts';
 
-testStable('note projections exclude archived messages and deleting notes', () => {
-  const location = createTestDatabase();
-  const db = location.open();
+testStable('note projections exclude archived messages and deleting notes', async () => {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
   try {
     db.orm.run(
@@ -77,6 +77,6 @@ testStable('note projections exclude archived messages and deleting notes', () =
     );
   } finally {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

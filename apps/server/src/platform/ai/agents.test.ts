@@ -15,9 +15,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-import type { IncomingMessage, ServerResponse } from 'node:http';
-
 import { StudyError } from '@study/contracts/errors';
 import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
 import { AgentRule } from '@study/contracts/settings/schemas';
@@ -57,37 +54,32 @@ const objectDefinition = defineAgent({
   mode: 'object'
 });
 
-function send(res: ServerResponse, text: string, finish = true) {
-  res.writeHead(200, { 'content-type': 'text/event-stream' });
+function eventsResponse(events: unknown[]): Response {
+  return new Response(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''), {
+    headers: { 'content-type': 'text/event-stream' }
+  });
+}
 
-  for (const event of [
+function send(text: string, finish = true): Response {
+  return eventsResponse([
     { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
     { type: 'response.output_text.delta', item_id: 'm', delta: text },
     ...(finish ? [{ type: 'response.completed', response: {} }] : [])
-  ])
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-  res.end();
+  ]);
 }
 
 async function peer(
-  handler: (req: IncomingMessage, res: ServerResponse, body: string) => void | Promise<void>,
+  handler: (req: Request, body: string) => Response | Promise<Response>,
   run: (base: string, auth: AuthManager) => Promise<void>
 ) {
-  const server = createServer(async (req, res) => {
-    const chunks: Buffer[] = [];
-
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-
-    await handler(req, res, Buffer.concat(chunks).toString());
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: async (req) => handler(req, await req.text())
   });
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
-
-  if (!address || typeof address === 'string') throw Error('missing address');
-
-  const base = `http://127.0.0.1:${address.port}`;
+  assert.ok(server.port, 'missing address');
+  const base = server.url.origin;
   const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
   try {
@@ -98,7 +90,7 @@ async function peer(
     await run(base, auth);
   } finally {
     await auth.dispose();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 }
 
@@ -122,7 +114,7 @@ function service(
 
 testStable('generates validated output through the Responses provider', async () => {
   await peer(
-    (_req, res) => send(res, 'Biology'),
+    (_req) => send('Biology'),
     async (base, auth) => {
       assert.ok(
         (await Effect.runPromise(
@@ -148,17 +140,34 @@ testStable('the harness publishes partial output before generation completes', a
     });
 
   await peer(
-    (_request, response) => {
-      response.writeHead(200, { 'content-type': 'text/event-stream' });
-      response.write(
-        `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
-      );
-      response.write(
-        `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
-      );
-      finish = () =>
-        response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
-    },
+    () =>
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            const encoder = new TextEncoder();
+
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+              )
+            );
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: 'First' })}\n\n`
+              )
+            );
+            finish = () => {
+              controller.enqueue(
+                encoder.encode(
+                  `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+                )
+              );
+              controller.close();
+            };
+          }
+        }),
+        { headers: { 'content-type': 'text/event-stream' } }
+      ),
     async (base, auth) => {
       let complete = false;
       const running = Effect.runPromise(
@@ -185,7 +194,7 @@ testStable('the harness publishes partial output before generation completes', a
 
 testStable('rejects malformed structured output', async () => {
   await peer(
-    (_req, res) => send(res, '{"count":"wrong"}'),
+    (_req) => send('{"count":"wrong"}'),
     async (base, auth) => {
       await expect(
         Effect.runPromise(
@@ -199,7 +208,7 @@ testStable('rejects malformed structured output', async () => {
 testStable(
   'batches preview writes without delaying direct deltas or losing the final text',
   async () => {
-    let response!: ServerResponse;
+    let response!: ReadableStreamDefaultController<Uint8Array>;
     let sawFirst!: () => void;
     let sawDirectBurst!: () => void;
     const first = new Promise<void>((resolve) => {
@@ -212,8 +221,10 @@ testStable(
     const direct: string[] = [];
     const expected = `First${'x'.repeat(50)}`;
     const delta = (text: string) =>
-      response.write(
-        `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: text })}\n\n`
+      response.enqueue(
+        new TextEncoder().encode(
+          `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta: text })}\n\n`
+        )
       );
     const receive = (event: AgentProgress<string>) =>
       Effect.sync(() => {
@@ -252,7 +263,12 @@ testStable(
         expect(previews).toEqual(['First', 'x'.repeat(50)]);
       } finally {
         delta('tail');
-        response.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
+        response.enqueue(
+          new TextEncoder().encode(
+            `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+          )
+        );
+        response.close();
         yield* Fiber.join(running);
       }
 
@@ -260,14 +276,21 @@ testStable(
     });
 
     await peer(
-      (_request, res) => {
-        response = res;
-        res.writeHead(200, { 'content-type': 'text/event-stream' });
-        res.write(
-          `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
-        );
-        delta('First');
-      },
+      () =>
+        new Response(
+          new ReadableStream({
+            start(controller) {
+              response = controller;
+              controller.enqueue(
+                new TextEncoder().encode(
+                  `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+                )
+              );
+              delta('First');
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        ),
       (base, auth) =>
         Effect.runPromise(
           verify.pipe(
@@ -283,10 +306,10 @@ testStable('executes a source tool and sends its result back to the provider', a
   const bodies: string[] = [];
 
   await peer(
-    (_req, res, body) => {
+    (_req, body) => {
       bodies.push(body);
 
-      if (bodies.length !== 1) return send(res, 'Cells use energy.');
+      if (bodies.length !== 1) return send('Cells use energy.');
 
       const call = {
         type: 'function_call',
@@ -296,7 +319,7 @@ testStable('executes a source tool and sends its result back to the provider', a
         arguments: '{"query":"cell"}'
       };
 
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      let events = '';
 
       for (const event of [
         { type: 'response.output_item.added', output_index: 0, item: call },
@@ -307,9 +330,9 @@ testStable('executes a source tool and sends its result back to the provider', a
         },
         { type: 'response.completed', response: {} }
       ])
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
+        events += `data: ${JSON.stringify(event)}\n\n`;
 
-      res.end();
+      return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
     },
     async (base, auth) => {
       const queries: string[] = [];
@@ -375,32 +398,42 @@ testStable('executes a source tool and sends its result back to the provider', a
 testStable(
   'streams text before the provider completes and never completes a truncated response',
   async () => {
-    const { createServer } = await import('node:http');
     const { Stream } = await import('effect');
     const { streamAgent } = await import('#server/platform/ai/agents');
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const server = createServer(async (_req, res) => {
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch() {
+        return new Response(
+          new ReadableStream({
+            async start(controller) {
+              const encoder = new TextEncoder();
 
-      for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
-        { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
-      ])
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
+              for (const event of [
+                {
+                  type: 'response.output_item.added',
+                  output_index: 0,
+                  item: { type: 'message', id: 'm' }
+                },
+                { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
+              ])
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
 
-      await gate;
-      res.end();
+              await gate;
+              controller.close();
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        );
+      }
     });
 
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
-
-    if (!address || typeof address === 'string') throw Error('missing address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(server.port, 'missing address');
+    const base = server.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     try {
@@ -463,7 +496,7 @@ testStable(
     } finally {
       release();
       await auth.dispose();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await server.stop(true);
     }
   }
 );
@@ -472,11 +505,10 @@ testStable('retries rate-limited requests up to the configured limit', async () 
   let calls = 0;
 
   await peer(
-    (_req, res) => {
+    (_req) => {
       calls++;
 
-      if (calls === 1) res.writeHead(429).end();
-      else send(res, 'ok');
+      return calls === 1 ? new Response(null, { status: 429 }) : send('ok');
     },
     async (base, auth) => {
       assert.ok(
@@ -500,22 +532,38 @@ testStable('cancellation after a delta never publishes completion', async () => 
 
   try {
     await peer(
-      async (_req, res) => {
-        res.writeHead(200, { 'content-type': 'text/event-stream' });
+      () =>
+        new Response(
+          new ReadableStream({
+            async start(controller) {
+              const encoder = new TextEncoder();
 
-        for (const event of [
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'm' }
-          },
-          { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
-        ])
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
+              for (const event of [
+                {
+                  type: 'response.output_item.added',
+                  output_index: 0,
+                  item: { type: 'message', id: 'm' }
+                },
+                { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
+              ])
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
 
-        await gate;
-        res.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
-      },
+              await gate;
+
+              try {
+                controller.enqueue(
+                  encoder.encode(
+                    `data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`
+                  )
+                );
+                controller.close();
+              } catch {
+                /* cancelled by client */
+              }
+            }
+          }),
+          { headers: { 'content-type': 'text/event-stream' } }
+        ),
       async (base, auth) => {
         const controller = new AbortController();
         const running = Effect.runPromise(
@@ -546,7 +594,7 @@ testStable('cancellation after a delta never publishes completion', async () => 
 
 testStable('rejects empty model output without publishing completion', async () => {
   await peer(
-    (_req, res) => send(res, ''),
+    (_req) => send(''),
     async (base, auth) => {
       const seen: unknown[] = [];
 
@@ -575,9 +623,10 @@ testStable('preserves note history in the native reply request', async () => {
   let body = '';
 
   await peer(
-    (_req, res, request) => {
+    (_req, request) => {
       body = request;
-      send(res, 'read');
+
+      return send('read');
     },
     async (base, auth) => {
       const messages = [
@@ -608,15 +657,16 @@ testStable('preserves note history in the native reply request', async () => {
 testStable('the Assistant keeps its local tools without gaining web search', async (t) => {
   const { assistantAgent } = await import('#server/features/notes/agents/assistant');
   const fixture = createServerTest(t, { app: false });
-  const store = new ServerContext(fixture.openDb());
+  const store = new ServerContext(await fixture.openDb());
 
   fixture.dispose(() => store.close());
   let body = '';
 
   await peer(
-    (_req, res, request) => {
+    (_req, request) => {
       body = request;
-      send(res, 'Local answer');
+
+      return send('Local answer');
     },
     async (base, auth) => {
       await Effect.runPromise(
@@ -640,9 +690,9 @@ testStable(
     let requests = 0;
 
     await peer(
-      (_req, res) => {
+      (_req) => {
         requests++;
-        res.writeHead(200, { 'content-type': 'text/event-stream' });
+        let events = '';
         const item = {
           type: 'web_search_call',
           id: 'search-1',
@@ -665,9 +715,9 @@ testStable(
           { type: 'response.output_text.delta', item_id: 'm', delta: answer },
           { type: 'response.completed', response: {} }
         ])
-          res.write(`data: ${JSON.stringify(event)}\n\n`);
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-        res.end();
+        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
       },
       async (base, auth) => {
         expect(
@@ -687,9 +737,10 @@ testStable('agents without a web search declaration never receive native web sea
   let body = '';
 
   await peer(
-    (_req, res, request) => {
+    (_req, request) => {
       body = request;
-      send(res, 'Local answer');
+
+      return send('Local answer');
     },
     async (base, auth) => {
       await Effect.runPromise(
@@ -713,10 +764,10 @@ testStable('transcribes image and PDF bytes through the native vision API', asyn
     let body = '';
 
     await peer(
-      (_req, res, request) => {
+      (_req, request) => {
         body = request;
-        send(
-          res,
+
+        return send(
           JSON.stringify({ pages: [{ page: 1, blocks: [{ kind: 'paragraph', text: 'read' }] }] })
         );
       },
@@ -740,9 +791,10 @@ testStable('rejects invalid request limits before making a provider request', as
   let calls = 0;
 
   await peer(
-    (_req, res) => {
+    (_req) => {
       calls++;
-      send(res, 'ok');
+
+      return send('ok');
     },
     async (base, auth) => {
       for (const options of [
@@ -767,8 +819,8 @@ testStable('rejects invalid request limits before making a provider request', as
 
 testStable('preserves the typed provider error after retries are exhausted', async () => {
   await peer(
-    (_req, res) => {
-      res.writeHead(429).end();
+    (_req) => {
+      return new Response(null, { status: 429 });
     },
     async (base, auth) => {
       const error = await Effect.runPromise(
@@ -789,10 +841,10 @@ testStable(
     let requests = 0;
 
     await peer(
-      (_req, res) => {
+      (_req) => {
         requests++;
-        send(
-          res,
+
+        return send(
           JSON.stringify({
             kind: 'quiz',
             questions: [
@@ -830,9 +882,10 @@ testStable('generic model request checks fail in the typed lane before provider 
   let calls = 0;
 
   await peer(
-    (_req, res) => {
+    (_req) => {
       calls++;
-      send(res, 'unexpected');
+
+      return send('unexpected');
     },
     async (base, auth) => {
       const { withRequestCheck: _check, ...model } = createChatGptModel({
@@ -868,18 +921,30 @@ testStable('slow consumers receive all large deltas and the validated completion
   const count = 80;
 
   await peer(
-    (_req, res) => {
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
-      res.write(
-        `data: ${JSON.stringify({ type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } })}\n\n`
+    (_req) => {
+      const events = [
+        { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
+        ...Array.from({ length: count }, () => ({
+          type: 'response.output_text.delta',
+          item_id: 'm',
+          delta
+        })),
+        { type: 'response.completed', response: {} }
+      ];
+      let index = 0;
+
+      return new Response(
+        new ReadableStream({
+          pull(controller) {
+            if (index === events.length) controller.close();
+            else
+              controller.enqueue(
+                new TextEncoder().encode(`data: ${JSON.stringify(events[index++])}\n\n`)
+              );
+          }
+        }),
+        { headers: { 'content-type': 'text/event-stream' } }
       );
-
-      for (let i = 0; i < count; i++)
-        res.write(
-          `data: ${JSON.stringify({ type: 'response.output_text.delta', item_id: 'm', delta })}\n\n`
-        );
-
-      res.end(`data: ${JSON.stringify({ type: 'response.completed', response: {} })}\n\n`);
     },
     async (base, auth) => {
       const events = await Effect.runPromise(
@@ -899,11 +964,32 @@ testStable('slow consumers receive all large deltas and the validated completion
 
 testStable('never retries a failed response after publishing a delta', async () => {
   let calls = 0;
+  let finish!: () => void;
 
   await peer(
-    (_req, res) => {
+    (_req) => {
       calls++;
-      send(res, 'partial', false);
+
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            const events = [
+              {
+                type: 'response.output_item.added',
+                output_index: 0,
+                item: { type: 'message', id: 'm' }
+              },
+              { type: 'response.output_text.delta', item_id: 'm', delta: 'partial' }
+            ];
+
+            for (const event of events)
+              controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`));
+
+            finish = () => controller.close();
+          }
+        }),
+        { headers: { 'content-type': 'text/event-stream' } }
+      );
     },
     async (base, auth) => {
       const seen: string[] = [];
@@ -914,6 +1000,7 @@ testStable('never retries a failed response after publishing a delta', async () 
             Stream.tap((event) => {
               function recordEventType() {
                 seen.push(event.type);
+                finish();
               }
 
               return Effect.sync(recordEventType);
@@ -937,11 +1024,13 @@ testStable('cancelling before the first delta closes the request without retries
   });
 
   await peer(
-    (_req, res) => {
+    (_req) => {
       calls++;
-      res.on('close', closed);
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
-      res.flushHeaders();
+      _req.signal.addEventListener('abort', closed, { once: true });
+
+      return new Response(new ReadableStream({ start() {} }), {
+        headers: { 'content-type': 'text/event-stream' }
+      });
     },
     async (base, auth) => {
       const controller = new AbortController();
@@ -1003,9 +1092,10 @@ testStable(
     const bodies: string[] = [];
 
     await peer(
-      (_req, res, body) => {
+      (_req, body) => {
         bodies.push(body);
-        send(res, 'ok');
+
+        return send('ok');
       },
       async (base, auth) => {
         const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
@@ -1050,7 +1140,7 @@ testStable('records provider usage even when an agent rejects the generated outp
     });
 
   await peer(
-    (_req, res) => send(res, 'not valid JSON'),
+    (_req) => send('not valid JSON'),
     async (base, auth) => {
       const exit = await Effect.runPromise(
         Effect.exit(
@@ -1075,8 +1165,8 @@ testStable('retains provider-reported tokens when ChatGPT truncates a response',
     });
 
   await peer(
-    (_req, res) => {
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
+    (_req) => {
+      let events = '';
 
       for (const event of [
         { type: 'response.output_item.added', output_index: 0, item: { type: 'message', id: 'm' } },
@@ -1094,9 +1184,9 @@ testStable('retains provider-reported tokens when ChatGPT truncates a response',
           }
         }
       ])
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
+        events += `data: ${JSON.stringify(event)}\n\n`;
 
-      res.end();
+      return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
     },
     async (base, auth) => {
       const exit = await Effect.runPromise(
@@ -1135,7 +1225,7 @@ testStable(
     };
 
     await peer(
-      (_req, res) => send(res, JSON.stringify(generated)),
+      (_req) => send(JSON.stringify(generated)),
       async (base, auth) => {
         const result = await Effect.runPromise(
           generateAgent(

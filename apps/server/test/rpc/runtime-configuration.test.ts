@@ -34,7 +34,7 @@ import { App } from '#server/runtime/index';
 testStable(
   'same-account credential replacement changes the durable nonsecret fingerprint',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let app = await App.open({ path: location.path });
     let savedRevision = '';
 
@@ -77,7 +77,7 @@ testStable(
       );
     } finally {
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -85,7 +85,7 @@ testStable(
 testStable(
   'shared agent instructions resolve the current application language per operation',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
 
     try {
@@ -105,7 +105,7 @@ testStable(
       );
     } finally {
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -52,8 +52,8 @@ testStable('export primitives reject active protocols and escape text and attrib
 testStable(
   'native export is deterministic, exact, escaped and fenced by deletion acceptance',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -313,7 +313,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

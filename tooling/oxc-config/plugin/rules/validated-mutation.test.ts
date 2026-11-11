@@ -2,10 +2,10 @@ import { testStable } from '@study/testing/vitest';
 
 import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
-testStable('schema-validated transaction branches use the shared mutation harness', () => {
+testStable('schema-validated transaction branches use the shared mutation harness', async () => {
   assertDiagnostics(
     'validated-mutation',
-    lintRule('validated-mutation', {
+    await lintRule('validated-mutation', {
       'src/features/settings/service/bad.ts':
         "import {Effect as E, Schema as S} from 'effect'; import {transaction as tx} from '#server/platform/definitions/define-store'; export const save = input => !S.is(schema)(input) ? E.fail(error) : tx(write);",
       'src/features/settings/service/good.ts':

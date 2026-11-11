@@ -35,7 +35,7 @@ export interface AuthOptions {
   issuer: string;
   /** Atomically replace account.refreshToken with refreshToken only if the saved sign-in still matches account; reject otherwise. */
   saveRefresh: (account: Account, refreshToken: string) => Promise<void>;
-  fetch?: typeof fetch;
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
   clock?: Clock.Clock;
 }
 

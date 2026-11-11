@@ -29,8 +29,8 @@ import { Learning } from './index.ts';
 testStable(
   'matching saves associations, hides mappings, grades each pair and rejects foreign permutations',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
       Layer.provideMerge(Materials.layer),
@@ -253,7 +253,7 @@ testStable(
           assert.deepEqual(context.db.orm.all(sql`PRAGMA foreign_key_check`), []);
         }).pipe(Effect.provide(domain))
       );
-      const reopened = location.open();
+      const reopened = await location.open();
 
       try {
         assert.equal(
@@ -273,7 +273,7 @@ testStable(
       }
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

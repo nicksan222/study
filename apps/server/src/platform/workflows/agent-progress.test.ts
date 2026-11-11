@@ -36,8 +36,8 @@ import { scrubRetiredExecution, workflowStore } from '#server/platform/workflows
 testStable(
   'commits streamed text and tool lifecycle before notifying and recovers a snapshot',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const executionId = executionIdSchema.make('stream-run');
     const store = workflowStore(context);
 
@@ -120,7 +120,7 @@ testStable(
     } finally {
       unsubscribe();
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -129,8 +129,8 @@ testStable.each(['same-owner', 'released-owner', 'expired-owner'])(
   'completed previews retain their ownership fence after %s',
   async (lease) => {
     const replacement = lease !== 'same-owner';
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const executionId = executionIdSchema.make('completed-stream');
     const store = workflowStore(context);
 
@@ -192,7 +192,7 @@ testStable.each(['same-owner', 'released-owner', 'expired-owner'])(
       }
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -200,8 +200,8 @@ testStable.each(['same-owner', 'released-owner', 'expired-owner'])(
 testStable(
   'interrupting a workflow fences progress and retiring it scrubs captured output',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const executionId = executionIdSchema.make('cancel-stream');
     const store = workflowStore(context);
 
@@ -231,24 +231,24 @@ testStable(
       store.interrupt(executionId, 'safe');
       await expect(emit({ type: 'complete' })).rejects.toMatchObject({ kind: 'cancelled' });
       expect(agentProgressSnapshot(context, { executionId })).toEqual([]);
-      context.transaction(() => {
-        context.db.orm
+      context.transaction((tx) => {
+        tx.db.orm
           .insert(workflow_retired_executions)
           .values({ execution_id: executionId, correlation_id: 'retired' })
           .run();
-        scrubRetiredExecution(context.db, executionId);
+        scrubRetiredExecution(tx.db, executionId);
       });
       expect(context.db.orm.select().from(workflow_agent_progress).all()).toEqual([]);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('tool details and legacy rows recover after reopening SQLite', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const executionId = executionIdSchema.make('tool-recovery');
   const store = workflowStore(context);
   const observe = observeAgentProgress(context);
@@ -298,7 +298,7 @@ testStable('tool details and legacy rows recover after reopening SQLite', async 
     context.close();
   }
 
-  const reopened = new ServerContext(location.open());
+  const reopened = new ServerContext(await location.open());
 
   try {
     const [snapshot] = agentProgressSnapshot(reopened, { executionId });
@@ -320,6 +320,6 @@ testStable('tool details and legacy rows recover after reopening SQLite', async 
     expect(tool?.finishedAtMs).toBeGreaterThanOrEqual(tool?.startedAtMs ?? 0n);
   } finally {
     reopened.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

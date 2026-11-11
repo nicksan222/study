@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-
 import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 // The Study website: the landing page and the docs, in English (/) and Italian (/it/),
@@ -48,15 +46,15 @@ export default defineConfig({
     plugins: [tailwindcss()],
     resolve: {
       alias: {
-        '#brand': fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)),
+        '#brand': Bun.fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)),
         // Static previews replace data hooks; production keeps the real services.
-        '#web/lib/ai-readiness.ts': fileURLToPath(
+        '#web/lib/ai-readiness.ts': Bun.fileURLToPath(
           new URL('./src/previews/ai-readiness.ts', import.meta.url)
         ),
-        '#web/lib/study-client/workspace-preferences.queries.ts': fileURLToPath(
+        '#web/lib/study-client/workspace-preferences.queries.ts': Bun.fileURLToPath(
           new URL('./src/previews/workspace-preferences.ts', import.meta.url)
         ),
-        '#web': fileURLToPath(new URL('../web/src', import.meta.url))
+        '#web': Bun.fileURLToPath(new URL('../web/src', import.meta.url))
       }
     },
     server: { fs: { allow: ['../..'] } }

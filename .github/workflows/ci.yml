@@ -57,7 +57,7 @@ jobs:
       - name: 🧩 Type-check server packages
         id: server_types
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: npm run server:typecheck
+        run: bun run server:typecheck
 
       - name: 🦀 Test native shell and Rust doctests
         id: native_tests
@@ -127,10 +127,10 @@ jobs:
         include:
           - name: 🔎 Oxlint, formatting and Fallow
             task: lint
-            command: npm run lint && npm run fallow:check
+            command: bun run lint && bun run fallow:check
           - name: 🖼️ Web checks
             task: web
-            command: npm run typecheck && npm run test && npm exec -- vp run --fail-if-no-match --filter @study/web build
+            command: bun run typecheck && bun run test && bun --bun vp run --fail-if-no-match --filter @study/web build
           - name: 🛠️ Tooling tests
             task: tooling
             command: just tooling-test
@@ -138,11 +138,6 @@ jobs:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
       # These checks do not need Rust or the Linux GUI toolchain.
-      - name: 💚 Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 26.8.2
-          cache: npm
       - name: 🥟 Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -150,7 +145,7 @@ jobs:
       - name: 📦 Install workspace dependencies
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
-        run: npm ci --no-fund --no-audit
+        run: bun install --frozen-lockfile
       - name: 🌍 Install landing dependencies for Fallow
         if: matrix.task == 'lint'
         working-directory: apps/landing
@@ -179,20 +174,19 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
-      # This suite needs Node and SQLite, not the native Linux GUI toolchain.
-      - name: 💚 Set up Node
-        uses: actions/setup-node@v4
+      # This suite needs Bun and SQLite, not the native Linux GUI toolchain.
+      - name: 🥟 Set up Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 26.8.2
-          cache: npm
+          bun-version-file: apps/landing/package.json
       - name: 📦 Install workspace dependencies
         # CPU binaries are bundled; CI does not need the optional CUDA download.
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
-        run: npm ci --no-fund --no-audit
+        run: bun install --frozen-lockfile
       - name: 🧪 Test server, AI, database and localization
         timeout-minutes: 10
-        run: npm run server:test -- --shard=${{ matrix.shard }}/2
+        run: bun run server:test --shard=${{ matrix.shard }}/2
 
   integrations:
     name: 🔌 Real integration tests

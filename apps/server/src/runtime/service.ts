@@ -62,7 +62,7 @@ export class App {
     path: string;
     issuer?: string;
     hostId?: string;
-    fetch?: typeof fetch;
+    fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
     onPhase?: (phase: OpenPhase) => void;
   }): Promise<App> {
     const report = (phase: OpenPhase) => {
@@ -121,10 +121,10 @@ export class App {
         );
 
         const store = yield* Effect.acquireRelease(
-          Effect.try({
-            try: () => {
+          Effect.tryPromise({
+            try: async () => {
               report('database:start');
-              const context = ServerContext.open(options.path, clock);
+              const context = await ServerContext.open(options.path, clock);
 
               report('database:complete');
 

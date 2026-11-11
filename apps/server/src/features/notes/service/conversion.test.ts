@@ -24,18 +24,18 @@ import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
 
-let location: ReturnType<typeof createTestDatabase>;
+let location: Awaited<ReturnType<typeof createTestDatabase>>;
 
 let context: ServerContext;
 
-beforeEach(() => {
-  location = createTestDatabase();
-  context = new ServerContext(location.open());
+beforeEach(async () => {
+  location = await createTestDatabase();
+  context = new ServerContext(await location.open());
 });
 
-afterEach(() => {
+afterEach(async () => {
   context.close();
-  location.cleanup();
+  await location.cleanup();
 });
 
 function services() {

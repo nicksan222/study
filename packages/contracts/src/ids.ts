@@ -91,3 +91,12 @@ export const matchingDefinitionIdSchema = Schema.String.check(Schema.isUUID()).p
 );
 
 export type MatchingDefinitionId = typeof matchingDefinitionIdSchema.Type;
+
+/** Assign distinct stable identities to both sides of a matching pair. */
+export function identifyMatchingPair<T extends object>(pair: T) {
+  return {
+    ...pair,
+    termId: Schema.decodeUnknownSync(matchingTermIdSchema)(crypto.randomUUID()),
+    definitionId: Schema.decodeUnknownSync(matchingDefinitionIdSchema)(crypto.randomUUID())
+  };
+}

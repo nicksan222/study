@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { Worker } from 'node:worker_threads';
-
 import { StudyError } from '@study/contracts/errors';
 import { Effect } from 'effect';
 
@@ -34,20 +32,10 @@ export const diagramFeedback = (source: string) => {
     Effect.gen(function* () {
       const worker = yield* Effect.acquireRelease(
         Effect.try({
-          // Parsing must not rerun application/test preloads inside its bounded lifetime.
-          try: () =>
-            new Worker(new URL('./worker.ts', import.meta.url), {
-              workerData: source,
-              execArgv: []
-            }),
+          try: () => new Worker(new URL('./worker.ts', import.meta.url)),
           catch: (cause) => new StudyError('internal', 'Diagram validation failed', { cause })
         }),
-        (worker) =>
-          Effect.tryPromise({
-            try: () => worker.terminate(),
-            catch: (cause) =>
-              new StudyError('internal', 'Diagram worker termination failed', { cause })
-          }).pipe(Effect.orDie, Effect.asVoid)
+        (worker) => Effect.sync(() => worker.terminate())
       );
 
       return yield* Effect.tryPromise({
@@ -56,12 +44,12 @@ export const diagramFeedback = (source: string) => {
             const abort = () => reject(signal.reason);
 
             signal.addEventListener('abort', abort, { once: true });
-            worker.once('message', (issue: string | undefined) => {
+            worker.onmessage = (event: MessageEvent<string | undefined>) => {
               signal.removeEventListener('abort', abort);
-              resolve(issue?.slice(0, 1000));
-            });
-            worker.once('error', reject);
-            worker.once('exit', (code) => reject(new Error(`Diagram validator exited (${code})`)));
+              resolve(event.data?.slice(0, 1000));
+            };
+            worker.onerror = (event) => reject(event.error ?? new Error(event.message));
+            worker.postMessage(source);
 
             if (signal.aborted) abort();
           }),

@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { Effect } from 'effect';
 import { assert } from 'vite-plus/test';
 
@@ -29,7 +27,7 @@ export function learningGeneration(f: Fixture) {
       const docs = yield* Pages;
       const project = yield* (yield* Projects).createProject({ name: 'Generated history' });
       const input = yield* docs.create({
-        createKey: randomUUID(),
+        createKey: crypto.randomUUID(),
         title: 'Evidence',
         projectId: project.id,
         document: deletionDocument('Shared generation evidence'),

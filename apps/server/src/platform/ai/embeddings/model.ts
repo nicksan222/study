@@ -11,15 +11,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-
 import { StudyError } from '@study/contracts/errors';
+import { CryptoHasher } from 'bun';
 import { Effect, Schema } from 'effect';
 
+import { fileSystem, nativePaths, runFileSystemPromise } from '#server/platform/filesystem/index';
+
 import { embeddingLimits } from './limits.ts';
+
+const { join, dirname } = nativePaths;
 
 export const embeddingModel = {
   name: 'Xenova/multilingual-e5-small',
@@ -66,19 +66,17 @@ async function matches(
   path: string,
   expected: { bytes: number; sha256: string }
 ): Promise<boolean> {
-  try {
-    if ((await stat(path)).size !== expected.bytes) return false;
+  const fs = await fileSystem;
 
-    const hash = createHash('sha256');
+  if (!(await runFileSystemPromise(fs.exists(path)))) return false;
 
-    for await (const chunk of createReadStream(path)) hash.update(chunk);
+  if (Number((await runFileSystemPromise(fs.stat(path))).size) !== expected.bytes) return false;
 
-    return hash.digest('hex') === expected.sha256;
-  } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code === 'ENOENT') return false;
+  const hash = new CryptoHasher('sha256');
 
-    throw cause;
-  }
+  for await (const chunk of Bun.file(path).stream()) hash.update(chunk);
+
+  return hash.digest('hex') === expected.sha256;
 }
 
 /** Validate the complete pinned installation without permitting any network activity. */
@@ -86,7 +84,7 @@ export const validateEmbeddingModel = (directory: string) =>
   Effect.tryPromise({
     try: async () => {
       Schema.decodeUnknownSync(installationSchema)(
-        await readFile(join(directory, 'installation.json'), 'utf8')
+        await Bun.file(join(directory, 'installation.json')).text()
       );
 
       for (const file of embeddingModel.files) {
@@ -102,22 +100,37 @@ export const validateEmbeddingModel = (directory: string) =>
 
 /** Stream into an exclusive private temporary file and reject oversized downloads immediately. */
 async function writeDownload(body: ReadableStream<Uint8Array>, path: string, maximumBytes: number) {
-  const handle = await open(path, 'wx', 0o600);
+  const fs = await fileSystem;
 
-  try {
-    let bytes = 0;
+  await runFileSystemPromise(
+    Effect.scoped(
+      Effect.gen(function* () {
+        const handle = yield* fs.open(path, { flag: 'wx', mode: 0o600 });
+        let bytes = 0;
 
-    for await (const chunk of body) {
-      bytes += chunk.byteLength;
+        const reader = body.getReader();
 
-      if (bytes > maximumBytes)
-        throw new RangeError('Embedding model download exceeded expected size');
+        try {
+          for (;;) {
+            const item = yield* Effect.tryPromise(() => reader.read());
 
-      await handle.writeFile(chunk);
-    }
-  } finally {
-    await handle.close();
-  }
+            if (item.done) break;
+
+            bytes += item.value.byteLength;
+
+            if (bytes > maximumBytes)
+              throw new RangeError('Embedding model download exceeded expected size');
+
+            yield* handle.writeAll(item.value);
+          }
+
+          yield* handle.sync;
+        } finally {
+          reader.releaseLock();
+        }
+      })
+    )
+  );
 }
 
 /** Reuse verified assets or atomically publish a bounded, verified download with cancellation cleanup. */
@@ -130,8 +143,8 @@ async function downloadFile(
 
   if (await matches(path, file)) return;
 
-  await mkdir(dirname(path), { recursive: true });
-  const temporary = `${path}.${randomUUID()}.partial`;
+  await runFileSystemPromise((await fileSystem).makeDirectory(dirname(path), { recursive: true }));
+  const temporary = `${path}.${crypto.randomUUID()}.partial`;
 
   try {
     const response = await fetch(
@@ -147,9 +160,9 @@ async function downloadFile(
       throw new TypeError('Embedding model download integrity check failed');
 
     signal.throwIfAborted();
-    await rename(temporary, path);
+    await runFileSystemPromise((await fileSystem).rename(temporary, path));
   } finally {
-    await rm(temporary, { force: true });
+    await runFileSystemPromise((await fileSystem).remove(temporary, { force: true }));
   }
 }
 
@@ -157,20 +170,25 @@ async function downloadFile(
 export const installEmbeddingModel = (directory: string) =>
   Effect.tryPromise({
     try: async (signal) => {
-      await mkdir(directory, { recursive: true });
+      await runFileSystemPromise((await fileSystem).makeDirectory(directory, { recursive: true }));
 
       for (const file of embeddingModel.files) await downloadFile(directory, file, signal);
 
-      const temporary = join(directory, `installation.${randomUUID()}.partial`);
+      const temporary = join(directory, `installation.${crypto.randomUUID()}.partial`);
 
       try {
-        await writeFile(temporary, JSON.stringify({ identity: embeddingModel.identity }), {
-          flag: 'wx',
-          mode: 0o600
-        });
-        await rename(temporary, join(directory, 'installation.json'));
+        await runFileSystemPromise(
+          (await fileSystem).writeFileString(
+            temporary,
+            JSON.stringify({ identity: embeddingModel.identity }),
+            { flag: 'wx', mode: 0o600 }
+          )
+        );
+        await runFileSystemPromise(
+          (await fileSystem).rename(temporary, join(directory, 'installation.json'))
+        );
       } finally {
-        await rm(temporary, { force: true });
+        await runFileSystemPromise((await fileSystem).remove(temporary, { force: true }));
       }
     },
     catch: (cause) =>

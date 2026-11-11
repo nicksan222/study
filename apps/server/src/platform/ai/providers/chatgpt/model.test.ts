@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
@@ -32,54 +30,52 @@ import { standardSchema } from '#server/platform/ai/schema';
 testStable('Responses adapter retries 401 with rotated OAuth token and consumes SSE', async () => {
   const bodies: Record<string, unknown>[] = [];
   const headers: string[] = [];
-  const server = createServer(async (req, res) => {
-    const chunks: Buffer[] = [];
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: async (req) => {
+      let events = '';
+      const requestBody = await req.text();
 
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+      if (new URL(req.url).pathname === '/api/accounts/oauth/token') {
+        return new Response(
+          JSON.stringify({
+            access_token: 'renewed',
+            refresh_token: 'rotated',
+            expires_in: 3600
+          }),
+          { headers: { 'content-type': 'application/json' } }
+        );
+      }
 
-    if (req.url === '/api/accounts/oauth/token') {
-      res.writeHead(200, { 'content-type': 'application/json' }).end(
-        JSON.stringify({
-          access_token: 'renewed',
-          refresh_token: 'rotated',
-          expires_in: 3600
-        })
-      );
+      headers.push(req.headers.get('authorization') ?? '');
+      bodies.push(JSON.parse(requestBody));
 
-      return;
+      if (headers.length === 1) {
+        return new Response(null, { status: 401 });
+      }
+
+      for (const event of [
+        {
+          type: 'response.created',
+          response: { id: 'resp', created_at: 1, model: 'gpt-test' }
+        },
+        {
+          type: 'response.output_item.added',
+          output_index: 0,
+          item: { type: 'message', id: 'item' }
+        },
+        { type: 'response.output_text.delta', item_id: 'item', delta: 'Biology' },
+        { type: 'response.completed', response: {} }
+      ])
+        events += `data: ${JSON.stringify(event)}\n\n`;
+
+      return new Response(events + 'data: [DONE]\n\n', {
+        headers: { 'content-type': 'text/event-stream' }
+      });
     }
-
-    headers.push(req.headers.authorization ?? '');
-    bodies.push(JSON.parse(Buffer.concat(chunks).toString()));
-
-    if (headers.length === 1) {
-      res.writeHead(401).end();
-
-      return;
-    }
-
-    res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-    for (const event of [
-      {
-        type: 'response.created',
-        response: { id: 'resp', created_at: 1, model: 'gpt-test' }
-      },
-      {
-        type: 'response.output_item.added',
-        output_index: 0,
-        item: { type: 'message', id: 'item' }
-      },
-      { type: 'response.output_text.delta', item_id: 'item', delta: 'Biology' },
-      { type: 'response.completed', response: {} }
-    ])
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-    res.end('data: [DONE]\n\n');
   });
-
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-  const address = server.address();
+  const address = { port: server.port };
 
   if (!address || typeof address === 'string') throw Error('missing address');
 
@@ -117,7 +113,7 @@ testStable('Responses adapter retries 401 with rotated OAuth token and consumes 
     assert.ok(Array.isArray(bodies[1].input));
   } finally {
     await auth.dispose();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await server.stop(true);
   }
 });
 
@@ -134,31 +130,33 @@ testStable(
       ],
       notes: [{ kind: 'limit', explanation: 'Captured material only', blockOrdinals: [] }]
     };
-    const server = createServer(async (req, res) => {
-      const chunks: Buffer[] = [];
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (req) => {
+        let events = '';
+        const requestBody = await req.text();
 
-      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+        body = JSON.parse(requestBody);
 
-      body = JSON.parse(Buffer.concat(chunks).toString());
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
+        for (const event of [
+          { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'gpt-test' } },
+          {
+            type: 'response.output_item.added',
+            output_index: 0,
+            item: { type: 'message', id: 'item' }
+          },
+          { type: 'response.output_text.delta', item_id: 'item', delta: JSON.stringify(output) },
+          { type: 'response.completed', response: {} }
+        ])
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-      for (const event of [
-        { type: 'response.created', response: { id: 'resp', created_at: 1, model: 'gpt-test' } },
-        {
-          type: 'response.output_item.added',
-          output_index: 0,
-          item: { type: 'message', id: 'item' }
-        },
-        { type: 'response.output_text.delta', item_id: 'item', delta: JSON.stringify(output) },
-        { type: 'response.completed', response: {} }
-      ])
-        res.write(`data: ${JSON.stringify(event)}\n\n`);
-
-      res.end('data: [DONE]\n\n');
+        return new Response(events + 'data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' }
+        });
+      }
     });
-
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
+    const address = { port: server.port };
 
     if (!address || typeof address === 'string') throw Error('missing address');
 
@@ -211,7 +209,7 @@ testStable(
       expect(objects).toBeGreaterThan(10);
     } finally {
       await auth.dispose();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await server.stop(true);
     }
   }
 );

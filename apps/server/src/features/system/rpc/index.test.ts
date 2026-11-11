@@ -25,7 +25,7 @@ import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
 
 testStable('native System RPC returns published quiz search identities', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
   const app = await App.open({ path: location.path });
   const server = await serve(app);
 
@@ -91,6 +91,6 @@ testStable('native System RPC returns published quiz search identities', async (
   } finally {
     await server.close();
     await app.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

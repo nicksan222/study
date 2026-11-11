@@ -17,12 +17,12 @@
 import { StudyError } from '@study/contracts/errors';
 import { workflowEventSchema } from '@study/contracts/events';
 import type { WorkflowEvent } from '@study/contracts/events';
-import type { Db } from '@study/db';
+import type { Db, DbTransaction } from '@study/db';
 import { and, eq, inArray, sql } from '@study/db';
 import { workflowEvents, workflow_retired_correlations } from '@study/db/schema';
 import { Schema } from 'effect';
 
-import type { ServerContext } from '#server/platform/database/context';
+import type { ServerTransactionContext } from '#server/platform/database/context';
 
 const eventCodec = Schema.fromJsonString(Schema.toCodecJson(workflowEventSchema));
 
@@ -33,7 +33,11 @@ export const decodeEvent: (payload: string) => WorkflowEvent = Schema.decodeUnkn
 const validateEvent = Schema.decodeUnknownSync(workflowEventSchema);
 
 /** The outbox and the state that caused the event share the active transaction. */
-export function emitEvent(context: ServerContext, event: WorkflowEvent, createdAt: number): void {
+export function emitEvent(
+  context: ServerTransactionContext,
+  event: WorkflowEvent,
+  createdAt: number
+): void {
   context.assertTransactionActive();
   const validated = validateEvent(event);
 
@@ -68,7 +72,7 @@ export function emitEvent(context: ServerContext, event: WorkflowEvent, createdA
 
 /** Preserve event identity and dispatch receipts while clearing exactly fenced event payloads. */
 export function scrubRetiredEvents(
-  db: Db,
+  db: Db | DbTransaction,
   ids: readonly string[],
   types?: readonly WorkflowEvent['type'][]
 ) {

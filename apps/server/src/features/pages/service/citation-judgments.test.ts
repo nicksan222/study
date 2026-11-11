@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { PagesRpc } from '@study/contracts/pages/rpc';
 import { correctBlockText, createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
@@ -48,8 +46,8 @@ const paragraph = (text: string) =>
 testStable(
   'user judgments pin both rich ranges; claim edits, citation copies and restoration never inherit verification',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const handlers = PagesRpcLive.pipe(
       Layer.provideMerge(Pages.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -62,7 +60,7 @@ testStable(
             const rpc = yield* RpcTest.makeClient(PagesRpc);
             const block = paragraph('Exact evidence');
             const evidence = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Evidence',
               document: { blocks: [block], meta },
               inputs: [],
@@ -81,7 +79,7 @@ testStable(
               quote: 'Exact evidence'
             };
             const claim = yield* rpc['pages.create']({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Claim',
               document: { blocks: [claimBlock], meta },
               inputs: [input],
@@ -260,7 +258,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
