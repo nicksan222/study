@@ -86,11 +86,7 @@ testStable(
         "import { assert } from 'vite-plus/test';\nimport { testStable } from '@study/testing/vitest';\n\ntestStable('real value', (t) => { t.onTestFinished(() => {}); assert.strictEqual(Math.max(1, 2), 2); });\n"
     });
 
-    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-    assert.strictEqual(
-      diagnostics.filter(({ code }) => code === 'study(no-node-builtins)').length,
-      1
-    );
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
     assert.strictEqual(
       diagnostics.filter(({ code }) => code.includes('no-restricted-properties')).length,
       2

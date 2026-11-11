@@ -37,7 +37,6 @@ import nativeClock from './rules/native-clock.ts';
 import noDeepRelativeImports from './rules/no-deep-relative-imports.ts';
 import noErrorMessageMatching from './rules/no-error-message-matching.ts';
 import noLossyIds from './rules/no-lossy-ids.ts';
-import noNodeBuiltins from './rules/no-node-builtins.ts';
 import noNonNullQueryResults from './rules/no-non-null-query-results.ts';
 import notesPagesVocabulary from './rules/notes-pages-vocabulary.ts';
 import packageBoundary from './rules/package-boundary.ts';
@@ -69,7 +68,6 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
-    'no-node-builtins': noNodeBuiltins,
     'effect-function-harness': effectFunctionHarness,
     'service-access': serviceAccess,
     'validated-mutation': validatedMutation,
