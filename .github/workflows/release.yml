@@ -156,6 +156,28 @@ jobs:
           STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
           STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: bash tooling/release/release.sh prepare "${{ matrix.platform }}" "$STUDY_RELEASE_VERSION" "target/release-stage/${{ matrix.platform }}"
+      - name: Measure release payload and downloads
+        shell: bash
+        env:
+          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+        run: |
+          app="target/${{ matrix.target }}/release/study"
+          if [ "$RUNNER_OS" = Windows ]; then app="$app.exe"; fi
+          if [ "$RUNNER_OS" = macOS ]; then
+            app=$(printf '%s' "$STUDY_ARTIFACT_PATHS" | jq -er '.[] | select(endswith(".app"))')
+          fi
+          stage="target/release-stage/${{ matrix.platform }}"
+          installer=$(jq -r .installer "$stage/manifest.json" | tr -d '\r')
+          update=$(jq -r .update "$stage/manifest.json" | tr -d '\r')
+          python3 tooling/release/size_report.py --runtime target/desktop-runtime --app "$app" \
+            --artifact "$stage/$installer" --artifact "$stage/$update" > "target/size-report-${{ matrix.platform }}.json"
+      - name: Retain size analysis
+        uses: actions/upload-artifact@v7
+        with:
+          name: size-report-${{ matrix.platform }}
+          path: target/size-report-${{ matrix.platform }}.json
+          if-no-files-found: error
+          retention-days: 90
       - name: Retain this platform for single-writer release assembly
         uses: actions/upload-artifact@v7
         with:
