@@ -151,6 +151,9 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: npm ci --no-fund --no-audit
+      - name: 🌍 Use the public Ubuntu package mirror
+        if: matrix.task == 'web' || matrix.task == 'tooling'
+        run: sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/apt-mirrors*.txt
       - name: 🌐 Install Chromium for web tests
         if: matrix.task == 'web'
         run: npx playwright install --with-deps chromium
