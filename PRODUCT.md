@@ -58,7 +58,7 @@ reviewed and practised their own material, without managing a pile of separate t
 
 - Pages today: Home, Projects, Notes, Study (flashcards), Practice, media lists, Settings, Help, and the onboarding tour.
 - Model work (reading pages and PDFs, answers, titles, material, quiz questions and grades)
-  runs only on the learner's ChatGPT plan. Speech-to-text and embeddings run locally, and
+  runs only on the learner's ChatGPT plan. Speech-to-text runs locally, and
   their models download only on an explicit install.
 - When ChatGPT isn't signed in, or a model isn't installed, work waits or fails honestly and
   says so; it never fakes results.

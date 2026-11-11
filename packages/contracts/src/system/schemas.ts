@@ -63,11 +63,9 @@ const materialSearchHitSchema = Schema.Struct({
 });
 
 export const materialSearchResultSchema = Schema.Struct({
-  semantic: Schema.Literal(false),
   hits: Schema.Array(materialSearchHitSchema)
 });
 
 export const searchResultSchema = Schema.Struct({
-  semantic: Schema.Boolean,
   hits: Schema.Array(searchHitSchema)
 });

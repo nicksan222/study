@@ -569,7 +569,6 @@ function SidebarSearchStatus({ result, empty }: Pick<SidebarModel, 'result'> & {
     <>
       {' '}
       {result?.error && <SidebarUI.Message role="alert">{t('SearchFailed')}</SidebarUI.Message>}
-      {keywordOnly(result) && <SidebarUI.Message>{t('SearchKeywordOnly')}</SidebarUI.Message>}
       {hasEmptyResults(result, empty) && (
         <SidebarUI.Message role="status">{t('SearchNoResults')}</SidebarUI.Message>
       )}
@@ -618,10 +617,6 @@ function SidebarContentBody(model: SidebarViewModel) {
   if (model.query.trim()) return <SidebarSearchResults {...model} />;
 
   return <SidebarNotes {...model} />;
-}
-
-function keywordOnly(result: SidebarModel['result']) {
-  return !!result?.result && !result.result.semantic;
 }
 
 function hasEmptyResults(result: SidebarModel['result'], empty: boolean) {

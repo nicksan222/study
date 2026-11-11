@@ -208,7 +208,6 @@ testStable(
               })
             );
 
-            assert.ok(found.semantic === false);
             assert.strictEqual(found.hits.length, 1);
             assert.ok(found.hits[0]?.kind === 'material');
             expect(found.hits[0]?.target).toStrictEqual({
@@ -223,7 +222,7 @@ testStable(
                 limit: 1,
                 project: project.id
               })
-            ).toStrictEqual({ semantic: false, hits: [] });
+            ).toStrictEqual({ hits: [] });
           })
         )
       );

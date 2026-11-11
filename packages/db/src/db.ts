@@ -8,7 +8,6 @@ import { types } from 'node:util';
 import { drizzle, nodeSQLiteCodecs } from 'drizzle-orm/node-sqlite';
 import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
 import { migrate } from 'drizzle-orm/node-sqlite/migrator';
-import { load as loadVectorExtension } from 'sqlite-vec';
 
 import { configureSqliteRuntime } from './sqlite-runtime.ts';
 
@@ -25,8 +24,6 @@ export class Db {
   }>();
 
   private constructor(sqlite: DatabaseSync, path: string) {
-    loadVectorExtension(sqlite);
-    sqlite.enableLoadExtension(false);
     this.sqlite = sqlite;
     this.path = path;
     this.database = drizzle({
@@ -55,7 +52,7 @@ export class Db {
       chmodSync(path, 0o600);
     }
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
+    const sqlite = new DatabaseSync(path, { readBigInts: true });
 
     try {
       // SQLite table rebuilds must disable foreign keys before the migrator's transaction.
@@ -79,7 +76,7 @@ export class Db {
   static checkpointFile(path: string): void {
     configureSqliteRuntime();
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
+    const sqlite = new DatabaseSync(path, { readBigInts: true });
 
     try {
       const result = sqlite.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get();
@@ -202,8 +199,7 @@ export class Db {
   static validateSnapshot(path: string): string {
     const sqlite = new DatabaseSync(path, {
       readOnly: true,
-      readBigInts: true,
-      allowExtension: true
+      readBigInts: true
     });
 
     const candidate = new Db(sqlite, path);
@@ -242,7 +238,7 @@ export class Db {
   static openSnapshot(path: string): Db {
     Db.validateSnapshot(path);
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
+    const sqlite = new DatabaseSync(path, { readBigInts: true });
 
     sqlite.exec('PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON;');
 

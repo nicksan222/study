@@ -4,8 +4,6 @@ import { chmod, copyFile, cp, mkdir, readdir, realpath, rm, writeFile } from 'no
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { pruneOnnx } from './prune-onnx';
-
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
 const output = resolve(root, 'target/desktop-runtime');
@@ -60,12 +58,6 @@ execFileSync(
     cwd: server,
     stdio: 'inherit'
   }
-);
-
-await pruneOnnx(
-  join(server, 'node_modules/onnxruntime-node/bin/napi-v6'),
-  process.platform,
-  process.arch
 );
 
 // Tauri does not retain workspace symlinks. Bun can load their TypeScript sources

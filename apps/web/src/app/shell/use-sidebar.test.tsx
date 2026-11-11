@@ -132,7 +132,7 @@ beforeEach(() => {
       }
     ]
   });
-  api.search.mockReset().mockResolvedValue({ hits: [], semantic: true });
+  api.search.mockReset().mockResolvedValue({ hits: [] });
   api.createNote.mockReset().mockResolvedValue({ id: 7n });
 });
 
@@ -151,7 +151,6 @@ testStable(
 
 testStable('searches within the selected subject and opens a result', async () => {
   api.search.mockResolvedValue({
-    semantic: true,
     hits: [
       {
         kind: 'note',

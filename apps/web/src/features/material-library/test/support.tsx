@@ -141,7 +141,7 @@ export function materialRpc() {
     'materials.retryDeletion': vi.fn<StudyClient['materials.retryDeletion']>(),
     'system.search': vi
       .fn<StudyClient['system.search']>()
-      .mockReturnValue(Effect.succeed({ semantic: false, hits: [] })),
+      .mockReturnValue(Effect.succeed({ hits: [] })),
     'materials.materialVersions': vi
       .fn<StudyClient['materials.materialVersions']>()
       .mockReturnValue(Effect.succeed({ items: [], nextCursor: null })),

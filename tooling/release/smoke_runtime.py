@@ -11,8 +11,8 @@ from urllib.parse import urlparse
 source = Path(sys.argv[1]).resolve()
 for manifest in (source / "server/node_modules").rglob("package.json"):
     name = json.loads(manifest.read_text()).get("name", "")
-    if name == "mermaid" or name.startswith("@mermaid-js/"):
-        raise RuntimeError(f"Retired diagram dependency in runtime: {manifest}")
+    if name in ("mermaid", "@huggingface/transformers", "sqlite-vec") or name.startswith(("@mermaid-js/", "onnxruntime-")):
+        raise RuntimeError(f"Retired model or diagram dependency in runtime: {manifest}")
 if any((source / "server/apps/server/src/platform/ai/diagram").rglob("*.ts")):
     raise RuntimeError("Retired diagram worker in runtime")
 
@@ -30,14 +30,6 @@ with tempfile.TemporaryDirectory() as temporary:
     if sys.platform == "darwin":
         shutil.copy2(source / "libsqlite3.dylib", runtime / "libsqlite3.dylib")
     shutil.copytree(source / "server", runtime / "server", symlinks=True)
-    # Exercise the shipped native binding in isolation.
-    subprocess.run(
-        [str(bun), "--eval", """
-          const ort = require('onnxruntime-node');
-          if (!ort.Tensor) throw new Error('ONNX binding did not load');
-        """],
-        check=True, timeout=60, cwd=runtime / "server",
-    )
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
         [str(bun), str(runtime / "server/main.js")],
