@@ -291,3 +291,25 @@ and an `integration-<provider>` install stage copied into the shared image. Oxli
 enforces these together and forbids provider-specific Dockerfiles and container
 builders. The shared runner selects every registered fixture automatically. CI runs
 the same command in its required real-integration test job.
+
+### Release size reports
+
+Each release build retains a `size-report-<platform>` Actions artifact for 90 days.
+It lists logical file bytes for the staged runtime and built application, runtime
+components, packages and largest files, plus installer and updater file bytes.
+Symlinks are excluded and never followed. The application is the macOS `.app`
+bundle or the Linux/Windows executable, so it is not a complete installed-size
+measurement on Linux or Windows; do not add it to the runtime total on macOS,
+where the app already contains the runtime. Archive bytes are download sizes,
+not installed sizes. Compare builds on the same platform with the same toolchain,
+locks and settings.
+
+For a local report, run:
+
+```sh
+python3 tooling/release/size_report.py --runtime target/desktop-runtime --app PATH --artifact INSTALLER --artifact UPDATER
+```
+
+(after staging the runtime and building the application). Repeat `--artifact`
+for each download; identical paths are counted once. Redirect output outside the
+checkout when keeping a baseline.
