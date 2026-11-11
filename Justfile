@@ -221,6 +221,7 @@ deny:
 frontend-check:
     npm run typecheck
     npm run test
+    npm run web:e2e
     npm run build
 
 # Check the TypeScript server packages against the actual Node runtime.

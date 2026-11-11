@@ -130,7 +130,7 @@ jobs:
             command: npm run lint && npm run fallow:check
           - name: 🖼️ Web checks
             task: web
-            command: npm run typecheck && npm run test && npm exec -- vp run --fail-if-no-match --filter @study/web build
+            command: npm run typecheck && npm run test && npm run web:e2e && npm exec -- vp run --fail-if-no-match --filter @study/web build
           - name: 🛠️ Tooling tests
             task: tooling
             command: just tooling-test
@@ -151,6 +151,9 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: npm ci --no-fund --no-audit
+      - name: 🌐 Install Chromium for web tests
+        if: matrix.task == 'web'
+        run: npx playwright install --with-deps chromium
       - name: 🌍 Install landing dependencies for Fallow
         if: matrix.task == 'lint'
         working-directory: apps/landing

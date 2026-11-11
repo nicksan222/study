@@ -16,6 +16,7 @@
     "server:test": "vp test run --project server",
     "lint": "bun tooling/oxc-config/check-theme-css.ts && npm run architecture:check && vp check --deny-warnings",
     "quality:test": "vp test run --project tooling",
+    "web:e2e": "vp test run --project web-e2e",
     "test": "vp run --fail-if-no-match --filter @study/web test",
     "gen": "bun tooling/development/generate-theme-css.ts && bun run --filter @study/db gen && bun run --filter @study/web gen:routes",
     "gen:check": "bun tooling/development/generate-theme-css.ts --check && bun run --filter @study/db gen:check",
@@ -48,6 +49,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "fallow": "3.38.0",
     "jsdom": "^30.1.3",
+    "playwright": "1.65.0",
     "typescript": "^7.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
     "vite-plus": "1.4.0"

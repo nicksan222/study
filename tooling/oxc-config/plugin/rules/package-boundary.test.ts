@@ -286,3 +286,18 @@ testStable('landing consumes only the explicit feature preview export from web',
     'root.ts'
   ]);
 });
+
+testStable('the web E2E harness alone can own server and database resources', () => {
+  const diagnostics = lintRule(
+    'package-boundary',
+    {
+      'apps/web/test/e2e/harness/index.ts':
+        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
+      'apps/web/test/e2e/other.ts':
+        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';"
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+});

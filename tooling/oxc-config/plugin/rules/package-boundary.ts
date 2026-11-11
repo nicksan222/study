@@ -148,6 +148,12 @@ export default defineRule({
 
     function disallowedPackage(name: string): boolean {
       if (
+        context.filename.replaceAll('\\', '/').endsWith('/apps/web/test/e2e/harness/index.ts') &&
+        ['@study/db', '@study/server', '@study/tooling'].includes(name)
+      )
+        return false;
+
+      if (
         name === '@study/tooling' &&
         owner === '@study/web' &&
         context.filename.endsWith('/apps/web/vite.config.ts')
@@ -176,7 +182,10 @@ export default defineRule({
 
     function unsafeBrowserExport(name: string, subpath: string): boolean {
       return (
-        owner === '@study/web' && name === '@study/server' && !['', '/client'].includes(subpath)
+        owner === '@study/web' &&
+        name === '@study/server' &&
+        !['', '/client'].includes(subpath) &&
+        !context.filename.replaceAll('\\', '/').endsWith('/apps/web/test/e2e/harness/index.ts')
       );
     }
 
