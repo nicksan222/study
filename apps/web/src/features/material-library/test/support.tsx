@@ -57,8 +57,8 @@ export function learningVersion(id = 101n, owner = 41n, text = 'Historical extra
     status: 'published',
     inputs: [],
     parents: [],
-    kind: 'diagram',
-    content: { kind: 'diagram', format: 'mermaid', payload: `flowchart TD\nA["${text}"]` }
+    kind: 'flashcards',
+    content: { kind: 'flashcards', cards: [{ cardId: 1n, front: text, back: 'Answer' }] }
   });
 }
 /** Canonical snapshot fixture, independent of authored or learning identities. */
@@ -75,7 +75,7 @@ function material(id = 41n) {
   return Schema.decodeUnknownSync(materialDetailSchema)({
     id,
     title: `Material ${id}`,
-    kind: 'diagram',
+    kind: 'flashcards',
     created_at: 1n,
     updated_at: 1n,
     archived_at: null,

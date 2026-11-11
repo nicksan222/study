@@ -198,7 +198,7 @@ testStable(
             const project = yield* client['projects.createProject']({ name: 'NativeSearchToken' });
             const material = yield* client['materials.create']({
               title: 'NativeSearchToken',
-              content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' },
+              content: { kind: 'flashcards', cards: [{ front: 'Question', back: 'Answer' }] },
               publish: true
             });
             const found = yield* client['system.materialSearch'](
@@ -215,7 +215,7 @@ testStable(
               type: 'material',
               materialId: material.id,
               versionId: material.version.id,
-              materialKind: 'diagram'
+              materialKind: 'flashcards'
             });
             expect(
               yield* client['system.materialSearch']({

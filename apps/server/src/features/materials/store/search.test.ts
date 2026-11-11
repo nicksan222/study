@@ -26,10 +26,10 @@ testStable(
 
     try {
       db.orm.run(
-        sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (1,'quiz','Quiz',1,1),(2,'diagram','Diagram',1,1),(3,'flashcards','Cards',1,1)`
+        sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (1,'quiz','Quiz',1,1),(2,'flashcards','More cards',1,1),(3,'flashcards','Cards',1,1)`
       );
       db.orm.run(
-        sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (1,1,'quiz',1,'draft',1),(2,2,'diagram',1,'draft',1),(3,3,'flashcards',1,'draft',1)`
+        sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at) VALUES (1,1,'quiz',1,'draft',1),(2,2,'flashcards',1,'draft',1),(3,3,'flashcards',1,'draft',1)`
       );
       db.orm.run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (1)`);
       db.orm.run(
@@ -44,8 +44,8 @@ testStable(
       db.orm.run(
         sql`INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES (1,2,'single_choice',0,'Blue',1),(2,2,'single_choice',1,'Red',0)`
       );
-      db.orm.run(
-        sql`INSERT INTO material_diagram_versions(version_id,format,payload) VALUES (2,'mermaid','graph TD; Sun-->Earth')`
+      db.exec(
+        `INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; Sun-->Earth','Answer' FROM material_versions WHERE id=2`
       );
       db.orm.run(sql`INSERT INTO material_flashcard_versions(version_id,material_id) VALUES (3,3)`);
       db.orm.run(sql`INSERT INTO material_card_identities(id,material_id) VALUES (1,3)`);
@@ -70,7 +70,7 @@ testStable(
       const materialPage = read({ kind: 'material', offset: 1, limit: 1 });
 
       expect(questionPage.map((entry) => entry.title)).toStrictEqual(['Color']);
-      expect(materialPage.map((entry) => entry.title)).toStrictEqual(['Diagram']);
+      expect(materialPage.map((entry) => entry.title)).toStrictEqual(['More cards']);
       expect(
         read({
           kind: 'question',

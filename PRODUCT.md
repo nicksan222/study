@@ -35,14 +35,14 @@ reviewed and practised their own material, without managing a pile of separate t
   learner's own ChatGPT plan.
 - **No extra subscription.** The language models run on the ChatGPT plan the learner already
   has (Plus or Pro), so Study adds no AI bill.
-- **From notes to exam.** The learner's own material becomes diagrams, flashcards
+- **From notes to exam.** The learner's own material becomes flashcards
   on a spaced-repetition schedule, and endless graded practice, counting down to each exam.
 
 ## Operating Context
 
 - **Projects:** one per course or subject, holding its sources, notes and material, with
   optional exam dates that Home and the flashcard reviews count down to. A project is a
-  group of notes: its flashcards, diagram and quiz always cover the
+  group of notes: its flashcards and quiz always cover the
   whole project. Each is up to date, out of date (saying what changed since) or not made
   yet; Update rewrites it from the project as it is now, revising what it says.
 - **Notes are the notebook:** the learner writes, records and attaches as they study.
@@ -56,7 +56,7 @@ reviewed and practised their own material, without managing a pile of separate t
 
 ## Capabilities and Constraints
 
-- Pages today: Home, Projects, Notes, Study (flashcards, diagrams), Practice, media lists, Settings, Help, and the onboarding tour.
+- Pages today: Home, Projects, Notes, Study (flashcards), Practice, media lists, Settings, Help, and the onboarding tour.
 - Model work (reading pages and PDFs, answers, titles, material, quiz questions and grades)
   runs only on the learner's ChatGPT plan. Speech-to-text and embeddings run locally, and
   their models download only on an explicit install.
@@ -75,7 +75,6 @@ reviewed and practised their own material, without managing a pile of separate t
   longer, so layouts must take the longer text.
 - **Keyboard-first:** everything is reachable from the keyboard, with `@study` in the
   notebook for fast, flowing study.
-- Diagrams are drawn hand-drawn style, in Excalifont.
 
 ## Evidence on Hand
 

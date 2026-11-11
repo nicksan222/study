@@ -10,15 +10,15 @@ testStable(
     const db = Db.open(':memory:');
 
     try {
-      db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','History',1,1);
+      db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','History',1,1);
 
-      INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1),(2,1,'diagram',2,1);
+      INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'flashcards',1,1),(2,1,'flashcards',2,1);
 
-      INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','graph TD; Old'),(2,'mermaid','graph TD; Current');
+      INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1,2) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1,2) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; Old','Answer' FROM material_versions WHERE id=1; INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; Current','Answer' FROM material_versions WHERE id=2;
 
       UPDATE material_versions SET status='published',published_at=2;`);
 
-      assert.throws(() => db.exec('DELETE FROM material_diagram_versions WHERE version_id=1'));
+      assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1'));
 
       assert.throws(() =>
         db.exec("UPDATE material_versions SET instruction='tampered' WHERE id=1")
@@ -35,14 +35,14 @@ testStable(
       db.exec("INSERT INTO material_history_members(version_id,operation_id) VALUES(1,'prune')");
 
       assert.throws(() =>
-        db.exec("UPDATE material_diagram_versions SET payload='restored' WHERE version_id=1")
+        db.exec("UPDATE material_flashcard_entries SET front='restored' WHERE version_id=1")
       );
 
-      db.exec('DELETE FROM material_diagram_versions WHERE version_id=1');
+      db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1');
 
       assert.throws(() =>
         db.exec(
-          "INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','restored')"
+          "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'restored','Answer' FROM material_versions WHERE id=1"
         )
       );
 
@@ -50,11 +50,11 @@ testStable(
 
       assert.throws(() => db.exec('DELETE FROM material_history_members WHERE version_id=1'));
 
-      assert.throws(() => db.exec('DELETE FROM material_diagram_versions WHERE version_id=2'));
+      assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=2'));
 
       assert.strictEqual(
         db.orm.get<{ n: bigint }>(
-          dbSql`SELECT count(*) n FROM material_diagram_versions WHERE version_id=2`
+          dbSql`SELECT count(*) n FROM material_flashcard_entries WHERE version_id=2`
         )?.n,
         1n
       );
@@ -70,11 +70,11 @@ testStable(
     const db = Db.open(':memory:');
 
     try {
-      db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','History',1,1),(2,'diagram','Other',1,1);
+      db.exec(`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','History',1,1),(2,'flashcards','Other',1,1);
 
-      INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1),(2,1,'diagram',2,1),(3,1,'diagram',3,1),(4,2,'diagram',1,1);
+      INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'flashcards',1,1),(2,1,'flashcards',2,1),(3,1,'flashcards',3,1),(4,2,'flashcards',1,1);
 
-      INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','old'),(2,'mermaid','middle'),(3,'mermaid','current'),(4,'mermaid','other');
+      INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1,2,3,4) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1,2,3,4) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'old','Answer' FROM material_versions WHERE id=1; INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'middle','Answer' FROM material_versions WHERE id=2; INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'current','Answer' FROM material_versions WHERE id=3; INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'other','Answer' FROM material_versions WHERE id=4;
 
       UPDATE material_versions SET status='published',published_at=2;
 
@@ -83,7 +83,7 @@ testStable(
 
       INSERT INTO material_history_members(version_id,operation_id) VALUES(2,'middle');
 
-      DELETE FROM material_diagram_versions WHERE version_id=2;
+      DELETE FROM material_flashcard_entries WHERE version_id=2;
 
       UPDATE material_history_prunes SET status='completed',completed_at=4 WHERE operation_id='middle';
 
@@ -117,20 +117,20 @@ testStable(
       assert.throws(() => db.exec('DELETE FROM material_versions WHERE id=1'));
 
       assert.throws(() =>
-        db.exec("UPDATE material_diagram_versions SET payload='resurrected' WHERE version_id=1")
+        db.exec("UPDATE material_flashcard_entries SET front='resurrected' WHERE version_id=1")
       );
 
-      db.exec('DELETE FROM material_diagram_versions WHERE version_id=1');
+      db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1');
 
       assert.throws(() =>
         db.exec(
-          "INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','resurrected')"
+          "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'resurrected','Answer' FROM material_versions WHERE id=1"
         )
       );
 
       assert.strictEqual(
         db.orm.get<{ n: bigint }>(
-          dbSql`SELECT count(*) n FROM material_diagram_versions WHERE version_id IN(3,4)`
+          dbSql`SELECT count(*) n FROM material_flashcard_entries WHERE version_id IN(3,4)`
         )?.n,
         2n
       );

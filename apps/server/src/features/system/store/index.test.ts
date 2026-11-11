@@ -203,11 +203,12 @@ testStable(
       const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
 
       run(sql`INSERT INTO materials(id,kind,title,created_at,updated_at)
-      VALUES (1,'diagram','GlobalReaderToken',1,1),(2,'diagram','GlobalReaderToken',1,1),(3,'diagram','GlobalReaderToken',1,1)`);
+      VALUES (1,'flashcards','GlobalReaderToken',1,1),(2,'flashcards','GlobalReaderToken',1,1),(3,'flashcards','GlobalReaderToken',1,1)`);
       run(sql`INSERT INTO material_versions(id,material_id,kind,number,status,created_at)
-      VALUES (1,1,'diagram',1,'draft',1),(2,2,'diagram',1,'draft',1),(3,3,'diagram',1,'draft',1)`);
-      run(sql`INSERT INTO material_diagram_versions(version_id,format,payload)
-      VALUES (1,'mermaid','graph TD; A-->B'),(2,'mermaid','graph TD; A-->B'),(3,'mermaid','graph TD; A-->B')`);
+      VALUES (1,1,'flashcards',1,'draft',1),(2,2,'flashcards',1,'draft',1),(3,3,'flashcards',1,'draft',1)`);
+      context.db.exec(
+        `INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1,2,3) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1,2,3) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; A-->B','Answer' FROM material_versions WHERE id=1; INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; A-->B','Answer' FROM material_versions WHERE id=2; INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; A-->B','Answer' FROM material_versions WHERE id=3`
+      );
       run(sql`UPDATE material_versions SET status='published',published_at=2`);
       run(sql`UPDATE materials SET archived_at=3 WHERE id=1`);
       const store = Effect.runSync(
@@ -224,7 +225,7 @@ testStable(
         type: 'material',
         materialId: 2n,
         versionId: 2n,
-        materialKind: 'diagram'
+        materialKind: 'flashcards'
       });
       expect(await find()).toStrictEqual(hits);
       const tied = await Effect.runPromise(
@@ -232,8 +233,8 @@ testStable(
       );
 
       expect(tied.map((hit) => hit.target)).toStrictEqual([
-        { type: 'material', materialId: 2n, versionId: 2n, materialKind: 'diagram' },
-        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }
+        { type: 'material', materialId: 2n, versionId: 2n, materialKind: 'flashcards' },
+        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'flashcards' }
       ]);
       run(
         sql`INSERT INTO projects(id,name,created_at,updated_at) VALUES (1,'Scope',1,1),(2,'Other',1,1),(3,'Later match',1,1)`
@@ -261,7 +262,7 @@ testStable(
           )
         ).map((hit) => hit.target)
       ).toStrictEqual([
-        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'diagram' }
+        { type: 'material', materialId: 3n, versionId: 3n, materialKind: 'flashcards' }
       ]);
       expect(
         await Effect.runPromise(

@@ -216,7 +216,7 @@ testStable(
                   rpc['materials.requestMaterialGeneration']({
                     projectId: setup.collection.id,
                     title: 'No fabricated text',
-                    kind: 'diagram',
+                    kind: 'flashcards',
                     inputs: [{ kind: 'page', versionId: empty.version.id }]
                   })
                 )).kind === 'invalid_input'
@@ -244,7 +244,7 @@ testStable(
             const request = yield* rpc['materials.requestMaterialGeneration']({
               projectId: setup.collection.id,
               title: 'Actual cell text',
-              kind: 'diagram',
+              kind: 'flashcards',
               inputs: [{ kind: 'page', versionId: table.version.id }]
             });
             const materials = yield* Materials;

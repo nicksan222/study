@@ -59,9 +59,8 @@ testStable(
           const root = yield* m.create({
             title: 'History',
             content: {
-              kind: 'diagram',
-              format: 'mermaid',
-              payload: 'flowchart TD\nA[HISTORY_MARKER_REMOVE]'
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[HISTORY_MARKER_REMOVE]', back: 'Answer' }]
             },
             publish: true
           });
@@ -69,9 +68,8 @@ testStable(
           const kept = yield* m.createVersion({
             materialId: root.id,
             content: {
-              kind: 'diagram',
-              format: 'mermaid',
-              payload: 'flowchart TD\nA[CURRENT_MARKER_KEEP]'
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[CURRENT_MARKER_KEEP]', back: 'Answer' }]
             },
             publish: true
           });
@@ -79,9 +77,8 @@ testStable(
           const derivative = yield* m.create({
             title: 'Copy',
             content: {
-              kind: 'diagram',
-              format: 'mermaid',
-              payload: 'flowchart TD\nA[COPY_MARKER_KEEP]'
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[COPY_MARKER_KEEP]', back: 'Answer' }]
             },
             publish: true
           });
@@ -168,7 +165,7 @@ testStable(
       );
 
       const markerRows = f.context.db.orm.all(
-        sql`SELECT payload FROM material_diagram_versions WHERE payload LIKE '%HISTORY_MARKER_REMOVE%'`
+        sql`SELECT front AS payload FROM material_flashcard_entries WHERE front LIKE '%HISTORY_MARKER_REMOVE%'`
       );
 
       expect(markerRows).toStrictEqual([]);
@@ -197,7 +194,10 @@ testStable(
 
           const root = yield* m.create({
             title: 'Bounds',
-            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[old]' },
+            content: {
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[old]', back: 'Answer' }]
+            },
             publish: true
           });
 
@@ -209,13 +209,19 @@ testStable(
 
           const draft = yield* m.createVersion({
             materialId: root.id,
-            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[draft]' },
+            content: {
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[draft]', back: 'Answer' }]
+            },
             publish: false
           });
 
           const latest = yield* m.createVersion({
             materialId: root.id,
-            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[new]' },
+            content: {
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[new]', back: 'Answer' }]
+            },
             publish: true
           });
 
@@ -299,16 +305,18 @@ testStable(
 
           const root = yield* m.create({
             title: 'Retry',
-            content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA[retry-old]' },
+            content: {
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[retry-old]', back: 'Answer' }]
+            },
             publish: true
           });
 
           yield* m.createVersion({
             materialId: root.id,
             content: {
-              kind: 'diagram',
-              format: 'mermaid',
-              payload: 'flowchart TD\nA[retry-current]'
+              kind: 'flashcards',
+              cards: [{ front: 'flowchart TD\nA[retry-current]', back: 'Answer' }]
             },
             publish: true
           });
@@ -534,7 +542,7 @@ testStable(
 
           const root = yield* m.create({
             title: 'Batch',
-            content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A' },
+            content: { kind: 'flashcards', cards: [{ front: 'graph TD; A', back: 'Answer' }] },
             publish: true
           });
 
@@ -543,7 +551,10 @@ testStable(
           for (let number = 2; number <= 103; number++) {
             const version = yield* m.createVersion({
               materialId: root.id,
-              content: { kind: 'diagram', format: 'mermaid', payload: `graph TD; V${number}` },
+              content: {
+                kind: 'flashcards',
+                cards: [{ front: `graph TD; V${number}`, back: 'Answer' }]
+              },
               publish: true
             });
 

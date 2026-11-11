@@ -24,12 +24,12 @@ const seed = `INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Proj
  INSERT INTO page_versions(id,page_id,number,content_snapshot_id,created_at) VALUES(1,1,1,1,1),(3,1,2,2,1);
  UPDATE page_versions SET status='published',published_at=2;
  INSERT INTO project_pages(project_id,page_id) VALUES(1,1);
- INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(2,'diagram','Requested',1,1);
+ INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(2,'flashcards','Requested',1,1);
  INSERT INTO project_materials(project_id,material_id) VALUES(1,2);
- INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"page","versionId":"1"}]}',1);
+ INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('request',1,'{"title":"Requested","kind":"flashcards","inputs":[{"kind":"page","versionId":"1"}]}',1);
  INSERT INTO material_evidence_inputs(request_id,position,page_version_id) VALUES('request',0,1);
- INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'diagram',1,'agent','generate',1);
- INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','flowchart TD; A-->B');`;
+ INSERT INTO material_versions(id,material_id,kind,number,creator,operation,created_at) VALUES(2,2,'flashcards',1,'agent','generate',1);
+ INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'flowchart TD; A-->B','Answer' FROM material_versions WHERE id=2;`;
 
 function fixture(scoped = false, autoTitle = false) {
   const location = createTestDatabase();
@@ -46,8 +46,8 @@ function fixture(scoped = false, autoTitle = false) {
             "INSERT INTO material_generation_scopes(id,project_id,enabled,created_at,updated_at) VALUES('scope',1,1,1,1); INSERT INTO materials"
           )
           .replace(
-            '"title":"Requested","kind":"diagram","inputs"',
-            '"title":"Requested","kind":"diagram","scopeId":"scope","inputs"'
+            '"title":"Requested","kind":"flashcards","inputs"',
+            '"title":"Requested","kind":"flashcards","scopeId":"scope","inputs"'
           )
       : intent
   );
@@ -100,7 +100,7 @@ testStable('automatic titles reject unbounded or blank names and malformed title
 
     assert.throws(() =>
       db.exec(
-        `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"diagram","inputs":[{"kind":"page","versionId":"1"}]}',1)`
+        `INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('invalid-auto',1,'{"title":"Requested","autoTitle":1,"kind":"flashcards","inputs":[{"kind":"page","versionId":"1"}]}',1)`
       )
     );
   } finally {
@@ -162,7 +162,7 @@ testStable(
         db.exec(`UPDATE material_generation_requests SET result_version_id=1 WHERE id='request'`)
       );
       assert.throws(() =>
-        db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('other',1,'{"title":"Requested","kind":"diagram","inputs":["1"]}',1);
+        db.exec(`INSERT INTO material_generation_requests(id,project_id,payload,created_at) VALUES('other',1,'{"title":"Requested","kind":"flashcards","inputs":["1"]}',1);
       UPDATE material_generation_requests SET result_version_id=2,result_hash='${'0'.repeat(64)}' WHERE id='other'`)
       );
       assert.doesNotThrow(() => db.exec('DELETE FROM projects WHERE id=1'));
@@ -269,7 +269,7 @@ for (const stage of ['publication', 'receipt']) {
         UPDATE page_versions SET status='published',published_at=2 WHERE id=4;
         INSERT INTO project_pages(project_id,page_id) VALUES(1,3),(2,3);
         INSERT INTO material_generation_requests(id,project_id,payload,created_at)
-          VALUES('multiple',1,'{"title":"Requested","kind":"diagram","inputs":[{"kind":"page","versionId":"1"},{"kind":"page","versionId":"4"}]}',1);
+          VALUES('multiple',1,'{"title":"Requested","kind":"flashcards","inputs":[{"kind":"page","versionId":"1"},{"kind":"page","versionId":"4"}]}',1);
         INSERT INTO material_evidence_inputs(request_id,page_version_id,position) VALUES('multiple',1,0),('multiple',4,1);
         INSERT INTO material_evidence_inputs(version_id,page_version_id,position) VALUES(2,1,0),(2,4,1);
         UPDATE material_versions SET generation_request_id='multiple' WHERE id=2;`);

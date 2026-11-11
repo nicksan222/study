@@ -145,15 +145,21 @@ testStable(
       INSERT INTO workflow_retired_correlations(correlation_id,event_type) VALUES('retired','ConversationGenerationRequested');
       INSERT INTO preferences(scope,key,value) VALUES('workspace','autoTitleSessions','true'),('workspace','sidebarShowDocumentCounts','true'),('agent-rules','documents','"Use documentId in prose"');`);
       const blocks = db.orm.all(sql`SELECT * FROM blocks ORDER BY document_id`);
-      const triggerCount = row(db, "SELECT count(*) AS n FROM sqlite_schema WHERE type='trigger'");
+      const triggerCount = row(
+        db,
+        "SELECT count(*) AS n FROM sqlite_schema WHERE type='trigger' AND tbl_name!='material_diagram_versions'"
+      );
 
       db.close();
       db = Db.open(path);
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
       expect(db.orm.all(sql`SELECT * FROM blocks ORDER BY document_id`)).toStrictEqual(blocks);
-      expect(row(db, "SELECT count(*) AS n FROM sqlite_schema WHERE type='trigger'")).toStrictEqual(
-        triggerCount
-      );
+      expect(
+        row(
+          db,
+          "SELECT count(*) AS n FROM sqlite_schema WHERE type='trigger' AND tbl_name!='material_diagram_versions'"
+        )
+      ).toStrictEqual(triggerCount);
       expect(row(db, 'SELECT note_id,page_id,position FROM note_pages')).toStrictEqual({
         note_id: 1n,
         page_id: 1n,

@@ -6,7 +6,6 @@ import {
   createPage,
   createFlashcards,
   createQuiz,
-  createDiagram,
   createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
@@ -107,11 +106,6 @@ export function createComputerScience(seed: SeedHarness) {
       'Constraints and transactions operate at the durable write boundary.'
     )
   ]);
-  const overview = createDiagram(
-    project,
-    'Computer Science — overview',
-    'erDiagram\nSTUDENT ||--o{ ENROLMENT : has\nCOURSE ||--o{ ENROLMENT : contains\nSTUDENT {\n int id PK\n}\nCOURSE {\n int id PK\n}\nENROLMENT {\n int student_id FK\n int course_id FK\n}'
-  );
 
   createNote(project, {
     title: 'Relational modelling',
@@ -150,7 +144,7 @@ export function createComputerScience(seed: SeedHarness) {
     ],
     sources: [transactionExample],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'SQL joins',
@@ -189,7 +183,7 @@ export function createComputerScience(seed: SeedHarness) {
     ],
     sources: [transactionExample],
     pages: [workbook],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Transaction boundaries',
@@ -228,7 +222,7 @@ export function createComputerScience(seed: SeedHarness) {
     ],
     sources: [transactionExample],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Recovery exercise',

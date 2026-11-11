@@ -28,7 +28,7 @@ const formatLabels = {
 export function ReaderExport({ version }: { version: MaterialVersionDetailDto }) {
   const { t } = useI18n();
   const preferences = useWorkspacePreferences();
-  const formats = availableExportFormats(version);
+  const formats = availableExportFormats();
   const [omissions, setOmissions] = useState<readonly Omission[]>([]);
   const [selected, setSelected] = useState<Format>();
   const [status, setStatus] = useState<'idle' | 'busy' | 'failed' | 'omissions'>('idle');

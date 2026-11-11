@@ -58,7 +58,6 @@ testStable(
           .all(sql`SELECT project_id, count(*) n FROM project_notes GROUP BY project_id`)
           .map((row) => row.n)
       ).toEqual([10n, 10n, 10n, 10n, 10n]);
-      expect(db.orm.get(sql`SELECT count(*) n FROM material_diagram_versions`)?.n).toBe(5n);
       expect(
         db.orm
           .all(sql`SELECT DISTINCT kind FROM material_quiz_questions`)

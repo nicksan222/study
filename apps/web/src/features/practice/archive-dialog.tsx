@@ -56,8 +56,7 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
   const state = useInfiniteQuery({ ...archivedMaterialsOptions(projectId), enabled: open });
   const [selected, select] = useState<MaterialId>();
   const [search, setSearch] = useState('');
-  const items =
-    state.data?.pages.flatMap((page) => page.items).filter((item) => item.kind !== 'diagram') ?? [];
+  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
   const visible = items.filter((item) =>
     item.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())
   );

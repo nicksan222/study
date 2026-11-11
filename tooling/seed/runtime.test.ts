@@ -68,7 +68,7 @@ testStable(
 
             const materials = yield* client['materials.materials']({ limit: 100, archived: false });
 
-            expect(materials.items).toHaveLength(15);
+            expect(materials.items).toHaveLength(10);
 
             for (const material of materials.items) {
               const detail = yield* client['materials.material']({ id: material.id });

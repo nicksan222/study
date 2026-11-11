@@ -34,8 +34,7 @@ Hover, focus, current selection and keyboard activation retain their distinct st
 The desktop's token authority is `apps/desktop/src/styles.css`; shared primitives consume
 semantic roles. The landing site keeps its separate presentation. Google Sans Flex is
 bundled locally under `apps/desktop/src/assets/fonts`, including its license. Use it for
-headings, body and labels; use the local monospace stack for code and paths. Diagrams
-retain their hand-drawn Excalifont lettering.
+headings, body and labels; use the local monospace stack for code and paths.
 
 | Role            | Light   | Dark    |
 | --------------- | ------- | ------- |
@@ -61,7 +60,7 @@ metrics, remote fonts or saturated alternative palettes.
 ## Subject workspace
 
 The current subject picker owns the top of the sidebar, with search directly below it. Subject identities use one quiet letter badge throughout the picker, lists and notebook breadcrumb. Automatic initials follow the title; a saved custom one-to-three-letter monogram can replace them. The icon editor previews both modes and confirms successful saves with a toast.
-Overview, Notes, Sources, Flashcards, Diagram and Practice all belong to that subject. Changing subjects keeps the section and clears the old selected item. An item's
+Overview, Notes, Sources, Flashcards and Practice all belong to that subject. Changing subjects keeps the section and clears the old selected item. An item's
 own subject is authoritative for deep links; unresolved or missing subjects never expose
 another subject's content. The saved current-subject hint is validated against the database.
 All subjects, Settings and Help stay global in the footer. Search is subject scoped inside

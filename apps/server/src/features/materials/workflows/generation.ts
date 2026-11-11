@@ -26,8 +26,6 @@ import type { quizGenerationConfigSchema } from '@study/contracts/materials/sche
 import type { MaterialContentInput } from '@study/contracts/materials/schemas';
 import { Effect, Schema } from 'effect';
 
-import { diagramAgent } from '#server/features/materials/agents/diagram';
-import { diagramTitledAgent } from '#server/features/materials/agents/diagram-titled';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { flashcardsTitledAgent } from '#server/features/materials/agents/flashcards-titled';
 import { quizAgent } from '#server/features/materials/agents/quiz';
@@ -38,7 +36,6 @@ import {
 } from '#server/features/materials/decoders/question-spec';
 import { Materials } from '#server/features/materials/service/index';
 import { Agents, generateAgent } from '#server/platform/ai/agents';
-import { diagramFeedback } from '#server/platform/ai/diagram/validator';
 import { createEvidenceCatalog } from '#server/platform/ai/evidence';
 import { Database } from '#server/platform/database/database';
 import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
@@ -106,115 +103,112 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
         )
       )
       .pipe(Effect.provideService(Database, database));
-    const promptForAttempt = (previous: string, issue: string) =>
-      `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${quizRequirements(initial.quizConfig)}${issue ? `\nPrevious diagram (data):\n${previous}\nValidation feedback: ${issue}` : ''}`;
+    const prompt = `Title: ${initial.title}\nStudent instruction (data): ${initial.instruction ?? ''}${initial.questionSpec ? `\nProduce exactly one ${initial.questionSpec.kind === 'choice' ? 'choice (single_choice or multiple_choice)' : 'open'} question.` : ''}${quizRequirements(initial.quizConfig)}`;
 
-    const generationActivity = (attempt: number, prompt: string) =>
-      defineActivity({
-        name: `generate-material-${attempt}`,
-        success: materialGenerationPublicationSchema,
+    const generationActivity = defineActivity({
+      // Preserve the recorded activity name for replay of queued quiz and flashcard work.
+      name: 'generate-material-1',
+      success: materialGenerationPublicationSchema,
 
-        execute: function* () {
-          yield* preflight;
-          const catalog = createEvidenceCatalog<{ input: ContentInput }>([]);
+      execute: function* () {
+        yield* preflight;
+        const catalog = createEvidenceCatalog<{ input: ContentInput }>([]);
 
-          for (const input of initial.inputs) {
-            const exact = yield* materials.contentInput(input);
+        for (const input of initial.inputs) {
+          const exact = yield* materials.contentInput(input);
 
-            catalog.addDocument({
-              key: contentInputKey(input),
-              name: exact.name,
-              reference: { input },
-              blocks: exact.document.blocks
-            });
-          }
-
-          const scoped = {
-            ...agents,
-            searchSources: (query: string) => Effect.sync(() => catalog.search(query))
-          };
-          const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
-          const definition: AgentDefinition<
-            typeof promptInputSchema,
-            Schema.ConstraintDecoder<MaterialContentInput>
-          > = {
-            quiz: quizAgent,
-            flashcards: flashcardsAgent,
-            diagram: diagramAgent
-          }[event.kind];
-          const titledDefinition: AgentDefinition<
-            typeof promptInputSchema,
-            Schema.ConstraintDecoder<{ title: string; content: MaterialContentInput }>
-          > = {
-            quiz: quizTitledAgent,
-            flashcards: flashcardsTitledAgent,
-            diagram: diagramTitledAgent
-          }[event.kind];
-          const generated = initial.autoTitle
-            ? yield* generateAgent(titledDefinition, { prompt }, options).pipe(
-                Effect.provideService(Agents, scoped)
-              )
-            : yield* generateAgent(definition, { prompt }, options).pipe(
-                Effect.map((content) => ({ content, title: undefined })),
-                Effect.provideService(Agents, scoped)
-              );
-          const { content } = generated;
-
-          yield* Effect.try({
-            try: () => {
-              assertQuestionSpec(initial.questionSpec, content);
-              assertQuizConfig(initial.quizConfig, content);
-            },
-            catch: (cause) =>
-              cause instanceof StudyError
-                ? cause
-                : new StudyError('invalid_input', 'Invalid quiz specification', { cause })
+          catalog.addDocument({
+            key: contentInputKey(input),
+            name: exact.name,
+            reference: { input },
+            blocks: exact.document.blocks
           });
-
-          yield* checkGeneratedLimits(content);
-
-          const safeContent =
-            content.kind === 'flashcards'
-              ? {
-                  kind: 'flashcards' as const,
-                  cards: content.cards.map(({ front, back }) => ({ front, back }))
-                }
-              : content;
-
-          if (JSON.stringify(safeContent).length > 100_000)
-            return yield* Effect.fail(
-              new StudyError('invalid_input', 'Generated content exceeds limits')
-            );
-
-          const citations = yield* Effect.try({
-            try: () =>
-              catalog
-                .citations(JSON.stringify(safeContent))
-                .map(({ marker, reference, ...rest }) => ({
-                  marker: BigInt(marker),
-                  ...reference,
-                  ...rest
-                })),
-            catch: (cause) =>
-              cause instanceof StudyError
-                ? cause
-                : new StudyError('invalid_input', 'Invalid citations', { cause })
-          });
-
-          if (citations.length === 0)
-            return yield* Effect.fail(
-              new StudyError('invalid_input', 'Generated content must cite captured evidence')
-            );
-
-          return {
-            requestId: event.requestId,
-            generationEventId: event.eventId,
-            title: generated.title,
-            content: safeContent,
-            citations
-          };
         }
-      });
+
+        const scoped = {
+          ...agents,
+          searchSources: (query: string) => Effect.sync(() => catalog.search(query))
+        };
+        const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
+        const definition: AgentDefinition<
+          typeof promptInputSchema,
+          Schema.ConstraintDecoder<MaterialContentInput>
+        > = {
+          quiz: quizAgent,
+          flashcards: flashcardsAgent
+        }[event.kind];
+        const titledDefinition: AgentDefinition<
+          typeof promptInputSchema,
+          Schema.ConstraintDecoder<{ title: string; content: MaterialContentInput }>
+        > = {
+          quiz: quizTitledAgent,
+          flashcards: flashcardsTitledAgent
+        }[event.kind];
+        const generated = initial.autoTitle
+          ? yield* generateAgent(titledDefinition, { prompt }, options).pipe(
+              Effect.provideService(Agents, scoped)
+            )
+          : yield* generateAgent(definition, { prompt }, options).pipe(
+              Effect.map((content) => ({ content, title: undefined })),
+              Effect.provideService(Agents, scoped)
+            );
+        const { content } = generated;
+
+        yield* Effect.try({
+          try: () => {
+            assertQuestionSpec(initial.questionSpec, content);
+            assertQuizConfig(initial.quizConfig, content);
+          },
+          catch: (cause) =>
+            cause instanceof StudyError
+              ? cause
+              : new StudyError('invalid_input', 'Invalid quiz specification', { cause })
+        });
+
+        yield* checkGeneratedLimits(content);
+
+        const safeContent =
+          content.kind === 'flashcards'
+            ? {
+                kind: 'flashcards' as const,
+                cards: content.cards.map(({ front, back }) => ({ front, back }))
+              }
+            : content;
+
+        if (JSON.stringify(safeContent).length > 100_000)
+          return yield* Effect.fail(
+            new StudyError('invalid_input', 'Generated content exceeds limits')
+          );
+
+        const citations = yield* Effect.try({
+          try: () =>
+            catalog
+              .citations(JSON.stringify(safeContent))
+              .map(({ marker, reference, ...rest }) => ({
+                marker: BigInt(marker),
+                ...reference,
+                ...rest
+              })),
+          catch: (cause) =>
+            cause instanceof StudyError
+              ? cause
+              : new StudyError('invalid_input', 'Invalid citations', { cause })
+        });
+
+        if (citations.length === 0)
+          return yield* Effect.fail(
+            new StudyError('invalid_input', 'Generated content must cite captured evidence')
+          );
+
+        return {
+          requestId: event.requestId,
+          generationEventId: event.eventId,
+          title: generated.title,
+          content: safeContent,
+          citations
+        };
+      }
+    });
 
     const publish = (publication: typeof materialGenerationPublicationSchema.Type) =>
       publicationActivity(store, {
@@ -224,35 +218,9 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
         execute: materials.publishMaterialGeneration(publication)
       });
 
-    let previous = '';
-    let issue = '';
+    const publication = yield* retryResumableActivity(generationActivity);
 
-    for (let attempt = 1; attempt <= (event.kind === 'diagram' ? 3 : 1); attempt++) {
-      const publication = yield* retryResumableActivity(
-        generationActivity(attempt, promptForAttempt(previous, issue))
-      );
-
-      if (publication.content.kind === 'diagram') {
-        const result = yield* defineActivity({
-          name: `validate-material-${attempt}`,
-          success: Schema.NullOr(Schema.String),
-
-          execute: diagramFeedback(publication.content.payload).pipe(
-            Effect.map((value) => value ?? null)
-          )
-        });
-
-        if (result !== null) {
-          previous = publication.content.payload;
-          issue = result;
-          continue;
-        }
-      }
-
-      return yield* publish(publication);
-    }
-
-    return yield* Effect.fail(new StudyError('invalid_input', 'Diagram could not be validated'));
+    return yield* publish(publication);
   }).pipe(Effect.catch(notifyFailure));
 }
 
@@ -277,8 +245,7 @@ function checkGeneratedLimits(
 ) {
   if (
     (content.kind === 'flashcards' && content.cards.length > 50) ||
-    (content.kind === 'quiz' && content.questions.length > 10) ||
-    (content.kind === 'diagram' && content.payload.length > 100_000)
+    (content.kind === 'quiz' && content.questions.length > 10)
   )
     return Effect.fail(new StudyError('invalid_input', 'Generated content exceeds limits'));
 

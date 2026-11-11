@@ -33,15 +33,12 @@
     "cheerio": "1.2.0",
     "effect": "4.0.7",
     "fast-xml-parser": "5.11.2",
-    "jsdom": "30.1.3",
-    "mermaid": "12.2.0",
     "pdf-lib": "1.17.1",
     "ts-fsrs": "5.4.2",
     "yauzl": "3.4.0"
   },
   "devDependencies": {
     "@study/testing": "*",
-    "@types/jsdom": "30.0.0",
     "@types/yauzl": "3.4.0",
     "testcontainers": "12.2.1"
   }

@@ -6,7 +6,6 @@ export * from './schema/content-snapshots.ts';
 export * from './schema/search.ts';
 export * from './schema/codes.ts';
 export * from './schema/material-versions.ts';
-export * from './schema/material-content.ts';
 export * from './schema/learning-content.ts';
 export * from './schema/themes.ts';
 export * from './schema/workflows.ts';

@@ -25,7 +25,6 @@ import type {
 } from '@study/contracts/search/schemas';
 import { asc, inArray, sql } from '@study/db';
 import {
-  material_diagram_versions,
   material_flashcard_entries,
   material_quiz_choices,
   material_quiz_ordering_items,
@@ -42,7 +41,7 @@ type MaterialRow = {
   title: string;
   description: string | null;
   version_id: MaterialVersionId;
-  kind: 'diagram' | 'quiz' | 'flashcards';
+  kind: 'quiz' | 'flashcards';
 };
 
 type QuestionRow = MaterialRow & { question_id: QuizQuestionId; prompt: string };
@@ -132,16 +131,9 @@ export function makeMaterialSearchProjections({ db }: StoreResources) {
 
     return choices;
   };
-  /** Collect ordered diagram, flashcard, and quiz content while excluding hidden quiz explanations. */
+  /** Collect ordered flashcard, and quiz content while excluding hidden quiz explanations. */
   const contentFor = (versions: readonly MaterialVersionId[]) => {
     const contents = new Map<MaterialVersionId, string[]>();
-
-    for (const diagram of db.orm
-      .select()
-      .from(material_diagram_versions)
-      .where(inArray(material_diagram_versions.version_id, versions))
-      .all())
-      append(contents, diagram.version_id, diagram.payload);
 
     for (const card of db.orm
       .select()

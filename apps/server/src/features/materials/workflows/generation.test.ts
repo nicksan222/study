@@ -20,8 +20,8 @@ import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Effect, Exit, Layer, Schema } from 'effect';
-import { Workflow, WorkflowEngine } from 'effect/workflow';
+import { Effect, Layer } from 'effect';
+import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { Materials } from '#server/features/materials/service/index';
@@ -38,7 +38,6 @@ import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
-import { workflowStore } from '#server/platform/workflows/store';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
 
@@ -139,7 +138,6 @@ testStable(
     let calls = 0;
     let tool = true;
     let output = '';
-    let invalidDiagram = false;
     let duringModel: (() => Promise<void>) | undefined;
     let duringCall: (() => Promise<void>) | undefined;
     let cancel: (() => Promise<void>) | undefined;
@@ -163,9 +161,6 @@ testStable(
         name: 'sources',
         arguments: '{"query":"alpha"}'
       };
-      const invalid = !tool && invalidDiagram;
-
-      if (invalid) invalidDiagram = false;
 
       const events = tool
         ? [
@@ -186,18 +181,12 @@ testStable(
             {
               type: 'response.output_text.delta',
               item_id: 'item',
-              delta: invalid
-                ? JSON.stringify({
-                    kind: 'diagram',
-                    format: 'mermaid',
-                    payload: 'flowchart TD\nA["broken [1]'
-                  })
-                : output
+              delta: output
             },
             { type: 'response.completed', response: {} }
           ];
 
-      tool = invalid;
+      tool = false;
 
       for (const event of events) res.write(`data: ${JSON.stringify(event)}\n\n`);
 
@@ -293,9 +282,9 @@ testStable(
         }).pipe(Effect.scoped, Effect.provide(services()))
       );
       const generate = async (
-        kind: 'flashcards' | 'quiz' | 'diagram',
+        kind: 'flashcards' | 'quiz',
         content: unknown,
-        failure?: 'publication' | 'validation',
+        failure?: 'publication',
         quizConfig?: (typeof materialGenerationInputSchema.Type)['quizConfig']
       ) => {
         await Effect.runPromise(
@@ -317,7 +306,6 @@ testStable(
 
         tool = true;
         output = JSON.stringify(content);
-        invalidDiagram = failure === 'publication';
         const execute = () =>
           Effect.runPromise(
             Effect.scoped(
@@ -341,44 +329,6 @@ testStable(
             context.db.orm.run(
               sql`CREATE TRIGGER fail_generation BEFORE UPDATE OF creator ON material_versions WHEN NEW.creator = 'agent' BEGIN SELECT RAISE(ABORT, 'unavailable'); END`
             );
-
-          if (failure === 'validation') {
-            const journal = workflowStore(context);
-            const payload = Schema.encodeSync(
-              Schema.toCodecJson(materialGenerationWorkflow.payloadSchema)
-            )({ event });
-            const result = Schema.encodeSync(
-              Schema.toCodecJson(
-                Workflow.Result({ success: Schema.Unknown, error: Schema.Unknown })
-              )
-            )(
-              new Workflow.Complete({
-                exit: Exit.fail({
-                  kind: 'internal',
-                  message: 'Diagram worker failed',
-                  retryAfterMs: null
-                })
-              })
-            );
-
-            journal.start(
-              event.requestId,
-              materialGenerationWorkflow._tag,
-              JSON.stringify(payload),
-              undefined
-            );
-            assert.ok(journal.claim(event.requestId, 'validation-checkpoint') === true);
-            journal.saveActivity(
-              event.requestId,
-              'validation-checkpoint',
-              'validate-material-1',
-              1,
-              JSON.stringify(result)
-            );
-            journal.release(event.requestId, 'validation-checkpoint');
-            context.close();
-            context = new ServerContext(location.open());
-          }
 
           let rejected: unknown;
 
@@ -409,7 +359,7 @@ testStable(
 
           assert.strictEqual(
             completedCalls - beforeCorrection,
-            failure === 'publication' ? 4 : 2,
+            2,
             JSON.stringify(rejected, (_key, value) =>
               value instanceof Error ? { message: value.message, cause: value.cause } : value
             )
@@ -418,7 +368,7 @@ testStable(
           if (failure === 'publication') context.db.orm.run(sql`DROP TRIGGER fail_generation`);
 
           context.db.orm.run(
-            sql`DELETE FROM workflow_activities WHERE execution_id = ${event.requestId} AND name = ${failure === 'publication' ? 'publish-material' : 'validate-material-1'}`
+            sql`DELETE FROM workflow_activities WHERE execution_id = ${event.requestId} AND name = 'publish-material'`
           );
           context.db.orm.run(
             sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = ${event.requestId}`
@@ -430,7 +380,7 @@ testStable(
           assert.strictEqual(
             calls,
             completedCalls,
-            'reopening must reuse both completed diagram attempts'
+            'reopening must reuse the completed generation'
           );
           const version = await Effect.runPromise(
             Effect.flatMap(Materials, (m) => m.materialVersion({ id: replayed })).pipe(
@@ -585,20 +535,6 @@ testStable(
         );
       }
 
-      await generate(
-        'diagram',
-        {
-          kind: 'diagram',
-          format: 'mermaid',
-          payload: 'flowchart TD\nA["alpha [1]"] --> B["beta"]'
-        },
-        'publication'
-      );
-      await generate(
-        'diagram',
-        { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA["alpha [1]"]' },
-        'validation'
-      );
       const completedBefore = context.db.orm
         .select()
         .from(s.material_generation_requests)
@@ -615,8 +551,7 @@ testStable(
               { kind: 'open', prompt: 'Explain', explanation: 'alpha', referenceAnswer: 'alpha' }
             ]
           }
-        ],
-        ['diagram', { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA["alpha"]' }]
+        ]
       ] as const) {
         await expect(generate(kind, content)).rejects.toSatisfy(() => true);
         assert.strictEqual(

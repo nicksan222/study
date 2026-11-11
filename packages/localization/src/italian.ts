@@ -223,9 +223,6 @@ export const italian = Object.freeze({
   AgentRulesFlashcards: 'Flashcard',
   AgentRulesFlashcardsHelp:
     'Guida la generazione delle flashcard. Ad esempio: verifica un solo concetto per scheda e mantieni le risposte concise.',
-  AgentRulesDiagrams: 'Diagrammi',
-  AgentRulesDiagramsHelp:
-    'Guida la generazione dei diagrammi. Ad esempio: raggruppa i concetti correlati e descrivi chiaramente i collegamenti.',
   AgentRulesGrading: 'Feedback e valutazione',
   AgentRulesGradingHelp:
     'Guida il feedback sulle risposte agli esercizi. Ad esempio: spiega i concetti mancanti e suggerisci cosa ripassare.',
@@ -1391,7 +1388,6 @@ export const italian = Object.freeze({
     'Impossibile richiedere la lettura. Aggiorna per verificare la revisione attuale prima di riprovare.',
   ReaderNoExtraction:
     'Il testo leggibile non è disponibile per questa versione. Puoi comunque provare a scaricare l’originale esatto.',
-  ReaderDiagramSource: 'Sorgente del diagramma (sola lettura)',
   ReaderCorrectAnswer: 'Risposta corretta',
   ReaderHistory: 'Cronologia delle versioni',
   ReaderImageUnavailable: 'I dati dell’immagine per questa revisione esatta non sono disponibili.',
@@ -1493,7 +1489,6 @@ export const italian = Object.freeze({
   Projects: 'Tutte le materie',
   Notes: 'Note',
   Flashcards: 'Flashcard',
-  Diagrams: 'Schemi',
   Practice: 'Esercitazioni',
   Settings: 'Impostazioni',
   Help: 'Aiuto',
@@ -1621,9 +1616,9 @@ export const italian = Object.freeze({
     'Appunti, registrazioni, slide e link, raccolti in una materia per ogni corso.',
   OnboardingAskTitle: 'Chiedi quando vuoi',
   OnboardingAskText:
-    "Scrivi @study per fare una domanda che cita i tuoi file. Le pagine di studio creano flashcard e schemi da un'intera materia.",
+    "Scrivi @study per fare una domanda che cita i tuoi file. Le pagine di studio creano flashcard e quiz da un'intera materia.",
   OnboardingReviewTitle: 'Ripassa ciò che conta',
-  OnboardingReviewText: 'Flashcard, schemi e domande di esercitazione dal tuo materiale.',
+  OnboardingReviewText: 'Flashcard e domande di esercitazione dal tuo materiale.',
   OnboardingLookTitle: 'Fallo tuo',
   OnboardingLookIntro: 'Scegli lingua e aspetto. Puoi cambiarli in seguito dalle Impostazioni.',
   OnboardingNotesTitle: 'Le note sono il tuo quaderno',
@@ -1734,7 +1729,7 @@ export const italian = Object.freeze({
   ProjectDetailDescription:
     'Tutto ciò che studi per questo corso: note, file e materiale di studio.',
   ProjectEmptyDescription:
-    'Avvia una nota per prendere appunti e aggiungere file, poi crea flashcard e schemi dalle loro pagine.',
+    'Avvia una nota per prendere appunti e aggiungere file, poi crea flashcard e quiz dalle loro pagine.',
   ProjectDetails: 'Dettagli della materia',
   ViewProjectFiles: 'Mostra file',
   ExamDay: "Giorno dell'esame",
@@ -1769,7 +1764,7 @@ export const italian = Object.freeze({
   ResizeSidebarHint: 'Trascina per ridimensionare; doppio clic per ripristinare',
   SidebarLibrary: 'Biblioteca',
   SidebarQuiz: 'Quiz',
-  SidebarLibraryEmpty: 'Non ci sono ancora fonti o diagrammi.',
+  SidebarLibraryEmpty: 'Non ci sono ancora fonti.',
   SidebarPracticeEmpty: 'Non ci sono ancora flashcard o quiz.',
   GoToProjects: 'Vai alle materie',
   NoteEmptyHint:
@@ -1871,8 +1866,6 @@ export const italian = Object.freeze({
   CorrectionError: 'Impossibile salvare la correzione. Riprova.',
   DetailPreview: 'Anteprima',
   FlashcardsDescription: 'Flashcard create dalle tue note, da ripassare quando scadono.',
-  DiagramsDescription:
-    'Come si collegano le idee delle tue note, disegnato come una mappa da esplorare.',
   LoadingStudy: 'Caricamento del materiale di studio…',
   StudyLoadError: 'Impossibile caricare il materiale di studio. Riprova.',
   ReviewDue: 'Ripasso',
@@ -1894,10 +1887,8 @@ export const italian = Object.freeze({
   PreviousCard: 'Flashcard precedente',
   NextCard: 'Flashcard successiva',
   KindFlashcards: 'Flashcard',
-  KindDiagram: 'Schema',
   WritingMaterial: 'Scrittura…',
   WritingFlashcards: 'Sto scrivendo le flashcard…',
-  DrawingDiagram: 'Sto disegnando lo schema…',
   WritingMaterialHint:
     'Study legge prima ogni passaggio di queste note, quindi per una lunga ci vuole un minuto o due. Puoi lasciare questa pagina: continua da solo, e lo trovi qui quando è pronto.',
   DeleteMaterial: 'Elimina',
@@ -1927,12 +1918,6 @@ export const italian = Object.freeze({
   RateGood: 'Bene',
   RateEasy: 'Facile',
   ReviewDone: 'Ripasso finito. Le flashcard tornano quando è il momento.',
-  DiagramZoomIn: 'Ingrandisci',
-  DiagramZoomOut: 'Riduci',
-  DiagramFit: 'Adatta alla vista',
-  DiagramActualSize: 'Dimensione reale',
-  DiagramHint:
-    'Trascina o usa le frecce per spostarti, Ctrl/Cmd + rotella o + e − per lo zoom, doppio clic o F per vederlo tutto.',
   FlashcardsHint: 'Fai clic sulla flashcard o premi Spazio per girarla; ← e → scorrono il mazzo.',
   FlashcardsShowAll: 'Girale tutte',
   FlashcardsHideAll: 'Coprile tutte',
@@ -2252,7 +2237,7 @@ export const italian = Object.freeze({
     'Le funzionalità locali vengono eseguite su questo computer. Le attività IA inviano al provider selezionato solo il materiale necessario.',
   SetupLlmTitle: 'Collega un provider IA',
   SetupLlmBody:
-    'Collega un account o inserisci una chiave API, poi scegli i modelli per diagrammi, flashcard e risposte.',
+    'Collega un account o inserisci una chiave API, poi scegli i modelli per flashcard, quiz e risposte.',
   SetupTranscriptionTitle: 'Scarica il modello di trascrizione',
   SetupTranscriptionBody:
     'Le registrazioni diventano testo su questo computer, senza mai lasciarlo. Il modello si scarica una volta sola.',
@@ -2293,8 +2278,7 @@ export const italian = Object.freeze({
   LlmTierMediumSubtitle:
     'Legge PDF e immagini, corregge le trascrizioni, risponde alle domande con @study, scrive il materiale di studio e le domande di esercitazione, e valuta le risposte.',
   LlmTierSmart: 'Attività impegnative',
-  LlmTierSmartSubtitle:
-    'Disegna gli schemi di note intere, dove la qualità conta più della velocità.',
+  LlmTierSmartSubtitle: 'Gestisce attività complesse, dove la qualità conta più della velocità.',
   LlmModelHint:
     'Ogni livello usa il proprio modello consigliato, a meno che tu non ne scelga un altro.',
   ModelGpt6Luna: 'GPT-6 Luna',
@@ -2394,13 +2378,13 @@ export const italian = Object.freeze({
     'Scrivi @study in un appunto per avere una risposta che cita i tuoi file. Ogni file allegato ha accanto un thread per appunti e domande solo su quel file.',
   HelpStudyTitle: 'Ripassa',
   HelpStudyBody:
-    "Per creare o aggiornare le flashcard o il diagramma di una materia, apri la sua pagina, o la materia, e premi Crea o Aggiorna. Ogni pagina elenca le materie e ciò che è stato creato del suo tipo da ciascuna. Aggiorna lo riscrive dalla materia com'è ora. Le flashcard tornano quando è il momento: la pagina Flashcard e la Home dicono quante ne hai da ripassare oggi. Modifica, aggiungi o elimina qualsiasi flashcard.",
+    "Per creare o aggiornare le flashcard o il quiz di una materia, apri la sua pagina, o la materia, e premi Crea o Aggiorna. Ogni pagina elenca le materie e ciò che è stato creato del suo tipo da ciascuna. Aggiorna lo riscrive dalla materia com'è ora. Le flashcard tornano quando è il momento: la pagina Flashcard e la Home dicono quante ne hai da ripassare oggi. Modifica, aggiungi o elimina qualsiasi flashcard.",
   HelpPracticeTitle: 'Esercitazioni',
   HelpPracticeBody:
     'Esercitazioni ti fa domande senza fine sui file e sugli appunti di una materia, una alla volta, e valuta le risposte scritte con parole tue, dicendo cosa mancava.',
   HelpKeysTitle: 'Tasti',
   HelpKeysBody:
-    'Ctrl/Cmd K cerca nella materia corrente, oppure ovunque da una pagina globale. Nel ripasso, Spazio mostra la risposta e da 1 a 4 la valuti. In Esercitazioni, i tasti numerici scelgono una risposta e Invio continua. In uno schema, le frecce lo spostano, + e − cambiano lo zoom e F lo adatta alla vista.',
+    'Ctrl/Cmd K cerca nella materia corrente, oppure ovunque da una pagina globale. Nel ripasso, Spazio mostra la risposta e da 1 a 4 la valuti. In Esercitazioni, i tasti numerici scelgono una risposta e Invio continua.',
   ReplayOnboarding: 'Rivedi il tour di benvenuto',
   AllProjects: 'Tutte le materie',
   RecordingDesktopOnly: 'La registrazione è disponibile nell’app desktop.',

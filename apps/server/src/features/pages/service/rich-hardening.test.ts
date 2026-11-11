@@ -87,7 +87,7 @@ testStable(
         Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
       )({
         title: 'Previously accepted empty table',
-        kind: 'diagram',
+        kind: 'flashcards',
         inputs: [{ kind: 'page', versionId: saved.version.id }]
       });
       // Model a durable request admitted by the earlier textual-content predicate. Guards stay on.

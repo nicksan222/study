@@ -24,17 +24,22 @@ function fixture(t: TestContext) {
   return db;
 }
 
-function draft(db: Db, id: bigint, kind = 'diagram', material = id) {
+function draft(db: Db, id: bigint, kind = 'flashcards', material = id) {
   db.orm.run(sql`INSERT INTO materials(id,kind,title,created_at,updated_at)
     VALUES(${material},${kind},'Material',1,1) ON CONFLICT(id) DO NOTHING`);
   db.orm.run(sql`INSERT INTO material_versions(id,material_id,kind,number,created_at)
     VALUES(${id},${material},${kind},${id},1)`);
 }
 
-function diagram(db: Db, id: bigint) {
+function flashcards(db: Db, id: bigint) {
   draft(db, id);
-  db.orm.run(sql`INSERT INTO material_diagram_versions(version_id,format,payload)
-    VALUES(${id},'mermaid','graph TD; A-->B')`);
+  db.orm.run(sql`INSERT INTO material_flashcard_versions(version_id,material_id)
+    SELECT id,material_id FROM material_versions WHERE id=${id}`);
+  db.orm.run(sql`INSERT INTO material_card_identities(id,material_id)
+    SELECT material_id,material_id FROM material_versions WHERE id=${id} ON CONFLICT(id) DO NOTHING`);
+  db.orm
+    .run(sql`INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back)
+    SELECT id,material_id,material_id,0,'graph TD; A-->B','Answer' FROM material_versions WHERE id=${id}`);
 }
 
 function authored(db: Db, id: bigint, publishNow = true) {
@@ -68,7 +73,7 @@ testStable(
   (t) => {
     const db = fixture(t);
 
-    diagram(db, 1n);
+    flashcards(db, 1n);
     db.exec('INSERT INTO note_materials(note_id,material_id,position) VALUES(1,1,0)');
     assert.throws(() =>
       db.exec("INSERT INTO materials(kind,title,created_at,updated_at) VALUES('mystery','No',1,1)")
@@ -81,7 +86,7 @@ testStable(
     );
     assert.throws(() =>
       db.exec(
-        "INSERT INTO material_versions(material_id,kind,number,created_at) VALUES(999,'diagram',2,1)"
+        "INSERT INTO material_versions(material_id,kind,number,created_at) VALUES(999,'flashcards',2,1)"
       )
     );
     assert.strictEqual(
@@ -103,16 +108,16 @@ testStable(
     draft(db, 1n);
     assert.throws(() => publish(db, 1n));
     db.exec(
-      "INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','graph TD; A-->B')"
+      "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; A-->B','Answer' FROM material_versions WHERE id=1"
     );
     publish(db, 1n);
     assert.throws(() =>
-      db.exec("UPDATE material_diagram_versions SET payload='changed' WHERE version_id=1")
+      db.exec("UPDATE material_flashcard_entries SET front='changed' WHERE version_id=1")
     );
-    assert.throws(() => db.exec('DELETE FROM material_diagram_versions WHERE version_id=1'));
+    assert.throws(() => db.exec('DELETE FROM material_flashcard_entries WHERE version_id=1'));
     assert.throws(() =>
       db.exec(
-        "INSERT OR REPLACE INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','changed')"
+        "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT OR REPLACE INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'changed','Answer' FROM material_versions WHERE id=1"
       )
     );
     assert.throws(() =>
@@ -120,14 +125,14 @@ testStable(
     );
     assert.throws(() =>
       db.exec(
-        "INSERT OR REPLACE INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1)"
+        "INSERT OR REPLACE INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'flashcards',1,1)"
       )
     );
     assert.throws(() => db.exec("UPDATE materials SET kind='file' WHERE id=1"));
     assert.throws(() => db.exec('DELETE FROM material_versions WHERE id=1'));
     assert.throws(() =>
       db.exec(
-        "INSERT INTO material_versions(material_id,kind,number,status,created_at,published_at) VALUES(1,'diagram',2,'published',1,2)"
+        "INSERT INTO material_versions(material_id,kind,number,status,created_at,published_at) VALUES(1,'flashcards',2,'published',1,2)"
       )
     );
   }
@@ -138,9 +143,9 @@ testStable(
   (t) => {
     const db = fixture(t);
 
-    diagram(db, 1n);
+    flashcards(db, 1n);
     publish(db, 1n);
-    diagram(db, 3n);
+    flashcards(db, 3n);
     authored(db, 1n);
     authored(db, 2n);
     db.exec(
@@ -181,16 +186,16 @@ testStable(
   (t) => {
     const db = fixture(t);
 
-    diagram(db, 1n);
+    flashcards(db, 1n);
     publish(db, 1n);
-    draft(db, 2n, 'diagram', 1n);
+    draft(db, 2n, 'flashcards', 1n);
     db.exec(
-      "INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(2,'mermaid','graph TD; A-->C')"
+      "INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (2) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'graph TD; A-->C','Answer' FROM material_versions WHERE id=2"
     );
     db.exec(
       'INSERT INTO material_version_parents(version_id,parent_version_id,material_id) VALUES(2,1,1)'
     );
-    diagram(db, 3n);
+    flashcards(db, 3n);
     publish(db, 3n);
     assert.throws(() =>
       db.exec(
@@ -198,13 +203,13 @@ testStable(
       )
     );
     publish(db, 2n);
-    draft(db, 4n, 'diagram', 1n);
+    draft(db, 4n, 'flashcards', 1n);
     db.exec(
       'INSERT INTO material_version_parents(version_id,parent_version_id,material_id) VALUES(4,1,1),(4,2,1)'
     );
     assert.strictEqual(
       db.orm.get<{ payload: string }>(
-        sql`SELECT payload FROM material_diagram_versions WHERE version_id=1`
+        sql`SELECT front AS payload FROM material_flashcard_entries WHERE version_id=1`
       )?.payload,
       'graph TD; A-->B'
     );
@@ -258,7 +263,7 @@ testStable(
 
     original(db);
     authored(db, 1n);
-    diagram(db, 1n);
+    flashcards(db, 1n);
     publish(db, 1n);
     db.exec(`INSERT INTO project_pages(project_id,page_id) VALUES(1,1);
  INSERT INTO note_sources(note_id,source_id,position) VALUES(1,1,0);
@@ -310,7 +315,7 @@ testStable(
     const db = fixture(t);
 
     original(db);
-    diagram(db, 1n);
+    flashcards(db, 1n);
     db.exec(`INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,2,1,'{}',1);
  INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(2,1,1);
  INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,2,1,1);
@@ -360,7 +365,7 @@ testStable(
     const db = fixture(t);
 
     original(db);
-    diagram(db, 1n);
+    flashcards(db, 1n);
     db.exec(`INSERT INTO content_snapshots(id,source_id,extractor_version,meta,created_at) VALUES(1,1,1,'{}',1);
  INSERT INTO source_extraction_revisions(source_id,revision,snapshot_id) VALUES(1,1,1);
  INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,1,1,1);
@@ -378,7 +383,7 @@ testStable(
     for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
       assert.throws(() => draft(db, 1n, kind));
 
-    diagram(db, 1n);
+    flashcards(db, 1n);
     assert.throws(() =>
       db.exec(
         'INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,999,1,999)'
@@ -391,7 +396,7 @@ testStable('material citations enforce positive unsigned 32 bit markers', (t) =>
   const db = fixture(t);
 
   authored(db, 1n);
-  diagram(db, 2n);
+  flashcards(db, 2n);
   db.exec(
     'INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1)'
   );
@@ -415,7 +420,7 @@ testStable('fresh canonical migrations preserve all published citation mutation 
   const db = fixture(t);
 
   authored(db, 1n);
-  diagram(db, 2n);
+  flashcards(db, 2n);
   db.exec(`
     INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1);
     INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote)

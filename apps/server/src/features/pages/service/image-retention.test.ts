@@ -80,9 +80,8 @@ testStable(
 
           assert.ok(image.version);
           const content = {
-            kind: 'diagram' as const,
-            format: 'mermaid' as const,
-            payload: 'flowchart LR; A-->B'
+            kind: 'flashcards' as const,
+            cards: [{ front: 'A', back: 'B' }]
           };
           const learning = yield* materials.create({
             projectId: project.id,

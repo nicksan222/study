@@ -24,7 +24,7 @@ citations, and turns them into flashcards and practice.
   YouTube videos, organized by course.
 - **Answers you can check.** Ask anything about your material. Every answer cites the page,
   or the exact moment in the recording.
-- **Study material, made for you.** Notes, diagrams, flashcards on a spaced-repetition
+- **Study material, made for you.** Notes, flashcards on a spaced-repetition
   schedule, and quizzes that grade your answers.
 - **Yours, on your computer.** Your library lives in one local database. Transcription and
   search run on your machine.

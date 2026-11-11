@@ -112,7 +112,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
           (yield* Effect.flip(
             materials.publishMaterialGeneration({
               ...value,
-              content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
+              content: { kind: 'quiz', questions: [] }
             })
           )).kind === 'invalid_input'
         );
@@ -414,7 +414,7 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         );
 
         for (const content of [
-          { kind: 'diagram' as const, format: 'mermaid' as const, payload: 'graph TD; A-->B' },
+          { kind: 'flashcards' as const, cards: [{ front: 'graph TD; A-->B', back: 'Answer' }] },
           {
             kind: 'quiz' as const,
             questions: [

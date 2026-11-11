@@ -44,9 +44,8 @@ import { assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 
 const content = (text: string) => ({
-  kind: 'diagram' as const,
-  format: 'mermaid' as const,
-  payload: `flowchart TD\nA[${text}]`
+  kind: 'flashcards' as const,
+  cards: [{ front: text, back: 'Answer' }]
 });
 
 testStable(
@@ -273,7 +272,7 @@ for (const doubleFailure of [false, true])
 
         f.context.db.orm.run(
           sql.raw(
-            `CREATE TRIGGER reject_material_scrub BEFORE DELETE ON material_diagram_versions BEGIN SELECT RAISE(ABORT,'injected'); END`
+            `CREATE TRIGGER reject_material_scrub BEFORE DELETE ON material_flashcard_versions BEGIN SELECT RAISE(ABORT,'injected'); END`
           )
         );
 

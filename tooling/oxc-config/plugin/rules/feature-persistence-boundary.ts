@@ -81,7 +81,6 @@ const groups: Record<string, string[]> = {
     'material_evidence_inputs',
     'material_evidence_citations',
     'material_generation_scopes',
-    'material_diagram_versions',
     'material_quiz_versions',
     'material_quiz_questions',
     'material_quiz_choices',

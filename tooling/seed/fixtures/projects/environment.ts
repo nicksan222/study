@@ -6,7 +6,6 @@ import {
   createPage,
   createFlashcards,
   createQuiz,
-  createDiagram,
   createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
@@ -103,11 +102,6 @@ export function createEnvironment(seed: SeedHarness) {
       'State the reservoir boundary and the time interval.'
     )
   ]);
-  const overview = createDiagram(
-    project,
-    'Environmental Science — overview',
-    'flowchart LR\nAtmosphere -->|Photosynthesis| Biomass\nBiomass -->|Respiration| Atmosphere\nBiomass --> Soil\nSoil -->|Decomposition| Atmosphere'
-  );
 
   createNote(project, {
     title: 'Carbon reservoirs',
@@ -146,7 +140,7 @@ export function createEnvironment(seed: SeedHarness) {
     ],
     sources: [energyBudget],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Food webs',
@@ -185,7 +179,7 @@ export function createEnvironment(seed: SeedHarness) {
     ],
     sources: [energyBudget],
     pages: [workbook],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Water cycle',
@@ -224,7 +218,7 @@ export function createEnvironment(seed: SeedHarness) {
     ],
     sources: [energyBudget],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Systems synthesis',

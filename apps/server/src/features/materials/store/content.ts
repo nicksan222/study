@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Persists canonical diagram, quiz and flashcard bodies for learning versions.       │
+ * │ @file Persists canonical quiz and flashcard bodies for learning versions.                │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Persists canonical diagram, quiz and flashcard bodies for learning versions.           │
+ * │ - Persists canonical quiz and flashcard bodies for learning versions.                    │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Private synchronous persistence stays inside its feature; callers own transaction scope. │
@@ -30,9 +30,6 @@ export function makeContent({ db: store }: StoreResources) {
     content: MaterialContentInput
   ) {
     switch (content.kind) {
-      case 'diagram':
-        insertDiagram(version, content);
-        break;
       case 'quiz':
         insertQuiz(version, content);
         break;
@@ -40,22 +37,6 @@ export function makeContent({ db: store }: StoreResources) {
         insertFlashcards(version, content);
         break;
     }
-  }
-
-  function insertDiagram(
-    version: typeof s.material_versions.$inferSelect,
-    c: Extract<MaterialContentInput, { kind: 'diagram' }>
-  ) {
-    const db = store.orm,
-      id = version.id;
-
-    db.insert(s.material_diagram_versions)
-      .values({
-        version_id: id,
-        format: c.format,
-        payload: c.payload
-      })
-      .run();
   }
 
   /** Allocate independent matching identities when persisting canonical question definitions. */
@@ -217,11 +198,7 @@ export function makeContent({ db: store }: StoreResources) {
       .where(eq(s.material_flashcard_entries.version_id, id))
       .run();
 
-    for (const table of [
-      s.material_diagram_versions,
-      s.material_quiz_versions,
-      s.material_flashcard_versions
-    ])
+    for (const table of [s.material_quiz_versions, s.material_flashcard_versions])
       db.delete(table).where(eq(table.version_id, id)).run();
   }
 
