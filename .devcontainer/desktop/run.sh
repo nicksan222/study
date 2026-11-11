@@ -57,4 +57,4 @@ fi
 # lock until Cargo exits; the app and its children must not inherit the descriptor.
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export GDK_BACKEND=wayland
-npm run desktop:dev 7>&-
+bun run desktop:dev 7>&-

@@ -1,17 +1,17 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { versionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { eq, sql } from 'drizzle-orm';
-import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
-import { Schema } from 'effect';
+import { Effect, FileSystem, Path, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 import type { TestContext } from 'vite-plus/test';
 
 import { Db } from '../src/index.ts';
 import * as schema from '../src/schema.ts';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+
+const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => boolean) {
   try {
@@ -25,19 +25,19 @@ function assertThrowsMatching(run: () => unknown, matches: (error: unknown) => b
   assert.fail('Expected function to throw');
 }
 
-function newDb(t: TestContext) {
-  const folder = mkdtempSync(join(tmpdir(), 'study-constraints-'));
-  const connection = Db.open(join(folder, 'study.db'));
+async function newDb(t: TestContext) {
+  const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-constraints-' }));
+  const connection = await Db.open(join(folder, 'study.db'));
 
-  t.onTestFinished(() => {
+  t.onTestFinished(async () => {
     connection.close();
-    rmSync(folder, { recursive: true, force: true });
+    await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
   });
 
   return seed(connection.orm);
 }
 
-function seed(db: NodeSQLiteDatabase) {
+function seed(db: Db['orm']) {
   db.insert(schema.projects)
     .values({ name: 'P', created_at: 1n, updated_at: 1n })
     .returning()
@@ -95,13 +95,13 @@ function checkViolation(error: unknown): boolean {
   return (
     error instanceof Error &&
     error.cause instanceof Error &&
-    'errcode' in error.cause &&
-    error.cause.errcode === 275
+    'errno' in error.cause &&
+    error.cause.errno === 275
   );
 }
 
-testStable('message instructions are nullable but otherwise nonblank and bounded', (t) => {
-  const { db, version } = newDb(t);
+testStable('message instructions are nullable but otherwise nonblank and bounded', async (t) => {
+  const { db, version } = await newDb(t);
 
   assert.strictEqual(version.instruction, null);
 
@@ -123,8 +123,8 @@ testStable('message instructions are nullable but otherwise nonblank and bounded
   assert.strictEqual(db.select().from(schema.message_versions).get()?.instruction?.length, 100000);
 });
 
-testStable('message citations enforce unsigned 32 bit positive markers', (t) => {
-  const { db, version } = newDb(t);
+testStable('message citations enforce unsigned 32 bit positive markers', async (t) => {
+  const { db, version } = await newDb(t);
   const citation = { source_name: 'N', anchor: '{}', quote: 'Quote' };
 
   for (const marker of [0n, -1n, 4294967296n]) {
@@ -149,12 +149,14 @@ testStable('message citations enforce unsigned 32 bit positive markers', (t) => 
 
 testStable(
   'fresh baseline preserves populated references and message search triggers across reopen',
-  (t) => {
-    const folder = mkdtempSync(join(tmpdir(), 'study-constraint-migration-'));
+  async (t) => {
+    const folder = await Effect.runPromise(
+      fs.makeTempDirectory({ prefix: 'study-constraint-migration-' })
+    );
     const path = join(folder, 'study.db');
 
-    t.onTestFinished(() => rmSync(folder, { recursive: true, force: true }));
-    const first = Db.open(path);
+    t.onTestFinished(() => Effect.runPromise(fs.remove(folder, { recursive: true, force: true })));
+    const first = await Db.open(path);
     const original = first.orm;
 
     const { message, version } = seed(original);
@@ -170,7 +172,7 @@ testStable(
       .run();
     first.close();
 
-    const connection = Db.open(path);
+    const connection = await Db.open(path);
 
     t.onTestFinished(() => connection.close());
     const db = connection.orm;
@@ -231,12 +233,16 @@ for (const table of ['message_versions'] as const)
   for (const keepLowerRow of [false, true])
     testStable(
       `fresh baseline preserves deleted ${table} identities across reopen with ${keepLowerRow ? 'surviving rows' : 'an empty table'}`,
-      (t) => {
-        const folder = mkdtempSync(join(tmpdir(), 'study-migration-sequences-'));
+      async (t) => {
+        const folder = await Effect.runPromise(
+          fs.makeTempDirectory({ prefix: 'study-migration-sequences-' })
+        );
         const path = join(folder, 'study.db');
 
-        t.onTestFinished(() => rmSync(folder, { recursive: true, force: true }));
-        const first = Db.open(path);
+        t.onTestFinished(() =>
+          Effect.runPromise(fs.remove(folder, { recursive: true, force: true }))
+        );
+        const first = await Db.open(path);
         const original = first.orm;
 
         const { message } = seed(original);
@@ -244,7 +250,7 @@ for (const table of ['message_versions'] as const)
 
         original.delete(schema.message_versions).run();
         const highest = 9007199254740993n;
-        const insert = (db: NodeSQLiteDatabase, ordinal: bigint, id?: bigint) => {
+        const insert = (db: Db['orm'], ordinal: bigint, id?: bigint) => {
           return db
             .insert(schema.message_versions)
             .values({
@@ -274,7 +280,7 @@ for (const table of ['message_versions'] as const)
             .run();
 
         first.close();
-        const connection = Db.open(path);
+        const connection = await Db.open(path);
 
         t.onTestFinished(() => connection.close());
         assert.strictEqual(

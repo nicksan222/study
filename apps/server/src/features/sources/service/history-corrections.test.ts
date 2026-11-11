@@ -170,7 +170,7 @@ testStable(
           ).toStrictEqual(bytes);
         }).pipe(Effect.provide(f.domain()))
       );
-      f.reopen();
+      await f.reopen();
 
       for (const event of correctionEvents) {
         assert.ok(event.type === 'SourceCorrectionRequested');

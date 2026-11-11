@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { NotesRpc } from '@study/contracts/notes/rpc';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -39,8 +37,8 @@ import { withTestPublication } from '#testing/publication';
 testStable(
   'Ask fences stale windows, replays full intent once, rolls back outbox failure and reopens exact versions',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const handlers = () =>
       NotesRpcLive.pipe(
         Layer.provideMerge(Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer, Sources.layer)),
@@ -60,7 +58,7 @@ testStable(
               title: 'Exact input',
               noteId: note.id,
               document: deletionDocument('Selected evidence'),
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: []
             });
@@ -324,7 +322,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -363,7 +361,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -440,7 +438,7 @@ for (const mode of ['history', 'material', 'note'] as const) {
             const material = yield* documents.create({
               title: 'Cleanup',
               document: deletionDocument('Private captured input'),
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: []
             });
@@ -493,7 +491,7 @@ for (const mode of ['history', 'material', 'note'] as const) {
               yield* documents.save({
                 pageId: material.id,
                 expectedVersionId: material.version!.id,
-                key: randomUUID(),
+                key: crypto.randomUUID(),
                 document: deletionDocument('New head')
               });
 

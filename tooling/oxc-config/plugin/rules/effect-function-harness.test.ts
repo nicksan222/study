@@ -7,10 +7,10 @@ const message =
 
 testStable(
   'feature generator functions use the native function harness without extra wrappers',
-  () => {
+  async () => {
     assertDiagnostics(
       'effect-function-harness',
-      lintRule('effect-function-harness', {
+      await lintRule('effect-function-harness', {
         'src/features/notes/service/bad.ts':
           "import {Effect as E} from 'effect'; export const run = (value: string) => E.gen(function* () { yield* task; return value; });",
         'src/features/notes/service/good.ts':

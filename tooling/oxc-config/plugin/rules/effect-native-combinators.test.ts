@@ -4,10 +4,10 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 
 const message = 'Use Effect.flatten instead of an identity flatMap callback.';
 
-testStable('prefers native flatten for pure identity callbacks', () => {
+testStable('prefers native flatten for pure identity callbacks', async () => {
   assertDiagnostics(
     'effect-native-combinators',
-    lintRule('effect-native-combinators', {
+    await lintRule('effect-native-combinators', {
       'src/bad.ts':
         "import {Effect as E} from 'effect'; E.flatMap(x => x); E.flatMap(task, function(x) { return x; }); const identity = x => x; E.flatMap(identity);",
       'src/good.ts':
@@ -21,10 +21,10 @@ testStable('prefers native flatten for pure identity callbacks', () => {
   );
 });
 
-testStable('keeps callback shadowing and return bindings distinct', () => {
+testStable('keeps callback shadowing and return bindings distinct', async () => {
   assertDiagnostics(
     'effect-native-combinators',
-    lintRule('effect-native-combinators', {
+    await lintRule('effect-native-combinators', {
       'src/good.ts':
         "import {flatMap} from 'effect/Effect'; const outside = task; flatMap(x => outside); flatMap(function x(value) { return x; });"
     }),
@@ -32,12 +32,12 @@ testStable('keeps callback shadowing and return bindings distinct', () => {
   );
 });
 
-testStable('uses asVoid for pure output discard without removing callback work', () => {
+testStable('uses asVoid for pure output discard without removing callback work', async () => {
   const discard = 'Use Effect.asVoid instead of a no-op output mapping.';
 
   assertDiagnostics(
     'effect-native-combinators',
-    lintRule('effect-native-combinators', {
+    await lintRule('effect-native-combinators', {
       'src/bad.ts':
         "import {Effect as E} from 'effect'; E.map(task, () => undefined); E.map(() => {}); E.map(function(value) { return; }); E.as(undefined); E.as(task, undefined);",
       'src/good.ts':

@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { isDeepStrictEqual } from 'node:util';
-
 import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import { resolvedContentInputSchema } from '@study/contracts/inputs';
@@ -85,7 +83,7 @@ export function assertContentCitation(
   const { document } = readContentInput(tx, citation.input, undefined, allowArchived);
   const block = document.blocks.find(
     (block) =>
-      isDeepStrictEqual(block.anchor, citation.anchor) &&
+      Bun.deepEquals(block.anchor, citation.anchor, true) &&
       (citation.target === undefined || block.id === citation.target.blockId) &&
       block.text.includes(citation.quote)
   );

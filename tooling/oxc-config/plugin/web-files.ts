@@ -1,4 +1,7 @@
-import { dirname, relative, resolve } from 'node:path';
+import { BunPath } from '@effect/platform-bun';
+import { Effect, Path } from 'effect';
+
+const { dirname, relative, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 export function webFile(filename: string): string | undefined {
   const path = filename.replaceAll('\\', '/');

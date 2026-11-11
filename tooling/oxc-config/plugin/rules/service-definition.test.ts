@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('service factories use the domain identity in service and index entries', () => {
-  const diagnostics = lintRule('service-definition', {
+testStable('service factories use the domain identity in service and index entries', async () => {
+  const diagnostics = await lintRule('service-definition', {
     'src/features/projects/service/index.ts':
       "import { defineService as define } from '#server/platform/definitions/define-service'; export const Projects = define('study/Projects', make);",
     'src/features/reading-list/index.ts':
@@ -25,20 +25,23 @@ testStable('service factories use the domain identity in service and index entri
   ]);
 });
 
-testStable('service identity checks follow aliases without accepting shadowed factories', () => {
-  const diagnostics = lintRule('service-definition', {
-    'src/features/auth/service/index.ts':
-      "import { defineService as factory } from '#server/platform/definitions/define-service'; const alias = factory; const service = alias('study/Auth', make); export { service as Auth };",
-    'src/features/jobs/service/index.ts':
-      "import { defineService } from '#server/platform/definitions/define-service'; function build(defineService) { return defineService('study/Jobs', make); } export const Jobs = build(custom);"
-  });
+testStable(
+  'service identity checks follow aliases without accepting shadowed factories',
+  async () => {
+    const diagnostics = await lintRule('service-definition', {
+      'src/features/auth/service/index.ts':
+        "import { defineService as factory } from '#server/platform/definitions/define-service'; const alias = factory; const service = alias('study/Auth', make); export { service as Auth };",
+      'src/features/jobs/service/index.ts':
+        "import { defineService } from '#server/platform/definitions/define-service'; function build(defineService) { return defineService('study/Jobs', make); } export const Jobs = build(custom);"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.match(diagnostics[0].filename, /jobs\/service\/index.ts/);
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.match(diagnostics[0].filename, /jobs\/service\/index.ts/);
+  }
+);
 
-testStable('feature service uses canonical platform factory and identity', () => {
-  const diagnostics = lintRule('service-definition', {
+testStable('feature service uses canonical platform factory and identity', async () => {
+  const diagnostics = await lintRule('service-definition', {
     'src/features/source/service/index.ts':
       "import { defineService as factory } from '#server/platform/definitions/define-service'; export const SourceService = factory('study/Wrong', make);",
     'src/features/project/service/index.ts':

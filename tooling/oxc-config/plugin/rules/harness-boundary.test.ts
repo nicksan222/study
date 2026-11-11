@@ -5,8 +5,8 @@ import { lintRule } from '../test/utils.ts';
 
 testStable(
   'production code cannot import test resources and tests acquire apps through the owned harness',
-  () => {
-    const diagnostics = lintRule('harness-boundary', {
+  async () => {
+    const diagnostics = await lintRule('harness-boundary', {
       'src/domains/projects/service.ts':
         "import { fixture } from '#testing/fixtures'; export { fixture };",
       'src/procedures/projects/procedure.test.ts':
@@ -26,8 +26,8 @@ testStable(
 
 testStable(
   'resource ownership survives namespaces and constant aliases with lexical shadowing',
-  () => {
-    const diagnostics = lintRule('harness-boundary', {
+  async () => {
+    const diagnostics = await lintRule('harness-boundary', {
       'src/domains/projects/store.test.ts':
         "import * as db from '@study/db'; const Alias=db.Db; Alias.open(':memory:'); db.Db.open(':memory:'); function f(Alias) { Alias.open(); }",
       'src/domains/jobs/runner.test.ts':
@@ -38,8 +38,8 @@ testStable(
   }
 );
 
-testStable('relative namespace imports cannot open applications outside the harness', () => {
-  const diagnostics = lintRule('harness-boundary', {
+testStable('relative namespace imports cannot open applications outside the harness', async () => {
+  const diagnostics = await lintRule('harness-boundary', {
     'src/domains/projects/store.test.ts':
       "import {App} from '../../runtime/service'; App.open({});",
     'src/domains/sources/store.test.ts':

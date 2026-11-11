@@ -3,8 +3,8 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('retired-module-boundary rejects forbidden edges', () => {
-  const diagnostics = lintRule('retired-module-boundary', {
+testStable('retired-module-boundary rejects forbidden edges', async () => {
+  const diagnostics = await lintRule('retired-module-boundary', {
     'src/runtime/main.ts': "import type { Agent } from '@study/ai';"
   });
 
@@ -13,8 +13,8 @@ testStable('retired-module-boundary rejects forbidden edges', () => {
 
 testStable(
   'rejects retired package imports in all module forms without matching shadowed require',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'retired-module-boundary',
       {
         'apps/server/src/runtime/a.ts':
@@ -29,8 +29,8 @@ testStable(
   }
 );
 
-testStable('production imports cannot use retired transport or server trees', () => {
-  const diagnostics = lintRule('retired-module-boundary', {
+testStable('production imports cannot use retired transport or server trees', async () => {
+  const diagnostics = await lintRule('retired-module-boundary', {
     'src/features/source/source.rpc.ts':
       "import '@trpc/server'; import('superjson'); import '#server/domains/jobs/service'; import '#server/procedures/a'; import '#server/application/a'; import '#server/ai/a'; import '#server/workflows/a';",
     'src/features/source/source.rpc.test.ts': "import '#server/domains/jobs/service';"
@@ -39,8 +39,8 @@ testStable('production imports cannot use retired transport or server trees', ()
   assert.strictEqual(diagnostics.length, 8, JSON.stringify(diagnostics));
 });
 
-testStable('retired transports are rejected in test files too', () => {
-  const diagnostics = lintRule('retired-module-boundary', {
+testStable('retired transports are rejected in test files too', async () => {
+  const diagnostics = await lintRule('retired-module-boundary', {
     'src/features/source/source.test.ts':
       "import type { Client } from '@trpc/client'; const load = require; load('superjson'); function f(require: any) { require('superjson'); }"
   });
@@ -50,8 +50,8 @@ testStable('retired transports are rejected in test files too', () => {
 
 testStable(
   'native contracts cannot depend on retired procedure contracts through package or relative edges',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'retired-module-boundary',
       {
         'packages/contracts/src/materials/rpc.ts':
@@ -64,8 +64,8 @@ testStable(
   }
 );
 
-testStable('retired contracts and implementation paths are rejected even from tests', () => {
-  const diagnostics = lintRule('retired-module-boundary', {
+testStable('retired contracts and implementation paths are rejected even from tests', async () => {
+  const diagnostics = await lintRule('retired-module-boundary', {
     'src/features/notes/replay.test.ts':
       "import '@study/contracts/jobs'; import '@study/contracts/material/schemas'; import '@study/contracts/practice/schemas'; import '@study/contracts/study'; import '@study/contracts/ingestion/schemas'; import '#server/domains/jobs/index';",
     'src/domains/abandoned.test.ts': 'export const abandoned = true;'
@@ -74,20 +74,23 @@ testStable('retired contracts and implementation paths are rejected even from te
   assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
 });
 
-testStable('retired runtime adapters cannot return as imports or unreferenced source files', () => {
-  const diagnostics = lintRule('retired-module-boundary', {
-    'src/features/a/service.ts':
-      "import '#server/runtime/request'; import '#server/runtime/router'; import '#server/runtime/procedure-context';",
-    'src/runtime/request.ts': 'export const runOperation = () => {};'
-  });
+testStable(
+  'retired runtime adapters cannot return as imports or unreferenced source files',
+  async () => {
+    const diagnostics = await lintRule('retired-module-boundary', {
+      'src/features/a/service.ts':
+        "import '#server/runtime/request'; import '#server/runtime/router'; import '#server/runtime/procedure-context';",
+      'src/runtime/request.ts': 'export const runOperation = () => {};'
+    });
 
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);
 
 testStable(
   'rejects retired Notes and Pages import paths across packages and relative edges',
-  () => {
-    const diagnostics = lintRule('retired-module-boundary', {
+  async () => {
+    const diagnostics = await lintRule('retired-module-boundary', {
       'src/features/notes/example.ts': `
       import '@study/contracts/conversations/schemas';
       export * from '@study/contracts/documents';
@@ -96,7 +99,7 @@ testStable(
     `,
       'src/features/pages/example.ts': `import '../../../web/src/features/authored-documents';`
     });
-    const web = lintRule(
+    const web = await lintRule(
       'retired-module-boundary',
       {
         'apps/web/src/app/example.ts': `
@@ -114,8 +117,8 @@ testStable(
   }
 );
 
-testStable('rejects retired domain files even without importers', () => {
-  const diagnostics = lintRule(
+testStable('rejects retired domain files even without importers', async () => {
+  const diagnostics = await lintRule(
     'retired-module-boundary',
     {
       'apps/server/src/features/conversations/orphan.ts': 'export const orphan = true;',
@@ -130,8 +133,8 @@ testStable('rejects retired domain files even without importers', () => {
 
 testStable(
   'keeps canonical source content, document presentation and OAuth session modules',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'retired-module-boundary',
       {
         'apps/server/src/features/notes/example.ts': `

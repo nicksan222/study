@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { isRetryable } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
 import { Effect, Schedule } from 'effect';
@@ -24,7 +22,7 @@ import { recordSearchReconciliationRetry } from '#server/platform/observability/
 export function makeReconciliationLoop<A, R>(
   execute: (runId: string) => Effect.Effect<A, Failure, R>
 ) {
-  const tick = Effect.suspend(() => execute(randomUUID())).pipe(
+  const tick = Effect.suspend(() => execute(crypto.randomUUID())).pipe(
     Effect.asVoid,
     Effect.catch((failure) =>
       isRetryable(failure.kind)

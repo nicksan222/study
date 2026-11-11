@@ -10,11 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
+import { CryptoHasher } from 'bun';
 
 /** Fingerprints logical impact rows without losing bigint identity precision. */
 export function impactToken(value: unknown) {
-  return createHash('sha256')
+  return new CryptoHasher('sha256')
     .update(JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? String(item) : item)))
     .digest('hex');
 }

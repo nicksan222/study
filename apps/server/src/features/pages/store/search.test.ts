@@ -23,8 +23,8 @@ import { deletionDocument } from '#testing/material-deletion';
 import { makePageSearchProjections } from './search.ts';
 
 testStable('authored projections use only the visible published document head', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     await Effect.runPromise(
@@ -73,6 +73,6 @@ testStable('authored projections use only the visible published document head', 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

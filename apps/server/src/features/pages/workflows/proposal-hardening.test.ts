@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { PageVersionId } from '@study/contracts/ids';
 import type { runSelectionContextSchema } from '@study/contracts/notes/context';
 import { createBlock } from '@study/contracts/sources/document';
@@ -224,7 +222,7 @@ testStable(
 
           const a = yield* materials.create({
             noteId: note.id,
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'A',
@@ -235,7 +233,7 @@ testStable(
 
           const b = yield* materials.create({
             noteId: note.id,
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'B',
@@ -246,7 +244,7 @@ testStable(
 
           const support = yield* materials.create({
             noteId: note.id,
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'Range',
@@ -461,7 +459,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
             const chats = yield* Notes;
 
             const target = yield* (yield* Pages).create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               title: 'Target',
@@ -575,7 +573,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
 
         assert.strictEqual(f.bodies.length, 2);
 
-        f.reopen();
+        await f.reopen();
 
         await expect(
           f.executeAuthored(f.authoredEvent(setup.request.id), `target-fence-reopen-${barrier}`)

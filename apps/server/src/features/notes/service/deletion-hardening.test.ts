@@ -84,7 +84,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
 
-      fixture.reopen();
+      await fixture.reopen();
 
       await Effect.runPromise(
         Effect.gen(function* () {
@@ -290,7 +290,7 @@ for (const state of ['running', 'suspended'] as const) {
 
         assertScrubbed(fixture, marker);
 
-        fixture.reopen();
+        await fixture.reopen();
 
         assertScrubbed(fixture, marker);
       } finally {

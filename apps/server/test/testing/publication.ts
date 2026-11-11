@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { failureSchema } from '@study/contracts/errors';
 import type { StudyError } from '@study/contracts/errors';
 import { Effect, Schema } from 'effect';
@@ -30,7 +28,7 @@ export function withTestPublication(
 ) {
   return Effect.scoped(
     Effect.gen(function* () {
-      const id = randomUUID();
+      const id = crypto.randomUUID();
       const workflow = Workflow.make('service-test-publication', {
         payload: { id: Schema.String },
         error: failureSchema,

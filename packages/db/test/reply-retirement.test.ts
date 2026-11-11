@@ -6,9 +6,9 @@ import { createTestDatabase } from '../src/testing.ts';
 
 testStable(
   'raw reply retirement fences publication and capture resurrection independently of learning cleanup',
-  () => {
-    const location = createTestDatabase();
-    const db = location.open();
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
 
     try {
       db.exec(`INSERT INTO notes(id,title,title_source,created_at,updated_at) VALUES(1,'Note','user',1,1);
@@ -59,7 +59,7 @@ testStable(
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

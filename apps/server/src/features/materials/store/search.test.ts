@@ -20,9 +20,9 @@ import { makeMaterialSearchProjections } from './search.ts';
 
 testStable(
   'material projections include published payloads and choices while excluding hidden quiz answers',
-  () => {
-    const location = createTestDatabase();
-    const db = location.open();
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
 
     try {
       db.orm.run(
@@ -107,7 +107,7 @@ testStable(
       ).toStrictEqual(['material', 'material']);
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

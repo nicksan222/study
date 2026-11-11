@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { apiKeyInputSchema } from '@study/contracts/settings/schemas';
 import { Effect, Exit, Option, Scope, Schema } from 'effect';
@@ -309,7 +307,7 @@ function* makeAuth() {
                   throw cancelled();
                 }
 
-                const id = randomUUID();
+                const id = crypto.randomUUID();
 
                 active = { id, signin, scope, finishing: false };
 

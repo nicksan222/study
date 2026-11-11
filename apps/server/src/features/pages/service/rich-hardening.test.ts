@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
 import { createBlock, encodeBlockContent } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
@@ -55,7 +53,7 @@ testStable(
           const docs = yield* Pages;
           const project = yield* (yield* Projects).createProject({ name: 'Historical request' });
           const empty = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             projectId: project.id,
             title: 'Empty cells',
             document: {
@@ -92,12 +90,12 @@ testStable(
       });
       // Model a durable request admitted by the earlier textual-content predicate. Guards stay on.
 
-      f.context.transaction(() => {
-        f.context.db.orm
+      f.context.transaction((tx) => {
+        tx.db.orm
           .insert(s.material_generation_requests)
           .values({ id: 'historical-empty', project_id: saved.project.id, payload, created_at: 1n })
           .run();
-        f.context.db.orm
+        tx.db.orm
           .insert(s.material_evidence_inputs)
           .values({
             request_id: 'historical-empty',
@@ -106,7 +104,7 @@ testStable(
           })
           .run();
       });
-      f.reopen();
+      await f.reopen();
       const before = f.context.db.orm.select().from(s.workflowEvents).all();
 
       await Effect.runPromise(
@@ -158,7 +156,7 @@ testStable(
           assert.ok(
             (yield* Effect.flip(
               docs.create({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title: 'Invalid',
                 document: { blocks: [{ ...block, kind: 'heading' }], meta },
                 inputs: [],
@@ -169,7 +167,7 @@ testStable(
           assert.strictEqual(f.context.db.orm.select().from(s.pages).all().length, 0);
           assert.strictEqual(f.context.db.orm.select().from(s.content_snapshots).all().length, 0);
           const original = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Draft alternatives',
             document: { blocks: [block], meta },
             inputs: [],
@@ -200,7 +198,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      f.reopen();
+      await f.reopen();
       const before = f.context.db.orm.select().from(s.workflowEvents).all();
 
       for (const mutation of [
@@ -272,7 +270,7 @@ testStable(
             createBlock({ type: 'image', sourceId, revision: 1, alt: 'Image' });
           const create = (title: string) =>
             docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title,
               document: { blocks: [image(first.id)], meta },
               inputs: [],
@@ -288,7 +286,7 @@ testStable(
           const edit = yield* docs.save({
             pageId: original.id,
             expectedVersionId: original.version.id,
-            key: randomUUID(),
+            key: crypto.randomUUID(),
             document: { blocks: [{ ...replacement, id: oldBlock.id }], meta }
           });
 
@@ -312,7 +310,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      f.reopen();
+      await f.reopen();
 
       for (const mutation of [
         sql`UPDATE document_assets SET revision=999 WHERE source_id=${saved.first.id}`,

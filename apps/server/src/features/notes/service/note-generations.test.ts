@@ -90,7 +90,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
 
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -157,7 +157,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
       await cleanup(fixture, setup.note.id);
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;

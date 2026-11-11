@@ -25,8 +25,8 @@ import { UsageStore } from './usage-store.ts';
 testStable(
   'usage persists across reopen, deduplicates calls and filters by provider and time',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const now = context.clock.currentTimeMillisUnsafe();
     const record = {
       id: 'one',
@@ -58,7 +58,7 @@ testStable(
         })
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       const store = await run(useStore(UsageStore));
       const report = await Effect.runPromise(store.usageReport({ days: 7 }));
 
@@ -86,7 +86,7 @@ testStable(
       ).toBe(0);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

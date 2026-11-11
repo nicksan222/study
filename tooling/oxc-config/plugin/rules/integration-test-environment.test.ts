@@ -21,9 +21,9 @@ function fixture(overrides: Record<string, string> = {}) {
 
 testStable(
   'integration providers require a scenario and an installation in the shared image',
-  () => {
-    expect(lintFiles(fixture(), 'integration-test-environment', true)).toHaveLength(0);
-    const diagnostics = lintFiles(
+  async () => {
+    expect(await lintFiles(fixture(), 'integration-test-environment', true)).toHaveLength(0);
+    const diagnostics = await lintFiles(
       fixture({
         'packages/integrations/src/providers/next/index.ts': 'export const provider = {};',
         [`${directory}/Dockerfile`]: 'FROM node AS integrations\n'
@@ -41,8 +41,8 @@ testStable(
   }
 );
 
-testStable('integration scenarios cannot create a separate Testcontainers runtime', () => {
-  const diagnostics = lintFiles(
+testStable('integration scenarios cannot create a separate Testcontainers runtime', async () => {
+  const diagnostics = await lintFiles(
     fixture({
       [`${directory}/providers/obsidian/scenario.ts`]:
         "import { GenericContainer } from 'testcontainers'; new GenericContainer('other');",
@@ -57,8 +57,8 @@ testStable('integration scenarios cannot create a separate Testcontainers runtim
   expect(diagnostics[0]?.message).toContain('Only test/integrations/environment.ts');
 });
 
-testStable('integration fixtures cannot omit scenarios or add private Dockerfiles', () => {
-  const diagnostics = lintFiles(
+testStable('integration fixtures cannot omit scenarios or add private Dockerfiles', async () => {
+  const diagnostics = await lintFiles(
     fixture({
       [`${directory}/providers.json`]: JSON.stringify({
         obsidian: { scenario: 'missing.ts', executable: '/usr/bin/obsidian' }
@@ -78,8 +78,8 @@ testStable('integration fixtures cannot omit scenarios or add private Dockerfile
   );
 });
 
-testStable('the shared container builder cannot drift to a different Dockerfile', () => {
-  const diagnostics = lintFiles(
+testStable('the shared container builder cannot drift to a different Dockerfile', async () => {
+  const diagnostics = await lintFiles(
     fixture({
       [`${directory}/environment.ts`]:
         "import { GenericContainer } from 'testcontainers'; GenericContainer.fromDockerfile('.', 'private/Dockerfile');"

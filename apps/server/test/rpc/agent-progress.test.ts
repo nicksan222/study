@@ -79,7 +79,7 @@ const definition = defineAgent({
 testStable(
   'HTTP streams intermediate agent snapshots, reseeds reconnects, and releases viewers without cancelling work',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
     const executionId = executionIdSchema.make('rpc-agent');
@@ -167,7 +167,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

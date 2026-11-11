@@ -113,7 +113,7 @@ testStable(
       assert.throws(() =>
         f.context.db.orm.run(sql`UPDATE blocks SET text='tampered' WHERE document_id=${first}`)
       );
-      f.reopen();
+      await f.reopen();
       assert.strictEqual(await execute(setup.request, 'first-ingestion'), first);
       const correction = await Effect.runPromise(
         Effect.gen(function* () {
@@ -186,7 +186,7 @@ testStable(
           assert.strictEqual((yield* sources.source(setup.source.id)).projectId, setup.other.id);
         }).pipe(Effect.provide(domain()))
       );
-      f.reopen();
+      await f.reopen();
       await execute(fresh, 'reprocessed');
       const replacement = await Effect.runPromise(
         Effect.gen(function* () {

@@ -6,8 +6,8 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Bound retries with a finite times count or a bounded Schedule.recurs; use a bounded helper for opaque schedules.';
 
-testStable('reports unsafe server lifecycle syntax and permits bounded operations', () => {
-  const diagnostics = lintRule('effect-bounded-retries', {
+testStable('reports unsafe server lifecycle syntax and permits bounded operations', async () => {
+  const diagnostics = await lintRule('effect-bounded-retries', {
     'src/workers/unsafe.ts': "import { Effect as E } from 'effect'; E.retry(work, policy);",
     'src/workers/safe.ts':
       "import { Effect as E, Schedule as S } from 'effect'; E.retry(work, { times: 3 }); E.retry(work, S.recurs(4));",
@@ -18,8 +18,8 @@ testStable('reports unsafe server lifecycle syntax and permits bounded operation
   assertDiagnostics('effect-bounded-retries', diagnostics, [['src/workers/unsafe.ts', message]]);
 });
 
-testStable('tracks named and namespace aliases and rejects infinite policies', () => {
-  const diagnostics = lintRule('effect-bounded-retries', {
+testStable('tracks named and namespace aliases and rejects infinite policies', async () => {
+  const diagnostics = await lintRule('effect-bounded-retries', {
     'src/workers/example.ts':
       "import { retry as again } from 'effect/Effect'; import * as S from 'effect/Schedule'; again(work, S.forever); again({ schedule: S.exponential('1 second') });"
   });
@@ -30,8 +30,8 @@ testStable('tracks named and namespace aliases and rejects infinite policies', (
   ]);
 });
 
-testStable('accepts options and v4 intersection schedules', () => {
-  const diagnostics = lintRule('effect-bounded-retries', {
+testStable('accepts options and v4 intersection schedules', async () => {
+  const diagnostics = await lintRule('effect-bounded-retries', {
     'src/workers/example.ts':
       "import { Effect as E, Schedule as S } from 'effect'; E.retry(work, { schedule: S.recurs(2) }); E.retry(work, S.max([S.exponential('1 second'), S.recurs(3)])); E.retry(work, S.min([S.recurs(1), S.recurs(2)]));"
   });
@@ -39,8 +39,8 @@ testStable('accepts options and v4 intersection schedules', () => {
   assertDiagnostics('effect-bounded-retries', diagnostics, []);
 });
 
-testStable('does not prove runtime schedules or union with an unbounded branch', () => {
-  const diagnostics = lintRule('effect-bounded-retries', {
+testStable('does not prove runtime schedules or union with an unbounded branch', async () => {
+  const diagnostics = await lintRule('effect-bounded-retries', {
     'src/workers/example.ts':
       "import { Effect as E, Schedule as S } from 'effect'; E.retry(work, S.recurs(limit)); E.retry(work, S.min([S.forever, S.recurs(2)]));"
   });
@@ -51,8 +51,8 @@ testStable('does not prove runtime schedules or union with an unbounded branch',
   ]);
 });
 
-testStable('ignores shadowed and unrelated retry methods', () => {
-  const diagnostics = lintRule('effect-bounded-retries', {
+testStable('ignores shadowed and unrelated retry methods', async () => {
+  const diagnostics = await lintRule('effect-bounded-retries', {
     'src/workers/example.ts':
       "import { Effect as E } from 'effect'; function f(E) { E.retry(work, policy); } other.retry(work, policy);"
   });
@@ -60,8 +60,8 @@ testStable('ignores shadowed and unrelated retry methods', () => {
   assertDiagnostics('effect-bounded-retries', diagnostics, []);
 });
 
-testStable('does not assume an opaque schedule transformation preserves its bound', () => {
-  const diagnostics = lintRule('effect-bounded-retries', {
+testStable('does not assume an opaque schedule transformation preserves its bound', async () => {
+  const diagnostics = await lintRule('effect-bounded-retries', {
     'src/workers/opaque.ts':
       "import { Effect as E, Schedule as S } from 'effect'; E.retry(work, S.recurs(2).pipe(transform)); E.retry(work, S.recurs(2).pipe(S.union(S.forever)));"
   });
@@ -72,8 +72,8 @@ testStable('does not assume an opaque schedule transformation preserves its boun
   ]);
 });
 
-testStable('enforces the Effect contract in browser operations', () => {
-  const diagnostics = lintRule(
+testStable('enforces the Effect contract in browser operations', async () => {
+  const diagnostics = await lintRule(
     'effect-bounded-retries',
     {
       'apps/web/src/features/example/page.logic.ts':

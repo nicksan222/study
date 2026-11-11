@@ -28,7 +28,7 @@ testStable(
   'source workflow survives restart and makes its content discoverable',
   { timeout: 15000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let app = await App.open({ path: location.path });
     let server = await serve(app);
 
@@ -93,7 +93,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -102,7 +102,7 @@ testStable(
   'reply workflow records a durable sign-in wait across restart',
   { timeout: 15000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let app = await App.open({ path: location.path });
     let server = await serve(app);
 
@@ -170,7 +170,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

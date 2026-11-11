@@ -45,9 +45,9 @@ const meta = {
 testStable(
   'native saves race on one expected revision, retain both rich alternatives and replay after reopen',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
 
-    let context = new ServerContext(location.open());
+    let context = new ServerContext(await location.open());
 
     const services = () =>
       Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
@@ -187,7 +187,7 @@ testStable(
 
       context.close();
 
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
 
       const replay = await save(a);
 
@@ -258,14 +258,14 @@ testStable(
     } finally {
       context.close();
 
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('retires only one selected authored note version', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
@@ -312,6 +312,6 @@ testStable('retires only one selected authored note version', async () => {
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

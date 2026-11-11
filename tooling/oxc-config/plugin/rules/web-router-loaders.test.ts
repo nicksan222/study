@@ -3,8 +3,8 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('library and practice routes declare loading and search dependencies', () => {
-  const diagnostics = lintRule(
+testStable('library and practice routes declare loading and search dependencies', async () => {
+  const diagnostics = await lintRule(
     'web-router-loaders',
     {
       'apps/web/src/routes/MediaList.tsx': `import { createFileRoute as route } from '@tanstack/react-router'; export const Route = route('/MediaList')({ staticData: {section: 'library'}, component: Page });`,
@@ -16,9 +16,9 @@ testStable('library and practice routes declare loading and search dependencies'
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('allows loaded routes, redirects, and pages without data requirements', () => {
+testStable('allows loaded routes, redirects, and pages without data requirements', async () => {
   expect(
-    lintRule(
+    await lintRule(
       'web-router-loaders',
       {
         'apps/web/src/routes/MediaList.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/MediaList')({ staticData: {section: 'library'}, loaderDeps: deps, loader: load, component: Page });`,
@@ -30,8 +30,8 @@ testStable('allows loaded routes, redirects, and pages without data requirements
   ).toStrictEqual([]);
 });
 
-testStable('canonical Material browse and read routes retain loader requirements', () => {
-  const diagnostics = lintRule(
+testStable('canonical Material browse and read routes retain loader requirements', async () => {
+  const diagnostics = await lintRule(
     'web-router-loaders',
     {
       'apps/web/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, component: LibraryPage});`,
@@ -42,7 +42,7 @@ testStable('canonical Material browse and read routes retain loader requirements
 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   expect(
-    lintRule(
+    await lintRule(
       'web-router-loaders',
       {
         'apps/web/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, loaderDeps: ({search}) => ({project: search.project}), loader: load, component: LibraryPage});`,

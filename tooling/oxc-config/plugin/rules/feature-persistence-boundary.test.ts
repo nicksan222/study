@@ -5,8 +5,8 @@ import { lintRule } from '../test/utils.ts';
 
 testStable(
   'feature writers respect table ownership while reads and shared pages remain available',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/projects/store.ts': `import { notes, projects } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(notes); db.insert(projects); db.update(notes); db.execute('UPDATE notes SET title = 1');`,
       'src/features/learning/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute('UPDATE preferences SET value = 1');`,
       'src/features/pages/store.ts': `import { content_snapshots } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
@@ -16,8 +16,8 @@ testStable(
   }
 );
 
-testStable('recognizes aliases and SQL without confusing unrelated APIs or reads', () => {
-  const diagnostics = lintRule('feature-persistence-boundary', {
+testStable('recognizes aliases and SQL without confusing unrelated APIs or reads', async () => {
+  const diagnostics = await lintRule('feature-persistence-boundary', {
     'src/features/projects/store.ts': `
       import * as schema from '@study/db/schema';
       import { sql as query } from 'drizzle-orm';
@@ -50,8 +50,8 @@ testStable('every exported database table has an explicit ownership policy', asy
   expect(Object.keys(tableOwners).sort()).toStrictEqual(tables);
 });
 
-testStable('table ownership applies to contextual native factory receivers', () => {
-  const diagnostics = lintRule('feature-persistence-boundary', {
+testStable('table ownership applies to contextual native factory receivers', async () => {
+  const diagnostics = await lintRule('feature-persistence-boundary', {
     'src/features/projects/store/index.ts': `
       import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
       import * as schema from '@study/db/schema';
@@ -65,8 +65,8 @@ testStable('table ownership applies to contextual native factory receivers', () 
 
 testStable(
   'collection membership writes stay with organization and the identity-creating feature',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/projects/store.ts': `import { project_materials as materials, project_notes as notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(notes);`,
       'src/features/materials/store.ts': `import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_notes);`,
       'src/features/notes/store.ts': `import { project_notes, project_materials as links } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_notes); db.delete(links);`,
@@ -89,8 +89,8 @@ testStable(
 
 testStable(
   'source import receipts and extraction revisions remain source-owned across acquisition participants',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store.ts': `
       import * as schema from '@study/db/schema';
       import { sql } from '@study/db';
@@ -119,8 +119,8 @@ testStable(
 
 testStable(
   'canonical asset roots are derived from blocks and cannot be written by features',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store.ts': `
       import * as schema from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
@@ -151,8 +151,8 @@ testStable(
 
 testStable(
   'captured note context is note-owned while material selection pins stay material-owned',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store/participants.ts': `
       import * as schema from '@study/db/schema';
       import { sql } from '@study/db';
@@ -185,8 +185,8 @@ testStable(
 
 testStable(
   'learning generation receipts and citations remain material-owned while coordinators can only read them',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/notes/store/transform.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
@@ -214,8 +214,8 @@ testStable(
 
 testStable(
   'edit and proposal receipts stay Pages-owned and asset roots stay trigger-derived',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/pages/store/editing.ts': `
       import * as s from '@study/db/schema';
       import type { Db } from '@study/db'; declare const db: Db;
@@ -247,8 +247,8 @@ testStable(
 
 testStable(
   'historic annotations and manual judgments stay Pages-owned while message citations stay Notes-owned',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/notes/store/evidence.ts': `
       import * as s from '@study/db/schema';
       import { sql } from '@study/db';
@@ -292,8 +292,8 @@ testStable(
 
 testStable(
   'deletion barriers are Notes-owned and proposal retirement proofs are Pages-owned',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/notes/store/deletion.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.note_deletions); db.insert(s.note_deletion_correlations);
@@ -318,8 +318,8 @@ testStable(
 
 testStable(
   'Material deletion proofs stay with Materials and exact source extraction revisions stay with Sources',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store/deletion.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_deletions); db.insert(s.material_deletion_members); db.insert(s.material_deletion_requests);
@@ -360,8 +360,8 @@ testStable(
 
 testStable(
   'retired intents, exact version barriers and source extraction history have one owning feature',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store/history.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_history_prunes); db.insert(s.material_history_members); db.insert(s.material_history_requests);
@@ -390,8 +390,8 @@ testStable(
 
 testStable(
   'history proof ownership survives table aliases and raw SQL across all synchronous participants',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/learning/store/material-history.ts': `
       import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       import { sql } from '@study/db';
@@ -431,8 +431,8 @@ testStable(
 
 testStable(
   'System snapshot policy cannot gain credential, pending-shell or content writer authority',
-  () => {
-    const diagnostics = lintRule('feature-persistence-boundary', {
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/system/store/backup.ts': `
       import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
       db.select().from(s.messages); db.delete(s.preferences); db.delete(s.message_versions);

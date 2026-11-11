@@ -29,8 +29,8 @@ import { Database } from '#server/platform/database/database';
 import { SourcesRpcLive } from './index.ts';
 
 testStable('RPC handlers use the source service and return canonical failures', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = SourcesRpcLive.pipe(
     Layer.provide(Sources.layer),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -100,6 +100,6 @@ testStable('RPC handlers use the source service and return canonical failures', 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

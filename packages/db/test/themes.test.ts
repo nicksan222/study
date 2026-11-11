@@ -23,9 +23,9 @@ function contrast(a: string, b: string) {
 
 testStable(
   'the curated catalog includes complete accessible light and dark palettes without T3 Chat',
-  () => {
-    const location = createTestDatabase();
-    const db = location.open();
+  async () => {
+    const location = await createTestDatabase();
+    const db = await location.open();
 
     try {
       const catalog = db.orm.select().from(themes).all();
@@ -50,7 +50,7 @@ testStable(
       }
     } finally {
       db.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

@@ -5,8 +5,8 @@ import { lintRule } from '../test/utils.ts';
 
 testStable(
   'browser specs use the shared harness and cannot own browser lifecycle or mock requests',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'web-e2e-harness',
       {
         'apps/web/test/e2e/good.test.ts':
@@ -27,8 +27,8 @@ testStable(
 
 testStable(
   'browser specs reject aliased request mocking, fixed waits and unused harness imports',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'web-e2e-harness',
       {
         'apps/web/test/e2e/bad.test.ts':
@@ -43,8 +43,8 @@ testStable(
 
 testStable(
   'parameterized and factory registrations require the harness and fixed timers are forbidden',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'web-e2e-harness',
       {
         'apps/web/test/e2e/bad.test.ts':
@@ -57,8 +57,8 @@ testStable(
   }
 );
 
-testStable('opaque registrations and nested harness paths do not bypass the boundary', () => {
-  const diagnostics = lintRule(
+testStable('opaque registrations and nested harness paths do not bypass the boundary', async () => {
+  const diagnostics = await lintRule(
     'web-e2e-harness',
     {
       'apps/web/test/e2e/nested/harness.ts': "import { chromium } from 'playwright';",
@@ -72,8 +72,8 @@ testStable('opaque registrations and nested harness paths do not bypass the boun
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
 });
 
-testStable('aliases cannot hide global timers or websocket request interception', () => {
-  const diagnostics = lintRule(
+testStable('aliases cannot hide global timers or websocket request interception', async () => {
+  const diagnostics = await lintRule(
     'web-e2e-harness',
     {
       'apps/web/test/e2e/helper.ts':

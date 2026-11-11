@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
@@ -61,7 +59,7 @@ testStable(
           const docs = yield* Pages;
           const chats = yield* Notes;
           const evidence = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Shared evidence',
             document: deletionDocument('Independent exact evidence'),
             inputs: [],
@@ -136,9 +134,9 @@ testStable(
         ).pipe(Effect.provide(MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()))))
       );
 
-      f.reopen();
+      await f.reopen();
       await cleanupMaterial(f, saved.root.id);
-      f.reopen();
+      await f.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const m = yield* Materials;
@@ -307,7 +305,7 @@ for (const doubleFailure of [false, true])
 
         if (doubleFailure) f.context.db.orm.run(sql.raw('DROP TRIGGER reject_material_failure'));
 
-        f.reopen();
+        await f.reopen();
 
         await Effect.runPromise(
           Effect.gen(function* () {

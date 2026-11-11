@@ -15,9 +15,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-import type { ServerResponse } from 'node:http';
-
 import { StudyError } from '@study/contracts/errors';
 import { AgentRule } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
@@ -34,19 +31,20 @@ testStable(
   'queued agents cannot preflight or dispatch until admitted and cancelled waiters never dispatch',
   async () => {
     const entered = Effect.runSync(Deferred.make<void>());
-    const responses: ServerResponse[] = [];
-    const server = createServer((_req, res) => {
-      responses.push(res);
+    const responses: ((response: Response) => void)[] = [];
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: () =>
+        new Promise<Response>((resolve) => {
+          responses.push(resolve);
 
-      if (responses.length === 2) Effect.runSync(Deferred.succeed(entered, undefined));
+          if (responses.length === 2) Effect.runSync(Deferred.succeed(entered, undefined));
+        })
     });
 
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
-
-    if (!address || typeof address === 'string') throw Error('missing address');
-
-    const base = `http://127.0.0.1:${address.port}`;
+    assert.ok(server.port, 'missing address');
+    const base = server.url.origin;
     const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
 
     try {
@@ -103,10 +101,8 @@ testStable(
           yield* Effect.yieldNow;
           assert.strictEqual(queuedChecks, 0);
 
-          for (const res of responses) {
-            res.writeHead(200, { 'content-type': 'text/event-stream' });
-
-            for (const event of [
+          for (const resolve of responses) {
+            const events = [
               {
                 type: 'response.output_item.added',
                 output_index: 0,
@@ -114,10 +110,11 @@ testStable(
               },
               { type: 'response.output_text.delta', item_id: 'm', delta: 'ok' },
               { type: 'response.completed', response: {} }
-            ])
-              res.write(`data: ${JSON.stringify(event)}\n\n`);
+            ]
+              .map((event) => `data: ${JSON.stringify(event)}\n\n`)
+              .join('');
 
-            res.end();
+            resolve(new Response(events, { headers: { 'content-type': 'text/event-stream' } }));
           }
 
           assert.strictEqual(yield* Fiber.join(first), 'ok');
@@ -129,7 +126,7 @@ testStable(
       );
     } finally {
       await auth.dispose();
-      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await server.stop(true);
     }
   }
 );

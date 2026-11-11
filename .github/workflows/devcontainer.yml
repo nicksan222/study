@@ -20,9 +20,11 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v7
-      - name: Install the devcontainer CLI
-        run: npm install --global @devcontainers/cli@0.89.0
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
       - name: Build, start and run the lifecycle commands
-        run: devcontainer up --workspace-folder .
+        run: bunx --bun --package @devcontainers/cli@0.89.0 devcontainer up --workspace-folder .
       - name: Run a recipe inside
-        run: devcontainer exec --workspace-folder . just --list
+        run: bunx --bun --package @devcontainers/cli@0.89.0 devcontainer exec --workspace-folder . just --list

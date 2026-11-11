@@ -10,22 +10,22 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
-
+import { BunFileSystem } from '@effect/platform-bun';
 import { createBlock } from '@study/contracts/sources/document';
 import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
 import type { BackupManifest } from '@study/contracts/system/backups';
 import { sql } from '@study/db';
 import type { Db } from '@study/db';
 import { testStable } from '@study/testing/vitest';
-import { Effect } from 'effect';
+import { Effect, FileSystem } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Sources } from '#server/features/sources/index';
 import { backupFixture, changedArtifact, meta, packet } from '#testing/managed-backups';
+
+const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
 const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6mS8AAAAASUVORK5CYII=',
@@ -47,7 +47,7 @@ testStable(
       const document = await f.app.nativeRuntime.runPromise(
         Effect.flatMap(Pages, (documents) =>
           documents.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'Image root',
@@ -113,7 +113,7 @@ testStable(
         (db: Db, manifest: BackupManifest) => {
           // Insert an unpinned, current revision: updates to retained revisions remain guarded.
           db.orm.run(sql`INSERT INTO sources(id,origin,kind,mime,name,size_bytes,sha256,created_at)
-          VALUES(999,'import','image','image/png','untrusted.png',${png.length},${createHash('sha256').update(png).digest()},1)`);
+          VALUES(999,'import','image','image/png','untrusted.png',${png.length},${new Bun.CryptoHasher('sha256').update(png).digest()},1)`);
           db.orm.run(sql`INSERT INTO source_blobs(source_id,bytes) VALUES(999,${png})`);
           db.exec(
             "INSERT INTO source_processing(source_id,revision,request_id) VALUES(999,1,'untrusted-current')"
@@ -157,11 +157,14 @@ testStable(
       for (const change of changes) {
         await expect(
           f.app.nativeRuntime.runPromise(
-            api.importBackup({ bytes: changedArtifact(f.location.dir, bytes, change) })
+            api.importBackup({ bytes: await changedArtifact(f.location.dir, bytes, change) })
           )
         ).rejects.toSatisfy(() => true);
         assert.strictEqual(f.app.store.db.contentIdentity(), before);
-        assert.ok(existsSync(f.location.path + '.backups/scratch.sqlite') === false);
+        assert.ok(
+          (await Effect.runPromise(fs.exists(f.location.path + '.backups/scratch.sqlite'))) ===
+            false
+        );
       }
 
       expect((await f.app.nativeRuntime.runPromise(api.backups())).map((b) => b.id)).toStrictEqual([
@@ -218,7 +221,7 @@ testStable(
         MAX_MANAGED_BACKUPS
       );
       assert.ok(
-        readdirSync(f.location.path + '.backups').some(
+        (await Effect.runPromise(fs.readDirectory(f.location.path + '.backups'))).some(
           (name) => name.endsWith('.writing') || name.startsWith('scratch.sqlite')
         ) === false
       );

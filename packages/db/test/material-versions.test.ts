@@ -7,13 +7,13 @@ import type { Db } from '../src/index.ts';
 import { material_quiz_choices } from '../src/schema.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
-function fixture(t: TestContext) {
-  const location = createTestDatabase();
-  const db = location.open();
+async function fixture(t: TestContext) {
+  const location = await createTestDatabase();
+  const db = await location.open();
 
-  t.onTestFinished(() => {
+  t.onTestFinished(async () => {
     db.close();
-    location.cleanup();
+    await location.cleanup();
   });
   db.exec(`
     INSERT INTO projects(id,name,created_at,updated_at) VALUES(1,'Math',1,1),(2,'Other',1,1);
@@ -65,8 +65,8 @@ function publish(db: Db, id: bigint) {
 
 testStable(
   'materials enforce kind and version identity while note selection crosses collections',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     diagram(db, 1n);
     db.exec('INSERT INTO note_materials(note_id,material_id,position) VALUES(1,1,0)');
@@ -97,8 +97,8 @@ testStable(
 
 testStable(
   'publication rejects absent or incomplete payloads and freezes content and identities',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     draft(db, 1n);
     assert.throws(() => publish(db, 1n));
@@ -135,8 +135,8 @@ testStable(
 
 testStable(
   'multi-input provenance crosses collections, stays published-only and is sealed at publication',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     diagram(db, 1n);
     publish(db, 1n);
@@ -178,8 +178,8 @@ testStable(
 
 testStable(
   'revision history supports branching within one material and preserves exact versions',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     diagram(db, 1n);
     publish(db, 1n);
@@ -213,8 +213,8 @@ testStable(
 
 testStable(
   'source originals own media bytes independently of learning and authored storage',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     original(db);
     assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM source_snapshots`)?.n, 2n);
@@ -231,30 +231,33 @@ testStable(
   }
 );
 
-testStable('authored versions own canonical snapshots and freeze their underlying blocks', (t) => {
-  const db = fixture(t);
+testStable(
+  'authored versions own canonical snapshots and freeze their underlying blocks',
+  async (t) => {
+    const db = await fixture(t);
 
-  authored(db, 1n, false);
-  db.exec('DELETE FROM blocks WHERE document_id=1');
-  assert.throws(() =>
-    db.exec("UPDATE page_versions SET status='published',published_at=2 WHERE id=1")
-  );
-  db.exec(`INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(1,0,'paragraph','block-1','{"type":"paragraph","inlines":[{"type":"text","text":"Derivative","marks":[]}]}','Derivative','{"type":"authored"}');
+    authored(db, 1n, false);
+    db.exec('DELETE FROM blocks WHERE document_id=1');
+    assert.throws(() =>
+      db.exec("UPDATE page_versions SET status='published',published_at=2 WHERE id=1")
+    );
+    db.exec(`INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(1,0,'paragraph','block-1','{"type":"paragraph","inlines":[{"type":"text","text":"Derivative","marks":[]}]}','Derivative','{"type":"authored"}');
  UPDATE page_versions SET status='published',published_at=2 WHERE id=1;`);
 
-  for (const q of [
-    "UPDATE blocks SET text='changed' WHERE document_id=1",
-    'DELETE FROM blocks WHERE document_id=1',
-    "UPDATE content_snapshots SET meta='{}' WHERE id=1",
-    `INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(1,1,'paragraph','extra','{"type":"paragraph","inlines":[]}', '', '{"type":"authored"}')`
-  ])
-    assert.throws(() => db.exec(q));
-});
+    for (const q of [
+      "UPDATE blocks SET text='changed' WHERE document_id=1",
+      'DELETE FROM blocks WHERE document_id=1',
+      "UPDATE content_snapshots SET meta='{}' WHERE id=1",
+      `INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor) VALUES(1,1,'paragraph','extra','{"type":"paragraph","inlines":[]}', '', '{"type":"authored"}')`
+    ])
+      assert.throws(() => db.exec(q));
+  }
+);
 
 testStable(
   'collection deletion preserves source bytes, authored versions, learning and independent note attachments',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     original(db);
     authored(db, 1n);
@@ -283,8 +286,8 @@ testStable(
   }
 );
 
-testStable('correct quiz answers roundtrip through the ORM boolean codec', (t) => {
-  const db = fixture(t);
+testStable('correct quiz answers roundtrip through the ORM boolean codec', async (t) => {
+  const db = await fixture(t);
 
   draft(db, 1n, 'quiz');
   db.exec('INSERT INTO material_quiz_versions(version_id) VALUES(1)');
@@ -306,8 +309,8 @@ testStable('correct quiz answers roundtrip through the ORM boolean codec', (t) =
 
 testStable(
   'draft learning inputs reference exact source extractions independently of collection organization',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     original(db);
     diagram(db, 1n);
@@ -322,8 +325,8 @@ testStable(
   }
 );
 
-testStable('authored publication rejects malformed canonical anchors', (t) => {
-  const db = fixture(t);
+testStable('authored publication rejects malformed canonical anchors', async (t) => {
+  const db = await fixture(t);
 
   authored(db, 1n, false);
 
@@ -338,8 +341,8 @@ testStable('authored publication rejects malformed canonical anchors', (t) => {
     UPDATE page_versions SET status='published',published_at=2 WHERE id=1`);
 });
 
-testStable('scheduling fields declared bigint reject fractional storage', (t) => {
-  const db = fixture(t);
+testStable('scheduling fields declared bigint reject fractional storage', async (t) => {
+  const db = await fixture(t);
 
   draft(db, 1n, 'flashcards');
   db.exec('INSERT INTO material_card_identities(id,material_id) VALUES(1,1)');
@@ -356,8 +359,8 @@ testStable('scheduling fields declared bigint reject fractional storage', (t) =>
 
 testStable(
   'removing a draft learning artifact preserves a source-owned extraction snapshot',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     original(db);
     diagram(db, 1n);
@@ -372,8 +375,8 @@ testStable(
 
 testStable(
   'retired source and document Material kinds cannot be authored through generic storage',
-  (t) => {
-    const db = fixture(t);
+  async (t) => {
+    const db = await fixture(t);
 
     for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
       assert.throws(() => draft(db, 1n, kind));
@@ -387,8 +390,8 @@ testStable(
   }
 );
 
-testStable('material citations enforce positive unsigned 32 bit markers', (t) => {
-  const db = fixture(t);
+testStable('material citations enforce positive unsigned 32 bit markers', async (t) => {
+  const db = await fixture(t);
 
   authored(db, 1n);
   diagram(db, 2n);
@@ -411,28 +414,33 @@ testStable('material citations enforce positive unsigned 32 bit markers', (t) =>
   assert.throws(() => insert(1n));
 });
 
-testStable('fresh canonical migrations preserve all published citation mutation guards', (t) => {
-  const db = fixture(t);
+testStable(
+  'fresh canonical migrations preserve all published citation mutation guards',
+  async (t) => {
+    const db = await fixture(t);
 
-  authored(db, 1n);
-  diagram(db, 2n);
-  db.exec(`
+    authored(db, 1n);
+    diagram(db, 2n);
+    db.exec(`
     INSERT INTO material_evidence_inputs(id,version_id,position,page_version_id) VALUES(1,2,0,1);
     INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote)
       VALUES(2,1,1,'{"type":"authored"}','Original quote');
   `);
-  publish(db, 2n);
+    publish(db, 2n);
 
-  for (const statement of [
-    sql`INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote)
+    for (const statement of [
+      sql`INSERT INTO material_evidence_citations(version_id,marker,input_id,anchor,quote)
       VALUES(2,2,1,'{"type":"authored"}','Added quote')`,
-    sql`UPDATE material_evidence_citations SET quote='Changed quote' WHERE version_id=2`,
-    sql`DELETE FROM material_evidence_citations WHERE version_id=2`
-  ])
-    assert.throws(() => db.orm.run(statement));
+      sql`UPDATE material_evidence_citations SET quote='Changed quote' WHERE version_id=2`,
+      sql`DELETE FROM material_evidence_citations WHERE version_id=2`
+    ])
+      assert.throws(() => db.orm.run(statement));
 
-  expect(
-    db.orm.all(sql`SELECT marker,anchor,quote FROM material_evidence_citations WHERE version_id=2`)
-  ).toStrictEqual([{ marker: 1n, anchor: '{"type":"authored"}', quote: 'Original quote' }]);
-  expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-});
+    expect(
+      db.orm.all(
+        sql`SELECT marker,anchor,quote FROM material_evidence_citations WHERE version_id=2`
+      )
+    ).toStrictEqual([{ marker: 1n, anchor: '{"type":"authored"}', quote: 'Original quote' }]);
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+  }
+);

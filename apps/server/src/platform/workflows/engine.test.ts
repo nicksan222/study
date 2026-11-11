@@ -31,8 +31,8 @@ import { workflowStore } from '#server/platform/workflows/store';
 testStable(
   'duplicate deferred delivery does not restart an activity after the wait has completed',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     let calls = 0;
     let interruptions = 0;
     const workflow = Workflow.make('duplicate-wake', {
@@ -117,7 +117,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -125,7 +125,7 @@ testStable(
 testStable(
   'replays a completed native activity after suspension and reopening SQLite',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let calls = 0;
     const workflow = Workflow.make('replay-test', {
       payload: { id: Schema.String },
@@ -187,25 +187,25 @@ testStable(
           }).pipe(Effect.provide(workflowEngineLayer(context)))
         )
       );
-    let context = new ServerContext(location.open());
+    let context = new ServerContext(await location.open());
 
     try {
       await first(context);
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       assert.strictEqual(await second(context), 1);
       assert.strictEqual(calls, 1);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
-testStable('SQLite leases prevent concurrent claims and fence expired owners', () => {
-  const location = createTestDatabase();
-  const first = new ServerContext(location.open());
-  const second = new ServerContext(location.open());
+testStable('SQLite leases prevent concurrent claims and fence expired owners', async () => {
+  const location = await createTestDatabase();
+  const first = new ServerContext(await location.open());
+  const second = new ServerContext(await location.open());
 
   try {
     const a = workflowStore(first);
@@ -225,12 +225,12 @@ testStable('SQLite leases prevent concurrent claims and fence expired owners', (
   } finally {
     first.close();
     second.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('a cancelled suspended execution stays cancelled after reopening SQLite', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
   let calls = 0;
   let finalizers = 0;
   const workflow = Workflow.make('cancel-test', {
@@ -256,7 +256,7 @@ testStable('a cancelled suspended execution stays cancelled after reopening SQLi
   }
 
   const handler = () => Effect.gen(cancelSuspendedExecution);
-  let context = new ServerContext(location.open());
+  let context = new ServerContext(await location.open());
 
   try {
     await Effect.runPromise(
@@ -281,7 +281,7 @@ testStable('a cancelled suspended execution stays cancelled after reopening SQLi
     );
     assert.ok(workflowStore(context).execution('cancel')?.status === 'cancelled');
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -298,14 +298,14 @@ testStable('a cancelled suspended execution stays cancelled after reopening SQLi
     assert.ok(workflowStore(context).execution('cancel')?.status === 'cancelled');
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'a pending interruption is recovered after reopening without starting another activity',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let calls = 0;
     const workflow = Workflow.make('pending-cancel', {
       payload: { id: Schema.String },
@@ -317,13 +317,13 @@ testStable(
         calls++;
       })
     });
-    let context = new ServerContext(location.open());
+    let context = new ServerContext(await location.open());
 
     try {
       workflowStore(context).start('pending', workflow._tag, '{"id":"pending"}', undefined);
       workflowStore(context).interrupt('pending', 'safe');
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -340,15 +340,15 @@ testStable(
       assert.strictEqual(calls, 0);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('two engines sharing SQLite do not run an activity concurrently', async () => {
-  const location = createTestDatabase();
-  const first = new ServerContext(location.open());
-  const second = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const first = new ServerContext(await location.open());
+  const second = new ServerContext(await location.open());
   let started!: () => void;
   let finish!: () => void;
   const entered = new Promise<void>((resolve) => {
@@ -401,14 +401,14 @@ testStable('two engines sharing SQLite do not run an activity concurrently', asy
     finish();
     first.close();
     second.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'unsafe interruption preempts a running activity and persists cancellation',
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     let calls = 0;
     const workflow = Workflow.make('unsafe-cancel', {
       payload: { id: Schema.String },
@@ -420,7 +420,7 @@ testStable(
         calls++;
       }).pipe(Effect.andThen(Effect.never))
     });
-    let context = new ServerContext(location.open());
+    let context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -445,7 +445,7 @@ testStable(
         )
       );
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -460,7 +460,7 @@ testStable(
       assert.ok(workflowStore(context).execution('unsafe')?.status === 'cancelled');
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -469,8 +469,8 @@ testStable(
   'an activity receives its captured engine lease and cannot adopt a replacement owner',
   async () => {
     const { currentWorkflowActivityOwner } = await import('#server/platform/workflows/ownership');
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const workflow = Workflow.make('ownership-capability-test', {
       payload: { id: Schema.String },
       idempotencyKey: ({ id }) => id,
@@ -535,15 +535,15 @@ testStable(
       assert.ok(result === 'captured');
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('closing an expired engine cannot release a replacement engine claim', async () => {
-  const location = createTestDatabase();
-  const first = new ServerContext(location.open());
-  const second = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const first = new ServerContext(await location.open());
+  const second = new ServerContext(await location.open());
   const workflow = Workflow.make('replacement-owner', {
     payload: { id: Schema.String },
     idempotencyKey: ({ id }) => id
@@ -611,13 +611,13 @@ testStable('closing an expired engine cannot release a replacement engine claim'
     await replacement?.done;
     first.close();
     second.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('a suspended run can resume in the same engine after its fiber completes', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const workflow = Workflow.make('same-engine-resume', {
     payload: { id: Schema.String },
     idempotencyKey: ({ id }) => id,
@@ -682,6 +682,6 @@ testStable('a suspended run can resume in the same engine after its fiber comple
     assert.strictEqual(calls, 1);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

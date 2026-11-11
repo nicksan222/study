@@ -41,8 +41,8 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
   testStable(
     `${kind} configuration waits survive reopening and retry only when the fingerprint changes`,
     async () => {
-      const location = createTestDatabase();
-      let context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      let context = new ServerContext(await location.open());
       let revision = 'before';
       let calls = 0;
       const workflow = Workflow.make('configuration-retry-test', {
@@ -122,7 +122,7 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
           }).pipe(Effect.provide(services()), Effect.scoped)
         );
         context.close();
-        context = new ServerContext(location.open());
+        context = new ServerContext(await location.open());
         revision = 'after';
         await Effect.runPromise(
           Effect.gen(function* () {
@@ -163,7 +163,7 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
         );
       } finally {
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );
@@ -171,8 +171,8 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
 testStable(
   'configuration changes during a failed call are retained, and cancelled waits never retry',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     let revision = 'before';
     let calls = 0;
     let ready = false;
@@ -264,7 +264,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -273,8 +273,8 @@ for (const kind of ['invalid_input', 'transient'] as const) {
   testStable(
     `${kind} failures respect terminal classification and durable retry limits`,
     async () => {
-      const location = createTestDatabase();
-      const context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      const context = new ServerContext(await location.open());
       let calls = 0;
       const workflow = Workflow.make(`retry-limit-${kind}`, {
         payload: { id: Schema.String },
@@ -327,7 +327,7 @@ for (const kind of ['invalid_input', 'transient'] as const) {
         );
       } finally {
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );
@@ -336,8 +336,8 @@ for (const kind of ['invalid_input', 'transient'] as const) {
 testStable(
   'configuration reasons stay correlated to their own execution in detail and lists',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const first = executionIdSchema.make('configuration-first');
     const second = executionIdSchema.make('configuration-second');
 
@@ -402,7 +402,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

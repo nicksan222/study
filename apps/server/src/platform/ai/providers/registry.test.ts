@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { StudyError } from '@study/contracts/errors';
 import { testStable } from '@study/testing/vitest';
 import { expect, expectTypeOf } from 'vite-plus/test';
@@ -60,57 +58,62 @@ testStable(
     let selected = '';
     let authorization: string | undefined;
     let requestedModel: string | undefined;
-    const server = createServer(async (req, res) => {
-      const chunks: Buffer[] = [];
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (req) => {
+        const requestBody = await req.text();
 
-      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+        const body = JSON.parse(requestBody);
 
-      const body = JSON.parse(Buffer.concat(chunks).toString());
-
-      requestedModel = body.model;
-      authorization = String(
-        req.headers['x-api-key'] ?? req.headers['x-goog-api-key'] ?? req.headers.authorization
-      );
-      const response =
-        selected === 'anthropic'
-          ? {
-              id: 'test',
-              type: 'message',
-              role: 'assistant',
-              model: 'test-model',
-              content: [{ type: 'text', text: 'Hello' }],
-              stop_reason: 'end_turn',
-              stop_sequence: null,
-              usage: { input_tokens: 1, output_tokens: 1 }
-            }
-          : selected === 'google'
+        requestedModel = body.model;
+        authorization = String(
+          req.headers.get('x-api-key') ??
+            req.headers.get('x-goog-api-key') ??
+            req.headers.get('authorization')
+        );
+        const response =
+          selected === 'anthropic'
             ? {
-                candidates: [
-                  { content: { role: 'model', parts: [{ text: 'Hello' }] }, finishReason: 'STOP' }
-                ],
-                usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 }
-              }
-            : {
                 id: 'test',
-                object: 'chat.completion',
-                created: 1,
+                type: 'message',
+                role: 'assistant',
                 model: 'test-model',
-                choices: [
-                  {
-                    index: 0,
-                    message: { role: 'assistant', content: 'Hello' },
-                    finish_reason: 'stop'
+                content: [{ type: 'text', text: 'Hello' }],
+                stop_reason: 'end_turn',
+                stop_sequence: null,
+                usage: { input_tokens: 1, output_tokens: 1 }
+              }
+            : selected === 'google'
+              ? {
+                  candidates: [
+                    { content: { role: 'model', parts: [{ text: 'Hello' }] }, finishReason: 'STOP' }
+                  ],
+                  usageMetadata: {
+                    promptTokenCount: 1,
+                    candidatesTokenCount: 1,
+                    totalTokenCount: 2
                   }
-                ],
-                usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
-              };
+                }
+              : {
+                  id: 'test',
+                  object: 'chat.completion',
+                  created: 1,
+                  model: 'test-model',
+                  choices: [
+                    {
+                      index: 0,
+                      message: { role: 'assistant', content: 'Hello' },
+                      finish_reason: 'stop'
+                    }
+                  ],
+                  usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+                };
 
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(response));
+        return Response.json(response);
+      }
     });
-
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
+    const address = { port: server.port };
 
     expect(address).not.toBeNull();
     expect(typeof address).toBe('object');
@@ -147,9 +150,7 @@ testStable(
         expect(result.finishReason.unified).toBe('stop');
       }
     } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      );
+      await server.stop(true);
     }
   }
 );

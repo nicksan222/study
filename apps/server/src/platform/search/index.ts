@@ -19,7 +19,7 @@ import type {
   SemanticSearchInput
 } from '@study/contracts/search/schemas';
 import { semanticSearchInputSchema } from '@study/contracts/search/schemas';
-import type { Db } from '@study/db';
+import type { Db, DbTransaction } from '@study/db';
 import { Effect, Schema, Stream } from 'effect';
 
 import { normalizeError } from '#server/platform/errors/classify-error';
@@ -31,7 +31,7 @@ import { textWindows } from './text-windows.ts';
 import type { EmbeddingModel, SearchScope } from './types.ts';
 
 type SearchCommit = <A>(
-  work: (rows: Iterable<SearchProjection>) => A,
+  work: (rows: Iterable<SearchProjection>, db: DbTransaction) => A,
   targets?: readonly SearchTarget[]
 ) => Effect.Effect<A, StudyError>;
 
@@ -42,19 +42,19 @@ export function makeSemanticIndex(options: {
   read?: () => readonly SearchProjection[];
   pages?: Stream.Stream<readonly SearchProjection[], StudyError>;
   commit?: SearchCommit;
-  beforePublish?: () => void;
+  beforePublish?: (tx: DbTransaction) => void;
 }) {
   const { db, model } = options;
   const sync = <A>(work: () => A) => Effect.try({ try: work, catch: normalizeError });
   const pages = options.pages ?? Stream.fromEffect(sync(() => options.read!()));
   const commit: SearchCommit =
     options.commit ??
-    (<A>(work: (rows: Iterable<SearchProjection>) => A) =>
+    (<A>(work: (rows: Iterable<SearchProjection>, db: DbTransaction) => A) =>
       sync(() =>
-        db.transaction(() => {
-          options.beforePublish?.();
+        db.transaction((tx) => {
+          options.beforePublish?.(tx);
 
-          return work(options.read!());
+          return work(options.read!(), tx);
         })
       ));
   const store = makeVectorStore(db, model);
@@ -86,7 +86,7 @@ export function makeSemanticIndex(options: {
         return yield* Effect.fail(new StudyError('internal', 'Embedding batch length mismatch'));
 
       return yield* commit(
-        (rows) => store.publish(batch, vectors, rows),
+        (rows, tx) => makeVectorStore(tx, model).publish(batch, vectors, rows),
         batch.map((row) => row.projection.target)
       );
     });
@@ -108,7 +108,10 @@ export function makeSemanticIndex(options: {
         ];
         const keys = page.map((row) => row.key);
 
-        removed += yield* commit((rows) => store.purge(keys, rows), targets);
+        removed += yield* commit(
+          (rows, tx) => makeVectorStore(tx, model).purge(keys, rows),
+          targets
+        );
         after = page.at(-1)!.key;
       }
     });
@@ -167,7 +170,10 @@ export function makeSemanticIndex(options: {
         const targets = [
           ...new Map(ranked.map((row) => [row.target, row.projection.target])).values()
         ];
-        const hits = yield* commit((rows) => store.search(request, scope, ranked, rows), targets);
+        const hits = yield* commit(
+          (rows, tx) => makeVectorStore(tx, model).search(request, scope, ranked, rows),
+          targets
+        );
 
         if (hits.length >= (request.limit ?? 10) || ranked.length < window) return hits;
 

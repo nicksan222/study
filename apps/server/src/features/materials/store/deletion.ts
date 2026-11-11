@@ -13,8 +13,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError, errorKindSchema } from '@study/contracts/errors';
 import { materialIdSchema } from '@study/contracts/ids';
 import type { MaterialId } from '@study/contracts/ids';
@@ -25,6 +23,7 @@ import {
 } from '@study/contracts/materials/deletion';
 import { eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -113,7 +112,7 @@ function makeDeletion({ db, clock }: StoreResources) {
         )
       ]
     };
-    const token = createHash('sha256')
+    const token = new CryptoHasher('sha256')
       .update(
         JSON.stringify({ value, versions }, (_, item) =>
           typeof item === 'bigint' ? String(item) : item

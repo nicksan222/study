@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import type { SourceId, ContentSnapshotId } from '@study/contracts/ids';
@@ -30,6 +28,7 @@ import { documentSchema, hasTextualContent, sourceSchema } from '@study/contract
 import { MAX_SOURCE_BYTES, sourceKindSchema } from '@study/contracts/sources/sniff';
 import { isNull, and, desc, eq, getTableColumns, lt } from '@study/db';
 import * as tables from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
@@ -247,7 +246,7 @@ export const SourceStore = defineStore({
                 project_id: input.projectId,
                 uri: input.uri,
                 size_bytes: BigInt(bytes.length),
-                sha256: createHash('sha256').update(bytes).digest(),
+                sha256: new CryptoHasher('sha256').update(bytes).digest(),
                 created_at: unixSeconds(clock)
               })
               .run().lastInsertRowid as SourceId;
@@ -298,7 +297,7 @@ export const SourceStore = defineStore({
                 mime: input.mime,
                 uri: input.uri,
                 size_bytes: BigInt(bytes.length),
-                sha256: createHash('sha256').update(bytes).digest()
+                sha256: new CryptoHasher('sha256').update(bytes).digest()
               })
               .where(eq(tables.sources.id, input.id))
               .run();
@@ -351,7 +350,7 @@ export const SourceStore = defineStore({
             db.orm.delete(tables.note_sources).where(eq(tables.note_sources.source_id, id)).run();
 
             return (
-              db.orm.delete(tables.sources).where(eq(tables.sources.id, id)).run().changes !== 0n
+              db.orm.delete(tables.sources).where(eq(tables.sources.id, id)).run().changes !== 0
             );
           }
         }),
@@ -509,7 +508,7 @@ export const SourceStore = defineStore({
                   last_block: BigInt(index),
                   anchor: JSON.stringify(block.anchor),
                   text: block.text,
-                  content_hash: createHash('sha256').update(block.text).digest()
+                  content_hash: new CryptoHasher('sha256').update(block.text).digest()
                 })
                 .run();
             });

@@ -33,8 +33,8 @@ import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { Notes } from './index.ts';
 
 testStable('recording publication posts once and rejects changed or deleted results', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
   const layer = () =>
     Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -124,7 +124,7 @@ testStable('recording publication posts once and rejects changed or deleted resu
       }).pipe(Effect.orDie)
     );
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     await run(
       'replay',
       Effect.gen(function* () {
@@ -224,6 +224,6 @@ testStable('recording publication posts once and rejects changed or deleted resu
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

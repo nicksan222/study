@@ -29,8 +29,8 @@ import { deletionDocument } from '#testing/material-deletion';
 import { SystemStore } from './index.ts';
 
 testStable('search reads bounded project and source projections from SQLite', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     context.db.orm.run(
@@ -60,13 +60,13 @@ testStable('search reads bounded project and source projections from SQLite', as
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('passage search retains anchors and ignores superseded documents', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     context.db.orm.run(
@@ -106,13 +106,13 @@ testStable('passage search retains anchors and ignores superseded documents', as
     });
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('search indexes only current published quiz material and prompts', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
@@ -189,15 +189,15 @@ testStable('search indexes only current published quiz material and prompts', as
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'bounded global Material search fills results past archived matches and uses canonical identities',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       const run = (query: ReturnType<typeof sql>) => context.db.orm.run(query);
@@ -275,7 +275,7 @@ testStable(
       ).toStrictEqual([]);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -283,8 +283,8 @@ testStable(
 testStable(
   'authored search uses the independent document identity and only its visible published head',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -327,7 +327,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

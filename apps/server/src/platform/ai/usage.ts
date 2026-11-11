@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { LanguageModelV3, LanguageModelV3Usage } from '@ai-sdk/provider';
 import type { UsageRecord } from '@study/contracts/settings/usage';
 import { wrapLanguageModel } from 'ai';
@@ -73,7 +71,7 @@ export function withUsageTracking(
     middleware: {
       specificationVersion: 'v3',
       wrapGenerate: async ({ doGenerate }) => {
-        const id = randomUUID();
+        const id = crypto.randomUUID();
         const result = await doGenerate();
 
         await save(id, result.usage);
@@ -81,7 +79,7 @@ export function withUsageTracking(
         return result;
       },
       wrapStream: async ({ doStream }) => {
-        const id = randomUUID();
+        const id = crypto.randomUUID();
         const result = await doStream();
         let recorded = false;
 

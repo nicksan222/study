@@ -45,19 +45,21 @@ export function makeStudyClient<R extends Rpc.Any>(
 
     return connection;
   };
-  const fetchRpc: typeof fetch = async (_input, init) => {
-    const pending = discover();
+  const fetchRpc: typeof fetch = new Proxy(globalThis.fetch, {
+    apply: async (_target, _thisArg, [_input, init]: Parameters<typeof fetch>) => {
+      const pending = discover();
 
-    try {
-      const url = await pending;
+      try {
+        const url = await pending;
 
-      return await globalThis.fetch(url, init);
-    } catch (error) {
-      if (connection === pending) connection = undefined;
+        return await globalThis.fetch(url, init);
+      } catch (error) {
+        if (connection === pending) connection = undefined;
 
-      throw error;
+        throw error;
+      }
     }
-  };
+  });
   const protocol = RpcClient.layerProtocolHttp({ url: 'http://study.invalid' }).pipe(
     Layer.provide(RpcSerialization.layerNdjson),
     Layer.provide(FetchHttpClient.layer),

@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { pageGenerationRequestedSchema } from '@study/contracts/events';
 import type { messageIdSchema, noteIdSchema } from '@study/contracts/ids';
 import type { PageVersion } from '@study/contracts/pages/types';
@@ -64,7 +62,7 @@ function generationEvent(f: Fixture, requestId: string): typeof pageGenerationRe
 function create(title: string, blocks = [paragraph('alpha evidence')]) {
   return Effect.flatMap(Pages, (docs) =>
     docs.create({
-      createKey: randomUUID(),
+      createKey: crypto.randomUUID(),
       title,
       document: { blocks, meta },
       inputs: [],
@@ -447,7 +445,7 @@ for (const scenario of [
           }).pipe(Effect.provide(f.domain()))
         );
 
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;

@@ -76,12 +76,6 @@ jobs:
         with:
           packages: patchelf file
           optimize-dependencies: 'true'
-      - name: Set up Node
-        if: runner.os != 'Linux'
-        uses: actions/setup-node@v4
-        with:
-          node-version: 26.8.2
-          cache: npm
       - name: Set up Bun
         if: runner.os != 'Linux'
         uses: oven-sh/setup-bun@v2
@@ -100,7 +94,7 @@ jobs:
         run: brew install cmake pkg-config python sqlite
       - name: Install frontend dependencies
         if: runner.os != 'Linux'
-        run: npm ci
+        run: bun install --frozen-lockfile
       - name: Verify Bun survives AppImage ELF rewriting
         if: runner.os == 'Linux'
         shell: bash
@@ -138,7 +132,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: apps/desktop
-          tauriScript: npx --no-install tauri
+          tauriScript: bun --bun tauri
           includeUpdaterJson: false
           args: --verbose --config "${{ steps.config.outputs.path }}" --target ${{ matrix.target }} -- --locked
       - name: Verify signed macOS microphone permission metadata

@@ -15,20 +15,26 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { execFile, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
+import { Effect, FileSystem, Path } from 'effect';
 import { assert } from 'vite-plus/test';
 
-const runner = fileURLToPath(new URL('../../../node_modules/vitest/vitest.mjs', import.meta.url));
+const runner = Bun.fileURLToPath(
+  new URL('../../../node_modules/vitest/vitest.mjs', import.meta.url)
+);
 
-const config = fileURLToPath(new URL('./testing/automatic-fixture.config.ts', import.meta.url));
+const config = Bun.fileURLToPath(new URL('./testing/automatic-fixture.config.ts', import.meta.url));
 
-const runnerArgs = [runner, 'run', '--config', config, '--reporter=verbose', '--silent=false'];
+const runnerArgs = [
+  '--bun',
+  runner,
+  'run',
+  '--config',
+  config,
+  '--reporter=verbose',
+  '--silent=false'
+];
 
 for (const mode of [
   'success',
@@ -41,31 +47,33 @@ for (const mode of [
   'retry-async',
   'api-reuse'
 ] as const) {
-  testStable(`automatic fixture cleans databases after ${mode}`, () => {
-    const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: mode };
+  testStable(`automatic fixture cleans databases after ${mode}`, async () => {
+    const env = { ...process.env, STUDY_TEST_SCENARIO: mode };
 
-    delete env.NODE_TEST_CONTEXT;
-    const child = spawnSync(process.execPath, runnerArgs, {
-      encoding: 'utf8',
-      env
+    const child = Bun.spawn([process.execPath, ...runnerArgs], {
+      env,
+      stdout: 'pipe',
+      stderr: 'pipe'
     });
-
-    const output = child.stdout + child.stderr;
+    const [stdout, stderr, status] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited
+    ]);
+    const output = stdout + stderr;
+    const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+    const pathsService = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
     assert.strictEqual(
-      child.status,
+      status,
       ['failure', 'setup-failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode) ? 1 : 0,
-      child.stderr + child.stdout
+      output
     );
-    const paths = [...child.stdout.matchAll(/FIXTURE_PATH (".*")/g)].map(
+    const paths = [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map(
       (match) => JSON.parse(match[1]!) as string
     );
 
-    assert.strictEqual(
-      paths.length,
-      ['success', 'concurrent'].includes(mode) ? 2 : 1,
-      child.stdout
-    );
+    assert.strictEqual(paths.length, ['success', 'concurrent'].includes(mode) ? 2 : 1, stdout);
     assert.strictEqual(new Set(paths).size, paths.length);
 
     for (const path of paths) {
@@ -73,8 +81,12 @@ for (const mode of [
         path,
         /[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.db$/
       );
-      assert.strictEqual(existsSync(path), false, path);
-      assert.strictEqual(existsSync(dirname(path)), false, dirname(path));
+      assert.strictEqual(await Effect.runPromise(fs.exists(path)), false, path);
+      assert.strictEqual(
+        await Effect.runPromise(fs.exists(pathsService.dirname(path))),
+        false,
+        pathsService.dirname(path)
+      );
     }
 
     if (['success', 'failure', 'cleanup-throw', 'failure-cleanup-throw'].includes(mode)) {
@@ -95,23 +107,35 @@ for (const mode of [
   });
 }
 
-const exec = promisify(execFile);
-
 testStable('concurrent test files use separate databases and remove them', async () => {
-  const env: NodeJS.ProcessEnv = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
+  const env = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
+  const results = await Promise.all(
+    [0, 1].map(async () => {
+      const child = Bun.spawn([process.execPath, ...runnerArgs], {
+        env,
+        stdout: 'pipe',
+        stderr: 'pipe'
+      });
+      const [stdout, stderr, status] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited
+      ]);
 
-  delete env.NODE_TEST_CONTEXT;
-  const args = runnerArgs;
-  const results = await Promise.all([
-    exec(process.execPath, args, { env }),
-    exec(process.execPath, args, { env })
-  ]);
-  const paths = results.flatMap(({ stdout }) =>
+      assert.strictEqual(status, 0, stderr);
+
+      return stdout;
+    })
+  );
+  const paths = results.flatMap((stdout) =>
     [...stdout.matchAll(/FIXTURE_PATH (".*")/g)].map((match) => JSON.parse(match[1]!) as string)
   );
 
   assert.strictEqual(paths.length, 4);
   assert.strictEqual(new Set(paths).size, 4);
+  const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+  const pathsService = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-  for (const path of paths) assert.strictEqual(existsSync(dirname(path)), false);
+  for (const path of paths)
+    assert.strictEqual(await Effect.runPromise(fs.exists(pathsService.dirname(path))), false);
 });

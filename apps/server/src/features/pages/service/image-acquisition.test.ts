@@ -12,8 +12,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sourceIdSchema } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { sql } from '@study/db';
@@ -59,7 +57,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
             });
             const create = () =>
               docs.create({
-                createKey: randomUUID(),
+                createKey: crypto.randomUUID(),
                 title: 'Owner',
                 document: image(),
                 inputs: [],
@@ -69,7 +67,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
               owner === 'none'
                 ? null
                 : yield* docs.create({
-                    createKey: randomUUID(),
+                    createKey: crypto.randomUUID(),
                     title: 'Existing owner',
                     document: owner === 'draft' ? deletionDocument('Initial') : image(),
                     inputs: [],
@@ -135,7 +133,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
           }).pipe(Effect.provide(f.domain()))
         );
 
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;
@@ -144,7 +142,7 @@ for (const owner of ['none', 'draft', 'published'] as const)
             assert.ok(
               (yield* Effect.flip(
                 docs.create({
-                  createKey: randomUUID(),
+                  createKey: crypto.randomUUID(),
                   title: 'Forbidden acquisition',
                   document: saved.image(),
                   inputs: [],
@@ -199,7 +197,7 @@ testStable(
           });
           const body = { ...deletionDocument('Caption'), blocks: [image] };
           const document = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Owner',
             document: body,
             inputs: [],
@@ -208,7 +206,7 @@ testStable(
 
           assert.ok(document.version);
           const unrelated = yield* docs.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Unrelated',
             document: deletionDocument('Other'),
             inputs: [],
@@ -226,7 +224,7 @@ testStable(
         }).pipe(Effect.provide(f.domain()))
       );
 
-      f.reopen();
+      await f.reopen();
       const before = {
         assets: f.context.db.orm.select().from(s.document_assets).all(),
         versions: f.context.db.orm.select().from(s.page_versions).all(),
@@ -256,7 +254,7 @@ testStable(
                 docs.save({
                   pageId: saved.document.id,
                   expectedVersionId: saved.document.version.id,
-                  key: randomUUID(),
+                  key: crypto.randomUUID(),
                   document: { ...saved.body, blocks: [createBlock(content)] }
                 })
               )).kind === 'invalid_input'

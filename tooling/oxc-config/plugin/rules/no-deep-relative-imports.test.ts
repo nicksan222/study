@@ -5,8 +5,8 @@ import { lintRule } from '../test/utils.ts';
 
 testStable(
   'reports relative imports that ascend two or more levels across module edge forms',
-  () => {
-    const diagnostics = lintRule('no-deep-relative-imports', {
+  async () => {
+    const diagnostics = await lintRule('no-deep-relative-imports', {
       'src/a.ts':
         "import '../x'; import '../../x'; export * from './../../../x'; type T = import('..\\\\..\\\\x').T; import x = require('./../../x'); const y = import('../folder/../../x'); require('../../x');"
     });
@@ -22,8 +22,8 @@ testStable(
   }
 );
 
-testStable('allows shallow and non-import strings and respects shadowed require', () => {
-  const diagnostics = lintRule('no-deep-relative-imports', {
+testStable('allows shallow and non-import strings and respects shadowed require', async () => {
+  const diagnostics = await lintRule('no-deep-relative-imports', {
     'src/a.ts':
       "import './x'; import '../x'; const text = '../../x'; function f(require: (s: string) => void) { require('../../x'); }"
   });

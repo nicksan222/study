@@ -5,9 +5,9 @@
   "identifier": "io.github.nicksan222.Study",
   "mainBinaryName": "study",
   "build": {
-    "beforeDevCommand": "npm run dev --workspace @study/web",
+    "beforeDevCommand": "bun run --cwd ../web dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm --prefix ../.. run desktop:runtime && npm run build --workspace @study/web",
+    "beforeBuildCommand": "bun run --cwd ../.. desktop:runtime && bun run --cwd ../web build",
     "frontendDist": "../../web/dist"
   },
   "app": {

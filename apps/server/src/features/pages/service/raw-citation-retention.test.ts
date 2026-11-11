@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
@@ -39,7 +37,7 @@ for (const mode of ['history', 'delete'] as const)
             const docs = yield* Pages;
             const chats = yield* Notes;
             const document = yield* docs.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               title: 'Evidence',
               document: deletionDocument('Exact evidence'),
               inputs: [],
@@ -115,7 +113,7 @@ for (const mode of ['history', 'delete'] as const)
           }).pipe(Effect.provide(f.domain()))
         );
 
-        f.reopen();
+        await f.reopen();
         await Effect.runPromise(
           Effect.gen(function* () {
             const docs = yield* Pages;

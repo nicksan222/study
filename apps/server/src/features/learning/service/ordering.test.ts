@@ -33,8 +33,8 @@ import { Learning } from './index.ts';
 testStable(
   'ordering attempts hide canonical order, restore permutations and grade exactly',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = Learning.layer.pipe(
       Layer.provideMerge(Settings.layer),
       Layer.provideMerge(Materials.layer),
@@ -205,7 +205,7 @@ testStable(
 
       context.close();
       closed = true;
-      const reopened = location.open();
+      const reopened = await location.open();
 
       try {
         for (const attempt of completedAttempts) {
@@ -229,7 +229,7 @@ testStable(
     } finally {
       if (!closed) context.close();
 
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

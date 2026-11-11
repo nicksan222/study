@@ -44,8 +44,8 @@ const topics = defineTable({
 testStable(
   'a newly declared entity is discovered, embedded and searchable without an indexer registration',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       context.db.exec('CREATE TABLE test_topics (id INTEGER PRIMARY KEY, name TEXT NOT NULL)');
@@ -123,7 +123,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -163,8 +163,8 @@ const model = {
 testStable(
   'automatic table projections honor declared project scope, publication, archive and deletion',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       context.db.exec(
@@ -212,7 +212,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -230,8 +230,8 @@ const registeredProject = defineTable({
 testStable(
   'a column-projected entity never dispatches to a same-named feature participant',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       context.db.exec(
@@ -257,7 +257,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

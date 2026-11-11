@@ -1,6 +1,4 @@
-import { randomUUID, randomBytes } from 'node:crypto';
-
-import { matchingTermIdSchema, matchingDefinitionIdSchema } from '@study/contracts/ids';
+import { identifyMatchingPair } from '@study/contracts/ids';
 import { quizOrderingItemIdSchema } from '@study/contracts/ids';
 import { materialContentInputSchema } from '@study/contracts/materials/schemas';
 import { eq } from '@study/db';
@@ -67,14 +65,7 @@ function seedQuiz(
   db.orm.insert(material_quiz_versions).values({ version_id: version.id }).run();
 
   for (const [position, value] of content.questions.entries()) {
-    const matchingPairs =
-      value.kind === 'matching'
-        ? value.pairs.map((pair) => ({
-            ...pair,
-            termId: Schema.decodeUnknownSync(matchingTermIdSchema)(randomUUID()),
-            definitionId: Schema.decodeUnknownSync(matchingDefinitionIdSchema)(randomUUID())
-          }))
-        : null;
+    const matchingPairs = value.kind === 'matching' ? value.pairs.map(identifyMatchingPair) : null;
 
     const question = db.orm
       .insert(material_quiz_questions)
@@ -95,7 +86,8 @@ function seedQuiz(
         .values(
           value.items.map((item, position) => ({
             id: Schema.decodeUnknownSync(quizOrderingItemIdSchema)(
-              randomBytes(8).readBigUInt64BE() & 0x7fffffffffffffffn || 1n
+              new DataView(crypto.getRandomValues(new Uint8Array(8)).buffer).getBigUint64(0) &
+                0x7fffffffffffffffn || 1n
             ),
             question_id: question.id,
             position: BigInt(position),

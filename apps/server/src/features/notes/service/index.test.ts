@@ -33,8 +33,8 @@ import { withTestPublication } from '#testing/publication';
 import { Notes } from './index.ts';
 
 testStable('notes support normalized creation, bounded pagination and missing reads', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const database = Layer.succeed(Database, { store: context });
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(Layer.provideMerge(database));
 
@@ -93,13 +93,13 @@ testStable('notes support normalized creation, bounded pagination and missing re
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('messages retain immutable versions and paginate in chronological order', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -190,15 +190,15 @@ testStable('messages retain immutable versions and paginate in chronological ord
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'explicit attachment snapshots share sources across collections and survive source deletion',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -266,7 +266,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -274,8 +274,8 @@ testStable(
 testStable(
   'editing and deleting messages update note ordering with a composite cursor',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -324,7 +324,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -332,8 +332,8 @@ testStable(
 testStable(
   'message validation rejects invalid text, incomplete versions, and foreign versions',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -392,14 +392,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('reply request persists its context and rejects another pending request', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -475,15 +475,15 @@ testStable('reply request persists its context and rejects another pending reque
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'reply snapshots retain historical attachments after reopen and reprocessing',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const { sources, source_snapshots, content_snapshots, source_processing } =
       await import('@study/db/schema');
     const { eq } = await import('@study/db');
@@ -559,7 +559,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       const newer = context.db.orm
         .insert(content_snapshots)
         .values({
@@ -601,14 +601,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('outbox failure rolls back reply request and pending message', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const { sql } = await import('@study/db');
   const { workflowEvents, note_reply_requests } = await import('@study/db/schema');
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -640,13 +640,13 @@ testStable('outbox failure rolls back reply request and pending message', async 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('reply captures pending attachments and invalidates deleted context', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const { sources, source_snapshots, content_snapshots, source_processing } =
     await import('@study/db/schema');
   const { eq } = await import('@study/db');
@@ -747,13 +747,13 @@ testStable('reply captures pending attachments and invalidates deleted context',
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('reply history includes every active note and rejects excess total text', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -796,13 +796,13 @@ testStable('reply history includes every active note and rejects excess total te
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('untitled notes capture title requests and reject stale context', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -861,13 +861,13 @@ testStable('untitled notes capture title requests and reject stale context', asy
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('title context retains every active note within its text budget', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const { Settings } = await import('#server/features/settings/index');
   const layer = Layer.mergeAll(Projects.layer, Notes.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -893,7 +893,7 @@ testStable('title context retains every active note within its text budget', asy
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
@@ -902,8 +902,8 @@ testStable(
   async () => {
     const { Settings } = await import('#server/features/settings/index');
     const { Sources } = await import('#server/features/sources/index');
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const services = Layer.mergeAll(
       Projects.layer,
       Notes.layer,
@@ -953,14 +953,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('attachment threads are isolated, owned and paginated', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const { sources, source_snapshots, content_snapshots, source_processing } =
     await import('@study/db/schema');
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
@@ -1106,13 +1106,13 @@ testStable('attachment threads are isolated, owned and paginated', async () => {
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('posting a message can request a reply explicitly or by assistant mention', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.merge(Projects.layer, Notes.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -1168,15 +1168,15 @@ testStable('posting a message can request a reply explicitly or by assistant men
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'note source links survive raw message deletion while authored documents keep independent project lifetime',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Projects.layer, Notes.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -1245,7 +1245,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -1253,8 +1253,8 @@ testStable(
 testStable(
   'deletes an exact note version, preserves other items, and protects the final version',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
     try {
@@ -1322,7 +1322,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

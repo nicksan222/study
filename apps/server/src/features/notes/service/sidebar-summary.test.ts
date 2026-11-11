@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { plainBlock } from '@study/contracts/sources/document';
 import { eq } from '@study/db';
 import { workflow_executions } from '@study/db/schema';
@@ -48,8 +46,8 @@ const meta = {
 testStable(
   'sidebar summaries count distinct attached generated documents and report durable work',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.merge(Notes.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -81,7 +79,7 @@ testStable(
           };
 
           yield* library.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Manual',
             document,
             noteId: note.id,
@@ -156,7 +154,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

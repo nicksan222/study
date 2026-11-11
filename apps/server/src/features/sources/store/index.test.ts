@@ -53,8 +53,8 @@ const document = {
 };
 
 testStable('snapshots survive replacement and stale publications leave no document', async () => {
-  const location = createTestDatabase();
-  let context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  let context = new ServerContext(await location.open());
 
   try {
     const source = await Effect.runPromise(
@@ -255,7 +255,7 @@ testStable('snapshots survive replacement and stale publications leave no docume
       id
     );
     context.close();
-    context = new ServerContext(location.open());
+    context = new ServerContext(await location.open());
     assert.strictEqual(
       (
         await Effect.runPromise(
@@ -283,13 +283,13 @@ testStable('snapshots survive replacement and stale publications leave no docume
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('source reads distinguish absence and enforce bounded pagination', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
 
   try {
     const a = await Effect.runPromise(
@@ -346,6 +346,6 @@ testStable('source reads distinguish absence and enforce bounded pagination', as
     ).rejects.toSatisfy(() => true);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

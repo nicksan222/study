@@ -1,12 +1,10 @@
-import { fileURLToPath } from 'node:url';
-
 import { defineConfig } from 'vite-plus';
 
 import { fmt } from './tooling/oxc-config/fmt.ts';
 import { lint } from './tooling/oxc-config/lint.ts';
 
 export default defineConfig({
-  root: fileURLToPath(new URL('.', import.meta.url)),
+  root: Bun.fileURLToPath(new URL('.', import.meta.url)),
   fmt,
   lint,
   test: {

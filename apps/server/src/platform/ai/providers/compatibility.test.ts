@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createServer } from 'node:http';
-
 import { StudyError } from '@study/contracts/errors';
 import { testStable } from '@study/testing/vitest';
 import { jsonSchema, Output, streamText } from 'ai';
@@ -28,26 +26,30 @@ testStable(
   'compatible providers stream schema-validated JSON without requiring strict JSON Schema',
   async () => {
     let body: { response_format?: unknown; messages: unknown[]; tools: unknown[] } | undefined;
-    const server = createServer(async (req, res) => {
-      const chunks: Buffer[] = [];
+    const server = Bun.serve({
+      hostname: '127.0.0.1',
+      port: 0,
+      fetch: async (req) => {
+        let events = '';
+        const requestBody = await req.text();
 
-      for await (const chunk of req) chunks.push(Buffer.from(chunk));
+        body = JSON.parse(requestBody);
+        const base = {
+          id: 'test',
+          object: 'chat.completion.chunk',
+          created: 1,
+          model: 'test-model'
+        };
 
-      body = JSON.parse(Buffer.concat(chunks).toString());
-      res.writeHead(200, { 'content-type': 'text/event-stream' });
-      const base = { id: 'test', object: 'chat.completion.chunk', created: 1, model: 'test-model' };
+        events += `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: '{"answer":"Hello"}' }, finish_reason: null }] })}\n\n`;
+        events += `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n`;
 
-      res.write(
-        `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: '{"answer":"Hello"}' }, finish_reason: null }] })}\n\n`
-      );
-      res.write(
-        `data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n`
-      );
-      res.end('data: [DONE]\n\n');
+        return new Response(events + 'data: [DONE]\n\n', {
+          headers: { 'content-type': 'text/event-stream' }
+        });
+      }
     });
-
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address();
+    const address = { port: server.port };
 
     expect(address).not.toBeNull();
     const base = `http://127.0.0.1:${(address as { port: number }).port}`;
@@ -86,9 +88,7 @@ testStable(
         expect(body?.tools).toHaveLength(1);
       }
     } finally {
-      await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error ? reject(error) : resolve()))
-      );
+      await server.stop(true);
     }
   }
 );

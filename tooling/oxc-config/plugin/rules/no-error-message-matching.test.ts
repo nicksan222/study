@@ -3,21 +3,24 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('no-error-message-matching guards production and accepts safe alternatives', () => {
-  const diagnostics = lintRule('no-error-message-matching', {
-    'src/bad.ts': "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }",
-    'src/good.ts':
-      "try { run(); } catch (error) { log(error.message); if (error.code === 'SQLITE_BUSY') retry(); }",
-    'src/fixture.test.ts':
-      "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }"
-  });
+testStable(
+  'no-error-message-matching guards production and accepts safe alternatives',
+  async () => {
+    const diagnostics = await lintRule('no-error-message-matching', {
+      'src/bad.ts': "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }",
+      'src/good.ts':
+        "try { run(); } catch (error) { log(error.message); if (error.code === 'SQLITE_BUSY') retry(); }",
+      'src/fixture.test.ts':
+        "try { run(); } catch (error) { if (error.message.includes('busy')) retry(); }"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
-testStable('no-error-message-matching handles aliases and avoids unrelated bindings', () => {
-  const diagnostics = lintRule('no-error-message-matching', {
+testStable('no-error-message-matching handles aliases and avoids unrelated bindings', async () => {
+  const diagnostics = await lintRule('no-error-message-matching', {
     'src/bad.ts':
       "try { run(); } catch (error) { switch (error.message) { case 'missing': break; } if (/busy/.test(error.message)) retry(); }",
     'src/good.ts':
@@ -28,8 +31,8 @@ testStable('no-error-message-matching handles aliases and avoids unrelated bindi
   assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
 });
 
-testStable('collection ambiguity and missing receipts branch on typed kinds', () => {
-  const diagnostics = lintRule(
+testStable('collection ambiguity and missing receipts branch on typed kinds', async () => {
+  const diagnostics = await lintRule(
     'no-error-message-matching',
     {
       'apps/web/src/features/collections/unsafe.ts': `try { await create(); } catch (error) { if (error.message === 'invalid_input') release(); if (error.message.includes('not found')) close(); }`,

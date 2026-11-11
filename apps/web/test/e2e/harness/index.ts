@@ -1,5 +1,3 @@
-import { fileURLToPath } from 'node:url';
-
 import { StudyRpc } from '@study/contracts/rpc';
 import { Language } from '@study/contracts/settings/types';
 import { createTestDatabase } from '@study/db/testing';
@@ -19,7 +17,7 @@ export async function withWebE2e(run: (fixture: { page: Page }) => Promise<void>
   const failures: unknown[] = [];
 
   try {
-    const database = createTestDatabase();
+    const database = await createTestDatabase();
 
     cleanup.push(() => database.cleanup());
     const app = await App.open({ path: database.path });
@@ -43,7 +41,7 @@ export async function withWebE2e(run: (fixture: { page: Page }) => Promise<void>
       )
     );
     const web = await createServer({
-      configFile: fileURLToPath(new URL('../../../vite.config.ts', import.meta.url)),
+      configFile: Bun.fileURLToPath(new URL('../../../vite.config.ts', import.meta.url)),
       server: {
         host: '127.0.0.1',
         port: 0,

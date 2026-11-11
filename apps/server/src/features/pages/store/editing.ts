@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import type { PageId } from '@study/contracts/ids';
 import * as e from '@study/contracts/pages/editing';
 import type * as r from '@study/contracts/pages/rpc';
@@ -22,6 +20,7 @@ import { documentDifferences } from '@study/contracts/sources/document';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { and, desc, eq } from '@study/db';
 import * as s from '@study/db/schema';
+import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 
 import { intentHash } from '#server/features/pages/decoders/intent';
@@ -291,9 +290,7 @@ export function makePageEditing(resources: StoreResources) {
       blocks: body.blocks.map((b) => ({
         ...b,
         id: Schema.decodeUnknownSync(blockIdSchema)(
-          createHash('sha256')
-            .update(v.createKey + ':' + b.id)
-            .digest('hex')
+          new CryptoHasher('sha256').update(v.createKey + ':' + b.id).digest('hex')
         )
       }))
     };

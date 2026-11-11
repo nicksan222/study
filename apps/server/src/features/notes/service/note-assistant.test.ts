@@ -23,8 +23,8 @@ import { Database } from '#server/platform/database/database';
 testStable(
   'note chats are distinct, durable, excluded from global chats and scoped to a notebook',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
 
     try {
       await Effect.runPromise(
@@ -50,7 +50,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

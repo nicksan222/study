@@ -11,7 +11,7 @@
     "erasableSyntaxOnly": true,
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": [
     "../../packages/*/src/**/*.ts",
@@ -19,5 +19,9 @@
     "../../apps/server/src/**/*.ts",
     "../../apps/server/test/**/*.ts"
   ],
-  "exclude": ["../../packages/ui"]
+  "exclude": [
+    "../../packages/ui",
+    "../../packages/testing/src/bun.ts",
+    "../../apps/server/test/process-recovery.bun.test.ts"
+  ]
 }

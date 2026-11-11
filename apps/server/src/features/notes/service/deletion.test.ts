@@ -136,7 +136,7 @@ testStable(
         ),
         0
       );
-      fixture.reopen();
+      await fixture.reopen();
       await cleanup(fixture, saved.note.id);
       const done = await Effect.runPromise(
         Effect.gen(function* () {
@@ -167,7 +167,7 @@ testStable(
       );
 
       assertScrubbed(fixture, marker, true);
-      fixture.reopen();
+      await fixture.reopen();
       expect(
         await Effect.runPromise(
           Effect.flatMap(Notes, (chats) => chats.noteDeletion(saved.note.id)).pipe(
@@ -271,7 +271,7 @@ testStable(
         }).pipe(Effect.provide(fixture.domain()))
       );
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_retirement'));
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;
@@ -331,7 +331,7 @@ testStable(
       assert.ok(fixture.context.db.orm.select().from(s.note_deletions).get()?.status === 'pending');
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_private_retirement'));
       fixture.context.db.orm.run(sql.raw('DROP TRIGGER reject_failure_settlement'));
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;
@@ -437,7 +437,7 @@ testStable(
 
       expect(await libraryState(fixture, retainedIds)).toStrictEqual(beforeDeletion);
 
-      fixture.reopen();
+      await fixture.reopen();
 
       expect(await libraryState(fixture, retainedIds)).toStrictEqual(beforeDeletion);
 
@@ -537,7 +537,7 @@ testStable(
           (_, value) => (typeof value === 'bigint' ? String(value) : value)
         ).includes('Late unpublished response')
       );
-      fixture.reopen();
+      await fixture.reopen();
       assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
@@ -635,7 +635,7 @@ testStable(
           }).pipe(Effect.provide(fixture.services()))
         )
       );
-      fixture.reopen();
+      await fixture.reopen();
       assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
@@ -703,7 +703,7 @@ testStable(
           .get()?.status === 'draft'
       );
       assertScrubbed(fixture, marker, true);
-      fixture.reopen();
+      await fixture.reopen();
       await Effect.runPromise(
         Effect.gen(function* () {
           const chats = yield* Notes;

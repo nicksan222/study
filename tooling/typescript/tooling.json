@@ -1,10 +1,11 @@
 {
   "extends": "./frontend.json",
   "compilerOptions": {
-    "types": ["node"]
+    "types": ["bun"]
   },
   "include": [
     "../../vite.config.ts",
+    "../../apps/web/vite.config.ts",
     "../../apps/web/test/e2e/**/*.ts",
     "../oxc-config/**/*.ts",
     "../development/*.ts",

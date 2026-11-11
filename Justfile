@@ -172,17 +172,17 @@ desktop-wait timeout="120":
 # Format Rust and all project-owned web source and configuration.
 fmt:
     cargo fmt --all
-    npm run format
+    bun run format
 
 # Check formatting without modifying files.
 fmt-check:
     cargo fmt --all -- --check
-    npm run format:check
+    bun run format:check
 
 # Lint Rust targets and enforce repository-wide Vite+ format/lint policy.
 lint:
     cargo clippy --locked --workspace --all-targets -- -D warnings
-    npm run lint
+    bun run lint
 
 # Run headless tests for all packages, including those against real services in Docker.
 test:
@@ -199,7 +199,7 @@ landing:
 
 # Build the website from committed captures into apps/landing/dist.
 landing-build:
-    cd apps/landing && bun install --frozen-lockfile && npm run build
+    cd apps/landing && bun install --frozen-lockfile && bun run build
 
 # Check website types and build every static preview from committed assets.
 landing-check:
@@ -207,7 +207,7 @@ landing-check:
 
 # Build the distributable desktop binary.
 build:
-    npm run desktop:build -- --no-bundle -- --locked
+    bun run desktop:build --no-bundle -- --locked
 
 # Build and sign the native installer/AppImage (see .github/CONTRIBUTING.md for signing setup).
 package platform *args:
@@ -219,15 +219,15 @@ deny:
 
 # Type-check, test, and build the frontend. Repository lint runs in `just lint`.
 frontend-check:
-    npm run typecheck
-    npm run test
-    npm run web:e2e
-    npm run build
+    bun run typecheck
+    bun run test
+    bun run web:e2e
+    bun run build
 
-# Check the TypeScript server packages against the actual Node runtime.
+# Check the TypeScript server packages against the Bun runtime.
 server-check:
-    npm run server:typecheck
-    npm run server:test
+    bun run server:typecheck
+    bun run server:test
 
 # Generate database migrations and web routes.
 gen:
@@ -243,13 +243,13 @@ release *args:
 
 # Test development and release tooling.
 tooling-test:
-    npm run quality:test
+    bun run quality:test
     python3 -m unittest discover -s tooling/development -p 'test_*.py'
     python3 -m unittest discover -s tooling/release -p 'test_*.py'
 
 # Enforce full-repository dead-code, complexity and duplication limits.
 fallow-check:
-    npm run fallow:check
+    bun run fallow:check
 
 # Run checks required for pull requests.
 check: check-shell fmt-check lint fallow-check deny test docs server-check frontend-check gen-check tooling-test landing-check

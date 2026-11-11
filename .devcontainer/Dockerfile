@@ -42,7 +42,6 @@ RUN mkdir -p /home/vscode/.local/bin \
 USER root
 
 ARG GH_VERSION=2.102.0
-ARG NODE_VERSION=26.8.2
 ARG BUN_VERSION=1.4.4
 ARG HERDR_VERSION=0.9.3
 ARG CLAUDE_VERSION=2.1.287
@@ -67,7 +66,7 @@ rm /tmp/gh.deb
 gh pr create --help | grep -q -- --attach
 SH
 
-# Bun runs the application server, runtime staging and landing website.
+# Bun runs the application, development tools and package commands.
 RUN <<'SH'
 set -eu
 case "$(uname -m)" in
@@ -87,13 +86,14 @@ COPY install-patchelf.sh /usr/local/share/study/install-patchelf.sh
 RUN bash /usr/local/share/study/install-patchelf.sh /usr/local
 ENV PATCHELF=/usr/local/bin/patchelf
 
-# Node for frontend/Tauri and the npm-installed agents. Replace npm's dependency tree
-# before extracting; overlaying an older npm leaves incompatible transitive modules.
-RUN python3 -c "import shutil; shutil.rmtree('/usr/local/lib/node_modules/npm', ignore_errors=True)" \
-    && case "$(uname -m)" in aarch64) node_arch=arm64 ;; *) node_arch=x64 ;; esac \
-    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
-       | tar -xJ -C /usr/local --strip-components=1 \
-    && npm install --global @openai/codex@${CODEX_VERSION} basedpyright@${BASEDPYRIGHT_VERSION}
+# Third-party CLI launchers use Bun even when their package shebang names Node.
+RUN BUN_INSTALL=/usr/local bun add --global @openai/codex@${CODEX_VERSION} basedpyright@${BASEDPYRIGHT_VERSION} \
+    && for tool in codex basedpyright basedpyright-langserver; do \
+         entry=$(readlink -f "/usr/local/bin/$tool"); \
+         rm "/usr/local/bin/$tool"; \
+         printf '#!/bin/sh\nexec bun --bun "%s" "$@"\n' "$entry" > "/usr/local/bin/$tool"; \
+         chmod +x "/usr/local/bin/$tool"; \
+       done
 
 USER vscode
 ENV DISABLE_AUTOUPDATER=1

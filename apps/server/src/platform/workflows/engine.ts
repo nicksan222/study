@@ -14,8 +14,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import {
   Context,
@@ -132,7 +130,7 @@ export function workflowEngineLayer(context: ServerContext) {
       if (!entry)
         return yield* Effect.die(new Error(`Workflow ${workflow._tag} is not registered`));
 
-      const owner = randomUUID();
+      const owner = crypto.randomUUID();
       const claimed = yield* Effect.sync(() => store.claim(id, owner));
 
       if (!claimed) return undefined;

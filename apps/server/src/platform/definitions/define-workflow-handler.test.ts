@@ -230,8 +230,8 @@ const event = (id: string) =>
 testStable(
   'registered subscriptions retain disabled events and recover native executions after reopen',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     let enabled = false;
     let executions = 0;
     const registration = defineWorkflowHandler(workflow, {
@@ -250,7 +250,7 @@ testStable(
     });
 
     try {
-      context.transaction(() => emitEvent(context, event('recover'), 1));
+      context.transaction((context) => emitEvent(context, event('recover'), 1));
       assert.strictEqual(dispatchPending(context, registration.triggers, 2), 0);
       enabled = true;
       assert.strictEqual(dispatchPending(context, registration.triggers, 3), 1);
@@ -260,7 +260,7 @@ testStable(
       assert.ok(persisted!.workflow_tag === 'test-registration/v3');
       expect(context.db.orm.select().from(workflowReceipts).all()[0]!.workflowVersion).toBe(3n);
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
 
       await Effect.runPromise(
         Effect.scoped(
@@ -290,16 +290,16 @@ testStable(
       assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 1);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable(
   'registration preserves dispatch duplicate subscription and synchronous policy validation',
-  () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+  async () => {
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const subscription = { subscription: 'duplicate', event: 'SourceIndexed', emits: [] } as const;
     const duplicates = defineWorkflowHandler(workflow, {
       execute: () => Effect.void,
@@ -327,7 +327,7 @@ testStable(
       assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -352,8 +352,8 @@ testStable(
     });
 
     for (const value of ['first', 'second']) {
-      const location = createTestDatabase();
-      const context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      const context = new ServerContext(await location.open());
 
       try {
         await Effect.runPromise(
@@ -369,7 +369,7 @@ testStable(
         );
       } finally {
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
 

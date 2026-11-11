@@ -13,8 +13,8 @@ const cases = [
 ];
 
 for (const { rule, bad, good } of cases) {
-  testStable(`backend cleanup policy rejects ${rule} regressions`, () => {
-    const diagnostics = lintFiles({
+  testStable(`backend cleanup policy rejects ${rule} regressions`, async () => {
+    const diagnostics = await lintFiles({
       'src/platform/cleanup-bad.ts': `${header}\n\n${bad}\n`,
       'src/platform/cleanup-good.ts': `${header}\n\n${good}\n`
     });

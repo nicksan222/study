@@ -25,14 +25,14 @@ import { Database } from '#server/platform/database/database';
 import { transaction, useStore } from '#server/platform/definitions/define-store';
 
 testStable('project timestamps use the captured native clock in SQLite transactions', async () => {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         yield* TestClock.setTime(100_000);
         const clock = yield* Clock.Clock;
-        const context = new ServerContext(location.open(), clock);
+        const context = new ServerContext(yield* Effect.promise(() => location.open()), clock);
 
         try {
           const project = yield* transaction((tx) =>
@@ -55,20 +55,20 @@ testStable('project timestamps use the captured native clock in SQLite transacti
       }).pipe(Effect.provide(TestClock.layer()))
     );
   } finally {
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('project stores retain their own SQLite context', async () => {
-  const first = createTestDatabase();
-  const second = createTestDatabase();
+  const first = await createTestDatabase();
+  const second = await createTestDatabase();
 
   try {
     await Effect.runPromise(
       Effect.gen(function* () {
         const clock = yield* Clock.Clock;
-        const left = new ServerContext(first.open(), clock);
-        const right = new ServerContext(second.open(), clock);
+        const left = new ServerContext(yield* Effect.promise(() => first.open()), clock);
+        const right = new ServerContext(yield* Effect.promise(() => second.open()), clock);
 
         try {
           const leftStore = Effect.runSync(
@@ -90,7 +90,7 @@ testStable('project stores retain their own SQLite context', async () => {
       })
     );
   } finally {
-    first.cleanup();
-    second.cleanup();
+    await first.cleanup();
+    await second.cleanup();
   }
 });

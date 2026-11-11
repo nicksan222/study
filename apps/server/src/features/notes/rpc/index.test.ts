@@ -32,8 +32,8 @@ import { Database } from '#server/platform/database/database';
 import { NotesRpcLive } from './index.ts';
 
 testStable('native note RPC returns typed missing failures and optional reads', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const handlers = NotesRpcLive.pipe(
     Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -53,13 +53,13 @@ testStable('native note RPC returns typed missing failures and optional reads', 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('native message RPC persists and reads a versioned message', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const { projects } = await import('@study/db/schema');
   const project = context.db.orm
     .insert(projects)
@@ -147,13 +147,13 @@ testStable('native message RPC persists and reads a versioned message', async ()
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('native RPC keeps attachment thread messages isolated', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const { projects, sources } = await import('@study/db/schema');
   const project = context.db.orm
     .insert(projects)
@@ -215,15 +215,15 @@ testStable('native RPC keeps attachment thread messages isolated', async () => {
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'native description RPC persists optional metadata with optimistic concurrency',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(
       Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -323,7 +323,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -331,8 +331,8 @@ testStable(
 testStable(
   'native message RPC preserves explicit document format independently of capture keys',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(
       Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -388,7 +388,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

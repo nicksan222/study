@@ -24,6 +24,7 @@ import type { Clock } from 'effect';
 
 import type { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { chatGptTools } from '#server/platform/ai/providers/chatgpt/tools';
+import { sdkFetch } from '#server/platform/ai/providers/definition';
 import { streamingFetch } from '#server/platform/http/index';
 
 class ChatGptRequestError extends StudyError {
@@ -123,7 +124,7 @@ export interface ChatGptModelOptions {
   auth: AuthManager;
   modelId: string;
   baseUrl?: string;
-  fetch?: typeof fetch;
+  fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
   beforeRequest?: RequestCheck;
   clock?: Clock.Clock;
 }
@@ -142,7 +143,7 @@ export function createChatGptModel({
   const provider = createOpenAI({
     baseURL: baseUrl,
     apiKey: 'oauth',
-    fetch: async (url, init) => {
+    fetch: sdkFetch(async (url, init) => {
       const signal = init?.signal;
 
       for (let attempt = 0; attempt < 2; attempt++) {
@@ -185,7 +186,7 @@ export function createChatGptModel({
       }
 
       throw new Error('ChatGPT authorization failed');
-    }
+    })
   });
   const inner = provider.responses(modelId);
   const prepare = (options: LanguageModelV3CallOptions): LanguageModelV3CallOptions => {

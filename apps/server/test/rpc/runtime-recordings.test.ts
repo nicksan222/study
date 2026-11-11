@@ -27,7 +27,7 @@ testStable(
   'HTTP recording capture hands durable WAV publication to the native worker',
   { timeout: 10000 },
   async () => {
-    const location = createTestDatabase();
+    const location = await createTestDatabase();
     const app = await App.open({ path: location.path });
     const server = await serve(app);
 
@@ -98,7 +98,7 @@ testStable(
     } finally {
       await server.close();
       await app.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

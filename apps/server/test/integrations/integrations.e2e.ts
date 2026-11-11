@@ -45,7 +45,7 @@ testStable.each(cases)(
         const clean = await container.exec([
           'bun',
           '-e',
-          "if(require('node:fs').readdirSync('/run/study-test').length) process.exit(1)"
+          "if ((await Array.fromAsync(new Bun.Glob('**/*').scan({ cwd: '/run/study-test', dot: true, onlyFiles: false }))).length) process.exit(1)"
         ]);
 
         expect(clean.exitCode, clean.output).toBe(0);
@@ -56,9 +56,12 @@ testStable.each(cases)(
           'xvfb-run',
           '-a',
           'bun',
+          '--bun',
+          'vp',
           'test',
-          '--timeout',
-          '60000',
+          'run',
+          '--config',
+          'apps/server/test/integrations/vite.config.ts',
           `./apps/server/test/integrations/${fixture.scenario}`
         ]);
 
@@ -68,7 +71,7 @@ testStable.each(cases)(
           const failure = await container.exec([
             'bun',
             '-e',
-            "require('node:fs').writeFileSync('/run/study-test/dirty-state', 'discard me'); process.exit(23)"
+            "await Bun.write('/run/study-test/dirty-state', 'discard me'); process.exit(23)"
           ]);
 
           expect(failure.exitCode).toBe(23);

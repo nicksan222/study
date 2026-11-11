@@ -15,22 +15,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { types } from 'node:util';
-
 import { StudyError } from '@study/contracts/errors';
 import type { WorkflowEvent } from '@study/contracts/events';
-import type { Db } from '@study/db';
+import type { Db, DbTransaction } from '@study/db';
 import type { Clock, Context } from 'effect';
 import { Effect, Option, Schema } from 'effect';
 
-import type { ServerContext } from '#server/platform/database/context';
+import type { ServerContext, ServerTransactionContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { normalizeError } from '#server/platform/errors/classify-error';
 import { observeOperation, observeSyncOperation } from '#server/platform/observability/index';
 import { emitEvent } from '#server/platform/workflows/events';
 import { PublicationGuard } from '#server/platform/workflows/publication';
 
-export type StoreResources = { readonly db: Db; readonly clock: Clock.Clock };
+export type StoreResources = { readonly db: Db | DbTransaction; readonly clock: Clock.Clock };
 
 type Decoder = Schema.ConstraintDecoder<unknown>;
 
@@ -129,7 +127,10 @@ export function defineStore<
   )
     throw new TypeError('Invalid store descriptor');
 
-  const implementations = new WeakMap<ServerContext, { queries: Q; mutations: M }>();
+  const implementations = new WeakMap<
+    ServerContext | ServerTransactionContext,
+    { queries: Q; mutations: M }
+  >();
 
   function validateOperationShapes(bound: { queries: Q; mutations: M }) {
     for (const [name, operation] of Object.entries({
@@ -178,7 +179,7 @@ export function defineStore<
     }
   }
 
-  function operations(context: ServerContext) {
+  function operations(context: ServerContext | ServerTransactionContext) {
     const existing = implementations.get(context);
 
     if (existing) return existing;
@@ -232,7 +233,7 @@ export function defineStore<
   }
 
   function bind(
-    context: ServerContext,
+    context: ServerContext | ServerTransactionContext,
     active: () => boolean,
     instrument: <A>(name: string, run: () => A) => A
   ): SyncMethods<Q & M> {
@@ -259,7 +260,7 @@ export function defineStore<
 
 type StoreDefinition = {
   [bindStore]: (
-    context: ServerContext,
+    context: ServerContext | ServerTransactionContext,
     active: () => boolean,
     instrument: <A>(name: string, run: () => A) => A
   ) => object;
@@ -271,9 +272,21 @@ export type SyncResult<T> = T extends
   ? never
   : T;
 
+const transactionDatabases = new WeakMap<Transaction, DbTransaction>();
+
+export function transactionDatabase(tx: Transaction): DbTransaction {
+  const database = transactionDatabases.get(tx);
+
+  if (!database) throw new Error('Transaction is no longer active');
+
+  return database;
+}
+
 export type Transaction = {
   store<S extends StoreDefinition>(store: S): ReturnType<S[typeof bindStore]>;
   emit(event: WorkflowEvent): void;
+  assertPublication(guard: PublicationGuard['Service']): void;
+  transaction<T>(work: (tx: Transaction) => T & SyncResult<T>): T;
 };
 
 export function useStore<S extends { [readStore]: (context: ServerContext) => object }>(
@@ -288,16 +301,16 @@ export function useStore<S extends { [readStore]: (context: ServerContext) => ob
 }
 
 function runTransaction<T>(
-  context: ServerContext,
+  context: ServerContext | ServerTransactionContext,
   effectContext: Context.Context<never>,
-  work: (tx: Transaction) => T & SyncResult<T>,
+  work: (tx: Transaction) => T,
   guard?: PublicationGuard['Service']
 ): T {
-  return context.transaction(() => {
-    if (types.isAsyncFunction(work))
+  return context.transaction((transactionContext) => {
+    if (Object.prototype.toString.call(work) === '[object AsyncFunction]')
       throw new TypeError('Transaction callbacks must be synchronous');
 
-    guard?.assert(context);
+    guard?.assert(transactionContext);
 
     let active = true;
 
@@ -306,7 +319,7 @@ function runTransaction<T>(
         if (!active) throw new Error('Transaction is no longer active');
 
         return definition[bindStore](
-          context,
+          transactionContext,
           () => active,
           (name, run) => observeSyncOperation(effectContext, name, run)
         ) as ReturnType<S[typeof bindStore]>;
@@ -315,9 +328,22 @@ function runTransaction<T>(
       const emit = (event: WorkflowEvent) => {
         if (!active) throw new Error('Transaction is no longer active');
 
-        emitEvent(context, event, context.clock.currentTimeMillisUnsafe());
+        emitEvent(transactionContext, event, transactionContext.clock.currentTimeMillisUnsafe());
       };
-      const value = work({ store, emit });
+      const assertPublication = (publication: PublicationGuard['Service']) => {
+        if (!active) throw new Error('Transaction is no longer active');
+
+        publication.assert(transactionContext);
+      };
+      const nested = <A>(callback: (tx: Transaction) => A & SyncResult<A>) => {
+        if (!active) throw new Error('Transaction is no longer active');
+
+        return runTransaction(transactionContext, effectContext, callback, guard);
+      };
+      const view = { store, emit, assertPublication, transaction: nested };
+
+      transactionDatabases.set(view, transactionContext.db);
+      const value = work(view);
 
       synchronous(value);
 
@@ -329,7 +355,7 @@ function runTransaction<T>(
 }
 
 function transactionEffect<T>(
-  work: (tx: Transaction) => T & SyncResult<T>,
+  work: (tx: Transaction) => T,
   guard?: PublicationGuard['Service']
 ): Effect.Effect<T, StudyError, Database> {
   return observeOperation(

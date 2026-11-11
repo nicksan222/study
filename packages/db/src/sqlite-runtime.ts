@@ -10,30 +10,36 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { execFileSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { Database } from 'bun:sqlite';
 
-let configured = false;
+let configured: Promise<void> | undefined;
 
 /** Bun uses the restricted system SQLite on macOS unless a full library is selected. */
-export function configureSqliteRuntime() {
-  if (configured || !process.versions.bun || process.platform !== 'darwin') return;
+export function configureSqliteRuntime(): Promise<void> {
+  if (process.platform !== 'darwin') return Promise.resolve();
 
-  const bundled = join(dirname(process.execPath), 'libsqlite3.dylib');
-  const library = existsSync(bundled)
-    ? bundled
-    : join(
-        execFileSync('brew', ['--prefix', 'sqlite'], { encoding: 'utf8' }).trim(),
-        'lib/libsqlite3.dylib'
+  return (configured ??= (async () => {
+    const bundled = Bun.fileURLToPath(
+      new URL('libsqlite3.dylib', Bun.pathToFileURL(process.execPath))
+    );
+    let library = bundled;
+
+    if (!(await Bun.file(bundled).exists())) {
+      const child = Bun.spawn(['brew', '--prefix', 'sqlite'], { stdout: 'pipe', stderr: 'pipe' });
+      const [prefix, stderr, status] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited
+      ]);
+
+      if (status !== 0) throw new Error(`Cannot locate SQLite library: ${stderr}`);
+
+      library = Bun.fileURLToPath(
+        new URL('lib/libsqlite3.dylib', Bun.pathToFileURL(`${prefix.trim()}/`))
       );
-  const sqlite: { Database: { setCustomSQLite(path: string): boolean } } = createRequire(
-    import.meta.url
-  )('bun:sqlite');
+    }
 
-  if (!sqlite.Database.setCustomSQLite(library))
-    throw new Error('Cannot load the extension-capable SQLite library');
-
-  configured = true;
+    if (!Database.setCustomSQLite(library))
+      throw new Error('Cannot load the extension-capable SQLite library');
+  })());
 }

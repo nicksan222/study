@@ -10,8 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
@@ -41,7 +39,7 @@ testStable(
           });
           const doc = yield* documents.create({
             noteId: first.id,
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             title: 'Shared document',
             inputs: [],
             citations: [],
@@ -52,7 +50,7 @@ testStable(
           const capture = () =>
             notes.captureNoteContext({
               noteId: first.id,
-              intentKey: randomUUID(),
+              intentKey: crypto.randomUUID(),
               instruction: '',
               preferences: {}
             });

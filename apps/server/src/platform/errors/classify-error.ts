@@ -31,10 +31,11 @@ export function classifyError(error: unknown): Failure {
   const e = error as {
     code?: string;
     errcode?: number;
+    errno?: number;
     message?: string;
   } | null;
   const code = e?.code;
-  const kind = errorKind(e?.errcode, code);
+  const kind = errorKind(code?.startsWith('SQLITE_') ? e?.errno : e?.errcode, code);
 
   const message = {
     not_found: 'Requested resource was not found',

@@ -11,8 +11,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { randomUUID } from 'node:crypto';
-
 import type { PageVersionId, SourceId } from '@study/contracts/ids';
 import { pageVersionIdSchema } from '@study/contracts/ids';
 import { NotesRpc } from '@study/contracts/notes/rpc';
@@ -56,8 +54,8 @@ const content = (value: string) => ({
 testStable(
   'native selection guards exact historic ranges, captures once and survives edits and reopen',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -74,7 +72,7 @@ testStable(
             const second = yield* client('notes.createNote', { title: 'Other' });
             const body = content('before 😀 selected after');
             const material = yield* documents.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               title: 'Shared',
@@ -203,7 +201,7 @@ testStable(
             yield* documents.save({
               pageId: material.id,
               expectedVersionId: material.version!.id,
-              key: randomUUID(),
+              key: crypto.randomUUID(),
               document: content('new content')
             });
 
@@ -390,7 +388,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       const reopened = await Effect.runPromise(
         Effect.flatMap(Notes, (c) => c.noteContext({ requestId: captured.requestId })).pipe(
           Effect.provide(services())
@@ -400,7 +398,7 @@ testStable(
       expect(reopened).toStrictEqual(captured);
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -408,8 +406,8 @@ testStable(
 testStable(
   'reply outbox rejection rolls back the logical context and retry uses original message versions',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Notes.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
     try {
@@ -436,7 +434,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -444,8 +442,8 @@ testStable(
 testStable(
   'active membership controls capture independently of selection and all notes are retained',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -469,7 +467,7 @@ testStable(
             )).kind === 'invalid_input'
           );
           const a = yield* documents.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'A',
@@ -477,7 +475,7 @@ testStable(
             document: content('Alpha')
           });
           const b = yield* documents.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'B',
@@ -519,7 +517,7 @@ testStable(
           ]);
           assert.strictEqual((yield* notes.noteSelection({ noteId: second.id })).targets.length, 1);
           const draftOwner = yield* documents.create({
-            createKey: randomUUID(),
+            createKey: crypto.randomUUID(),
             inputs: [],
             citations: [],
             title: 'Draft',
@@ -529,13 +527,13 @@ testStable(
           yield* documents.save({
             pageId: draftOwner.id,
             expectedVersionId: draftOwner.version!.id,
-            key: randomUUID(),
+            key: crypto.randomUUID(),
             document: content('Published replacement')
           });
           const draft = yield* documents.save({
             pageId: draftOwner.id,
             expectedVersionId: draftOwner.version!.id,
-            key: randomUUID(),
+            key: crypto.randomUUID(),
             document: content('Retained alternative')
           });
 
@@ -609,7 +607,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -617,8 +615,8 @@ testStable(
 testStable(
   'active image documents retain whole bodies and exact asset revisions despite manual range selection',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const services = () =>
       Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -648,7 +646,7 @@ testStable(
               alt: 'Selected figure caption'
             });
             const material = yield* documents.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               title: 'Illustrated document',
@@ -718,7 +716,7 @@ testStable(
             yield* documents.save({
               pageId: material.id,
               expectedVersionId: material.version!.id,
-              key: randomUUID(),
+              key: crypto.randomUUID(),
 
               document: {
                 ...content('New surrounding text'),
@@ -743,7 +741,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.gen(function* () {
           const notes = yield* Notes;
@@ -775,7 +773,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -811,8 +809,8 @@ function assertRetainedCitationShapes(
 testStable(
   'retained legacy and attachment citations keep bounded precision; wrong exact identities never use latest content',
   async () => {
-    const location = createTestDatabase();
-    let context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    let context = new ServerContext(await location.open());
     const handlers = () =>
       NotesRpcLive.pipe(
         Layer.provideMerge(Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer)),
@@ -828,7 +826,7 @@ testStable(
             const note = yield* rpc('notes.createNote', { title: 'Historic shapes' });
             const body = content('Same words in distinct documents');
             const material = yield* documents.create({
-              createKey: randomUUID(),
+              createKey: crypto.randomUUID(),
               inputs: [],
               citations: [],
               title: 'Published',
@@ -837,13 +835,13 @@ testStable(
             const latestOutcome = yield* documents.save({
               pageId: material.id,
               expectedVersionId: material.version!.id,
-              key: randomUUID(),
+              key: crypto.randomUUID(),
               document: content(body.blocks[0]!.text)
             });
             const draftOutcome = yield* documents.save({
               pageId: material.id,
               expectedVersionId: material.version!.id,
-              key: randomUUID(),
+              key: crypto.randomUUID(),
               document: body
             });
             const documentId = material.version!.snapshotId;
@@ -963,7 +961,7 @@ testStable(
       );
 
       context.close();
-      context = new ServerContext(location.open());
+      context = new ServerContext(await location.open());
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
@@ -984,7 +982,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -992,8 +990,8 @@ testStable(
 testStable(
   'native capture rejects foreign or deleted boundaries and preserves exact bounded replay',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const handlers = NotesRpcLive.pipe(
       Layer.provideMerge(
         Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer, Sources.layer).pipe(
@@ -1138,7 +1136,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

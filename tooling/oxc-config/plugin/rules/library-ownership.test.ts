@@ -5,7 +5,7 @@ import { lintRulePaths } from '../test/utils.ts';
 
 testStable(
   'durable library identities cannot acquire collection ownership through schema aliases',
-  () => {
+  async () => {
     const imports =
       "import { sqliteTable as table, integer, foreignKey } from 'drizzle-orm/sqlite-core';\nimport { projects as collections } from './projects.ts';\n";
     const files = {
@@ -31,7 +31,7 @@ testStable(
       'unrelated.ts': "const object = { table }; object.table('other', { project_id: integer() });"
     };
     const prefix = 'packages/db/src/schema/';
-    const diagnostics = lintRulePaths(
+    const diagnostics = await lintRulePaths(
       'library-ownership',
       Object.fromEntries(
         Object.entries(files).map(([file, code]) => [prefix + file, imports + code])

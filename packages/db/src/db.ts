@@ -1,61 +1,75 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
-import { createHash } from 'node:crypto';
-import { chmodSync, closeSync, openSync } from 'node:fs';
-import { backup, DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
-import { types } from 'node:util';
+import { Database } from 'bun:sqlite';
 
-import { drizzle, nodeSQLiteCodecs } from 'drizzle-orm/node-sqlite';
-import type { NodeSQLiteDatabase } from 'drizzle-orm/node-sqlite';
-import { migrate } from 'drizzle-orm/node-sqlite/migrator';
+import { BunFileSystem } from '@effect/platform-bun';
+import { CryptoHasher } from 'bun';
+import { drizzle, bunSQLiteCodecs } from 'drizzle-orm/bun-sqlite';
+import type { SQLiteBunDatabase } from 'drizzle-orm/bun-sqlite';
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
+import { Effect, FileSystem } from 'effect';
 import { load as loadVectorExtension } from 'sqlite-vec';
 
 import { configureSqliteRuntime } from './sqlite-runtime.ts';
+
+type QueryOrm = Omit<SQLiteBunDatabase, 'transaction'>;
 
 /** Owns a SQLite connection and synchronous, nested Drizzle transactions. */
 
 export class Db {
   private static snapshotSchema: { sql: string; identity: string } | undefined;
   readonly path: string;
-  private readonly sqlite: DatabaseSync;
-  private readonly database: NodeSQLiteDatabase;
-  private activeTransaction: NodeSQLiteDatabase | undefined;
-  private readonly transactionContext = new AsyncLocalStorage<{
-    active: boolean;
-  }>();
+  private readonly sqlite: Database;
+  private readonly database: SQLiteBunDatabase;
+  private transactionActive = false;
+  private closed = false;
+  private readonly root: QueryOrm;
 
-  private constructor(sqlite: DatabaseSync, path: string) {
+  private constructor(sqlite: Database, path: string) {
     loadVectorExtension(sqlite);
-    sqlite.enableLoadExtension(false);
     this.sqlite = sqlite;
     this.path = path;
     this.database = drizzle({
       client: sqlite,
       codecs: {
-        ...nodeSQLiteCodecs,
+        ...bunSQLiteCodecs,
         'integer:boolean': {
-          ...nodeSQLiteCodecs['integer:boolean'],
-          // DatabaseSync returns integer columns as bigint, including boolean storage.
+          ...bunSQLiteCodecs['integer:boolean'],
+          // Database returns integer columns as bigint, including boolean storage.
           normalize: (value: unknown) => value === 1n || value === 1
         }
       }
     });
+    this.root = guardTransaction(
+      this.database,
+      () => !this.transactionActive && !this.closed,
+      'root database unavailable during transaction; use its transaction capability'
+    );
   }
 
-  static open(
+  static async open(
     path: string,
-    migrationsFolder = fileURLToPath(new URL('../drizzle', import.meta.url))
-  ): Db {
-    configureSqliteRuntime();
+    migrationsFolder = Bun.fileURLToPath(new URL('../drizzle', import.meta.url))
+  ): Promise<Db> {
+    await configureSqliteRuntime();
 
-    if (process.platform !== 'win32' && path !== ':memory:') {
-      const fd = openSync(path, 'a', 0o600);
+    if (path !== ':memory:') {
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
 
-      closeSync(fd);
-      chmodSync(path, 0o600);
+            yield* fs.open(path, {
+              flag: 'a',
+              mode: 0o600,
+              noFollow: process.platform !== 'win32'
+            });
+
+            if (process.platform !== 'win32') yield* fs.chmod(path, 0o600);
+          })
+        ).pipe(Effect.provide(BunFileSystem.layer))
+      );
     }
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
+    const sqlite = new Database(path, { safeIntegers: true });
 
     try {
       // SQLite table rebuilds must disable foreign keys before the migrator's transaction.
@@ -69,24 +83,24 @@ export class Db {
 
       return new Db(sqlite, path);
     } catch (error) {
-      sqlite.close();
+      sqlite.close(true);
 
       throw error;
     }
   }
 
   /** Flush an exclusively owned file before replacement, without running migrations. */
-  static checkpointFile(path: string): void {
-    configureSqliteRuntime();
+  static async checkpointFile(path: string): Promise<void> {
+    await configureSqliteRuntime();
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
+    const sqlite = new Database(path, { safeIntegers: true });
 
     try {
-      const result = sqlite.prepare('PRAGMA wal_checkpoint(TRUNCATE)').get();
+      const result = sqlite.query<{ busy: bigint }, []>('PRAGMA wal_checkpoint(TRUNCATE)').get();
 
       if (result?.busy !== 0n) throw new Error('Database checkpoint is busy');
     } finally {
-      sqlite.close();
+      sqlite.close(true);
     }
   }
 
@@ -94,65 +108,98 @@ export class Db {
   snapshot(path: string, maximumBytes?: number): Promise<number> {
     this.assertActive();
 
-    const pageSize = Number(this.sqlite.prepare('PRAGMA page_size').get()!.page_size);
+    const pageSize = Number(
+      this.sqlite.query<{ page_size: bigint }, []>('PRAGMA page_size').get()!.page_size
+    );
 
     const checkSize = (pages: number) => {
       if (maximumBytes !== undefined && pages * pageSize > maximumBytes)
         throw new RangeError('Snapshot exceeds size bound');
     };
 
-    checkSize(Number(this.sqlite.prepare('PRAGMA page_count').get()!.page_count));
+    checkSize(
+      Number(this.sqlite.query<{ page_count: bigint }, []>('PRAGMA page_count').get()!.page_count)
+    );
 
-    return (async () => {
-      // Node 26's native backup can settle without flushing promise continuations.
-      // Keep an idle loop waking until delivery, rather than waiting for unrelated I/O.
-      const wakeup = setInterval(() => undefined, 100);
+    // Reserve writers while checking size and serializing so the allocation cannot outgrow its bound.
+    this.sqlite.exec('BEGIN IMMEDIATE');
+    let bytes: Uint8Array;
 
-      wakeup.unref();
+    try {
+      checkSize(
+        Number(this.sqlite.query<{ page_count: bigint }, []>('PRAGMA page_count').get()!.page_count)
+      );
+      bytes = this.sqlite.serialize();
+      checkSize(Math.ceil(bytes.byteLength / pageSize));
+      this.sqlite.exec('COMMIT');
+    } catch (error) {
+      this.sqlite.exec('ROLLBACK');
 
-      try {
-        return await backup(this.sqlite, path, {
-          progress: ({ totalPages }) => checkSize(totalPages)
-        });
-      } finally {
-        clearInterval(wakeup);
-      }
-    })();
+      throw error;
+    }
+
+    return Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const temporary = `${path}.${crypto.randomUUID()}.partial`;
+
+          return yield* Effect.ensuring(
+            Effect.gen(function* () {
+              yield* Effect.scoped(
+                Effect.gen(function* () {
+                  const file = yield* fs.open(temporary, { flag: 'wx', mode: 0o600 });
+
+                  yield* file.writeAll(bytes);
+                  yield* file.sync;
+                })
+              );
+              yield* fs.rename(temporary, path);
+
+              return bytes.byteLength / pageSize;
+            }),
+            fs.remove(temporary, { force: true }).pipe(Effect.ignore)
+          );
+        })
+      ).pipe(Effect.provide(BunFileSystem.layer))
+    );
   }
 
   /** Stable logical fingerprint, independent of WAL/checkpoint and backup header counters. */
   contentIdentity(): string {
-    return this.transaction(() => {
-      const hash = createHash('sha256').update(this.schemaIdentity());
+    return this.transaction((tx) => tx.contentIdentity());
+  }
 
-      const tables = this.sqlite
-        .prepare(
-          "SELECT name FROM sqlite_schema WHERE type='table' AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence') ORDER BY name"
-        )
-        .all();
+  private readContentIdentity(): string {
+    const hash = new CryptoHasher('sha256').update(this.schemaIdentity());
 
-      for (const table of tables) {
-        const name = String(table.name);
+    const tables = this.sqlite
+      .query<{ name: string }, []>(
+        "SELECT name FROM sqlite_schema WHERE type='table' AND (name NOT LIKE 'sqlite_%' OR name='sqlite_sequence') ORDER BY name"
+      )
+      .all();
 
-        hash.update(name);
-        // Identifiers originate in the already-supported schema, never an operation input.
+    for (const table of tables) {
+      const name = String(table.name);
 
-        for (const row of this.sqlite
-          .prepare('SELECT * FROM "' + name.replaceAll('"', '""') + '"')
-          .iterate())
-          hash.update(
-            JSON.stringify(row, (_, value) =>
-              typeof value === 'bigint'
-                ? { integer: value.toString() }
-                : value instanceof Uint8Array
-                  ? { blob: Buffer.from(value).toString('base64') }
-                  : value
-            )
-          );
-      }
+      hash.update(name);
+      // Identifiers originate in the already-supported schema, never an operation input.
 
-      return hash.digest('hex');
-    });
+      for (const row of this.sqlite
+        .prepare('SELECT * FROM "' + name.replaceAll('"', '""') + '"')
+        .iterate())
+        hash.update(
+          JSON.stringify(row, (_, value) =>
+            typeof value === 'bigint'
+              ? { integer: value.toString() }
+              : value instanceof Uint8Array
+                ? { blob: Buffer.from(value).toString('base64') }
+                : value
+          )
+        );
+    }
+
+    return hash.digest('hex');
   }
 
   /** Exact migrator-owned schema identity, including migration receipts and trigger SQL. */
@@ -163,7 +210,7 @@ export class Db {
       .prepare('SELECT hash,created_at FROM __drizzle_migrations ORDER BY created_at,hash')
       .all();
 
-    return createHash('sha256')
+    return new CryptoHasher('sha256')
       .update(
         JSON.stringify({ schema, migrations }, (_, value) =>
           typeof value === 'bigint' ? value.toString() : value
@@ -181,10 +228,10 @@ export class Db {
   }
 
   /** Migrations are fixed for this process; retain only trusted fingerprints, never a connection. */
-  private static supportedSnapshotSchema() {
+  private static async supportedSnapshotSchema() {
     if (Db.snapshotSchema) return Db.snapshotSchema;
 
-    const reference = Db.open(':memory:');
+    const reference = await Db.open(':memory:');
 
     try {
       Db.snapshotSchema = {
@@ -199,17 +246,18 @@ export class Db {
   }
 
   /** Validate untrusted schema before running integrity checks or opening it for writes. */
-  static validateSnapshot(path: string): string {
-    const sqlite = new DatabaseSync(path, {
-      readOnly: true,
-      readBigInts: true,
-      allowExtension: true
+  static async validateSnapshot(path: string): Promise<string> {
+    await configureSqliteRuntime();
+
+    const sqlite = new Database(path, {
+      readonly: true,
+      safeIntegers: true
     });
 
     const candidate = new Db(sqlite, path);
 
     try {
-      const reference = Db.supportedSnapshotSchema();
+      const reference = await Db.supportedSnapshotSchema();
 
       sqlite.exec('PRAGMA trusted_schema = OFF;');
 
@@ -223,7 +271,9 @@ export class Db {
 
       sqlite.exec('PRAGMA trusted_schema = ON; PRAGMA foreign_keys = ON;');
 
-      const integrity = sqlite.prepare('PRAGMA integrity_check').all();
+      const integrity = sqlite
+        .query<{ integrity_check: string }, []>('PRAGMA integrity_check')
+        .all();
 
       if (
         integrity.length !== 1 ||
@@ -234,69 +284,51 @@ export class Db {
 
       return expected;
     } finally {
-      sqlite.close();
+      sqlite.close(true);
     }
   }
 
   /** Open only after a caller has compared the untrusted file's schema to the supported schema. */
-  static openSnapshot(path: string): Db {
-    Db.validateSnapshot(path);
+  static async openSnapshot(path: string): Promise<Db> {
+    await Db.validateSnapshot(path);
 
-    const sqlite = new DatabaseSync(path, { readBigInts: true, allowExtension: true });
+    const sqlite = new Database(path, { safeIntegers: true });
 
     sqlite.exec('PRAGMA foreign_keys = ON; PRAGMA recursive_triggers = ON;');
 
     return new Db(sqlite, path);
   }
 
-  get orm(): NodeSQLiteDatabase {
+  get orm(): QueryOrm {
     this.assertActive();
 
-    return this.activeTransaction ?? this.database;
+    return this.root;
   }
 
-  transaction<T>(work: () => T): T {
+  transaction<T>(work: (tx: DbTransaction) => T): T {
     this.assertActive();
 
-    if (types.isAsyncFunction(work))
-      throw new TypeError('transaction callback must be synchronous');
+    if (isAsyncFunction(work)) throw new TypeError('transaction callback must be synchronous');
 
-    const previous = this.activeTransaction;
+    this.transactionActive = true;
 
-    const context = { active: true };
+    try {
+      let result!: T;
 
-    let result!: T;
+      this.database.transaction(
+        (tx) => {
+          result = runTransaction(tx, this.sqlite, () => this.readContentIdentity(), work);
+        },
+        { behavior: 'immediate' }
+      );
 
-    this.orm.transaction(
-      (tx) => {
-        this.activeTransaction = tx;
-
-        try {
-          const value = this.transactionContext.run(context, work);
-
-          if (
-            value !== null &&
-            (typeof value === 'object' || typeof value === 'function') &&
-            typeof (value as { then?: unknown }).then === 'function'
-          ) {
-            if (value instanceof Promise) value.catch(() => {});
-
-            throw new TypeError('transaction callback must be synchronous');
-          }
-
-          result = value;
-        } finally {
-          context.active = false;
-          this.activeTransaction = previous;
-        }
-      },
-      { behavior: 'immediate' }
-    );
-
-    return result;
+      return result;
+    } finally {
+      this.transactionActive = false;
+    }
   }
 
-  /** Executes connection-local SQL while respecting the active transaction scope. */
+  /** Executes connection-local SQL outside a transaction. */
   exec(statement: string): void {
     this.assertActive();
     this.sqlite.exec(statement);
@@ -304,12 +336,143 @@ export class Db {
 
   close(): void {
     this.assertActive();
-    this.sqlite.close();
+    // Strict close prevents outstanding statements from silently retaining connection locks.
+    this.sqlite.close(true);
+    this.closed = true;
   }
 
   private assertActive(): void {
-    const context = this.transactionContext.getStore();
+    if (this.closed) throw new Error('Database has closed');
 
-    if (context && !context.active) throw new Error('transaction scope has ended');
+    if (this.transactionActive)
+      throw new Error(
+        'root database unavailable during transaction; use its transaction capability'
+      );
+  }
+}
+
+/** A transaction-scoped database capability, invalid after its callback returns. */
+export interface DbTransaction {
+  readonly orm: QueryOrm;
+  exec(statement: string): void;
+  contentIdentity(): string;
+  transaction<T>(work: (tx: DbTransaction) => T): T;
+}
+
+// Plain rows outlive their query; method-bearing objects retain execution authority.
+function isQueryResult(value: object): boolean {
+  if (Array.isArray(value) || ArrayBuffer.isView(value)) return true;
+
+  const prototype = Object.getPrototypeOf(value);
+
+  if (prototype !== Object.prototype && prototype !== null) return false;
+
+  return Object.values(value).every((member) => typeof member !== 'function');
+}
+
+function guardTransaction<T extends object>(
+  value: T,
+  active: () => boolean,
+  message = 'transaction scope has ended'
+): T {
+  const wrapped = new WeakMap<object, object>();
+  const guard = (item: unknown): unknown => {
+    if ((typeof item !== 'object' || item === null) && typeof item !== 'function') return item;
+
+    if (isQueryResult(item)) return item;
+
+    const object = item as object;
+    const existing = wrapped.get(object);
+
+    if (existing) return existing;
+
+    const proxy = new Proxy(object, {
+      get(target, key) {
+        if (!active()) throw new Error(message);
+
+        if (key === 'transaction') throw new TypeError('Use the database transaction capability');
+
+        const member = Reflect.get(target, key, target);
+
+        if (typeof member === 'function')
+          return (...args: unknown[]) => {
+            if (!active()) throw new Error(message);
+
+            return guard(Reflect.apply(member, target, args));
+          };
+
+        return guard(member);
+      }
+    });
+
+    wrapped.set(object, proxy);
+
+    return proxy;
+  };
+
+  return guard(value) as T;
+}
+
+function isAsyncFunction(work: Function): boolean {
+  return Object.prototype.toString.call(work) === '[object AsyncFunction]';
+}
+
+function runTransaction<T>(
+  orm: SQLiteBunDatabase,
+  sqlite: Database,
+  identity: () => string,
+  work: (tx: DbTransaction) => T
+): T {
+  if (isAsyncFunction(work)) throw new TypeError('transaction callback must be synchronous');
+
+  let active = true;
+  const guarded = guardTransaction(orm, () => active);
+  const view: DbTransaction = {
+    get orm() {
+      if (!active) throw new Error('transaction scope has ended');
+
+      return guarded;
+    },
+    exec: (statement) => {
+      if (!active) throw new Error('transaction scope has ended');
+
+      sqlite.exec(statement);
+    },
+    contentIdentity: () => {
+      if (!active) throw new Error('transaction scope has ended');
+
+      return identity();
+    },
+    transaction: <A>(nested: (tx: DbTransaction) => A): A => {
+      if (!active) throw new Error('transaction scope has ended');
+
+      if (isAsyncFunction(nested)) throw new TypeError('transaction callback must be synchronous');
+
+      let result!: A;
+
+      orm.transaction((tx) => {
+        result = runTransaction(tx, sqlite, identity, nested);
+      });
+
+      return result;
+    }
+  };
+
+  try {
+    const value = work(view);
+
+    if (
+      value !== null &&
+      (typeof value === 'object' || typeof value === 'function') &&
+      typeof (value as { then?: unknown }).then === 'function'
+    ) {
+      if (value instanceof Promise) value.catch(() => {});
+
+      throw new TypeError('transaction callback must be synchronous');
+    }
+
+    return value;
+  } finally {
+    active = false;
   }
 }

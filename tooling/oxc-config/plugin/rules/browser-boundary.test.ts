@@ -5,8 +5,8 @@ import { lintRule } from '../test/utils.ts';
 
 testStable(
   'browser entrypoints and contracts reject private value edges and contract type edges',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'browser-boundary',
       {
         'packages/contracts/src/bad.ts':
@@ -25,8 +25,8 @@ testStable(
   }
 );
 
-testStable('browser entrypoints reject private server types', () => {
-  const diagnostics = lintRule('browser-boundary', {
+testStable('browser entrypoints reject private server types', async () => {
+  const diagnostics = await lintRule('browser-boundary', {
     'src/client/types.ts':
       "import type { ServerContext } from '../runtime/context'; import type { AppRouter } from '../runtime/router'; import type { Secret } from '../domains/jobs/store';"
   });
@@ -34,8 +34,8 @@ testStable('browser entrypoints reject private server types', () => {
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
-testStable('public root rejects private server types', () => {
-  const diagnostics = lintRule('browser-boundary', {
+testStable('public root rejects private server types', async () => {
+  const diagnostics = await lintRule('browser-boundary', {
     'src/index.ts':
       "export type {AppRouter} from './runtime/router'; export type {ServerContext} from './runtime/context';"
   });
@@ -45,8 +45,8 @@ testStable('public root rejects private server types', () => {
 
 testStable(
   'contracts admit Effect RPC but reject workflow engine and browser clients reject router types',
-  () => {
-    const diagnostics = lintRule(
+  async () => {
+    const diagnostics = await lintRule(
       'browser-boundary',
       {
         'packages/contracts/src/rpc.ts':
@@ -61,8 +61,8 @@ testStable(
   }
 );
 
-testStable('browser consumers cannot import server package or retired transports', () => {
-  const diagnostics = lintRule(
+testStable('browser consumers cannot import server package or retired transports', async () => {
+  const diagnostics = await lintRule(
     'browser-boundary',
     {
       'apps/web/src/a.ts':
@@ -75,8 +75,8 @@ testStable('browser consumers cannot import server package or retired transports
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('browser consumers use only the explicit native client entrypoint', () => {
-  const diagnostics = lintRule(
+testStable('browser consumers use only the explicit native client entrypoint', async () => {
+  const diagnostics = await lintRule(
     'browser-boundary',
     {
       'apps/web/src/client.ts':

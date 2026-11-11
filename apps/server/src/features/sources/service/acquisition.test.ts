@@ -28,8 +28,8 @@ import { Database } from '#server/platform/database/database';
 testStable(
   'acquisition atomically retains independent originals without authoring documents or source Materials',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const domain = SourcesRpcLive.pipe(
       Layer.provideMerge(Sources.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -83,7 +83,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
@@ -101,8 +101,8 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
   testStable(
     `replacement from ${kind} retains original revision exports with independent source identity`,
     async () => {
-      const location = createTestDatabase();
-      const context = new ServerContext(location.open());
+      const location = await createTestDatabase();
+      const context = new ServerContext(await location.open());
       const domain = SourcesRpcLive.pipe(
         Layer.provideMerge(Sources.layer),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -167,7 +167,7 @@ for (const kind of ['image', 'audio', 'video', 'link'] as const)
         );
       } finally {
         context.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );

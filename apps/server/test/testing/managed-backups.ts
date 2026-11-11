@@ -11,16 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
+import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { createBlock } from '@study/contracts/sources/document';
 import { backupManifestSchema } from '@study/contracts/system/backups';
 import type { BackupManifest, RestorePreview } from '@study/contracts/system/backups';
 import { Db } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { Effect, Schema } from 'effect';
+import { Effect, FileSystem, Path, Schema } from 'effect';
 import type { TestContext } from 'vite-plus/test';
 
 import { Pages } from '#server/features/pages/index';
@@ -55,15 +52,15 @@ export const acceptance = (preview: RestorePreview) => ({
 });
 
 export async function backupFixture(t?: TestContext) {
-  const location = createTestDatabase();
+  const location = await createTestDatabase();
 
   const requests: string[] = [];
 
-  const open = () => {
+  const open = async () => {
     const started = performance.now();
 
     return App.open({
-      path: location.prepare(),
+      path: await location.prepare(),
       onPhase: (phase) =>
         console.debug(
           `study-test-phase:fixture-startup:${phase} elapsedMs=${Math.round(performance.now() - started)}`
@@ -81,7 +78,7 @@ export async function backupFixture(t?: TestContext) {
   try {
     app = await inTestPhase(t, 'fixture-open', open);
   } catch (cause) {
-    location.cleanup();
+    await location.cleanup();
 
     throw cause;
   }
@@ -102,7 +99,7 @@ export async function backupFixture(t?: TestContext) {
     },
     async close() {
       await inTestPhase(t, 'fixture-app-close', () => app.close());
-      await inTestPhase(t, 'fixture-files-cleanup', () => location.cleanup());
+      await inTestPhase(t, 'fixture-files-cleanup', async () => await location.cleanup());
     }
   };
 }
@@ -112,7 +109,7 @@ export async function createPage(app: App, text = 'Retained rich content') {
     Effect.flatMap(Pages, (m) =>
       m
         .create({
-          createKey: randomUUID(),
+          createKey: crypto.randomUUID(),
           title: text,
           document: document(text),
           inputs: [],
@@ -145,7 +142,7 @@ export function repack(manifest: BackupManifest, sqlite: Buffer): string {
     JSON.stringify({
       ...manifest,
       bytes: sqlite.length,
-      sha256: createHash('sha256').update(sqlite).digest('hex')
+      sha256: new Bun.CryptoHasher('sha256').update(sqlite).digest('hex')
     })
   );
 
@@ -156,19 +153,23 @@ export function repack(manifest: BackupManifest, sqlite: Buffer): string {
   return Buffer.concat([Buffer.from('STUDYBK1\n'), size, json, sqlite]).toString('base64');
 }
 
-export function changedArtifact(
+export async function changedArtifact(
   dir: string,
   bytes: string,
   edit: (db: Db, manifest: BackupManifest) => void
 ) {
   const parsed = packet(Buffer.from(bytes, 'base64'));
 
-  const path = join(dir, randomUUID() + '.sqlite');
+  const filesystem = await Effect.runPromise(
+    Effect.provide(FileSystem.FileSystem, BunFileSystem.layer)
+  );
+  const paths = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
+  const path = paths.join(dir, crypto.randomUUID() + '.sqlite');
 
-  writeFileSync(path, parsed.sqlite);
+  await Bun.write(path, parsed.sqlite);
 
   try {
-    const db = Db.openSnapshot(path);
+    const db = await Db.openSnapshot(path);
 
     try {
       edit(db, parsed.manifest);
@@ -176,9 +177,10 @@ export function changedArtifact(
       db.close();
     }
 
-    return repack(parsed.manifest, readFileSync(path));
+    return repack(parsed.manifest, Buffer.from(await Bun.file(path).arrayBuffer()));
   } finally {
-    for (const suffix of ['', '-wal', '-shm', '-journal']) rmSync(path + suffix, { force: true });
+    for (const suffix of ['', '-wal', '-shm', '-journal'])
+      await Effect.runPromise(filesystem.remove(path + suffix, { force: true }));
   }
 }
 

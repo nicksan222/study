@@ -10,10 +10,6 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { once } from 'node:events';
-import { setImmediate } from 'node:timers/promises';
-import { MessageChannel, Worker } from 'node:worker_threads';
-
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
@@ -25,31 +21,34 @@ testStable(
   async () => {
     const gate = new Int32Array(new SharedArrayBuffer(4));
     const control = new MessageChannel();
-    const worker = new Worker(
-      `
-    const { parentPort, workerData } = require('node:worker_threads');
-    const gate = new Int32Array(workerData.gate);
-    parentPort.on('message', (input) => {
-      workerData.control.postMessage(input);
-      if (input === 'active') Atomics.wait(gate, 0, 0);
-      parentPort.postMessage(input);
-    });
-    parentPort.postMessage({ ready: true });
-  `,
-      {
-        eval: true,
-        workerData: { gate: gate.buffer, control: control.port2 },
-        transferList: [control.port2]
-      }
-    );
+
+    control.port1.start();
+    const script = `
+      let gate, control;
+      self.onmessage = (event) => {
+        const input = event.data;
+        if (!gate) {
+          gate = new Int32Array(input.gate);
+          control = input.control;
+          self.postMessage({ ready: true });
+          return;
+        }
+        control.postMessage(input);
+        if (input === 'active') Atomics.wait(gate, 0, 0);
+        self.postMessage(input);
+      };
+    `;
+    const url = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
+    const worker = new Worker(url);
 
     try {
       const client = makeWorkerClient(worker);
 
+      worker.postMessage({ gate: gate.buffer, control: control.port2 }, [control.port2]);
       await Effect.runPromise(client.ready);
       const activeController = new AbortController();
       const queuedController = new AbortController();
-      const started = once(control.port1, 'message');
+      const started = nextMessage(control.port1);
       const active = Effect.runPromise(client.perform('active', String), {
         signal: activeController.signal
       });
@@ -58,7 +57,7 @@ testStable(
         () => true
       );
 
-      expect(await started).toStrictEqual(['active']);
+      expect(await started).toBe('active');
       const queued = Effect.runPromise(client.perform('cancelled queued request', String), {
         signal: queuedController.signal
       });
@@ -81,13 +80,13 @@ testStable(
       );
 
       // The native worker cannot reply until this thread releases the atomic gate.
-      await setImmediate();
+      await Bun.sleep(0);
       expect(settled).toBe(false);
-      const dispatched = once(control.port1, 'message');
+      const dispatched = nextMessage(control.port1);
 
       Atomics.store(gate, 0, 1);
       Atomics.notify(gate, 0);
-      expect(await dispatched).toStrictEqual(['later']);
+      expect(await dispatched).toBe('later');
       const result = await later;
 
       expect(result._tag).toBe('Success');
@@ -98,8 +97,35 @@ testStable(
     } finally {
       Atomics.store(gate, 0, 1);
       Atomics.notify(gate, 0);
-      await worker.terminate();
+      worker.terminate();
+      URL.revokeObjectURL(url);
       control.port1.close();
     }
   }
 );
+
+function nextMessage(port: MessagePort): Promise<unknown> {
+  return new Promise((resolve) =>
+    port.addEventListener('message', (event) => resolve(event.data), { once: true })
+  );
+}
+
+testStable('worker startup failure rejects readiness and later requests', async () => {
+  const url = URL.createObjectURL(
+    new Blob(['throw new Error("initialization failed")'], { type: 'text/javascript' })
+  );
+  const worker = new Worker(url);
+  const client = makeWorkerClient(worker);
+
+  try {
+    await expect(Effect.runPromise(client.ready)).rejects.toThrow(
+      'Local embedding worker is unavailable'
+    );
+    await expect(Effect.runPromise(client.perform('later', String))).rejects.toThrow(
+      'Local embedding worker is closed'
+    );
+  } finally {
+    worker.terminate();
+    URL.revokeObjectURL(url);
+  }
+});

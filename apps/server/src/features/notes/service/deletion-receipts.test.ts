@@ -130,7 +130,7 @@ testStable(
       rejectForged();
       expect(await libraryState(f, retained.ids)).toStrictEqual(before);
       assertScrubbed(f, marker);
-      f.reopen();
+      await f.reopen();
       await checkReplay();
       rejectForged();
       expect(await libraryState(f, retained.ids)).toStrictEqual(before);

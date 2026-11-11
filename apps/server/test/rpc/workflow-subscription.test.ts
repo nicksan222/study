@@ -28,7 +28,7 @@ for (const hinted of [true, false])
   testStable(
     `workflow subscription reseeds, follows ${hinted ? 'commit hints' : 'unhinted commits'}, and releases its listener`,
     async () => {
-      const location = createTestDatabase();
+      const location = await createTestDatabase();
       const app = await App.open({ path: location.path });
       const server = await serve(app);
       const subscribe = app.store.subscribe.bind(app.store);
@@ -65,8 +65,8 @@ for (const hinted of [true, false])
               );
 
               yield* Deferred.await(initial);
-              const write = () =>
-                app.store.db.orm
+              const write = (orm: typeof app.store.db.orm) =>
+                orm
                   .insert(workflow_executions)
                   .values({
                     execution_id: 'subscription',
@@ -79,8 +79,8 @@ for (const hinted of [true, false])
                   })
                   .run();
 
-              if (hinted) app.store.transaction(write);
-              else write();
+              if (hinted) app.store.transaction((tx) => write(tx.db.orm));
+              else write(app.store.db.orm);
 
               const pages = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));
 
@@ -105,7 +105,7 @@ for (const hinted of [true, false])
       } finally {
         await server.close();
         await app.close();
-        location.cleanup();
+        await location.cleanup();
       }
     }
   );

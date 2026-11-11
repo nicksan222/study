@@ -38,8 +38,8 @@ import { Sources } from './index.ts';
 testStable(
   'sources service persists requests and pages, and rolls back invalid requests',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -105,14 +105,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('a failed event insertion rolls back source creation', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
@@ -166,13 +166,13 @@ testStable('a failed event insertion rolls back source creation', async () => {
     ).toStrictEqual(before);
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('publication requires a real active workflow grant', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
   const { Schema } = await import('effect');
@@ -371,15 +371,15 @@ testStable('publication requires a real active workflow grant', async () => {
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'replacement fences stale publication and search follows the current source project',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -516,14 +516,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('deleting a pending source fences publication and removes indexed content', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const { Activity, Workflow, WorkflowEngine } = await import('effect/workflow');
   const { Schema } = await import('effect');
@@ -638,15 +638,15 @@ testStable('deleting a pending source fences publication and removes indexed con
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'uploads remain Sources and only an explicit authored copy pins source history, even when archived',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -709,14 +709,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('source export returns the stored bytes and canonical link URI', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
@@ -744,13 +744,13 @@ testStable('source export returns the stored bytes and canonical link URI', asyn
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('correction compares the current document and fences previous requests', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
   const document = {
     blocks: [plainBlock('paragraph' as const, 'before', { type: 'page' as const, page: 1 })],
@@ -853,15 +853,15 @@ testStable('correction compares the current document and fences previous request
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'assigning a ready unowned source emits an index event without reprocessing',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -926,14 +926,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('correction request rolls back when outbox insertion fails', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
@@ -995,13 +995,13 @@ testStable('correction request rolls back when outbox insertion fails', async ()
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('project reassignment preserves an explicit message attachment', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Sources.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
   try {
@@ -1032,15 +1032,15 @@ testStable('project reassignment preserves an explicit message attachment', asyn
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable(
   'exact source extractions and note links never substitute a pending revision or author a document',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Sources.layer.pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -1164,7 +1164,7 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );

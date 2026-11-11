@@ -29,8 +29,8 @@ import { Notes } from './index.ts';
 testStable(
   'new notes reuse one empty draft across concurrent requests and collections',
   async () => {
-    const location = createTestDatabase();
-    const context = new ServerContext(location.open());
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
     const layer = Layer.mergeAll(Projects.layer, Notes.layer, Settings.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -66,14 +66,14 @@ testStable(
       );
     } finally {
       context.close();
-      location.cleanup();
+      await location.cleanup();
     }
   }
 );
 
 testStable('new notes preserve captured work and explicitly named notes', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -101,8 +101,8 @@ testStable('new notes preserve captured work and explicitly named notes', async 
         );
         assert.ok((yield* notes.note(second.id)).title === 'Next topic');
 
-        context.transaction(() => {
-          context.db.orm
+        context.transaction((tx) => {
+          tx.db.orm
             .insert(recordings)
             .values({
               note_id: third.id,
@@ -128,13 +128,13 @@ testStable('new notes preserve captured work and explicitly named notes', async 
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });
 
 testStable('first send atomically creates a visible note and first message', async () => {
-  const location = createTestDatabase();
-  const context = new ServerContext(location.open());
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
   const layer = Layer.mergeAll(Notes.layer, Settings.layer).pipe(
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -165,6 +165,6 @@ testStable('first send atomically creates a visible note and first message', asy
     );
   } finally {
     context.close();
-    location.cleanup();
+    await location.cleanup();
   }
 });

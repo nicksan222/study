@@ -10,14 +10,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createHash } from 'node:crypto';
-
 import { StudyError } from '@study/contracts/errors';
 import type {
   integrationImportSchema,
   integrationPlanSchema,
   integrationNoteSchema
 } from '@study/contracts/integrations/schemas';
+import { CryptoHasher } from 'bun';
 import { Option } from 'effect';
 
 import {
@@ -34,7 +33,7 @@ type State = typeof integrationImportSchema.Type;
 
 type Note = typeof integrationNoteSchema.Type;
 
-const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+const hash = (value: string) => new CryptoHasher('sha256').update(value).digest('hex');
 
 const identity = (state: State, key: string) =>
   hash(JSON.stringify([state.providerId, state.sourceKey, String(state.projectId), key]));
