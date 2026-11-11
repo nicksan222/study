@@ -197,6 +197,9 @@ artifact. `tooling/release/release.sh` then verifies every updater with Minisign
 all four platform/version/file digests, preserves the website's stable download names,
 and writes `latest.json` once. A single publisher uploads the complete set and clears the
 draft only after that validation. Published releases are immutable to retries.
+After successful publication, main CI keeps five published releases: the current Latest
+updater target and the four most recently published others. Older releases and their
+assets are deleted; drafts and Git tags are preserved.
 
 Generate a signing key using `npx tauri signer generate -w /secure/location/study.key`.
 Keep a secure backup; never commit it. Set the repository variable `STUDY_UPDATE_PUBLIC_KEY`
