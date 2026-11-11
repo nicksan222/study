@@ -10,6 +10,7 @@ def _raise_scan_error(error):
 
 
 def inventory(root, runtime=False):
+    """Count regular-file bytes without traversing symlinks, failing on scan errors."""
     if root.is_symlink() or not root.exists():
         raise ValueError(f'Input does not exist or is a symlink: {root}')
     files = []
@@ -46,6 +47,7 @@ def inventory(root, runtime=False):
 
 
 def main():
+    """Validate CLI inputs and print runtime, application and download size inventories."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--runtime', required=True, type=Path)
     parser.add_argument('--app', required=True, type=Path)
