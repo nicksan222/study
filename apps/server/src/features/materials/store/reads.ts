@@ -144,8 +144,6 @@ export function makeReads(resources: StoreResources) {
     const base = readVersionBase(row);
 
     switch (row.kind) {
-      case 'diagram':
-        return readDiagram(base);
       case 'quiz':
         return readQuiz(base);
       case 'flashcards':
@@ -153,26 +151,6 @@ export function makeReads(resources: StoreResources) {
       default:
         throw new StudyError('not_found', 'Learning artifact is unavailable');
     }
-  }
-
-  function readDiagram(
-    base: ReturnType<typeof readVersionBase>
-  ): Extract<MaterialVersionDetailDto, { kind: 'diagram' }> {
-    const id = base.id;
-
-    const c = required(
-      store.orm
-        .select()
-        .from(s.material_diagram_versions)
-        .where(eq(s.material_diagram_versions.version_id, id))
-        .get()
-    );
-
-    return {
-      ...base,
-      kind: 'diagram',
-      content: { kind: c.kind, format: c.format, payload: c.payload }
-    };
   }
 
   /** Reconstruct complete version content, including matching keys for material review and export. */

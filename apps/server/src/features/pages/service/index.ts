@@ -22,7 +22,6 @@ import type { exportPageInputSchema } from '@study/contracts/pages/export';
 import type * as r from '@study/contracts/pages/rpc';
 import type * as t from '@study/contracts/pages/transform';
 import type { Page } from '@study/contracts/pages/types';
-import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { Effect, Option } from 'effect';
 
 import {
@@ -42,7 +41,6 @@ import {
   PageDeletionStore
 } from '#server/features/pages/store/index';
 import { PageMergesStore } from '#server/features/pages/store/merges';
-import { PageSearchStore } from '#server/features/pages/store/search';
 import { PageTransformsStore } from '#server/features/pages/store/transforms';
 import { Sources } from '#server/features/sources/index';
 import { Workflows } from '#server/features/workflows/index';
@@ -311,8 +309,6 @@ export const Pages = defineService(
     };
   },
   {
-    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
-      tx.store(PageSearchStore).searchProjectionPages(input),
     prepareNoteRetirement: (
       tx: Transaction,
       v: { noteId: NoteId; contextIds: readonly string[] }

@@ -4,7 +4,7 @@ export { createSource } from './sources.ts';
 
 export { createPage } from './pages.ts';
 
-export { createQuiz, createFlashcards, createDiagram } from './learning.ts';
+export { createQuiz, createFlashcards } from './learning.ts';
 
 export { createNote } from './notes.ts';
 

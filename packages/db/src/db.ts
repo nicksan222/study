@@ -6,7 +6,6 @@ import { drizzle, bunSQLiteCodecs } from 'drizzle-orm/bun-sqlite';
 import type { SQLiteBunDatabase } from 'drizzle-orm/bun-sqlite';
 import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { Effect, FileSystem } from 'effect';
-import { load as loadVectorExtension } from 'sqlite-vec';
 
 import { configureSqliteRuntime } from './sqlite-runtime.ts';
 
@@ -24,7 +23,6 @@ export class Db {
   private readonly root: QueryOrm;
 
   private constructor(sqlite: Database, path: string) {
-    loadVectorExtension(sqlite);
     this.sqlite = sqlite;
     this.path = path;
     this.database = drizzle({

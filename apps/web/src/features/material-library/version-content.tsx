@@ -1,6 +1,5 @@
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { cardCount, questionCount, questionNumber } from '@study/localization';
-import { MaterialLibrary } from '@study/ui/material-library';
 import { Practice } from '@study/ui/practice';
 import { Textarea } from '@study/ui/textarea';
 
@@ -10,16 +9,6 @@ type Quiz = Extract<MaterialVersionDetailDto, { kind: 'quiz' }>;
 
 export function MaterialVersionContent({ version }: { version: MaterialVersionDetailDto }) {
   const { t, locale } = useI18n();
-
-  if (version.kind === 'diagram')
-    return (
-      <MaterialLibrary.ProseContent>
-        <p>{t('ReaderDiagramSource')}</p>
-        <pre>
-          <code>{version.content.payload}</code>
-        </pre>
-      </MaterialLibrary.ProseContent>
-    );
 
   return (
     <Practice.Preview aria-label={t('PracticeMaterialPreview')}>

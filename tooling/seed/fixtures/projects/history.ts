@@ -6,7 +6,6 @@ import {
   createPage,
   createFlashcards,
   createQuiz,
-  createDiagram,
   createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
@@ -101,11 +100,6 @@ export function createHistory(seed: SeedHarness) {
       'Collegare le definizioni ad attori e contesti concreti.'
     )
   ]);
-  const overview = createDiagram(
-    project,
-    'Storia contemporanea — overview',
-    'flowchart LR\nIndustrializzazione --> Urbanizzazione\nRestaurazione --> Liberalismo --> Rivoluzioni\nUrbanizzazione --> Conflitti_sociali'
-  );
 
   createNote(project, {
     title: 'Restaurazione',
@@ -144,7 +138,7 @@ export function createHistory(seed: SeedHarness) {
     ],
     sources: [timeline],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Urbanizzazione',
@@ -183,7 +177,7 @@ export function createHistory(seed: SeedHarness) {
     ],
     sources: [timeline],
     pages: [workbook],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Il 1848 europeo',
@@ -222,7 +216,7 @@ export function createHistory(seed: SeedHarness) {
     ],
     sources: [timeline],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Confronto delle fonti',

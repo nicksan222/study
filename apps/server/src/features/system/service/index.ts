@@ -69,7 +69,6 @@ export const System = defineService(
       materialSearch: (input: typeof materialSearchInputSchema.Type) =>
         store.searches({ ...input, kinds: ['material'] }).pipe(
           Effect.map((hits) => ({
-            semantic: false as const,
             hits: hits.flatMap((hit) =>
               hit.target.type === 'material'
                 ? [{ ...hit, kind: 'material' as const, target: hit.target }]
@@ -78,7 +77,7 @@ export const System = defineService(
           }))
         ),
       search: (input: typeof searchInputSchema.Type) =>
-        store.searches(input).pipe(Effect.map((hits) => ({ semantic: false, hits }))),
+        store.searches(input).pipe(Effect.map((hits) => ({ hits }))),
       startWorkers: () => workers.start,
       stopWorkers: () => workers.stop
     };

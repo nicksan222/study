@@ -11,7 +11,6 @@ const groups: Record<string, string[]> = {
     'integration_import_files',
     'integration_receipts'
   ],
-  search: ['semantic_search_entries'],
   'projects,materials': ['project_materials'],
   'projects,notes': ['project_notes'],
   sources: [
@@ -81,7 +80,6 @@ const groups: Record<string, string[]> = {
     'material_evidence_inputs',
     'material_evidence_citations',
     'material_generation_scopes',
-    'material_diagram_versions',
     'material_quiz_versions',
     'material_quiz_questions',
     'material_quiz_choices',

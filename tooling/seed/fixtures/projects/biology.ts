@@ -6,7 +6,6 @@ import {
   createPage,
   createFlashcards,
   createQuiz,
-  createDiagram,
   createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
@@ -106,11 +105,6 @@ export function createBiology(seed: SeedHarness) {
       'Identify the role of each compartment and the transport steps.'
     )
   ]);
-  const overview = createDiagram(
-    project,
-    'Cell Biology — overview',
-    'flowchart LR\nDNA --> RNA --> Ribosome\nRibosome --> ER --> Golgi --> Secretion'
-  );
 
   createNote(project, {
     title: 'Protein trafficking',
@@ -149,7 +143,7 @@ export function createBiology(seed: SeedHarness) {
     ],
     sources: [membraneDiagram],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'ATP synthesis',
@@ -188,7 +182,7 @@ export function createBiology(seed: SeedHarness) {
     ],
     sources: [membraneDiagram],
     pages: [workbook],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Signalling pathways',
@@ -227,7 +221,7 @@ export function createBiology(seed: SeedHarness) {
     ],
     sources: [membraneDiagram],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Exam synthesis',

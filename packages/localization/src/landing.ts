@@ -19,7 +19,7 @@ const english = {
     }
   },
   heroLead:
-    'Capture a note. Make sense of it in a page. Turn what you learn into flashcards, diagrams and practice. All from your own material.',
+    'Capture a note. Make sense of it in a page. Turn what you learn into flashcards and practice. All from your own material.',
   explore: 'See how it works',
   previewLabels: {
     page: 'Page reader, showing sample notes about mitosis.',
@@ -47,7 +47,7 @@ const english = {
       },
       {
         title: 'Make it something you remember.',
-        body: 'Use your notes and pages to create flashcards, diagrams and quizzes. Go from reading an explanation to recalling it yourself.',
+        body: 'Use your notes and pages to create flashcards and quizzes. Go from reading an explanation to recalling it yourself.',
         link: 'Try the study tools',
         target: '#learn'
       }
@@ -65,7 +65,7 @@ const english = {
       'Chromatin condenses into visible chromosomes. The nucleolus disappears, and the spindle begins to form.',
     citation: 'Lecture · 3:03',
     revision: 'Refine it. Keep its history.',
-    outputs: ['Flashcards', 'Diagram', 'Practice'],
+    outputs: ['Flashcards', 'Practice'],
     footer: 'Your sources stay connected to what you make.'
   },
   capabilities: {
@@ -95,8 +95,8 @@ const english = {
       },
       {
         title: 'Different ways to see an idea',
-        body: 'Create flashcards for recall and diagrams for the bigger picture. Generate study material from the notes, sources and pages you choose.',
-        detail: 'Flashcards · Diagrams · Quizzes'
+        body: 'Create flashcards and quizzes for recall. Generate study material from the notes, sources and pages you choose.',
+        detail: 'Flashcards · Quizzes'
       },
       {
         title: 'Room for every subject',
@@ -136,7 +136,7 @@ const italian: Copy = {
     }
   },
   heroLead:
-    'Raccogli una nota. Trasformala in una pagina chiaro. Crea flashcard, schemi ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
+    'Raccogli una nota. Trasformala in una pagina chiara. Crea flashcard ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
   explore: 'Scopri come funziona',
   previewLabels: {
     page: 'Lettore di pagine, con appunti di esempio sulla mitosi.',
@@ -158,13 +158,13 @@ const italian: Copy = {
       },
       {
         title: 'Trasformalo in una pagina.',
-        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in una pagina chiaro, poi riassumi, approfondisci, traduci o migliora il testo.',
+        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in una pagina chiara, poi riassumi, approfondisci, traduci o migliora il testo.',
         link: 'Guarda la trasformazione',
         target: '#workflow-page'
       },
       {
         title: 'Fallo diventare qualcosa che ricordi.',
-        body: 'Crea flashcard, schemi e quiz dalle tue note e dalle tue pagine. Passa dal leggere una spiegazione al ricordarla da solo.',
+        body: 'Crea flashcard e quiz dalle tue note e dalle tue pagine. Passa dal leggere una spiegazione al ricordarla da solo.',
         link: 'Prova gli strumenti',
         target: '#learn'
       }
@@ -182,7 +182,7 @@ const italian: Copy = {
       'La cromatina si condensa in cromosomi visibili. Il nucleolo scompare e inizia a formarsi il fuso.',
     citation: 'Lezione · 3:03',
     revision: 'Miglioralo. Conserva la sua storia.',
-    outputs: ['Flashcard', 'Schema', 'Esercizi'],
+    outputs: ['Flashcard', 'Esercizi'],
     footer: 'Le tue fonti restano collegate a ciò che crei.'
   },
   capabilities: {
@@ -212,8 +212,8 @@ const italian: Copy = {
       },
       {
         title: 'Più modi per vedere un’idea',
-        body: 'Crea flashcard per ricordare e schemi per vedere l’insieme. Genera materiale di studio dalle note, fonti e pagine che scegli.',
-        detail: 'Flashcard · Schemi · Quiz'
+        body: 'Crea flashcard e quiz per ricordare. Genera materiale di studio dalle note, fonti e pagine che scegli.',
+        detail: 'Flashcard · Quiz'
       },
       {
         title: 'Spazio per ogni materia',

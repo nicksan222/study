@@ -198,7 +198,7 @@ testStable(
             const project = yield* client['projects.createProject']({ name: 'NativeSearchToken' });
             const material = yield* client['materials.create']({
               title: 'NativeSearchToken',
-              content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' },
+              content: { kind: 'flashcards', cards: [{ front: 'Question', back: 'Answer' }] },
               publish: true
             });
             const found = yield* client['system.materialSearch'](
@@ -208,14 +208,13 @@ testStable(
               })
             );
 
-            assert.ok(found.semantic === false);
             assert.strictEqual(found.hits.length, 1);
             assert.ok(found.hits[0]?.kind === 'material');
             expect(found.hits[0]?.target).toStrictEqual({
               type: 'material',
               materialId: material.id,
               versionId: material.version.id,
-              materialKind: 'diagram'
+              materialKind: 'flashcards'
             });
             expect(
               yield* client['system.materialSearch']({
@@ -223,7 +222,7 @@ testStable(
                 limit: 1,
                 project: project.id
               })
-            ).toStrictEqual({ semantic: false, hits: [] });
+            ).toStrictEqual({ hits: [] });
           })
         )
       );

@@ -68,13 +68,6 @@ export function makeHistoryBodyBytes({ db }: StoreResources) {
 
     for (const v of versions) payloads.push(v.instruction, v.language);
 
-    for (const r of db.orm
-      .select()
-      .from(s.material_diagram_versions)
-      .where(inArray(s.material_diagram_versions.version_id, [...ids]))
-      .all())
-      payloads.push(r.payload);
-
     for (const c of db.orm
       .select()
       .from(s.material_flashcard_entries)

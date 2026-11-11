@@ -7,14 +7,8 @@ import { request } from '#web/lib/study-client/request.ts';
 type Format = typeof learningExportFormatSchema.Type;
 
 /** Only offers serializers supported by the selected version's retained content. */
-export function availableExportFormats(version: MaterialVersionDetailDto): Format[] {
-  const content = version.content;
-
-  if (content.kind === 'flashcards' || content.kind === 'quiz') return ['aid_json', 'csv'];
-
-  if (content.kind === 'diagram') return ['aid_json'];
-
-  return [];
+export function availableExportFormats(): Format[] {
+  return ['aid_json', 'csv'];
 }
 
 export async function exportReaderVersion(id: MaterialVersionDetailDto['id'], format: Format) {

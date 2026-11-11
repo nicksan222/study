@@ -132,7 +132,6 @@ export const AgentRule = {
   Replies: { key: 'replies' },
   Quizzes: { key: 'quizzes' },
   Flashcards: { key: 'flashcards' },
-  Diagrams: { key: 'diagrams' },
   Grading: { key: 'grading' },
   Transcription: { key: 'transcription' },
   QuestionDetection: { key: 'questionDetection' }
@@ -149,7 +148,6 @@ export const agentRulesSchema = Schema.Struct({
   [AgentRule.Replies.key]: agentRuleTextSchema,
   [AgentRule.Quizzes.key]: agentRuleTextSchema,
   [AgentRule.Flashcards.key]: agentRuleTextSchema,
-  [AgentRule.Diagrams.key]: agentRuleTextSchema,
   [AgentRule.Grading.key]: agentRuleTextSchema,
   [AgentRule.Transcription.key]: agentRuleTextSchema,
   [AgentRule.QuestionDetection.key]: agentRuleTextSchema

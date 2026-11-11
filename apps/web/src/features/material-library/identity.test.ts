@@ -26,7 +26,7 @@ testStable(
     expectTypeOf(importedSource.id).toEqualTypeOf<SourceId>();
     expectTypeOf(importedSource.id).not.toEqualTypeOf<MaterialId>();
     expectTypeOf(summary().id).toEqualTypeOf<MaterialId>();
-    expect(summary().kind).toBe('diagram');
+    expect(summary().kind).toBe('flashcards');
   }
 );
 

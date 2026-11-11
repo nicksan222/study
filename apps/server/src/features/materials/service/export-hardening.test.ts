@@ -200,7 +200,7 @@ testStable(
                   }
                 ]
               },
-              { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' }
+              { kind: 'flashcards', cards: [{ front: 'graph TD; A-->B', back: 'Answer' }] }
             ];
             const codec = Schema.fromJsonString(Schema.toCodecJson(materialAidExportSchema));
 
@@ -383,7 +383,7 @@ testStable(
                 { kind: 'page', versionId: owner.version!.id },
                 { kind: 'page', versionId: later.version!.id }
               ],
-              content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD; A-->B' }
+              content: { kind: 'flashcards', cards: [{ front: 'graph TD; A-->B', back: 'Answer' }] }
             });
             const first = {
               marker: 1n,

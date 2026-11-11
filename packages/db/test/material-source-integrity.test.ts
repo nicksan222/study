@@ -24,9 +24,9 @@ function source(db: TestDb, kind: 'audio' | 'video' | 'image' | 'link' = 'audio'
  INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor)
  VALUES(1,0,'paragraph','original','{"type":"paragraph","inlines":[{"type":"text","text":"Original","marks":[]}]}','Original','{"type":"page","page":1}');
  INSERT INTO source_processing(source_id,revision,request_id,published_request_id,document_id) VALUES(1,1,'original','original',1);
- INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'diagram','Learning',1,1);
- INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'diagram',1,1);
- INSERT INTO material_diagram_versions(version_id,format,payload) VALUES(1,'mermaid','flowchart LR; A-->B');`);
+ INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES(1,'flashcards','Learning',1,1);
+ INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES(1,1,'flashcards',1,1);
+ INSERT INTO material_flashcard_versions(version_id,material_id) SELECT id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_flashcard_versions f WHERE f.version_id=v.id); INSERT INTO material_card_identities(id,material_id) SELECT DISTINCT material_id,material_id FROM material_versions v WHERE id IN (1) AND NOT EXISTS(SELECT 1 FROM material_card_identities c WHERE c.id=v.material_id); INSERT INTO material_flashcard_entries(version_id,material_id,card_id,position,front,back) SELECT id,material_id,material_id,0,'flowchart LR; A-->B','Answer' FROM material_versions WHERE id=1;`);
 }
 
 async function fixture(run: (db: TestDb) => void) {

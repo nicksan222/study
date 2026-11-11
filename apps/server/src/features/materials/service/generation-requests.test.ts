@@ -229,7 +229,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       const diagram = yield* materials.create({
         projectId: project.id,
         title: 'Diagram',
-        content: { kind: 'diagram', format: 'mermaid', payload: 'graph TD' }
+        content: { kind: 'flashcards', cards: [{ front: 'graph TD', back: 'Answer' }] }
       });
       const base = { projectId: project.id, title: 'Generated', kind: 'quiz' as const };
 
@@ -325,7 +325,7 @@ testStable('generation validation, rollback, RPC, and persistent snapshots', asy
       const otherRequest = yield* materials.requestMaterialGeneration({
         projectId: other.id,
         title: 'Other',
-        kind: 'diagram',
+        kind: 'flashcards',
         inputs: [{ kind: 'page' as const, versionId: foreign.version.id }]
       });
 
