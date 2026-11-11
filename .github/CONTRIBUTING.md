@@ -11,7 +11,7 @@ Thank you for helping with Study.
 - Dependabot pull requests targeting `main` use squash auto-merge after the required
   `Test and build` check passes on the current base.
 - **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
-  denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build, generated database drift,
+  denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build and browser E2E, generated database drift,
   tooling tests, server package checks, and the website's Bun type check. CI runs these gates, with independent jobs for Oxlint/formatting/Fallow, web checks,
   tooling tests, server tests, real integrations, and native/package checks. JavaScript jobs
   skip the Rust and Linux GUI setup. The required `Test and build` check requires every job. Package gates continue after
@@ -54,7 +54,7 @@ The devcontainer installs root and landing dependencies from their committed loc
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
-all application features, and seeded browser E2E and capture generation are unavailable.
+all application features, and capture generation is unavailable. Run `npx playwright install chromium` once before `npm run web:e2e` or `just check`; the browser suite uses isolated databases.
 
 ### On your own Linux machine
 

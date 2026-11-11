@@ -15,6 +15,16 @@ export default defineConfig({
       'apps/web',
       {
         test: {
+          name: 'web-e2e',
+          environment: 'node',
+          include: ['apps/web/test/e2e/**/*.test.ts'],
+          pool: 'forks',
+          testTimeout: 120000,
+          hookTimeout: 30000
+        }
+      },
+      {
+        test: {
           name: 'server',
           environment: 'node',
           include: [

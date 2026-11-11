@@ -221,9 +221,10 @@ deny:
 frontend-check:
     bun run typecheck
     bun run test
+    bun run web:e2e
     bun run build
 
-# Check the TypeScript server packages against the actual Node runtime.
+# Check the TypeScript server packages against the Bun runtime.
 server-check:
     bun run server:typecheck
     bun run server:test

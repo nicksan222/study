@@ -130,7 +130,7 @@ jobs:
             command: bun run lint && bun run fallow:check
           - name: 🖼️ Web checks
             task: web
-            command: bun run typecheck && bun run test && bun --bun vp run --fail-if-no-match --filter @study/web build
+            command: bun run typecheck && bun run test && bun run web:e2e && bun --bun vp run --fail-if-no-match --filter @study/web build
           - name: 🛠️ Tooling tests
             task: tooling
             command: just tooling-test
@@ -146,6 +146,9 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile
+      - name: 🌐 Install Chromium for web tests
+        if: matrix.task == 'web'
+        run: bunx --bun playwright install --with-deps chromium
       - name: 🌍 Install landing dependencies for Fallow
         if: matrix.task == 'lint'
         working-directory: apps/landing
