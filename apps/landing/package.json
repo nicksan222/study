@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@astrojs/mdx": "^4",
-    "astro": "^5.18.2",
+    "astro": "^7.4.7",
     "satori": "^0.35.0",
     "sharp": "^0.35.5"
   },
