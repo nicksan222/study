@@ -16,6 +16,8 @@ citations, and turns them into flashcards and practice.
 
 ![An older Study tour, including the retired diagram feature](https://nicksan222.github.io/study/demo.gif)
 
+Older tour: this recording includes features that have since been removed.
+
 </div>
 
 ## Why Study
