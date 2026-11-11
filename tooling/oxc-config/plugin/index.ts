@@ -57,6 +57,7 @@ import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
 import validatedMutation from './rules/validated-mutation.ts';
 import webBoundaries from './rules/web-boundaries.ts';
+import webE2eHarness from './rules/web-e2e-harness.ts';
 import webPageContract from './rules/web-page-contract.ts';
 import webPresentationPurity from './rules/web-presentation-purity.ts';
 import webPresentation from './rules/web-presentation.ts';
@@ -76,6 +77,7 @@ export default definePlugin({
     'assertion-boundary': assertionBoundary,
     'test-guard-assertions': testGuardAssertions,
     'test-classification': testClassification,
+    'web-e2e-harness': webE2eHarness,
     'shared-loading': sharedLoading,
     'shared-error-state': sharedErrorState,
     'feature-orchestration': featureOrchestration,
