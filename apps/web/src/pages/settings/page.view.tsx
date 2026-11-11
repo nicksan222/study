@@ -22,7 +22,8 @@ import {
   ListOrdered,
   Link2,
   Binary,
-  Plug
+  Plug,
+  Download
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -43,6 +44,7 @@ import { PerformanceSettings } from './performance';
 import { StudySettings } from './study';
 import { QuizSettings } from './study/quiz-settings';
 import { ColorScheme, ThemeLibrary } from './theme-library';
+import { UpdatesSettings } from './updates';
 import { UsageSettings } from './usage';
 import type { AppearanceModel } from './use-page';
 import {
@@ -59,6 +61,12 @@ const sections = [
     label: 'GeneralSettingsTitle',
     Icon: Settings2,
     keywords: ['GeneralSettingsLanguage', 'ReplayOnboarding']
+  },
+  {
+    id: 'updates',
+    label: 'Updates',
+    Icon: Download,
+    keywords: ['UpdateCheck', 'UpdateInstall', 'UpdatesMenuSubtitle']
   },
   {
     id: 'appearance',
@@ -231,7 +239,7 @@ export type SettingsSectionId = (typeof sections)[number]['id'];
 const navigationGroups = [
   {
     label: 'SettingsGroupWorkspace',
-    ids: ['general', 'appearance', 'sidebar', 'writing', 'reading', 'analytics']
+    ids: ['general', 'appearance', 'sidebar', 'writing', 'reading', 'analytics', 'updates']
   },
   {
     label: 'SettingsAi',
@@ -395,6 +403,7 @@ function SectionContent({
     integrations: <IntegrationsSettings />,
     appearance: <AppearanceContent model={model} search={search} />,
     general: <GeneralSettings />,
+    updates: <UpdatesSettings />,
     sidebar: (
       <>
         <NoteDisplaySettings />
