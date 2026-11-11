@@ -136,7 +136,7 @@ const italian: Copy = {
     }
   },
   heroLead:
-    'Raccogli una nota. Trasformala in una pagina chiaro. Crea flashcard ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
+    'Raccogli una nota. Trasformala in una pagina chiara. Crea flashcard ed esercizi da ciò che impari. Tutto a partire dal tuo materiale.',
   explore: 'Scopri come funziona',
   previewLabels: {
     page: 'Lettore di pagine, con appunti di esempio sulla mitosi.',
@@ -158,7 +158,7 @@ const italian: Copy = {
       },
       {
         title: 'Trasformalo in una pagina.',
-        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in una pagina chiaro, poi riassumi, approfondisci, traduci o migliora il testo.',
+        body: 'Scegli gli appunti e le fonti che contano. Riuniscili in una pagina chiara, poi riassumi, approfondisci, traduci o migliora il testo.',
         link: 'Guarda la trasformazione',
         target: '#workflow-page'
       },
