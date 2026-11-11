@@ -151,6 +151,13 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: npm ci --no-fund --no-audit
+      - name: 🌍 Use an independent Ubuntu package mirror
+        if: matrix.task == 'web' || matrix.task == 'tooling'
+        run: |
+          # Use independent mirror DNS during the Ubuntu archive DNS outage.
+          for mirror_list in /etc/apt/apt-mirrors*.txt; do
+            printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee "$mirror_list" > /dev/null
+          done
       - name: 🌐 Install Chromium for web tests
         if: matrix.task == 'web'
         run: npx playwright install --with-deps chromium

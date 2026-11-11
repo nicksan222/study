@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 
+import { unified } from '@astrojs/markdown-remark';
 import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 // The Study website: the landing page and the docs, in English (/) and Italian (/it/),
@@ -42,7 +43,8 @@ export default defineConfig({
     locales: ['en', 'it'],
     routing: { prefixDefaultLocale: false }
   },
-  integrations: [mdx({ remarkPlugins: [remarkDocsMedia] })],
+  markdown: { processor: unified({ remarkPlugins: [remarkDocsMedia] }) },
+  integrations: [mdx()],
   // The logo masters, fonts and icons are the app's own files, outside this folder.
   vite: {
     plugins: [tailwindcss()],
