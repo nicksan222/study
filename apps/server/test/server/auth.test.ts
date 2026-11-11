@@ -245,6 +245,10 @@ testStable('interrupting an HTTP finish closes its callback listener', async () 
               hostname: redirect.hostname,
               port: Number(redirect.port),
               socket: {
+                open(connection) {
+                  // Linux defers accepting empty TCP connections until their first bytes arrive.
+                  connection.write('GET /auth/callback HTTP/1.1\r\nHost: 127.0.0.1\r\n');
+                },
                 data() {},
                 close() {
                   onClose();
