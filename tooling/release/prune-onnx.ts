@@ -8,10 +8,7 @@ const targets: Record<string, string[]> = {
   win32: ['arm64', 'x64']
 };
 
-export async function pruneOnnx(root: string, platform: string, arch: string) {
-  if (!targets[platform]?.includes(arch))
-    throw new Error(`Unsupported ONNX target: ${platform}/${arch}`);
-
+async function validateLayout(root: string) {
   const platforms = await readdir(root, { withFileTypes: true });
 
   if (
@@ -34,6 +31,15 @@ export async function pruneOnnx(root: string, platform: string, arch: string) {
         throw new Error(`Missing ONNX binding: ${entry.name}/${item.name}`);
     }
   }
+
+  return platforms;
+}
+
+export async function pruneOnnx(root: string, platform: string, arch: string) {
+  if (!targets[platform]?.includes(arch))
+    throw new Error(`Unsupported ONNX target: ${platform}/${arch}`);
+
+  const platforms = await validateLayout(root);
 
   for (const entry of platforms.filter((item) => item.name !== platform))
     await rm(join(root, entry.name), { recursive: true });
