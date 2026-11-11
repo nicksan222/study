@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
-import mdx from '@astrojs/mdx';
 import { unified } from '@astrojs/markdown-remark';
+import mdx from '@astrojs/mdx';
 import tailwindcss from '@tailwindcss/vite';
 // The Study website: the landing page and the docs, in English (/) and Italian (/it/),
 // built to static files for GitHub Pages under /study.
