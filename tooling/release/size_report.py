@@ -5,6 +5,10 @@ import os
 from pathlib import Path
 
 
+def _raise_scan_error(error):
+    raise error
+
+
 def inventory(root, runtime=False):
     if root.is_symlink() or not root.exists():
         raise ValueError(f'Input does not exist or is a symlink: {root}')
@@ -12,7 +16,7 @@ def inventory(root, runtime=False):
     if root.is_file():
         files.append((root.name, root.stat().st_size))
     else:
-        for directory, dirs, names in os.walk(root, followlinks=False):
+        for directory, dirs, names in os.walk(root, followlinks=False, onerror=_raise_scan_error):
             dirs[:] = sorted(d for d in dirs if not (Path(directory) / d).is_symlink())
             for name in sorted(names):
                 path = Path(directory) / name

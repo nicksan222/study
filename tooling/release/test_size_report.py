@@ -4,6 +4,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from tooling.release.size_report import inventory
 
 SCRIPT = Path(__file__).with_name('size_report.py')
 
@@ -32,6 +35,12 @@ class SizeReportTest(unittest.TestCase):
             self.assertEqual(report['application']['logical_bytes'], 5)
             self.assertEqual(len(report['artifacts']), 1)
             self.assertEqual(report['artifacts'][0]['bytes'], 6)
+
+    def test_directory_scan_error_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch('tooling.release.size_report.os.scandir', side_effect=PermissionError('scan denied')):
+                with self.assertRaisesRegex(PermissionError, 'scan denied'):
+                    inventory(Path(tmp))
 
     def test_missing_input_fails(self):
         result = subprocess.run([sys.executable, str(SCRIPT), '--runtime', '/missing-study-runtime', '--app', '/missing-study-app'], capture_output=True)
