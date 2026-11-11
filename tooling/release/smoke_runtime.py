@@ -23,6 +23,24 @@ with tempfile.TemporaryDirectory() as temporary:
     if sys.platform == "darwin":
         shutil.copy2(source / "libsqlite3.dylib", runtime / "libsqlite3.dylib")
     shutil.copytree(source / "server", runtime / "server", symlinks=True)
+    # Exercise the shipped native binding and the actual diagram worker in isolation.
+    subprocess.run(
+        [str(bun), "--eval", """
+          const ort = require('onnxruntime-node');
+          if (!ort.Tensor) throw new Error('ONNX binding did not load');
+          const { Worker } = require('node:worker_threads');
+          for (const [source, valid] of [['flowchart TD; A-->B', true], ['flowchart TD; A-->', false]]) {
+            const result = await new Promise((resolve, reject) => {
+              const worker = new Worker('./apps/server/src/platform/ai/diagram/worker.ts', { workerData: source });
+              worker.once('message', resolve);
+              worker.once('error', reject);
+              worker.once('exit', code => { if (code) reject(new Error(`Worker exited: ${code}`)); });
+            });
+            if ((result === undefined) !== valid) throw new Error(`Unexpected diagram result: ${result}`);
+          }
+        """],
+        check=True, timeout=60, cwd=runtime / "server",
+    )
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
         [str(bun), str(runtime / "server/main.js")],
