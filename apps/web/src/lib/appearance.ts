@@ -55,8 +55,27 @@ export function applyAppearance({
     );
     element.style.setProperty('--glass-opacity', `${preferences.glassOpacity}%`);
     element.style.setProperty('--ui-animation-duration', `${preferences.animationDurationMs}ms`);
-    element.style.setProperty('zoom', `${settings.zoomPercent ?? 100}%`);
+
+    applyZoom(element, settings.zoomPercent ?? 100);
   }
+}
+
+function applyZoom(element: HTMLElement, percent: number): void {
+  const zoom = `${percent}%`;
+  const previousZoom = element.style.getPropertyValue('zoom') || '100%';
+
+  // A root zoom change invalidates Chromium's in-flight navigation snapshot.
+  const transition = element.ownerDocument.activeViewTransition;
+
+  if (previousZoom !== zoom && transition) {
+    // skipTransition rejects ready; own only this intentional cancellation.
+    void transition.ready.catch((error: unknown) => {
+      if (!(error instanceof DOMException) || error.name !== 'AbortError') throw error;
+    });
+    transition.skipTransition();
+  }
+
+  element.style.setProperty('zoom', zoom);
 }
 
 export function initializeAppearance(document: Document): () => void {

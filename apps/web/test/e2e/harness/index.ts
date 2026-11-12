@@ -6,6 +6,7 @@ import { App, serve } from '@study/server/runtime';
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import { Effect } from 'effect';
 import type { Browser, Page } from 'playwright';
+import { expect } from 'playwright/test';
 import { preview } from 'vite-plus';
 import { onTestFinished } from 'vite-plus/test';
 
@@ -48,6 +49,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
               ...settings,
               language: Language.ENGLISH,
               appearance: Appearance.DARK,
+              zoomPercent: 125,
               onboarded: true
             });
           })
@@ -94,7 +96,8 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
           {
             profile,
             environment: '.devcontainer/devcontainer.json',
-            zoom: 1,
+            appZoomPercent: 125,
+            browserZoom: 1,
             browser: browser.version(),
             viewport: { width: 2560, height: 1440 },
             deviceScaleFactor: 1,
@@ -117,7 +120,17 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
       acquired = performance.now();
 
       try {
-        await run({ page, expectScreenshot: screenshots.expectScreenshot });
+        await run({
+          page,
+          expectScreenshot: (name, options) =>
+            screenshots!.expectScreenshot(name, {
+              ...options,
+              ready: async () => {
+                await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
+                await options.ready();
+              }
+            })
+        });
       } finally {
         bodyFinished = performance.now();
       }

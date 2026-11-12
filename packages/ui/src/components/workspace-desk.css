@@ -791,6 +791,10 @@
   overflow-y: auto;
   pointer-events: auto;
 }
+/* Keep the input cap in the same layout coordinates as its zoomed notebook dock. */
+.workspace-desk-floating-composer .ui-composer-input {
+  max-height: calc(var(--notebook-viewport-height, 100dvh) * 0.35);
+}
 .workspace-desk-navigation-host {
   position: absolute;
   z-index: 3;

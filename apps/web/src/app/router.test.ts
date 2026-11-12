@@ -96,3 +96,44 @@ testStable('preserves project identity, navigation history, and external URL saf
     router.options.context.queryClient.clear();
   }
 });
+
+testStable.each([
+  { zoom: '', reduced: false, enabled: false },
+  { zoom: '100%', reduced: false, enabled: true },
+  { zoom: '125%', reduced: false, enabled: false },
+  { zoom: '100%', reduced: true, enabled: false }
+])(
+  'uses navigation snapshots=$enabled at zoom=$zoom, reduced motion=$reduced',
+  async ({ zoom, reduced, enabled }) => {
+    const originalZoom = document.documentElement.style.zoom;
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const nativeTransition = vi.fn((update: () => Promise<void>) => ({
+      updateCallbackDone: update()
+    }));
+
+    vi.spyOn(window, 'matchMedia').mockReturnValue({ ...media, matches: reduced });
+
+    const previousTransition = document.startViewTransition;
+
+    document.startViewTransition =
+      nativeTransition as unknown as typeof document.startViewTransition;
+    document.documentElement.style.zoom = zoom;
+
+    const router = createAppRouter(createMemoryHistory({ initialEntries: ['/notes'] }));
+
+    try {
+      await router.load();
+      nativeTransition.mockClear();
+
+      const update = vi.fn(async () => {});
+
+      await router.startViewTransition(update);
+      expect(update).toHaveBeenCalledOnce();
+      expect(nativeTransition).toHaveBeenCalledTimes(enabled ? 1 : 0);
+    } finally {
+      document.startViewTransition = previousTransition;
+      document.documentElement.style.zoom = originalZoom;
+      router.options.context.queryClient.clear();
+    }
+  }
+);

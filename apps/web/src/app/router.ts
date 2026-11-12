@@ -13,7 +13,7 @@ export function createAppRouter(
 
   if (href !== history.location.href) history.replace(href, history.location.state);
 
-  return createRouter({
+  const router = createRouter({
     routeTree,
     // Custom-scheme URLs serialize with a null origin, making internal rewrites external.
     origin:
@@ -24,13 +24,25 @@ export function createAppRouter(
     rewrite: projectUrlRewrite,
     history,
     context: { queryClient },
-    defaultViewTransition: true,
+    defaultViewTransition: false,
     defaultPendingComponent: RoutePending,
     defaultErrorComponent: RouteError,
     // IDs are 64-bit decimal strings; JSON search parsing would lose precision.
     parseSearch: (search) => Object.fromEntries(new URLSearchParams(search)),
     stringifySearch: stringifySearchWith(String)
   });
+
+  router.subscribe('onBeforeLoad', () => {
+    // Root zoom must settle before snapshots; zoomed Chromium snapshots can fail prepaint.
+    router.update({
+      ...router.options,
+      defaultViewTransition:
+        document.documentElement.style.zoom === '100%' &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    });
+  });
+
+  return router;
 }
 
 declare module '@tanstack/react-router' {

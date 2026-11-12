@@ -77,3 +77,30 @@ testStable('follows system appearance changes and removes the listener on dispos
   restore = undefined;
   expect(remove).toHaveBeenCalledWith('change', expect.any(Function));
 });
+
+testStable('skips an active navigation snapshot before changing root zoom', async () => {
+  let cancel: () => void = () => {};
+  const ready = new Promise<void>((_, reject) => {
+    cancel = () => reject(new DOMException('Skipped', 'AbortError'));
+  });
+  const skipTransition = vi.fn(() => {
+    expect(document.documentElement.style.zoom).not.toBe('125%');
+    cancel();
+  });
+
+  Object.defineProperty(document, 'activeViewTransition', {
+    configurable: true,
+    value: { skipTransition, ready }
+  });
+  api.settings.mockResolvedValue({ appearance: 2, zoomPercent: 125 });
+  api.selected.mockResolvedValue(null);
+  api.themes.mockResolvedValue({ items: [], next: null });
+
+  try {
+    restore = initializeAppearance(document);
+    await waitFor(() => expect(document.documentElement.style.zoom).toBe('125%'));
+    expect(skipTransition).toHaveBeenCalledOnce();
+  } finally {
+    Reflect.deleteProperty(document, 'activeViewTransition');
+  }
+});
