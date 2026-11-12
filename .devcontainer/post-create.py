@@ -147,6 +147,8 @@ def main():
     # Root workspaces and landing each use their committed dependency lock.
     subprocess.run(["bun", "install", "--frozen-lockfile"], cwd=REPO, check=True)
     subprocess.run(["bun", "install", "--frozen-lockfile"], cwd=REPO / "apps" / "landing", check=True)
+    # Install the lockfile-pinned Chromium during setup, never during tests.
+    subprocess.run(["bun", "x", "--bun", "playwright", "install", "chromium"], cwd=REPO, check=True)
     # These commands report versions only; they do not start a model request.
     for tool in ("just", "claude", "herdr", "codex"):
         subprocess.run([tool, "--version"], check=True)

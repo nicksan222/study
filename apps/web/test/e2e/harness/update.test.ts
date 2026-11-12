@@ -28,6 +28,7 @@ testStable(
       const error = await new Response(child.stderr).text();
 
       expect(await child.exited).toBe(1);
+
       if (['2-notes-survive-reload/editing_state', '2', 'notes', 'notes/editing'].includes(scope))
         expect(error).toContain('Baseline updates are forbidden in CI');
       else expect(error).toMatch(/Supply one workflow|Unsafe screenshot name/);

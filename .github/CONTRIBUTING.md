@@ -15,7 +15,7 @@ Thank you for helping with Study.
   tooling tests, server package checks, and the website's Bun type check. CI uses explicit
   sequential steps for Oxlint/formatting/Fallow, web checks and tooling tests in one
   JavaScript job. Server tests, real integrations and native/package checks have separate
-  jobs. The JavaScript and server jobs skip Rust and Linux GUI setup. The required
+  jobs. Browser CI uses the same devcontainer; other JavaScript and server checks run on the runner. The required
   `Test and build` check requires every job. Package gates continue after earlier
   failures, and native/package run summaries list their outcomes. The web build reuses
   its earlier type check.
@@ -39,7 +39,7 @@ downloads. The package’s bundled CPU runtime remains available for the checks.
 
 ## Set up
 
-### In the devcontainer (recommended)
+### In the devcontainer
 
 The devcontainer (`.devcontainer/`) installs every tool. Open the folder in VS Code and
 reopen it in the container, or use the devcontainer CLI:
@@ -56,11 +56,12 @@ The devcontainer installs root and landing dependencies from their committed loc
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
 run `just check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
-all application features, and capture generation is unavailable. Run `bunx --bun playwright install chromium` once before `bun run web:e2e` or `just check`; the browser suite uses isolated databases.
+all application features. Browser screenshots use the devcontainer's lockfile-pinned Playwright Chromium; setup installs it before tests. The system Chromium remains for desktop tools.
 
-### On your own Linux machine
+### Manual native Linux prerequisites
 
-The native shell uses Tauri 2 with WebKitGTK 4.1. On Debian or Ubuntu:
+Browser references and repository checks assume the devcontainer above. For manual native builds,
+the shell uses Tauri 2 with WebKitGTK 4.1. On Debian or Ubuntu:
 
 ```sh
 sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-dev \
@@ -345,29 +346,40 @@ harness; contexts, databases and RPC listeners are fresh for every attempt. A jo
 with no completed screenshot fails. Every normal run executes the entire suite;
 there is no dependency graph, affected selector or route registration.
 
-Canonical references use Linux x64, Playwright 1.65.0's Chromium and the fonts in
-`mcr.microsoft.com/playwright:v1.65.0-noble`. CI uses that image and only compares.
-For local capture, build `apps/web/test/e2e/harness/Dockerfile` with
-`docker build --platform linux/amd64 -t study-e2e -f apps/web/test/e2e/harness/Dockerfile apps/web/test/e2e/harness`.
-Run it with this checkout mounted at `/work` and a separate volume over
-`/work/node_modules`; run `bun install --frozen-lockfile` before tests. Do not use
-host dependencies in the Linux container. Other rendering profiles fail on missing
-references rather than quietly claiming canonical coverage.
+Run development and checks inside `.devcontainer`, including screenshots. The repository
+has one environment definition: Debian Trixie, Bun 1.4.4, explicitly installed font packages,
+and Chromium selected by the lockfile-pinned Playwright 1.65.0. `post-create.py` installs
+the browser once during setup; tests never download browsers or use system Chromium.
+After changing the Playwright lockfile entry, rebuild the devcontainer to provision
+the matching browser before running tests. Local development and browser CI use this same configuration. Linux x64 is selected
+for consistent references; ARM hosts run the container under emulation.
+
+From the host:
+
+```sh
+devcontainer up --workspace-folder .
+devcontainer exec --workspace-folder . bun run web:e2e
+devcontainer exec --workspace-folder . bun run web:e2e:update notes-preserve-multiple-edits-after-reopening
+```
+
+Inside the container, use ordinary `bun run web:e2e`, `web:e2e:compare`,
+`web:e2e:update` and `web:e2e:capacity` commands. There is no screenshot-specific
+container launcher, host rendering profile, runtime image attestation or fallback.
+Contexts use a standard QHD 2560×1440 CSS-pixel viewport at 100% browser zoom and
+`deviceScaleFactor: 1`; content is not CSS-scaled. Element screenshots retain their
+natural bounds within that viewport. Profile metadata records the environment path,
+observed browser version and executable, viewport, DPR and zoom.
 
 `bun run web:e2e:update notes-preserve-multiple-edits-after-reopening` explicitly generates candidate
 references for one workflow; append `/editing` to update only that screenshot.
-Updates are rejected in CI and outside Linux x64. The Ubuntu release and browser-path
-checks are coarse safeguards: they do not verify an image digest or installed fonts.
-Use the pinned Dockerfile for the supported capture environment. Profile metadata
-records the recommended image separately from observed platform, architecture,
-browser version and executable path; it does not attest image or font provenance. Inspect candidate PNGs before
+Updates are forbidden in CI. Inspect candidate PNGs before
 accepting them; generation does not approve a design. No Git hook updates or stages
 images. Pixelmatch uses a 0.2 perceptual color threshold, ignores detected anti-aliasing and
 allows zero differing pixels beyond that tolerance. Dimension changes always fail.
 Missing references and changed pixels fail ordinary comparison without
 rewriting references. Actual/expected/diff PNGs, profile metadata and failure traces
 are retained under ignored `test-results/`. Set `E2E_REVIEW=1` to retain successful
-traces too; open a trace with `bunx --bun playwright show-trace PATH`.
+traces too; open a trace with `bun x --bun playwright show-trace PATH`.
 
 After building, `bun run web:e2e:capacity 3 2` measures three complete comparison
 runs with two workers and writes timings under `test-results/`. Counts represent

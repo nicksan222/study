@@ -21,21 +21,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
   updateAllowed(workflow, 'preflight');
   const started = performance.now();
   const directory = `test-results/${workflow}/${crypto.randomUUID()}`;
-  const profile = `${process.platform}-${process.arch}-chromium`;
-
-  if (process.env.E2E_UPDATE) {
-    if (profile !== 'linux-x64-chromium')
-      throw new Error('Canonical baseline updates require Linux x64');
-
-    const os = await Bun.file('/etc/os-release').text();
-
-    if (
-      !os.includes('ID=ubuntu') ||
-      !os.includes('VERSION_ID="24.04"') ||
-      !browser.browserType().executablePath().startsWith('/ms-playwright/')
-    )
-      throw new Error('Generate references in the pinned Playwright Ubuntu capture image');
-  }
+  const profile = 'linux-x64-chromium';
 
   let acquired = started;
   let bodyFinished = started;
@@ -87,7 +73,8 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
         locale: 'en-US',
         timezoneId: 'UTC',
         colorScheme: 'light',
-        viewport: { width: 1280, height: 800 },
+        viewport: { width: 2560, height: 1440 },
+        deviceScaleFactor: 1,
         reducedMotion: 'reduce'
       });
 
@@ -106,14 +93,15 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
         JSON.stringify(
           {
             profile,
+            environment: '.devcontainer/devcontainer.json',
+            zoom: 1,
             browser: browser.version(),
-            viewport: { width: 1280, height: 800 },
+            viewport: { width: 2560, height: 1440 },
+            deviceScaleFactor: 1,
             locale: 'en-US',
             timezone: 'UTC',
             appAppearance: 'dark',
             browserColorScheme: 'light',
-            recommendedCaptureImage:
-              'mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe',
             observedPlatform: process.platform,
             observedArchitecture: process.arch,
             observedBrowserExecutable: browser.browserType().executablePath(),

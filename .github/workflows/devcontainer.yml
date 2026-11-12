@@ -1,7 +1,6 @@
 name: Devcontainer
 
-# CI runs on the runner, so this is what checks the devcontainer: it builds the image, starts
-# the container and runs its lifecycle commands, as `devcontainer up` does for a contributor.
+# Builds and exercises the canonical setup independently of browser CI.
 on:
   workflow_dispatch:
   pull_request:

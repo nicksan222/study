@@ -2,8 +2,11 @@
 {
   "name": "Study",
   "build": {
-    "dockerfile": "Dockerfile"
+    "dockerfile": "Dockerfile",
+    "options": ["--platform=linux/amd64"]
   },
+  // One rendering architecture for local and CI references, including ARM hosts.
+  "runArgs": ["--platform=linux/amd64"],
   // Docker inside the container, available for development services:
   // their containers' ports then answer on localhost, as testcontainers expects. Docker CE,
   // not moby: trixie has no moby packages.
@@ -73,6 +76,7 @@
     "source=${localEnv:HOME}/.config/study-devcontainer,target=/home/vscode/.config/study-devcontainer,type=bind,readonly"
   ],
   "initializeCommand": "bash .devcontainer/initialize.sh",
+  "waitFor": "postCreateCommand",
   "postCreateCommand": "python3 .devcontainer/post-create.py",
   // Desktop/noVNC tooling stays installed and starts only when explicitly requested.
   "postStartCommand": {

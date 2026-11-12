@@ -92,10 +92,12 @@ testStable('scoped updates resolve the exact title after full native preflight',
       try {
         await runner.start();
         expect(runner.state.getUnhandledErrors()).toEqual([]);
+
         for (const [index, candidate] of titles.entries()) {
           const marker = Bun.file(`${directory}/${index}.txt`);
 
           expect(await marker.exists()).toBe(candidate === title);
+
           if (await marker.exists()) await marker.delete();
         }
       } finally {

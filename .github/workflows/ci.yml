@@ -121,7 +121,6 @@ jobs:
   javascript:
     name: 🔎 JavaScript checks
     runs-on: ubuntu-24.04
-    container: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -146,7 +145,7 @@ jobs:
           tool: just@1.40.0
       - name: 🔏 Install release test dependency
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: apt-get update && apt-get install -y --no-install-recommends minisign
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
       - name: 🔎 Check lint and formatting
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run lint
@@ -159,12 +158,15 @@ jobs:
       - name: 🧪 Test web packages
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run test
-      - name: 📦 Build web app
+      - name: 🌐 Test browser flows in the canonical devcontainer
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun --bun vp run --fail-if-no-match --filter @study/web build
-      - name: 🌐 Test browser flows
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run web:e2e:compare
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          env: |
+            CI=true
+            GITHUB_SHA
+          runCmd: bun run web:e2e
       - name: 📸 Retain browser diagnostics
         if: ${{ always() }}
         uses: actions/upload-artifact@v7

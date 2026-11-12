@@ -116,6 +116,15 @@ testHarness(
         const result = withWebE2e(
           'closing-settings-preserves-the-underlying-route',
           async ({ page, expectScreenshot }) => {
+            expect(
+              await page.evaluate(() => ({
+                width: innerWidth,
+                height: innerHeight,
+                dpr: devicePixelRatio,
+                zoom: visualViewport?.scale
+              }))
+            ).toEqual({ width: 2560, height: 1440, dpr: 1, zoom: 1 });
+
             const context = page.context();
 
             stopped = vi.spyOn(context.tracing, 'stop');
