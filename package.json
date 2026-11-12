@@ -17,7 +17,7 @@
     "lint": "bun tooling/oxc-config/check-theme-css.ts && bun run architecture:check && bun --bun vp check --deny-warnings",
     "quality:test": "bun --bun vp test run --project tooling",
     "test": "bun --bun vp run --fail-if-no-match --filter @study/web test",
-    "web:e2e": "bun --bun vp test run --project web-e2e",
+    "web:e2e": "bun --bun vp run --fail-if-no-match --filter @study/web build && bun run web:e2e:compare",
     "gen": "bun tooling/development/generate-theme-css.ts && bun run --filter @study/db gen && bun run --filter @study/web gen:routes",
     "gen:check": "bun tooling/development/generate-theme-css.ts --check && bun run --filter @study/db gen:check",
     "desktop:dev": "bun --bun vp run --fail-if-no-match --filter @study/desktop tauri dev",
@@ -30,7 +30,10 @@
     "architecture:check": "bun tooling/oxc-config/check-architecture.ts",
     "fallow:check": "bun --bun fallow --config tooling/fallow.jsonc --fail-on-issues",
     "seed": "bun tooling/seed/index.ts",
-    "integrations:e2e": "bun --bun vp test run --config apps/server/test/integrations/vite.config.ts integrations.e2e.ts"
+    "integrations:e2e": "bun --bun vp test run --config apps/server/test/integrations/vite.config.ts integrations.e2e.ts",
+    "web:e2e:compare": "bun --bun vp test run --project web-e2e",
+    "web:e2e:update": "bun apps/web/test/e2e/harness/update.ts",
+    "web:e2e:capacity": "bun apps/web/test/e2e/harness/capacity.ts"
   },
   "devDependencies": {
     "@study/testing": "*",
@@ -44,12 +47,16 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",
     "@types/bun": "1.3.13",
+    "@types/pixelmatch": "5.2.6",
+    "@types/pngjs": "6.0.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "fallow": "3.38.0",
     "jsdom": "^30.1.3",
+    "pixelmatch": "7.1.0",
     "playwright": "1.65.0",
+    "pngjs": "7.0.0",
     "typescript": "^7.0.2",
     "vite": "npm:@voidzero-dev/vite-plus-core@1.4.0",
     "vite-plus": "1.4.0"

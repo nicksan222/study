@@ -4,35 +4,74 @@ import { assert } from 'vite-plus/test';
 import { lintRule } from '../test/utils.ts';
 
 testStable(
-  'browser specs use the shared harness and cannot own browser lifecycle or mock requests',
+  'journeys use the direct harness API and await explicit screenshot readiness',
   async () => {
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
         'apps/web/test/e2e/good.test.ts':
-          "import { withWebE2e } from './harness/index.ts'; testStable('works', async () => { await withWebE2e(async ({ page }) => { await page.getByRole('button').click(); }); });",
+          "import { expect, testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await page.goto('/notes'); await expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });",
         'apps/web/test/e2e/bad.test.ts':
-          "import { chromium as browser } from 'playwright'; import { createTestDatabase as database } from '@study/db/testing'; browser.launch(); database(); page.route('**/*', handler); page.waitForTimeout(50);",
-        'apps/web/test/e2e/helper.ts': "import { serve } from '@study/server/runtime';",
-        'apps/web/test/e2e/harness/index.ts':
-          "import { chromium } from 'playwright'; chromium.launch();",
-        'apps/web/src/unrelated.ts': "import { chromium } from 'playwright'; chromium.launch();"
+          "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
+        'apps/web/test/e2e/old.test.ts':
+          "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ checkpoint }) => { await checkpoint('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });"
       },
       true
     );
 
-    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
 
+testStable('browser specs cannot own resources, mock requests or use fixed waits', async () => {
+  const diagnostics = await lintRule(
+    'web-e2e-harness',
+    {
+      'apps/web/test/e2e/bad.test.ts':
+        "import { chromium } from 'playwright'; import { createTestDatabase } from '@study/db/testing'; import { serve } from '@study/server/runtime'; page.route('**/*', handler); page.waitForTimeout(50);",
+      'apps/web/test/e2e/harness/index.ts':
+        "import { chromium } from 'playwright'; chromium.launch();"
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
+});
+
+testStable('aliases cannot conceal interception or global timers', async () => {
+  const diagnostics = await lintRule(
+    'web-e2e-harness',
+    {
+      'apps/web/test/e2e/helper.ts':
+        'const delay = setTimeout; const intercept = page.routeWebSocket; globalThis.setTimeout(fn, 10); const { routeFromHAR } = page;'
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+});
+
+testStable('opaque and concurrent registrations cannot bypass the fixture boundary', async () => {
+  const diagnostics = await lintRule(
+    'web-e2e-harness',
+    {
+      'apps/web/test/e2e/bad.test.ts':
+        "import { testE2e } from './harness/index.ts'; testStable('opaque', callback); testE2e.concurrent('parallel', async () => {}); testStable.each([1])('parameterized', async () => {});"
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+});
+
 testStable(
-  'browser specs reject aliased request mocking, fixed waits and unused harness imports',
+  'unawaited captures, missing readiness and anonymous titles fail conventions',
   async () => {
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
         'apps/web/test/e2e/bad.test.ts':
-          "import { withWebE2e as fixture } from './harness/index.ts'; testStable('bad', async () => { const mock = page.route; mock('**/*', handler); const delay = page.waitForTimeout; delay(10); });"
+          "import { testE2e } from './harness/index.ts'; testE2e('W001', async ({ expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport' }); }); testE2e('Notes retain edits', async ({ expectScreenshot }) => { expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });"
       },
       true
     );
@@ -42,42 +81,29 @@ testStable(
 );
 
 testStable(
-  'parameterized and factory registrations require the harness and fixed timers are forbidden',
+  'empty readiness callbacks and internal fixture imports cannot bypass conventions',
   async () => {
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
         'apps/web/test/e2e/bad.test.ts':
-          "import { setTimeout as delay } from 'node:timers/promises'; testStable.each([1])('x', async () => { await delay(2); }); testStable.concurrent('x', async () => { setTimeout(fn, 5); }); testRegression({})('x', async () => {});"
+          "import { testE2e } from './harness/index.ts'; import { testWeb } from './harness/worker.ts'; testE2e('Notes retain edits', async ({ expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: async () => {} }); }); Bun.sleep(10);"
       },
       true
     );
 
-    assert.strictEqual(diagnostics.length, 5, JSON.stringify(diagnostics));
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
   }
 );
 
-testStable('opaque registrations and nested harness paths do not bypass the boundary', async () => {
+testStable('internal fixtures and aliased public imports are rejected', async () => {
   const diagnostics = await lintRule(
     'web-e2e-harness',
     {
-      'apps/web/test/e2e/nested/harness.ts': "import { chromium } from 'playwright';",
-      'apps/web/test/e2e/bad.test.ts': "testStable('opaque', callback);",
-      'apps/web/test/e2e/good.test.ts':
-        "import { withWebE2e as fixture } from './harness/index.ts'; testStable('valid', async () => { await fixture(async () => {}); });"
-    },
-    true
-  );
-
-  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-});
-
-testStable('aliases cannot hide global timers or websocket request interception', async () => {
-  const diagnostics = await lintRule(
-    'web-e2e-harness',
-    {
-      'apps/web/test/e2e/helper.ts':
-        'const wait = setTimeout; const intercept = page.routeWebSocket; globalThis.setTimeout(fn, 10);'
+      'apps/web/test/e2e/bad.test.ts':
+        "import { testHarness, testE2e as hidden } from './harness/index.ts'; hidden('Notes retain edits', async () => {});",
+      'apps/web/test/e2e/aliased.test.ts': "import { expect as hidden } from './harness/index.ts';",
+      'apps/web/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';"
     },
     true
   );

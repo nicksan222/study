@@ -317,3 +317,59 @@ for each download; identical paths are counted once. Redirect output outside the
 checkout when keeping a baseline.
 
 The server suite runs a Bun-hosted server against a disposable database, kills it after a durable request is committed, and verifies recovery after restart. This test uses real loopback networking and runs with the other server tests in `just server-check`.
+
+### Browser journeys and visual references
+
+`bun run web:e2e` builds the real frontend once, then runs all browser journeys with
+Vite+/Playwright and fresh real SQLite/RPC state. `bun run web:e2e:compare` reuses a
+build made in the same run (CI and `just frontend-check` use this after their build).
+Use native runner filters, for example `bun run web:e2e:compare --testNamePattern "Notes preserve multiple edits after reopening"`.
+
+Journeys import `testE2e` and Playwright `expect` from the shared harness. Define a
+journey directly: `testE2e('Notes preserve edits after reopening', async ({ page,
+expectScreenshot }) => { ... })`. The readable title also determines its baseline and
+artifact directory. Suite-wide preflight rejects duplicate normalized titles across files,
+including punctuation collisions, before any journey runs. Await named screenshots
+with explicit readiness assertions, for example:
+
+```ts
+await expectScreenshot('projects', {
+  target: 'viewport',
+  ready: () => expect(page.getByRole('heading')).toBeVisible()
+});
+```
+
+Oxlint enforces this convention and forbids concurrent journeys, request mocking,
+fixed sleeps and directly owned resources. Resource lifetime is private to the
+harness; contexts, databases and RPC listeners are fresh for every attempt. A journey
+with no completed screenshot fails. Every normal run executes the entire suite;
+there is no dependency graph, affected selector or route registration.
+
+Canonical references use Linux x64, Playwright 1.65.0's Chromium and the fonts in
+`mcr.microsoft.com/playwright:v1.65.0-noble`. CI uses that image and only compares.
+For local capture, build `apps/web/test/e2e/harness/Dockerfile` with
+`docker build --platform linux/amd64 -t study-e2e -f apps/web/test/e2e/harness/Dockerfile apps/web/test/e2e/harness`.
+Run it with this checkout mounted at `/work` and a separate volume over
+`/work/node_modules`; run `bun install --frozen-lockfile` before tests. Do not use
+host dependencies in the Linux container. Other rendering profiles fail on missing
+references rather than quietly claiming canonical coverage.
+
+`bun run web:e2e:update notes-preserve-multiple-edits-after-reopening` explicitly generates candidate
+references for one workflow; append `/editing` to update only that screenshot.
+Updates are rejected in CI and outside Linux x64. The Ubuntu release and browser-path
+checks are coarse safeguards: they do not verify an image digest or installed fonts.
+Use the pinned Dockerfile for the supported capture environment. Profile metadata
+records the recommended image separately from observed platform, architecture,
+browser version and executable path; it does not attest image or font provenance. Inspect candidate PNGs before
+accepting them; generation does not approve a design. No Git hook updates or stages
+images. Pixelmatch uses a 0.2 perceptual color threshold, ignores detected anti-aliasing and
+allows zero differing pixels beyond that tolerance. Dimension changes always fail.
+Missing references and changed pixels fail ordinary comparison without
+rewriting references. Actual/expected/diff PNGs, profile metadata and failure traces
+are retained under ignored `test-results/`. Set `E2E_REVIEW=1` to retain successful
+traces too; open a trace with `bunx --bun playwright show-trace PATH`.
+
+After building, `bun run web:e2e:capacity 3 2` measures three complete comparison
+runs with two workers and writes timings under `test-results/`. Counts represent
+repeated pilot invocations, not additional workflow coverage. Increase the first
+argument up to 100 for longer measurements; supported worker counts are 1, 2 and 4.

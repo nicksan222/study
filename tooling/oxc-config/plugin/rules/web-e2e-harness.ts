@@ -2,6 +2,64 @@ import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
 import { binding, memberName } from '../lexical-bindings.ts';
+import { walk } from './effect-lifecycle-syntax.ts';
+
+function fields(node: any): any[] {
+  return node?.type === 'ObjectExpression' ? node.properties : [];
+}
+
+function callback(node: any): any {
+  return node.arguments.find((argument: any) =>
+    ['ArrowFunctionExpression', 'FunctionExpression'].includes(argument.type)
+  );
+}
+
+function explicitReadiness(node: any): boolean {
+  const ready = fields(node).find((part: any) => part.key?.name === 'ready')?.value;
+
+  if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(ready?.type)) return false;
+
+  let assertion = false;
+
+  walk(ready.body, (node: any) => {
+    if (node.type === 'CallExpression' && node.callee?.name === 'expect') assertion = true;
+  });
+
+  return assertion;
+}
+
+function awaitsScreenshot(node: any, local: string): boolean {
+  if (node.type !== 'AwaitExpression') return false;
+
+  const call = node.argument;
+
+  if (call?.type !== 'CallExpression' || call.callee?.name !== local) return false;
+
+  const name = call.arguments[0];
+
+  return (
+    name?.type === 'Literal' &&
+    typeof name.value === 'string' &&
+    explicitReadiness(call.arguments[1])
+  );
+}
+
+function hasScreenshot(call: any): boolean {
+  const body = callback(call);
+  const parts = body?.params?.[0]?.properties ?? [];
+  const part = parts.find((property: any) => property.key?.name === 'expectScreenshot');
+  const local = part?.value?.name;
+
+  if (!local) return false;
+
+  let captured = false;
+
+  walk(body.body, (node) => {
+    if (awaitsScreenshot(node, local)) captured = true;
+  });
+
+  return captured;
+}
 
 export default defineRule({
   meta: { type: 'problem' },
@@ -10,14 +68,35 @@ export default defineRule({
 
     if (
       !/\/apps\/web\/test\/e2e\//.test(filename) ||
-      filename.endsWith('/apps/web/test/e2e/harness/index.ts')
+      filename.includes('/apps/web/test/e2e/harness/')
     )
       return {};
 
     const spec = /\.(?:test|spec)\.[jt]sx?$/.test(filename);
-    const blocked = new Set(['route', 'routeFromHAR', 'routeWebSocket', 'waitForTimeout']);
+    const blocked = new Set(['route', 'routeFromHAR', 'routeWebSocket', 'waitForTimeout', 'sleep']);
     const edges = moduleEdges(context, (node, source, typeOnly) => {
       if (!source || typeOnly) return;
+
+      if (
+        source === './harness/index.ts' &&
+        node.type === 'ImportDeclaration' &&
+        node.specifiers.some(
+          (part: any) =>
+            !['testE2e', 'expect'].includes(part.imported?.name) ||
+            part.local?.name !== part.imported?.name
+        )
+      )
+        context.report({
+          node,
+          message:
+            'Import testE2e directly; internal fixtures and registration aliases are forbidden in journeys.'
+        });
+
+      if (/harness\//.test(source) && source !== './harness/index.ts')
+        context.report({
+          node,
+          message: 'Journeys use only the public testE2e and Playwright assertion APIs.'
+        });
 
       if (
         /^(?:playwright(?:-core)?(?:\/|$)|@playwright\/|@study\/db(?:\/|$)|@study\/server(?:\/|$)|vite(?:-plus)?$|node:(?:http|net|child_process|timers(?:\/promises)?))/.test(
@@ -31,12 +110,13 @@ export default defineRule({
     });
 
     function canonical(node: any): boolean {
-      const definition = binding(context, node)?.defs[0]?.node;
+      const declaration = binding(context, node)?.defs[0]?.node;
+
+      if (declaration?.type !== 'ImportSpecifier') return false;
 
       return (
-        definition?.type === 'ImportSpecifier' &&
-        definition.imported?.name === 'withWebE2e' &&
-        definition.parent?.source?.value === './harness/index.ts'
+        declaration.imported?.name === 'testE2e' &&
+        declaration.parent?.source?.value === './harness/index.ts'
       );
     }
 
@@ -48,22 +128,12 @@ export default defineRule({
       return node;
     }
 
-    function harnessCall(callback: any): any {
-      const statements = callback?.body?.body;
-
-      if (statements?.length !== 1 || statements[0].type !== 'ExpressionStatement') return;
-
-      const expression = statements[0].expression;
-
-      return expression.type === 'AwaitExpression' ? expression.argument : undefined;
-    }
-
     function registration(node: any): boolean {
       const owner = root(node.callee);
 
       return (
         owner?.type === 'Identifier' &&
-        /^test(?:Stable|Regression|Migration|Characterization)$/.test(owner.name) &&
+        /^test(?:Stable|E2e|Regression|Migration|Characterization)$/.test(owner.name) &&
         !(node.parent?.type === 'CallExpression' && node.parent.callee === node)
       );
     }
@@ -110,16 +180,29 @@ export default defineRule({
 
         if (!spec || !registration(node)) return;
 
-        const callback = node.arguments.find((arg: any) =>
-          ['ArrowFunctionExpression', 'FunctionExpression'].includes(arg.type)
-        );
-        const call = harnessCall(callback);
-
-        if (!call || call.type !== 'CallExpression' || !canonical(call.callee))
+        if (!canonical(node.callee)) {
           context.report({
             node,
-            message: 'Run every browser test through withWebE2e from the shared harness.'
+            message: 'Declare every browser journey directly with testE2e from the shared harness.'
           });
+
+          return;
+        }
+
+        if (!hasScreenshot(node))
+          context.report({
+            node,
+            message: 'Every E2E must await a named screenshot with explicit readiness.'
+          });
+
+        const title = node.arguments[0];
+
+        if (
+          title?.type !== 'Literal' ||
+          typeof title.value !== 'string' ||
+          title.value.trim().split(/\s+/).length < 2
+        )
+          context.report({ node, message: 'Give each E2E a clear descriptive title.' });
       }
     };
   }

@@ -1,86 +1,175 @@
 import { StudyRpc } from '@study/contracts/rpc';
-import { Language } from '@study/contracts/settings/types';
+import { Appearance, Language } from '@study/contracts/settings/types';
 import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
 import { App, serve } from '@study/server/runtime';
 import { studyRpcProxy } from '@study/tooling/development/rpc-proxy';
 import { Effect } from 'effect';
-import { chromium } from 'playwright';
-import type { Page } from 'playwright';
-import { createServer } from 'vite-plus';
+import type { Browser, Page } from 'playwright';
+import { preview } from 'vite-plus';
+import { onTestFinished } from 'vite-plus/test';
 
-type Cleanup = () => void | Promise<void>;
+import { safeName, workflowName } from './identity.ts';
+import { owned } from './lifecycle.ts';
+import { screenshotAssertions, updateAllowed } from './screenshots.ts';
+import type { ExpectScreenshot } from './screenshots.ts';
+import { testWeb } from './worker.ts';
 
-/** Each invocation owns the entire stack, including resources acquired before a startup failure. */
-export async function withWebE2e(run: (fixture: { page: Page }) => Promise<void>): Promise<void> {
-  const cleanup: Cleanup[] = [];
-  const failures: unknown[] = [];
+async function withWebE2e(browser: Browser, workflow: string, run: Journey): Promise<void> {
+  safeName(workflow);
 
-  try {
-    const database = await createTestDatabase();
+  updateAllowed(workflow, 'preflight');
+  const started = performance.now();
+  const directory = `test-results/${workflow}/${crypto.randomUUID()}`;
+  const profile = `${process.platform}-${process.arch}-chromium`;
 
-    cleanup.push(() => database.cleanup());
-    const app = await App.open({ path: database.path });
+  if (process.env.E2E_UPDATE) {
+    if (profile !== 'linux-x64-chromium')
+      throw new Error('Canonical baseline updates require Linux x64');
 
-    cleanup.push(() => app.close());
-    const server = await serve(app);
+    const os = await Bun.file('/etc/os-release').text();
 
-    cleanup.push(() => server.close());
-    await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-          const settings = yield* client['settings.appSettings']({});
-
-          yield* client['settings.saveAppSettings']({
-            ...settings,
-            language: Language.ENGLISH,
-            onboarded: true
-          });
-        })
-      )
-    );
-    const web = await createServer({
-      configFile: Bun.fileURLToPath(new URL('../../../vite.config.ts', import.meta.url)),
-      server: {
-        host: '127.0.0.1',
-        port: 0,
-        strictPort: false,
-        hmr: false,
-        proxy: studyRpcProxy(server.url)
-      }
-    });
-
-    cleanup.push(() => web.close());
-    await web.listen();
-    const address = web.httpServer?.address();
-
-    if (!address || typeof address === 'string') throw new Error('Vite did not open a TCP port');
-
-    const browser = await chromium.launch();
-
-    cleanup.push(() => browser.close());
-    const context = await browser.newContext({
-      baseURL: `http://127.0.0.1:${address.port}`,
-      locale: 'en-US'
-    });
-
-    cleanup.push(() => context.close());
-    const page = await context.newPage();
-
-    page.on('pageerror', (error) => failures.push(error));
-    await run({ page });
-  } catch (error) {
-    failures.push(error);
-  } finally {
-    for (const close of cleanup.reverse()) {
-      try {
-        await close();
-      } catch (error) {
-        failures.push(error);
-      }
-    }
+    if (
+      !os.includes('ID=ubuntu') ||
+      !os.includes('VERSION_ID="24.04"') ||
+      !browser.browserType().executablePath().startsWith('/ms-playwright/')
+    )
+      throw new Error('Generate references in the pinned Playwright Ubuntu capture image');
   }
 
-  if (failures.length) throw new AggregateError(failures, 'Web E2E failed');
+  let acquired = started;
+  let bodyFinished = started;
+  let screenshots: ReturnType<typeof screenshotAssertions> | undefined;
+
+  await owned(
+    async (own) => {
+      const database = await createTestDatabase();
+
+      own(() => database.cleanup());
+      const app = await App.open({ path: await database.prepare() });
+
+      own(() => app.close());
+      const server = await serve(app);
+
+      own(() => server.close());
+      await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+            const settings = yield* client['settings.appSettings']({});
+
+            yield* client['settings.saveAppSettings']({
+              ...settings,
+              language: Language.ENGLISH,
+              appearance: Appearance.DARK,
+              onboarded: true
+            });
+          })
+        )
+      );
+      const web = await preview({
+        configFile: Bun.fileURLToPath(new URL('../../../vite.config.ts', import.meta.url)),
+        preview: {
+          host: '127.0.0.1',
+          port: 0,
+          strictPort: false,
+          proxy: studyRpcProxy(server.url)
+        }
+      });
+
+      own(() => web.close());
+      const address = web.httpServer.address();
+
+      if (!address || typeof address === 'string') throw new Error('Vite did not open a TCP port');
+
+      const context = await browser.newContext({
+        baseURL: `http://127.0.0.1:${address.port}`,
+        locale: 'en-US',
+        timezoneId: 'UTC',
+        colorScheme: 'light',
+        viewport: { width: 1280, height: 800 },
+        reducedMotion: 'reduce'
+      });
+
+      own(() => context.close());
+      await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+
+      own(async () => {
+        await context.tracing.stop({ path: `${directory}/trace.zip` });
+      });
+      const page = await context.newPage();
+      const failures: Error[] = [];
+
+      page.on('pageerror', (error) => failures.push(error));
+      await Bun.write(
+        `${directory}/profile.json`,
+        JSON.stringify(
+          {
+            profile,
+            browser: browser.version(),
+            viewport: { width: 1280, height: 800 },
+            locale: 'en-US',
+            timezone: 'UTC',
+            appAppearance: 'dark',
+            browserColorScheme: 'light',
+            recommendedCaptureImage:
+              'mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe',
+            observedPlatform: process.platform,
+            observedArchitecture: process.arch,
+            observedBrowserExecutable: browser.browserType().executablePath(),
+            workflow,
+            revision: process.env.GITHUB_SHA ?? 'working-tree'
+          },
+          null,
+          2
+        )
+      );
+      screenshots = screenshotAssertions(page, workflow, directory, profile);
+
+      acquired = performance.now();
+
+      try {
+        await run({ page, expectScreenshot: screenshots.expectScreenshot });
+      } finally {
+        bodyFinished = performance.now();
+      }
+
+      screenshots.verify();
+
+      if (failures.length) throw new AggregateError(failures, 'Browser errors');
+    },
+    onTestFinished,
+    async () => {
+      if (!process.env.E2E_REVIEW) await Bun.file(`${directory}/trace.zip`).delete();
+    }
+  ).finally(async () => {
+    // Optional measurements must not replace the journey or cleanup failure.
+    await Bun.write(
+      `${directory}/timing.json`,
+      JSON.stringify({
+        totalMs: performance.now() - started,
+        startupMs: acquired - started,
+        captureMs: screenshots?.captureMs ?? 0,
+        teardownMs: performance.now() - bodyFinished,
+        rssBytes: process.memoryUsage.rss()
+      })
+    ).catch(() => undefined);
+  });
 }
+
+export { expect } from 'playwright/test';
+
+type Journey = (fixture: { page: Page; expectScreenshot: ExpectScreenshot }) => Promise<void>;
+
+/** A classified journey owns its stack; authors only describe behavior and screenshot readiness. */
+export function testE2e(title: string, journey: Journey): void {
+  testHarness(title, async ({ browserOwner }) => {
+    await withWebE2e(await browserOwner.get(), workflowName(title), journey);
+  });
+}
+
+/** Contract tests deliberately exercise failed acquisitions without registering fake app journeys. */
+export const testHarness = testWeb.extend('withWebE2e', async ({ browserOwner }) => {
+  return async (workflow: string, run: Journey) =>
+    withWebE2e(await browserOwner.get(), workflow, run);
+});

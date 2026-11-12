@@ -1,5 +1,5 @@
 import { test } from 'vite-plus/test';
-import type { TestContext, TestFunction, TestOptions } from 'vite-plus/test';
+import type { TestAPI, TestContext, TestFunction, TestOptions } from 'vite-plus/test';
 
 import { assertTestDefinition, classificationLabel } from './classification.ts';
 import type { Characterization, Migration, Regression } from './classification.ts';
@@ -23,6 +23,7 @@ type Each = {
 };
 
 type Registration = {
+  extend: TestAPI['extend'];
   (name: string, fn: TestFunction, timeout?: number): void;
   (name: string, options: Options, fn: TestFunction): void;
   each: Each;
@@ -37,7 +38,7 @@ function callable(value: unknown): value is Callable {
 }
 
 /** Preserve native parameter inference while classifying every expanded test name. */
-function registration<T extends Callable>(runner: T, category: string): T {
+function registration<T extends Callable>(runner: T, category: string): T & Registration {
   return new Proxy(runner, {
     apply(target, receiver, args) {
       assertTestDefinition(args[0], args[1]);
@@ -45,9 +46,12 @@ function registration<T extends Callable>(runner: T, category: string): T {
       return Reflect.apply(target, receiver, [`[${category}] ${args[0]}`, ...args.slice(1)]);
     },
     get(target, property, receiver) {
+      if (['only', 'skip', 'todo', 'fails', 'skipIf', 'runIf'].includes(String(property)))
+        throw new TypeError('Classified tests cannot be focused, skipped or inverted');
+
       const value: any = Reflect.get(target, property, receiver);
 
-      if (property === 'each' || property === 'for') {
+      if (property === 'each' || property === 'for' || property === 'extend') {
         return (...args: unknown[]) => {
           const expanded: unknown = Reflect.apply(value, target, args);
 
@@ -60,7 +64,7 @@ function registration<T extends Callable>(runner: T, category: string): T {
 
       return callable(value) ? registration(value, category) : value;
     }
-  });
+  }) as T & Registration;
 }
 
 export const testStable: Registration = registration(test, 'stable');

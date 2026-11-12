@@ -14,6 +14,8 @@ const rawNames = new Set(['test', 'it', 'fit', 'xit', 'xtest', 'ftest']);
 
 const classifications = new Set([
   'testStable',
+  'testE2e',
+  'testHarness',
   'testRegression',
   'testMigration',
   'testCharacterization'
@@ -108,16 +110,33 @@ export default defineRule({
       return /^@study\/testing\/vitest$/.test(source);
     }
 
+    function harnessRegistration(node: any, definition: any): boolean {
+      if (filename.endsWith('/apps/web/test/e2e/harness/index.ts') && node.name === 'testHarness')
+        return true;
+
+      if (!filename.includes('/apps/web/test/e2e/')) return false;
+
+      if (definition?.type !== 'ImportSpecifier') return false;
+
+      if (!['testE2e', 'testHarness'].includes(node.name)) return false;
+
+      if (importName(definition) !== node.name) return false;
+
+      return ['./harness/index.ts', './index.ts'].includes(definition.parent?.source?.value);
+    }
+
     function approved(node: any, name?: string): boolean {
       const definition = binding(context, node)?.defs[0]?.node;
-      const declaration = definition?.parent;
 
-      return (
-        definition?.type === 'ImportSpecifier' &&
-        declaration?.type === 'ImportDeclaration' &&
-        adapterSource(declaration.source.value) &&
-        (!name || importName(definition) === name)
-      );
+      if (harnessRegistration(node, definition)) return true;
+
+      if (definition?.type !== 'ImportSpecifier') return false;
+
+      const declaration = definition.parent;
+
+      if (declaration?.type !== 'ImportDeclaration') return false;
+
+      return adapterSource(declaration.source.value) && (!name || importName(definition) === name);
     }
 
     function classification(node: any): boolean {
@@ -221,7 +240,11 @@ export default defineRule({
     function factoryCall(node: any): void {
       const callee = node.callee;
 
-      if (callee.type !== 'Identifier' || callee.name === 'testStable') return;
+      if (
+        callee.type !== 'Identifier' ||
+        ['testStable', 'testE2e', 'testHarness'].includes(callee.name)
+      )
+        return;
 
       if (!classifications.has(callee.name) || !approved(callee, callee.name)) return;
 
@@ -259,6 +282,8 @@ export default defineRule({
           report(node, 'Classified tests cannot be focused, skipped, pending or inverted.');
       },
       Identifier(node: any) {
+        if (node.parent?.type === 'VariableDeclarator' && node.parent.id === node) return;
+
         if (!classifications.has(node.name) || !approved(node, node.name)) return;
 
         const reference = binding(context, node)?.references.some(

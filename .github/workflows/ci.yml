@@ -121,6 +121,7 @@ jobs:
   javascript:
     name: 🔎 JavaScript checks
     runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.65.0-noble@sha256:9beb546099e11f52d62e505537914870e01a67e0e6b00ae41da4775324e73dbe
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -134,16 +135,6 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile
-      - name: 🌍 Use an independent Ubuntu package mirror
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: |
-          # Use independent mirror DNS during the Ubuntu archive DNS outage.
-          for mirror_list in /etc/apt/apt-mirrors*.txt; do
-            printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee "$mirror_list" > /dev/null
-          done
-      - name: 🌐 Install Chromium for web tests
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bunx --bun playwright install --with-deps chromium
       - name: 🌍 Install landing dependencies for Fallow
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         working-directory: apps/landing
@@ -155,7 +146,7 @@ jobs:
           tool: just@1.40.0
       - name: 🔏 Install release test dependency
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
+        run: apt-get update && apt-get install -y --no-install-recommends minisign
       - name: 🔎 Check lint and formatting
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run lint
@@ -168,12 +159,19 @@ jobs:
       - name: 🧪 Test web packages
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run test
-      - name: 🌐 Test browser flows
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run web:e2e
       - name: 📦 Build web app
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun --bun vp run --fail-if-no-match --filter @study/web build
+      - name: 🌐 Test browser flows
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+        run: bun run web:e2e:compare
+      - name: 📸 Retain browser diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
       - name: 🛠️ Test tooling
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: just tooling-test
