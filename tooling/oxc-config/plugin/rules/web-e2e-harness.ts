@@ -8,7 +8,7 @@ import {
   enterNode,
   memberName
 } from '../lexical-bindings.ts';
-import { property, walk } from './effect-lifecycle-syntax.ts';
+import { walk } from './effect-lifecycle-syntax.ts';
 import { resolveValue } from './module-factories.ts';
 
 function fields(node: any): any[] {
@@ -148,6 +148,48 @@ function parameterPage(definition: any, name: string): boolean {
   return (part?.type === 'Property' && key === 'page') || ['page', 'frame'].includes(name);
 }
 
+function browserType(node: any): string | null {
+  const name = node?.typeAnnotation?.typeAnnotation?.typeName?.name;
+  const types: Record<string, string> = {
+    Page: 'page',
+    Frame: 'page',
+    Locator: 'locator',
+    FrameLocator: 'locator',
+    ElementHandle: 'handle'
+  };
+
+  return types[name] ?? null;
+}
+
+// Undefined means absent; null means an unresolved property could override force.
+function forceOption(context: any, node: any, seen = new Set<any>()): any {
+  const value = resolveValue(context, node);
+
+  if (!enterNode(value, seen) || value.type !== 'ObjectExpression') return null;
+
+  for (const part of [...value.properties].reverse()) {
+    if (part.type === 'SpreadElement') {
+      const force = forceOption(context, part.argument, new Set(seen));
+
+      if (force === undefined) continue;
+
+      return force;
+    }
+
+    if (part.computed && part.key.type !== 'Literal') return null;
+
+    if ((part.key.name ?? part.key.value) === 'force') return resolveValue(context, part.value);
+  }
+
+  return undefined;
+}
+
+function forceEnabled(context: any, options: any): boolean {
+  const force = forceOption(context, options);
+
+  return force !== undefined && !(force?.type === 'Literal' && force.value === false);
+}
+
 function browserBindings(context: any) {
   // shortcut: follow static constant aliases and known browser factories, not arbitrary data flow.
   function resolve(node: any, seen = new Set<any>()): string | null {
@@ -175,18 +217,9 @@ function browserBindings(context: any) {
   function resolveIdentifier(node: any, seen: Set<any>): string | null {
     const definition = binding(context, node)?.defs[0];
     const declaration = definition?.node;
-    const type = definition?.name?.typeAnnotation?.typeAnnotation;
-    const name = type?.typeName?.name;
+    const type = browserType(definition?.name);
 
-    const browserType: Record<string, string> = {
-      Page: 'page',
-      Frame: 'page',
-      Locator: 'locator',
-      FrameLocator: 'locator',
-      ElementHandle: 'handle'
-    };
-
-    if (browserType[name]) return browserType[name];
+    if (type) return type;
 
     if (!declaration && ['page', 'frame'].includes(node.name)) return 'page';
 
@@ -215,14 +248,26 @@ function browserBindings(context: any) {
   }
 
   function forced(node: any): boolean {
-    const method = resolve(node.callee)?.match(/^(?:page|locator)\.([^.]+)$/)?.[1];
+    const action = resolve(node.callee)?.match(/^(page|locator)\.([^.]+)$/);
+    const method = action?.[2];
 
     if (!method || !(selectorActions.has(method) || method === 'dragTo')) return false;
 
-    return node.arguments.some(
-      (argument: any) =>
-        resolveValue(context, property(resolveValue(context, argument), 'force'))?.value === true
-    );
+    const positions: Record<string, number> = {
+      fill: 1,
+      type: 1,
+      press: 1,
+      setChecked: 1,
+      selectOption: 1,
+      setInputFiles: 1,
+      dragTo: 1,
+      dragAndDrop: 1,
+      dispatchEvent: 2
+    };
+    const index = (positions[method] ?? 0) + (action?.[1] === 'page' ? 1 : 0);
+    const options = node.arguments[index];
+
+    return options ? forceEnabled(context, options) : false;
   }
 
   return { resolve, forbidden, forced };
@@ -337,6 +382,15 @@ export default defineRule({
           )
         )
           context.report({ node, message: 'Browser specs cannot use fixed waits.' });
+      },
+      ObjectPattern(node: any) {
+        const parameter = node.parent?.type === 'AssignmentPattern' ? node.parent : node;
+
+        if (!parameter.parent?.params?.includes(parameter)) return;
+
+        for (const part of node.properties)
+          if (browser.forbidden(browserType(node), part.key?.name ?? part.key?.value))
+            context.report({ node: part, message: locatorMessage });
       },
       VariableDeclarator(node: any) {
         if (node.id.type === 'ObjectPattern')

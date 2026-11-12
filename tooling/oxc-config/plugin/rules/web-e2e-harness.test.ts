@@ -1,7 +1,7 @@
 import { testStable } from '@study/testing/vitest';
 import { assert } from 'vite-plus/test';
 
-import { lintRule } from '../test/utils.ts';
+import { lintRule, lintRulePaths } from '../test/utils.ts';
 
 testStable(
   'journeys use the direct harness API and await explicit screenshot readiness',
@@ -263,3 +263,78 @@ testStable('screenshot readiness must await or return a matcher in its own callb
     assert.strictEqual(diagnostics.length, valid ? 0 : 1, ready);
   }
 });
+
+testStable('forced locator options follow static spreads in last-property order', async () => {
+  const rejected = [
+    'button.click({ ...{ force: true } })',
+    'button.click({ ...{ ...{ force: true } } })',
+    'button.click({ force: false, ...forced })',
+    'button.click({ ...safe, ...forced })',
+    'button.click({ ...unknown })',
+    'button.click({ force: false, ...unknown })',
+    'button.click(unknown)',
+    'button.click({ force: true, ...{ timeout: 10 } })',
+    'button.click({ ...cycle })',
+    'button.fill(text, { ...forced })',
+    'button.dragTo(target, { ...forced })'
+  ];
+  const allowed = [
+    'button.click({ ...forced, force: false })',
+    'button.click({ ...forced, ...safe })',
+    'button.click({ ...unknown, force: false })',
+    'button.click({ ...{ ...forced, force: false } })',
+    'button.click({ ...safe, ...safe })',
+    'button.click({ ...{ timeout: 10 } })',
+    'button.fill(text)',
+    'button.press(key)',
+    'button.selectOption(value)',
+    'button.setInputFiles(files)',
+    'button.dragTo(target)',
+    'button.dispatchEvent(event, payload)',
+    'other.click({ ...forced })'
+  ];
+
+  const files = Object.fromEntries(
+    [...rejected, ...allowed].map((call, index) => [
+      `apps/web/test/e2e/helper-${index}.ts`,
+      `const forced = { force: true }; const safe = { force: false };
+     const cycle = { ...cycle }; const button = page.getByRole('button');
+     ${call};`
+    ])
+  );
+
+  assert.deepStrictEqual(
+    await lintRulePaths('web-e2e-harness', files),
+    Object.keys(files).slice(0, rejected.length).sort()
+  );
+});
+
+testStable(
+  'typed browser parameter patterns reject selector actions and allow locator actions',
+  async () => {
+    const rejected = [
+      "async function helper({ click }: Page) { await click('button'); }",
+      "const helper = async ({ fill: enter }: Frame) => { await enter('input', 'text'); };",
+      "const helper = async function ({ click: activate = fallback }: Page) { await activate('button'); };",
+      "async function helper({ click }: Frame = frame) { await click('button'); }"
+    ];
+    const allowed = [
+      'async function helper({ click }: Locator) { await click(); }',
+      'const helper = async ({ fill: enter }: Locator) => { await enter("text"); };',
+      'async function helper({ click }: Service) { await click("button"); }',
+      'async function helper({ goto, keyboard }: Page) { await goto("/"); await keyboard.press("Enter"); }'
+    ];
+
+    const files = Object.fromEntries(
+      [...rejected, ...allowed].map((source, index) => [
+        `apps/web/test/e2e/helper-${index}.ts`,
+        source
+      ])
+    );
+
+    assert.deepStrictEqual(
+      await lintRulePaths('web-e2e-harness', files),
+      Object.keys(files).slice(0, rejected.length).sort()
+    );
+  }
+);
