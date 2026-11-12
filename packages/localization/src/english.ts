@@ -219,9 +219,6 @@ export const english = Object.freeze({
   AgentRulesFlashcards: 'Flashcards',
   AgentRulesFlashcardsHelp:
     'Guide newly generated flashcards. For example: test one concept per card and keep answers concise.',
-  AgentRulesDiagrams: 'Diagrams',
-  AgentRulesDiagramsHelp:
-    'Guide newly generated diagrams. For example: group related concepts and label connections clearly.',
   AgentRulesGrading: 'Feedback and grading',
   AgentRulesGradingHelp:
     'Guide feedback on practice answers. For example: explain missing concepts and suggest what to review.',
@@ -1360,7 +1357,6 @@ export const english = Object.freeze({
     'Could not request reading. Refresh to review the current processing revision before retrying.',
   ReaderNoExtraction:
     'Readable text is not available for this version. The exact original may still be downloaded.',
-  ReaderDiagramSource: 'Diagram source (read-only)',
   ReaderCorrectAnswer: 'Correct answer',
   ReaderHistory: 'Version history',
   ReaderImageUnavailable: 'Image bytes for this exact revision are unavailable.',
@@ -1460,7 +1456,6 @@ export const english = Object.freeze({
   Projects: 'All subjects',
   Notes: 'Notes',
   Flashcards: 'Flashcards',
-  Diagrams: 'Diagram',
   Practice: 'Practice',
   Settings: 'Settings',
   Help: 'Help',
@@ -1513,7 +1508,6 @@ export const english = Object.freeze({
   SearchPrompt: 'Type to search everything: names, messages, and what Study read from your files.',
   SearchNoResults: 'Nothing matches.',
   SearchFailed: 'Search is unavailable right now.',
-  SearchKeywordOnly: 'Preparing search by meaning; showing exact matches for now.',
   SearchProjects: 'Subjects',
   SearchNotes: 'Notes',
   SearchFiles: 'Files',
@@ -1583,9 +1577,9 @@ export const english = Object.freeze({
     'Notes, recordings, slides and links, kept together in a subject for each course.',
   OnboardingAskTitle: 'Ask when you want',
   OnboardingAskText:
-    'Type @study to ask a question that cites your own files. Study pages make flashcards and diagrams from a whole subject.',
+    'Type @study to ask a question that cites your own files. Study pages make flashcards and quizzes from a whole subject.',
   OnboardingReviewTitle: 'Review what matters',
-  OnboardingReviewText: 'Flashcards, diagrams and practice questions from your own material.',
+  OnboardingReviewText: 'Flashcards and practice questions from your own material.',
   OnboardingLookTitle: 'Make it yours',
   OnboardingLookIntro: 'Pick a language and a look. You can change both later in Settings.',
   OnboardingNotesTitle: 'Notes are your notebook',
@@ -1691,7 +1685,7 @@ export const english = Object.freeze({
   ProjectDetailDescription:
     'Everything you study for this course: notes, files and study material.',
   ProjectEmptyDescription:
-    'Start a note to take notes and add files, then make flashcards and diagrams from it on their pages.',
+    'Start a note to take notes and add files, then make flashcards and quizzes from it on their pages.',
   ProjectDetails: 'Subject details',
   ViewProjectFiles: 'View files',
   ExamDay: 'Exam day',
@@ -1725,7 +1719,7 @@ export const english = Object.freeze({
   ResizeSidebarHint: 'Drag to resize sidebar; double-click to reset',
   SidebarLibrary: 'Library',
   SidebarQuiz: 'Quiz',
-  SidebarLibraryEmpty: 'No sources or diagrams yet.',
+  SidebarLibraryEmpty: 'No sources yet.',
   SidebarPracticeEmpty: 'No flashcards or quizzes yet.',
   GoToProjects: 'Go to Subjects',
   NoteEmptyHint:
@@ -1825,7 +1819,6 @@ export const english = Object.freeze({
   CorrectionError: 'Could not save the correction. Try again.',
   DetailPreview: 'Preview',
   FlashcardsDescription: 'Cards made from your notes, reviewed when they are due.',
-  DiagramsDescription: 'How the ideas of your notes connect, drawn as a map to move around in.',
   LoadingStudy: 'Loading study material…',
   StudyLoadError: 'Could not load the study material. Try again.',
   ReviewDue: 'Review',
@@ -1848,10 +1841,8 @@ export const english = Object.freeze({
   PreviousCard: 'Previous card',
   NextCard: 'Next card',
   KindFlashcards: 'Flashcards',
-  KindDiagram: 'Diagram',
   WritingMaterial: 'Writing…',
   WritingFlashcards: 'Writing your flashcards…',
-  DrawingDiagram: 'Drawing your diagram…',
   WritingMaterialHint:
     'Study reads every passage of these notes first, so a long one takes a minute or two. You can leave this page: it carries on, and opens here when it is done.',
   DeleteMaterial: 'Delete',
@@ -1880,12 +1871,6 @@ export const english = Object.freeze({
   RateGood: 'Good',
   RateEasy: 'Easy',
   ReviewDone: 'Review done. Cards come back when they are due.',
-  DiagramZoomIn: 'Zoom in',
-  DiagramZoomOut: 'Zoom out',
-  DiagramFit: 'Fit to view',
-  DiagramActualSize: 'Actual size',
-  DiagramHint:
-    'Drag or use the arrow keys to move around, Ctrl/Cmd + scroll or + and − to zoom, double-click or F to see it all.',
   FlashcardsHint: 'Click the card or press Space to turn it over; ← and → move through the set.',
   FlashcardsShowAll: 'Turn all over',
   FlashcardsHideAll: 'Turn all back',
@@ -2206,7 +2191,7 @@ export const english = Object.freeze({
     'Local features run on this computer. AI tasks send only the material they need to your selected provider.',
   SetupLlmTitle: 'Connect an AI provider',
   SetupLlmBody:
-    'Connect an account or enter an API key, then choose models for diagrams, flashcards and answers.',
+    'Connect an account or enter an API key, then choose models for flashcards, quizzes and answers.',
   SetupTranscriptionTitle: 'Download the transcription model',
   SetupTranscriptionBody:
     'Recordings turn into text on this computer and never leave it. The model downloads once.',
@@ -2245,7 +2230,7 @@ export const english = Object.freeze({
   LlmTierMediumSubtitle:
     'Reads PDFs and pictures, corrects transcripts, answers @study questions, writes study material and practice questions, and grades answers.',
   LlmTierSmart: 'Demanding tasks',
-  LlmTierSmartSubtitle: 'Draws diagrams of whole notes, where quality matters more than speed.',
+  LlmTierSmartSubtitle: 'Handles complex tasks where quality matters more than speed.',
   LlmModelHint: 'Each tier runs on the model recommended for it unless you pick another.',
   ModelGpt6Luna: 'GPT-6 Luna',
   ModelGpt61Sol: 'GPT-6.1 Sol',
@@ -2285,10 +2270,8 @@ export const english = Object.freeze({
   SysBandwidth: 'Memory bandwidth',
   SysMeasuredIn: 'Measuring took',
   SysSpare: 'Spare for models',
-  SysSearch: 'Search (multilingual E5)',
   SysTranscription: 'Transcription (Parakeet)',
   SysNone: 'none',
-  SearchModelMissing: 'Not installed: search matches words only',
   PlacementNotEnoughMemory: 'Not enough memory here',
   PlacementTooSlow: 'Too slow on this computer',
   SysNotMeasured: 'This computer has not been measured yet.',
@@ -2343,13 +2326,13 @@ export const english = Object.freeze({
     'Mention @study in a note to get an answer that cites your own files. Each attached file has a thread beside it for notes and questions about just that file.',
   HelpStudyTitle: 'Review',
   HelpStudyBody:
-    "To make or update a subject's flashcards or diagram, open its page, or the subject, and press Make or Update. Each page lists the subjects and what was made of its kind from each. Update rewrites it from the subject as it is now. Flashcards come back when they are due: the Flashcards page and Home say how many are due today. Edit, add or delete any card.",
+    "To make or update a subject's flashcards or quiz, open its page, or the subject, and press Make or Update. Each page lists the subjects and what was made of its kind from each. Update rewrites it from the subject as it is now. Flashcards come back when they are due: the Flashcards page and Home say how many are due today. Edit, add or delete any card.",
   HelpPracticeTitle: 'Practice',
   HelpPracticeBody:
     'Practice asks endless questions over the files and notes of a subject, one at a time, and grades answers written in your own words, saying what was missing.',
   HelpKeysTitle: 'Keys',
   HelpKeysBody:
-    'Ctrl/Cmd K searches the current subject, or everything from a global page. In a review, Space shows the answer and 1 to 4 rate it. In Practice, number keys choose an answer and Enter continues. On a diagram, the arrows move, + and − zoom and F fits it.',
+    'Ctrl/Cmd K searches the current subject, or everything from a global page. In a review, Space shows the answer and 1 to 4 rate it. In Practice, number keys choose an answer and Enter continues.',
   ReplayOnboarding: 'Replay the welcome tour',
   AllProjects: 'All subjects',
   RecordingDesktopOnly: 'Recording is available in the desktop app.',

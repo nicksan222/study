@@ -67,7 +67,6 @@ import type {
   transformRequestSchema,
   transformPublicationSchema
 } from '@study/contracts/pages/transform';
-import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 
@@ -98,7 +97,6 @@ import {
   ReplyReadinessStore,
   ReplyWakeStore
 } from '#server/features/notes/store/reply';
-import { NoteSearchStore } from '#server/features/notes/store/search';
 import { NoteSummaryStore } from '#server/features/notes/store/sidebar-summary';
 import { TitleStore } from '#server/features/notes/store/title';
 import { NoteWorkStore } from '#server/features/notes/store/work';
@@ -994,8 +992,6 @@ export const Notes = defineService(
     createNoteInTransaction: (tx: Transaction, input: typeof createNoteInputSchema.Type) =>
       tx.store(NoteStore).createNote({ ...input, titleSource: 'user' }),
     postMessageInTransaction: postMessage,
-    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
-      tx.store(NoteSearchStore).searchProjectionPages(input),
     prepareBackup: (tx: Transaction) => tx.store(NoteBackupStore).prepare(undefined),
     validateBackup: (tx: Transaction, requireRetired = false) =>
       tx.store(NoteBackupStore).backupNote(requireRetired)

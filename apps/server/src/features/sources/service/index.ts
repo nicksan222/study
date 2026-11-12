@@ -15,7 +15,6 @@
 import { StudyError } from '@study/contracts/errors';
 import type { SourcePublicationRequested } from '@study/contracts/events';
 import type { ProjectId, NoteId, SourceId } from '@study/contracts/ids';
-import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import type {
   importCapabilityInputSchema,
   importCapabilitySchema
@@ -66,7 +65,6 @@ import {
   SourceRetirementStore,
   SourceDeletionPreviewStore
 } from '#server/features/sources/store/retirement';
-import { SourceSearchStore } from '#server/features/sources/store/search';
 import { Workflows } from '#server/features/workflows/index';
 import type { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
@@ -524,8 +522,6 @@ export const Sources = defineService(
 
       return source;
     },
-    searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
-      tx.store(SourceSearchStore).searchProjectionPages(input),
     currentExtractionInTransaction: (tx: Transaction, id: SourceId) => {
       tx.store(SourceStore).source(id);
 

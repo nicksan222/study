@@ -1,10 +1,10 @@
-// The landing's tabbed stage: its heading, then answers, quiz, flashcard and diagram.
+// The landing's tabbed stage: its heading, then answers, quiz and flashcard.
 import type { Shape } from '../strings';
 
 export const learnEn = {
   stage: {
-    title: 'One lecture, four ways to learn it.',
-    key: 'four ways',
+    title: 'One lecture, three ways to learn it.',
+    key: 'three ways',
     body: 'Each tab is a piece of the app to try, made from the passage above.',
     label: 'What Study makes of a lecture'
   },
@@ -65,20 +65,6 @@ export const learnEn = {
       'Study on a sample course: the four rating buttons under a flashcard, with Good picked.',
     caption: 'In the app, on a sample course: the same four ratings, Good picked.',
     more: 'How flashcards are scheduled'
-  },
-  diagram: {
-    tab: 'Diagrams',
-    title: 'Diagrams, drawn by hand.',
-    body: 'A course’s ideas laid out as a hand-drawn sketch, made from your own notes and files. Pan, zoom, and update it as the course grows.',
-    note: 'the four phases, sketched',
-    root: 'Mitosis',
-    phases: ['Prophase', 'Metaphase', 'Anaphase', 'Telophase'],
-    extra: 'prometaphase?',
-    aside: 'some textbooks',
-    label:
-      'A hand-drawn diagram: mitosis and its four phases, with prometaphase pencilled in between prophase and metaphase.',
-    from: 'from the lecture, at 2:02',
-    more: 'Notes and diagrams'
   }
 } as const;
 
@@ -87,8 +73,8 @@ export const quizAnswer = 1;
 
 export const learnIt: Shape<typeof learnEn> = {
   stage: {
-    title: 'Una lezione, quattro modi per impararla.',
-    key: 'quattro modi',
+    title: 'Una lezione, tre modi per impararla.',
+    key: 'tre modi',
     body: 'Ogni scheda è un pezzo dell’app da provare, fatto dal passaggio qui sopra.',
     label: 'Cosa fa Study di una lezione'
   },
@@ -154,19 +140,5 @@ export const learnIt: Shape<typeof learnEn> = {
       'Study su un corso di esempio: i quattro pulsanti di valutazione sotto una flashcard, con Bene scelto.',
     caption: 'Nell’app, su un corso di esempio: le stesse quattro valutazioni, con Bene scelto.',
     more: 'Come vengono pianificate le flashcard'
-  },
-  diagram: {
-    tab: 'Schemi',
-    title: 'Schemi, disegnati a mano.',
-    body: 'Le idee di un corso in uno schizzo a mano, fatto dai tuoi appunti e file. Spostati, ingrandisci e aggiornalo quando il corso cresce.',
-    note: 'le quattro fasi, a schizzo',
-    root: 'Mitosi',
-    phases: ['Profase', 'Metafase', 'Anafase', 'Telofase'],
-    extra: 'prometafase?',
-    aside: 'alcuni libri',
-    label:
-      'Uno schema disegnato a mano: la mitosi e le sue quattro fasi, con la prometafase segnata a matita tra profase e metafase.',
-    from: 'dalla lezione, alle 2:02',
-    more: 'Appunti e schemi'
   }
 };

@@ -1,6 +1,6 @@
 ---
-// One lecture, four ways to learn it: notebook tabs over one stage, each a piece of the app to
-// try (a cited answer, a graded question, a flashcard, a hand-drawn diagram) beside a capture
+// One lecture, three ways to learn it: notebook tabs over one stage, each a piece of the app to
+// try (a cited answer, a graded question, a flashcard) beside a capture
 // of the real thing.
 import Icon from '../Icon.astro';
 import AppPreview from '../AppPreview.astro';
@@ -39,7 +39,7 @@ const strokes = {
 // Each choice carries a hand-drawn check; only the right one's ever shows.
 const checks = s.quiz.choices.map(() => pressed(() => ink.check(2, 3, 17)));
 
-// The four things a lecture becomes, as notebook tabs over one stage.
+// The three things a lecture becomes, as notebook tabs over one stage.
 const tabState = (index: number) => ({
   'aria-selected': index === 0 ? ('true' as const) : ('false' as const),
   tabindex: index === 0 ? '0' : '-1'
@@ -49,29 +49,8 @@ const tabs = [
   { id: 'answers', label: s.answers.tab, icon: 'wand-sparkles', tint: 'tint-green' },
   { id: 'quiz', label: s.quiz.tab, icon: 'list-checks', tint: 'tint-purple' },
   { id: 'card', label: s.card.tab, icon: 'shapes', tint: 'tint-orange' },
-  { id: 'diagram', label: s.diagram.tab, icon: 'workflow', tint: 'tint-pink' },
 ];
 
-// A transcript line split around the phrase a learner washed in it.
-const around = (line: string, phrase: string) => {
-  const at = line.indexOf(phrase);
-
-  return at < 0 ? [line, '', ''] : [line.slice(0, at), phrase, line.slice(at + phrase.length)];
-};
-
-const phaseQuote = around(s.transcript[0], p.p1);
-
-// The diagram, laid out on a 560 by 320 sheet.
-const phaseX = [10, 152, 294, 436];
-
-const diagram = {
-  root: { fill: ink.fill(205, 14, 150, 54), line: ink.rect(205, 14, 150, 54) },
-  phases: phaseX.map((x) => ({ x, fill: ink.fill(x, 158, 118, 50), line: ink.rect(x, 158, 118, 50) })),
-  arrows: phaseX.map((x, i) => ink.arrow(262 + i * 12, 74, x + 59, 150, (1.5 - i) * -10)),
-  extra: ink.rect(84, 252, 156, 44),
-  extraArrow: ink.arrow(148, 248, 140, 214, 4, 9),
-  asideArrow: ink.arrow(330, 268, 250, 272, -6, 9),
-};
 ---
 
 <section class="sec stage-sec frame" id="learn" aria-labelledby="stage-title">
@@ -247,57 +226,7 @@ const diagram = {
         <svg class="ink-arrow" data-arrow data-from="#learn-card-note" data-to="#learn-card" data-bow="0.3" aria-hidden="true"></svg>
       </div>
 
-      <div class="panel tint-pink" id="diagram" data-ink-later data-ink-scope>
-        <div class="panel-head">
-          <div class="panel-copy">
-            <h3>{s.diagram.title}</h3>
-            <p>{s.diagram.body}</p>
-            <a class="more" href={docs('notes-and-diagrams')}>{s.diagram.more}<Icon name="arrow-right" size={14} /></a>
-          </div>
-          <p class="aside" data-ink>
-            <span class="hand hand-note" id="learn-diagram-note" style="--r:2.5deg" data-type="hand" set:html={words(s.diagram.note)} />
-          </p>
-        </div>
-        <div class="panel-body body-5">
-          <div class="from" data-ink>
-            <p class="paper-head"><Icon name="video" size={14} />{p.source}</p>
-            <p class="from-note"><span class="hand hand-note" id="learn-diagram-from" style="--r:-2deg" data-type="hand" set:html={words(s.diagram.from)} /></p>
-            <p class="from-text">
-              {phaseQuote[0]}<span class="wash" id="learn-diagram-phrase">{phaseQuote[1]}</span>{phaseQuote[2]}
-            </p>
-          </div>
-          <div class="piece sheet" data-ink>
-            <svg class="drawing" viewBox="0 0 560 320" role="img" aria-label={s.diagram.label}>
-              <path class="node-fill node-root fade" d={diagram.root.fill} />
-              <path class="node-line draw" pathLength="1" d={diagram.root.line} />
-              <g id="learn-diagram-phases">
-                {
-                  diagram.phases.map((phase, i) => (
-                    <>
-                      <path class="node-fill node-phase fade" d={phase.fill} />
-                      <path class="node-line draw" pathLength="1" d={phase.line} id={i === diagram.phases.length - 1 ? 'learn-diagram-last' : undefined} />
-                    </>
-                  ))
-                }
-              </g>
-              {diagram.arrows.map((d) => <path class="node-line draw" pathLength="1" d={d} />)}
-              <path class="node-line node-dashed fade" d={diagram.extra} />
-              <path class="node-line node-dashed fade" d={diagram.extraArrow} />
-              <path class="pencil-line draw" pathLength="1" d={diagram.asideArrow} />
-              <text class="hand node-text" x="280" y="48" font-size="23" data-type="ch" set:html={chars(s.diagram.root, 'tspan')} />
-              {
-                diagram.phases.map((phase, i) => (
-                  <text class="hand node-text" x={phase.x + 59} y="190" font-size="20" data-type="ch" set:html={chars(s.diagram.phases[i], 'tspan')} />
-                ))
-              }
-              <text class="hand node-text" x="162" y="280" font-size="19" data-type="ch" set:html={chars(s.diagram.extra, 'tspan')} />
-              <text class="hand pencil-text" x="338" y="276" font-size="18" data-type="ch" set:html={chars(s.diagram.aside, 'tspan')} />
-            </svg>
-          </div>
-        </div>
-        <svg class="ink-arrow" data-arrow data-from="#learn-diagram-note" data-to="#learn-diagram-last" data-bow="0.3" aria-hidden="true"></svg>
-        <svg class="ink-arrow" data-arrow data-from="#learn-diagram-from" data-to="#learn-diagram-phrase" data-bow="0.3" aria-hidden="true"></svg>
-      </div>
+
     </div>
   </div>
 </section>
@@ -608,7 +537,7 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     position: relative;
   }
 
-  /* One lecture, four ways: notebook tabs over one stage in the open tab's tint. */
+  /* One lecture, three ways: notebook tabs over one stage in the open tab's tint. */
   .stage-head {
     max-width: 44rem;
   }
@@ -1140,56 +1069,6 @@ const tabs = [...stage.querySelectorAll<HTMLButtonElement>('[data-tab]')];
   }
   .from-note .hand {
     font-size: 21px;
-  }
-
-  /* The diagram: drawn here, in the app's hand. */
-  .sheet {
-    position: relative;
-    padding: var(--s-5);
-    border-radius: var(--r-lg);
-    background: var(--canvas);
-  }
-  .drawing {
-    display: block;
-    width: 100%;
-    height: auto;
-    overflow: visible;
-  }
-  .drawing path {
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .drawing .node-line {
-    stroke: var(--ink);
-    stroke-width: 1.7;
-  }
-  .drawing .pencil-line {
-    stroke: var(--ink-2);
-    stroke-width: 1.8;
-  }
-  .drawing .node-dashed {
-    stroke-dasharray: 6 7;
-  }
-  .drawing .node-fill {
-    stroke: none;
-  }
-  .drawing .node-fill.node-root {
-    fill: var(--blue-chip);
-  }
-  .drawing .node-fill.node-phase {
-    fill: var(--green-chip);
-  }
-  .drawing text {
-    font-family: var(--font-hand);
-    text-anchor: middle;
-  }
-  .node-text {
-    fill: var(--ink);
-  }
-  .drawing .pencil-text {
-    fill: var(--ink-2);
-    text-anchor: start;
   }
 
   /* Narrow: one column, and the stage follows the open panel's height. */

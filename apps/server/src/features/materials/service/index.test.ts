@@ -33,9 +33,8 @@ import { Database } from '#server/platform/database/database';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
-  kind: 'diagram' as const,
-  format: 'mermaid' as const,
-  payload: 'flowchart LR; A-->B'
+  kind: 'flashcards' as const,
+  cards: [{ front: 'A', back: 'B' }]
 };
 
 testStable(

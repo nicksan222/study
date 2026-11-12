@@ -37,9 +37,8 @@ import { Database } from '#server/platform/database/database';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
-  kind: 'diagram',
-  format: 'mermaid',
-  payload: 'flowchart TD\nA-->B'
+  kind: 'flashcards',
+  cards: [{ front: 'flowchart TD\nA-->B', back: 'Answer' }]
 } satisfies MaterialContentInput;
 
 const authored = () => ({
@@ -136,7 +135,7 @@ testStable(
             const reopened = yield* materials('materials.material', { id: saved.id });
 
             assert.strictEqual(reopened.version.id, saved.version.id);
-            expect(reopened.version.content).toStrictEqual(content);
+            expect(reopened.version.content).toStrictEqual(saved.version.content);
             assert.strictEqual(
               (yield* materials('materials.materials', { limit: 10, archived: false })).items[0]
                 ?.id,
@@ -308,7 +307,7 @@ testStable(
           const request = yield* materials.requestMaterialGeneration({
             projectId: a.id,
             title: 'Exact',
-            kind: 'diagram',
+            kind: 'flashcards',
             inputs: [{ kind: 'page', versionId: input.version.id }]
           });
 
@@ -331,7 +330,7 @@ testStable(
               materials.requestMaterialGeneration({
                 projectId: a.id,
                 title: 'No fallback',
-                kind: 'diagram',
+                kind: 'flashcards',
                 inputs: [{ kind: 'page', versionId: input.version.id }]
               })
             )).kind === 'invalid_input'

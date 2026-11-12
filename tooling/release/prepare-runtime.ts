@@ -2,8 +2,6 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Effect, FileSystem, Path } from 'effect';
 
-import { pruneOnnx } from './prune-onnx.ts';
-
 const { join, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
@@ -64,12 +62,6 @@ const install = Bun.spawnSync(
 );
 
 if (install.exitCode !== 0) throw new Error(`Runtime installation failed: ${install.exitCode}`);
-
-await pruneOnnx(
-  join(server, 'node_modules/onnxruntime-node/bin/napi-v6'),
-  process.platform,
-  process.arch
-);
 
 // Tauri does not retain workspace symlinks. Bun can load their TypeScript sources
 // from real package directories, so materialize each installed workspace before bundling.

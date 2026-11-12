@@ -42,7 +42,7 @@ export function serializeMaterialVersion(
   let body: string;
 
   if (format === 'aid_json') {
-    if (!['quiz', 'flashcards', 'diagram'].includes(version.kind))
+    if (!['quiz', 'flashcards'].includes(version.kind))
       throw new StudyError('unsupported', 'Typed aid export requires an aid');
 
     body = Schema.encodeSync(Schema.fromJsonString(Schema.toCodecJson(materialAidExportSchema)))({

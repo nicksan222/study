@@ -20,9 +20,9 @@ export { materialIdSchema };
 
 const nonemptySchema = Schema.Trim.check(Schema.isMinLength(1));
 
-export const materialKindSchema = Schema.Literals(['diagram', 'quiz', 'flashcards']);
+export const materialKindSchema = Schema.Literals(['quiz', 'flashcards']);
 
-export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'diagram', 'quiz']);
+export const materialGenerationKindSchema = Schema.Literals(['flashcards', 'quiz']);
 
 export const quizGenerationConfigSchema = Schema.Struct({
   questionCount: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 10 })),
@@ -206,12 +206,6 @@ export function isTextQuestionKind(
 
 const optionalIdSchema = Schema.optional(materialCardIdSchema);
 
-export const materialDiagramContentInputSchema = Schema.Struct({
-  kind: Schema.Literal('diagram'),
-  format: Schema.Literal('mermaid'),
-  payload: nonemptySchema
-});
-
 export const materialQuizContentInputSchema = Schema.Struct({
   kind: Schema.Literal('quiz'),
   questions: Schema.mutable(Schema.Array(materialQuestionInputSchema)).check(Schema.isMinLength(1))
@@ -235,7 +229,6 @@ export const materialFlashcardsContentInputSchema = Schema.Struct({
 );
 
 export const materialContentInputSchema = Schema.Union([
-  materialDiagramContentInputSchema,
   materialQuizContentInputSchema,
   materialFlashcardsContentInputSchema
 ]);
@@ -248,11 +241,6 @@ export const titledQuizGenerationOutputSchema = Schema.Struct({
 export const titledFlashcardsGenerationOutputSchema = Schema.Struct({
   title: materialGenerationInputSchema.fields.title,
   content: materialFlashcardsContentInputSchema
-});
-
-export const titledDiagramGenerationOutputSchema = Schema.Struct({
-  title: materialGenerationInputSchema.fields.title,
-  content: materialDiagramContentInputSchema
 });
 
 export const materialGenerationPublicationSchema = Schema.Struct({
@@ -272,12 +260,6 @@ export const materialGenerationPublicationSchema = Schema.Struct({
     )
   ),
   language: Schema.optional(Schema.NullOr(Schema.Trim.check(Schema.isBetweenLength(1, 64))))
-});
-
-const diagramContentDetailSchema = Schema.Struct({
-  kind: Schema.Literal('diagram'),
-  format: Schema.Literal('mermaid'),
-  payload: Schema.String
 });
 
 const quizContentDetailSchema = Schema.Struct({
@@ -375,7 +357,6 @@ const flashcardContentDetailSchema = Schema.Struct({
 });
 
 export const materialContentDetailSchema = Schema.Union([
-  diagramContentDetailSchema,
   quizContentDetailSchema,
   flashcardContentDetailSchema
 ]);
@@ -416,13 +397,6 @@ const materialVersionDetailFor = <
   publishedAt: PublishedAtSchema
 ) =>
   Schema.Union([
-    Schema.Struct({
-      ...materialVersionBaseFields,
-      status,
-      published_at: publishedAt,
-      kind: Schema.Literal('diagram'),
-      content: diagramContentDetailSchema
-    }),
     Schema.Struct({
       ...materialVersionBaseFields,
       status,

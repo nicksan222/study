@@ -33,7 +33,7 @@ afterEach(() => {
   caches.length = 0;
 });
 
-function fixture(kind: 'quiz' | 'flashcards' | 'diagram', id: bigint) {
+function fixture(kind: 'quiz' | 'flashcards', id: bigint) {
   const content =
     kind === 'quiz'
       ? {
@@ -52,9 +52,7 @@ function fixture(kind: 'quiz' | 'flashcards' | 'diagram', id: bigint) {
             }
           ]
         }
-      : kind === 'flashcards'
-        ? { kind, cards: [{ cardId: 11n, front: 'Smallest prime?', back: 'Two.' }] }
-        : { kind, format: 'mermaid', payload: 'flowchart TD\nA-->B' };
+      : { kind, cards: [{ cardId: 11n, front: 'Smallest prime?', back: 'Two.' }] };
   const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
     ...learningVersion(102n, id),
     kind,
@@ -63,12 +61,7 @@ function fixture(kind: 'quiz' | 'flashcards' | 'diagram', id: bigint) {
   const detail = Schema.decodeUnknownSync(materialDetailSchema)({
     id,
     kind,
-    title:
-      kind === 'quiz'
-        ? 'Number theory quiz'
-        : kind === 'flashcards'
-          ? 'Prime flashcards'
-          : 'Archived diagram',
+    title: kind === 'quiz' ? 'Number theory quiz' : 'Prime flashcards',
     projectIds: [1n],
     created_at: 1n,
     updated_at: 1n,
@@ -89,7 +82,7 @@ function mount(project = true, paginated = false, empty = false) {
   const base = materialRpc();
   const quiz = fixture('quiz', 41n);
   const cards = fixture('flashcards', 42n);
-  const diagram = fixture('diagram', 43n);
+  const extra = fixture('quiz', 43n);
   let restored = false;
   const rpc = {
     ...base,
@@ -100,11 +93,11 @@ function mount(project = true, paginated = false, empty = false) {
           items: empty
             ? []
             : paginated && !cursor
-              ? [diagram.summary]
+              ? [extra.summary]
               : restored
                 ? [cards.summary]
                 : [quiz.summary, cards.summary],
-          nextCursor: paginated && !cursor ? diagram.summary.id : null
+          nextCursor: paginated && !cursor ? extra.summary.id : null
         })
       ),
     'materials.material': vi
@@ -179,40 +172,36 @@ testStable(
   }
 );
 
-testStable(
-  'pages through the global archive, excludes diagrams, and searches quizzes and flashcards',
-  async () => {
-    const { rpc } = mount(false, true);
-    const user = userEvent.setup();
+testStable('pages through the global archive, and searches quizzes and flashcards', async () => {
+  const { rpc } = mount(false, true);
+  const user = userEvent.setup();
 
-    await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
-    const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
+  await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
+  const dialog = await screen.findByRole('dialog', { name: en.PracticeArchived });
 
-    await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
-    expect(
-      await within(dialog).findByRole('button', { name: /Prime flashcards/ })
-    ).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /Archived diagram/ })).toBeNull();
-    expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
-      projectId: undefined,
-      archived: true,
-      cursor: 43n,
-      limit: 30
-    });
-    await user.type(
-      within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
-      'Prime'
-    );
-    expect(within(dialog).getByRole('button', { name: /Prime flashcards/ })).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull();
-    await user.click(within(dialog).getByRole('button', { name: /Prime flashcards/ }));
-    expect(
-      await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
-    ).toBeInTheDocument();
-    expect(within(dialog).getByText('Two.')).toBeInTheDocument();
-    expect(within(dialog).getByText(en.CardBack)).toBeInTheDocument();
-  }
-);
+  await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
+  expect(
+    await within(dialog).findByRole('button', { name: /Prime flashcards/ })
+  ).toBeInTheDocument();
+  expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
+    projectId: undefined,
+    archived: true,
+    cursor: 43n,
+    limit: 30
+  });
+  await user.type(
+    within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
+    'Prime'
+  );
+  expect(within(dialog).getByRole('button', { name: /Prime flashcards/ })).toBeInTheDocument();
+  expect(within(dialog).queryByRole('button', { name: /Number theory quiz/ })).toBeNull();
+  await user.click(within(dialog).getByRole('button', { name: /Prime flashcards/ }));
+  expect(
+    await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
+  ).toBeInTheDocument();
+  expect(within(dialog).getByText('Two.')).toBeInTheDocument();
+  expect(within(dialog).getByText(en.CardBack)).toBeInTheDocument();
+});
 
 testStable(
   'uses the shared empty presentation and automatically previews available archived items',

@@ -221,7 +221,7 @@ export const settingsTools = {
     schemas.agentRulesSchema,
     'Change user-authored instructions for individual AI tasks.',
     {
-      when: 'Customize pages, titles, answers, quizzes, flashcards, diagrams, grading, transcription or question detection.',
+      when: 'Customize pages, titles, answers, quizzes, flashcards, grading, transcription or question detection.',
       examples: ['Use concise descriptive titles and worked examples in pages.'],
       limits:
         'Each field allows at most 8000 characters. Empty restores built-in behavior. New instructions apply to future runs and cannot grant unavailable tools.'

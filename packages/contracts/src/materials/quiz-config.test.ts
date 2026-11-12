@@ -5,8 +5,7 @@ import { assert, expect } from 'vite-plus/test';
 import {
   materialGenerationInputSchema,
   titledQuizGenerationOutputSchema,
-  titledFlashcardsGenerationOutputSchema,
-  titledDiagramGenerationOutputSchema
+  titledFlashcardsGenerationOutputSchema
 } from './schemas.ts';
 
 testStable(
@@ -73,10 +72,6 @@ testStable(
       [
         titledFlashcardsGenerationOutputSchema,
         { kind: 'flashcards', cards: [{ front: 'Q', back: 'A' }] }
-      ],
-      [
-        titledDiagramGenerationOutputSchema,
-        { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD; A-->B' }
       ]
     ] as const) {
       const output = Schema.decodeUnknownSync(schema);

@@ -126,7 +126,6 @@ const sections = [
       'AgentRulesReplies',
       'AgentRulesQuizzes',
       'AgentRulesFlashcards',
-      'AgentRulesDiagrams',
       'AgentRulesGrading',
       'AgentRulesTranscription',
       'AgentRulesQuestionDetection'

@@ -21,4 +21,3 @@ export {
 export type { SQL } from 'drizzle-orm';
 
 export { defineTable, collectSchemaRegistry } from './table.ts';
-export type { RegisteredEntity, SchemaExports } from './table.ts';

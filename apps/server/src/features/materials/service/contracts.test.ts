@@ -20,7 +20,7 @@ import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
 testStable('Materials rejects retired source and authored document kinds', () => {
-  for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
+  for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document', 'diagram'])
     assert.ok(
       Schema.is(materialContentDetailSchema)({
         kind,
@@ -32,9 +32,8 @@ testStable('Materials rejects retired source and authored document kinds', () =>
 
   assert.ok(
     Schema.is(materialContentDetailSchema)({
-      kind: 'diagram',
-      format: 'mermaid',
-      payload: 'flowchart LR; A-->B'
+      kind: 'flashcards',
+      cards: [{ cardId: 1n, front: 'Question', back: 'Answer' }]
     }) === true
   );
 });

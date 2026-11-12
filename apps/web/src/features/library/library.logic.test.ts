@@ -10,10 +10,10 @@ testStable('filters practice materials by project and orders newest first', () =
   const project = Schema.decodeUnknownSync(projectIdSchema)(1n);
   const materials = Schema.decodeUnknownSync(Schema.Array(materialSummarySchema))(
     [
-      { id: 20n, projectIds: [1n], kind: 'diagram', title: 'Map', updated_at: 3n },
+      { id: 20n, projectIds: [1n], kind: 'quiz', title: 'Map', updated_at: 3n },
       { id: 21n, projectIds: [1n], kind: 'flashcards', title: 'Cards', updated_at: 4n },
       { id: 22n, projectIds: [1n], kind: 'quiz', title: 'Quiz', updated_at: 1n },
-      { id: 23n, projectIds: [2n], kind: 'diagram', title: 'Other map', updated_at: 5n }
+      { id: 23n, projectIds: [2n], kind: 'quiz', title: 'Other map', updated_at: 5n }
     ].map((material) => {
       const version = {
         id: material.id,
@@ -40,5 +40,5 @@ testStable('filters practice materials by project and orders newest first', () =
     })
   );
 
-  expect(libraryItems(materials, project).map((item) => item.value.id)).toEqual([21n, 22n]);
+  expect(libraryItems(materials, project).map((item) => item.value.id)).toEqual([21n, 20n, 22n]);
 });

@@ -14,7 +14,9 @@ citations, and turns them into flashcards and practice.
 [Contribute](.github/CONTRIBUTING.md) ·
 [Report a bug](https://github.com/nicksan222/study/issues)
 
-![A short tour of Study: Home, an answer citing the lecture recording, a diagram, a flashcard review, a quiz and search](https://nicksan222.github.io/study/demo.gif)
+![An older Study tour, including the retired diagram feature](https://nicksan222.github.io/study/demo.gif)
+
+Older tour: this recording includes features that have since been removed.
 
 </div>
 
@@ -24,7 +26,7 @@ citations, and turns them into flashcards and practice.
   YouTube videos, organized by course.
 - **Answers you can check.** Ask anything about your material. Every answer cites the page,
   or the exact moment in the recording.
-- **Study material, made for you.** Notes, diagrams, flashcards on a spaced-repetition
+- **Study material, made for you.** Notes, flashcards on a spaced-repetition
   schedule, and quizzes that grade your answers.
 - **Yours, on your computer.** Your library lives in one local database. Transcription and
   search run on your machine.

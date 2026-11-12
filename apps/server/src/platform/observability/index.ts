@@ -238,12 +238,6 @@ export function observeSyncOperation<A>(
   }
 }
 
-/** Record recoverable search failures without logging queries or indexed content. */
-export const recordSearchReconciliationRetry = (errorKind: ErrorKind) =>
-  Effect.logWarning('search.reconciliation.retry').pipe(
-    Effect.annotateLogs(safeMetadata({ errorKind }))
-  );
-
 /** Report accounting failure without retaining the call payload or ambient metadata. */
 export const recordUsageFailure = () =>
   Effect.logWarning('usage.record.failure').pipe(

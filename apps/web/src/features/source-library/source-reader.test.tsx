@@ -103,7 +103,7 @@ testStable(
 
       clearTimeout(timers.mock.results[scheduled]!.value);
 
-      assert.isFunction(callback, 'Expected a download cleanup callback');
+      assert(typeof callback === 'function', 'Expected a download cleanup callback');
 
       callback();
       expect(revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:historical-original');

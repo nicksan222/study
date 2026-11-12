@@ -8,7 +8,7 @@ import {
   createProject,
   createSource,
   createPage,
-  createDiagram,
+  createFlashcards,
   createNote
 } from './harnesses/index.ts';
 import type { SeedHarness } from './harnesses/index.ts';
@@ -24,7 +24,7 @@ function createSmallCourse(seed: SeedHarness) {
     title: 'Working guide',
     blocks: [paragraph('Read the outline.'), code('SELECT 1;', 'sql')]
   });
-  const overview = createDiagram(project, 'Course overview', 'flowchart LR\nRead --> Practice');
+  const overview = createFlashcards(project, 'Course overview', [['Read', 'Practice']]);
 
   createNote(project, {
     title: 'Read the outline',
@@ -60,7 +60,7 @@ testStable('creator sequences reuse library fixtures across any number of notes'
       expect(db.orm.get(sql`SELECT count(*) n FROM note_pages`)?.n).toBe(2n);
       expect(db.orm.get(sql`SELECT count(*) n FROM note_materials`)?.n).toBe(2n);
       expect(db.orm.get(sql`SELECT count(*) n FROM messages`)?.n).toBe(4n);
-      expect(db.orm.get(sql`SELECT count(*) n FROM material_diagram_versions`)?.n).toBe(1n);
+      expect(db.orm.get(sql`SELECT count(*) n FROM material_flashcard_versions`)?.n).toBe(1n);
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toEqual([]);
     } finally {
       db.close();

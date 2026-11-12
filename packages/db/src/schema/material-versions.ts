@@ -41,7 +41,7 @@ export const materials = defineTable({
       'materials_creation_intent_check',
       sql`(${t.create_key} IS NULL AND ${t.creation_intent} IS NULL) OR (length(${t.create_key}) BETWEEN 1 AND 200 AND json_valid(${t.creation_intent}))`
     ),
-    check('materials_kind_check', sql`kind IN ('diagram','quiz','flashcards')`),
+    check('materials_kind_check', sql`kind IN ('quiz','flashcards')`),
     check('materials_title_check', sql`length(trim(title)) BETWEEN 1 AND 200`),
     check(
       'materials_times_check',

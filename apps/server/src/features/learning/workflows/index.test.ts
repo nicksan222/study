@@ -753,7 +753,10 @@ testStable(
             const manualOutput = yield* materials.create({
               projectId: project.id,
               title: 'Manual diagram',
-              content: { kind: 'diagram', format: 'mermaid', payload: 'flowchart TD\nA-->B' }
+              content: {
+                kind: 'flashcards',
+                cards: [{ front: 'flowchart TD\nA-->B', back: 'Answer' }]
+              }
             });
             const manual = {
               type: 'MaterialPublished' as const,

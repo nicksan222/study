@@ -472,10 +472,12 @@ testStable(
     expect(screen.queryByRole('combobox', { name: en.QuizQuestionCount })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: en.PracticeActions }));
     expect(await screen.findByText(en.PracticeSourcePages)).toBeInTheDocument();
-    expect(await screen.findByRole('link', { name: 'Material 41' })).toHaveAttribute(
-      'href',
-      '/pages/41?pageVersion=8'
-    );
+    expect(
+      await within(screen.getByRole('complementary', { name: en.PracticeActions })).findByRole(
+        'link',
+        { name: 'Material 41' }
+      )
+    ).toHaveAttribute('href', '/pages/41?pageVersion=8');
     expect(
       within(screen.getByRole('complementary', { name: en.PracticeActions })).queryByRole(
         'button',

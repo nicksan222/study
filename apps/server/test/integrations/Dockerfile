@@ -43,7 +43,6 @@ COPY --chown=bun:bun packages/theme/package.json packages/theme/package.json
 COPY --chown=bun:bun packages/ui/package.json packages/ui/package.json
 COPY --chown=bun:bun tooling/package.json tooling/package.json
 USER bun
-ENV ONNXRUNTIME_NODE_INSTALL=skip
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY --chown=bun:bun . .
 CMD ["sleep", "infinity"]

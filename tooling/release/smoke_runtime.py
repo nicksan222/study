@@ -9,6 +9,13 @@ import tempfile
 from urllib.parse import urlparse
 
 source = Path(sys.argv[1]).resolve()
+for manifest in (source / "server/node_modules").rglob("package.json"):
+    name = json.loads(manifest.read_text()).get("name", "")
+    if name in ("mermaid", "@huggingface/transformers", "sqlite-vec") or name.startswith(("@mermaid-js/", "onnxruntime-")):
+        raise RuntimeError(f"Retired model or diagram dependency in runtime: {manifest}")
+if any((source / "server/apps/server/src/platform/ai/diagram").rglob("*.ts")):
+    raise RuntimeError("Retired diagram worker in runtime")
+
 if sys.platform.startswith("linux"):
     for manifest in (source / "server/node_modules").rglob("package.json"):
         libc = json.loads(manifest.read_text()).get("libc", [])
@@ -23,23 +30,6 @@ with tempfile.TemporaryDirectory() as temporary:
     if sys.platform == "darwin":
         shutil.copy2(source / "libsqlite3.dylib", runtime / "libsqlite3.dylib")
     shutil.copytree(source / "server", runtime / "server", symlinks=True)
-    # Exercise the shipped native binding and the actual diagram worker in isolation.
-    subprocess.run(
-        [str(bun), "--eval", """
-          const ort = await import('onnxruntime-node');
-          if (!ort.Tensor) throw new Error('ONNX binding did not load');
-          for (const [source, valid] of [['flowchart TD; A-->B', true], ['flowchart TD; A-->', false]]) {
-            const worker = new Worker(new URL('./apps/server/src/platform/ai/diagram/worker.ts', Bun.pathToFileURL(process.cwd() + '/')));
-            const result = await new Promise((resolve, reject) => {
-              worker.onmessage = event => resolve(event.data);
-              worker.onerror = event => reject(event.error ?? new Error(event.message));
-              worker.postMessage(source);
-            }).finally(() => worker.terminate());
-            if ((result === undefined) !== valid) throw new Error(`Unexpected diagram result: ${result}`);
-          }
-        """],
-        check=True, timeout=60, cwd=runtime / "server",
-    )
     database = Path(temporary) / "study.sqlite"
     result = subprocess.run(
         [str(bun), str(runtime / "server/main.js")],
@@ -54,3 +44,12 @@ with tempfile.TemporaryDirectory() as temporary:
         raise RuntimeError(f"Invalid server readiness: {ready}")
     if not database.is_file():
         raise RuntimeError("Packaged server did not create its database")
+    reopened = subprocess.run(
+        [str(bun), str(runtime / "server/main.js")],
+        input="", text=True, capture_output=True, timeout=60, cwd=temporary,
+        env=dict(os.environ, STUDY_DATABASE=str(database)),
+    )
+    if reopened.returncode:
+        raise RuntimeError(reopened.stderr)
+    if not json.loads(reopened.stdout.strip()).get("url"):
+        raise RuntimeError("Packaged server did not reopen its database")

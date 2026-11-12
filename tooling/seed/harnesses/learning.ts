@@ -13,8 +13,7 @@ import {
   material_quiz_questions,
   material_quiz_choices,
   material_quiz_ordering_items,
-  material_quiz_open_answers,
-  material_diagram_versions
+  material_quiz_open_answers
 } from '@study/db/schema';
 import { Schema } from 'effect';
 
@@ -158,16 +157,6 @@ function createMaterial(scope: ProjectHarness, fixture: MaterialFixture) {
     case 'quiz':
       seedQuiz(scope, content, version);
       break;
-    case 'diagram':
-      db.orm
-        .insert(material_diagram_versions)
-        .values({
-          version_id: version.id,
-          format: content.format,
-          payload: content.payload
-        })
-        .run();
-      break;
   }
 
   db.orm
@@ -200,12 +189,5 @@ export function createFlashcards(
   return createMaterial(project, {
     title,
     content: { kind: 'flashcards', cards: cards.map(([front, back]) => ({ front, back })) }
-  });
-}
-
-export function createDiagram(project: ProjectHarness, title: string, payload: string) {
-  return createMaterial(project, {
-    title,
-    content: { kind: 'diagram', format: 'mermaid', payload }
   });
 }

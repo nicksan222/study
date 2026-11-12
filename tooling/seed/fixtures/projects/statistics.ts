@@ -6,7 +6,6 @@ import {
   createPage,
   createFlashcards,
   createQuiz,
-  createDiagram,
   createNote
 } from '#tooling/seed/harnesses/index';
 import type { SeedHarness } from '#tooling/seed/harnesses/index';
@@ -94,11 +93,6 @@ export function createStatistics(seed: SeedHarness) {
       'Magnitude and uncertainty help interpret a result beyond a binary decision.'
     )
   ]);
-  const overview = createDiagram(
-    project,
-    'Statistics — overview',
-    'flowchart LR\nPopulation --> Sample --> Estimate --> Uncertainty\nEstimate --> Report'
-  );
 
   createNote(project, {
     title: 'Sampling frame',
@@ -137,7 +131,7 @@ export function createStatistics(seed: SeedHarness) {
     ],
     sources: [measurements],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Null models',
@@ -176,7 +170,7 @@ export function createStatistics(seed: SeedHarness) {
     ],
     sources: [measurements],
     pages: [workbook],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Regression residuals',
@@ -215,7 +209,7 @@ export function createStatistics(seed: SeedHarness) {
     ],
     sources: [measurements],
     pages: [review],
-    materials: [overview]
+    materials: [cards]
   });
   createNote(project, {
     title: 'Reporting workshop',

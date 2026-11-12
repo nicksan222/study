@@ -16,7 +16,6 @@ const tasks = {
   [AgentRule.Replies.key]: { title: 'AgentRulesReplies', help: 'AgentRulesRepliesHelp' },
   [AgentRule.Quizzes.key]: { title: 'AgentRulesQuizzes', help: 'AgentRulesQuizzesHelp' },
   [AgentRule.Flashcards.key]: { title: 'AgentRulesFlashcards', help: 'AgentRulesFlashcardsHelp' },
-  [AgentRule.Diagrams.key]: { title: 'AgentRulesDiagrams', help: 'AgentRulesDiagramsHelp' },
   [AgentRule.Grading.key]: { title: 'AgentRulesGrading', help: 'AgentRulesGradingHelp' },
   [AgentRule.Transcription.key]: {
     title: 'AgentRulesTranscription',

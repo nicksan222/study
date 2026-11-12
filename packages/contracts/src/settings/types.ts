@@ -122,7 +122,6 @@ export const defaultAgentRules: AgentRules = {
   replies: '',
   quizzes: '',
   flashcards: '',
-  diagrams: '',
   grading: '',
   transcription: '',
   questionDetection: ''

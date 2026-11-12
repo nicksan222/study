@@ -23,7 +23,6 @@ import type {
   materialGenerationInputSchema,
   materialGenerationPublicationSchema
 } from '@study/contracts/materials/schemas';
-import type { SearchProjectionPageInput } from '@study/contracts/search/schemas';
 import { Effect } from 'effect';
 
 import {
@@ -38,7 +37,6 @@ import {
   MaterialVersionsStore,
   MaterialCitationsStore
 } from '#server/features/materials/store/index';
-import { MaterialSearchStore } from '#server/features/materials/store/search';
 import { materialIntegrity } from '#server/features/materials/store/transactions';
 import { Workflows } from '#server/features/workflows/index';
 import { exportBudget } from '#server/platform/content-export/budget';
@@ -396,8 +394,6 @@ function* makeMaterials() {
 export const Materials = defineService('study/Materials', makeMaterials, {
   attachInTransaction: (tx: Transaction, value: typeof input.attachInputSchema.Type) =>
     tx.store(MaterialsStore).attach(value),
-  searchProjectionsInTransaction: (tx: Transaction, input: SearchProjectionPageInput) =>
-    tx.store(MaterialSearchStore).searchProjectionPages(input),
   validateContentInputsInTransaction: assertContentInputs,
   prepareBackup: (tx: Transaction) => {
     for (const requestId of tx.store(MaterialPendingBackupStore).pendingGenerations(undefined))
