@@ -96,6 +96,9 @@ testE2e('Create edit and reopen a plain note', async ({ page, expectScreenshot }
 
   await entryLabel.scrollIntoViewIfNeeded();
   await expect(entryLabel).toBeInViewport({ ratio: 1 });
+  await scrollHost.click();
+  await expect(scrollHost.locator(':scope:focus-visible')).toHaveCount(0);
+  await expect(scrollHost).toHaveCSS('outline-style', 'none');
   await scrollHost.press('End');
   await expect(entryLabel).not.toBeInViewport();
   await expect(body).toBeInViewport();
@@ -110,7 +113,9 @@ testE2e('Create edit and reopen a plain note', async ({ page, expectScreenshot }
     })
     .toBe(true);
   await expect(scrollHost).toBeFocused();
-  await expect(scrollHost).toHaveCSS('outline-style', 'none');
+  await expect(scrollHost.locator(':scope:focus-visible')).toHaveCount(1);
+  await expect(scrollHost).toHaveCSS('outline-style', 'solid');
+  await expect(scrollHost).not.toHaveCSS('outline-width', '0px');
   await expectScreenshot('reopened-bottom', {
     target: 'viewport',
     ready: async () => {

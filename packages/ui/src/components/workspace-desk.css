@@ -750,11 +750,13 @@
   overflow-y: auto;
   overflow-x: clip;
   overscroll-behavior: contain;
-  /* The scrollport is the notebook canvas; controls keep their own focus indicators. */
   outline: none;
   scrollbar-width: thin;
   scrollbar-color: var(--app-scrollbar-thumb) transparent;
   scroll-padding-block: 1.5rem calc(var(--notebook-composer-height, 10rem) + 2rem);
+}
+.workspace-desk-scroll:focus-visible {
+  outline: 2px solid var(--contrast-muted-foreground);
 }
 .workspace-desk-notebook-layout {
   display: grid;
