@@ -106,3 +106,8 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_VERSION} \
     && chmod +x /home/vscode/.local/bin/herdr \
     && herdr plugin install persiyanov/herdr-reviewr --ref v${REVIEWR_VERSION} --yes
 USER root
+
+# Stable font set shared by local browser captures and CI. Playwright itself comes from bun.lock.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      fonts-liberation fonts-dejavu-core fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf \
+    && rm -rf /var/lib/apt/lists/*

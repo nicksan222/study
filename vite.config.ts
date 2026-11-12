@@ -16,8 +16,11 @@ export default defineConfig({
       {
         test: {
           name: 'web-e2e',
+          globalSetup: ['./apps/web/test/e2e/harness/preflight.ts'],
           environment: 'node',
-          include: ['apps/web/test/e2e/**/*.test.ts'],
+          include: ['apps/web/test/e2e/*.test.ts', 'apps/web/test/e2e/harness/*.browser.test.ts'],
+          isolate: false,
+          sequence: { concurrent: false },
           pool: 'forks',
           testTimeout: 120000,
           hookTimeout: 30000
@@ -42,9 +45,11 @@ export default defineConfig({
       {
         test: {
           name: 'tooling',
+          exclude: ['**/*.browser.test.ts'],
           environment: 'node',
           include: [
             'tooling/**/*.test.ts',
+            'apps/web/test/e2e/harness/**/*.test.ts',
             'packages/testing/test/**/*.test.ts',
             'apps/desktop/src-tauri/tests/**/*.test.mjs'
           ],

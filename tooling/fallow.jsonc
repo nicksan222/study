@@ -260,8 +260,11 @@
       "name": "study-oxlint",
       "enablers": ["vite-plus"],
       "toolingDependencies": ["@stylistic/eslint-plugin"],
-      // The Vitest CLI consumes this config default export in isolated fixture subprocesses.
-      "configPatterns": ["apps/server/test/testing/automatic-fixture.config.ts"]
+      // Vitest consumes these default exports as a fixture config and globalSetup hook.
+      "configPatterns": [
+        "apps/server/test/testing/automatic-fixture.config.ts",
+        "apps/web/test/e2e/harness/preflight.ts"
+      ]
     }
   ]
 }

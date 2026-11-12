@@ -192,6 +192,8 @@ export const lint = {
       {
         additionalTestBlockFunctions: [
           'testStable',
+          'testE2e',
+          'testHarness',
           'testStable.each',
           'testStable.for',
           'testRegression',

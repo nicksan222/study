@@ -67,3 +67,29 @@ testStable('JavaScript callers cannot bypass classification metadata or skip cov
 
   assert.throws(() => assertTestDefinition('', () => {}), TypeError);
 });
+
+const fixtureStable = testStable.extend('answer', { scope: 'worker' }, () => 42);
+
+fixtureStable('extended worker fixtures retain classification and values', ({ answer, task }) => {
+  assert.strictEqual(answer, 42);
+  assert.strictEqual(
+    task.name,
+    '[stable] extended worker fixtures retain classification and values'
+  );
+});
+
+testStable('extended registrations reject skip and focus modifiers at runtime', () => {
+  for (const modifier of ['skip', 'only', 'todo', 'fails'])
+    expect(() => Reflect.get(fixtureStable, modifier)).toThrow('Classified tests');
+});
+
+testStable.extend('answer', { scope: 'worker' }, () => 42).override('answer', () => 43)(
+  'fixture overrides preserve their key, value and classification',
+  ({ answer, task }) => {
+    assert.strictEqual(answer, 43);
+    assert.strictEqual(
+      task.name,
+      '[stable] fixture overrides preserve their key, value and classification'
+    );
+  }
+);

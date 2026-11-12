@@ -29,3 +29,13 @@ function frontendContract() {
 }
 
 void frontendContract;
+
+const withAnswer = testStable.extend('answer', { scope: 'worker' }, () => 42);
+
+withAnswer('fixture inference', ({ answer }) => {
+  const value: number = answer;
+  // @ts-expect-error Fixture values retain their inferred type.
+  const invalid: string = answer;
+
+  void [value, invalid];
+});

@@ -221,8 +221,8 @@ deny:
 frontend-check:
     bun run typecheck
     bun run test
-    bun run web:e2e
     bun run build
+    bun run web:e2e:compare
 
 # Check the TypeScript server packages against the Bun runtime.
 server-check:
