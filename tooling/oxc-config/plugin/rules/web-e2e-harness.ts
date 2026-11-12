@@ -1,8 +1,15 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
-import { binding, memberName } from '../lexical-bindings.ts';
-import { walk } from './effect-lifecycle-syntax.ts';
+import {
+  binding,
+  constantAliasValue,
+  destructuredBinding,
+  enterNode,
+  memberName
+} from '../lexical-bindings.ts';
+import { property, walk } from './effect-lifecycle-syntax.ts';
+import { resolveValue } from './module-factories.ts';
 
 function fields(node: any): any[] {
   return node?.type === 'ObjectExpression' ? node.properties : [];
@@ -61,6 +68,139 @@ function hasScreenshot(call: any): boolean {
   return captured;
 }
 
+const selectorActions = new Set([
+  'click',
+  'dblclick',
+  'fill',
+  'type',
+  'check',
+  'uncheck',
+  'setChecked',
+  'press',
+  'hover',
+  'focus',
+  'tap',
+  'selectOption',
+  'setInputFiles',
+  'dispatchEvent',
+  'dragAndDrop',
+  'waitForSelector'
+]);
+
+const domAccess = new Set([
+  'evaluate',
+  'evaluateAll',
+  'evaluateHandle',
+  '$',
+  '$$',
+  '$eval',
+  '$$eval',
+  'elementHandle',
+  'elementHandles'
+]);
+
+function callResult(method: string | null): string | null {
+  if (
+    /^(?:page|locator)\.(?:locator|frameLocator|getBy\w+|filter|first|last|nth|and|or|contentFrame|owner)$/.test(
+      method ?? ''
+    )
+  )
+    return 'locator';
+
+  if (/^page\.(?:frame|mainFrame)$/.test(method ?? '')) return 'page';
+
+  return method === 'page.frames' ? 'frames' : null;
+}
+
+function parameterPage(definition: any, name: string): boolean {
+  if (definition?.type !== 'Parameter') return false;
+
+  const part = definition.name?.parent;
+  const key = part?.key?.name ?? part?.key?.value;
+
+  return (part?.type === 'Property' && key === 'page') || ['page', 'frame'].includes(name);
+}
+
+function browserBindings(context: any) {
+  // shortcut: follow static constant aliases and known browser factories, not arbitrary data flow.
+  function resolve(node: any, seen = new Set<any>()): string | null {
+    if (!enterNode(node, seen)) return null;
+
+    if (['AwaitExpression', 'TSAsExpression', 'TSNonNullExpression'].includes(node.type))
+      return resolve(node.argument ?? node.expression, seen);
+
+    if (node.type === 'CallExpression') return callResult(resolve(node.callee, seen));
+
+    if (node.type === 'MemberExpression') {
+      const base = resolve(node.object, seen);
+      const name = memberName(node);
+
+      if (base === 'frames') return 'page';
+
+      return base && name ? `${base}.${name}` : null;
+    }
+
+    if (node.type !== 'Identifier') return null;
+
+    return resolveIdentifier(node, seen);
+  }
+
+  function resolveIdentifier(node: any, seen: Set<any>): string | null {
+    const definition = binding(context, node)?.defs[0];
+    const declaration = definition?.node;
+    const type = definition?.name?.typeAnnotation?.typeAnnotation;
+    const name = type?.typeName?.name;
+
+    const browserType: Record<string, string> = {
+      Page: 'page',
+      Frame: 'page',
+      Locator: 'locator',
+      FrameLocator: 'locator',
+      ElementHandle: 'handle'
+    };
+
+    if (browserType[name]) return browserType[name];
+
+    if (!declaration && ['page', 'frame'].includes(node.name)) return 'page';
+
+    if (parameterPage(definition, node.name)) return 'page';
+
+    return resolveAlias(node, declaration, seen);
+  }
+
+  function resolveAlias(node: any, declaration: any, seen: Set<any>): string | null {
+    return constantAliasValue(declaration, seen, resolve, (pattern, base) => {
+      const part = destructuredBinding(pattern, node.name);
+      const key = part?.key?.name ?? part?.key?.value;
+
+      return base && key ? `${base}.${key}` : null;
+    });
+  }
+
+  function forbidden(base: string | null, name: string | undefined): boolean {
+    return Boolean(
+      base &&
+      name &&
+      (base === 'handle' ||
+        (['page', 'locator'].includes(base) && domAccess.has(name)) ||
+        (base === 'page' && (selectorActions.has(name) || name === 'mouse')))
+    );
+  }
+
+  function forced(node: any): boolean {
+    const method = resolve(node.callee)?.match(/^(?:page|locator)\.([^.]+)$/)?.[1];
+
+    if (!method || !(selectorActions.has(method) || method === 'dragTo')) return false;
+
+    return node.arguments.some(
+      (argument: any) =>
+        resolveValue(context, property(resolveValue(context, argument), 'force'))?.value === true
+    );
+  }
+
+  return { resolve, forbidden, forced };
+}
+
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
@@ -72,6 +212,9 @@ export default defineRule({
     )
       return {};
 
+    const browser = browserBindings(context);
+    const locatorMessage =
+      'Use Playwright Locators for browser interactions; DOM handles, selector actions and mouse coordinates are forbidden.';
     const spec = /\.(?:test|spec)\.[jt]sx?$/.test(filename);
     const blocked = new Set(['route', 'routeFromHAR', 'routeWebSocket', 'waitForTimeout', 'sleep']);
     const edges = moduleEdges(context, (node, source, typeOnly) => {
@@ -141,6 +284,9 @@ export default defineRule({
     return {
       ...edges,
       MemberExpression(node: any) {
+        if (browser.forbidden(browser.resolve(node.object), memberName(node)))
+          context.report({ node, message: locatorMessage });
+
         if (
           blocked.has(memberName(node) ?? '') ||
           (memberName(node) === 'setTimeout' &&
@@ -166,6 +312,11 @@ export default defineRule({
           context.report({ node, message: 'Browser specs cannot use fixed waits.' });
       },
       VariableDeclarator(node: any) {
+        if (node.id.type === 'ObjectPattern')
+          for (const part of node.id.properties)
+            if (browser.forbidden(browser.resolve(node.init), part.key?.name ?? part.key?.value))
+              context.report({ node: part, message: locatorMessage });
+
         if (
           node.id.type === 'ObjectPattern' &&
           node.id.properties.some((part: any) => blocked.has(part.key?.name ?? part.key?.value))
@@ -177,6 +328,12 @@ export default defineRule({
       },
       CallExpression(node: any) {
         edges.CallExpression(node);
+
+        if (browser.forced(node))
+          context.report({
+            node,
+            message: 'Use locator actionability checks instead of force: true.'
+          });
 
         if (!spec || !registration(node)) return;
 

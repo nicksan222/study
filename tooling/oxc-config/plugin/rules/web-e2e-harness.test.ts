@@ -110,3 +110,128 @@ testStable('internal fixtures and aliased public imports are rejected', async ()
 
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
+
+testStable(
+  'browser interactions use locators while keyboard input and navigation remain valid',
+  async () => {
+    const diagnostics = await lintRule(
+      'web-e2e-harness',
+      {
+        'apps/web/test/e2e/helper.ts': `
+      async function journey({ page: browser }) {
+        await browser.goto('/notes');
+        await browser.reload();
+        await expect(browser).toHaveURL(/notes/);
+        const dialog = browser.getByRole('dialog');
+        await dialog.getByLabel('Title').fill('Notes');
+        await dialog.getByText('Save').click();
+        await browser.getByTestId('editor').press('Enter');
+        await browser.locator('textarea').fill('Text');
+        await dialog.locator('button').filter({ hasText: 'Save' }).first().click();
+        await dialog.scrollIntoViewIfNeeded();
+        await dialog.focus();
+        await browser.frameLocator('iframe').getByRole('button').click();
+        await browser.getByRole('button').dragTo(dialog);
+        await browser.getByRole('textbox').pressSequentially('text');
+        const otherOptions = { force: true };
+        otherClient.click(otherOptions);
+        await browser.keyboard.press('Enter');
+        const { keyboard } = browser;
+        await keyboard.type('Text');
+        await browser.getByRole('checkbox').check({ force: false });
+        const { click: activate } = dialog;
+        await activate();
+      }
+      const first = second; const second = first; first.click();
+      function shadowed() { const page = service; page.click(); }
+      function helper(target: Locator, other: Service) {
+        target.click(); target.fill('Text'); target.press('Enter');
+        other.evaluate(); other.click(); other.mouse.move(1, 2);
+      }
+    `,
+        'apps/web/test/e2e/harness/private.ts': `
+      page.evaluate(() => document.body.click());
+      page.mouse.click(1, 2); page.click('button', { force: true });
+    `
+      },
+      true
+    );
+
+    assert.deepStrictEqual(diagnostics, []);
+  }
+);
+
+testStable(
+  'public helpers reject browser DOM shortcuts, selector actions, coordinates and forced actions',
+  async () => {
+    const cases = [
+      ...[
+        'evaluate',
+        'evaluateHandle',
+        '$',
+        '$$',
+        '$eval',
+        '$$eval',
+        'waitForSelector',
+        'click',
+        'dblclick',
+        'fill',
+        'type',
+        'check',
+        'uncheck',
+        'setChecked',
+        'press',
+        'hover',
+        'focus',
+        'tap',
+        'selectOption',
+        'setInputFiles',
+        'dispatchEvent',
+        'dragAndDrop'
+      ].map((method) => `page[${JSON.stringify(method)}]('button');`),
+      'page.getByRole("button").evaluate(fn);',
+      'page.locator("button").evaluateAll(fn);',
+      'page.locator("button").elementHandle();',
+      'page.locator("button").elementHandles();',
+      'page.mouse.click(1, 2);',
+      'page.mouse.move(1, 2);',
+      'page["mouse"]["click"](1, 2);',
+      'const pointer = page.mouse; pointer.down();',
+      'const { mouse: pointer } = page; pointer.wheel(0, 100);',
+      'const browser = page; browser["click"]("button");',
+      'const { click: activate } = page; activate("button");',
+      'const evaluate = page.evaluate; evaluate(fn);',
+      'const { ["evaluate"]: run } = page; run(fn);',
+      'const browser = page; const { evaluate: run } = browser; run(fn);',
+      'async function journey({ page: browser }) { browser.fill("input", "text"); }',
+      'async function helper(browser: Page) { browser.press("input", "Enter"); }',
+      'async function helper(child: Frame) { child.click("button"); }',
+      'page.frame({ name: "child" }).click("button");',
+      'page.mainFrame().evaluate(fn);',
+      'page.frames()[0].click("button");',
+      'page.getByRole("button").click({ force: true });',
+      'const button = page.locator("button"); button.click({ ["force"]: true });',
+      'const options = { force: true }; page.getByText("Save").click(options);',
+      'const button = page.getByText("Save"); const { click: activate } = button; activate({ force: true });',
+      'async function helper(target: Locator) { target.click({ force: true }); }',
+      'const forced = true; page.getByText("Save").click({ force: forced });',
+      'page.getByText("Save").dragTo(target, { force: true });',
+      'async function helper(handle: ElementHandle) { handle.click(); }'
+    ];
+    const files = Object.fromEntries(
+      cases.map((source, index) => [
+        `apps/web/test/e2e/helper-${index}${index % 2 ? '.test' : ''}.ts`,
+        source
+      ])
+    );
+    const diagnostics = await lintRule('web-e2e-harness', files, true);
+
+    assert.deepStrictEqual(
+      diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort(),
+      Object.keys(files)
+        .map((filename) => filename.split('/').at(-1))
+        .sort(),
+      JSON.stringify(diagnostics)
+    );
+  }
+);
