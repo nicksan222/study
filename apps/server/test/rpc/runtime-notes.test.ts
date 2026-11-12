@@ -233,3 +233,73 @@ testStable(
     }
   }
 );
+
+testStable('plain note edits survive closing and reopening native HTTP RPC', async () => {
+  const location = await createTestDatabase();
+  let app = await App.open({ path: location.path });
+  let server = await serve(app);
+  const text =
+    'River garden field notebook\n\nFirst observation corrected.\n\nMiddle observation corrected.\n\nLast observation corrected.';
+
+  try {
+    const saved = await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+          const note = yield* client['notes.createNote']({ title: 'River garden field notebook' });
+          let message = yield* client['notes.postMessage']({
+            noteId: note.id,
+            text: 'Original observation',
+            requestReply: false
+          });
+
+          for (const content of [
+            'First observation corrected.',
+            'First observation corrected.\n\nMiddle observation corrected.',
+            text
+          ]) {
+            message = yield* client['notes.editMessage']({
+              messageId: message.id,
+              expectedActiveVersionId: message.activeVersionId ?? undefined,
+              text: content
+            });
+          }
+
+          return { note, message };
+        })
+      )
+    );
+
+    await server.close();
+    await app.close();
+    app = await App.open({ path: location.path });
+    server = await serve(app);
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+          const thread = yield* client['notes.thread']({ noteId: saved.note.id, limit: 100 });
+
+          assert.strictEqual(thread.items.length, 1);
+          const message = thread.items[0]!;
+
+          assert.strictEqual(message.id, saved.message.id);
+          assert.strictEqual(message.role, 'user');
+          assert.strictEqual(message.activeVersionId, saved.message.activeVersionId);
+          assert.strictEqual(
+            message.versions.find((version) => version.id === message.activeVersionId)?.text,
+            text
+          );
+          const notes = yield* client['notes.notes']({ limit: 100 });
+
+          assert.strictEqual(notes.items.length, 1);
+          assert.strictEqual(notes.items[0]?.id, saved.note.id);
+        })
+      )
+    );
+  } finally {
+    await server.close();
+    await app.close();
+    await location.cleanup();
+  }
+});
