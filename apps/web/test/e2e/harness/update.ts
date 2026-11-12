@@ -1,9 +1,11 @@
-export {};
+import { safeName } from './identity.ts';
 
 const scope = process.argv[2];
 
-if (!scope || !/^[a-z][a-z0-9-]+(?:\/[a-z][a-z0-9-]+)?$/.test(scope))
+if (!scope || scope.split('/').length > 2)
   throw new Error('Supply one workflow or workflow/screenshot name');
+
+for (const segment of scope.split('/')) safeName(segment);
 
 if (process.env.CI) throw new Error('Baseline updates are forbidden in CI');
 

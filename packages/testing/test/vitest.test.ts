@@ -82,3 +82,14 @@ testStable('extended registrations reject skip and focus modifiers at runtime', 
   for (const modifier of ['skip', 'only', 'todo', 'fails'])
     expect(() => Reflect.get(fixtureStable, modifier)).toThrow('Classified tests');
 });
+
+testStable.extend('answer', { scope: 'worker' }, () => 42).override('answer', () => 43)(
+  'fixture overrides preserve their key, value and classification',
+  ({ answer, task }) => {
+    assert.strictEqual(answer, 43);
+    assert.strictEqual(
+      task.name,
+      '[stable] fixture overrides preserve their key, value and classification'
+    );
+  }
+);

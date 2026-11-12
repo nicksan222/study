@@ -26,13 +26,40 @@ function explicitReadiness(node: any): boolean {
 
   if (!['ArrowFunctionExpression', 'FunctionExpression'].includes(ready?.type)) return false;
 
-  let assertion = false;
+  function assertion(node: any): boolean {
+    if (node?.type !== 'CallExpression' || node.callee?.type !== 'MemberExpression') return false;
+
+    let receiver = node.callee.object;
+
+    while (receiver?.type === 'MemberExpression') receiver = receiver.object;
+
+    return receiver?.type === 'CallExpression' && receiver.callee?.name === 'expect';
+  }
+
+  if (ready.body.type !== 'BlockStatement')
+    return assertion(ready.body.type === 'AwaitExpression' ? ready.body.argument : ready.body);
+
+  let waited = false;
 
   walk(ready.body, (node: any) => {
-    if (node.type === 'CallExpression' && node.callee?.name === 'expect') assertion = true;
+    let owner = node.parent;
+
+    while (
+      owner &&
+      !['ArrowFunctionExpression', 'FunctionExpression', 'FunctionDeclaration'].includes(owner.type)
+    )
+      owner = owner.parent;
+
+    if (owner !== ready) return;
+
+    if (
+      (node.type === 'AwaitExpression' || node.type === 'ReturnStatement') &&
+      assertion(node.argument)
+    )
+      waited = true;
   });
 
-  return assertion;
+  return waited;
 }
 
 function awaitsScreenshot(node: any, local: string): boolean {

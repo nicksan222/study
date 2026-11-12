@@ -51,12 +51,14 @@ function registration<T extends Callable>(runner: T, category: string): T & Regi
 
       const value: any = Reflect.get(target, property, receiver);
 
-      if (property === 'each' || property === 'for' || property === 'extend') {
+      if (['each', 'for', 'extend', 'override'].includes(String(property))) {
         return (...args: unknown[]) => {
           const expanded: unknown = Reflect.apply(value, target, args);
 
           if (!callable(expanded))
-            throw new TypeError('Parameterized tests must return a registration function');
+            throw new TypeError(
+              'Fixture and parameterized APIs must return a registration function'
+            );
 
           return registration(expanded, category);
         };

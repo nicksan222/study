@@ -33,7 +33,7 @@ testHarness(
           ready: async () => {},
           timeoutMs: 1000
         })
-      ).rejects.toThrow();
+      ).rejects.toThrow('The source image cannot be decoded');
     } finally {
       await context.close();
     }

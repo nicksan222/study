@@ -235,3 +235,31 @@ testStable(
     );
   }
 );
+
+testStable('screenshot readiness must await or return a matcher in its own callback', async () => {
+  const cases = [
+    ['() => expect(page.getByRole("heading")).toBeVisible()', true],
+    ['async () => await expect(page.getByRole("heading")).toBeVisible()', true],
+    ['async () => { await expect(page.getByRole("heading")).toBeVisible(); }', true],
+    ['() => { return expect(page.getByRole("heading")).toBeVisible(); }', true],
+    ['async () => { return await expect(page.getByRole("heading")).toBeVisible(); }', true],
+    ['async () => { expect(page.getByRole("heading")).toBeVisible(); }', false],
+    ['async () => { await expect(page.getByRole("heading")); }', false],
+    [
+      'async () => { const later = async () => { await expect(page.getByRole("heading")).toBeVisible(); }; }',
+      false
+    ]
+  ] as const;
+
+  for (const [ready, valid] of cases) {
+    const diagnostics = await lintRule(
+      'web-e2e-harness',
+      {
+        'apps/web/test/e2e/readiness.test.ts': `import { testE2e, expect } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, valid ? 0 : 1, ready);
+  }
+});
