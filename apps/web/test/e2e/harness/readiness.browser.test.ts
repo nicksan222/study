@@ -139,7 +139,18 @@ testHarness(
               });
             }
 
+            if (mode === 'cleanup-failure') {
+              await expect(
+                expectScreenshot('before-appearance', {
+                  target: 'viewport',
+                  ready: async () => {},
+                  timeoutMs: 100
+                })
+              ).rejects.toThrow('readiness or rendering timed out');
+            }
+
             await page.goto('/notes');
+            await expectWeb(page.locator('html')).toHaveCSS('zoom', '1.25');
             await page
               .getByRole('button', { name: catalogs.english.Settings, exact: true })
               .click();

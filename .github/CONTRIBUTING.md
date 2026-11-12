@@ -369,9 +369,12 @@ Before launching Chromium, both comparison and update runs reject platforms othe
 Linux x64. This guard prevents accidental incompatible captures; use of the canonical
 devcontainer and its fonts remains a repository convention, not image attestation.
 Contexts use a standard QHD 2560×1440 CSS-pixel viewport at 100% browser zoom and
-`deviceScaleFactor: 1`; content is not CSS-scaled. Element screenshots retain their
+`deviceScaleFactor: 1`. Study's saved `zoomPercent: 125` is applied through the
+normal appearance path as root CSS zoom. Every app screenshot waits for that 125%
+zoom before checking journey readiness. Element screenshots retain their
 natural bounds within that viewport. Profile metadata records the environment path,
-observed browser version and executable, viewport, DPR and zoom.
+observed browser version and executable, viewport, DPR, app zoom percent and
+browser zoom scale separately.
 
 `bun run web:e2e:update notes-preserve-multiple-edits-after-reopening` explicitly generates candidate
 references for one workflow; append `/editing` to update only that screenshot.

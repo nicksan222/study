@@ -19,7 +19,7 @@ import { request } from '#web/lib/study-client/request.ts';
 
 import { materialId, versionId } from './identity';
 import { MaterialLifecycle } from './material-lifecycle';
-import { materialRpc, mountLibraryRoute } from './test/support';
+import { locationIs, materialRpc, mountLibraryRoute } from './test/support';
 
 vi.mock('@study/ui/toast', async (load) => {
   const actual = await load<typeof ToastModule>();
@@ -69,7 +69,9 @@ testStable(
     rpc['materials.retryDeletion'].mockReturnValue(
       Effect.succeed({ ...operation, status: 'pending', attempt: 2, errorKind: null })
     );
-    mountLibraryRoute('/materials/41', rpc);
+    const { router } = mountLibraryRoute('/materials/41', rpc);
+
+    await locationIs(router, '/materials/41');
     const user = userEvent.setup();
     const recovery = await screen.findByRole('region', { name: catalogs.english.PageDelete });
 

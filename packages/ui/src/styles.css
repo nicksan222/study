@@ -646,7 +646,8 @@ body {
 
 html,
 body {
-  min-height: calc(100svh + env(safe-area-inset-top));
+  /* Root zoom already scales the viewport-backed percentage height. */
+  min-height: 100%;
   overscroll-behavior: none;
 }
 

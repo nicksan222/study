@@ -750,9 +750,13 @@
   overflow-y: auto;
   overflow-x: clip;
   overscroll-behavior: contain;
+  outline: none;
   scrollbar-width: thin;
   scrollbar-color: var(--app-scrollbar-thumb) transparent;
   scroll-padding-block: 1.5rem calc(var(--notebook-composer-height, 10rem) + 2rem);
+}
+.workspace-desk-scroll:focus-visible {
+  outline: 2px solid var(--contrast-muted-foreground);
 }
 .workspace-desk-notebook-layout {
   display: grid;
@@ -788,6 +792,10 @@
   margin-inline: auto;
   overflow-y: auto;
   pointer-events: auto;
+}
+/* Keep the input cap in the same layout coordinates as its zoomed notebook dock. */
+.workspace-desk-floating-composer .ui-composer-input {
+  max-height: calc(var(--notebook-viewport-height, 100dvh) * 0.35);
 }
 .workspace-desk-navigation-host {
   position: absolute;
