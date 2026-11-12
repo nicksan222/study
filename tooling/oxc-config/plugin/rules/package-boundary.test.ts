@@ -287,17 +287,27 @@ testStable('landing consumes only the explicit feature preview export from web',
   ]);
 });
 
-testStable('the web E2E harness alone can own server and database resources', async () => {
+testStable('only the web E2E entrypoint and lifecycle test can own server resources', async () => {
   const diagnostics = await lintRule(
     'package-boundary',
     {
       'apps/web/test/e2e/harness/index.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
+      'apps/web/test/e2e/harness/lifecycle.test.ts':
+        "import '@study/db/testing'; import '@study/server/runtime';",
+      'apps/web/test/e2e/harness/other.test.ts':
+        "import '@study/db/testing'; import '@study/server/runtime';",
       'apps/web/test/e2e/other.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';"
     },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  expect(diagnostics.map(({ filename }) => filename.split('/').at(-1)).sort()).toStrictEqual([
+    'other.test.ts',
+    'other.test.ts',
+    'other.ts',
+    'other.ts',
+    'other.ts'
+  ]);
 });

@@ -151,14 +151,15 @@ export default defineRule({
     if (!currentOwner) return {};
 
     const owner: Owner = currentOwner;
+    const filename = context.filename.replaceAll('\\', '/');
+    const runtimeHarness = ['index.ts', 'lifecycle.test.ts'].some((file) =>
+      filename.endsWith(`/apps/web/test/e2e/harness/${file}`)
+    );
 
     type ReportNode = NonNullable<Parameters<typeof context.report>[0]['node']>;
 
     function disallowedPackage(name: string): boolean {
-      if (
-        context.filename.replaceAll('\\', '/').endsWith('/apps/web/test/e2e/harness/index.ts') &&
-        ['@study/db', '@study/server', '@study/tooling'].includes(name)
-      )
+      if (runtimeHarness && ['@study/db', '@study/server', '@study/tooling'].includes(name))
         return false;
 
       if (
@@ -193,7 +194,7 @@ export default defineRule({
         owner === '@study/web' &&
         name === '@study/server' &&
         !['', '/client'].includes(subpath) &&
-        !context.filename.replaceAll('\\', '/').endsWith('/apps/web/test/e2e/harness/index.ts')
+        !runtimeHarness
       );
     }
 

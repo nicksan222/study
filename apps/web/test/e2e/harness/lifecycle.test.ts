@@ -1,3 +1,5 @@
+import { createTestDatabase } from '@study/db/testing';
+import { App, serve } from '@study/server/runtime';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
@@ -133,5 +135,40 @@ testStable(
       errors: [expect.objectContaining({ message: 'E2E cancelled before cleanup completed' })]
     });
     expect(await trace.exists()).toBe(true);
+  }
+);
+
+testStable(
+  'failed E2E startup closes its running workers before removing the database',
+  async () => {
+    const failure = new Error('startup after workers');
+    let app: App | undefined;
+    let databaseRemoved = false;
+    const result = owned(async (own) => {
+      const database = await createTestDatabase();
+
+      own(async () => {
+        expect(app?.workers.started).toBe(false);
+        await database.cleanup();
+        databaseRemoved = true;
+      });
+      app = await App.open({ path: await database.prepare() });
+
+      const opened = app;
+
+      own(() => opened.close());
+
+      const server = await serve(opened);
+
+      own(() => server.close());
+      await opened.workers.start();
+      expect(opened.workers.started).toBe(true);
+
+      throw failure;
+    });
+
+    await expect(result).rejects.toMatchObject({ errors: [failure] });
+    expect(app?.workers.started).toBe(false);
+    expect(databaseRemoved).toBe(true);
   }
 );

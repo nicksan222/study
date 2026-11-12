@@ -39,6 +39,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
       const server = await serve(app);
 
       own(() => server.close());
+      await app.workers.start();
       await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {
