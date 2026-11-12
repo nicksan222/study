@@ -4,12 +4,14 @@ import type { Locator } from 'playwright';
 import { expect, testE2e } from './harness/index.ts';
 
 const copy = catalogs.english;
+
 const code = Array.from({ length: 50 }, (_, index) => {
   const sentinel =
     index === 0 ? 'FIRST' : index === 24 ? 'MIDDLE' : index === 49 ? 'LAST' : 'sample';
 
   return `record(${String(index + 1).padStart(2, '0')}, "${sentinel}");`;
 }).join('\n');
+
 const original = [
   '# River systems lecture',
   '## Observation methods',
@@ -81,6 +83,7 @@ testE2e(
     const top = await body.boundingBox();
 
     for (let step = 0; step < 8; step++) await scrollHost.press('ArrowDown');
+
     await expect.poll(async () => (await body.boundingBox())!.y).toBeLessThan(top!.y);
     await expect(label).not.toBeInViewport();
     await fullyVisible(composer);
@@ -134,6 +137,7 @@ testE2e(
       await expect(editor).toHaveJSProperty('selectionStart', content.length);
       await expect(editor).not.toHaveJSProperty('scrollTop', 0);
       await editor.press('Home');
+
       for (let line = 0; line < 4; line++) await editor.press('ArrowUp');
 
       // Visit every code line from LAST through MIDDLE to FIRST, checking the caret's exact offset.
@@ -184,8 +188,10 @@ testE2e(
     await expect(editor).toHaveValue(content);
     await editor.press('Control+End');
     await editor.press('Home');
+
     // Conclusion plus 26 upward lines places the corrected middle sentinel in the editor.
     for (let line = 0; line < 29; line++) await editor.press('ArrowUp');
+
     await expect(editor).toHaveJSProperty('selectionStart', content.indexOf('record(25,'));
     await expect(editor).toBeFocused();
     await fullyVisible(editor);
