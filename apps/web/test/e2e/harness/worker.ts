@@ -20,6 +20,7 @@ export const testWeb = testStable.extend(
     return {
       async get() {
         assertCapturePlatform();
+
         if (!browser?.isConnected()) {
           browser = await chromium.launch();
           await Bun.write(
