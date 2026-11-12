@@ -3,6 +3,7 @@ import { catalogs } from '@study/localization';
 import { expect, testE2e } from './harness/index.ts';
 
 const copy = catalogs.english;
+
 const files = [
   {
     name: 'river-survey.md',
@@ -23,7 +24,9 @@ const files = [
     last: 'Coastal final sentinel: the final tide reading completes this fieldbook.'
   }
 ];
+
 const middle = 'Coastal middle sentinel: compare the sheltered cove with the exposed beach.';
+
 const observations = Array.from(
   { length: 30 },
   (_, index) =>
