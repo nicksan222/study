@@ -96,19 +96,25 @@ testStable(
   }
 );
 
-testStable('internal fixtures and aliased public imports are rejected', async () => {
+testStable('only direct public runtime imports are accepted', async () => {
   const diagnostics = await lintRule(
     'web-e2e-harness',
     {
       'apps/web/test/e2e/bad.test.ts':
         "import { testHarness, testE2e as hidden } from './harness/index.ts'; hidden('Notes retain edits', async () => {});",
       'apps/web/test/e2e/aliased.test.ts': "import { expect as hidden } from './harness/index.ts';",
-      'apps/web/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';"
+      'apps/web/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';",
+      'apps/web/test/e2e/reexport.test.ts':
+        "export { testHarness as run } from './harness/index.ts';",
+      'apps/web/test/e2e/export-all.test.ts': "export * from './harness/index.ts';",
+      'apps/web/test/e2e/dynamic.test.ts': "const harness = await import('./harness/index.ts');",
+      'apps/web/test/e2e/types.test.ts':
+        "import type { testE2e } from './harness/index.ts'; export type { testE2e } from './harness/index.ts'; export { type expect } from './harness/index.ts';"
     },
     true
   );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
 });
 
 testStable(

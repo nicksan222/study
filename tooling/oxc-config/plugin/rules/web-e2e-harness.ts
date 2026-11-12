@@ -298,17 +298,17 @@ export default defineRule({
 
       if (
         source === './harness/index.ts' &&
-        node.type === 'ImportDeclaration' &&
-        node.specifiers.some(
-          (part: any) =>
-            !['testE2e', 'expect'].includes(part.imported?.name) ||
-            part.local?.name !== part.imported?.name
-        )
+        (node.type !== 'ImportDeclaration' ||
+          node.specifiers.some(
+            (part: any) =>
+              !['testE2e', 'expect'].includes(part.imported?.name) ||
+              part.local?.name !== part.imported?.name
+          ))
       )
         context.report({
           node,
           message:
-            'Import testE2e directly; internal fixtures and registration aliases are forbidden in journeys.'
+            'Import testE2e directly; internal fixtures, aliases, reexports and dynamic imports are forbidden in journeys.'
         });
 
       if (/harness\//.test(source) && source !== './harness/index.ts')
