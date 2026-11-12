@@ -28,6 +28,9 @@ testHarness('persisted zoom keeps notebook scrolling inside the shell', async ({
       await expect(page).toHaveURL(/\/notes\/.+/);
 
       const notebook = page.getByRole('region', { name: copy.NoteNotebook });
+      const body = notebook.locator('.chat-message-text');
+      const entry = notebook.getByText(copy.NoteEntryNote, { exact: true });
+      const scrollHost = page.locator('[data-notebook-scroll-host]');
       const noteUrl = page.url();
 
       await expect(notebook).toContainText('Observation 59.');
@@ -52,22 +55,37 @@ testHarness('persisted zoom keeps notebook scrolling inside the shell', async ({
             await dialog
               .getByRole('button', { name: `${copy.ResetSetting}: ${copy.TextSize}`, exact: true })
               .click();
-          else
-            for (let step = 0; step < 2; step++) {
-              await expect(slider).toBeEnabled();
-              await slider.press('ArrowRight');
-              await expect(slider).toHaveValue(String(100 + (step + 1) * 5));
-              await expect(page.locator('html')).toHaveCSS(
-                'zoom',
-                String((100 + (step + 1) * 5) / 100)
-              );
-            }
+
+          for (let percent = 105; percent <= zoom; percent += 5) {
+            await expect(slider).toBeEnabled();
+            await slider.press('ArrowRight');
+            await expect(slider).toHaveValue(String(percent));
+            await expect(page.locator('html')).toHaveCSS('zoom', String(percent / 100));
+          }
 
           await expect(page.locator('html')).toHaveCSS('zoom', String(zoom / 100));
           await dialog.getByRole('button', { name: copy.Close }).click();
         }
 
-        await page.locator('[data-notebook-scroll-host]').press('End');
+        await entry.scrollIntoViewIfNeeded();
+        await expect(entry).toBeInViewport({ ratio: 1 });
+        await scrollHost.press('End');
+        await expect(entry).not.toBeInViewport();
+        await expect
+          .poll(async () => {
+            const text = await body.boundingBox();
+            const scroll = await scrollHost.boundingBox();
+            const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
+
+            return (
+              !!text &&
+              !!scroll &&
+              !!floating &&
+              text.y + text.height > scroll.y &&
+              text.y + text.height <= floating.y
+            );
+          })
+          .toBe(true);
         await expect(composer).toBeInViewport({ ratio: 1 });
         await expect(page.getByRole('button', { name: copy.NoteSaveNote })).toBeInViewport({
           ratio: 1
