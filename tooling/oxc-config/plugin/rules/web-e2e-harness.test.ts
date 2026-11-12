@@ -276,7 +276,9 @@ testStable('forced locator options follow static spreads in last-property order'
     'button.click({ force: true, ...{ timeout: 10 } })',
     'button.click({ ...cycle })',
     'button.fill(text, { ...forced })',
-    'button.dragTo(target, { ...forced })'
+    'button.dragTo(target, { ...forced })',
+    'button.clear({ force: true })',
+    'button.selectText({ ...forced })'
   ];
   const allowed = [
     'button.click({ ...forced, force: false })',
@@ -290,6 +292,10 @@ testStable('forced locator options follow static spreads in last-property order'
     'button.selectOption(value)',
     'button.setInputFiles(files)',
     'button.dragTo(target)',
+    'button.clear()',
+    'button.clear({ force: false })',
+    'button.selectText()',
+    'button.selectText({ ...safe })',
     'button.dispatchEvent(event, payload)',
     'other.click({ ...forced })'
   ];

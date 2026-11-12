@@ -365,6 +365,9 @@ devcontainer exec --workspace-folder . bun run web:e2e:update notes-preserve-mul
 Inside the container, use ordinary `bun run web:e2e`, `web:e2e:compare`,
 `web:e2e:update` and `web:e2e:capacity` commands. There is no screenshot-specific
 container launcher, host rendering profile, runtime image attestation or fallback.
+Before launching Chromium, both comparison and update runs reject platforms other than
+Linux x64. This guard prevents accidental incompatible captures; use of the canonical
+devcontainer and its fonts remains a repository convention, not image attestation.
 Contexts use a standard QHD 2560×1440 CSS-pixel viewport at 100% browser zoom and
 `deviceScaleFactor: 1`; content is not CSS-scaled. Element screenshots retain their
 natural bounds within that viewport. Profile metadata records the environment path,

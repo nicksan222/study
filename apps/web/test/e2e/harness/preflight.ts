@@ -2,6 +2,20 @@ import type { TestProject } from 'vite-plus/test/node';
 
 import { workflowName } from './identity.ts';
 
+// Native static collection retains literal escapes; only punctuation escapes preserve identity.
+function decodeTitle(title: string, moduleId: string): string {
+  return title.replace(/\\(.)/gs, (_, character: string) => {
+    if (!['"', "'", '\\'].includes(character))
+      throw new Error(`Unsupported escape in E2E title: ${moduleId}: ${title}`);
+
+    return character;
+  });
+}
+
+function escapePattern(title: string): string {
+  return title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** Native collection runs before workers, even when execution is filtered to one title. */
 export default async function setup(project: TestProject): Promise<void> {
   const specifications = (await project.vitest.globTestSpecifications()).filter(
@@ -10,19 +24,14 @@ export default async function setup(project: TestProject): Promise<void> {
   );
   const modules = await project.vitest.parseSpecifications(specifications);
   const identities = new Map<string, string>();
-  const titles = new Map<string, string>();
+  const titles = new Map<string, { title: string; prefix: string }>();
 
   for (const module of modules) {
     if (!module.ok()) throw new Error(`Cannot collect E2E identities: ${module.moduleId}`);
 
     for (const test of module.children.allTests()) {
-      // Native static collection retains literal escapes; only punctuation escapes preserve identity.
-      const title = test.name.replace(/\\(.)/gs, (_, character: string) => {
-        if (!['"', "'", '\\'].includes(character))
-          throw new Error(`Unsupported escape in E2E title: ${module.moduleId}: ${test.name}`);
-
-        return character;
-      });
+      const title = decodeTitle(test.name, module.moduleId);
+      const prefix = decodeTitle(test.fullName.slice(0, -test.name.length), module.moduleId);
       const identity = workflowName(title);
       const location = `${module.moduleId}: ${test.name}`;
       const previous = identities.get(identity);
@@ -31,18 +40,19 @@ export default async function setup(project: TestProject): Promise<void> {
         throw new Error(`Baseline identity collision "${identity}": ${previous} and ${location}`);
 
       identities.set(identity, location);
-      titles.set(identity, title);
+      titles.set(identity, { title, prefix });
     }
   }
 
   if (process.env.E2E_UPDATE) {
     const workflow = process.env.E2E_UPDATE.split('/')[0]!;
-    const title = titles.get(workflow);
+    const selection = titles.get(workflow);
 
-    if (!title) throw new Error(`Unknown E2E workflow: ${workflow}`);
+    if (!selection) throw new Error(`Unknown E2E workflow: ${workflow}`);
 
-    const escaped = title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const prefix = escapePattern(selection.prefix);
+    const title = escapePattern(selection.title);
 
-    project.config.testNamePattern = new RegExp(`^(?:\\[stable\\] )?${escaped}$`);
+    project.config.testNamePattern = new RegExp(`^${prefix}(?:\\[stable\\] )?${title}$`);
   }
 }

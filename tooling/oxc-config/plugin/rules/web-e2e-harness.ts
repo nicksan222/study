@@ -251,7 +251,11 @@ function browserBindings(context: any) {
     const action = resolve(node.callee)?.match(/^(page|locator)\.([^.]+)$/);
     const method = action?.[2];
 
-    if (!method || !(selectorActions.has(method) || method === 'dragTo')) return false;
+    if (
+      !method ||
+      !(selectorActions.has(method) || ['dragTo', 'clear', 'selectText'].includes(method))
+    )
+      return false;
 
     const positions: Record<string, number> = {
       fill: 1,
