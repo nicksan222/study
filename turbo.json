@@ -108,7 +108,9 @@
         "$TURBO_ROOT$/apps/server/test/testing/**",
         "$TURBO_ROOT$/packages/db/**",
         "!$TURBO_ROOT$/packages/db/.turbo/**"
-      ]
+      ],
+      "cache": true,
+      "envMode": "strict"
     },
     "@study/localization#test": {
       "dependsOn": ["^typecheck"],
@@ -117,7 +119,9 @@
         "$TURBO_ROOT$/apps/server/test/testing/**",
         "$TURBO_ROOT$/packages/db/**",
         "!$TURBO_ROOT$/packages/db/.turbo/**"
-      ]
+      ],
+      "cache": true,
+      "envMode": "strict"
     },
     "@study/theme#test": {
       "dependsOn": ["^typecheck"],
@@ -126,7 +130,9 @@
         "$TURBO_ROOT$/apps/server/test/testing/**",
         "$TURBO_ROOT$/packages/db/**",
         "!$TURBO_ROOT$/packages/db/.turbo/**"
-      ]
+      ],
+      "cache": true,
+      "envMode": "strict"
     },
     "@study/ui#test": {
       "dependsOn": ["^typecheck"],
@@ -135,13 +141,19 @@
         "$TURBO_ROOT$/apps/web/vite.config.ts",
         "$TURBO_ROOT$/apps/web/src/test/**",
         "$TURBO_ROOT$/tooling/development/rpc-proxy.ts"
-      ]
+      ],
+      "cache": true,
+      "envMode": "strict"
     },
     "@study/testing#test": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck"],
+      "cache": true,
+      "envMode": "strict"
     },
     "@study/web#test": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck"],
+      "cache": true,
+      "envMode": "strict"
     },
     "@study/tooling#typecheck": {
       "dependsOn": ["^typecheck"],

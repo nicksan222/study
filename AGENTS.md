@@ -106,7 +106,7 @@ Bilingual copy lives in `packages/localization`.
   Existing demo/still/clip assets remain committed; capture generation is unavailable.
 - `bun run agents`, `bun run agents-stop`, `bun run agents-reset`, `bun run agents-doctor`,
   `bun run agents-usage`: maintainer team tooling. Keep handoffs in `target/agents/<session>/task.md`.
-- `bun run build` / `bun run package <platform>`: native build/packaging; the native shell bundles the private server.
+- `bun run desktop:build` / `bun run package <platform>`: native build/packaging; the native shell bundles the private server.
 
 The old `web`, `e2e`, `demo`, `docs-media`, `captures`, `reset-data`, `benchmark`, and
 `test-transcription-e2e` commands are removed. Do not recreate mock servers to make old

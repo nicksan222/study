@@ -211,3 +211,22 @@ testStable('shared test setup and native permissions affect the owning tasks', a
 
   assert.include(ids, '@study/tooling#test');
 });
+
+testStable('deterministic unit tests are reusable while server tests always execute', async () => {
+  await using repo = await fixture();
+  const args = ['test', '--filter=@study/contracts', '--concurrency=1'];
+
+  assert.equal((await repo.run(args)).code, 0);
+  let plan = await repo.plan(...args);
+
+  assert.equal(
+    plan.tasks.find((task) => task.taskId === '@study/contracts#test')?.cache.status,
+    'HIT'
+  );
+  await Bun.write(`${repo.path}/apps/server/test/testing/preload.ts`, 'changed setup');
+  plan = await repo.plan(...args);
+  assert.equal(
+    plan.tasks.find((task) => task.taskId === '@study/contracts#test')?.cache.status,
+    'MISS'
+  );
+});
