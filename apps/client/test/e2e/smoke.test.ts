@@ -20,6 +20,8 @@ testE2e('Notes preserve multiple edits after reopening', async ({ page, expectSc
   const dialog = page.getByRole('dialog', { name: copy.NoteEditNote });
   const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
+  // Native caret scrolling depends on the popup's final geometry at fractional app zoom.
+  await expect(dialog).toHaveCSS('scale', '1');
   await editor.fill(`${content}\n\nAn edited note`);
   await editor.press('ControlOrMeta+End');
   await expectScreenshot('editing', {

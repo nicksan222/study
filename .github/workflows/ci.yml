@@ -171,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: web-e2e-diagnostics
-          path: test-results/
+          path: apps/client/test-results/
           if-no-files-found: ignore
       - name: 🛠️ Test tooling
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
