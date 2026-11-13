@@ -287,7 +287,7 @@ testStable('landing consumes only the explicit feature preview export from web',
   ]);
 });
 
-testStable('only the web E2E entrypoint and lifecycle test can own server resources', async () => {
+testStable('only explicit web E2E runtime harness files can own server resources', async () => {
   const diagnostics = await lintRule(
     'package-boundary',
     {
@@ -295,6 +295,8 @@ testStable('only the web E2E entrypoint and lifecycle test can own server resour
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
       'apps/web/test/e2e/harness/lifecycle.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
+      'apps/web/test/e2e/harness/creation-response.test.ts':
+        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
       'apps/web/test/e2e/harness/other.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
       'apps/web/test/e2e/other.ts':

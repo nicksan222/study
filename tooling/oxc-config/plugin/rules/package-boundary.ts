@@ -152,8 +152,8 @@ export default defineRule({
 
     const owner: Owner = currentOwner;
     const filename = context.filename.replaceAll('\\', '/');
-    const runtimeHarness = ['index.ts', 'lifecycle.test.ts'].some((file) =>
-      filename.endsWith(`/apps/web/test/e2e/harness/${file}`)
+    const runtimeHarness = ['index.ts', 'lifecycle.test.ts', 'creation-response.test.ts'].some(
+      (file) => filename.endsWith(`/apps/web/test/e2e/harness/${file}`)
     );
 
     type ReportNode = NonNullable<Parameters<typeof context.report>[0]['node']>;

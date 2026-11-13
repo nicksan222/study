@@ -13,8 +13,10 @@ import { CreationFrames, creationResponse } from './creation-response.ts';
 import { owned } from './lifecycle.ts';
 
 const bytes = (value: unknown) => Buffer.from(JSON.stringify(value) + '\n');
+
 const request = (tag: string, id: string | number = '42') =>
   bytes({ _tag: 'Request', tag, id, payload: {}, headers: [] });
+
 const note = {
   id: '7',
   projectIds: [],
@@ -24,6 +26,7 @@ const note = {
   createdAt: '1',
   updatedAt: '1'
 };
+
 const success = (requestId: string | number = '42') =>
   bytes({ _tag: 'Exit', requestId, exit: { _tag: 'Success', value: note } });
 
@@ -41,6 +44,7 @@ testStable(
       frames.request(request(tag));
       assert.strictEqual(frames.response(success()), undefined);
     }
+
     const frames = new CreationFrames();
 
     frames.request(request('notes.createUntitledNote'));
@@ -74,6 +78,7 @@ testStable(
       const frames = new CreationFrames();
 
       for (const byte of encodedRequest) frames.request(Buffer.from([byte]));
+
       assert.strictEqual(frames.response(encoded.subarray(0, split)), undefined);
       assert.strictEqual(frames.response(encoded.subarray(split))?.note.title, note.title);
     }
@@ -88,6 +93,71 @@ testStable('unarmed teardown rejects waiters and repeated arming is forbidden', 
   await fault.close();
   await expect(loss.held).rejects.toBeDefined();
   await fault.close();
+});
+
+testStable('owner teardown terminates a creation response that arrives later', async () => {
+  const entered = Promise.withResolvers<void>();
+  const respond = Promise.withResolvers<void>();
+  const upstream = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    async fetch(incoming) {
+      await incoming.arrayBuffer();
+      entered.resolve();
+      await respond.promise;
+
+      return new Response(success(), { headers: { 'content-type': 'application/ndjson' } });
+    }
+  });
+  const fault = creationResponse();
+  const loss = fault.arm();
+  const web = await createServer({
+    configFile: false,
+    server: {
+      host: '127.0.0.1',
+      port: 0,
+      hmr: false,
+      proxy: { '/rpc': fault.proxy({ target: upstream.url.href }) }
+    },
+    optimizeDeps: { noDiscovery: true }
+  });
+
+  try {
+    await web.listen();
+    const address = web.httpServer?.address();
+
+    assert.ok(address && typeof address !== 'string');
+    const signal = AbortSignal.timeout(5000);
+    const pending = fetch(`http://127.0.0.1:${address.port}/rpc`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/ndjson' },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(request('notes.createUntitledNote'));
+          controller.close();
+        }
+      }),
+      signal
+    });
+
+    await entered.promise;
+    await fault.close();
+    await expect(loss.held).rejects.toThrow('Creation response owner closed before commit');
+    respond.resolve();
+    const body = await pending.then((response) => response.text()).catch(() => null);
+
+    assert.ok(body === null || body === '', 'closed exchange must not deliver its receipt');
+    assert.strictEqual(
+      signal.aborted,
+      false,
+      'owner teardown must close before the safety timeout'
+    );
+  } finally {
+    respond.resolve();
+    await fault.close();
+    await web.close();
+    await upstream.stop(true);
+  }
 });
 
 for (const cleanup of [
@@ -139,6 +209,7 @@ for (const cleanup of [
               Effect.scoped(
                 Effect.gen(function* () {
                   const client = yield* makeStudyClient(StudyRpc, { baseUrl: url });
+
                   return yield* client['notes.notes']({ limit: 100 });
                 })
               )
@@ -150,6 +221,7 @@ for (const cleanup of [
             Effect.scoped(
               Effect.gen(function* () {
                 const client = yield* makeStudyClient(StudyRpc, { baseUrl });
+
                 return yield* Effect.exit(
                   client['notes.createUntitledNote']({
                     initialMessage: { text: 'Exact committed draft', sourceIds: [] },
@@ -164,12 +236,15 @@ for (const cleanup of [
           void pending.then(() => {
             failed = true;
           });
+
           if (cleanup === 'failed Exit') {
             assert.ok(Exit.isFailure(await pending));
             await expect(loss.held).rejects.toBeDefined();
             assert.strictEqual((await load(baseUrl)).items.length, 0);
+
             return;
           }
+
           const receipt = await loss.held;
 
           assert.strictEqual(failed, false, 'receipt must still be withheld');
@@ -181,6 +256,7 @@ for (const cleanup of [
             Effect.scoped(
               Effect.gen(function* () {
                 const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+
                 return yield* client['notes.thread']({ noteId: receipt.note.id, limit: 100 });
               })
             )
@@ -198,11 +274,15 @@ for (const cleanup of [
             committed,
             'unrelated responses forward faithfully while held'
           );
+
           if (cleanup === 'runner cancellation') {
             await finalize!();
+
             return;
           }
+
           if (cleanup === 'journey failure') throw new Error('Deliberate journey failure');
+
           await loss.drop();
           assert.ok(Exit.isFailure(await pending!));
           // The one-shot fault is consumed: a later real creation must reply normally.
@@ -225,7 +305,23 @@ for (const cleanup of [
       );
 
       if (cleanup === 'explicit drop' || cleanup === 'failed Exit') await run;
-      else await expect(run).rejects.toBeDefined();
+      else {
+        const failure: unknown = await run.catch((error: unknown) => error);
+
+        assert.ok(failure instanceof AggregateError);
+        const messages = failure.errors.map((error: unknown) => {
+          assert.ok(error instanceof Error);
+
+          return error.message;
+        });
+
+        assert.deepStrictEqual(messages, [
+          cleanup === 'journey failure'
+            ? 'Deliberate journey failure'
+            : 'E2E cancelled before cleanup completed'
+        ]);
+      }
+
       assert.strictEqual(failed, true, 'cleanup must await termination of the held exchange');
     }
   );
