@@ -38,7 +38,7 @@ class SizeReportTest(unittest.TestCase):
 
     def test_directory_scan_error_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
-            with patch('tooling.scripts.release.size_report.os.scandir', side_effect=PermissionError('scan denied')):
+            with patch('size_report.os.scandir', side_effect=PermissionError('scan denied')):
                 with self.assertRaisesRegex(PermissionError, 'scan denied'):
                     inventory(Path(tmp))
 
