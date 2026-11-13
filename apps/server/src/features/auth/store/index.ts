@@ -43,8 +43,8 @@ function makeHelpers({ db }: StoreResources) {
 export const AuthStore = defineStore({
   name: 'study/AuthStore',
   entity: { singular: 'account', plural: 'accounts' },
-  make: ({ db, clock }) => {
-    const { replaceGeneration } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { replaceGeneration } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -180,8 +180,8 @@ export const AuthBackupStore = defineStore({
 export const ApiKeyStore = defineStore({
   name: 'study/ApiKeyStore',
   entity: { singular: 'apiKeys', plural: 'apiKeySets' },
-  make: ({ db, clock }) => {
-    const { replaceGeneration } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { replaceGeneration } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {

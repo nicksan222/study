@@ -29,7 +29,7 @@ export { unixSeconds as now } from '#server/platform/time/index';
 import { unixSeconds as now } from '#server/platform/time/index';
 
 export function makeWrites(resources: StoreResources) {
-  const { db: store, clock } = resources;
+  const { db: store, timestampClock } = resources;
   const { insertContent } = makeContent(resources);
   const { materialRow, versionRow, readVersion } = makeReads(resources);
   const exact = makeExactInputs(resources);
@@ -116,7 +116,7 @@ export function makeWrites(resources: StoreResources) {
         creator: 'user',
         operation: input.operation ?? 'original',
         language: input.language ?? null,
-        created_at: now(clock)
+        created_at: now(timestampClock)
       })
       .returning()
       .get();
@@ -129,7 +129,7 @@ export function makeWrites(resources: StoreResources) {
 
     store.orm
       .update(s.materials)
-      .set({ updated_at: now(clock) })
+      .set({ updated_at: now(timestampClock) })
       .where(eq(s.materials.id, materialId))
       .run();
 
@@ -160,12 +160,12 @@ export function makeWrites(resources: StoreResources) {
 
     store.orm
       .update(s.material_versions)
-      .set({ status: 'published', published_at: now(clock) })
+      .set({ status: 'published', published_at: now(timestampClock) })
       .where(eq(s.material_versions.id, id))
       .run();
     store.orm
       .update(s.materials)
-      .set({ updated_at: now(clock) })
+      .set({ updated_at: now(timestampClock) })
       .where(eq(s.materials.id, version.material_id))
       .run();
   }

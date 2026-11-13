@@ -47,7 +47,7 @@ type Publication = typeof transformPublicationSchema.Type;
 
 function state(f: Fixture) {
   return {
-    ...makeMaterialOutput({ db: f.context.db, clock: f.context.clock })(),
+    ...makeMaterialOutput(f.context)(),
     generation: f.context.db.orm.select().from(s.page_generation_requests).all(),
     transforms: f.context.db.orm.select().from(s.page_transform_requests).all()
   };

@@ -106,8 +106,8 @@ function citationPrecision(row: CitationRow) {
 }
 
 /** Binds message reads and version projections to the current database and clock. */
-function makeHelpers({ db, clock }: StoreResources) {
-  const { assertThreadRoot } = makeThread({ db, clock });
+function makeHelpers({ db, clock, timestampClock }: StoreResources) {
+  const { assertThreadRoot } = makeThread({ db, clock, timestampClock });
 
   function readCitations(versionId: typeof message_versions.$inferSelect.id) {
     return db.orm
@@ -238,7 +238,7 @@ function makeHelpers({ db, clock }: StoreResources) {
     db.orm
       .update(notes)
       .set({
-        updated_at: unixSeconds(clock),
+        updated_at: unixSeconds(timestampClock),
         context_revision: sql`${notes.context_revision} + 1`
       })
       .where(eq(notes.id, id))
@@ -285,9 +285,13 @@ function assertCaptureReplay(
 export const MessageStore = defineStore({
   name: 'study/NoteMessageStore',
   entity: { singular: 'message', plural: 'messages' },
-  make: ({ db, clock }) => {
-    const { requiredNote, insertSelectedVersion } = makePersistence({ db, clock });
-    const { read, required, touch, assertThreadRoot, capturedNote } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { requiredNote, insertSelectedVersion } = makePersistence({ db, clock, timestampClock });
+    const { read, required, touch, assertThreadRoot, capturedNote } = makeHelpers({
+      db,
+      clock,
+      timestampClock
+    });
 
     return {
       queries: {
@@ -363,7 +367,7 @@ export const MessageStore = defineStore({
                 format: input.format ?? 'text',
                 role: 'user',
                 thread_root: input.threadRoot ?? null,
-                created_at: unixSeconds(clock)
+                created_at: unixSeconds(timestampClock)
               })
               .returning()
               .get();
@@ -374,7 +378,7 @@ export const MessageStore = defineStore({
               origin: 'typed',
               status: 'complete',
               text,
-              created_at: unixSeconds(clock)
+              created_at: unixSeconds(timestampClock)
             });
 
             attachments.forEach((source, ordinal) =>
@@ -461,7 +465,7 @@ export const MessageStore = defineStore({
                 status: 'complete',
                 text,
                 based_on: message.activeVersionId,
-                created_at: unixSeconds(clock)
+                created_at: unixSeconds(timestampClock)
               })
               .returning()
               .get();

@@ -67,8 +67,8 @@ const filter = projectPageInputSchema;
 export const ProjectsStore = defineStore({
   name: 'study/ProjectsStore',
   entity: { singular: 'project', plural: 'projects' },
-  make: ({ db, clock }) => {
-    const { find } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { find } = makeHelpers({ db, clock, timestampClock });
 
     const assertProject = (id: typeof projectIdSchema.Type) => {
       if (!find(id)) throw new StudyError('not_found', 'Collection not found');
@@ -121,7 +121,7 @@ export const ProjectsStore = defineStore({
     };
 
     const create = (input: typeof createInput.Type) => {
-      const timestamp = unixSeconds(clock);
+      const timestamp = unixSeconds(timestampClock);
       const result = db.orm
         .insert(projects)
         .values({ name: input.name, created_at: timestamp, updated_at: timestamp })
@@ -210,7 +210,7 @@ export const ProjectsStore = defineStore({
           run: (input) =>
             db.orm
               .update(projects)
-              .set({ name: input.name, updated_at: unixSeconds(clock) })
+              .set({ name: input.name, updated_at: unixSeconds(timestampClock) })
               .where(eq(projects.id, input.id))
               .run().changes !== 0
         }),
@@ -232,7 +232,7 @@ export const ProjectsStore = defineStore({
                 icon: input.icon.kind === 'automatic' ? null : input.icon.value,
                 icon_kind: input.icon.kind === 'automatic' ? 'monogram' : input.icon.kind,
                 icon_color: input.icon.color,
-                updated_at: unixSeconds(clock)
+                updated_at: unixSeconds(timestampClock)
               })
               .where(eq(projects.id, input.id))
               .run();
@@ -246,7 +246,7 @@ export const ProjectsStore = defineStore({
           run: (input) =>
             db.orm
               .update(projects)
-              .set({ exam_on: input.examOn, updated_at: unixSeconds(clock) })
+              .set({ exam_on: input.examOn, updated_at: unixSeconds(timestampClock) })
               .where(eq(projects.id, input.id))
               .run().changes !== 0
         })

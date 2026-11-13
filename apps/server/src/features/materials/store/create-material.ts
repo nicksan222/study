@@ -27,7 +27,7 @@ import { makeNoteMembership } from './note-membership.ts';
 type CreateMaterialInput = typeof createMaterialInputSchema.Type;
 
 export function makeCreateMaterial(resources: StoreResources) {
-  const { db, clock } = resources;
+  const { db, timestampClock } = resources;
   const store = db;
   const { readMaterial } = makeReads(resources);
   const { assertProject, assertNote, insertVersion } = makeWrites(resources);
@@ -44,7 +44,7 @@ export function makeCreateMaterial(resources: StoreResources) {
 
     if (input.noteId !== undefined) assertNote(input.noteId);
 
-    const timestamp = now(clock);
+    const timestamp = now(timestampClock);
     const row = store.orm
       .insert(s.materials)
       .values({

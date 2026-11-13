@@ -28,7 +28,7 @@ import type { StoreResources } from '#server/platform/definitions/define-store';
 import { makeContent } from './content.ts';
 
 export function makeReplaceDraftAction(resources: StoreResources) {
-  const { db: store, clock } = resources;
+  const { db: store, timestampClock } = resources;
   const { readVersion, versionRow } = makeReads(resources);
   const { insertContent, removeContent } = makeContent(resources);
   const { insertLinks } = makeWrites(resources);
@@ -60,7 +60,7 @@ export function makeReplaceDraftAction(resources: StoreResources) {
         .where(eq(s.material_versions.id, version.id))
         .run();
       db.update(s.materials)
-        .set({ updated_at: now(clock) })
+        .set({ updated_at: now(timestampClock) })
         .where(eq(s.materials.id, version.material_id))
         .run();
 

@@ -31,8 +31,8 @@ function makeHelpers({ db }: StoreResources) {
 export const ThemeStore = defineStore({
   name: 'study/ThemeStore',
   entity: { singular: 'theme', plural: 'themes' },
-  make: ({ db, clock }) => {
-    const { find } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { find } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {

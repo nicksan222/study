@@ -432,7 +432,7 @@ testStable(
               limit: 10
             })).items;
             const actual = f.context.transaction((tx) =>
-              makeCitations({ db: tx.db, clock: tx.clock }).readCitations(claim.version.id)
+              makeCitations(tx).readCitations(claim.version.id)
             );
 
             expect(actual).toStrictEqual(expected);

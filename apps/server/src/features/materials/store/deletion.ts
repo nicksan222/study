@@ -32,7 +32,7 @@ import { unixSeconds } from '#server/platform/time/index';
 
 import { makeContent } from './content.ts';
 
-function makeDeletion({ db, clock }: StoreResources) {
+function makeDeletion({ db, clock, timestampClock }: StoreResources) {
   function status(id: MaterialId) {
     const member = db.orm
       .select()
@@ -123,14 +123,14 @@ function makeDeletion({ db, clock }: StoreResources) {
     return { ...value, token };
   }
 
-  return { status, preview, replayScope, db, clock };
+  return { status, preview, replayScope, db, clock, timestampClock };
 }
 
 export const MaterialDeletionStore = defineStore({
   name: 'study/MaterialDeletionStore',
   entity: { singular: 'materialDeletion', plural: 'materialDeletions' },
   make: (resources) => {
-    const { status, preview, replayScope, db, clock } = makeDeletion(resources);
+    const { status, preview, replayScope, db, clock, timestampClock } = makeDeletion(resources);
 
     const { removeContent } = makeContent(resources);
 
@@ -307,7 +307,7 @@ export const MaterialDeletionStore = defineStore({
                 title: '-',
                 description: null,
                 creation_intent: sql`CASE WHEN create_key IS NULL THEN NULL ELSE '{}' END`,
-                archived_at: unixSeconds(clock)
+                archived_at: unixSeconds(timestampClock)
               })
               .where(inArray(s.materials.id, [...deletion.materialIds]))
               .run();

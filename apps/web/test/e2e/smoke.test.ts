@@ -21,9 +21,18 @@ testE2e('Notes preserve multiple edits after reopening', async ({ page, expectSc
   const editor = dialog.getByRole('textbox', { name: copy.NoteEditNote });
 
   await editor.fill(`${content}\n\nAn edited note`);
+  await editor.press('ControlOrMeta+End');
   await expectScreenshot('editing', {
     target: dialog,
-    ready: () => expect(editor).toHaveValue(`${content}\n\nAn edited note`)
+    ready: async () => {
+      await expect(editor).toHaveValue(`${content}\n\nAn edited note`);
+      await expect(editor).toBeFocused();
+      await expect(editor).toHaveJSProperty(
+        'selectionStart',
+        `${content}\n\nAn edited note`.length
+      );
+      await expect(editor).toHaveJSProperty('selectionEnd', `${content}\n\nAn edited note`.length);
+    }
   });
   await dialog.getByRole('button', { name: copy.NoteSaveNote }).click();
   await expect(dialog).toBeHidden();

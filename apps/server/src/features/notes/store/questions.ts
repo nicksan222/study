@@ -37,9 +37,9 @@ import { makeDiscardPending } from './pending.ts';
 export const QuestionStore = defineStore({
   name: 'study/NoteQuestionStore',
   entity: { singular: 'questionSnapshot', plural: 'questionSnapshots' },
-  make: ({ db, clock }) => {
+  make: ({ db, clock, timestampClock }) => {
     const current = makeCurrent({ db });
-    const discardPending = makeDiscardPending({ db, clock });
+    const discardPending = makeDiscardPending({ db, clock, timestampClock });
 
     return {
       queries: {

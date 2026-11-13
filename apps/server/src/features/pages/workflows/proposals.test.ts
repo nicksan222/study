@@ -305,7 +305,7 @@ for (const scenario of [
               key: 'apply',
               expectedVersionId: setup.target.version.id
             };
-            const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+            const output = makeMaterialOutput(f.context);
             const before = output();
 
             for (const invalid of [

@@ -140,18 +140,18 @@ const requestInput = Schema.Struct({
 });
 
 /** Binds immutable reply captures and publication checks to one database scope. */
-function makeHelpers({ db, clock }: StoreResources) {
-  const discardPending = makeDiscardPending({ db, clock });
+function makeHelpers({ db, clock, timestampClock }: StoreResources) {
+  const discardPending = makeDiscardPending({ db, clock, timestampClock });
 
-  const assertContextAvailable = makeAssertContextAvailable({ db, clock });
+  const assertContextAvailable = makeAssertContextAvailable({ db, clock, timestampClock });
 
-  const { insertSelectedVersion } = makePersistence({ db, clock });
+  const { insertSelectedVersion } = makePersistence({ db, clock, timestampClock });
 
-  const { noteHistory, noteRoot } = makeHistory({ db, clock });
+  const { noteHistory, noteRoot } = makeHistory({ db, clock, timestampClock });
 
-  const { assertThreadRoot } = makeThread({ db, clock });
+  const { assertThreadRoot } = makeThread({ db, clock, timestampClock });
 
-  const sourceInputs = makeReplySourceInputs({ db, clock });
+  const sourceInputs = makeReplySourceInputs({ db, clock, timestampClock });
 
   /** Captures generation inputs and creates its pending version in the same transaction. */
   function snapshot(
@@ -381,7 +381,7 @@ function makeHelpers({ db, clock }: StoreResources) {
 
     /** Allocates the next version while preserving selected originals for answers and conversions. */
     function createPendingReply() {
-      const now = unixSeconds(clock);
+      const now = unixSeconds(timestampClock);
 
       const message =
         existing ??
@@ -853,7 +853,7 @@ export const ReplyRequestStore = defineStore({
 export const ReplyStore = defineStore({
   name: 'study/NoteReplyStore',
   entity: { singular: 'replySnapshot', plural: 'replySnapshots' },
-  make: ({ db, clock }) => {
+  make: ({ db, clock, timestampClock }) => {
     const {
       snapshot,
       readReplySnapshot,
@@ -862,7 +862,7 @@ export const ReplyStore = defineStore({
       replyContext,
       attachmentDocument,
       prepareReply
-    } = makeHelpers({ db, clock });
+    } = makeHelpers({ db, clock, timestampClock });
 
     /** Rejects overlapping generation while allowing completed and failed history. */
     function requireNoActiveVersion(messageId: typeof message_versions.$inferSelect.message_id) {
@@ -958,7 +958,7 @@ export const ReplyStore = defineStore({
               .where(eq(note_reply_requests.request_id, input.requestId))
               .run();
 
-            makeReplySourceInputs({ db, clock }).retain(sealed);
+            makeReplySourceInputs({ db, clock, timestampClock }).retain(sealed);
 
             return sealed;
           }
@@ -1355,7 +1355,7 @@ export const ReplyStore = defineStore({
             db.orm
               .update(notes)
               .set({
-                updated_at: unixSeconds(clock),
+                updated_at: unixSeconds(timestampClock),
                 context_revision: sql`${notes.context_revision} + 1`
               })
               .where(eq(notes.id, note!.id))
@@ -1529,8 +1529,8 @@ export const ReplyStore = defineStore({
 export const ReplyReadinessStore = defineStore({
   name: 'study/NoteReplyReadinessStore',
   entity: { singular: 'replyReadiness', plural: 'replyReadinesses' },
-  make: ({ db, clock }) => {
-    const { readReplySnapshot } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { readReplySnapshot } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
