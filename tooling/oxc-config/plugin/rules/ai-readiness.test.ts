@@ -3,7 +3,7 @@ import { expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-const path = 'apps/web/src/features/example/action.tsx';
+const path = 'apps/client/src/features/example/action.tsx';
 
 testStable('requires guarded app AI buttons, including aliases and namespace imports', async () => {
   for (const source of [
@@ -19,7 +19,7 @@ testStable('requires guarded app AI buttons, including aliases and namespace imp
 
 testStable('allows the guarded component and presentation-only activity indicators', async () => {
   for (const source of [
-    "import { AiActionButton } from '#web/lib/ai-action-button.tsx'; const action = <AiActionButton tier='medium' label='Generate' />;",
+    "import { AiActionButton } from '#client/lib/ai-action-button.tsx'; const action = <AiActionButton tier='medium' label='Generate' />;",
     "import { AiIcon, AiActivity } from '@study/ui/ai-button';",
     "import type { AiButton } from '@study/ui/ai-button';",
     "export { type AiButton } from '@study/ui/ai-button';"
@@ -30,7 +30,8 @@ testStable('allows the guarded component and presentation-only activity indicato
     await lintRule(
       'ai-readiness',
       {
-        'apps/web/src/lib/ai-action-button.tsx': "import { AiButton } from '@study/ui/ai-button';"
+        'apps/client/src/lib/ai-action-button.tsx':
+          "import { AiButton } from '@study/ui/ai-button';"
       },
       true
     )

@@ -3,7 +3,7 @@ import { assert, expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-async function lint(source: string, path = 'apps/web/src/features/example/example.tsx') {
+async function lint(source: string, path = 'apps/client/src/features/example/example.tsx') {
   return await lintRule('shared-loading', { [path]: source }, true);
 }
 
@@ -82,7 +82,7 @@ testStable('rejects custom loading text and raw animation in initial page return
 });
 
 testStable('keeps the shared route pending boundary free of visual loading', async () => {
-  const path = 'apps/web/src/app/shell/route-feedback.tsx';
+  const path = 'apps/client/src/app/shell/route-feedback.tsx';
 
   assert.strictEqual(
     (await lint('export function RoutePending() { return <Spinner />; }', path)).length,
@@ -92,7 +92,7 @@ testStable('keeps the shared route pending boundary free of visual loading', asy
 });
 
 testStable('requires route definitions to reuse the shared pending boundary', async () => {
-  const path = 'apps/web/src/routes/library.tsx';
+  const path = 'apps/client/src/routes/library.tsx';
 
   assert.strictEqual(
     (await lint('const route = { pendingComponent: () => <Spinner /> };', path)).length,
@@ -102,7 +102,7 @@ testStable('requires route definitions to reuse the shared pending boundary', as
 });
 
 testStable('does not enforce loading presentation in server code or test examples', async () => {
-  for (const path of ['apps/server/src/example.tsx', 'apps/web/src/example.test.tsx'])
+  for (const path of ['apps/server/src/example.tsx', 'apps/client/src/example.test.tsx'])
     expect(
       await lint(
         'export function ReaderPage({query}) { if (query.isLoading) return <Spinner />; return null; }',

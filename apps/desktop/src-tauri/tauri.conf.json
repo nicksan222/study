@@ -5,10 +5,10 @@
   "identifier": "io.github.nicksan222.Study",
   "mainBinaryName": "study",
   "build": {
-    "beforeDevCommand": "bun run --cwd ../web dev",
+    "beforeDevCommand": "bun run --cwd ../client dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "bun run --cwd ../.. desktop:runtime && bun run --cwd ../web build",
-    "frontendDist": "../../web/dist"
+    "beforeBuildCommand": "bun run --cwd ../.. desktop:runtime && bun run --cwd ../client build",
+    "frontendDist": "../../client/dist"
   },
   "app": {
     "windows": [

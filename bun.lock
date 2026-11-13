@@ -32,6 +32,30 @@
         "vite-plus": "1.4.0",
       },
     },
+    "apps/client": {
+      "name": "@study/client",
+      "version": "0.1.0",
+      "dependencies": {
+        "@fontsource-variable/inter": "^5.3.0",
+        "@study/contracts": "*",
+        "@study/localization": "*",
+        "@study/server": "*",
+        "@study/ui": "*",
+        "@tanstack/react-query": "^5.105.0",
+        "@tanstack/react-router": "^1.170.46",
+        "@tauri-apps/api": "^2.12.4",
+        "@tauri-apps/plugin-opener": "^2.7.2",
+        "effect": "4.0.7",
+        "lucide-react": "^1.61.0",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
+      },
+      "devDependencies": {
+        "@study/db": "*",
+        "@study/testing": "*",
+        "@study/tooling": "*",
+      },
+    },
     "apps/desktop": {
       "name": "@study/desktop",
       "version": "0.1.0",
@@ -65,30 +89,6 @@
         "@study/testing": "*",
         "@types/yauzl": "3.4.0",
         "testcontainers": "12.2.1",
-      },
-    },
-    "apps/web": {
-      "name": "@study/web",
-      "version": "0.1.0",
-      "dependencies": {
-        "@fontsource-variable/inter": "^5.3.0",
-        "@study/contracts": "*",
-        "@study/localization": "*",
-        "@study/server": "*",
-        "@study/ui": "*",
-        "@tanstack/react-query": "^5.105.0",
-        "@tanstack/react-router": "^1.170.46",
-        "@tauri-apps/api": "^2.12.4",
-        "@tauri-apps/plugin-opener": "^2.7.2",
-        "effect": "4.0.7",
-        "lucide-react": "^1.61.0",
-        "react": "^19.3.1",
-        "react-dom": "^19.3.1",
-      },
-      "devDependencies": {
-        "@study/db": "*",
-        "@study/testing": "*",
-        "@study/tooling": "*",
       },
     },
     "packages/contracts": {
@@ -493,6 +493,8 @@
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 
+    "@study/client": ["@study/client@workspace:apps/client"],
+
     "@study/contracts": ["@study/contracts@workspace:packages/contracts"],
 
     "@study/db": ["@study/db@workspace:packages/db"],
@@ -512,8 +514,6 @@
     "@study/tooling": ["@study/tooling@workspace:tooling"],
 
     "@study/ui": ["@study/ui@workspace:packages/ui"],
-
-    "@study/web": ["@study/web@workspace:apps/web"],
 
     "@stylistic/eslint-plugin": ["@stylistic/eslint-plugin@5.10.0", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.9.1", "@typescript-eslint/types": "^8.56.0", "eslint-visitor-keys": "^4.2.1", "espree": "^10.4.0", "estraverse": "^5.3.0", "picomatch": "^4.0.3" }, "peerDependencies": { "eslint": "^9.0.0 || ^10.0.0" } }, "sha512-nPK52ZHvot8Ju/0A4ucSX1dcPV2/1clx0kLcH5wDmrE4naKso7TUC/voUyU1O9OTKTrR6MYip6LP0ogEMQ9jPQ=="],
 

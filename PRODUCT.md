@@ -7,9 +7,10 @@
 web
 
 Study is a local-first Tauri desktop app for Linux, macOS Apple Silicon and Windows.
-Its React interface uses shared Latch components and semantic tokens in `packages/ui`,
-and consumes the Rust domain service through the canonical typed gRPC contract.
-The browser development and test consumer uses the same production interface.
+Its shared React client in `apps/client` uses Latch components and semantic tokens in
+`packages/ui`, and consumes TypeScript application services through typed Effect RPC
+contracts. The browser development and test consumer uses the same production interface
+and application server as the desktop host.
 
 ## Users
 

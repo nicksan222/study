@@ -1,6 +1,6 @@
 # Study — agent guide
 
-Study has a shared React web app, a Tauri desktop host and a TypeScript server app.
+Study has a shared React client, a Tauri desktop host and a TypeScript server app.
 The native shell owns windows, devices, and the private server process. Native Effect RPC exposes feature services, which own application behavior and use one SQLite database through Drizzle.
 
 ## Golden rules
@@ -23,8 +23,11 @@ The native shell owns windows, devices, and the private server process. Native E
    until implemented again; nothing downloads without an explicit install.
 8. **The code is the source of truth.** Don't write design docs or per-crate guides. Say
    what a crate or module is for in its `//!` docs, and put rules in types, tests and lints.
-   The one exception is `PRODUCT.md` and `DESIGN.md`, the visual design context the
-   `impeccable` skill reads; the design system itself is code, in `packages/ui`.
+   `PRODUCT.md` and `DESIGN.md` hold the visual design context the `impeccable` skill
+   reads; the design system itself is code, in `packages/ui`. Accepted architecture
+   decisions belong in `doc/adr`, following
+   [Architecture decision records](doc/adr/architecture-decision-records.md).
+   Do not add speculative design or plan docs.
 9. **Drizzle owns the schema.** Domain schema modules live in `packages/db/src/schema`.
    Use Drizzle Kit for schema generation and the official Drizzle migrator for initialization.
    This server is a breaking reset: do not add legacy Rust database importers, compatibility
@@ -71,8 +74,8 @@ Upstream revisions and local adaptations are recorded in `.agents/skills/upstrea
 | `@study/localization` | `packages/localization`  | English and Italian copy and formatting                      |
 | `@study/ui`           | `packages/ui`            | Shared React presentation primitives; no application data    |
 | `study-desktop`       | `apps/desktop/src-tauri` | Native Tauri host and private server process transport       |
-| `@study/web`          | `apps/web`               | Shared React pages, sidebar and browser frontend             |
-| `@study/desktop`      | `apps/desktop`           | Tauri CLI workspace hosting the shared web build             |
+| `@study/client`       | `apps/client`            | Shared React frontend for browser and desktop                |
+| `@study/desktop`      | `apps/desktop`           | Tauri CLI workspace hosting the shared client build          |
 | `study-landing`       | `apps/landing`           | Astro website, English and Italian, built with Bun           |
 
 Rust owns the desktop shell and its private server process. `apps/server/src/features` owns

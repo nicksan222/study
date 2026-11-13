@@ -60,8 +60,11 @@ choose to.
 Study is built in the open, and contributions are welcome. Start with
 [CONTRIBUTING.md](.github/CONTRIBUTING.md).
 
-The desktop shell runs a private TypeScript server. Application procedures use tRPC and
-Drizzle over one local SQLite database. Model calls use your ChatGPT provider sign-in.
+The shared React application in `apps/client` runs in the browser and the Tauri desktop
+host. The desktop shell runs a private TypeScript server; application services expose
+typed Effect RPC contracts and use Drizzle over one local SQLite database. Model calls
+use your ChatGPT provider sign-in. The accepted structure and tradeoffs are recorded in
+[Shared application client](doc/adr/shared-application-client.md).
 
 ## License
 

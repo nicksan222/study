@@ -26,10 +26,10 @@
     "typescript": "^6"
   },
   "peerDependencies": {
+    "@study/client": "*",
     "@study/contracts": "*",
     "@study/localization": "*",
     "@study/ui": "*",
-    "@study/web": "*",
     "@tailwindcss/vite": "^4.3.3",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
@@ -41,10 +41,10 @@
     "@study/ui": {
       "optional": true
     },
-    "@study/web": {
+    "@tailwindcss/vite": {
       "optional": true
     },
-    "@tailwindcss/vite": {
+    "@study/client": {
       "optional": true
     },
     "@study/contracts": {

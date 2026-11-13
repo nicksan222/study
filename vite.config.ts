@@ -12,15 +12,18 @@ export default defineConfig({
     maxWorkers: 2,
     silent: 'passed-only',
     projects: [
-      'apps/web',
+      'apps/client',
       {
         test: {
           name: 'web-e2e',
           // Persisted transforms executed stale selectors in the bind-mounted E2E run.
           fsModuleCache: false,
-          globalSetup: ['./apps/web/test/e2e/harness/preflight.ts'],
+          globalSetup: ['./apps/client/test/e2e/harness/preflight.ts'],
           environment: 'node',
-          include: ['apps/web/test/e2e/*.test.ts', 'apps/web/test/e2e/harness/*.browser.test.ts'],
+          include: [
+            'apps/client/test/e2e/*.test.ts',
+            'apps/client/test/e2e/harness/*.browser.test.ts'
+          ],
           isolate: false,
           sequence: { concurrent: false },
           pool: 'forks',
@@ -51,7 +54,7 @@ export default defineConfig({
           environment: 'node',
           include: [
             'tooling/**/*.test.ts',
-            'apps/web/test/e2e/harness/**/*.test.ts',
+            'apps/client/test/e2e/harness/**/*.test.ts',
             'packages/testing/test/**/*.test.ts',
             'apps/desktop/src-tauri/tests/**/*.test.mjs'
           ],

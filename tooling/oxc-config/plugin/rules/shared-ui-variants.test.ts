@@ -9,7 +9,7 @@ testStable(
     const diagnostics = await lintRule(
       'shared-ui-variants',
       {
-        'apps/web/src/example.tsx': `import { Button as Control } from "@study/ui/button";
+        'apps/client/src/example.tsx': `import { Button as Control } from "@study/ui/button";
 import { Shell } from "@study/ui/shell";
 import * as UI from "@study/ui/button";
 export const view = <div className="layout"><Control className="p-2" /><Shell.Header style={{ color: "red" }} /><UI.Button {...{ className: "p-2" }} /></div>;`
@@ -26,7 +26,7 @@ testStable('computed literal style props cannot bypass shared UI variants', asyn
   const diagnostics = await lintRule(
     'shared-ui-variants',
     {
-      'apps/web/src/example.tsx': `import { Button } from '@study/ui/button'; export const view = <Button {...{ ['style']: {} }} />;`
+      'apps/client/src/example.tsx': `import { Button } from '@study/ui/button'; export const view = <Button {...{ ['style']: {} }} />;`
     },
     true
   );

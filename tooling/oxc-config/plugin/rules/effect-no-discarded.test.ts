@@ -84,9 +84,9 @@ testStable('enforces the Effect contract in browser operations', async () => {
   const diagnostics = await lintRule(
     'effect-no-discarded',
     {
-      'apps/web/src/features/example/page.logic.ts':
+      'apps/client/src/features/example/page.logic.ts':
         "import { Effect } from 'effect'; Effect.succeed(1);",
-      'apps/web/src/features/example/page.logic.test.ts':
+      'apps/client/src/features/example/page.logic.test.ts':
         "import { Effect } from 'effect'; Effect.succeed(1);"
     },
     true

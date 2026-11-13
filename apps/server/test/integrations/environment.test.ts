@@ -6,7 +6,7 @@
  * │ - Excludes dependencies and credentials while preserving authored files.                 │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ These filesystem checks use synthetic temporary trees and never connect to Docker.       │
+ * │ These filesystem checks use isolated temporary outputs and never connect to Docker.      │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -15,6 +15,28 @@ import { expect } from 'vite-plus/test';
 
 import { buildContext } from './environment.ts';
 import { fs, path, run } from './filesystem.ts';
+
+testStable('default build context resolves the workspace from the server package', async () => {
+  const serverRoot = path.resolve(import.meta.dirname, '../..');
+  const previousDirectory = process.cwd();
+  let context: string | undefined;
+
+  try {
+    process.chdir(serverRoot);
+    context = await buildContext();
+    expect(await Bun.file(path.join(context, 'package.json')).json()).toMatchObject({
+      name: 'study-workspace'
+    });
+    expect(await Bun.file(path.join(context, 'apps/client/package.json')).json()).toMatchObject({
+      name: '@study/client'
+    });
+    expect(await run(fs.exists(path.join(context, 'bun.lock')))).toBe(true);
+  } finally {
+    process.chdir(previousDirectory);
+
+    if (context) await run(fs.remove(context, { recursive: true, force: true }));
+  }
+});
 
 testStable(
   'build contexts preserve sources below a dist parent and omit secrets and dependencies',
@@ -29,7 +51,7 @@ testStable(
         'bun.lock',
         'vite.config.ts',
         'apps/server/package.json',
-        'apps/web/package.json',
+        'apps/client/package.json',
         'apps/desktop/package.json',
         'tooling/package.json',
         'packages/integrations/src/provider.ts',

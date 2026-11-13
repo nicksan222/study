@@ -77,7 +77,7 @@ export default defineRule({
 
         if (
           /^location\.[^.]+$/.test(path) &&
-          !(path === 'location.origin' && current === 'lib/study-client/client.ts') &&
+          !(current === 'lib/host.ts' && ['location.origin', 'location.protocol'].includes(path)) &&
           !(
             node.parent?.type === 'NewExpression' &&
             globalPath(node.parent.callee) === 'URLSearchParams'

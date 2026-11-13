@@ -17,7 +17,7 @@ const directories = {
   'packages/db': '@study/db',
   'packages/ai': '@study/ai',
   'apps/server': '@study/server',
-  'apps/web': '@study/web',
+  'apps/client': '@study/client',
   'apps/desktop': '@study/desktop',
   'apps/landing': 'study-landing'
 } as const;
@@ -48,7 +48,7 @@ const allowed: Record<Owner, readonly Owner[]> = {
     '@study/theme',
     '@study/integrations'
   ],
-  '@study/web': ['@study/contracts', '@study/ui', '@study/localization', '@study/theme'],
+  '@study/client': ['@study/contracts', '@study/ui', '@study/localization', '@study/theme'],
   '@study/desktop': [],
   'study-landing': ['@study/ui', '@study/localization', '@study/contracts']
 };
@@ -58,7 +58,7 @@ const exportsByPackage = new Map<string, unknown>();
 for (const [directory, name] of Object.entries(directories)) {
   if (
     !directory.startsWith('packages/') &&
-    !['apps/server', 'apps/web', 'tooling'].includes(directory)
+    !['apps/server', 'apps/client', 'tooling'].includes(directory)
   )
     continue;
 
@@ -153,7 +153,7 @@ export default defineRule({
     const owner: Owner = currentOwner;
     const filename = context.filename.replaceAll('\\', '/');
     const runtimeHarness = ['index.ts', 'lifecycle.test.ts', 'creation-response.test.ts'].some(
-      (file) => filename.endsWith(`/apps/web/test/e2e/harness/${file}`)
+      (file) => filename.endsWith(`/apps/client/test/e2e/harness/${file}`)
     );
 
     type ReportNode = NonNullable<Parameters<typeof context.report>[0]['node']>;
@@ -164,8 +164,8 @@ export default defineRule({
 
       if (
         name === '@study/tooling' &&
-        owner === '@study/web' &&
-        context.filename.endsWith('/apps/web/vite.config.ts')
+        owner === '@study/client' &&
+        context.filename.endsWith('/apps/client/vite.config.ts')
       )
         return false;
 
@@ -183,7 +183,7 @@ export default defineRule({
     function permitsPackageLayer(name: string, subpath: string, nativeClient: boolean): boolean {
       const featurePreview =
         owner === 'study-landing' &&
-        name === '@study/web' &&
+        name === '@study/client' &&
         ['/feature-previews', '/feature-previews/catalog'].includes(subpath);
 
       return nativeClient || featurePreview || !disallowedPackage(name);
@@ -191,7 +191,7 @@ export default defineRule({
 
     function unsafeBrowserExport(name: string, subpath: string): boolean {
       return (
-        owner === '@study/web' &&
+        owner === '@study/client' &&
         name === '@study/server' &&
         !['', '/client'].includes(subpath) &&
         !runtimeHarness
@@ -219,7 +219,7 @@ export default defineRule({
       } else if (unsafeBrowserExport(name, subpath)) {
         context.report({
           node,
-          message: '@study/web must use browser-safe @study/server root or client exports.'
+          message: '@study/client must use browser-safe @study/server root or client exports.'
         });
       }
     }
@@ -228,7 +228,7 @@ export default defineRule({
       const name = match[1]!;
       const subpath = match[2] ?? '';
       const nativeClient =
-        owner === '@study/web' && name === '@study/server' && subpath === '/client';
+        owner === '@study/client' && name === '@study/server' && subpath === '/client';
 
       if (!Object.values(directories).includes(name as Owner)) {
         context.report({ node, message: `Unknown workspace package ${name}.` });
@@ -241,7 +241,7 @@ export default defineRule({
 
     function checkBrowserBuiltin(node: ReportNode, source: string): boolean {
       if (
-        (owner === '@study/web' ||
+        (owner === '@study/client' ||
           owner === '@study/ui' ||
           owner === '@study/theme' ||
           owner === '@study/contracts') &&

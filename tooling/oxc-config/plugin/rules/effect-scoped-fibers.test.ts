@@ -58,9 +58,9 @@ testStable('enforces the Effect contract in browser operations', async () => {
   const diagnostics = await lintRule(
     'effect-scoped-fibers',
     {
-      'apps/web/src/features/example/page.logic.ts':
+      'apps/client/src/features/example/page.logic.ts':
         "import { Effect } from 'effect'; export const task = Effect.forkDetach(other);",
-      'apps/web/src/features/example/page.logic.test.ts':
+      'apps/client/src/features/example/page.logic.test.ts':
         "import { Effect } from 'effect'; export const task = Effect.forkDetach(other);"
     },
     true

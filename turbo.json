@@ -44,7 +44,7 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
-    "@study/web#check": {
+    "@study/client#check": {
       "dependsOn": ["test", "typecheck", "e2e", "//#check:global", "//#check:landing"],
       "cache": false
     },
@@ -69,7 +69,7 @@
         "!$TURBO_ROOT$/packages/**/.turbo/**"
       ]
     },
-    "@study/web#typecheck": {
+    "@study/client#typecheck": {
       "dependsOn": ["^typecheck"],
       "inputs": [
         "$TURBO_DEFAULT$",
@@ -83,7 +83,7 @@
       "dependsOn": ["^build", "typecheck"],
       "outputs": ["dist/**"]
     },
-    "@study/web#build": {
+    "@study/client#build": {
       "dependsOn": ["^build", "typecheck", "@study/tooling#typecheck"],
       "inputs": ["$TURBO_DEFAULT$", "!src/routeTree.gen.ts"],
       "outputs": ["dist/**"]
@@ -138,8 +138,8 @@
       "dependsOn": ["^typecheck"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/apps/web/vite.config.ts",
-        "$TURBO_ROOT$/apps/web/src/test/**",
+        "$TURBO_ROOT$/apps/client/vite.config.ts",
+        "$TURBO_ROOT$/apps/client/src/test/**",
         "$TURBO_ROOT$/tooling/scripts/development/rpc-proxy.ts"
       ],
       "cache": true,
@@ -150,7 +150,7 @@
       "cache": true,
       "envMode": "strict"
     },
-    "@study/web#test": {
+    "@study/client#test": {
       "dependsOn": ["^typecheck"],
       "cache": true,
       "envMode": "strict"
@@ -159,8 +159,8 @@
       "dependsOn": ["^typecheck"],
       "inputs": [
         "$TURBO_DEFAULT$",
-        "$TURBO_ROOT$/apps/web/vite.config.ts",
-        "$TURBO_ROOT$/apps/web/test/e2e/**",
+        "$TURBO_ROOT$/apps/client/vite.config.ts",
+        "$TURBO_ROOT$/apps/client/test/e2e/**",
         "$TURBO_ROOT$/packages/testing/**"
       ]
     },
@@ -192,13 +192,13 @@
       "envMode": "loose"
     },
     "//#lint:repo": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/web/src/routeTree.gen.ts"]
+      "inputs": ["$TURBO_DEFAULT$", "!apps/client/src/routeTree.gen.ts"]
     },
     "//#fallow:repo": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/web/src/routeTree.gen.ts"]
+      "inputs": ["$TURBO_DEFAULT$", "!apps/client/src/routeTree.gen.ts"]
     },
     "//#check-shell": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/web/src/routeTree.gen.ts"]
+      "inputs": ["$TURBO_DEFAULT$", "!apps/client/src/routeTree.gen.ts"]
     }
   },
   "futureFlags": {

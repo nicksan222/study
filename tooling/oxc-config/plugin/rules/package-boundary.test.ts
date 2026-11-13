@@ -7,19 +7,20 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'packages/ui/src/app.ts': "import '@study/web';\n",
+      'packages/ui/src/app.ts': "import '@study/client';\n",
       'packages/ui/src/bad.ts': "import '@study/server/client';\n",
       'packages/localization/src/bad.ts': "export * from '@study/ui/button';\n",
       'packages/db/src/bad.ts': "import type { Account } from '@study/ai';\n",
       'packages/ai/src/bad.ts': "export * from '@study/db';\n",
       'apps/server/src/bad.ts': "import '@study/ui/button';\n",
-      'apps/web/src/bad.ts': "export * from '@study/server/runtime';\n",
-      'apps/web/src/root.ts': "import '@study/server';\n",
-      'apps/web/src/node.ts': "import 'node:fs';\n",
-      'apps/web/src/private.ts': "import '@study/server/shared/not-exported';\n",
-      'apps/web/src/relative.ts': "export * from '../../../apps/server/src/index.ts';\n",
-      'apps/web/src/absolute.ts': `import '${root}packages/ai/src/index.ts';\n`,
-      'apps/web/src/dynamic.ts': "export const db = import('../../../packages/db/src/index.ts');\n",
+      'apps/client/src/bad.ts': "export * from '@study/server/runtime';\n",
+      'apps/client/src/root.ts': "import '@study/server';\n",
+      'apps/client/src/node.ts': "import 'node:fs';\n",
+      'apps/client/src/private.ts': "import '@study/server/shared/not-exported';\n",
+      'apps/client/src/relative.ts': "export * from '../../../apps/server/src/index.ts';\n",
+      'apps/client/src/absolute.ts': `import '${root}packages/ai/src/index.ts';\n`,
+      'apps/client/src/dynamic.ts':
+        "export const db = import('../../../packages/db/src/index.ts');\n",
       'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
       'apps/landing/src/bad.ts': "import '@study/server/client';\n",
       'apps/landing/src/good.ts':
@@ -27,7 +28,7 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
       'tooling/scripts/seed/index.ts': "import '@study/localization';\n",
       'packages/ai/src/good.ts': "import '@study/localization';\n",
       'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
-      'apps/web/src/good.ts': "import '@study/ui/button';\nimport '@study/server/client';\n",
+      'apps/client/src/good.ts': "import '@study/ui/button';\nimport '@study/server/client';\n",
       'packages/ui/src/same.ts': "import './other.ts';\n"
     },
     true
@@ -43,7 +44,7 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
       .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
   ).toStrictEqual(
     [
-      ['packages/ui/src/app.ts', '@study/web is not a public package export.'],
+      ['packages/ui/src/app.ts', '@study/client is not a public package export.'],
       ['packages/ui/src/bad.ts', '@study/ui cannot depend on @study/server; use its owning layer.'],
       [
         'packages/localization/src/bad.ts',
@@ -52,23 +53,26 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
       ['packages/db/src/bad.ts', '@study/ai is not a public package export.'],
       ['packages/ai/src/bad.ts', '@study/ai cannot depend on @study/db; use its owning layer.'],
       ['apps/server/src/bad.ts', '@study/server cannot depend on @study/ui; use its owning layer.'],
-      ['apps/web/src/bad.ts', '@study/web cannot depend on @study/server; use its owning layer.'],
-      ['apps/web/src/root.ts', '@study/server is not a public package export.'],
-      ['apps/web/src/node.ts', '@study/web cannot import Node builtins in browser code.'],
       [
-        'apps/web/src/private.ts',
+        'apps/client/src/bad.ts',
+        '@study/client cannot depend on @study/server; use its owning layer.'
+      ],
+      ['apps/client/src/root.ts', '@study/server is not a public package export.'],
+      ['apps/client/src/node.ts', '@study/client cannot import Node builtins in browser code.'],
+      [
+        'apps/client/src/private.ts',
         '@study/server/shared/not-exported is not a public package export.'
       ],
       [
-        'apps/web/src/relative.ts',
+        'apps/client/src/relative.ts',
         'Import @study/server through its public package exports instead of a source path.'
       ],
       [
-        'apps/web/src/absolute.ts',
+        'apps/client/src/absolute.ts',
         'Import @study/ai through its public package exports instead of a source path.'
       ],
       [
-        'apps/web/src/dynamic.ts',
+        'apps/client/src/dynamic.ts',
         'Import @study/db through its public package exports instead of a source path.'
       ],
       [
@@ -87,8 +91,8 @@ testStable('source and test directory imports cannot bypass package boundaries',
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/web/src/relative.ts': "import '../../../apps/server/src/';\n",
-      'apps/web/src/absolute.ts': `import '${root}packages/db/test';\n`
+      'apps/client/src/relative.ts': "import '../../../apps/server/src/';\n",
+      'apps/client/src/absolute.ts': `import '${root}packages/db/test';\n`
     },
     true
   );
@@ -119,12 +123,12 @@ testStable(
     const diagnostics = await lintRule(
       'package-boundary',
       {
-        'apps/web/src/example.test.ts': "import 'node:assert/strict';\n",
+        'apps/client/src/example.test.ts': "import 'node:assert/strict';\n",
         'packages/ui/src/example.test.tsx': "import 'node:fs';\n",
-        'apps/web/src/test-support/helper.ts': "import 'node:fs';\n",
-        'apps/web/src/test/helper.ts': "import 'node:fs';\n",
+        'apps/client/src/test-support/helper.ts': "import 'node:fs';\n",
+        'apps/client/src/test/helper.ts': "import 'node:fs';\n",
         'packages/ui/src/__tests__/helper.ts': "import 'node:fs';\n",
-        'apps/web/src/example.ts': "import 'node:fs';\n"
+        'apps/client/src/example.ts': "import 'node:fs';\n"
       },
       true
     );
@@ -135,7 +139,7 @@ testStable(
 
         return [filename.split('/').at(-1), message];
       })
-    ).toStrictEqual([['example.ts', '@study/web cannot import Node builtins in browser code.']]);
+    ).toStrictEqual([['example.ts', '@study/client cannot import Node builtins in browser code.']]);
   }
 );
 
@@ -145,10 +149,10 @@ testStable(
     const diagnostics = await lintRule(
       'package-boundary',
       {
-        'apps/web/src/blocked.ts': "import '@study/ui/private';\n",
-        'apps/web/src/pattern.ts': "import '@study/ui/internal/secret';\n",
-        'apps/web/src/conditional.ts': "import '@study/ui/conditional';\n",
-        'apps/web/src/good.ts':
+        'apps/client/src/blocked.ts': "import '@study/ui/private';\n",
+        'apps/client/src/pattern.ts': "import '@study/ui/internal/secret';\n",
+        'apps/client/src/conditional.ts': "import '@study/ui/conditional';\n",
+        'apps/client/src/good.ts':
           "import '@study/ui/button';\nimport '@study/ui/nested';\nimport '@study/localization';\n"
       },
       true,
@@ -206,7 +210,7 @@ testStable('contracts are recognized and unknown workspace packages fail closed'
       'packages/contracts/src/a.ts': "import type { A } from '@study/server';",
       'apps/server/src/a.ts':
         "import type { A } from '@study/contracts'; import '@study/ai'; import '@study/missing';",
-      'apps/web/src/a.ts': "import '@study/server/shared/ids';"
+      'apps/client/src/a.ts': "import '@study/server/shared/ids';"
     },
     true
   );
@@ -218,7 +222,7 @@ testStable('checks typed and aliased loader edges while honoring shadowing', asy
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/web/src/loader.ts':
+      'apps/client/src/loader.ts':
         "import { createRequire as cr } from 'node:module'; const load = cr(import.meta.url); load(`@study/missing`); type T = import('@study/missing').T; import x = require('@study/missing'); function f(require: (s: string) => void) { require('@study/missing'); }"
     },
     true
@@ -259,20 +263,21 @@ testStable(
   }
 );
 
-testStable('landing consumes only the explicit feature preview export from web', async () => {
+testStable('landing consumes only the explicit feature preview export from client', async () => {
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/landing/src/good.ts': "export { FeaturePreview } from '@study/web/feature-previews';",
+      'apps/landing/src/good.ts':
+        "export { FeaturePreview } from '@study/client/feature-previews';",
       'apps/landing/src/catalog.ts':
-        "export { previewFeatures } from '@study/web/feature-previews/catalog';",
-      'apps/landing/src/root.ts': "import '@study/web';",
-      'apps/landing/src/private.ts': "import '@study/web/features/quiz';",
-      'apps/landing/src/relative.ts': "import '../../web/src/feature-previews/index.tsx';"
+        "export { previewFeatures } from '@study/client/feature-previews/catalog';",
+      'apps/landing/src/root.ts': "import '@study/client';",
+      'apps/landing/src/private.ts': "import '@study/client/features/quiz';",
+      'apps/landing/src/relative.ts': "import '../../client/src/feature-previews/index.tsx';"
     },
     true,
     {
-      web: {
+      client: {
         './feature-previews': './src/feature-previews/index.tsx',
         './feature-previews/catalog': './src/feature-previews/catalog.ts',
         './features/quiz': './src/features/quiz/index.ts'
@@ -291,15 +296,15 @@ testStable('only explicit web E2E runtime harness files can own server resources
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/web/test/e2e/harness/index.ts':
+      'apps/client/test/e2e/harness/index.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
-      'apps/web/test/e2e/harness/lifecycle.test.ts':
+      'apps/client/test/e2e/harness/lifecycle.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/web/test/e2e/harness/creation-response.test.ts':
+      'apps/client/test/e2e/harness/creation-response.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
-      'apps/web/test/e2e/harness/other.test.ts':
+      'apps/client/test/e2e/harness/other.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/web/test/e2e/other.ts':
+      'apps/client/test/e2e/other.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';"
     },
     true

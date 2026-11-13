@@ -26,7 +26,10 @@ export default defineRule({
   create(context) {
     const filename = context.filename.replaceAll('\\', '/');
 
-    if (!filename.includes('/apps/web/src/feature-previews/') || /\.test\.[jt]sx?$/.test(filename))
+    if (
+      !filename.includes('/apps/client/src/feature-previews/') ||
+      /\.test\.[jt]sx?$/.test(filename)
+    )
       return {};
 
     let renderedFeature = false;

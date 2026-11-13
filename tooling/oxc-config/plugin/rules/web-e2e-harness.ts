@@ -303,8 +303,8 @@ export default defineRule({
     const filename = context.filename.replaceAll('\\', '/');
 
     if (
-      !/\/apps\/web\/test\/e2e\//.test(filename) ||
-      filename.includes('/apps/web/test/e2e/harness/')
+      !/\/apps\/client\/test\/e2e\//.test(filename) ||
+      filename.includes('/apps/client/test/e2e/harness/')
     )
       return {};
 

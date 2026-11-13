@@ -59,7 +59,7 @@ __pycache__/
 
 # Tauri/React workspace outputs.
 node_modules/
-apps/web/dist/
+apps/client/dist/
 apps/desktop/dist/
 apps/desktop/src-tauri/gen/
 playwright-report/

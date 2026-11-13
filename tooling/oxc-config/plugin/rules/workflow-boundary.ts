@@ -24,7 +24,7 @@ export default defineRule({
     const path = context.filename.replaceAll('\\', '/');
     const server = production(path);
     const consumer =
-      /\/(?:packages\/contracts|packages\/ui|apps\/web)\//.test(path) &&
+      /\/(?:packages\/contracts|packages\/ui|apps\/client)\//.test(path) &&
       !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(path);
 
     if (!server && !consumer) return {};

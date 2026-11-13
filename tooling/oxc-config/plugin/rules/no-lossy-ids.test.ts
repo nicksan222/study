@@ -139,9 +139,9 @@ testStable('workspace project selections and membership identities stay lossless
   const diagnostics = await lintRule(
     'no-lossy-ids',
     {
-      'apps/web/src/pages/home/page.view.tsx': `Number(search.projectId);`,
-      'apps/web/src/features/collections/collections-page.tsx': `parseInt(project.id, 10); Number(item.materialId);`,
-      'apps/web/src/features/collections/identity.ts': `String(project.id); String(item.materialId); Number(pageCount);`
+      'apps/client/src/pages/home/page.view.tsx': `Number(search.projectId);`,
+      'apps/client/src/features/collections/collections-page.tsx': `parseInt(project.id, 10); Number(item.materialId);`,
+      'apps/client/src/features/collections/identity.ts': `String(project.id); String(item.materialId); Number(pageCount);`
     },
     true
   );

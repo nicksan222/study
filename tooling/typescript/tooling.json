@@ -5,8 +5,8 @@
   },
   "include": [
     "../../vite.config.ts",
-    "../../apps/web/vite.config.ts",
-    "../../apps/web/test/e2e/**/*.ts",
+    "../../apps/client/vite.config.ts",
+    "../../apps/client/test/e2e/**/*.ts",
     "../oxc-config/**/*.ts",
     "../scripts/development/*.ts",
     "../scripts/release/*.ts",

@@ -6,7 +6,7 @@ import { lintFiles } from './utils.ts';
 testStable('production config rejects four nested control-flow blocks', async () => {
   const diagnostics = await lintFiles(
     {
-      'apps/web/src/lib/nesting.ts': `
+      'apps/client/src/lib/nesting.ts': `
       export function nested(a, b, c, d) {
         if (a) {
           if (b) {
@@ -36,7 +36,7 @@ testStable('production config rejects four nested control-flow blocks', async ()
 testStable('production config rejects four nested callbacks', async () => {
   const diagnostics = await lintFiles(
     {
-      'apps/web/src/lib/callbacks.ts': `
+      'apps/client/src/lib/callbacks.ts': `
       export function nested(items) {
         return items.map((a) =>
           items.map((b) =>
@@ -62,7 +62,7 @@ testStable('production config rejects four nested callbacks', async () => {
 testStable('production config accepts guard clauses and three callback levels', async () => {
   const diagnostics = await lintFiles(
     {
-      'apps/web/src/lib/shallow.ts': `
+      'apps/client/src/lib/shallow.ts': `
       export function guarded(a, b, c) {
         if (!a) return 0;
 

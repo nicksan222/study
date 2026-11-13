@@ -97,12 +97,12 @@ testStable(
       import('#server/features/documents/index');
       require('#server/features/conversations/index');
     `,
-      'src/features/pages/example.ts': `import '../../../web/src/features/authored-documents';`
+      'src/features/pages/example.ts': `import '../../../client/src/features/authored-documents';`
     });
     const web = await lintRule(
       'retired-module-boundary',
       {
-        'apps/web/src/app/example.ts': `
+        'apps/client/src/app/example.ts': `
       import '../features/authored-documents';
       import '../features/session-workspace';
       import '@study/ui/session-workspace';
@@ -122,7 +122,7 @@ testStable('rejects retired domain files even without importers', async () => {
     'retired-module-boundary',
     {
       'apps/server/src/features/conversations/orphan.ts': 'export const orphan = true;',
-      'apps/web/src/features/authored-documents/orphan.ts': 'export const orphan = true;',
+      'apps/client/src/features/authored-documents/orphan.ts': 'export const orphan = true;',
       'packages/contracts/src/documents/orphan.ts': 'export const orphan = true;'
     },
     true
@@ -142,7 +142,7 @@ testStable(
       import '#server/platform/ai/providers/chatgpt/session';
       import '@study/contracts/pages/types';
     `,
-        'apps/web/src/features/pages/example.ts': `import '../document-presentation';`
+        'apps/client/src/features/pages/example.ts': `import '../document-presentation';`
       },
       true
     );

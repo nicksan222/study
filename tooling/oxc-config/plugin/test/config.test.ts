@@ -161,7 +161,7 @@ testStable('Effect v4 rejects obsolete package paths in global and server config
     {
       'apps/server/src/old.ts': "export * from '@effect/platform/HttpClient';\n",
       'packages/ai/src/old.ts': "export * from 'effect/unstable/http';\n",
-      'apps/web/src/old.ts': "export const old = import('@effect/rpc');\n",
+      'apps/client/src/old.ts': "export const old = import('@effect/rpc');\n",
       'packages/ai/src/modern.ts':
         "export * from 'effect/http';\nexport * from '@effect/platform-node';\n"
     },
@@ -173,7 +173,7 @@ testStable('Effect v4 rejects obsolete package paths in global and server config
   assert.strictEqual(restricted.length, 3, JSON.stringify(diagnostics));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/server/src/old.ts')));
   assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/ai/src/old.ts')));
-  assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/web/src/old.ts')));
+  assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/client/src/old.ts')));
   assert.ok(restricted.every(({ filename }) => !filename.endsWith('/modern.ts')));
 });
 

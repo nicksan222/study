@@ -10,7 +10,7 @@ async function lint(source: string, path = 'apps/landing/src/components/previews
 testStable(
   'fixture entry renders actual feature components instead of parallel preview controls',
   async () => {
-    const path = 'apps/web/src/feature-previews/index.tsx';
+    const path = 'apps/client/src/feature-previews/index.tsx';
 
     expect(await lint(`export const Preview = () => <button>Send</button>;`, path)).toHaveLength(2);
     expect(
@@ -39,15 +39,15 @@ testStable(
       `export { client } from '../platform/rpc/client';`,
       `const load = import('@study/server/client');`,
       `const load = import('@tanstack/react-query');`,
-      `import { usePreferences } from '#web/lib/study-client/workspace-preferences.queries';`,
+      `import { usePreferences } from '#client/lib/study-client/workspace-preferences.queries';`,
       `import { useQuiz } from '../features/practice/use-quiz';`
     ])
-      expect(await lint(source, 'apps/web/src/feature-previews/example.tsx')).toHaveLength(1);
+      expect(await lint(source, 'apps/client/src/feature-previews/example.tsx')).toHaveLength(1);
 
     expect(
       await lint(
         `import { ChatMessage } from '../features/chat/components/chat-message';`,
-        'apps/web/src/feature-previews/example.tsx'
+        'apps/client/src/feature-previews/example.tsx'
       )
     ).toHaveLength(0);
   }
@@ -59,11 +59,11 @@ testStable(
     expect(
       await lint(
         `fetch('/api'); new WebSocket('ws://localhost');`,
-        'apps/web/src/feature-previews/example.tsx'
+        'apps/client/src/feature-previews/example.tsx'
       )
     ).toHaveLength(2);
     expect(
-      await lint(`const data = { messages: [] };`, 'apps/web/src/feature-previews/example.tsx')
+      await lint(`const data = { messages: [] };`, 'apps/client/src/feature-previews/example.tsx')
     ).toHaveLength(0);
   }
 );

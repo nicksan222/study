@@ -9,7 +9,7 @@ testStable('Drizzle imports and exports belong exclusively to the database packa
     {
       'apps/server/src/direct.ts':
         "import { sql } from 'drizzle-orm'; import type { SQL } from 'drizzle-orm'; export * from 'drizzle-orm/sqlite-core'; export type { SQL } from 'drizzle-orm'; const migrate = import('drizzle-orm/node-sqlite/migrator'); type Query = import('drizzle-orm').SQL;",
-      'apps/web/src/direct.ts': "export { defineConfig } from 'drizzle-kit';",
+      'apps/client/src/direct.ts': "export { defineConfig } from 'drizzle-kit';",
       'apps/server/test/direct.test.ts': "import { eq } from 'drizzle-orm';",
       'apps/server/src/facade.ts':
         "import { sql, eq } from '@study/db'; export type { SQL } from '@study/db';",
