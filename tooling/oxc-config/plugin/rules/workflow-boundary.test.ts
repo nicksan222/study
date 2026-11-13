@@ -18,15 +18,15 @@ testStable(
         'apps/server/src/platform/workflows/store.ts': `import { Activity } from 'effect/workflow'; Activity.make({});`,
         'apps/server/src/platform/workflows/engine.ts': `import { WorkflowEngine } from 'effect/workflow'; WorkflowEngine.makeUnsafe({});`,
         'apps/server/src/domains/b/service.ts': `import { Workflow } from 'effect/workflow'; function f(Workflow) { Workflow.make('x'); }`,
-        'apps/web/src/a.ts': `export { Workflow } from 'effect/workflow';`,
+        'apps/client/src/a.ts': `export { Workflow } from 'effect/workflow';`,
         'packages/contracts/src/a.ts': `import type { Workflow } from 'effect/workflow';`
       })
     ).toStrictEqual([
+      'apps/client/src/a.ts',
       'apps/server/src/domains/a/service.ts',
       'apps/server/src/domains/a/service.ts',
       'apps/server/src/domains/a/service.ts',
       'apps/server/src/domains/a/service.ts',
-      'apps/web/src/a.ts',
       'packages/contracts/src/a.ts'
     ]);
   }

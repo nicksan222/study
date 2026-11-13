@@ -9,11 +9,11 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/web/test/e2e/good.test.ts':
+        'apps/client/test/e2e/good.test.ts':
           "import { expect, testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await page.goto('/notes'); await expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });",
-        'apps/web/test/e2e/bad.test.ts':
+        'apps/client/test/e2e/bad.test.ts':
           "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
-        'apps/web/test/e2e/old.test.ts':
+        'apps/client/test/e2e/old.test.ts':
           "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ checkpoint }) => { await checkpoint('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });"
       },
       true
@@ -27,9 +27,9 @@ testStable('browser specs cannot own resources, mock requests or use fixed waits
   const diagnostics = await lintRule(
     'web-e2e-harness',
     {
-      'apps/web/test/e2e/bad.test.ts':
+      'apps/client/test/e2e/bad.test.ts':
         "import { chromium } from 'playwright'; import { createTestDatabase } from '@study/db/testing'; import { serve } from '@study/server/runtime'; page.route('**/*', handler); page.waitForTimeout(50);",
-      'apps/web/test/e2e/harness/index.ts':
+      'apps/client/test/e2e/harness/index.ts':
         "import { chromium } from 'playwright'; chromium.launch();"
     },
     true
@@ -42,7 +42,7 @@ testStable('aliases cannot conceal interception or global timers', async () => {
   const diagnostics = await lintRule(
     'web-e2e-harness',
     {
-      'apps/web/test/e2e/helper.ts':
+      'apps/client/test/e2e/helper.ts':
         'const delay = setTimeout; const intercept = page.routeWebSocket; globalThis.setTimeout(fn, 10); const { routeFromHAR } = page;'
     },
     true
@@ -55,7 +55,7 @@ testStable('opaque and concurrent registrations cannot bypass the fixture bounda
   const diagnostics = await lintRule(
     'web-e2e-harness',
     {
-      'apps/web/test/e2e/bad.test.ts':
+      'apps/client/test/e2e/bad.test.ts':
         "import { testE2e } from './harness/index.ts'; testStable('opaque', callback); testE2e.concurrent('parallel', async () => {}); testStable.each([1])('parameterized', async () => {});"
     },
     true
@@ -70,7 +70,7 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/web/test/e2e/bad.test.ts':
+        'apps/client/test/e2e/bad.test.ts':
           "import { testE2e } from './harness/index.ts'; testE2e('W001', async ({ expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport' }); }); testE2e('Notes retain edits', async ({ expectScreenshot }) => { expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });"
       },
       true
@@ -86,7 +86,7 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/web/test/e2e/bad.test.ts':
+        'apps/client/test/e2e/bad.test.ts':
           "import { testE2e } from './harness/index.ts'; import { testWeb } from './harness/worker.ts'; testE2e('Notes retain edits', async ({ expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: async () => {} }); }); Bun.sleep(10);"
       },
       true
@@ -100,15 +100,16 @@ testStable('only direct public runtime imports are accepted', async () => {
   const diagnostics = await lintRule(
     'web-e2e-harness',
     {
-      'apps/web/test/e2e/bad.test.ts':
+      'apps/client/test/e2e/bad.test.ts':
         "import { testHarness, testE2e as hidden } from './harness/index.ts'; hidden('Notes retain edits', async () => {});",
-      'apps/web/test/e2e/aliased.test.ts': "import { expect as hidden } from './harness/index.ts';",
-      'apps/web/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';",
-      'apps/web/test/e2e/reexport.test.ts':
+      'apps/client/test/e2e/aliased.test.ts':
+        "import { expect as hidden } from './harness/index.ts';",
+      'apps/client/test/e2e/removed.test.ts': "import { expect } from './harness/assertions.ts';",
+      'apps/client/test/e2e/reexport.test.ts':
         "export { testHarness as run } from './harness/index.ts';",
-      'apps/web/test/e2e/export-all.test.ts': "export * from './harness/index.ts';",
-      'apps/web/test/e2e/dynamic.test.ts': "const harness = await import('./harness/index.ts');",
-      'apps/web/test/e2e/types.test.ts':
+      'apps/client/test/e2e/export-all.test.ts': "export * from './harness/index.ts';",
+      'apps/client/test/e2e/dynamic.test.ts': "const harness = await import('./harness/index.ts');",
+      'apps/client/test/e2e/types.test.ts':
         "import type { testE2e } from './harness/index.ts'; export type { testE2e } from './harness/index.ts'; export { type expect } from './harness/index.ts';"
     },
     true
@@ -123,7 +124,7 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/web/test/e2e/helper.ts': `
+        'apps/client/test/e2e/helper.ts': `
       async function journey({ page: browser }) {
         await browser.goto('/notes');
         await browser.reload();
@@ -155,7 +156,7 @@ testStable(
         other.evaluate(); other.click(); other.mouse.move(1, 2);
       }
     `,
-        'apps/web/test/e2e/harness/private.ts': `
+        'apps/client/test/e2e/harness/private.ts': `
       page.evaluate(() => document.body.click());
       page.mouse.click(1, 2); page.click('button', { force: true });
     `
@@ -226,7 +227,7 @@ testStable(
     ];
     const files = Object.fromEntries(
       cases.map((source, index) => [
-        `apps/web/test/e2e/helper-${index}${index % 2 ? '.test' : ''}.ts`,
+        `apps/client/test/e2e/helper-${index}${index % 2 ? '.test' : ''}.ts`,
         source
       ])
     );
@@ -261,7 +262,7 @@ testStable('screenshot readiness must await or return a matcher in its own callb
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/web/test/e2e/readiness.test.ts': `import { testE2e, expect } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
+        'apps/client/test/e2e/readiness.test.ts': `import { testE2e, expect } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: ${ready} }); });`
       },
       true
     );
@@ -307,7 +308,7 @@ testStable('forced locator options follow static spreads in last-property order'
 
   const files = Object.fromEntries(
     [...rejected, ...allowed].map((call, index) => [
-      `apps/web/test/e2e/helper-${index}.ts`,
+      `apps/client/test/e2e/helper-${index}.ts`,
       `const forced = { force: true }; const safe = { force: false };
      const cycle = { ...cycle }; const button = page.getByRole('button');
      ${call};`
@@ -338,7 +339,7 @@ testStable(
 
     const files = Object.fromEntries(
       [...rejected, ...allowed].map((source, index) => [
-        `apps/web/test/e2e/helper-${index}.ts`,
+        `apps/client/test/e2e/helper-${index}.ts`,
         source
       ])
     );
@@ -362,7 +363,7 @@ testStable('direct journey callbacks cannot escape into DOM or raw transports', 
   ];
   const files = Object.fromEntries(
     rejected.map((action, index) => [
-      `apps/web/test/e2e/direct-${index}.test.ts`,
+      `apps/client/test/e2e/direct-${index}.test.ts`,
       `import { testE2e, expect } from './harness/index.ts';
      testE2e('Recovery retains the draft', async ({ page: browser, expectScreenshot }) => {
        ${action}
@@ -376,7 +377,7 @@ testStable('direct journey callbacks cannot escape into DOM or raw transports', 
 
 testStable('public locator file drops need no DOM dispatch escape', async () => {
   const diagnostics = await lintRulePaths('web-e2e-harness', {
-    'apps/web/test/e2e/public-drop.ts': `
+    'apps/client/test/e2e/public-drop.ts': `
       async function journey({ page }) {
         const composer = page.getByRole('region', { name: 'Compose' });
         const files = [{ name: 'survey.md', mimeType: 'text/markdown', buffer: Buffer.from('Survey') }];
@@ -387,17 +388,17 @@ testStable('public locator file drops need no DOM dispatch escape', async () => 
         await target.drop({ files });
       }
     `,
-    'apps/web/test/e2e/dom-dispatch.ts': `
+    'apps/client/test/e2e/dom-dispatch.ts': `
       page.getByRole('region').dispatchEvent('drop', { dataTransfer });
     `,
-    'apps/web/test/e2e/dom-evaluate.ts': `
+    'apps/client/test/e2e/dom-evaluate.ts': `
       page.getByRole('region').evaluate(target => target.dispatchEvent(event));
     `
   });
 
   assert.deepStrictEqual(diagnostics, [
-    'apps/web/test/e2e/dom-dispatch.ts',
-    'apps/web/test/e2e/dom-evaluate.ts'
+    'apps/client/test/e2e/dom-dispatch.ts',
+    'apps/client/test/e2e/dom-evaluate.ts'
   ]);
 });
 
@@ -411,18 +412,18 @@ testStable('journey names describe behavior instead of workflow tracker IDs', as
   `;
 
   const diagnostics = await lintRulePaths('web-e2e-harness', {
-    'apps/web/test/e2e/markdown-source.test.ts': journey,
-    'apps/web/test/e2e/w014-markdown.test.ts': journey,
-    'apps/web/test/e2e/workflow-014.test.ts': journey,
-    'apps/web/test/e2e/numbered-title.test.ts': journey.replace(
+    'apps/client/test/e2e/markdown-source.test.ts': journey,
+    'apps/client/test/e2e/w014-markdown.test.ts': journey,
+    'apps/client/test/e2e/workflow-014.test.ts': journey,
+    'apps/client/test/e2e/numbered-title.test.ts': journey.replace(
       'Read and reopen',
       'W014 reads and reopens'
     )
   });
 
   assert.deepStrictEqual(diagnostics, [
-    'apps/web/test/e2e/numbered-title.test.ts',
-    'apps/web/test/e2e/w014-markdown.test.ts',
-    'apps/web/test/e2e/workflow-014.test.ts'
+    'apps/client/test/e2e/numbered-title.test.ts',
+    'apps/client/test/e2e/w014-markdown.test.ts',
+    'apps/client/test/e2e/workflow-014.test.ts'
   ]);
 });

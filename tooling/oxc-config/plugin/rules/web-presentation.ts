@@ -16,7 +16,7 @@ export default defineRule({
         if (!/\.(?:css|scss|sass|less)(?:\?|$)/.test(source)) return;
 
         if (
-          filename.endsWith('/apps/web/src/main.tsx') &&
+          filename.endsWith('/apps/client/src/main.tsx') &&
           (source === './styles.css' || source === '@study/ui/styles.css')
         )
           return;

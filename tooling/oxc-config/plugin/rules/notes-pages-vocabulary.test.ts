@@ -135,8 +135,9 @@ testStable('allows web authentication sessions and shadowed collection type name
   const diagnostics = await lintRule(
     rule,
     {
-      'apps/web/src/features/auth/provider.ts': 'const session = account; const sessionId = token;',
-      'apps/web/src/features/pages/example.ts': `
+      'apps/client/src/features/auth/provider.ts':
+        'const session = account; const sessionId = token;',
+      'apps/client/src/features/pages/example.ts': `
       import type { PageId } from '@study/contracts/ids';
       type Array<T> = { content: string };
       const document: Array<PageId> = value;

@@ -15,7 +15,9 @@ import { GenericContainer, getContainerRuntimeClient } from 'testcontainers';
 import { fs, path, run } from './filesystem.ts';
 
 /** Copy authored input only; never mount a checkout, host dependencies, credentials or test state. */
-export async function buildContext(root = process.cwd()) {
+export async function buildContext(
+  root = Bun.fileURLToPath(new URL('../../../../', import.meta.url))
+) {
   const directory = await run(fs.makeTempDirectory({ prefix: 'study-integrations-image-' }));
   const files = [
     'package.json',
@@ -24,7 +26,7 @@ export async function buildContext(root = process.cwd()) {
     'packages',
     'apps/server',
     'tooling',
-    'apps/web/package.json',
+    'apps/client/package.json',
     'apps/desktop/package.json'
   ];
 

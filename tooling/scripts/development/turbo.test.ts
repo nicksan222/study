@@ -48,7 +48,7 @@ async function fixture() {
         Object.keys(pkg.scripts ?? {}).map((name) => [name, command])
       );
 
-      if (pkg.name === '@study/web')
+      if (pkg.name === '@study/client')
         scripts.build = "bun -e \"await Bun.write('dist/result.txt', 'built')\"";
 
       await Bun.write(
@@ -116,7 +116,7 @@ testStable(
     await Bun.write(`${repo.path}/packages/ui/src/input.ts`, 'changed');
     let ids = (await repo.plan('check', '--affected')).tasks.map((task) => task.taskId);
 
-    assert.includeMembers(ids, ['@study/ui#test', '@study/web#e2e', '//#check:global']);
+    assert.includeMembers(ids, ['@study/ui#test', '@study/client#e2e', '//#check:global']);
     assert.notInclude(ids, '@study/desktop#check');
     await $`git -C ${repo.path} checkout -- packages/ui/src/input.ts`.quiet();
     await Bun.write(`${repo.path}/packages/ui/src/new\nfile.ts`, 'untracked');
@@ -131,7 +131,11 @@ testStable(
     );
     await $`git -C ${repo.path} mv packages/ui/src/input.ts packages/contracts/src/moved.ts`.quiet();
     ids = (await repo.plan('check', '--affected')).tasks.map((task) => task.taskId);
-    assert.includeMembers(ids, ['@study/contracts#test', '@study/server#test', '@study/web#test']);
+    assert.includeMembers(ids, [
+      '@study/contracts#test',
+      '@study/server#test',
+      '@study/client#test'
+    ]);
   }
 );
 
@@ -145,7 +149,7 @@ testStable(
 
     assert.includeMembers(ids, [
       '@study/server#test',
-      '@study/web#test',
+      '@study/client#test',
       '@study/desktop#check',
       '@study/db#gen:check'
     ]);
@@ -164,32 +168,32 @@ testStable(
   'Turbo restores build outputs from cache and invalidates changed dependency inputs',
   async () => {
     await using repo = await fixture();
-    const args = ['build', '--filter=@study/web', '--concurrency=1'];
+    const args = ['build', '--filter=@study/client', '--concurrency=1'];
     const before = await repo.plan(...args);
 
     assert.equal((await repo.run(args)).code, 0);
-    await $`rm -rf ${repo.path}/apps/web/dist`.quiet();
+    await $`rm -rf ${repo.path}/apps/client/dist`.quiet();
     const cached = await repo.plan(...args);
 
     assert.equal(
-      cached.tasks.find((task) => task.taskId === '@study/web#build')?.cache.status,
+      cached.tasks.find((task) => task.taskId === '@study/client#build')?.cache.status,
       'HIT'
     );
     assert.equal((await repo.run(args)).code, 0);
-    assert.equal(await Bun.file(`${repo.path}/apps/web/dist/result.txt`).text(), 'built');
+    assert.equal(await Bun.file(`${repo.path}/apps/client/dist/result.txt`).text(), 'built');
     await Bun.write(`${repo.path}/packages/ui/src/input.ts`, 'dependency changed');
     const changed = await repo.plan(...args);
     const hash = (plan: Plan) =>
-      plan.tasks.find((task) => task.taskId === '@study/web#build')?.hash;
+      plan.tasks.find((task) => task.taskId === '@study/client#build')?.hash;
 
     assert.notEqual(hash(changed), hash(before));
     assert.equal(
-      changed.tasks.find((task) => task.taskId === '@study/web#build')?.cache.status,
+      changed.tasks.find((task) => task.taskId === '@study/client#build')?.cache.status,
       'MISS'
     );
     assert.include(
-      changed.tasks.find((task) => task.taskId === '@study/web#build')?.dependencies ?? [],
-      '@study/web#typecheck'
+      changed.tasks.find((task) => task.taskId === '@study/client#build')?.dependencies ?? [],
+      '@study/client#typecheck'
     );
   }
 );
@@ -199,7 +203,7 @@ testStable('shared test setup and native permissions affect the owning tasks', a
   const hash = (plan: Plan, id: string) => plan.tasks.find((task) => task.taskId === id)?.hash;
   const before = await repo.plan('test');
 
-  await Bun.write(`${repo.path}/apps/web/src/test/setup.ts`, 'changed');
+  await Bun.write(`${repo.path}/apps/client/src/test/setup.ts`, 'changed');
   let after = await repo.plan('test');
 
   assert.notEqual(hash(after, '@study/ui#test'), hash(before, '@study/ui#test'));

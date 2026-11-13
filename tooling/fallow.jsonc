@@ -10,7 +10,7 @@
     // Source fixtures are imported as bytes, never executed as tooling modules.
     "tooling/scripts/seed/fixtures/files/**",
     "graphify-out/**",
-    "apps/web/src/routeTree.gen.ts",
+    "apps/client/src/routeTree.gen.ts",
     "apps/desktop/src-tauri/gen/**"
   ],
   // Private workspace exports must have a real consumer.
@@ -101,12 +101,12 @@
         "patterns": ["apps/server/src/runtime/**"]
       },
       {
-        "name": "web-previews",
-        "patterns": ["apps/web/src/feature-previews/**"]
+        "name": "client-previews",
+        "patterns": ["apps/client/src/feature-previews/**"]
       },
       {
-        "name": "web",
-        "patterns": ["apps/web/src/**", "apps/web/index.html"]
+        "name": "client",
+        "patterns": ["apps/client/src/**", "apps/client/index.html"]
       },
       {
         "name": "landing",
@@ -118,8 +118,8 @@
           "tooling/**",
           "**/*.config.*",
           "apps/desktop/**",
-          "apps/web/tsr.config.json",
-          "apps/web/*.ts",
+          "apps/client/tsr.config.json",
+          "apps/client/*.ts",
           "apps/landing/*.ts",
           "apps/landing/scripts/**"
         ]
@@ -175,16 +175,16 @@
         ]
       },
       {
-        "from": "web-previews",
-        "allow": ["web", "contracts", "ui", "localization", "theme"]
+        "from": "client-previews",
+        "allow": ["client", "contracts", "ui", "localization", "theme"]
       },
       {
-        "from": "web",
+        "from": "client",
         "allow": ["server-client", "contracts", "ui", "localization", "theme"]
       },
       {
         "from": "landing",
-        "allow": ["theme", "localization", "ui", "contracts", "web-previews"]
+        "allow": ["theme", "localization", "ui", "contracts", "client-previews"]
       },
       {
         "from": "tests",
@@ -200,8 +200,8 @@
           "server-platform",
           "server-features",
           "server-runtime",
-          "web",
-          "web-previews",
+          "client",
+          "client-previews",
           "landing",
           "tooling"
         ]
@@ -219,8 +219,8 @@
           "server-platform",
           "server-features",
           "server-runtime",
-          "web",
-          "web-previews",
+          "client",
+          "client-previews",
           "landing",
           "tooling"
         ]
@@ -245,8 +245,8 @@
     }
   ],
   "entry": [
-    // The web package also exposes fixture views; its HTML application remains a runtime root.
-    "apps/web/src/main.tsx",
+    // The client package also exposes fixture views; its HTML application remains a runtime root.
+    "apps/client/src/main.tsx",
     "packages/localization/test/api.types.ts",
     "packages/testing/test/api.types.ts",
     "packages/testing/test/vitest.types.ts",
@@ -263,7 +263,7 @@
       // Vitest consumes these default exports as a fixture config and globalSetup hook.
       "configPatterns": [
         "apps/server/test/testing/automatic-fixture.config.ts",
-        "apps/web/test/e2e/harness/preflight.ts"
+        "apps/client/test/e2e/harness/preflight.ts"
       ]
     }
   ]

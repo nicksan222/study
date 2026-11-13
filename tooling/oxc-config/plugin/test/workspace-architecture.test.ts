@@ -50,8 +50,8 @@ testStable(
     const issues = workspaceArchitecture({
       ...valid,
       'packages/ai': { name: '@study/ai' },
-      'apps/web': {
-        name: '@study/web',
+      'apps/client': {
+        name: '@study/client',
         optionalDependencies: { '@study/ai': '*', '@ai-sdk/openai': '3.0.132', 'drizzle-orm': '1' }
       }
     });
@@ -86,7 +86,7 @@ testStable(
   () => {
     const issues = workspaceArchitecture({
       ...valid,
-      'apps/web': { dependencies: { effect: '^4.0.7', ai: '6' } },
+      'apps/client': { dependencies: { effect: '^4.0.7', ai: '6' } },
       'packages/contracts': { ...valid['packages/contracts'], dependencies: { effect: '4.0.5' } }
     });
 
@@ -97,7 +97,7 @@ testStable(
 testStable('retired transport dependencies are rejected in every manifest section', () => {
   const issues = workspaceArchitecture({
     ...valid,
-    'apps/web': {
+    'apps/client': {
       dependencies: { '@trpc/client': '1', superjson: '1' },
       devDependencies: { '@trpc/server': '1' }
     }

@@ -50,13 +50,13 @@ export default defineConfig({
       alias: {
         '#brand': Bun.fileURLToPath(new URL('../../packages/ui/assets', import.meta.url)),
         // Static previews replace data hooks; production keeps the real services.
-        '#web/lib/ai-readiness.ts': Bun.fileURLToPath(
+        '#client/lib/ai-readiness.ts': Bun.fileURLToPath(
           new URL('./src/previews/ai-readiness.ts', import.meta.url)
         ),
-        '#web/lib/study-client/workspace-preferences.queries.ts': Bun.fileURLToPath(
+        '#client/lib/study-client/workspace-preferences.queries.ts': Bun.fileURLToPath(
           new URL('./src/previews/workspace-preferences.ts', import.meta.url)
         ),
-        '#web': Bun.fileURLToPath(new URL('../web/src', import.meta.url))
+        '#client': Bun.fileURLToPath(new URL('../client/src', import.meta.url))
       }
     },
     server: { fs: { allow: ['../..'] } }

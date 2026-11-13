@@ -59,7 +59,7 @@ try {
   web = await createServer({
     // Watch mode must not observe Vite's disposable bundled configuration files.
     configLoader: 'native',
-    configFile: resolve(root, 'apps/web/vite.config.ts'),
+    configFile: resolve(root, 'apps/client/vite.config.ts'),
     server: { proxy: studyRpcProxy(server.url) }
   });
   await web.listen();

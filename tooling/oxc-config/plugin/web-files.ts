@@ -5,7 +5,7 @@ const { dirname, relative, resolve } = Effect.runSync(Effect.provide(Path.Path, 
 
 export function webFile(filename: string): string | undefined {
   const path = filename.replaceAll('\\', '/');
-  const marker = '/apps/web/src/';
+  const marker = '/apps/client/src/';
   const index = path.lastIndexOf(marker);
 
   if (index < 0 || /\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests|__tests__)\//.test(path))
@@ -15,14 +15,14 @@ export function webFile(filename: string): string | undefined {
 }
 
 export function webTarget(filename: string, source: string): string | undefined {
-  if (!source.startsWith('.') && !source.startsWith('/') && !source.startsWith('#web/'))
+  if (!source.startsWith('.') && !source.startsWith('/') && !source.startsWith('#client/'))
     return undefined;
 
-  const marker = '/apps/web/src/';
+  const marker = '/apps/client/src/';
   const path = filename.replaceAll('\\', '/');
   const root = path.slice(0, path.lastIndexOf(marker) + marker.length);
-  const resolved = source.startsWith('#web/')
-    ? resolve(root, source.slice(5))
+  const resolved = source.startsWith('#client/')
+    ? resolve(root, source.slice('#client/'.length))
     : resolve(dirname(filename), source);
   const target = relative(root, resolved).replaceAll('\\', '/');
 

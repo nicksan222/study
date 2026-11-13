@@ -14,7 +14,7 @@ testStable(
       'apps/server/config.ts': 'export {};',
       'apps/server/script.mjs': 'export {};',
       'apps/server/types.d.ts': 'export {};',
-      'apps/web/src/main.ts': 'export {};',
+      'apps/client/src/main.ts': 'export {};',
       'packages/server/src/main.ts': 'export {};',
       'packages/other/apps/server/main.ts': 'export {};'
     };

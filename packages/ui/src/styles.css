@@ -24,7 +24,7 @@
 @import './components/danger-dialog.css';
 @import './components/toast.css';
 @source "./";
-@source "../../../apps/web/src";
+@source "../../../apps/client/src";
 
 @custom-variant dark (&:is(.dark, .dark *));
 @custom-variant light (&:not(.dark, .dark *));

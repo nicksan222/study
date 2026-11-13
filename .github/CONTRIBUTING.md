@@ -8,6 +8,8 @@ Thank you for helping with Study.
   people as much as to agents. Everything else is in the code, beginning with each crate's
   `src/lib.rs`.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
+- **Record agreed architecture requirements in `doc/adr`.** Follow
+  [Architecture decision records](../doc/adr/architecture-decision-records.md).
 - Dependabot pull requests targeting `main` use squash auto-merge after the required
   `Test and build` check passes on the current base.
 - **Run `bun run check` before you push.** It is what CI runs: formatting, Clippy with warnings
@@ -93,10 +95,10 @@ noVNC packages stay installed but do not start automatically. Reserve `bun run r
 remote native viewer, run `bun run desktop-attach` and manually forward container port 5900.
 Routine browser work needs none of these native helpers.
 
-The root package scripts expose the project commands; `bun run` lists all tasks. Web Vite, router and TypeScript
-configs live in `apps/web`; shared TypeScript settings live in `tooling/typescript`.
+The root package scripts expose the project commands; `bun run` lists all tasks. Client Vite, router and TypeScript
+configs live in `apps/client`; shared TypeScript settings live in `tooling/typescript`.
 Rust lint and dependency policy live in `tooling/rust`; `.cargo/config.toml` points Clippy
-there for both recipes and direct Cargo invocations. Root package scripts select the web
+there for both recipes and direct Cargo invocations. Root package scripts select the shared client
 workspace and server TypeScript config. Vite+ (`vp`) owns web development, builds,
 Vitest for every TypeScript and JavaScript test suite, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
 shared policies from `tooling/oxc-config`; these apply to server, frontend, tests and tooling.
@@ -400,11 +402,11 @@ files. Set `TURBO_SCM_BASE=origin/main` (or another ref) to choose the compariso
 an unavailable base reports an error. Without an override, Turbo compares with `main`.
 
 `bun run test`, `bun run typecheck`, `bun run build`, and `bun run check` run the respective
-tasks across workspaces. Add `--filter=@study/web` to select a package, or use
+tasks across workspaces. Add `--filter=@study/client` to select a package, or use
 `bun run test --affected` for affected tests only. Packages own their task commands;
 Turbo handles selection, dependency ordering, and local caching. Shared source-only
 packages participate in the graph without redundant builds or separate typecheck projects.
-The existing server, web and tooling TypeScript projects remain the checking boundaries.
+The existing server, client and tooling TypeScript projects remain the checking boundaries.
 
 Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
 Server/database, real integration, browser-journey, tooling and native tests stay uncached.

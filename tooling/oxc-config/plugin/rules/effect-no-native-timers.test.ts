@@ -72,9 +72,9 @@ testStable('enforces the Effect contract in browser operations', async () => {
   const diagnostics = await lintRule(
     'effect-no-native-timers',
     {
-      'apps/web/src/features/example/page.logic.ts':
+      'apps/client/src/features/example/page.logic.ts':
         'export const task = setTimeout(() => {}, 10);',
-      'apps/web/src/features/example/page.logic.test.ts':
+      'apps/client/src/features/example/page.logic.test.ts':
         'export const task = setTimeout(() => {}, 10);'
     },
     true
@@ -88,7 +88,7 @@ testStable('allows a debounce timeout owned by a React hook effect', async () =>
     await lintRule(
       'effect-no-native-timers',
       {
-        'apps/web/src/app/shell/use-sidebar.ts': `
+        'apps/client/src/app/shell/use-sidebar.ts': `
       import { useEffect as effect } from 'react';
       effect(() => {
         const timer = setTimeout(updateSearch, 200);

@@ -65,7 +65,7 @@ testStable('browser consumers cannot import server package or retired transports
   const diagnostics = await lintRule(
     'browser-boundary',
     {
-      'apps/web/src/a.ts':
+      'apps/client/src/a.ts':
         "import type { AppRouter } from '@study/server'; export * from '@trpc/client'; const load = require; load('superjson'); function f(require: any) { require('superjson'); }",
       'packages/contracts/src/a.ts': "export { x } from '@trpc/server';"
     },
@@ -79,11 +79,30 @@ testStable('browser consumers use only the explicit native client entrypoint', a
   const diagnostics = await lintRule(
     'browser-boundary',
     {
-      'apps/web/src/client.ts':
+      'apps/client/src/client.ts':
         "import { makeStudyClient } from '@study/server/client'; import '@study/server/client/node'; import '@study/server';"
     },
     true
   );
 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+});
+
+testStable('only the shared client host boundary can import native APIs', async () => {
+  const diagnostics = await lintRule(
+    'browser-boundary',
+    {
+      'apps/client/src/lib/host.ts':
+        "import { invoke } from '@tauri-apps/api/core'; import { openUrl } from '@tauri-apps/plugin-opener';",
+      'apps/client/src/pages/settings/updates.tsx':
+        "import { isTauri } from '@tauri-apps/api/core';",
+      'apps/client/src/lib/study-client/client.ts':
+        "export { invoke } from '@tauri-apps/api/core';",
+      'packages/ui/src/native.ts': "import('@tauri-apps/plugin-opener');"
+    },
+    true
+  );
+
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => !filename.endsWith('/lib/host.ts')));
 });

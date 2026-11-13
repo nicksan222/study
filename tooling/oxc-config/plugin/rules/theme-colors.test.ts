@@ -68,7 +68,7 @@ testStable(
     const diagnostics = await lintRule(
       'theme-colors',
       {
-        'apps/web/src/colors.tsx': `export const view = <div className="bg-background text-foreground"><p className="hover:border-t-red-500" style={{ color: "darkslateblue" }}>A blue sky</p><div className="[color:#abc]" /><div style={{ backgroundImage: "linear-gradient(red, blue)", "color": "red" }} /></div>;`
+        'apps/client/src/colors.tsx': `export const view = <div className="bg-background text-foreground"><p className="hover:border-t-red-500" style={{ color: "darkslateblue" }}>A blue sky</p><div className="[color:#abc]" /><div style={{ backgroundImage: "linear-gradient(red, blue)", "color": "red" }} /></div>;`
       },
       true
     );
@@ -84,7 +84,7 @@ testStable(
     const diagnostics = await lintRule(
       'theme-colors',
       {
-        'apps/web/src/templates.tsx':
+        'apps/client/src/templates.tsx':
           'export const view = <div style={{ color: `red`, "background-image": `linear-gradient(red, blue)` }}><svg fill={"red"} /><div className="border-t-[red] inset-shadow-[0_1px_red] [background-image:linear-gradient(red,_blue)]" /></div>;'
       },
       true
@@ -104,9 +104,9 @@ testStable(
     const diagnostics = await lintRule(
       'theme-colors',
       {
-        'apps/web/src/feature-previews/index.tsx':
+        'apps/client/src/feature-previews/index.tsx':
           'export const view = <div className="bg-stone-50" style={{ color: "#abc" }} />;',
-        'apps/web/src/feature-previews/semantic.tsx':
+        'apps/client/src/feature-previews/semantic.tsx':
           'export const view = <div className="bg-background text-foreground" />;',
         'apps/landing/src/components/Notebook.tsx':
           'export const view = <div style={{ color: "#abc" }} />;'

@@ -52,7 +52,9 @@ function isColorValue(node: ESTree.Node): boolean {
 function checksThemeColors(path: string): boolean {
   const filename = path.replaceAll('\\', '/');
 
-  return /\/(?:apps\/web|packages\/ui)\/src\//.test(filename) && !/\.test\.[jt]sx?$/.test(filename);
+  return (
+    /\/(?:apps\/client|packages\/ui)\/src\//.test(filename) && !/\.test\.[jt]sx?$/.test(filename)
+  );
 }
 
 function colorPropertyName(key: ESTree.Node): string {

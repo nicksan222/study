@@ -7,9 +7,9 @@ testStable('requires page presentation and behavioral tests beside each page', a
   const diagnostics = await lintRule(
     'web-page-contract',
     {
-      'apps/web/src/pages/home/page.tsx': `export function Page() { return null; }`,
-      'apps/web/src/pages/home/page.logic.ts': `export const load = () => 1;`,
-      'apps/web/src/pages/home/use-page.ts': `export const usePage = () => 1;`
+      'apps/client/src/pages/home/page.tsx': `export function Page() { return null; }`,
+      'apps/client/src/pages/home/page.logic.ts': `export const load = () => 1;`,
+      'apps/client/src/pages/home/use-page.ts': `export const usePage = () => 1;`
     },
     true
   );
@@ -22,10 +22,10 @@ testStable('accepts tested static pages without inventing asynchronous logic', a
     await lintRule(
       'web-page-contract',
       {
-        'apps/web/src/pages/home/page.tsx': `import { PageView } from './page.view'; export function Page() { return <PageView />; }`,
-        'apps/web/src/pages/home/page.view.tsx': `export function PageView() { return null; }`,
-        'apps/web/src/pages/home/page.test.tsx': `export {};`,
-        'apps/web/src/pages/home/page.view.test.tsx': `export {};`
+        'apps/client/src/pages/home/page.tsx': `import { PageView } from './page.view'; export function Page() { return <PageView />; }`,
+        'apps/client/src/pages/home/page.view.tsx': `export function PageView() { return null; }`,
+        'apps/client/src/pages/home/page.test.tsx': `export {};`,
+        'apps/client/src/pages/home/page.view.test.tsx': `export {};`
       },
       true
     )
@@ -36,11 +36,11 @@ testStable('keeps route modules declarative and page composition free of state',
   const diagnostics = await lintRule(
     'web-page-contract',
     {
-      'apps/web/src/routes/Home.tsx': `import { useState } from 'react'; export const extra = 1; export const Route = {}; const Page = () => <div />;`,
-      'apps/web/src/pages/home/page.tsx': `import { useState } from 'react'; export function Page() { const [x] = useState(1); return null; }`,
-      'apps/web/src/pages/home/page.view.tsx': `export const PageView = () => null;`,
-      'apps/web/src/pages/home/page.test.tsx': `export {};`,
-      'apps/web/src/pages/home/page.view.test.tsx': `export {};`
+      'apps/client/src/routes/Home.tsx': `import { useState } from 'react'; export const extra = 1; export const Route = {}; const Page = () => <div />;`,
+      'apps/client/src/pages/home/page.tsx': `import { useState } from 'react'; export function Page() { const [x] = useState(1); return null; }`,
+      'apps/client/src/pages/home/page.view.tsx': `export const PageView = () => null;`,
+      'apps/client/src/pages/home/page.test.tsx': `export {};`,
+      'apps/client/src/pages/home/page.view.test.tsx': `export {};`
     },
     true
   );
@@ -54,7 +54,7 @@ testStable(
     const diagnostics = await lintRule(
       'web-page-contract',
       {
-        'apps/web/src/routes/Home.tsx': `
+        'apps/client/src/routes/Home.tsx': `
       import { createFileRoute } from '@tanstack/react-router';
       import { useSidebar } from '../app/shell/use-sidebar';
       export const Route = createFileRoute('/Home')({
@@ -76,7 +76,7 @@ testStable(
       await lintRule(
         'web-page-contract',
         {
-          'apps/web/src/routes/Home.tsx': `
+          'apps/client/src/routes/Home.tsx': `
       import { createFileRoute, redirect } from '@tanstack/react-router';
       import { Page } from '../pages/home/page';
       export const Route = createFileRoute('/Home')({

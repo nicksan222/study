@@ -23,14 +23,14 @@ const contracts = /^@study\/contracts\/(?:ids$|pages(?:\/|$))/;
 
 function activeFile(filename: string): boolean {
   return (
-    /\/(?:apps\/(?:server|web)\/src|packages\/(?:contracts|db|ui|localization)\/src)\//.test(
+    /\/(?:apps\/(?:server|client)\/src|packages\/(?:contracts|db|ui|localization)\/src)\//.test(
       filename
     ) && !/\.(?:test|spec)\.[cm]?[jt]sx?$|\/(?:test|tests|__tests__)\//.test(filename)
   );
 }
 
 function noteDomain(filename: string): boolean {
-  return /\/apps\/web\/src\/(?:app\/shell|features\/(?:note-workspace|pages)|pages\/notes)\/|\/features\/(?:notes|pages)\/|\/contracts\/src\/(?:notes|pages)\/|\/db\/src\/schema\/(?:notes|note-[^/]+)\.|\/ui\/src\/components\/note-/.test(
+  return /\/apps\/client\/src\/(?:app\/shell|features\/(?:note-workspace|pages)|pages\/notes)\/|\/features\/(?:notes|pages)\/|\/contracts\/src\/(?:notes|pages)\/|\/db\/src\/schema\/(?:notes|note-[^/]+)\.|\/ui\/src\/components\/note-/.test(
     filename
   );
 }

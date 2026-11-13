@@ -3,7 +3,7 @@ import { expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-async function lint(source: string, path = 'apps/web/src/features/example/example.tsx') {
+async function lint(source: string, path = 'apps/client/src/features/example/example.tsx') {
   return await lintRule('shared-ui-patterns', { [path]: source }, true);
 }
 

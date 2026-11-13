@@ -7,14 +7,14 @@ export default defineRule({
     const filename = context.filename.replaceAll('\\', '/');
 
     if (
-      !filename.includes('/apps/web/src/') ||
+      !filename.includes('/apps/client/src/') ||
       filename.endsWith('/lib/ai-action-button.tsx') ||
       /\.test\.[jt]sx?$/.test(filename)
     )
       return {};
 
     const message =
-      'Use AiActionButton from #web/lib/ai-action-button.tsx with an explicit tier; app AI actions must check provider readiness and guard clicks.';
+      'Use AiActionButton from #client/lib/ai-action-button.tsx with an explicit tier; app AI actions must check provider readiness and guard clicks.';
 
     return {
       ImportDeclaration(node) {

@@ -32,7 +32,7 @@ RUN mkdir /workspace && chown bun:bun /workspace
 WORKDIR /workspace
 COPY --chown=bun:bun package.json bun.lock ./
 COPY --chown=bun:bun apps/server/package.json apps/server/package.json
-COPY --chown=bun:bun apps/web/package.json apps/web/package.json
+COPY --chown=bun:bun apps/client/package.json apps/client/package.json
 COPY --chown=bun:bun apps/desktop/package.json apps/desktop/package.json
 COPY --chown=bun:bun packages/contracts/package.json packages/contracts/package.json
 COPY --chown=bun:bun packages/db/package.json packages/db/package.json

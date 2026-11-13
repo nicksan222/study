@@ -7,8 +7,8 @@ testStable('library and practice routes declare loading and search dependencies'
   const diagnostics = await lintRule(
     'web-router-loaders',
     {
-      'apps/web/src/routes/MediaList.tsx': `import { createFileRoute as route } from '@tanstack/react-router'; export const Route = route('/MediaList')({ staticData: {section: 'library'}, component: Page });`,
-      'apps/web/src/routes/Practice.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Practice')({ staticData: {section: 'practice'}, loader: load, component: Page });`
+      'apps/client/src/routes/MediaList.tsx': `import { createFileRoute as route } from '@tanstack/react-router'; export const Route = route('/MediaList')({ staticData: {section: 'library'}, component: Page });`,
+      'apps/client/src/routes/Practice.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Practice')({ staticData: {section: 'practice'}, loader: load, component: Page });`
     },
     true
   );
@@ -21,9 +21,9 @@ testStable('allows loaded routes, redirects, and pages without data requirements
     await lintRule(
       'web-router-loaders',
       {
-        'apps/web/src/routes/MediaList.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/MediaList')({ staticData: {section: 'library'}, loaderDeps: deps, loader: load, component: Page });`,
-        'apps/web/src/routes/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/')({ beforeLoad: redirect });`,
-        'apps/web/src/routes/Help.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Help')({ component: Page });`
+        'apps/client/src/routes/MediaList.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/MediaList')({ staticData: {section: 'library'}, loaderDeps: deps, loader: load, component: Page });`,
+        'apps/client/src/routes/index.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/')({ beforeLoad: redirect });`,
+        'apps/client/src/routes/Help.tsx': `import { createFileRoute } from '@tanstack/react-router'; export const Route = createFileRoute('/Help')({ component: Page });`
       },
       true
     )
@@ -34,8 +34,8 @@ testStable('canonical Material browse and read routes retain loader requirements
   const diagnostics = await lintRule(
     'web-router-loaders',
     {
-      'apps/web/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, component: LibraryPage});`,
-      'apps/web/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, beforeLoad: validate, loader: load, component: ReaderPage});`
+      'apps/client/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, component: LibraryPage});`,
+      'apps/client/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, beforeLoad: validate, loader: load, component: ReaderPage});`
     },
     true
   );
@@ -45,8 +45,8 @@ testStable('canonical Material browse and read routes retain loader requirements
     await lintRule(
       'web-router-loaders',
       {
-        'apps/web/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, loaderDeps: ({search}) => ({project: search.project}), loader: load, component: LibraryPage});`,
-        'apps/web/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, loaderDeps: deps, beforeLoad: validate, loader: load, component: ReaderPage});`
+        'apps/client/src/routes/library.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/library')({staticData: {section: 'library'}, loaderDeps: ({search}) => ({project: search.project}), loader: load, component: LibraryPage});`,
+        'apps/client/src/routes/materials.$materialId.tsx': `import {createFileRoute} from '@tanstack/react-router'; export const Route = createFileRoute('/materials/$materialId')({staticData: {section: 'library'}, loaderDeps: deps, beforeLoad: validate, loader: load, component: ReaderPage});`
       },
       true
     )

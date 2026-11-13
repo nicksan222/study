@@ -56,9 +56,9 @@ testStable('enforces the Effect contract in browser operations', async () => {
   const diagnostics = await lintRule(
     'effect-no-throw',
     {
-      'apps/web/src/features/example/page.logic.ts':
+      'apps/client/src/features/example/page.logic.ts':
         "import { Effect } from 'effect'; import { StudyError } from '@study/contracts/errors'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });",
-      'apps/web/src/features/example/page.logic.test.ts':
+      'apps/client/src/features/example/page.logic.test.ts':
         "import { Effect } from 'effect'; import { StudyError } from '@study/contracts/errors'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
     },
     true

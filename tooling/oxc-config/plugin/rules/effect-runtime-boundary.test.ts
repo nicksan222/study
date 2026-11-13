@@ -157,9 +157,9 @@ testStable('only the browser runtime adapter may execute browser operations', as
   const diagnostics = await lintRule(
     'effect-runtime-boundary',
     {
-      'apps/web/src/features/example/page.logic.ts': code,
-      'apps/web/src/lib/effect/runtime.ts': code,
-      'apps/web/src/features/example/page.logic.test.ts': code
+      'apps/client/src/features/example/page.logic.ts': code,
+      'apps/client/src/lib/effect/runtime.ts': code,
+      'apps/client/src/features/example/page.logic.test.ts': code
     },
     true
   );

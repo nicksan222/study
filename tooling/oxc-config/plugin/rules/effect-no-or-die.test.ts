@@ -38,9 +38,9 @@ testStable('enforces the Effect contract in browser operations', async () => {
   const diagnostics = await lintRule(
     'effect-no-or-die',
     {
-      'apps/web/src/features/example/page.logic.ts':
+      'apps/client/src/features/example/page.logic.ts':
         "import { Effect } from 'effect'; export const task = Effect.orDie(other);",
-      'apps/web/src/features/example/page.logic.test.ts':
+      'apps/client/src/features/example/page.logic.test.ts':
         "import { Effect } from 'effect'; export const task = Effect.orDie(other);"
     },
     true

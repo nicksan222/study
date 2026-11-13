@@ -9,7 +9,7 @@ export default defineRule({
     const contracts = /\/packages\/contracts\/src\//.test(filename);
     const current = serverPath(filename);
 
-    const browser = /\/(?:apps\/web|packages\/ui|packages\/theme)\/src\//.test(filename);
+    const browser = /\/(?:apps\/client|packages\/ui|packages\/theme)\/src\//.test(filename);
 
     if (
       !browser &&
@@ -20,9 +20,22 @@ export default defineRule({
     )
       return {};
 
+    const privateBoundaryMessage = contracts
+      ? 'Contracts cannot depend on server or database modules.'
+      : 'Browser entrypoints cannot import server or database values.';
+
     return moduleEdges(context, (node, source) => {
       if (!source) {
         context.report({ node, message: 'Browser boundaries require literal module paths.' });
+
+        return;
+      }
+
+      if (nativeOutsideHost(browser, filename, source)) {
+        context.report({
+          node,
+          message: 'Native APIs belong in the shared client host boundary.'
+        });
 
         return;
       }
@@ -54,14 +67,20 @@ export default defineRule({
       if (blocked) {
         context.report({
           node,
-          message: contracts
-            ? 'Contracts cannot depend on server or database modules.'
-            : 'Browser entrypoints cannot import server or database values.'
+          message: privateBoundaryMessage
         });
       }
     });
   }
 });
+
+function nativeOutsideHost(browser: boolean, filename: string, source: string): boolean {
+  return (
+    browser &&
+    /^@tauri-apps(?:\/|$)/.test(source) &&
+    !filename.endsWith('/apps/client/src/lib/host.ts')
+  );
+}
 
 function contractSource(source: string): boolean {
   return (

@@ -4,7 +4,7 @@ const root = Bun.fileURLToPath(new URL('../../', import.meta.url));
 
 let failed = false;
 
-for (const directory of ['apps/web/src', 'packages/ui/src']) {
+for (const directory of ['apps/client/src', 'packages/ui/src']) {
   for await (const path of new Bun.Glob('**/*.css').scan({
     cwd: `${root}${directory}`,
     absolute: true

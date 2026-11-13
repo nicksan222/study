@@ -111,10 +111,13 @@ export default defineRule({
     }
 
     function harnessRegistration(node: any, definition: any): boolean {
-      if (filename.endsWith('/apps/web/test/e2e/harness/index.ts') && node.name === 'testHarness')
+      if (
+        filename.endsWith('/apps/client/test/e2e/harness/index.ts') &&
+        node.name === 'testHarness'
+      )
         return true;
 
-      if (!filename.includes('/apps/web/test/e2e/')) return false;
+      if (!filename.includes('/apps/client/test/e2e/')) return false;
 
       if (definition?.type !== 'ImportSpecifier') return false;
 

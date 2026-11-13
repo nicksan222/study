@@ -6,7 +6,7 @@ import { lintRule } from '../test/utils.ts';
 async function lint(source: string) {
   return await lintRule(
     'shared-error-state',
-    { 'apps/web/src/features/example/view.tsx': source },
+    { 'apps/client/src/features/example/view.tsx': source },
     true
   );
 }
@@ -136,7 +136,7 @@ testStable('ignores tests, server code and canonical UI implementations', async 
     await lintRule(
       'shared-error-state',
       {
-        'apps/web/src/example.test.tsx': 'const view = <p role="alert">Failed</p>;',
+        'apps/client/src/example.test.tsx': 'const view = <p role="alert">Failed</p>;',
         'apps/server/src/example.tsx': 'const view = <p role="alert">Failed</p>;',
         'packages/ui/src/components/error-state.tsx': 'const view = <p role="alert">Failed</p>;'
       },

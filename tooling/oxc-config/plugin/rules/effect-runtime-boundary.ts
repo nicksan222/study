@@ -12,7 +12,7 @@ export default defineRule({
       'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
     const path = context.filename.replaceAll('\\', '/');
-    const webRuntime = path.endsWith('/apps/web/src/lib/effect/runtime.ts');
+    const webRuntime = path.endsWith('/apps/client/src/lib/effect/runtime.ts');
     const execute =
       webRuntime ||
       /\/apps\/server\/src\/(?:runtime\/main|platform\/ai\/tool-adapter)\.ts$/.test(path);

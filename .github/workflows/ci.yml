@@ -151,10 +151,10 @@ jobs:
       - name: 🔎 Check Fallow
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run fallow:check
-      - name: 🧩 Type-check web packages
+      - name: 🧩 Type-check client packages
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run typecheck
-      - name: 🧪 Test web packages
+      - name: 🧪 Test client packages
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: bun run test:web
       - name: 🌐 Test browser flows in the canonical devcontainer
@@ -171,7 +171,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: web-e2e-diagnostics
-          path: test-results/
+          path: apps/client/test-results/
           if-no-files-found: ignore
       - name: 🛠️ Test tooling
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}

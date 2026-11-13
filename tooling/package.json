@@ -10,7 +10,7 @@
     "./development/rpc-proxy": "./scripts/development/rpc-proxy.ts"
   },
   "scripts": {
-    "test": "bun --bun vp test run --config ../vite.config.ts --project tooling tooling apps/web/test/e2e/harness apps/desktop/src-tauri/tests && python3 -m unittest discover -s scripts/development -p \"test_*.py\" && python3 -m unittest discover -s scripts/release -p \"test_*.py\"",
+    "test": "bun --bun vp test run --config ../vite.config.ts --project tooling tooling apps/client/test/e2e/harness apps/desktop/src-tauri/tests && python3 -m unittest discover -s scripts/development -p \"test_*.py\" && python3 -m unittest discover -s scripts/release -p \"test_*.py\"",
     "typecheck": "bun --bun tsc --noEmit -p typescript/tooling.json"
   },
   "devDependencies": {

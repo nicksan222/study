@@ -123,7 +123,7 @@ testStable(
         {
           'apps/server/src/platform/example.ts':
             "import {useStore} from '#server/platform/definitions/define-store'; function makeService() { return useStore(Store); }",
-          'apps/web/src/example.tsx':
+          'apps/client/src/example.tsx':
             "import {useState} from 'react'; export function invalid() { return useState(0); }"
         },
         undefined,
@@ -132,7 +132,7 @@ testStable(
     ).filter(({ code }) => code.includes('rules-of-hooks'));
 
     assert.strictEqual(results.length, 1, JSON.stringify(results));
-    assert.ok(results[0]?.filename.includes('/apps/web/'));
+    assert.ok(results[0]?.filename.includes('/apps/client/'));
   }
 );
 
