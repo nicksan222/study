@@ -1,6 +1,7 @@
 import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
 import type { sourceCopySchema } from '@study/contracts/pages/rpc';
 import type { Page } from '@study/contracts/pages/types';
+import type { executionCursorSchema } from '@study/contracts/workflows/schemas';
 import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { invalidatePages } from '#web/lib/study-client/pages.queries.ts';
@@ -31,6 +32,43 @@ export const sourceExtractionOptions = (
     refetchInterval: (query) => (query.state.data ? false : 3000)
   });
 
+/** Missing extraction is pending only while its own workflow has no reported outcome. */
+export const sourceProcessingExecutionOptions = (id: SourceId) =>
+  queryOptions({
+    queryKey: ['sources', 'processing-execution', String(id)],
+    queryFn: async ({ signal }) => {
+      const processing = await request((rpc) => rpc['sources.sourceProcessing']({ id }), signal);
+
+      if (!processing.requestId) return null;
+
+      let before: typeof executionCursorSchema.Type | undefined;
+
+      do {
+        const executions = await request(
+          (rpc) =>
+            rpc['workflows.executions']({
+              correlationId: processing.requestId!,
+              limit: 100,
+              before
+            }),
+          signal
+        );
+
+        const extraction = executions.items.find(
+          (item) =>
+            item.workflow === 'source-ingestion/v1' || item.workflow === 'source-correction/v1'
+        );
+
+        if (extraction) return extraction;
+
+        before = executions.next ?? undefined;
+      } while (before);
+
+      return null;
+    },
+    refetchInterval: 3000
+  });
+
 export const sourceOptions = (id: SourceId | null) =>
   queryOptions({
     queryKey: ['sources', 'detail', String(id)],
@@ -48,8 +86,11 @@ type CopyState = { pending: boolean; input?: Input; page?: Page; error?: unknown
 
 export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
   const cache = useQueryClient();
+
   const key = ['source-copy', String(sourceId), noteId?.toString()];
+
   const initial: CopyState = { pending: false };
+
   const state = useQuery({
     queryKey: key,
     queryFn: () => initial,
