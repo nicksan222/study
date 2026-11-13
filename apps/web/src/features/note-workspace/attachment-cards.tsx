@@ -3,11 +3,13 @@ import type { MessagePart } from '@study/contracts/notes/messages';
 import type { Source } from '@study/contracts/sources/schemas';
 import { mediaSize } from '@study/localization';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
+import { ContextMenuItem } from '@study/ui/context-menu';
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceAttachments } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
+import { ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -143,6 +145,7 @@ function AttachmentContextMenu({
   label: string;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   const cache = useQueryClient();
   const menu = (actions?: ItemDeletionActions) => (
     <ItemContextMenu
@@ -152,6 +155,14 @@ function AttachmentContextMenu({
       dialogOpen={actions?.open}
       actions={
         <>
+          {source && (
+            <ContextMenuItem
+              render={<Link to="/sources/$sourceId" params={{ sourceId: String(source.id) }} />}
+            >
+              <ArrowUpRight aria-hidden="true" />
+              {t('OpenInLibrary')}
+            </ContextMenuItem>
+          )}
           {source && noteId && (
             <ArchiveMenuItem noteId={noteId} target={{ kind: 'source', id: source.id }} />
           )}

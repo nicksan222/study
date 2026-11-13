@@ -2,9 +2,18 @@ import { noteIdSchema } from '@study/contracts/ids';
 import { messagePartSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  createRootRoute,
+  createRoute,
+  createRouter,
+  createMemoryHistory,
+  RouterProvider,
+  Outlet
+} from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
+import type { ReactNode } from 'react';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { request } from '#web/lib/study-client/request.ts';
@@ -36,6 +45,28 @@ vi.mock('../source-library', () => ({
 
 const clients: QueryClient[] = [];
 
+function renderInRouter(children: ReactNode) {
+  const root = createRootRoute({ component: Outlet });
+  const home = createRoute({
+    getParentRoute: () => root,
+    path: '/',
+    component: () => children
+  });
+  const source = createRoute({
+    getParentRoute: () => root,
+    path: '/sources/$sourceId',
+    component: () => <p>Source page</p>
+  });
+  const router = createRouter({
+    routeTree: root.addChildren([home, source]),
+    history: createMemoryHistory({ initialEntries: ['/'] })
+  });
+
+  render(<RouterProvider router={router} />);
+
+  return router;
+}
+
 afterEach(() => {
   cleanup();
 
@@ -56,7 +87,7 @@ testStable.each([false, true])(
       sourceKind: 'pdf'
     });
 
-    render(
+    const router = renderInRouter(
       <QueryClientProvider client={client}>
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
       </QueryClientProvider>
@@ -72,6 +103,10 @@ testStable.each([false, true])(
     fireEvent.contextMenu(card, { button: 2, clientX: 80, clientY: 80 });
     expect(await screen.findByRole('menuitem', { name: 'NoteDeleteItem' })).toBeVisible();
     expect(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
+    expect(screen.getByRole('menuitem', { name: 'OpenInLibrary' })).toHaveAttribute(
+      'href',
+      '/sources/7'
+    );
     expect(open).not.toHaveBeenCalled();
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'OpenMaterial' }));
     expect(open).toHaveBeenCalledExactlyOnceWith({
@@ -79,6 +114,13 @@ testStable.each([false, true])(
       name: 'Lecture.pdf',
       sizeBytes: 10n
     });
+    fireEvent.contextMenu(card, { button: 2, clientX: 80, clientY: 80 });
+    const sourceLink = await screen.findByRole('menuitem', { name: 'OpenInLibrary' });
+
+    sourceLink.focus();
+    await userEvent.setup().keyboard('{Enter}');
+    await vi.waitFor(() => expect(router.state.location.pathname).toBe('/sources/7'));
+    expect(open).toHaveBeenCalledTimes(1);
   }
 );
 
@@ -88,14 +130,14 @@ testStable('opens the exact authored page from its context menu', async () => {
   const client = new QueryClient();
 
   clients.push(client);
-  render(
+  renderInRouter(
     <QueryClientProvider client={client}>
       <NotePageCard page={document} active={false} onOpen={open} />
     </QueryClientProvider>
   );
   expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
-  fireEvent.contextMenu(screen.getByRole('button', { name: /New page/ }), {
+  fireEvent.contextMenu(await screen.findByRole('button', { name: /New page/ }), {
     button: 2,
     clientX: 80,
     clientY: 80
@@ -118,16 +160,21 @@ testStable('keeps unavailable attachment context actions disabled', async () => 
     sourceKind: 'pdf'
   });
 
-  render(
+  renderInRouter(
     <QueryClientProvider client={client}>
       <AttachmentCards parts={[part]} onOpenSource={vi.fn()} />
     </QueryClientProvider>
   );
-  fireEvent.contextMenu(screen.getByText('Missing.pdf'), { button: 2, clientX: 80, clientY: 80 });
+  fireEvent.contextMenu(await screen.findByText('Missing.pdf'), {
+    button: 2,
+    clientX: 80,
+    clientY: 80
+  });
   expect(await screen.findByRole('menuitem', { name: 'OpenMaterial' })).toHaveAttribute(
     'aria-disabled',
     'true'
   );
+  expect(screen.queryByRole('menuitem', { name: 'OpenInLibrary' })).not.toBeInTheDocument();
 });
 
 testStable.each(['page', 'source'] as const)(
@@ -150,7 +197,7 @@ testStable.each(['page', 'source'] as const)(
       sourceKind: 'pdf'
     });
 
-    render(
+    renderInRouter(
       <QueryClientProvider client={client}>
         {kind === 'page' ? (
           <NotePageCard noteId={noteId} page={document} active={false} onOpen={vi.fn()} />

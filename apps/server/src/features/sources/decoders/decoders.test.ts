@@ -41,6 +41,46 @@ testStable('text decoding preserves UTF-8 byte anchors and markdown fences', () 
   ).toThrow(expect.objectContaining({ kind: 'invalid_input' }));
 });
 
+testStable.each([
+  ['LF', '\n', ''],
+  ['CRLF', '\r\n', ''],
+  ['LF with BOM', '\n', '\uFEFF'],
+  ['CRLF with BOM', '\r\n', '\uFEFF']
+])('long plain text retains every paragraph and UTF-8 source span: %s', (_, newline, bom) => {
+  const expected = Array.from({ length: 5000 }, (_, index) => {
+    if (index === 0) return 'Field observation first: città e 東京';
+
+    if (index === 2499) return `Field-observation-long-${'x'.repeat(1024)}-END`;
+
+    if (index === 4999) return 'Field observation final: arrivederci Ω';
+
+    return `Field observation line ${String(index + 1).padStart(4, '0')}: café`;
+  });
+  const source = bytes(bom + expected.join(newline + newline));
+  const document = decodeText({ bytes: source, kind: 'text', mime: 'text/plain' });
+  const utf8 = new TextDecoder('utf-8', { fatal: true });
+
+  expect(document.blocks.map((block) => block.text)).toStrictEqual(expected);
+  let offset = bytes(bom).length;
+
+  for (const [index, block] of document.blocks.entries()) {
+    const { anchor } = block;
+
+    assert.ok(anchor?.type === 'text');
+    assert.ok(Number.isInteger(anchor.start) && Number.isInteger(anchor.end));
+    assert.ok(anchor.start >= 0 && anchor.end > anchor.start && anchor.end <= source.length);
+    assert.strictEqual(anchor.start, offset);
+    assert.strictEqual(anchor.lineStart, index * 2 + 1);
+    assert.strictEqual(anchor.lineEnd, index * 2 + 1);
+    // Source spans may include the terminating line ending, unlike canonical paragraph text.
+    assert.strictEqual(
+      utf8.decode(source.subarray(anchor.start, anchor.end)).replace(/\r?\n$/, ''),
+      expected[index]
+    );
+    offset += bytes(expected[index]! + newline + newline).length;
+  }
+});
+
 testStable('PDF decoding validates and counts pages', async () => {
   const fixture = await Bun.file(new URL('./fixtures/two-pages.pdf', import.meta.url)).bytes();
 
