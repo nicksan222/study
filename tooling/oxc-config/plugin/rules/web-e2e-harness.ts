@@ -115,6 +115,7 @@ const selectorActions = new Set([
 ]);
 
 const domAccess = new Set([
+  'dispatchEvent',
   'evaluate',
   'evaluateAll',
   'evaluateHandle',
@@ -278,6 +279,15 @@ function browserBindings(context: any) {
   return { resolve, forbidden, forced };
 }
 
+function destructuringKey(node: any): boolean {
+  return (
+    node.parent?.type === 'Property' &&
+    node.parent.key === node &&
+    !node.parent.computed &&
+    node.parent.parent?.type === 'ObjectPattern'
+  );
+}
+
 function descriptiveTitle(node: any): boolean {
   return (
     node?.type === 'Literal' &&
@@ -406,6 +416,7 @@ export default defineRule({
           ['setTimeout', 'fetch', 'XMLHttpRequest', 'WebSocket'].includes(node.name) &&
           node.parent?.type !== 'ImportSpecifier' &&
           !binding(context, node)?.defs.length &&
+          !destructuringKey(node) &&
           !(
             node.parent?.type === 'MemberExpression' &&
             node.parent.property === node &&
