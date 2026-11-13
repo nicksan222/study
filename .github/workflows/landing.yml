@@ -24,11 +24,9 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v7
+      - name: Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
       # The same pin as the setup action's, which this job does not otherwise need.
-      - name: Install just
-        uses: taiki-e/install-action@v2
-        with:
-          tool: just@1.40.0
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -38,7 +36,7 @@ jobs:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile
       - name: Build
-        run: just landing-build
+        run: bun run landing-build
       - name: Upload
         uses: actions/upload-pages-artifact@v5
         with:

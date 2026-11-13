@@ -1,0 +1,195 @@
+{
+  "$schema": "https://turborepo.dev/schema.json",
+  "cacheDir": ".turbo/cache",
+  "globalDependencies": [
+    "*",
+    ".cargo/**",
+    ".github/**",
+    ".devcontainer/**",
+    ".agents/**",
+    "tooling/**",
+    "apps/landing/**",
+    "!**/.turbo/**",
+    "!**/node_modules/**",
+    "!**/dist/**",
+    "!**/.astro/**",
+    "!**/.tanstack/**"
+  ],
+  "globalEnv": ["CI", "NODE_ENV", "STUDY_*", "VITE_*", "CARGO_*", "RUST*", "BUN_*"],
+  "tasks": {
+    "check": {
+      "dependsOn": ["test", "typecheck", "//#check:global", "//#check:landing"],
+      "cache": false
+    },
+    "//#check:global": {
+      "cache": false,
+      "inputs": ["package.json", "tooling/oxc-config/**", "tooling/fallow.jsonc"],
+      "envMode": "loose"
+    },
+    "//#check:landing": {
+      "cache": false,
+      "inputs": [
+        "apps/landing/src/**",
+        "apps/landing/public/**",
+        "apps/landing/*.json",
+        "apps/landing/*.mjs",
+        "apps/landing/bun.lock"
+      ],
+      "envMode": "loose"
+    },
+    "test": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "@study/web#check": {
+      "dependsOn": ["test", "typecheck", "e2e", "//#check:global", "//#check:landing"],
+      "cache": false
+    },
+    "@study/server#check": {
+      "dependsOn": ["test", "typecheck", "integrations", "//#check:global", "//#check:landing"],
+      "cache": false
+    },
+    "@study/desktop#check": {
+      "dependsOn": ["//#check:global", "//#check:landing"],
+      "cache": false,
+      "envMode": "loose"
+    },
+    "@study/db#check": {
+      "dependsOn": ["test", "gen:check", "typecheck", "//#check:global", "//#check:landing"],
+      "cache": false
+    },
+    "@study/server#typecheck": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/**",
+        "$TURBO_ROOT$/tooling/typescript/**",
+        "!$TURBO_ROOT$/packages/**/.turbo/**"
+      ]
+    },
+    "@study/web#typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!src/routeTree.gen.ts",
+        "$TURBO_ROOT$/packages/**",
+        "!$TURBO_ROOT$/packages/**/.turbo/**"
+      ],
+      "outputs": ["src/routeTree.gen.ts"]
+    },
+    "build": {
+      "dependsOn": ["^build", "typecheck"],
+      "outputs": ["dist/**"]
+    },
+    "@study/web#build": {
+      "dependsOn": ["^build", "typecheck", "@study/tooling#typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "!src/routeTree.gen.ts"],
+      "outputs": ["dist/**"]
+    },
+    "e2e": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "envMode": "loose"
+    },
+    "integrations": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "gen:check": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "@study/contracts#test": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/test/testing/**",
+        "$TURBO_ROOT$/packages/db/**",
+        "!$TURBO_ROOT$/packages/db/.turbo/**"
+      ]
+    },
+    "@study/localization#test": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/test/testing/**",
+        "$TURBO_ROOT$/packages/db/**",
+        "!$TURBO_ROOT$/packages/db/.turbo/**"
+      ]
+    },
+    "@study/theme#test": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/server/test/testing/**",
+        "$TURBO_ROOT$/packages/db/**",
+        "!$TURBO_ROOT$/packages/db/.turbo/**"
+      ]
+    },
+    "@study/ui#test": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/web/vite.config.ts",
+        "$TURBO_ROOT$/apps/web/src/test/**",
+        "$TURBO_ROOT$/tooling/development/rpc-proxy.ts"
+      ]
+    },
+    "@study/testing#test": {
+      "dependsOn": ["^typecheck"]
+    },
+    "@study/web#test": {
+      "dependsOn": ["^typecheck"]
+    },
+    "@study/tooling#typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/web/vite.config.ts",
+        "$TURBO_ROOT$/apps/web/test/e2e/**",
+        "$TURBO_ROOT$/packages/testing/**"
+      ]
+    },
+    "@study/tooling#test": {
+      "cache": false,
+      "envMode": "loose",
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/src/**",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/permissions/**",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/capabilities/**",
+        "$TURBO_ROOT$/apps/desktop/src-tauri/tests/**"
+      ]
+    },
+    "fmt:check": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "lint": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "deny": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "docs": {
+      "cache": false,
+      "envMode": "loose"
+    },
+    "//#lint:repo": {
+      "inputs": ["$TURBO_DEFAULT$", "!apps/web/src/routeTree.gen.ts"]
+    },
+    "//#fallow:repo": {
+      "inputs": ["$TURBO_DEFAULT$", "!apps/web/src/routeTree.gen.ts"]
+    },
+    "//#check-shell": {
+      "inputs": ["$TURBO_DEFAULT$", "!apps/web/src/routeTree.gen.ts"]
+    }
+  },
+  "futureFlags": {
+    "affectedUsingTaskInputs": true
+  }
+}

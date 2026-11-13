@@ -133,10 +133,11 @@ class WindowTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix="study-window-")
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        shutil.copy(ROOT / "Justfile", self.root)
         helper_dir = self.root / ".devcontainer/desktop"
         helper_dir.mkdir(parents=True)
         shutil.copy(HELPER, helper_dir)
+        for name in ("query.sh", "status.sh", "wait.sh"):
+            shutil.copy(ROOT / ".devcontainer/desktop" / name, helper_dir)
         (self.root / "target").mkdir()
         (self.root / "target/desktop.env").write_text("export SWAYSOCK='/tmp/managed-sway'\n")
         (self.root / "bin").mkdir()
@@ -147,7 +148,7 @@ class WindowTest(unittest.TestCase):
         self.env = {**os.environ, "PATH": f"{self.root}/bin:{os.environ['PATH']}", "SWAY_FIXTURE": str(self.fixture)}
 
     def query(self, value):
-        return subprocess.run(["just", "desktop-query", value], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=5)
+        return subprocess.run(["bash", ".devcontainer/desktop/query.sh", value], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=5)
 
     def test_floating_window_queries_and_missing_window(self):
         self.fixture.write_text(json.dumps({"floating_nodes": [{"app_id": "study", "rect": {"x": -40, "y": 10, "width": 1200, "height": 800}}]}))
@@ -168,15 +169,15 @@ class WindowTest(unittest.TestCase):
 
     def test_status_is_read_only_and_wait_is_bounded(self):
         self.fixture.write_text('{"nodes": []}')
-        result = subprocess.run(["just", "--quiet", "desktop-status"], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["bash", ".devcontainer/desktop/status.sh"], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=5)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(json.loads(result.stdout)["window"])
         self.assertFalse((self.root / "target/desktop").exists())
         for seconds in ["0", "0.1", "-1", "1e100", "garbage"]:
-            result = subprocess.run(["just", "--quiet", "desktop-wait", seconds], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=2)
+            result = subprocess.run(["bash", ".devcontainer/desktop/wait.sh", seconds], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=2)
             self.assertNotEqual(result.returncode, 0)
         self.fixture.write_text('{"app_id":"study", "rect":{"x":0,"y":0,"width":800,"height":600}}')
-        result = subprocess.run(["just", "--quiet", "desktop-wait", "0"], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=2)
+        result = subprocess.run(["bash", ".devcontainer/desktop/wait.sh", "0"], cwd=self.root, env=self.env, capture_output=True, text=True, timeout=2)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertTrue(json.loads(result.stdout)["window"])
 

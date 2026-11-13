@@ -8,7 +8,7 @@ env_file="$repo/target/desktop.env"
 timeout=${1:-900}
 
 if [ ! -f "$env_file" ]; then
-  echo "No desktop: run just desktop" >&2
+  echo "No desktop: run bun run desktop" >&2
   exit 1
 fi
 # shellcheck source=/dev/null
@@ -17,7 +17,7 @@ fi
 # Hold the launch lock until the window is ready. The app closes this descriptor.
 exec 8>"$desk/app.lock"
 flock 8
-window_exists() { just --justfile "$repo/Justfile" --quiet desktop-query exists; }
+window_exists() { bash "$repo/.devcontainer/desktop/query.sh" exists; }
 if window_exists; then
   echo "Study is already running"
   exit 0
@@ -25,7 +25,7 @@ fi
 
 unset DISPLAY
 # Native launches prepare Wayland without starting the optional noVNC viewer.
-setsid nohup just run >"$desk/app.log" 2>&1 </dev/null 8>&- &
+setsid nohup bun run run >"$desk/app.log" 2>&1 </dev/null 8>&- &
 app_pid=$!
 echo "$app_pid" >"$desk/app.pid"
 start=$SECONDS

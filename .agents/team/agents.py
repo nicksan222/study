@@ -163,7 +163,7 @@ class Fleet:
     def doctor(self):
         """Check tools and subscription login without making a model request."""
         self.validate_container()
-        for tool in [self.herdr, 'python3', 'just', 'cargo', 'rust-analyzer']:
+        for tool in [self.herdr, 'python3', 'bun', 'cargo', 'rust-analyzer']:
             if not shutil.which(tool):
                 raise LauncherError(f'missing {tool}: rebuild the devcontainer')
         seen = set()

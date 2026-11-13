@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep a virtual pointer plugged into the headless desktop's seat (`just desktop`).
+"""Keep a virtual pointer plugged into the headless desktop's seat (`bun run desktop`).
 
 A headless sway has no input devices, so its seat has no pointer and apps hold no
 wl_pointer. Tools like wlrctl plug one in only while they run, and the app binds it too

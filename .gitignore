@@ -67,3 +67,6 @@ test-results/
 
 # TanStack Router temporary files stay beside their app config.
 .tanstack/
+
+# Turborepo local cache
+.turbo/

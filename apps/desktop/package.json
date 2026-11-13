@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "tauri": "bunx --bun --no-install tauri"
+    "tauri": "bunx --bun --no-install tauri",
+    "test": "CARGO_TARGET_DIR=../../target/devcontainer cargo test --locked --workspace --all-targets && CARGO_TARGET_DIR=../../target/devcontainer cargo test --locked --workspace --doc",
+    "check": "bun run fmt:check && bun run lint && bun run deny && bun run test && bun run docs",
+    "fmt:check": "cargo fmt --all -- --check",
+    "lint": "CARGO_TARGET_DIR=../../target/devcontainer cargo clippy --locked --workspace --all-targets -- -D warnings",
+    "deny": "cargo deny --locked --config ../../tooling/rust/deny.toml check",
+    "docs": "CARGO_TARGET_DIR=../../target/devcontainer RUSTDOCFLAGS=\"-D warnings\" cargo doc --locked --workspace --no-deps --document-private-items"
   },
   "devDependencies": {
     "@study/testing": "*"

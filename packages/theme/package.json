@@ -5,6 +5,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/theme"
+  },
   "dependencies": {
     "@csstools/css-color-parser": "4.2.6",
     "@csstools/css-parser-algorithms": "4.0.2",

@@ -150,7 +150,7 @@ def main():
     # Install the lockfile-pinned Chromium during setup, never during tests.
     subprocess.run(["bun", "x", "--bun", "playwright", "install", "chromium"], cwd=REPO, check=True)
     # These commands report versions only; they do not start a model request.
-    for tool in ("just", "claude", "herdr", "codex"):
+    for tool in ("bun", "claude", "herdr", "codex"):
         subprocess.run([tool, "--version"], check=True)
 
 

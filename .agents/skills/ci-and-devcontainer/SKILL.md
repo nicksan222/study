@@ -15,17 +15,17 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
   Root `vite.config.ts` owns format/lint policy for server, frontend, tests and tooling.
   Run Vite+ and its Vitest workers with `bun --bun vp`; type checking stays with `tsc`.
   No browser/network install occurs during tests.
-- Keep `.github/actions/setup`'s apt dependencies and Bun/just pins aligned with Dockerfile.
+- Keep `.github/actions/setup`'s apt dependencies and Bun pins aligned with Dockerfile.
   Rust comes from `rust-toolchain.toml`. Preserve `--locked` and `target/devcontainer`.
-- `just check` includes Rust formatting, Clippy, dependencies, tests/doctests/docs, repository-wide Vite+ format/lint, frontend
+- `bun run check` includes Rust formatting, Clippy, dependencies, tests/doctests/docs, repository-wide Vite+ format/lint, frontend
   type/tests/build, generated database drift, tooling tests, server checks, and the
   landing Bun check. CI runs equivalent gates; `Test and build` is the required aggregate.
 - The Rust browser bridge and its E2E/capture runners are retired. Use package tests for
   available behavior; do not claim full application parity during server integration.
 - Use local web in the browser for roughly 99% of app work. Check localhost:5173 first;
   only start `bun dev` if Study is not already working locally. Reuse running servers.
-  Forward port 5173 without opening tabs. Reserve `just run` and native desktop helpers
-  for Tauri-specific behavior. noVNC starts only through explicit `just desktop-attach`;
+  Forward port 5173 without opening tabs. Reserve `bun run run` and native desktop helpers
+  for Tauri-specific behavior. noVNC starts only through explicit `bun run desktop-attach`;
   forward port 5900 manually when needed. Never stop another agent's server or desktop
   without coordination.
 - Existing website captures are committed assets. Capture generation is unavailable.

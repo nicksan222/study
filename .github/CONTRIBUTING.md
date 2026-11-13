@@ -10,7 +10,7 @@ Thank you for helping with Study.
 - **One branch per change.** Open a pull request to `main`; nothing goes to `main` directly.
 - Dependabot pull requests targeting `main` use squash auto-merge after the required
   `Test and build` check passes on the current base.
-- **Run `just check` before you push.** It is what CI runs: formatting, Clippy with warnings
+- **Run `bun run check` before you push.** It is what CI runs: formatting, Clippy with warnings
   denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build and browser E2E, generated database drift,
   tooling tests, server package checks, and the website's Bun type check. CI uses explicit
   sequential steps for Oxlint/formatting/Fallow, web checks and tooling tests in one
@@ -22,7 +22,7 @@ Thank you for helping with Study.
 - CI also requires real integrations (`bun run integrations:e2e`, with Docker) and the
   packaged-runtime smoke test (`bun run desktop:runtime`, then
   `python3 tooling/release/smoke_runtime.py target/desktop-runtime`). These are additional
-  gates beyond `just check`.
+  gates beyond `bun run check`.
 - **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
   Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
@@ -49,12 +49,12 @@ devcontainer up --workspace-folder .
 devcontainer exec --workspace-folder . bash
 ```
 
-`just landing-check` checks website types and builds every localized static preview, so
+`bun run landing-check` checks website types and builds every localized static preview, so
 preview rendering failures are caught by pull-request CI before deployment.
 
 The devcontainer installs root and landing dependencies from their committed locks. To
 refresh them, run `bun install --frozen-lockfile` and `bun install --cwd apps/landing --frozen-lockfile`, then
-run `just check`. The former Rust
+run `bun run check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
 all application features. Browser screenshots use the devcontainer's lockfile-pinned Playwright Chromium; setup installs it before tests. The system Chromium remains for desktop tools.
 
@@ -71,8 +71,8 @@ sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-d
 ```
 
 Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` picks the version) and
-[just](https://github.com/casey/just), Bun 1.4.4 for the application and build tooling. Run `bun install --frozen-lockfile` and
-`bun install --cwd apps/landing --frozen-lockfile`, then `just check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
+Bun 1.4.4 for the application and build tooling. Run `bun install --frozen-lockfile` and
+`bun install --cwd apps/landing --frozen-lockfile`, then `bun run check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the
 image independently of its path filters.
@@ -88,12 +88,12 @@ restart loops. Development data lives in `target/web/study.sqlite`; set
 `STUDY_DATABASE` to use another database.
 
 The devcontainer forwards web port 5173 without opening a browser. Native desktop and
-noVNC packages stay installed but do not start automatically. Reserve `just run` or
-`just desktop` for Tauri-specific checks; neither starts noVNC. To explicitly use the
-remote native viewer, run `just desktop-attach` and manually forward container port 5900.
+noVNC packages stay installed but do not start automatically. Reserve `bun run run` or
+`bun run desktop` for Tauri-specific checks; neither starts noVNC. To explicitly use the
+remote native viewer, run `bun run desktop-attach` and manually forward container port 5900.
 Routine browser work needs none of these native helpers.
 
-The root scripts and Just recipes share the project commands; `just --list` lists all tasks. Web Vite, router and TypeScript
+The root package scripts expose the project commands; `bun run` lists all tasks. Web Vite, router and TypeScript
 configs live in `apps/web`; shared TypeScript settings live in `tooling/typescript`.
 Rust lint and dependency policy live in `tooling/rust`; `.cargo/config.toml` points Clippy
 there for both recipes and direct Cargo invocations. Root package scripts select the web
@@ -116,9 +116,9 @@ automatic resource/database cleanup hooks have a thirty-second timeout. These bo
 tests; they do not cancel arbitrary promises or guarantee a blocked event loop can recover.
 The CI server test step fails after ten minutes; frontend tests keep the verbose Vitest
 reporter and show console output only for failing tests. TypeScript checks keep `tsc`.
-Run `bun run fallow:check` or `just fallow-check` for the pinned Fallow quality gate.
+Run `bun run fallow:check` or `bun run fallow-check` for the pinned Fallow quality gate.
 It checks the full repository for dead code, code health and duplication and fails on
-any reported issue. Local `just check` and the required CI `Test and build` job both
+any reported issue. Local `bun run check` and the required CI `Test and build` job both
 run it; there is no baseline or new-issues-only mode. `tooling/fallow.jsonc` enforces maximum
 cyclomatic complexity of 10 and cognitive complexity of 15. Functions longer than
 60 lines are reported as advisory refactoring targets. CRAP enforcement is disabled
@@ -130,20 +130,20 @@ supplement the existing architecture lint and TypeScript checks.
 
 Run `bun gen` from the workspace root to generate database migrations and desktop routes.
 Run `bun gen:check` to check generated database outputs
-without changing the database schema. The equivalent Just recipes are `just gen` and
-`just gen-check`.
+without changing the database schema. The equivalent package scripts are `bun run gen` and
+`bun run gen-check`.
 Desktop inspection recipes call `swaymsg` and `jq` directly. The scripts in
 `.devcontainer/desktop/` manage the virtual desktop; `lifecycle.py` owns private D-Bus
 startup, reuse and shutdown, plus bounded process waiting. Desktop commands need no
 JavaScript package or Cargo build.
 
-| Command                      | What it does                                               |
-| ---------------------------- | ---------------------------------------------------------- |
-| `just desktop-status`        | Inspect the native window and log path without restarting. |
-| `just desktop-wait`          | Wait for the native window.                                |
-| `just check`                 | Everything CI runs.                                        |
-| `just check-crate <package>` | `just check` for one package.                              |
-| `just --list`                | Every other command.                                       |
+| Command                         | What it does                                               |
+| ------------------------------- | ---------------------------------------------------------- |
+| `bun run desktop-status`        | Inspect the native window and log path without restarting. |
+| `bun run desktop-wait`          | Wait for the native window.                                |
+| `bun run check`                 | Everything CI runs.                                        |
+| `bun run check-crate <package>` | `bun run check` for one package.                           |
+| `bun run`                       | Every other command.                                       |
 
 ## Where data lives
 
@@ -164,17 +164,17 @@ The former capture runner was retired with the Rust server.
 The devcontainer mounts your AI logins and ships an optional team of agents for
 maintainers: lead, developer, PM, QA, student, reviewer and pushback.
 
-| Command                                  | What it does                                                 |
-| ---------------------------------------- | ------------------------------------------------------------ |
-| `just agents-doctor`                     | Check tools and subscription login, without a model request. |
-| `just agents`                            | Open the team, keeping existing conversations.               |
-| `just agents lead developer --no-attach` | Start only some roles.                                       |
-| `just agents-reset`                      | Start fresh conversations and clear the task checkpoint.     |
-| `just agents-stop`                       | Stop the team.                                               |
-| `just agents-usage --hours 24`           | Local token counts, not remaining allowance.                 |
+| Command                                     | What it does                                                 |
+| ------------------------------------------- | ------------------------------------------------------------ |
+| `bun run agents-doctor`                     | Check tools and subscription login, without a model request. |
+| `bun run agents`                            | Open the team, keeping existing conversations.               |
+| `bun run agents lead developer --no-attach` | Start only some roles.                                       |
+| `bun run agents-reset`                      | Start fresh conversations and clear the task checkpoint.     |
+| `bun run agents-stop`                       | Stop the team.                                               |
+| `bun run agents-usage --hours 24`           | Local token counts, not remaining allowance.                 |
 
 Give the lead the task. It splits the change into small slices, each built and reviewed on
-its own; QA and `just check` run once on the result. On demand it starts `scenario` (seeded
+its own; QA and `bun run check` run once on the result. On demand it starts `scenario` (seeded
 test states), `upgrade-reviewer` (does an existing install still work?) and `pr-maker`
 (commits, pushes and opens the pull request, never merges), and `site` keeps the website in
 `apps/landing/` in step with the app, in English and Italian. These four share one slot.
@@ -232,7 +232,7 @@ from an isolated directory with a fresh database and no dependency on a system B
 Linux CI and the devcontainer use the pinned Patchelf 0.19.3 from
 `.devcontainer/install-patchelf.sh`; older ELF rewriters corrupt Bun’s ARM64 symbol-version pointers.
 
-For local bundles without signing credentials, use `just package linux-x86_64 --unsigned`.
+For local bundles without signing credentials, use `bun run package linux-x86_64 --unsigned`.
 This explicitly disables updater artifacts and signing for that build.
 
 For notarized macOS packages, also set `APPLE_SIGNING_IDENTITY`, `APPLE_CERTIFICATE`
@@ -246,7 +246,7 @@ Apple credentials above.
 Windows installers need separate platform signing credentials if desired. Intel Macs are
 not part of the current release target set.
 
-`just package linux-x86_64` (or `linux-aarch64`, `macos-aarch64`, `windows-x86_64`) invokes
+`bun run package linux-x86_64` (or `linux-aarch64`, `macos-aarch64`, `windows-x86_64`) invokes
 Tauri on a matching native runner; signed builds require the same updater key environment as CI. Output lives beneath the Cargo target directory's
 platform `release/bundle` directory. CI uses the same Tauri config at
 `apps/desktop/src-tauri/tauri.conf.json`, with no cargo-packager dependency.
@@ -317,13 +317,13 @@ python3 tooling/release/size_report.py --runtime target/desktop-runtime --app PA
 for each download; identical paths are counted once. Redirect output outside the
 checkout when keeping a baseline.
 
-The server suite runs a Bun-hosted server against a disposable database, kills it after a durable request is committed, and verifies recovery after restart. This test uses real loopback networking and runs with the other server tests in `just server-check`.
+The server suite runs a Bun-hosted server against a disposable database, kills it after a durable request is committed, and verifies recovery after restart. This test uses real loopback networking and runs with the other server tests in `bun run server-check`.
 
 ### Browser journeys and visual references
 
 `bun run web:e2e` builds the real frontend once, then runs all browser journeys with
 Vite+/Playwright and fresh real SQLite/RPC state. `bun run web:e2e:compare` reuses a
-build made in the same run (CI and `just frontend-check` use this after their build).
+build made in the same run (CI and `bun run frontend-check` use this after their build).
 Use native runner filters, for example `bun run web:e2e:compare --testNamePattern "Notes preserve multiple edits after reopening"`.
 
 Journeys import `testE2e` and Playwright `expect` from the shared harness. Define a
@@ -391,3 +391,29 @@ After building, `bun run web:e2e:capacity 3 2` measures three complete compariso
 runs with two workers and writes timings under `test-results/`. Counts represent
 repeated pilot invocations, not additional workflow coverage. Increase the first
 argument up to 100 for longer measurements; supported worker counts are 1, 2 and 4.
+
+## Package verification with Turbo
+
+Use `bun run check:changed` for affected packages and their consumers, or append `--dry`
+to inspect the plan without running checks. Turbo includes uncommitted and untracked
+files. Set `TURBO_SCM_BASE=origin/main` (or another ref) to choose the comparison base;
+an unavailable base reports an error. Without an override, Turbo compares with `main`.
+
+`bun run test`, `bun run typecheck`, `bun run build`, and `bun run check` run the respective
+tasks across workspaces. Add `--filter=@study/web` to select a package, or use
+`bun run test --affected` for affected tests only. Packages own their task commands;
+Turbo handles selection, dependency ordering, and local caching. Shared source-only
+packages participate in the graph without redundant builds or separate typecheck projects.
+The existing server, web and tooling TypeScript projects remain the checking boundaries.
+
+Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
+Server/database, real integration, browser-journey, tooling and native tests stay uncached.
+Build output and generated routes are restored on cache hits. Shared configuration and
+explicit cross-package inputs invalidate affected task results; task-input-aware selection
+is enabled and covered by regression tests. Tasks run one at a time to avoid contention
+between route generation, shared builds and test infrastructure. No remote cache is configured,
+and the root commands disable Turbo telemetry.
+
+Affected checks do not establish that the entire repository passes. `bun run check` and the
+full CI gates remain required; native launchers and desktop lifecycle commands keep their
+existing interface. The standalone landing workspace is checked as an uncached root task.

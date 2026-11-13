@@ -7,6 +7,9 @@
     "./catalog": "./src/catalog.ts",
     "./classification": "./src/classification.ts"
   },
+  "scripts": {
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project tooling packages/testing"
+  },
   "devDependencies": {
     "vite-plus": "1.4.0"
   }

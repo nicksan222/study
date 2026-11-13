@@ -52,7 +52,7 @@ Every picture of the app on the site is a scene, made from the showcase sample i
 as `![What it shows](shot:name "Caption")` or `clip:name`; the tooling scene-reference check
 fails when a page names a scene that does not exist, or a scene no page shows. To change a
 capture, change its scene's steps; for a new one, add a scene. Then make only those with
-`just docs-media <scene>` and look at every variant before using it: no hover highlights,
+`bun run docs-media <scene>` and look at every variant before using it: no hover highlights,
 tooltips or half-rendered content. Tell the lead when a page needs state the showcase
 sample does not have; seeding belongs to `scenario`.
 
@@ -61,7 +61,7 @@ sample does not have; seeding belongs to `scenario`.
 Before reporting, check it and build it as the Landing workflow does:
 
 ```sh
-just tooling-test && just landing-check && just landing-build
+bun run tooling-test && bun run landing-check && bun run landing-build
 ```
 
 They must pass with no warnings you introduced. Report to the lead once: what app change

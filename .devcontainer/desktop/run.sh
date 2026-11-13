@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Explicit native launch: prepare Wayland and run Tauri in this terminal.
-# noVNC is opt-in through `just desktop-attach`.
+# noVNC is opt-in through `bun run desktop-attach`.
 set -euo pipefail
 script_dir=$(dirname "${BASH_SOURCE[0]}")
 repo=$(realpath "$script_dir/../..")

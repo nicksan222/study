@@ -43,7 +43,7 @@ for service in "${services[@]}"; do
       novnc) pattern='0.0.0.0:5900 127.0.0.1:5901' ;;
       wayvnc) pattern='wayvnc 127.0.0.1 5901' ;;
       browser) pattern="--user-data-dir=$desk/browser-profile" ;;
-      app) pattern='just run' ;;
+      app) pattern='bun run run' ;;
     esac
     if tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq -- "$pattern"; then
       # setsid-managed services own a process group; stopping the group also

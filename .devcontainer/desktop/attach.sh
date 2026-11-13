@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Publish the headless Study desktop through noVNC.
 #
-# The compositor and Study app are managed by the Justfile. This script adds two
+# The compositor and Study app are managed by the desktop scripts. This script adds two
 # transport processes around them: wayvnc serves VNC on container loopback, and
 # websockify serves the noVNC page/WebSocket on the container port forwarded to
 # host loopback. Re-running the script reuses healthy managed processes.
@@ -37,7 +37,7 @@ need() {
   fi
 }
 
-# desktop.env contains the compositor socket chosen by `just desktop`. Loading
+# desktop.env contains the compositor socket chosen by `bun run desktop`. Loading
 # it and asking sway is stronger evidence than trusting a possibly stale PID.
 desktop_alive() {
   if [ ! -s "$desktop_env" ]; then
@@ -193,7 +193,7 @@ fi
 flock -u 9
 if ((start_app)); then
   # The transport was just checked. Reuse it when starting the app.
-  if ! just --justfile "$repo/Justfile" desktop-run 9>&-; then
+  if ! bun run --cwd "$repo" desktop-run 9>&-; then
     fail "could not start Study; see $desk/app.log"
   fi
 fi

@@ -185,7 +185,7 @@ case "${1:-}" in
     python3 "$repo_root/tooling/release/validate_plist.py" "$release_temp/entitlements" "$app/Contents/Info.plist" ;;
   build)
     if [[ $# -ne 2 && $# -ne 3 ]] || [[ $# -eq 3 && $3 != --unsigned ]]; then
-      echo 'usage: just package PLATFORM [--unsigned]' >&2
+      echo 'usage: bun run package PLATFORM [--unsigned]' >&2
       exit 2
     fi
     formats "$2"; cd "$repo_root"

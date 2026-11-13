@@ -13,8 +13,10 @@
     "./runtime/ownership": "./src/runtime/ownership.ts"
   },
   "scripts": {
-    "test": "bun --bun vp test run --config ../../vite.config.ts --project server",
-    "start": "bun src/runtime/main.ts"
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project server apps/server",
+    "start": "bun src/runtime/main.ts",
+    "typecheck": "bun --bun tsc --noEmit -p ../../tooling/typescript/server.json",
+    "integrations": "bun --bun vp test run --config test/integrations/vite.config.ts integrations.e2e.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "3.0.135",

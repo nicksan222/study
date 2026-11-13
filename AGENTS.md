@@ -86,29 +86,35 @@ Bilingual copy lives in `packages/localization`.
 
 ## Commands
 
-- `just check`: shell checks, Rust fmt/Clippy/dependency checks/tests/docs, TypeScript server
+- `bun run check`: shell checks, Rust fmt/Clippy/dependency checks/tests/docs, TypeScript server
   typechecking/tests, repository-wide Vite+ format/lint, Fallow dead-code/complexity/duplication/architecture checks, frontend type/tests/build, database generation drift, tooling tests and landing
   checks. Run it before calling a change done.
-- `just server-check` and `just frontend-check`: focused package checks.
-- `just fallow-check` / `bun run fallow:check`: pinned full-repository Fallow gate; keep `tooling/fallow.jsonc` strict and document any narrow analyzer exceptions there.
+- `bun run server-check` and `bun run frontend-check`: focused package checks.
+- `bun run fallow-check` / `bun run fallow:check`: pinned full-repository Fallow gate; keep `tooling/fallow.jsonc` strict and document any narrow analyzer exceptions there.
 - `bun run lint`: repository-wide `vp check --deny-warnings` (Oxfmt and Oxlint).
   `bun run format` applies formatting; `bun run format:check` checks it.
-- `just check-crate <package>`: focused Rust formatting, lint, tests and docs.
+- `bun run check-crate <package>`: focused Rust formatting, lint, tests and docs.
 - `bun gen` / `bun gen:check`: generate/check database schema; generation also
   refreshes web routes. Feature and platform behavior has real SQLite and native RPC tests.
 - `bun dev`: start the web app and native Effect RPC server at localhost:5173.
-- `just run` / `just desktop`: opt-in native shell launchers for Tauri-specific checks; no noVNC startup.
-- `just desktop-attach`: explicit noVNC opt-in; manually forward port 5900 if needed.
-- `just desktop-status` / `just desktop-wait`: inspect/wait for the native window.
-- `just desktop-shot`, `just desktop-click`, `just desktop-record`: opt-in native desktop inspection;
+- `bun run run` / `bun run desktop`: opt-in native shell launchers for Tauri-specific checks; no noVNC startup.
+- `bun run desktop-attach`: explicit noVNC opt-in; manually forward port 5900 if needed.
+- `bun run desktop-status` / `bun run desktop-wait`: inspect/wait for the native window.
+- `bun run desktop-shot`, `bun run desktop-click`, `bun run desktop-record`: opt-in native desktop inspection;
   follow `.agents/skills/see-the-app` and coordinate access to the shared desktop.
-- `just landing`, `just landing-check`, `just landing-build`: website development and checks.
+- `bun run landing`, `bun run landing-check`, `bun run landing-build`: website development and checks.
   Existing demo/still/clip assets remain committed; capture generation is unavailable.
-- `just agents`, `just agents-stop`, `just agents-reset`, `just agents-doctor`,
-  `just agents-usage`: maintainer team tooling. Keep handoffs in `target/agents/<session>/task.md`.
-- `just build` / `just package <platform>`: native build/packaging; the native shell bundles the private server.
+- `bun run agents`, `bun run agents-stop`, `bun run agents-reset`, `bun run agents-doctor`,
+  `bun run agents-usage`: maintainer team tooling. Keep handoffs in `target/agents/<session>/task.md`.
+- `bun run build` / `bun run package <platform>`: native build/packaging; the native shell bundles the private server.
 
 The old `web`, `e2e`, `demo`, `docs-media`, `captures`, `reset-data`, `benchmark`, and
 `test-transcription-e2e` commands are removed. Do not recreate mock servers to make old
 consumer tests pass. The devcontainer builds native artifacts into `target/devcontainer`;
 do not point `CARGO_TARGET_DIR` elsewhere. Use `cargo clean` explicitly to remove artifacts.
+
+`bun run check:changed` uses Turbo to check affected packages and consumers; append `--dry`
+to preview. `bun run test`, `bun run typecheck`, and `bun run build` also use Turbo.
+Deterministic unit tests, typechecks and web builds use local caching; server/database,
+browser journeys, integrations and tooling tests always execute. Run `bun run check` before
+calling a change done; CI remains the full verification gate.

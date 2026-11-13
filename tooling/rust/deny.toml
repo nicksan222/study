@@ -1,4 +1,4 @@
-# `cargo deny check`, run by `just check`: known vulnerabilities, licenses that fit
+# `cargo deny check`, run by `bun run check`: known vulnerabilities, licenses that fit
 # MIT OR Apache-2.0, and crates only from crates.io.
 
 [graph]

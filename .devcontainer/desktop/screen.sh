@@ -42,7 +42,7 @@ SCREENS
       exit 1
     fi
     what="custom" ;;
-  *) echo "unknown screen $screen: see just desktop list" >&2; exit 1 ;;
+  *) echo "unknown screen $screen: see bun run desktop list" >&2; exit 1 ;;
 esac
 
 # Sway takes physical pixels; app screenshots and clicks use logical pixels.
@@ -86,4 +86,4 @@ DBUS_SESSION_BUS_ADDRESS=$(python3 "$repo/.devcontainer/desktop/lifecycle.py" db
 # Resizing an existing desktop preserves the app's in-memory state.
 swaymsg -q output HEADLESS-1 resolution "$mode" scale "$scale"
 echo "Desktop: $what, ${size} logical at ${scale}x ($mode pixels) on $WAYLAND_DISPLAY. In each shell: . target/desktop.env"
-echo "Then: just desktop-run | desktop-shot | desktop-click X Y | desktop-window | desktop-record; wtype, swaymsg, grim"
+echo "Then: bun run desktop-run | desktop-shot | desktop-click X Y | desktop-window | desktop-record; wtype, swaymsg, grim"

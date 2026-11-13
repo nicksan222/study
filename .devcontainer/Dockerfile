@@ -2,14 +2,13 @@
 # Trixie provides the glibc needed by the prebuilt onnxruntime.
 FROM mcr.microsoft.com/devcontainers/rust:1-trixie
 
-ARG JUST_VERSION=1.40.0
 ARG CARGO_DENY_VERSION=0.20.2
 ARG GRAPHIFY_VERSION=0.9.73
 ARG COZEMPIC_VERSION=1.8.39
 # Cozempic's plugin starts its MCP server with uv.
 ARG UV_VERSION=0.12.22
 
-# Build, rendering, PDF and development tools, and the virtual desktop (`just desktop`).
+# Build, rendering, PDF and development tools, and the virtual desktop (`bun run desktop`).
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential pkg-config clang lldb \
       libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev \
@@ -23,10 +22,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       chromium chromium-sandbox xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# just, and cargo-deny for `just check`.
+# cargo-deny for native verification.
 RUN arch=$(uname -m) \
-    && curl -fsSL "https://github.com/casey/just/releases/download/${JUST_VERSION}/just-${JUST_VERSION}-${arch}-unknown-linux-musl.tar.gz" \
-       | tar -xz -C /usr/local/bin just \
     && curl -fsSL "https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_VERSION}/cargo-deny-${CARGO_DENY_VERSION}-${arch}-unknown-linux-musl.tar.gz" \
        | tar -xz -C /usr/local/bin --strip-components=1 "cargo-deny-${CARGO_DENY_VERSION}-${arch}-unknown-linux-musl/cargo-deny"
 

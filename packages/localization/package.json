@@ -8,6 +8,9 @@
     "./catalog": "./src/catalog.ts",
     "./landing": "./src/landing.ts"
   },
+  "scripts": {
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/localization"
+  },
   "devDependencies": {
     "@study/testing": "*"
   }

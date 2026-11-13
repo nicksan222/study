@@ -16,14 +16,14 @@ mkdir -p "$desk" "$desk/browser-profile"
 # Refuse to start against a stale or missing Wayland socket. The caller gets an
 # actionable error instead of a detached Chromium process that immediately dies.
 if [ ! -s "$desktop_env" ]; then
-  echo "Study browser: no desktop environment; run just desktop first" >&2
+  echo "Study browser: no desktop environment; run bun run desktop first" >&2
   exit 1
 fi
 # shellcheck source=/dev/null
 . "$desktop_env"
 unset DISPLAY WAYLAND_SOCKET
 if ! swaymsg -t get_version >/dev/null 2>&1; then
-  echo "Study browser: the saved desktop is not running; run just desktop first" >&2
+  echo "Study browser: the saved desktop is not running; run bun run desktop first" >&2
   exit 1
 fi
 
