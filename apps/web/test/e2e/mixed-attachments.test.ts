@@ -271,7 +271,9 @@ testE2e(
       for (const text of [middle, correctedLast]) {
         await expect(async () => {
           for (let step = 0; step < 4; step++) await scrollHost.press('ArrowDown');
+
           await expect(body).toHaveVisibleText(text, { timeout: 250 });
+
           if (text === correctedLast) {
             const lecture = await body.boundingBox();
             const floating = await page.locator('.workspace-desk-floating-composer').boundingBox();
@@ -285,6 +287,7 @@ testE2e(
         // Return keyboard ownership to the scroll host after checking the composer.
         await scrollHost.click();
       }
+
       await expect(label).not.toBeInViewport();
       await expect(body).not.toHaveVisibleText('Mixed attachment field lecture — corrected');
       await expect(body).not.toHaveVisibleText(middle);

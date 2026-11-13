@@ -1,6 +1,7 @@
 import { StudyError } from '@study/contracts/errors';
 import { sourceIdSchema, contentSnapshotIdSchema, noteIdSchema } from '@study/contracts/ids';
-import { executionIdSchema, type executionSchema } from '@study/contracts/workflows/schemas';
+import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -183,6 +184,7 @@ testStable(
         { correlationId: requestId, limit: 100, before: cursor }
       ]);
     }
+
     expect(rpc.processing).toHaveBeenCalledTimes(2);
     expect(rpc.processing.mock.calls.map(([input]) => input)).toEqual([
       { id: source },
@@ -218,6 +220,7 @@ testStable(
     expect(rpc.executions).not.toHaveBeenCalled();
 
     const cursor = { id: executionIdSchema.make('wake'), createdAtMs: 20n };
+
     rpc.processing.mockReturnValueOnce(processing('request-1'));
     rpc.executions
       .mockReturnValueOnce(Effect.succeed({ items: [], next: cursor }))
@@ -235,11 +238,16 @@ testStable(
       .mockReturnValueOnce(Effect.succeed({ items: [], next: cursor }))
       .mockReturnValueOnce(Effect.sync(entered).pipe(Effect.andThen(Effect.never)));
     const pending = fetchProcessing(controller.signal);
-    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    const rejected = pending.then(
+      () => {
+        throw new Error('Expected the request to abort');
+      },
+      (error: unknown) => error
+    );
 
     await laterPage;
     controller.abort();
-    await rejected;
+    expect(await rejected).toMatchObject({ name: 'AbortError' });
     expect(
       vi
         .mocked(request)
@@ -280,6 +288,7 @@ testStable(
         'sources.sourceProcessing': rpc.processing,
         'workflows.executions': rpc.executions
       };
+
       rpc.processing.mockReturnValue(processing('request-1'));
       rpc.executions.mockReturnValue(Effect.succeed({ items: [execution(overrides)], next: null }));
       client['sources.currentExtraction'].mockReturnValue(Effect.succeed(null));
@@ -288,6 +297,7 @@ testStable(
       try {
         expect(await screen.findByText(label)).toBeInTheDocument();
         expect(screen.queryByText(copy.NotePending)).toBeNull();
+
         if ('configurationWaitReason' in overrides)
           expect(screen.getByRole('link', { name: copy.Settings })).toHaveAttribute(
             'href',

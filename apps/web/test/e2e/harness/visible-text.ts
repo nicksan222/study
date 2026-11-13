@@ -33,12 +33,15 @@ export const expect = base.extend({
                   const end = offset + (node.textContent?.length ?? 0);
 
                   if (start >= offset && start < end) range.setStart(node, start - offset);
+
                   if (start + exact.length > offset && start + exact.length <= end) {
                     range.setEnd(node, start + exact.length - offset);
                     break;
                   }
+
                   offset = end;
                 }
+
                 return range;
               }
 
@@ -54,12 +57,14 @@ export const expect = base.extend({
                     (rect.left < clip.left || rect.right > clip.right)
                   )
                     return false;
+
                   if (
                     style.overflowY !== 'visible' &&
                     (rect.top < clip.top || rect.bottom > clip.bottom)
                   )
                     return false;
                 }
+
                 return true;
               }
 
@@ -80,14 +85,16 @@ export const expect = base.extend({
 
                   if (!unclipped(rect)) return false;
 
-                  return [0.1, 0.5, 0.9].every((fraction) => {
+                  for (const fraction of [0.1, 0.5, 0.9]) {
                     const hit = document.elementFromPoint(
                       rect.left + rect.width * fraction,
                       rect.top + rect.height / 2
                     );
 
-                    return hit !== null && element.contains(hit);
-                  });
+                    if (hit === null || !element.contains(hit)) return false;
+                  }
+
+                  return true;
                 })
               );
             }, text),

@@ -350,3 +350,80 @@ testStable(
     );
   }
 );
+
+testStable('direct journey callbacks cannot escape into DOM or raw transports', async () => {
+  const rejected = [
+    'await browser.evaluate(() => document.body.click());',
+    'await browser.request.post("/rpc", { data: "request" });',
+    'await browser.context().request.post("/rpc");',
+    'await fetch("/rpc");',
+    'await globalThis.fetch("/rpc");',
+    'const { fetch: send } = globalThis; await send("/rpc");',
+    'const { evaluate: run } = browser; await run(fn);'
+  ];
+  const files = Object.fromEntries(
+    rejected.map((action, index) => [
+      `apps/web/test/e2e/direct-${index}.test.ts`,
+      `import { testE2e, expect } from './harness/index.ts';
+     testE2e('Recovery retains the draft', async ({ page: browser, expectScreenshot }) => {
+       ${action}
+       await expectScreenshot('ready', { target: 'viewport', ready: () => expect(browser.getByRole('heading')).toBeVisible() });
+     });`
+    ])
+  );
+
+  assert.deepStrictEqual(await lintRulePaths('web-e2e-harness', files), Object.keys(files).sort());
+});
+
+testStable('public locator file drops need no DOM dispatch escape', async () => {
+  const diagnostics = await lintRulePaths('web-e2e-harness', {
+    'apps/web/test/e2e/public-drop.ts': `
+      async function journey({ page }) {
+        const composer = page.getByRole('region', { name: 'Compose' });
+        const files = [{ name: 'survey.md', mimeType: 'text/markdown', buffer: Buffer.from('Survey') }];
+        await composer.drop({ files });
+        await page.getByRole('link', { name: 'Notes' }).drop({ files });
+      }
+      async function dropOn(target: Locator, files: FilePayload[]) {
+        await target.drop({ files });
+      }
+    `,
+    'apps/web/test/e2e/dom-dispatch.ts': `
+      page.getByRole('region').dispatchEvent('drop', { dataTransfer });
+    `,
+    'apps/web/test/e2e/dom-evaluate.ts': `
+      page.getByRole('region').evaluate(target => target.dispatchEvent(event));
+    `
+  });
+
+  assert.deepStrictEqual(diagnostics, [
+    'apps/web/test/e2e/dom-dispatch.ts',
+    'apps/web/test/e2e/dom-evaluate.ts'
+  ]);
+});
+
+testStable('journey names describe behavior instead of workflow tracker IDs', async () => {
+  const journey = `
+    import { expect, testE2e } from './harness/index.ts';
+    testE2e('Read and reopen a Markdown source', async ({ page, expectScreenshot }) => {
+      await page.goto('/notes');
+      await expectScreenshot('source-top', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() });
+    });
+  `;
+
+  const diagnostics = await lintRulePaths('web-e2e-harness', {
+    'apps/web/test/e2e/markdown-source.test.ts': journey,
+    'apps/web/test/e2e/w014-markdown.test.ts': journey,
+    'apps/web/test/e2e/workflow-014.test.ts': journey,
+    'apps/web/test/e2e/numbered-title.test.ts': journey.replace(
+      'Read and reopen',
+      'W014 reads and reopens'
+    )
+  });
+
+  assert.deepStrictEqual(diagnostics, [
+    'apps/web/test/e2e/numbered-title.test.ts',
+    'apps/web/test/e2e/w014-markdown.test.ts',
+    'apps/web/test/e2e/workflow-014.test.ts'
+  ]);
+});
