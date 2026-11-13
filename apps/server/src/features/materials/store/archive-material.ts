@@ -22,14 +22,14 @@ import { now } from '#server/features/materials/store/writes';
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 export function makeArchiveMaterial(resources: StoreResources) {
-  const { db, clock } = resources;
+  const { db, timestampClock } = resources;
   const store = db;
   const { materialRow, readMaterial } = makeReads(resources);
 
   function setArchived(id: MaterialId, archived: boolean) {
     return materialIntegrity(() => {
       materialRow(id);
-      const timestamp = now(clock);
+      const timestamp = now(timestampClock);
 
       store.orm
         .update(s.materials)

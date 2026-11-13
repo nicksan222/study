@@ -136,7 +136,7 @@ testStable(
       ).toStrictEqual([setup.loser.submittedVersionId]);
       assert.strictEqual(f.context.db.orm.select().from(s.page_proposals).all().length, 0);
 
-      const before = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+      const before = makeMaterialOutput(f.context);
       const retained = before();
 
       for (const mutation of [
@@ -219,7 +219,7 @@ testStable(
             document: { blocks: [stable, paragraph('Revised reading')], meta }
           };
           const saved = yield* pages.save(save);
-          const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+          const output = makeMaterialOutput(f.context);
           const before = output();
           // Reordered object keys are the same intent; block and inline order remain significant.
           const replay = yield* pages.save({

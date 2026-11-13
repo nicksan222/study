@@ -52,8 +52,8 @@ function makeHelpers({ db }: StoreResources) {
 export const SettingsStore = defineStore({
   name: 'study/SettingsStore',
   entity: { singular: 'preference', plural: 'preferences' },
-  make: ({ db, clock }) => {
-    const { replace } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { replace } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {

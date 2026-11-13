@@ -62,6 +62,8 @@ export class App {
     path: string;
     issuer?: string;
     hostId?: string;
+    /** Overrides store timestamps only; authentication and workflow scheduling keep live time. */
+    timestampClock?: Clock.Clock;
     fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
     onPhase?: (phase: OpenPhase) => void;
   }): Promise<App> {
@@ -124,7 +126,7 @@ export class App {
           Effect.tryPromise({
             try: async () => {
               report('database:start');
-              const context = await ServerContext.open(options.path, clock);
+              const context = await ServerContext.open(options.path, clock, options.timestampClock);
 
               report('database:complete');
 

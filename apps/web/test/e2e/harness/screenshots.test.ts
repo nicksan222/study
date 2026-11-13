@@ -135,3 +135,57 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
     expect(calls).toEqual(atDeadline);
   }
 });
+
+testStable(
+  'canonical capture blurs only the passive focused entry after readiness unless preserved',
+  async () => {
+    const { screenshotAssertions } = await import('./screenshots.ts');
+
+    for (const focus of [undefined, 'preserve'] as const) {
+      for (const focusedEntry of [false, true]) {
+        const calls: string[] = [];
+        const page = {
+          evaluate: async () => {
+            calls.push('fonts');
+          },
+          locator: (selector: string) => ({
+            evaluate: async () => {
+              calls.push('images');
+            },
+            count: async () => {
+              calls.push(selector);
+
+              return Number(focusedEntry);
+            },
+            blur: async () => {
+              calls.push('blur');
+            }
+          }),
+          screenshot: async () => {
+            throw new Error('capture reached');
+          }
+        };
+        const screenshots = screenshotAssertions(
+          page as unknown as Page,
+          'focus',
+          'test-results/focus',
+          'contract'
+        );
+
+        await expect(
+          screenshots.expectScreenshot('entry', {
+            target: 'viewport',
+            focus,
+            ready: async () => {
+              calls.push('ready');
+            }
+          })
+        ).rejects.toThrow('capture reached');
+        expect(calls.slice(0, 3)).toEqual(['ready', 'fonts', 'images']);
+        expect(calls.includes('blur')).toBe(focusedEntry && focus !== 'preserve');
+
+        if (focus !== 'preserve') expect(calls[3]).toBe('.note-index-target[tabindex="-1"]:focus');
+      }
+    }
+  }
+);

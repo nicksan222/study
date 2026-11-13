@@ -26,7 +26,7 @@ import { invalid, required } from './errors.ts';
 import { makePagePublication } from './publication.ts';
 
 export function makePageProposals(resources: StoreResources) {
-  const { db, clock } = resources;
+  const { db, timestampClock } = resources;
   const { reads, revisions, evidence, editing } = makePagePublication(resources);
 
   const orm = db.orm;
@@ -85,7 +85,7 @@ export function makePageProposals(resources: StoreResources) {
         page_id: v.pageId,
         expected_version_id: base.id,
         intent_hash: hash,
-        created_at: unixSeconds(clock)
+        created_at: unixSeconds(timestampClock)
       })
       .run();
     orm

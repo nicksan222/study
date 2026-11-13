@@ -500,7 +500,7 @@ for (const barrier of ['cancel', 'delete'] as const) {
           }).pipe(Effect.provide(f.domain()))
         );
 
-        const output = makeMaterialOutput({ db: f.context.db, clock: f.context.clock });
+        const output = makeMaterialOutput(f.context);
 
         const before = output();
 

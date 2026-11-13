@@ -119,12 +119,12 @@ export const NoteArchiveStore = defineStore({
   name: 'study/NoteArchiveStore',
   entity: { singular: 'archivedItem', plural: 'archivedItems' },
   make: (resources) => {
-    const { db, clock } = resources;
+    const { db, timestampClock } = resources;
     const reads = makeArchiveReads(resources);
 
     function setArchived(input: typeof setNoteItemArchivedSchema.Type) {
       reads.assertNote(input.noteId);
-      const archived_at = input.archived ? unixSeconds(clock) : null;
+      const archived_at = input.archived ? unixSeconds(timestampClock) : null;
       const target = input.target;
 
       if (target.kind === 'message') {
@@ -143,7 +143,7 @@ export const NoteArchiveStore = defineStore({
         .set({
           context_revision: sql`${notes.context_revision} + 1`,
           selection_revision: sql`${notes.selection_revision} + 1`,
-          updated_at: unixSeconds(clock)
+          updated_at: unixSeconds(timestampClock)
         })
         .where(eq(notes.id, input.noteId))
         .run();

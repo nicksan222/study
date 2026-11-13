@@ -99,8 +99,8 @@ function makeHelpers({ db }: StoreResources) {
 export const RecordingStore = defineStore({
   name: 'study/RecordingStore',
   entity: { singular: 'recording', plural: 'recordings' },
-  make: ({ db, clock }) => {
-    const { recording, mutable } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { recording, mutable } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -143,7 +143,7 @@ export const RecordingStore = defineStore({
           output: recordingViewSchema,
           run: (id) => {
             required(db.orm.select().from(notes).where(eq(notes.id, id)).get());
-            const at = unixSeconds(clock);
+            const at = unixSeconds(timestampClock);
             const row = db.orm
               .insert(recordings)
               .values({ note_id: id, started_at: at, updated_at: at })
@@ -179,7 +179,7 @@ export const RecordingStore = defineStore({
               .run();
             db.orm
               .update(recordings)
-              .set({ updated_at: unixSeconds(clock) })
+              .set({ updated_at: unixSeconds(timestampClock) })
               .where(eq(recordings.id, id))
               .run();
           }
@@ -205,8 +205,8 @@ export const RecordingStore = defineStore({
 export const RecordingPostStore = defineStore({
   name: 'study/RecordingPostStore',
   entity: { singular: 'recordingPost', plural: 'recordingPosts' },
-  make: ({ db, clock }) => {
-    const { recording, post, mutable } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { recording, post, mutable } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -263,7 +263,7 @@ export const RecordingPostStore = defineStore({
                 name: input.name.trim(),
                 wav: Buffer.from(wav),
                 duration_ms: BigInt(Math.round(Number(record.samples) / 16)),
-                created_at: unixSeconds(clock)
+                created_at: unixSeconds(timestampClock)
               })
               .run();
 
@@ -300,8 +300,8 @@ export const RecordingPostStore = defineStore({
 export const RecordingPostSnapshotStore = defineStore({
   name: 'study/RecordingPostSnapshotStore',
   entity: { singular: 'recordingPostSnapshot', plural: 'recordingPostSnapshots' },
-  make: ({ db, clock }) => {
-    const { post } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { post } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {

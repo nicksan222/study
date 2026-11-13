@@ -132,8 +132,8 @@ function makeHelpers({ db }: StoreResources) {
 export const ExecutionStore = defineStore({
   name: 'study/ExecutionStore',
   entity: { singular: 'execution', plural: 'executions' },
-  make: ({ db, clock }) => {
-    const { find } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { find } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {

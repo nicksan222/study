@@ -178,8 +178,12 @@ function checkedBytes(value: Uint8Array) {
 export const SourceStore = defineStore({
   name: 'study/SourceStore',
   entity: { singular: 'source', plural: 'sources' },
-  make: ({ db, clock }) => {
-    const { selectSources, sourceRow, find, state, checkState } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { selectSources, sourceRow, find, state, checkState } = makeHelpers({
+      db,
+      clock,
+      timestampClock
+    });
 
     function setProcessingRequest(id: SourceId, requestId: string) {
       db.orm
@@ -247,7 +251,7 @@ export const SourceStore = defineStore({
                 uri: input.uri,
                 size_bytes: BigInt(bytes.length),
                 sha256: new CryptoHasher('sha256').update(bytes).digest(),
-                created_at: unixSeconds(clock)
+                created_at: unixSeconds(timestampClock)
               })
               .run().lastInsertRowid as SourceId;
 
@@ -476,7 +480,7 @@ export const SourceStore = defineStore({
                   .extractor as typeof tables.content_snapshots.$inferInsert.extractor,
                 extractor_version: BigInt(doc.meta.extractorVersion),
                 meta: JSON.stringify(doc.meta),
-                created_at: unixSeconds(clock)
+                created_at: unixSeconds(timestampClock)
               })
               .run().lastInsertRowid as ContentSnapshotId;
 
@@ -529,8 +533,8 @@ export const SourceStore = defineStore({
 export const SourceExportStore = defineStore({
   name: 'study/SourceExportStore',
   entity: { singular: 'sourceExport', plural: 'sourceExports' },
-  make: ({ db, clock }) => {
-    const { find } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { find } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -558,8 +562,8 @@ export const SourceExportStore = defineStore({
 export const SourceProcessingStore = defineStore({
   name: 'study/SourceProcessingStore',
   entity: { singular: 'sourceProcessing', plural: 'sourceProcessings' },
-  make: ({ db, clock }) => {
-    const { state } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { state } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -621,8 +625,8 @@ export const SourceSnapshotStore = defineStore({
 export const SourceDocumentStore = defineStore({
   name: 'study/SourceDocumentStore',
   entity: { singular: 'sourceDocument', plural: 'sourceDocuments' },
-  make: ({ db, clock }) => {
-    const { readDocument, find } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { readDocument, find } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -656,8 +660,8 @@ export const SourceDocumentStore = defineStore({
 export const HistoricalDocumentStore = defineStore({
   name: 'study/SourceHistoricalDocumentStore',
   entity: { singular: 'document', plural: 'documents' },
-  make: ({ db, clock }) => {
-    const { readDocument, find } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { readDocument, find } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {

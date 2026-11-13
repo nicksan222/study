@@ -28,7 +28,13 @@ import { observeOperation, observeSyncOperation } from '#server/platform/observa
 import { emitEvent } from '#server/platform/workflows/events';
 import { PublicationGuard } from '#server/platform/workflows/publication';
 
-export type StoreResources = { readonly db: Db | DbTransaction; readonly clock: Clock.Clock };
+export type StoreResources = {
+  readonly db: Db | DbTransaction;
+  /** Operational time for eligibility, scheduling, and deadlines. */
+  readonly clock: Clock.Clock;
+  /** Persisted presentation timestamps; defaults to the operational clock. */
+  readonly timestampClock: Clock.Clock;
+};
 
 type Decoder = Schema.ConstraintDecoder<unknown>;
 
@@ -184,7 +190,11 @@ export function defineStore<
 
     if (existing) return existing;
 
-    const bound = definition.make({ db: context.db, clock: context.clock });
+    const bound = definition.make({
+      db: context.db,
+      clock: context.clock,
+      timestampClock: context.timestampClock
+    });
 
     synchronous(bound);
 

@@ -209,8 +209,7 @@ testStable(
           return output.material_id;
         }).pipe(Effect.provide(f.domain()))
       );
-      const retirement = () =>
-        makeGenerationRetirement({ db: f.context.db, clock: f.context.clock });
+      const retirement = () => makeGenerationRetirement(f.context);
 
       assert.ok(retirement().isScrubbed(saved.request.id) === false);
       await acceptHistory(f, owner, 'scrub-shape-proof');

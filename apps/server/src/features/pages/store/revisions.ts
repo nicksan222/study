@@ -28,12 +28,12 @@ import { makePageEvidence } from './provenance.ts';
 import { makePageReads } from './reads.ts';
 
 export function makePageRevisions(resources: StoreResources) {
-  const { db, clock } = resources;
+  const { db, timestampClock } = resources;
   const reads = makePageReads(resources);
   const evidence = makePageEvidence(resources);
 
   const orm = db.orm;
-  const now = () => unixSeconds(clock);
+  const now = () => unixSeconds(timestampClock);
   const { aggregate, liveVersion } = reads;
   const { insertEvidence } = evidence;
 

@@ -151,7 +151,7 @@ testStable(
 
       assert.throws(() => context.db.orm.delete(s.page_edit_receipts).run());
 
-      const output = makeMaterialOutput({ db: context.db, clock: context.clock });
+      const output = makeMaterialOutput(context);
 
       const beforeFailure = output();
 

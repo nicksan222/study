@@ -75,7 +75,7 @@ function canonicalIntent(input: typeof noteContextIntentSchema.Type) {
   };
 }
 
-function makeContextReads({ db, clock }: StoreResources) {
+function makeContextReads({ db, clock, timestampClock }: StoreResources) {
   function note(id: typeof noteSelectionInputSchema.Type.noteId) {
     const row = db.orm.select().from(notes).where(eq(notes.id, id)).get();
 
@@ -128,7 +128,7 @@ function makeContextReads({ db, clock }: StoreResources) {
       .get();
   }
 
-  const assertContextAvailable = makeAssertContextAvailable({ db, clock });
+  const assertContextAvailable = makeAssertContextAvailable({ db, clock, timestampClock });
 
   function requiredContext(requestId: string, available: boolean) {
     assertContextAvailable(requestId, available);

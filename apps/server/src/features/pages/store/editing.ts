@@ -46,13 +46,13 @@ function creationMetadata(
 }
 
 export function makePageEditing(resources: StoreResources) {
-  const { db, clock } = resources;
+  const { db, timestampClock } = resources;
   const reads = makePageReads(resources);
   const revisions = makePageRevisions(resources);
   const evidence = makePageEvidence(resources);
 
   const orm = db.orm;
-  const now = () => unixSeconds(clock);
+  const now = () => unixSeconds(timestampClock);
   const { aggregate, version, head, page, content } = reads;
   const { insertVersion, publish } = revisions;
   const { assertInput, assertCitations, assertBlockOwnership } = evidence;

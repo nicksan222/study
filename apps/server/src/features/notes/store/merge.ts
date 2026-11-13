@@ -79,7 +79,7 @@ export const NoteMergeStore = defineStore({
         input: mergeNotesInputSchema,
         output: Schema.Struct({ id: noteIdSchema, created: Schema.Boolean }),
         run: ({ noteIds, intentKey }) => {
-          const { db, clock } = resources;
+          const { db, timestampClock } = resources;
           const ids = distinctNoteIds(noteIds);
 
           const intent = JSON.stringify(ids.map(String));
@@ -152,7 +152,7 @@ export const NoteMergeStore = defineStore({
           const selection = Schema.encodeSync(
             Schema.fromJsonString(Schema.toCodecJson(selectionTargetsSchema))
           )(selections);
-          const now = unixSeconds(clock);
+          const now = unixSeconds(timestampClock);
           const created = db.orm
             .insert(s.notes)
             .values({

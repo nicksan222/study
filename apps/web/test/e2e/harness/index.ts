@@ -10,8 +10,10 @@ import { expect } from 'playwright/test';
 import { preview } from 'vite-plus';
 import { onTestFinished } from 'vite-plus/test';
 
+import { creationResponse } from './creation-response.ts';
 import { safeName, workflowName } from './identity.ts';
 import { owned } from './lifecycle.ts';
+import { captureProfile, captureTimestampClock } from './profile.ts';
 import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
 import { testWeb } from './worker.ts';
@@ -33,7 +35,10 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
       const database = await createTestDatabase();
 
       own(() => database.cleanup());
-      const app = await App.open({ path: await database.prepare() });
+      const app = await App.open({
+        path: await database.prepare(),
+        timestampClock: captureTimestampClock()
+      });
 
       own(() => app.close());
       const server = await serve(app);
@@ -56,17 +61,22 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
           })
         )
       );
+      const creation = creationResponse();
+      const proxy = studyRpcProxy(server.url);
+
+      proxy['/rpc'] = creation.proxy(proxy['/rpc']!);
       const web = await preview({
         configFile: Bun.fileURLToPath(new URL('../../../vite.config.ts', import.meta.url)),
         preview: {
           host: '127.0.0.1',
           port: 0,
           strictPort: false,
-          proxy: studyRpcProxy(server.url)
+          proxy
         }
       });
 
       own(() => web.close());
+      own(() => creation.close());
       const address = web.httpServer.address();
 
       if (!address || typeof address === 'string') throw new Error('Vite did not open a TCP port');
@@ -82,6 +92,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
       });
 
       own(() => context.close());
+      await context.clock.setFixedTime(new Date(captureProfile.wallTime));
       await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 
       own(async () => {
@@ -96,6 +107,8 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
         JSON.stringify(
           {
             profile,
+            wallTime: captureProfile.wallTime,
+            captureFocus: captureProfile.focus,
             environment: '.devcontainer/devcontainer.json',
             appZoomPercent: 125,
             browserZoom: 1,
@@ -123,6 +136,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
       try {
         await run({
           page,
+          loseCreationResponse: creation.arm,
           expectScreenshot: (name, options) =>
             screenshots!.expectScreenshot(name, {
               ...options,
@@ -161,7 +175,11 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
 
 export { expect } from './visible-text.ts';
 
-type Journey = (fixture: { page: Page; expectScreenshot: ExpectScreenshot }) => Promise<void>;
+type Journey = (fixture: {
+  page: Page;
+  expectScreenshot: ExpectScreenshot;
+  loseCreationResponse: ReturnType<typeof creationResponse>['arm'];
+}) => Promise<void>;
 
 /** A classified journey owns its stack; authors only describe behavior and screenshot readiness. */
 export function testE2e(title: string, journey: Journey): void {

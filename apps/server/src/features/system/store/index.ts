@@ -29,8 +29,8 @@ type SearchHit = ReturnType<ReturnType<typeof makeSearch>['search']>[number];
 export const SystemStore = defineStore({
   name: 'study/SystemStore',
   entity: { singular: 'search', plural: 'searches' },
-  make: ({ db, clock }) => {
-    const { search } = makeSearch({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { search } = makeSearch({ db, clock, timestampClock });
 
     function presentProject(
       target: Extract<SearchHit['target'], { type: 'project' }>

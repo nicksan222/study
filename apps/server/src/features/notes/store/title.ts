@@ -34,8 +34,8 @@ import { makePersistence } from './persistence.ts';
 
 const requestInput = Schema.Struct({ ...titleRequestSchema.fields });
 
-function makeHelpers({ db, clock }: StoreResources) {
-  const { titleHistory } = makeHistory({ db, clock });
+function makeHelpers({ db, clock, timestampClock }: StoreResources) {
+  const { titleHistory } = makeHistory({ db, clock, timestampClock });
 
   function read(requestId: string, replayTitle?: string, eventId?: string) {
     const foundEventRow = db.orm
@@ -124,9 +124,9 @@ function makeHelpers({ db, clock }: StoreResources) {
 export const TitleStore = defineStore({
   name: 'study/NoteTitleStore',
   entity: { singular: 'titleSnapshot', plural: 'titleSnapshots' },
-  make: ({ db, clock }) => {
-    const { requiredNote } = makePersistence({ db, clock });
-    const { read, titleHistory } = makeHelpers({ db, clock });
+  make: ({ db, clock, timestampClock }) => {
+    const { requiredNote } = makePersistence({ db, clock, timestampClock });
+    const { read, titleHistory } = makeHelpers({ db, clock, timestampClock });
 
     return {
       queries: {
@@ -205,7 +205,7 @@ export const TitleStore = defineStore({
                 .set({
                   title,
                   title_source: 'generated',
-                  updated_at: unixSeconds(clock)
+                  updated_at: unixSeconds(timestampClock)
                 })
                 .where(eq(notes.id, event.noteId))
                 .run();

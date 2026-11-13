@@ -68,6 +68,8 @@ export type ExpectScreenshot = (
     target: Locator | 'viewport';
     ready: () => Promise<void>;
     timeoutMs?: number;
+    /** Keep intentional focus snapshots; otherwise normalize only passive notebook entry focus. */
+    focus?: 'preserve';
   }
 ) => Promise<void>;
 
@@ -81,7 +83,10 @@ export function screenshotAssertions(
   let count = 0;
   let captureMs = 0;
   const names = new Set<string>();
-  const expectScreenshot: ExpectScreenshot = async (name, { target, ready, timeoutMs = 15000 }) => {
+  const expectScreenshot: ExpectScreenshot = async (
+    name,
+    { target, ready, timeoutMs = 15000, focus }
+  ) => {
     safeName(name);
 
     if (names.has(name)) throw new Error(`Duplicate screenshot: ${name}`);
@@ -124,6 +129,17 @@ export function screenshotAssertions(
 
             await Promise.all(images.map((image) => image.decode()));
           });
+          fence();
+
+          if (focus !== 'preserve') {
+            const entry = page.locator('.note-index-target[tabindex="-1"]:focus');
+
+            if (await entry.count()) {
+              fence();
+              await entry.blur({ timeout: remaining() });
+            }
+          }
+
           fence();
           let previous = await capture();
 

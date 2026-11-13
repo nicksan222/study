@@ -27,18 +27,24 @@ export class ServerContext {
   readonly transactionOwner = Symbol();
   readonly db: Db;
   readonly clock: Clock.Clock;
+  readonly timestampClock: Clock.Clock;
 
-  constructor(db: Db, clock: Clock.Clock = liveClock()) {
+  constructor(db: Db, clock: Clock.Clock = liveClock(), timestampClock: Clock.Clock = clock) {
     this.clock = clock;
+    this.timestampClock = timestampClock;
     this.db = db;
     this.transaction(() => {});
   }
 
-  static async open(path: string, clock?: Clock.Clock): Promise<ServerContext> {
+  static async open(
+    path: string,
+    clock?: Clock.Clock,
+    timestampClock?: Clock.Clock
+  ): Promise<ServerContext> {
     const db = await Db.open(path);
 
     try {
-      return new ServerContext(db, clock);
+      return new ServerContext(db, clock, timestampClock);
     } catch (error) {
       db.close();
 
@@ -86,6 +92,7 @@ export interface ServerTransactionContext {
   readonly transactionOwner: symbol;
   readonly db: DbTransaction;
   readonly clock: Clock.Clock;
+  readonly timestampClock: Clock.Clock;
   assertTransactionActive(): void;
   transaction<T>(work: (context: ServerTransactionContext) => T): T;
 }
@@ -95,6 +102,7 @@ function transactionContext(owner: ServerContext, db: DbTransaction): ServerTran
     transactionOwner: owner.transactionOwner,
     db,
     clock: owner.clock,
+    timestampClock: owner.timestampClock,
     assertTransactionActive: () => {
       void db.orm;
     },

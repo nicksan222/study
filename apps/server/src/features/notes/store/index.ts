@@ -54,7 +54,7 @@ const row = (
 export const NoteStore = defineStore({
   name: 'study/NoteNoteStore',
   entity: { singular: 'note', plural: 'notes' },
-  make: ({ db, clock }) => {
+  make: ({ db, timestampClock }) => {
     const present = (value: typeof notes.$inferSelect) =>
       row(
         value,
@@ -135,7 +135,7 @@ export const NoteStore = defineStore({
             if (!title || [...title].length > 200)
               throw new StudyError('invalid_input', 'invalid note title');
 
-            const now = unixSeconds(clock);
+            const now = unixSeconds(timestampClock);
 
             if (
               input.project !== undefined &&
@@ -224,7 +224,7 @@ export const NoteStore = defineStore({
                 title,
                 title_source: 'user',
                 context_revision: sql`${notes.context_revision} + 1`,
-                updated_at: unixSeconds(clock)
+                updated_at: unixSeconds(timestampClock)
               })
               .where(eq(notes.id, input.id))
               .returning()
