@@ -991,6 +991,8 @@ export const italian = Object.freeze({
   SourceDeleteImagePins: 'Una pagina redatta o un’altra fonte usa un’immagine di questa fonte.',
   SourceDeleteFailed:
     'Impossibile eliminare la fonte. Controlla gli utilizzi attuali prima di riprovare.',
+  SourceExtractionUnsupported: 'Non è possibile estrarre questo tipo di file.',
+  SourceExtractionFailed: 'Estrazione non riuscita. Il file originale è ancora disponibile.',
   SourceDeletedNotice: 'Fonte eliminata.',
   PageEditCopy: 'Modifica una copia',
   PageCopyTitle: 'Copia modificabile',

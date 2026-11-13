@@ -159,7 +159,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
   });
 }
 
-export { expect } from 'playwright/test';
+export { expect } from './visible-text.ts';
 
 type Journey = (fixture: { page: Page; expectScreenshot: ExpectScreenshot }) => Promise<void>;
 

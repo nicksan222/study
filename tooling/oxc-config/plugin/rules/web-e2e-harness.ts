@@ -115,6 +115,7 @@ const selectorActions = new Set([
 ]);
 
 const domAccess = new Set([
+  'dispatchEvent',
   'evaluate',
   'evaluateAll',
   'evaluateHandle',
@@ -243,7 +244,8 @@ function browserBindings(context: any) {
       name &&
       (base === 'handle' ||
         (['page', 'locator'].includes(base) && domAccess.has(name)) ||
-        (base === 'page' && (selectorActions.has(name) || name === 'mouse')))
+        (base === 'page' &&
+          (selectorActions.has(name) || ['mouse', 'request', 'context'].includes(name))))
     );
   }
 
@@ -277,6 +279,24 @@ function browserBindings(context: any) {
   return { resolve, forbidden, forced };
 }
 
+function destructuringKey(node: any): boolean {
+  return (
+    node.parent?.type === 'Property' &&
+    node.parent.key === node &&
+    !node.parent.computed &&
+    node.parent.parent?.type === 'ObjectPattern'
+  );
+}
+
+function descriptiveTitle(node: any): boolean {
+  return (
+    node?.type === 'Literal' &&
+    typeof node.value === 'string' &&
+    node.value.trim().split(/\s+/).length >= 2 &&
+    !/\bW\d{3}\b/i.test(node.value)
+  );
+}
+
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
@@ -292,7 +312,14 @@ export default defineRule({
     const locatorMessage =
       'Use Playwright Locators for browser interactions; DOM handles, selector actions and mouse coordinates are forbidden.';
     const spec = /\.(?:test|spec)\.[jt]sx?$/.test(filename);
-    const blocked = new Set(['route', 'routeFromHAR', 'routeWebSocket', 'waitForTimeout', 'sleep']);
+    const blocked = new Set([
+      'route',
+      'routeFromHAR',
+      'routeWebSocket',
+      'waitForTimeout',
+      'sleep',
+      'fetch'
+    ]);
     const edges = moduleEdges(context, (node, source, typeOnly) => {
       if (!source || typeOnly) return;
 
@@ -359,6 +386,16 @@ export default defineRule({
 
     return {
       ...edges,
+      Program(node: any) {
+        const name = filename.split('/').at(-1) ?? '';
+
+        if (spec && /^(?:w\d+|workflow[-_]\d+)(?:[-_.]|$)/i.test(name))
+          context.report({
+            node,
+            message:
+              'Name journey files after behavior, like plain-note.test.ts; workflow IDs belong in the local tracker.'
+          });
+      },
       MemberExpression(node: any) {
         if (browser.forbidden(browser.resolve(node.object), memberName(node)))
           context.report({ node, message: locatorMessage });
@@ -376,9 +413,10 @@ export default defineRule({
       },
       Identifier(node: any) {
         if (
-          node.name === 'setTimeout' &&
+          ['setTimeout', 'fetch', 'XMLHttpRequest', 'WebSocket'].includes(node.name) &&
           node.parent?.type !== 'ImportSpecifier' &&
           !binding(context, node)?.defs.length &&
+          !destructuringKey(node) &&
           !(
             node.parent?.type === 'MemberExpression' &&
             node.parent.property === node &&
@@ -437,14 +475,11 @@ export default defineRule({
             message: 'Every E2E must await a named screenshot with explicit readiness.'
           });
 
-        const title = node.arguments[0];
-
-        if (
-          title?.type !== 'Literal' ||
-          typeof title.value !== 'string' ||
-          title.value.trim().split(/\s+/).length < 2
-        )
-          context.report({ node, message: 'Give each E2E a clear descriptive title.' });
+        if (!descriptiveTitle(node.arguments[0]))
+          context.report({
+            node,
+            message: 'Give each E2E a clear behavior title without a workflow ID.'
+          });
       }
     };
   }
