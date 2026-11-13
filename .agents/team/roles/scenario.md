@@ -51,10 +51,10 @@ then connect to the existing desktop and launch the scenario instance:
 XDG_DATA_HOME="$scenario_data" bun run desktop:dev
 ```
 
-Do not use `just run` or `just desktop-run` for this launch: they deliberately select the
+Do not use `bun run run` or `bun run desktop-run` for this launch: they deliberately select the
 regular development database. Close your verification instance before your agent is
 stopped. The consumer launches the same prepared data in its own terminal for testing
-or recording, then closes it and restores the regular app with `just desktop-run`.
+or recording, then closes it and restores the regular app with `bun run desktop-run`.
 Do not leave app lifetime tied to an agent the lead is about to stop, stop another
 person's desktop, or delete their data.
 

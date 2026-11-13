@@ -10,16 +10,16 @@ platforms = ["linux"]
 id = "up"
 title = "Start missing Study agents"
 contexts = ["workspace"]
-command = ["python3", "agents.py", "up", "--plugin", "--no-attach"]
+command = ["python3", "../../tooling/scripts/agents/agents.py", "up", "--plugin", "--no-attach"]
 
 [[actions]]
 id = "reset"
 title = "Reset all agent context"
 contexts = ["workspace"]
-command = ["python3", "agents.py", "reset", "--plugin", "--no-attach"]
+command = ["python3", "../../tooling/scripts/agents/agents.py", "reset", "--plugin", "--no-attach"]
 
 [[actions]]
 id = "stop"
 title = "Stop all Study agents"
 contexts = ["workspace"]
-command = ["python3", "agents.py", "down", "--plugin"]
+command = ["python3", "../../tooling/scripts/agents/agents.py", "down", "--plugin"]

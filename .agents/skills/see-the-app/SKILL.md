@@ -33,24 +33,24 @@ window management, updater or private process transport. Browser evidence cannot
 those capabilities. Desktop/noVNC packages and manual helpers remain installed; the
 devcontainer does not start the virtual desktop, noVNC or a viewer automatically.
 
-Discover native helper arguments with `just --list` and `just --show <recipe>`.
+Discover commands with `bun run`; helper arguments live in `tooling/scripts/desktop/*.sh`.
 Coordinate exclusive desktop control with the lead before launching or restarting it:
 
-- `just run` launches Tauri in the foreground; `just desktop` restarts the managed
+- `bun run run` launches Tauri in the foreground; `bun run desktop` restarts the managed
   Wayland desktop and app in the background. Neither starts noVNC.
-- `just desktop-status` reports state and logs without launching anything.
-  `just desktop-wait 120` waits for a window; `just desktop-watch` follows its log.
-- `just desktop-attach` explicitly starts noVNC and prints its URL. Only use it when
+- `bun run desktop-status` reports state and logs without launching anything.
+  `bun run desktop-wait 120` waits for a window; `bun run desktop-watch` follows its log.
+- `bun run desktop-attach` explicitly starts noVNC and prints its URL. Only use it when
   a remote native viewer is actually needed; manually forward container port 5900.
-- `just desktop-shot`, `just desktop-click X Y` and `just desktop-record` capture
+- `bun run desktop-shot`, `bun run desktop-click X Y` and `bun run desktop-record` capture
   and control the native app. Take coordinates from the latest screenshot.
 - Source `target/desktop.env` before using `wtype`, `wlrctl` or `swaymsg` directly.
-  `just desktop-browser` opens persistent container Chromium for native OAuth.
-- `just desktop-screen <preset>` and `just desktop-window full|float|fullscreen`
-  adjust native layout. `just desktop-stop` stops the native stack while keeping data.
+  `bun run desktop-browser` opens persistent container Chromium for native OAuth.
+- `bun run desktop-screen <preset>` and `bun run desktop-window full|float|fullscreen`
+  adjust native layout. `bun run desktop-stop` stops the native stack while keeping data.
 
 The managed desktop owns its D-Bus session. Native logs and artifacts live under
-`target/desktop`; `STUDY_LOG=debug just desktop-run` enables detailed logs at launch.
+`target/desktop`; `STUDY_LOG=debug bun run desktop-run` enables detailed logs at launch.
 Never restart or stop another agent's app without coordination.
 
 Model work requires the user's ChatGPT sign-in. Use existing material when unavailable

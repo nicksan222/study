@@ -1,7 +1,7 @@
 name: Set up the runner
 description: >-
-  Installs what the `just` recipes need straight on the GitHub runner: the build subset of
-  .devcontainer/Dockerfile's apt packages, Rust from rust-toolchain.toml, pinned just, and a
+  Installs what the package scripts need straight on the GitHub runner: the build subset of
+  .devcontainer/Dockerfile's apt packages, Rust from rust-toolchain.toml, native tools, and a
   build cache. Keep the packages and pins aligned with the Dockerfile.
 
 inputs:
@@ -47,7 +47,7 @@ runs:
     - name: Set up the ELF patcher
       shell: bash
       run: |
-        bash .devcontainer/install-patchelf.sh "$RUNNER_TEMP/study-patchelf"
+        bash tooling/scripts/devcontainer/install-patchelf.sh "$RUNNER_TEMP/study-patchelf"
         printf 'PATCHELF=%s/bin/patchelf\n' "$RUNNER_TEMP/study-patchelf" >> "$GITHUB_ENV"
     - name: 📦 Install workspace dependencies
       shell: bash
@@ -62,10 +62,11 @@ runs:
     - name: 🦀 Install Rust
       shell: bash
       run: rustup toolchain install
-    - name: ⚙️ Install just
+    - name: ⚙️ Install native tools
+      if: inputs.tools != ''
       uses: taiki-e/install-action@v2
       with:
-        tool: just@1.40.0${{ inputs.tools && format(',{0}', inputs.tools) || '' }}
+        tool: ${{ inputs.tools }}
     - name: 🚀 Configure fast dependency builds
       if: inputs.optimize-dependencies == 'false'
       shell: bash

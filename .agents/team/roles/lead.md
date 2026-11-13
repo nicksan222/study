@@ -26,7 +26,7 @@ requirements and evidence; do not send the same question to the whole team.
 For visible UI changes, ask QA for a bounded design check with the real app and
 Impeccable; use its findings alongside functional verification.
 
-Own integration, the final `just check`, and communication with the user. Follow the
+Own integration, the final `bun run check`, and communication with the user. Follow the
 request-to-PR handoff in the team brief: start `pr-maker` at delivery, give it exclusive
 ownership of git operations, and provide the evidence already collected. Do not finish
 at “code complete” when the requested outcome includes a pull request.

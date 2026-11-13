@@ -83,6 +83,9 @@
     "./integrations/schemas": "./src/integrations/schemas.ts",
     "./integrations/rpc": "./src/integrations/rpc.ts"
   },
+  "scripts": {
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/contracts"
+  },
   "dependencies": {
     "effect": "4.0.7"
   },

@@ -26,4 +26,4 @@ jobs:
       - name: Build, start and run the lifecycle commands
         run: bunx --bun --package @devcontainers/cli@0.89.0 devcontainer up --workspace-folder .
       - name: Run a recipe inside
-        run: bunx --bun --package @devcontainers/cli@0.89.0 devcontainer exec --workspace-folder . just --list
+        run: bunx --bun --package @devcontainers/cli@0.89.0 devcontainer exec --workspace-folder . bun run

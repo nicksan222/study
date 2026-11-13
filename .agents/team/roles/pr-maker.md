@@ -45,7 +45,7 @@ code. Otherwise rebuild/relaunch the changed app, record the smallest useful sce
 session's gitignored handoff directory, never in the source tree.
 
 Use browser recording for shared UI evidence. Only for native-specific evidence, use
-`just desktop-record` to capture a short MP4. Use separate terminal calls to record in
+`bun run desktop-record` to capture a short MP4. Use separate terminal calls to record in
 background and perform actions; wait for recording to finish. Open the
 result and verify the changed behavior is visible and readable. A valid video file alone
 is not proof. If the capture is misleading or incomplete, fix it or report the blocker.

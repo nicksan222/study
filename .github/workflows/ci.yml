@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
+      - name: Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
 
       - name: 🧰 Set up build tools and dependencies
         id: setup
@@ -32,27 +34,27 @@ jobs:
           tools: cargo-deny@0.20.2
           target-dir: target/devcontainer
 
-      # Keep the gates equivalent to `just check`. Run every gate after setup,
+      # Keep the gates equivalent to `bun run check`. Run every gate after setup,
       # even if an earlier gate fails, so one run reports all package failures.
       - name: 🐚 Check shell scripts
         id: shell
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just check-shell
+        run: bun run check-shell
 
       - name: 🎨 Check formatting
         id: format
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: cargo fmt --all -- --check
+        run: bun run native:fmt
 
       - name: 🔎 Lint Rust
         id: lint
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+        run: bun run native:lint
 
       - name: 🛡️ Audit Rust dependencies
         id: dependencies
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just deny
+        run: bun run deny
 
       - name: 🧩 Type-check server packages
         id: server_types
@@ -62,29 +64,29 @@ jobs:
       - name: 🦀 Test native shell and Rust doctests
         id: native_tests
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just test
+        run: bun run native:test
 
       - name: 🗃️ Check generated database schema
         id: generated
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just gen-check
+        run: bun run gen-check
 
       - name: 📚 Build Rust documentation
         id: docs
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just docs
+        run: bun run docs
 
       - name: 🥟 Smoke-test the packaged Bun server
         id: runtime
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
           bun run desktop:runtime
-          python3 tooling/release/smoke_runtime.py target/desktop-runtime
+          python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime
 
       - name: 🌍 Check landing page
         id: landing
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: just landing-check
+        run: bun run landing-check
 
       - name: 📋 Summarize results
         if: ${{ always() }}
@@ -124,6 +126,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
+      - name: Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
       # These checks do not need Rust or the Linux GUI toolchain.
       - name: 🥟 Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -138,11 +142,6 @@ jobs:
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         working-directory: apps/landing
         run: bun install --frozen-lockfile
-      - name: ⚙️ Install tooling test dependencies
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        uses: taiki-e/install-action@v2
-        with:
-          tool: just@1.40.0
       - name: 🔏 Install release test dependency
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
@@ -157,7 +156,7 @@ jobs:
         run: bun run typecheck
       - name: 🧪 Test web packages
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run test
+        run: bun run test:web
       - name: 🌐 Test browser flows in the canonical devcontainer
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         uses: devcontainers/ci@v0.3
@@ -176,7 +175,7 @@ jobs:
           if-no-files-found: ignore
       - name: 🛠️ Test tooling
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: just tooling-test
+        run: bun run tooling-test
 
   server_tests:
     name: 🧪 Server tests
@@ -187,6 +186,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
+      - name: Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
       # This suite needs Bun and SQLite, not the native Linux GUI toolchain.
       - name: 🥟 Set up Bun
         uses: oven-sh/setup-bun@v2
@@ -208,6 +209,8 @@ jobs:
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
+      - name: Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
       - name: 🥟 Set up Bun
         uses: oven-sh/setup-bun@v2
         with:

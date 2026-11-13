@@ -29,13 +29,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY || secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
         run: |
-          version=$(bash tooling/release/release.sh ci-version "$GITHUB_RUN_NUMBER")
+          version=$(bash tooling/scripts/release/release.sh ci-version "$GITHUB_RUN_NUMBER")
           tag="v$version"
           published=$(gh release view "$tag" --json isDraft -q '.isDraft' 2>/dev/null || true)
           test "$published" != false || { echo 'Published release assets are immutable'; exit 1; }
           test -n "$STUDY_UPDATE_PUBLIC_KEY" || { echo 'Set STUDY_UPDATE_PUBLIC_KEY'; exit 1; }
           test -n "$SIGNING_KEY" || { echo 'Set TAURI_SIGNING_PRIVATE_KEY or CARGO_PACKAGER_SIGN_PRIVATE_KEY'; exit 1; }
-          bash tooling/release/release.sh configure "$version" target/release-config.json > /dev/null
+          bash tooling/scripts/release/release.sh configure "$version" target/release-config.json > /dev/null
           printf 'version=%s\ntag=%s\n' "$version" "$tag" >> "$GITHUB_OUTPUT"
 
   bundle:
@@ -69,7 +69,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
           CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
-        run: bash tooling/release/release.sh signing-environment
+        run: bash tooling/scripts/release/release.sh signing-environment
       - name: Set up Linux
         if: runner.os == 'Linux'
         uses: ./.github/actions/setup
@@ -114,7 +114,7 @@ jobs:
         env:
           STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
         run: |
-          config=$(bash tooling/release/release.sh configure "$STUDY_RELEASE_VERSION" target/release-config.json)
+          config=$(bash tooling/scripts/release/release.sh configure "$STUDY_RELEASE_VERSION" target/release-config.json)
           printf 'path=%s\n' "$config" >> "$GITHUB_OUTPUT"
       - name: Normalize optional Apple credentials
         shell: bash
@@ -126,7 +126,7 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bash tooling/release/release.sh apple-environment
+        run: bash tooling/scripts/release/release.sh apple-environment
       - name: Build signed Tauri bundles and updater assets
         id: build
         uses: tauri-apps/tauri-action@v0
@@ -140,16 +140,16 @@ jobs:
         if: runner.os == 'macOS'
         env:
           STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
-        run: bash tooling/release/release.sh verify-macos
+        run: bash tooling/scripts/release/release.sh verify-macos
       - name: Smoke-test Tauri's copied private server resources
         shell: bash
-        run: python3 tooling/release/smoke_runtime.py target/${{ matrix.target }}/release
+        run: python3 tooling/scripts/release/smoke_runtime.py target/${{ matrix.target }}/release
       - name: Prepare stable platform downloads
         shell: bash
         env:
           STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
           STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
-        run: bash tooling/release/release.sh prepare "${{ matrix.platform }}" "$STUDY_RELEASE_VERSION" "target/release-stage/${{ matrix.platform }}"
+        run: bash tooling/scripts/release/release.sh prepare "${{ matrix.platform }}" "$STUDY_RELEASE_VERSION" "target/release-stage/${{ matrix.platform }}"
       - name: Measure release payload and downloads
         shell: bash
         env:
@@ -163,7 +163,7 @@ jobs:
           stage="target/release-stage/${{ matrix.platform }}"
           installer=$(jq -r .installer "$stage/manifest.json" | tr -d '\r')
           update=$(jq -r .update "$stage/manifest.json" | tr -d '\r')
-          python3 tooling/release/size_report.py --runtime target/desktop-runtime --app "$app" \
+          python3 tooling/scripts/release/size_report.py --runtime target/desktop-runtime --app "$app" \
             --artifact "$stage/$installer" --artifact "$stage/$update" > "target/size-report-${{ matrix.platform }}.json"
       - name: Retain size analysis
         uses: actions/upload-artifact@v7
@@ -198,7 +198,7 @@ jobs:
         env:
           STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
           STUDY_RELEASE_TAG: ${{ needs.version.outputs.tag }}
-        run: bash tooling/release/release.sh assemble target/release-input target/release-output "$STUDY_RELEASE_VERSION" "$GITHUB_REPOSITORY" "$STUDY_RELEASE_TAG"
+        run: bash tooling/scripts/release/release.sh assemble target/release-input target/release-output "$STUDY_RELEASE_VERSION" "$GITHUB_REPOSITORY" "$STUDY_RELEASE_TAG"
       - name: Upload and publish only the complete validated release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -208,7 +208,7 @@ jobs:
           set -euo pipefail
           published=$(gh release view "$STUDY_RELEASE_TAG" --json isDraft -q '.isDraft' 2>/dev/null || true)
           test "$published" != false || { echo 'Published release assets are immutable'; exit 1; }
-          bash tooling/release/release.sh ensure-tag "$GITHUB_REPOSITORY" "$STUDY_RELEASE_TAG" "$GITHUB_SHA"
+          bash tooling/scripts/release/release.sh ensure-tag "$GITHUB_REPOSITORY" "$STUDY_RELEASE_TAG" "$GITHUB_SHA"
           if test -z "$published"; then
             gh release create "$STUDY_RELEASE_TAG" --draft --verify-tag --title "$STUDY_RELEASE_TAG" --generate-notes
           fi

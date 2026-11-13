@@ -44,10 +44,10 @@ aspects of the result. There is no required seven-step approval chain.
   Never revert, stash, reset or check out files you do not own, and never mutate the
   checkout to prove a test can fail: use a copy. Before blaming another crate for errors
   naming APIs that exist, check its `git diff`; stale cargo fingerprints cause these.
-  `just desktop` and `just desktop-stop` affect everyone: the lead
+  `bun run desktop` and `bun run desktop-stop` affect everyone: the lead
   grants the desktop to one agent at a time.
 - One agent owns running checks. Workers run focused tests when assigned; the lead runs
-  `just check` once the combined change is ready. Do not repeat a passed check unless new
+  `bun run check` once the combined change is ready. Do not repeat a passed check unless new
   changes or evidence warrant it. Share log paths and short results, not full output.
 - The code reviewer checks correctness, contracts and missing tests in one pass.
   The upgrade reviewer, started on demand, asks only whether the change breaks an
@@ -68,7 +68,7 @@ aspects of the result. There is no required seven-step approval chain.
   the objective, decisions, current step, owned files, verification and next action. Keep
   it under 60 lines; it is a checkpoint, not a second design document. A restarted agent
   reads it and checks the current diff before doing work.
-- `just agents-usage` reads local token records without model calls. It does not know the
+- `bun run agents-usage` reads local token records without model calls. It does not know the
   remaining subscription allowance; `/usage` in Claude Code is the authority for that.
 
 ## Short development and review cycles
@@ -91,13 +91,13 @@ reviewer reads in minutes, a few hundred lines at most; split anything larger.
   sees only new work. If the user asked for unstaged delivery, the lead restores only
   the task's paths with `git restore --staged <paths>` at the end, leaving any staged
   work recorded at the start untouched.
-- QA, student and the final `just check` run on the combined result, not on every slice.
+- QA, student and the final `bun run check` run on the combined result, not on every slice.
 - A finding that changes the plan goes back to the lead, who reorders or re-scopes the
   remaining slices instead of growing the current one.
 
 ## From a request to a pull request
 
-The lead takes a request through slice-by-slice implementation and review, QA, `just check`,
+The lead takes a request through slice-by-slice implementation and review, QA, `bun run check`,
 then hands the verified result to `pr-maker`. This is a task-completion handoff, not a
 file watcher: do not wake an agent on every edit. For an implementation request, delivery
 normally means a pull request; an explicit request to keep changes local or unstaged wins.
@@ -114,7 +114,7 @@ capture paths. Pause other writers while it prepares the branch and pull request
 Start the role only when needed (use the session name from your brief):
 
 ```sh
-just agents pr-maker --session "$session" --no-attach
+bun run agents pr-maker --session "$session" --no-attach
 ```
 
 Then send the handoff file using the same `agent prompt` pattern above, addressed to
@@ -126,7 +126,7 @@ remaining blocker. The lead delivers that result to the user. There is no automa
 QA, student and PR maker request missing test/demo states through the lead. The lead
 starts `scenario` only for a concrete request: desired state or behavior, acceptance
 criteria, relevant code, and who will use it. Start it with
-`just agents scenario --session "$session" --no-attach`, then send the task through
+`bun run agents scenario --session "$session" --no-attach`, then send the task through
 `agent prompt scenario` using the report-file pattern above. Stop `pr-maker` first if it
 occupies the shared optional slot; save its handoff before stopping it. Never evict a
 working role automatically. After preparation, stop `scenario` and give its handoff to
@@ -145,7 +145,7 @@ merely because their files survived a reset. Durable fixtures belong in code and
 The website in `apps/landing/` follows the app. When a delivered change or a release alters
 what a visitor would see or read (features, behaviour, UI copy, the README pitch, platforms),
 the lead starts `site` in the shared optional slot with
-`just agents site --session "$session" --no-attach`, sends it the change and base through
+`bun run agents site --session "$session" --no-attach`, sends it the change and base through
 `agent prompt site` using the report-file pattern above, and stops it after its one result.
 It writes only under `apps/landing/` and the docs' scenes, keeps English and Italian equal
 and invents no claims.
