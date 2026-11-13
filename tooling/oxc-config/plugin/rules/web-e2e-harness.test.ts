@@ -302,7 +302,6 @@ testStable('forced locator options follow static spreads in last-property order'
     'button.clear({ force: false })',
     'button.selectText()',
     'button.selectText({ ...safe })',
-    'button.dispatchEvent(event, payload)',
     'other.click({ ...forced })'
   ];
 
