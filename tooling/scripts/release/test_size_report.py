@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tooling.scripts.release.size_report import inventory
+from size_report import inventory
 
 SCRIPT = Path(__file__).with_name('size_report.py')
 

@@ -13,7 +13,7 @@
     "build": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run build --concurrency=1",
     "typecheck": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run typecheck --concurrency=1",
     "server:typecheck": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run typecheck --filter=@study/server --concurrency=1",
-    "server:test": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run test --filter=@study/server... --concurrency=1",
+    "server:test": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run test --filter=@study/server... --filter=!@study/tooling --concurrency=1",
     "lint": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run lint:repo",
     "quality:test": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run test --filter=@study/tooling --filter=@study/testing --concurrency=1",
     "test": "TURBO_TELEMETRY_DISABLED=1 bun --bun turbo run test --concurrency=1",
