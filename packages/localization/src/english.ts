@@ -972,6 +972,8 @@ export const english = Object.freeze({
   SourceDeleteImagePins: 'An authored page or another source uses an image from this source.',
   SourceDeleteFailed:
     'The source could not be deleted. Check its current usage before trying again.',
+  SourceExtractionUnsupported: 'This file type cannot be extracted.',
+  SourceExtractionFailed: 'Extraction failed. The original file is still available.',
   SourceDeletedNotice: 'Source deleted.',
   PageEditCopy: 'Edit a copy',
   PageCopyTitle: 'Editable copy',

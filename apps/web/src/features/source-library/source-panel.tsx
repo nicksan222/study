@@ -8,6 +8,7 @@ import { Loading } from '@study/ui/loading';
 import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { useI18n } from '#web/lib/i18n.tsx';
@@ -17,7 +18,12 @@ import { SourceDeletion } from './deletion';
 import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
 import { sourceExportOptions } from './source-export.queries';
-import { sourceExtractionOptions, sourceOptions, useSourceCopy } from './source-panel.queries';
+import {
+  sourceExtractionOptions,
+  sourceProcessingExecutionOptions,
+  sourceOptions,
+  useSourceCopy
+} from './source-panel.queries';
 
 function SourceHeader({
   source,
@@ -48,6 +54,7 @@ function SourceHeader({
 
 function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?: bigint }) {
   const { t } = useI18n();
+
   const download = useMutation(sourceExportOptions(sourceId, revision));
 
   return (
@@ -65,13 +72,59 @@ function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?:
   );
 }
 
+function SourceProcessingOutcome({ sourceId }: { sourceId: SourceId }) {
+  const { t } = useI18n();
+
+  const state = useQuery(sourceProcessingExecutionOptions(sourceId));
+
+  if (state.error)
+    return <ContentReadError error={state.error} retry={() => void state.refetch()} />;
+
+  const execution = state.data;
+
+  if (execution?.outcome === 'failure')
+    return (
+      <StatusMessage>
+        {t(
+          execution.failureKind === 'unsupported'
+            ? 'SourceExtractionUnsupported'
+            : 'SourceExtractionFailed'
+        )}
+      </StatusMessage>
+    );
+
+  const reason = execution?.configurationWaitReason;
+
+  if (reason)
+    return (
+      <div>
+        <StatusMessage>
+          {t(
+            reason === 'auth'
+              ? 'NoteWaitAuth'
+              : reason === 'config'
+                ? 'NoteWaitConfig'
+                : 'NoteWaitModel'
+          )}
+        </StatusMessage>
+        <Button variant="ghost" render={<Link to="/settings" />}>
+          {t('Settings')}
+        </Button>
+      </div>
+    );
+
+  return <Loading label={t('NotePending')} />;
+}
+
 function SourceBody({
+  sourceId,
   document,
   snapshotId,
   failed,
   pending,
   onCopy
 }: {
+  sourceId?: SourceId;
   document?: typeof documentSchema.Type;
   snapshotId?: ContentSnapshotId;
   failed: boolean;
@@ -82,7 +135,12 @@ function SourceBody({
 
   if (failed) return null;
 
-  if (!document || snapshotId === undefined) return <Loading label={t('NotePending')} />;
+  if (!document || snapshotId === undefined)
+    return sourceId ? (
+      <SourceProcessingOutcome sourceId={sourceId} />
+    ) : (
+      <Loading label={t('NotePending')} />
+    );
 
   return (
     <Desk.Editor>
@@ -115,10 +173,15 @@ export function SourcePanel({
   onDeleted?: () => void;
 }) {
   const { t } = useI18n();
+
   const [selected, setSelected] = useState(exact);
+
   const [deleted, setDeleted] = useState(false);
+
   const source = useQuery(sourceOptions(deleted ? null : sourceId));
+
   const state = useQuery({ ...sourceExtractionOptions(sourceId, selected), enabled: !deleted });
+
   const copy = useSourceCopy(sourceId, noteId);
 
   function editCopy() {
@@ -153,6 +216,7 @@ export function SourcePanel({
       )}
       {copy.error !== undefined && <ContentReadError error={copy.error} retry={editCopy} />}
       <SourceBody
+        sourceId={selected ? undefined : sourceId}
         document={state.data?.document}
         snapshotId={state.data?.snapshotId}
         failed={!state.isSuccess || !source.isSuccess}
