@@ -92,6 +92,7 @@ testStable.each([false, true])(
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
       </QueryClientProvider>
     );
+
     await screen.findByRole('button', { name: 'Lecture.pdf' });
     await vi.waitFor(() =>
       expect(screen.getByRole('button', { name: 'Lecture.pdf' })).toBeEnabled()
