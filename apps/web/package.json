@@ -15,7 +15,7 @@
     "build": "bun --bun vp build",
     "typecheck": "bun --bun vp run gen:routes && bun --bun tsc --noEmit",
     "gen:routes": "bun --bun tsr generate",
-    "test": "bun --bun vp test run --reporter=verbose apps/web/src",
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project @study/web --exclude \"../../packages/**\" --reporter=verbose",
     "e2e": "bun --bun vp test run --config ../../vite.config.ts --project web-e2e"
   },
   "dependencies": {

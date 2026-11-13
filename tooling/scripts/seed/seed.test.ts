@@ -135,16 +135,17 @@ testStable('creates a missing parent directory and leaves no staging database', 
 testStable('bun seed honors STUDY_DATABASE and help leaves its target untouched', async () => {
   const location = await createTestDatabase();
   const env = { ...process.env, STUDY_DATABASE: location.path };
+  const cwd = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
   try {
-    const help = Bun.spawnSync(['bun', 'seed', '--help'], { env });
+    const help = Bun.spawnSync(['bun', 'seed', '--help'], { env, cwd });
 
-    expect(help.exitCode).toBe(0);
+    expect(help.exitCode, help.stderr.toString()).toBe(0);
     expect(help.stdout.toString()).toContain('STUDY_DATABASE');
     expect(await Bun.file(location.path).exists()).toBe(false);
-    expect(Bun.spawnSync(['bun', 'seed', '--unknown'], { env }).exitCode).not.toBe(0);
+    expect(Bun.spawnSync(['bun', 'seed', '--unknown'], { env, cwd }).exitCode).not.toBe(0);
     expect(await Bun.file(location.path).exists()).toBe(false);
-    expect(Bun.spawnSync(['bun', 'seed'], { env }).exitCode).toBe(0);
+    expect(Bun.spawnSync(['bun', 'seed'], { env, cwd }).exitCode).toBe(0);
 
     const db = await location.open();
 
