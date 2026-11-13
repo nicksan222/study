@@ -81,7 +81,7 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
         run: |
           bun run desktop:runtime
-          python3 tooling/release/smoke_runtime.py target/desktop-runtime
+          python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime
 
       - name: 🌍 Check landing page
         id: landing

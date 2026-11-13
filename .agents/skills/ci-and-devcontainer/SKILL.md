@@ -31,7 +31,7 @@ description: Use when changing Rust toolchain setup, Linux GUI dependencies, CI,
 - Existing website captures are committed assets. Capture generation is unavailable.
 - Release uses Tauri bundling and tauri-action on native Linux/macOS/Windows runners.
   `apps/desktop/src-tauri/tauri.conf.json` owns packaging; `createUpdaterArtifacts` produces
-  signed updater assets. Platform jobs retain isolated artifacts; `tooling/release` verifies
+  signed updater assets. Platform jobs retain isolated artifacts; `tooling/scripts/release` verifies
   every signature and the four-platform set, preserves stable website download names, and
   writes the updater feed once. The macOS runner inspects the built app signature for the
   configured audio-input entitlement and its microphone privacy description. A single

@@ -47,7 +47,7 @@ runs:
     - name: Set up the ELF patcher
       shell: bash
       run: |
-        bash .devcontainer/install-patchelf.sh "$RUNNER_TEMP/study-patchelf"
+        bash tooling/scripts/devcontainer/install-patchelf.sh "$RUNNER_TEMP/study-patchelf"
         printf 'PATCHELF=%s/bin/patchelf\n' "$RUNNER_TEMP/study-patchelf" >> "$GITHUB_ENV"
     - name: 📦 Install workspace dependencies
       shell: bash

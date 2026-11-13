@@ -13,6 +13,7 @@
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
+  root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
   test: {
     disableConsoleIntercept: true,
     include: [

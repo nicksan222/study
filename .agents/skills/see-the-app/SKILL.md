@@ -33,7 +33,7 @@ window management, updater or private process transport. Browser evidence cannot
 those capabilities. Desktop/noVNC packages and manual helpers remain installed; the
 devcontainer does not start the virtual desktop, noVNC or a viewer automatically.
 
-Discover commands with `bun run`; helper arguments live in `.devcontainer/desktop/*.sh`.
+Discover commands with `bun run`; helper arguments live in `tooling/scripts/desktop/*.sh`.
 Coordinate exclusive desktop control with the lead before launching or restarting it:
 
 - `bun run run` launches Tauri in the foreground; `bun run desktop` restarts the managed

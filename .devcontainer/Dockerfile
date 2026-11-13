@@ -79,7 +79,7 @@ rm -r /tmp/bun.zip "/tmp/bun-linux-${arch}"
 bun --version
 SH
 
-COPY install-patchelf.sh /usr/local/share/study/install-patchelf.sh
+COPY tooling/scripts/devcontainer/install-patchelf.sh /usr/local/share/study/install-patchelf.sh
 RUN bash /usr/local/share/study/install-patchelf.sh /usr/local
 ENV PATCHELF=/usr/local/bin/patchelf
 

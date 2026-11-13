@@ -140,7 +140,7 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/apps/web/vite.config.ts",
         "$TURBO_ROOT$/apps/web/src/test/**",
-        "$TURBO_ROOT$/tooling/development/rpc-proxy.ts"
+        "$TURBO_ROOT$/tooling/scripts/development/rpc-proxy.ts"
       ],
       "cache": true,
       "envMode": "strict"

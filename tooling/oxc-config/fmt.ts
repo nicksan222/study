@@ -21,7 +21,7 @@ export const fmt = {
     '**/routeTree.gen.ts',
     'packages/db/drizzle/**',
     // Bundled source bytes are imported as data, including code examples.
-    'tooling/seed/fixtures/files/**',
+    'tooling/scripts/seed/fixtures/files/**',
     'target/**'
   ]
 } satisfies FmtConfig;

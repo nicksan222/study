@@ -21,7 +21,7 @@ Thank you for helping with Study.
   its earlier type check.
 - CI also requires real integrations (`bun run integrations:e2e`, with Docker) and the
   packaged-runtime smoke test (`bun run desktop:runtime`, then
-  `python3 tooling/release/smoke_runtime.py target/desktop-runtime`). These are additional
+  `python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime`). These are additional
   gates beyond `bun run check`.
 - **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
   Server fixtures use `/dev/shm` for RAM-backed
@@ -133,7 +133,7 @@ Run `bun gen:check` to check generated database outputs
 without changing the database schema. The equivalent package scripts are `bun run gen` and
 `bun run gen-check`.
 Desktop inspection recipes call `swaymsg` and `jq` directly. The scripts in
-`.devcontainer/desktop/` manage the virtual desktop; `lifecycle.py` owns private D-Bus
+`tooling/scripts/desktop/` manage the virtual desktop; `lifecycle.py` owns private D-Bus
 startup, reuse and shutdown, plus bounded process waiting. Desktop commands need no
 JavaScript package or Cargo build.
 
@@ -196,7 +196,7 @@ Keep workspace and base Tauri versions aligned when changing the release series.
 
 The release builds Tauri packages on Linux x64/ARM64, macOS Apple
 Silicon and Windows x64. Each build retains its signed bundles as an isolated Actions
-artifact. `tooling/release/release.sh` then verifies every updater with Minisign, checks
+artifact. `tooling/scripts/release/release.sh` then verifies every updater with Minisign, checks
 all four platform/version/file digests, preserves the website's stable download names,
 and writes `latest.json` once. A single publisher uploads the complete set and clears the
 draft only after that validation. Published releases are immutable to retries.
@@ -230,7 +230,7 @@ from an isolated directory with a fresh database and no dependency on a system B
 `bun run desktop:runtime` to stage it independently. macOS development also requires
 `brew install sqlite`, since Bun’s system SQLite cannot load the vector extension.
 Linux CI and the devcontainer use the pinned Patchelf 0.19.3 from
-`.devcontainer/install-patchelf.sh`; older ELF rewriters corrupt Bun’s ARM64 symbol-version pointers.
+`tooling/scripts/devcontainer/install-patchelf.sh`; older ELF rewriters corrupt Bun’s ARM64 symbol-version pointers.
 
 For local bundles without signing credentials, use `bun run package linux-x86_64 --unsigned`.
 This explicitly disables updater artifacts and signing for that build.
@@ -310,7 +310,7 @@ locks and settings.
 For a local report, run:
 
 ```sh
-python3 tooling/release/size_report.py --runtime target/desktop-runtime --app PATH --artifact INSTALLER --artifact UPDATER
+python3 tooling/scripts/release/size_report.py --runtime target/desktop-runtime --app PATH --artifact INSTALLER --artifact UPDATER
 ```
 
 (after staging the runtime and building the application). Repeat `--artifact`
