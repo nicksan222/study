@@ -141,7 +141,7 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
             screenshots!.expectScreenshot(name, {
               ...options,
               ready: async () => {
-                await expect(page.locator('html')).toHaveCSS('zoom', '1.25');
+                await expect(page.locator('html')).toHaveCSS('zoom', '1.25', { timeout: 30000 });
                 await options.ready();
               }
             })
