@@ -306,16 +306,11 @@ testE2e(
 
     await inspectLecture();
 
-    // The preceding keyboard scroll can leave the attachment at any visible offset.
-    await entry
-      .getByRole('button', { name: 'coastal-evidence.md', exact: true })
-      .evaluate((attachment) =>
-        attachment.scrollIntoView({ block: 'center', behavior: 'instant' })
-      );
     await openSource('coastal-evidence.md', 'Coastal evidence');
     await controls();
     await expectScreenshot('completed-source', {
       target: 'viewport',
+      center: entry.getByRole('button', { name: 'coastal-evidence.md', exact: true }),
       ready: async () => {
         await expect(
           preview.getByText('Source beginning: the lighthouse marks the first observation.', {

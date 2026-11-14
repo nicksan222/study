@@ -66,6 +66,7 @@ export type ExpectScreenshot = (
   name: string,
   options: {
     target: Locator | 'viewport';
+    center?: Locator;
     ready: () => Promise<void>;
     timeoutMs?: number;
     /** Keep intentional focus snapshots; otherwise normalize only passive notebook entry focus. */
@@ -85,7 +86,7 @@ export function screenshotAssertions(
   const names = new Set<string>();
   const expectScreenshot: ExpectScreenshot = async (
     name,
-    { target, ready, timeoutMs = 30000, focus }
+    { target, ready, timeoutMs = 30000, focus, center }
   ) => {
     safeName(name);
 
@@ -141,6 +142,13 @@ export function screenshotAssertions(
           }
 
           fence();
+
+          if (center) {
+            await center.evaluate((element) =>
+              element.scrollIntoView({ block: 'center', behavior: 'instant' })
+            );
+          }
+
           let previous = await capture();
 
           fence();
