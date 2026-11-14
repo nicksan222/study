@@ -11,12 +11,19 @@ const child = Bun.spawn(
 
 let interrupted: number | undefined;
 
-const handlers = (['SIGINT', 'SIGTERM'] as const).map((signal) => {
+const signals = ownGroup
+  ? (['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM'] as const)
+  : (['SIGINT', 'SIGTERM'] as const);
+
+const handlers = signals.map((signal) => {
   const forward = () => {
-    interrupted = signal === 'SIGINT' ? 130 : 143;
+    interrupted = { SIGHUP: 129, SIGINT: 130, SIGQUIT: 131, SIGTERM: 143 }[signal];
 
     try {
-      if (ownGroup) process.kill(-child.pid, signal);
+      // Native Turbo handles TERM gracefully; QUIT would bypass task teardown.
+      const forwarded = signal === 'SIGQUIT' ? 'SIGTERM' : signal;
+
+      if (ownGroup) process.kill(-child.pid, forwarded);
       else child.kill(signal);
     } catch (error) {
       if (

@@ -235,7 +235,11 @@ testStable('deterministic unit tests are reusable while server tests always exec
   );
 });
 
-testStable.each(['SIGINT', 'SIGTERM'] as const)(
+testStable.each([
+  'SIGINT',
+  'SIGTERM',
+  ...(process.platform === 'win32' ? [] : ['SIGHUP' as const, 'SIGQUIT' as const])
+] as const)(
   'a signal sent only to the task wrapper stops its native process group: %s',
   async (signal) => {
     await using repo = await fixture();
@@ -268,10 +272,12 @@ testStable.each(['SIGINT', 'SIGTERM'] as const)(
     );
     const stderr = new Response(child.stderr).text();
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let worker: number | undefined;
 
     onTestFinished(async () => {
       child.kill('SIGTERM');
       await child.exited;
+      stopWorker(worker);
     });
 
     try {
@@ -290,7 +296,8 @@ testStable.each(['SIGINT', 'SIGTERM'] as const)(
 
         reader.releaseLock();
       })();
-      const worker = Number(await Bun.file(`${repo.path}/apps/client/worker.pid`).text());
+
+      worker = Number(await Bun.file(`${repo.path}/apps/client/worker.pid`).text());
 
       child.kill(signal);
       const code = await Promise.race([
@@ -300,13 +307,26 @@ testStable.each(['SIGINT', 'SIGTERM'] as const)(
         })
       ]);
 
+      assert.strictEqual(code, { SIGINT: 130, SIGTERM: 143, SIGHUP: 129, SIGQUIT: 131 }[signal]);
+      assert.throws(() => process.kill(worker!, 0));
       await Promise.all([remaining, stderr]);
-      assert.notEqual(code, 0);
-      assert.throws(() => process.kill(worker, 0));
     } finally {
       clearTimeout(timeout);
       child.kill('SIGTERM');
       await child.exited;
+      stopWorker(worker);
     }
   }
 );
+
+function stopWorker(pid: number | undefined): void {
+  if (pid === undefined) return;
+
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return;
+
+    throw error;
+  }
+}
