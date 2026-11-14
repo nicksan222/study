@@ -3,6 +3,7 @@ import { expect, vi } from 'vite-plus/test';
 
 import { expect as expectWeb, testHarness } from './index.ts';
 import { screenshotAssertions, compareScreenshot } from './screenshots.ts';
+import { temporaryArtifacts } from './temporary.ts';
 
 // These exercise the harness contract itself, rather than pretending synthetic HTML is an app journey.
 testHarness(
@@ -15,7 +16,7 @@ testHarness(
       const page = await context.newPage();
 
       await page.setContent('<p>Loading</p>');
-      const directory = `test-results/contracts/${crypto.randomUUID()}`;
+      const directory = await temporaryArtifacts();
       const screenshots = screenshotAssertions(page, 'readiness-contract', directory, 'contract');
 
       await expect(
@@ -50,7 +51,7 @@ testHarness(
       const page = await context.newPage();
 
       await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
-      const directory = `test-results/contracts/${crypto.randomUUID()}`;
+      const directory = await temporaryArtifacts();
       const reference = `${directory}/layout.png`;
       const initial = await page.screenshot();
 
@@ -84,7 +85,7 @@ testHarness(
     const screenshots = screenshotAssertions(
       page,
       'owned-deadline',
-      `test-results/contracts/${crypto.randomUUID()}`,
+      await temporaryArtifacts(),
       'contract'
     );
 

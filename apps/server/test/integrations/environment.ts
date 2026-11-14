@@ -37,7 +37,20 @@ export async function buildContext(
           .split('/')
           .some(
             (part) =>
-              ['node_modules', 'target', 'dist', '.git'].includes(part) || part.startsWith('.env')
+              [
+                'node_modules',
+                'target',
+                'dist',
+                '.git',
+                '.turbo',
+                'test-results',
+                'playwright-report',
+                'coverage',
+                '.fallow',
+                '__pycache__',
+                '.astro',
+                '.tanstack'
+              ].includes(part) || part.startsWith('.env')
           )
       )
         return;
@@ -74,9 +87,18 @@ export async function buildIntegrationImage() {
 
   const directory = await buildContext();
   const imageName = `study-integrations-e2e:${crypto.randomUUID()}`;
+  let close: (() => Promise<void>) | undefined;
 
   try {
     const client = await getContainerRuntimeClient();
+
+    close = async () => {
+      try {
+        await client.container.dockerode.getImage(imageName).remove({ force: true });
+      } catch (error) {
+        if (!notFound(error)) throw error;
+      }
+    };
     const image = await GenericContainer.fromDockerfile(
       directory,
       'apps/server/test/integrations/Dockerfile'
@@ -97,8 +119,16 @@ export async function buildIntegrationImage() {
             STUDY_INTEGRATION_EXECUTABLE: executable
           })
           .start(),
-      close: () => client.container.dockerode.getImage(imageName).remove({ force: true })
+      close
     };
+  } catch (error) {
+    try {
+      await close?.();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'Integration image build and cleanup failed');
+    }
+
+    throw error;
   } finally {
     await run(fs.remove(directory, { recursive: true, force: true }));
   }
@@ -112,14 +142,14 @@ export async function integrationContainerRemoved(id: string) {
 
     return false;
   } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'statusCode' in error &&
-      error.statusCode === 404
-    )
-      return true;
+    if (notFound(error)) return true;
 
     throw error;
   }
+}
+
+function notFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 404
+  );
 }

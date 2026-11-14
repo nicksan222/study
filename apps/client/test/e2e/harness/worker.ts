@@ -12,9 +12,14 @@ export const testWeb = testStable.extend(
   // oxlint-disable-next-line no-empty-pattern
   async ({}, { onCleanup }) => {
     let browser: Browser | undefined;
+    const diagnostics: ReturnType<typeof Bun.file>[] = [];
 
     onCleanup(async () => {
-      await browser?.close();
+      try {
+        await browser?.close();
+      } finally {
+        await Promise.all(diagnostics.map((file) => file.delete()));
+      }
     });
 
     return {
@@ -23,8 +28,13 @@ export const testWeb = testStable.extend(
 
         if (!browser?.isConnected()) {
           browser = await chromium.launch();
+          const diagnostic = Bun.file(
+            `test-results/workers/${process.pid}-${crypto.randomUUID()}.json`
+          );
+
+          diagnostics.push(diagnostic);
           await Bun.write(
-            `test-results/workers/${process.pid}-${crypto.randomUUID()}.json`,
+            diagnostic,
             JSON.stringify({ pid: process.pid, browser: browser.version() })
           );
         }

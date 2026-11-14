@@ -75,6 +75,7 @@ export const lint = {
     'study/service-access': 'error',
     'study/validated-mutation': 'error',
     'study/cleanup-harness': 'error',
+    'study/build-artifact-ownership': 'error',
     'study/activity-harness': 'error',
     'study/definition-generators': 'error',
     'study/feature-orchestration': 'error',

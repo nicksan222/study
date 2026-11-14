@@ -4,6 +4,7 @@ import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
 import { owned } from './lifecycle.ts';
+import { temporaryArtifacts } from './temporary.ts';
 
 testStable('partial startup and body failures close all resources in reverse order', async () => {
   const closed: number[] = [];
@@ -65,7 +66,7 @@ testStable(
   'provisional traces survive cleanup failure and cancellation but successful cleanup deletes them',
   async () => {
     for (const mode of ['success', 'cleanup-failure', 'review', 'cancel']) {
-      const trace = Bun.file(`test-results/contracts/${crypto.randomUUID()}/trace.zip`);
+      const trace = Bun.file(`${await temporaryArtifacts()}/trace.zip`);
       const cleanupError = new Error('context close failed');
       const resume = Promise.withResolvers<void>();
       let finalize: (() => Promise<void>) | undefined;
@@ -106,7 +107,7 @@ testStable(
 testStable(
   'cancellation during successful-body cleanup retains its provisional trace',
   async () => {
-    const trace = Bun.file(`test-results/contracts/${crypto.randomUUID()}/trace.zip`);
+    const trace = Bun.file(`${await temporaryArtifacts()}/trace.zip`);
     const entered = Promise.withResolvers<void>();
     const release = Promise.withResolvers<void>();
     let finalize: (() => Promise<void>) | undefined;

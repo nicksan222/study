@@ -56,7 +56,12 @@ testStable(
         'tooling/package.json',
         'packages/integrations/src/provider.ts',
         'packages/integrations/.env.secret',
-        'packages/integrations/node_modules/dep/index.js'
+        'packages/integrations/node_modules/dep/index.js',
+        'tooling/.turbo/turbo-test.log',
+        'apps/server/test-results/run/trace.zip',
+        'packages/db/coverage/report.json',
+        'packages/db/.fallow/cache',
+        'packages/db/__pycache__/fixture.pyc'
       ]) {
         const target = path.join(root, file);
 
@@ -74,6 +79,16 @@ testStable(
       expect(await run(fs.exists(path.join(context, 'packages/integrations/node_modules')))).toBe(
         false
       );
+
+      for (const generated of [
+        'tooling/.turbo',
+        'apps/server/test-results',
+        'packages/db/coverage',
+        'packages/db/.fallow',
+        'packages/db/__pycache__'
+      ])
+        expect(await run(fs.exists(path.join(context, generated)))).toBe(false);
+
       expect(await run(fs.exists(path.join(context, 'bun.lock')))).toBe(true);
     } finally {
       if (context) await run(fs.remove(context, { recursive: true, force: true }));
