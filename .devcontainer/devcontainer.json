@@ -62,6 +62,7 @@
     }
   },
   "remoteEnv": {
+    "MISE_TRUSTED_CONFIG_PATHS": "${containerWorkspaceFolder}",
     "CARGO_TARGET_DIR": "${containerWorkspaceFolder}/target/devcontainer",
     "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}",
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}",
