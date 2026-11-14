@@ -139,7 +139,7 @@ testStable('standardizes labelled text controls but permits native document inpu
 testStable('standardizes directional actions while keeping unrelated icons available', async () => {
   expect(
     await lint(
-      `import { Button } from '@study/ui/button'; import { ArrowRight } from 'lucide-react'; const view = <Button>Next<ArrowRight /></Button>;`
+      `import { Button } from '@study/ui/button'; import { NextIcon } from '@study/icons'; const view = <Button>Next<NextIcon /></Button>;`
     )
   ).toHaveLength(1);
   expect(

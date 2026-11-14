@@ -1,7 +1,7 @@
+import { CreateNoteIcon, CloseIcon } from '@study/icons';
 import { Sidebar } from '@study/ui/sidebar';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useNavigate, useSearch } from '@tanstack/react-router';
-import { SquarePen, X } from 'lucide-react';
 
 import {
   startDraftsOptions,
@@ -52,7 +52,7 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
           owner ? (
             <SubjectIdentity name={owner.name} icon={owner.icon} />
           ) : (
-            <SquarePen aria-hidden="true" />
+            <CreateNoteIcon aria-hidden="true" />
           )
         }
         description={t('SidebarDraft')}
@@ -72,7 +72,7 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
             if (active) void navigate({ to: '/notes', search: project ? { project } : {} });
           }}
         >
-          <X aria-hidden="true" />
+          <CloseIcon aria-hidden="true" />
         </Sidebar.SettleAction>
       </Sidebar.NoteRowActions>
     </Sidebar.NoteEntry>

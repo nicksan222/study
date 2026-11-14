@@ -1,4 +1,12 @@
 import { Appearance } from '@study/contracts/settings/types';
+import {
+  CopyIcon,
+  DownloadIcon,
+  CustomizeThemeIcon,
+  EditIcon,
+  AddIcon,
+  DeleteIcon
+} from '@study/icons';
 import { Button } from '@study/ui/button';
 import { downloadFile } from '@study/ui/download';
 import { IconButton } from '@study/ui/icon-button';
@@ -6,7 +14,6 @@ import { Settings } from '@study/ui/settings';
 import { defaultThemeId, serializeTheme } from '@study/ui/theme';
 import type { ThemeFile } from '@study/ui/theme';
 import { ThemeSwatches, ThemeWireframe } from '@study/ui/theme-preview';
-import { Copy, Download, Paintbrush, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -109,7 +116,7 @@ export function ThemeLibrary({ model, search = '' }: { model: AppearanceModel; s
             disabled={model.pending}
             onClick={() => setEditor({ type: 'create', theme: fresh() })}
           >
-            <Paintbrush aria-hidden="true" />
+            <CustomizeThemeIcon aria-hidden="true" />
             {t('CreateTheme')}
           </Button>
           <Button
@@ -118,7 +125,7 @@ export function ThemeLibrary({ model, search = '' }: { model: AppearanceModel; s
             disabled={model.pending}
             onClick={() => setEditor({ type: 'import' })}
           >
-            <Plus aria-hidden="true" />
+            <AddIcon aria-hidden="true" />
             {t('AddTheme')}
           </Button>
         </>
@@ -141,22 +148,26 @@ export function ThemeLibrary({ model, search = '' }: { model: AppearanceModel; s
             }
             actions={
               <>
-                {action(`${t('DuplicateTheme')}: ${theme.name}`, <Copy aria-hidden="true" />, () =>
-                  setEditor({ type: 'create', theme: fresh(theme) })
+                {action(
+                  `${t('DuplicateTheme')}: ${theme.name}`,
+                  <CopyIcon aria-hidden="true" />,
+                  () => setEditor({ type: 'create', theme: fresh(theme) })
                 )}
                 {!theme.builtin && (
                   <>
-                    {action(`${t('EditTheme')}: ${theme.name}`, <Pencil aria-hidden="true" />, () =>
-                      setEditor({ type: 'edit', theme })
+                    {action(
+                      `${t('EditTheme')}: ${theme.name}`,
+                      <EditIcon aria-hidden="true" />,
+                      () => setEditor({ type: 'edit', theme })
                     )}
                     {action(
                       `${t('ExportTheme')}: ${theme.name}`,
-                      <Download aria-hidden="true" />,
+                      <DownloadIcon aria-hidden="true" />,
                       () => downloadTheme(theme)
                     )}
                     {action(
                       `${t('DeleteTheme')}: ${theme.name}`,
-                      <Trash2 aria-hidden="true" />,
+                      <DeleteIcon aria-hidden="true" />,
                       () => setRemoving(theme)
                     )}
                   </>

@@ -1,6 +1,6 @@
+import { DisclosureIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Spinner } from '@study/ui/spinner';
-import { ChevronRight } from 'lucide-react';
 
 export type DeletionVersion<Id> = {
   id: Id;
@@ -46,7 +46,7 @@ export function VersionDeletionList<Id>({
             ) : pending && selected === item.id ? (
               <Spinner size="xs" label={pendingLabel} />
             ) : (
-              <ChevronRight aria-hidden="true" className="text-muted-foreground" />
+              <DisclosureIcon aria-hidden="true" className="text-muted-foreground" />
             )}
           </Button>
         </li>

@@ -1,3 +1,4 @@
+import { FlashcardsIcon, QuizIcon } from '@study/icons';
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
@@ -5,7 +6,6 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
-import { Layers, GraduationCap } from 'lucide-react';
 
 import { PracticeSidebarContextMenu } from '#client/features/practice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -111,9 +111,9 @@ export function LibraryListView({
 function libraryItemPresentation(kind: string) {
   switch (kind) {
     case 'flashcards':
-      return { Icon: Layers, labelKey: 'Flashcards' as const };
+      return { Icon: FlashcardsIcon, labelKey: 'Flashcards' as const };
     default:
-      return { Icon: GraduationCap, labelKey: 'SidebarQuiz' as const };
+      return { Icon: QuizIcon, labelKey: 'SidebarQuiz' as const };
   }
 }
 

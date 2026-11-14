@@ -1,4 +1,5 @@
 import type { Page } from '@study/contracts/pages/types';
+import { DescriptionIcon } from '@study/icons';
 import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
 import { DialogFormActions } from '@study/ui/dialog-form-actions';
 import { DialogHeading } from '@study/ui/dialog-heading';
@@ -6,7 +7,6 @@ import { IconButton } from '@study/ui/icon-button';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Text } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -27,7 +27,7 @@ export function PageMetadata({ page }: { page: Page }) {
       onOpenChange={setOpen}
       trigger={
         <IconButton variant="ghost-muted" size="icon-sm" label={t('PageEditing')}>
-          <Text size={15} aria-hidden="true" />
+          <DescriptionIcon size={15} aria-hidden="true" />
         </IconButton>
       }
     />

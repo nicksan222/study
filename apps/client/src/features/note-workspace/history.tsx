@@ -1,6 +1,7 @@
 import type { NoteId, VersionId, SourceId } from '@study/contracts/ids';
 import type { chatMessageSchema } from '@study/contracts/notes/schemas';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { HistoryIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ChatNote, ChatMessage, ChatEntryLabel } from '@study/ui/chat';
 import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
@@ -12,7 +13,6 @@ import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { History as HistoryIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -145,6 +145,7 @@ export const lint = {
     'study/theme-colors': 'error',
     'study/shared-ui-variants': 'error',
     'study/shared-ui-patterns': 'error',
+    'study/icon-aliases': 'error',
     'study/ai-readiness': 'error',
     'study/shared-loading': 'error',
     'study/shared-error-state': 'error',

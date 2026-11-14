@@ -1,4 +1,5 @@
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { CompletedIcon, PendingIcon, ErrorIcon, FailedIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { ToolActivity } from '@study/ui/tool-activity';
 import {
@@ -10,7 +11,6 @@ import {
   TraceLine,
   TraceTitle
 } from '@study/ui/trace';
-import { Check, Circle, CircleAlert, X } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -60,15 +60,15 @@ export function AssistantToolActivity({ message }: { message: ChatMessage }) {
 /** In-progress calls take precedence over terminal failures and cancellations. */
 function activitySummary(tools: ReturnType<typeof useToolActivity>['tools']) {
   if (tools.some((tool) => tool.status === 'running'))
-    return { label: 'AssistantActivityRunning', Icon: Circle, status: 'running' } as const;
+    return { label: 'AssistantActivityRunning', Icon: PendingIcon, status: 'running' } as const;
 
   if (tools.some((tool) => tool.status === 'failed'))
-    return { label: 'AssistantActivityFailed', Icon: CircleAlert, status: 'error' } as const;
+    return { label: 'AssistantActivityFailed', Icon: ErrorIcon, status: 'error' } as const;
 
   if (tools.some((tool) => tool.status === 'cancelled'))
-    return { label: 'AssistantActivityStopped', Icon: X, status: undefined } as const;
+    return { label: 'AssistantActivityStopped', Icon: FailedIcon, status: undefined } as const;
 
-  return { label: 'AssistantActivityCompleted', Icon: Check, status: undefined } as const;
+  return { label: 'AssistantActivityCompleted', Icon: CompletedIcon, status: undefined } as const;
 }
 
 function ActivityRetry({ failed, retry }: { failed: boolean; retry: () => void }) {

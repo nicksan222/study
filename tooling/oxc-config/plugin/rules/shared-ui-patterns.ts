@@ -126,7 +126,7 @@ function buttonPattern(node: ESTree.JSXElement, identify: Identify): string | un
   if (
     children.length === 2 &&
     childNames(node, identify).some((name) =>
-      ['lucide-react:ArrowLeft', 'lucide-react:ArrowRight'].includes(name)
+      ['@study/icons:BackIcon', '@study/icons:NextIcon'].includes(name)
     )
   )
     return 'PreviousButton or NextButton from @study/ui/navigation-button for directional actions';

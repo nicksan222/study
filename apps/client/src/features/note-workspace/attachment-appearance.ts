@@ -1,42 +1,42 @@
 import type { SourceKind } from '@study/contracts/sources/sniff';
-import type { StaticMessageKey } from '@study/localization';
 import {
-  AudioLines,
-  Film,
-  Image,
-  FileText,
-  FileCode2,
-  FileSpreadsheet,
-  Presentation,
-  Archive,
-  Globe2,
-  Link2,
-  StickyNote,
-  File
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+  AudioSourceIcon,
+  VideoSourceIcon,
+  ImageSourceIcon,
+  DocumentSourceIcon,
+  CodeSourceIcon,
+  SpreadsheetSourceIcon,
+  SlidesSourceIcon,
+  ArchiveSourceIcon,
+  WebSourceIcon,
+  LinkSourceIcon,
+  NoteSourceIcon,
+  FileSourceIcon
+} from '@study/icons';
+import type { IconComponent } from '@study/icons';
+import type { StaticMessageKey } from '@study/localization';
 
 type Appearance = {
-  icon: LucideIcon;
+  icon: IconComponent;
   label: StaticMessageKey;
   tone: 'neutral' | 'blue' | 'violet' | 'amber' | 'teal' | 'red';
 };
 
 export const appearances = {
-  audio: { icon: AudioLines, label: 'SourceAudio', tone: 'violet' },
-  video: { icon: Film, label: 'SourceVideo', tone: 'violet' },
-  image: { icon: Image, label: 'SourceImage', tone: 'teal' },
-  pdf: { icon: FileText, label: 'SourcePdf', tone: 'red' },
-  text: { icon: FileText, label: 'SourceText', tone: 'neutral' },
-  code: { icon: FileCode2, label: 'SourceCode', tone: 'blue' },
-  document: { icon: FileText, label: 'SourceDocument', tone: 'blue' },
-  spreadsheet: { icon: FileSpreadsheet, label: 'SourceSpreadsheet', tone: 'teal' },
-  slides: { icon: Presentation, label: 'SourceSlides', tone: 'amber' },
-  archive: { icon: Archive, label: 'SourceArchive', tone: 'amber' },
-  web: { icon: Globe2, label: 'SourceWeb', tone: 'blue' },
-  note: { icon: StickyNote, label: 'SourceNote', tone: 'neutral' },
-  link: { icon: Link2, label: 'SourceLink', tone: 'blue' },
-  other: { icon: File, label: 'SourceOther', tone: 'neutral' }
+  audio: { icon: AudioSourceIcon, label: 'SourceAudio', tone: 'violet' },
+  video: { icon: VideoSourceIcon, label: 'SourceVideo', tone: 'violet' },
+  image: { icon: ImageSourceIcon, label: 'SourceImage', tone: 'teal' },
+  pdf: { icon: DocumentSourceIcon, label: 'SourcePdf', tone: 'red' },
+  text: { icon: DocumentSourceIcon, label: 'SourceText', tone: 'neutral' },
+  code: { icon: CodeSourceIcon, label: 'SourceCode', tone: 'blue' },
+  document: { icon: DocumentSourceIcon, label: 'SourceDocument', tone: 'blue' },
+  spreadsheet: { icon: SpreadsheetSourceIcon, label: 'SourceSpreadsheet', tone: 'teal' },
+  slides: { icon: SlidesSourceIcon, label: 'SourceSlides', tone: 'amber' },
+  archive: { icon: ArchiveSourceIcon, label: 'SourceArchive', tone: 'amber' },
+  web: { icon: WebSourceIcon, label: 'SourceWeb', tone: 'blue' },
+  note: { icon: NoteSourceIcon, label: 'SourceNote', tone: 'neutral' },
+  link: { icon: LinkSourceIcon, label: 'SourceLink', tone: 'blue' },
+  other: { icon: FileSourceIcon, label: 'SourceOther', tone: 'neutral' }
 } satisfies Record<SourceKind, Appearance>;
 
 export function attachmentPreviewKind(kind: SourceKind) {

@@ -1,10 +1,10 @@
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { DescriptionIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
 import { DialogFormActions } from '@study/ui/dialog-form-actions';
 import { DialogHeading } from '@study/ui/dialog-heading';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Text } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -24,7 +24,7 @@ export function Description({ message }: { message: ChatMessage }) {
         aria-label={t('NoteDescriptionTitle')}
         title={t('NoteDescriptionTitle')}
       >
-        <Text size={15} aria-hidden="true" />
+        <DescriptionIcon size={15} aria-hidden="true" />
       </DialogTrigger>
       <DialogPopup closeLabel={t('Close')}>
         <DialogHeading

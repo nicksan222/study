@@ -12,6 +12,7 @@ const directories = {
   'packages/testing': '@study/testing',
   tooling: '@study/tooling',
   'packages/ui': '@study/ui',
+  'packages/icons': '@study/icons',
   'packages/theme': '@study/theme',
   'packages/localization': '@study/localization',
   'packages/db': '@study/db',
@@ -36,7 +37,8 @@ const allowed: Record<Owner, readonly Owner[]> = {
     '@study/db',
     '@study/server'
   ],
-  '@study/ui': ['@study/theme'],
+  '@study/icons': [],
+  '@study/ui': ['@study/theme', '@study/icons'],
   '@study/theme': ['@study/contracts'],
   '@study/localization': [],
   '@study/db': ['@study/contracts', '@study/theme'],
@@ -48,9 +50,15 @@ const allowed: Record<Owner, readonly Owner[]> = {
     '@study/theme',
     '@study/integrations'
   ],
-  '@study/client': ['@study/contracts', '@study/ui', '@study/localization', '@study/theme'],
+  '@study/client': [
+    '@study/contracts',
+    '@study/ui',
+    '@study/icons',
+    '@study/localization',
+    '@study/theme'
+  ],
   '@study/desktop': [],
-  'study-landing': ['@study/ui', '@study/localization', '@study/contracts']
+  'study-landing': ['@study/ui', '@study/icons', '@study/localization', '@study/contracts']
 };
 
 const exportsByPackage = new Map<string, unknown>();
@@ -243,6 +251,7 @@ export default defineRule({
       if (
         (owner === '@study/client' ||
           owner === '@study/ui' ||
+          owner === '@study/icons' ||
           owner === '@study/theme' ||
           owner === '@study/contracts') &&
         context.filename.replaceAll('\\', '/').includes('/src/') &&

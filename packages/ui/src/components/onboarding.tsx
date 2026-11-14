@@ -1,7 +1,7 @@
+import { BackIcon, NextIcon, PageIcon, AttachmentIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogTitle, DialogDescription } from '@study/ui/dialog';
 import { RichNoteContent } from '@study/ui/rich-note';
-import { ArrowLeft, ArrowRight, FileText, Paperclip } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /** A focused, keyboard-accessible welcome with a stable reading and action area. */
@@ -86,13 +86,13 @@ export function Onboarding({
           <div className="ui-onboarding-actions">
             {step > 0 && (
               <Button variant="ghost" onClick={onBack} disabled={pending}>
-                <ArrowLeft />
+                <BackIcon />
                 {backLabel}
               </Button>
             )}
             <Button onClick={onNext} disabled={pending}>
               {nextLabel}
-              <ArrowRight />
+              <NextIcon />
             </Button>
           </div>
         </div>
@@ -114,13 +114,13 @@ export function OnboardingNotebook({
   return (
     <div className="ui-onboarding-notebook">
       <header>
-        <FileText aria-hidden="true" />
+        <PageIcon aria-hidden="true" />
         <span>{label}</span>
       </header>
       <div className="ui-onboarding-notebook-page">
         <RichNoteContent value={note} />
         <div className="ui-onboarding-file">
-          <Paperclip aria-hidden="true" />
+          <AttachmentIcon aria-hidden="true" />
           {file}
         </div>
       </div>

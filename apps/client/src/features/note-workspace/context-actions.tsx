@@ -1,8 +1,8 @@
 import type { NoteId } from '@study/contracts/ids';
+import { OpenIcon, ArchiveIcon, PageIcon, CreatePageIcon, DeleteIcon } from '@study/icons';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { SelectionSurface } from '@study/ui/selection';
 import { WorkspaceCard, WorkspaceChanges } from '@study/ui/workspace';
-import { ArrowUpRight, Archive, FileText, FilePlus2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -28,7 +28,7 @@ function ContextAction({
         {icon}
         <>
           <span>{title}</span>
-          <ArrowUpRight aria-hidden="true" />
+          <OpenIcon aria-hidden="true" />
         </>
       </DialogTrigger>
       <SelectionSurface.Popup keepMounted closeLabel={t('Close')} bottomStickOnMobile={false}>
@@ -61,20 +61,20 @@ export function NoteContextActions({
         onOpenChange={setCreating}
         trigger={
           <WorkspaceCard.Primary>
-            <FileText size={16} aria-hidden="true" />
+            <PageIcon size={16} aria-hidden="true" />
             {t('NoteTransform')}
           </WorkspaceCard.Primary>
         }
       />
       <WorkspaceCard.Item onClick={onCreate} disabled={pending}>
-        <FilePlus2 aria-hidden="true" />
+        <CreatePageIcon aria-hidden="true" />
         <span>{t('NoteNewPage')}</span>
       </WorkspaceCard.Item>
-      <ContextAction title={t('NoteArchived')} icon={<Archive aria-hidden="true" />}>
+      <ContextAction title={t('NoteArchived')} icon={<ArchiveIcon aria-hidden="true" />}>
         <ArchivePanel id={id} />
       </ContextAction>
       <WorkspaceCard.Item variant="ghost-destructive" onClick={onDelete}>
-        <Trash2 aria-hidden="true" />
+        <DeleteIcon aria-hidden="true" />
         <span>{t('NoteDelete')}</span>
       </WorkspaceCard.Item>
     </WorkspaceChanges.Actions>

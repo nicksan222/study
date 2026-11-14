@@ -1,5 +1,14 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
+import {
+  OpenIcon,
+  PageIcon,
+  SourcesIcon,
+  NoteIcon,
+  AddIcon,
+  GeneralSettingsIcon,
+  GenerateIcon
+} from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -8,15 +17,6 @@ import { Loading } from '@study/ui/loading';
 import { SubjectWorkspace } from '@study/ui/subject-workspace';
 import { useInfiniteQuery, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
-import {
-  ArrowUpRight,
-  FileText,
-  Files,
-  MessagesSquare,
-  Plus,
-  Settings2,
-  Sparkles
-} from 'lucide-react';
 import { useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -52,11 +52,11 @@ function SubjectContents({ project }: { project: Project }) {
         </SubjectWorkspace.Identity>
         <SubjectWorkspace.Actions>
           <Button variant="outline" aria-pressed={managing} onClick={() => setManaging(!managing)}>
-            <Settings2 aria-hidden="true" />
+            <GeneralSettingsIcon aria-hidden="true" />
             {t(managing ? 'SubjectWorkspaceContents' : 'SubjectWorkspaceManage')}
           </Button>
           <Button render={<Link to="/notes" search={search} />}>
-            <Plus aria-hidden="true" />
+            <AddIcon aria-hidden="true" />
             {t('NewNote')}
           </Button>
         </SubjectWorkspace.Actions>
@@ -148,7 +148,7 @@ function ContentRow({
         {updated && <List.Description>{updated}</List.Description>}
       </List.Main>
       <List.Meta>
-        <ArrowUpRight size={16} aria-hidden="true" />
+        <OpenIcon size={16} aria-hidden="true" />
       </List.Meta>
     </List.Row>
   );
@@ -165,7 +165,7 @@ function SubjectNotes({ project }: { project: ProjectId }) {
         <ContentRow
           key={String(item.id)}
           title={item.title}
-          icon={<MessagesSquare aria-hidden="true" />}
+          icon={<NoteIcon aria-hidden="true" />}
           updated={date(item.updatedAt, { dateStyle: 'medium' })}
           render={
             <Link
@@ -191,7 +191,7 @@ function SubjectPages({ project }: { project: ProjectId }) {
         <ContentRow
           key={String(item.id)}
           title={item.title}
-          icon={<FileText aria-hidden="true" />}
+          icon={<PageIcon aria-hidden="true" />}
           updated={date(item.updatedAt, { dateStyle: 'medium' })}
           render={
             <Link
@@ -217,7 +217,7 @@ function SubjectSources({ project }: { project: ProjectId }) {
         <ContentRow
           key={String(item.id)}
           title={item.name}
-          icon={<Files aria-hidden="true" />}
+          icon={<SourcesIcon aria-hidden="true" />}
           updated={date(item.createdAt, { dateStyle: 'medium' })}
           render={
             <Link
@@ -243,7 +243,7 @@ function SubjectMaterials({ project }: { project: ProjectId }) {
         <ContentRow
           key={String(item.id)}
           title={item.title}
-          icon={<Sparkles aria-hidden="true" />}
+          icon={<GenerateIcon aria-hidden="true" />}
           updated={date(item.updated_at, { dateStyle: 'medium' })}
           render={
             <Link

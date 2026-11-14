@@ -1,4 +1,13 @@
 import type { NoteDto } from '@study/contracts/notes/schemas';
+import {
+  PageIcon,
+  NoteIcon,
+  SelectIcon,
+  ExpandIcon,
+  DeleteIcon,
+  MergeIcon,
+  CloseIcon
+} from '@study/icons';
 import { age } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { useNowMinute } from '@study/ui/clock';
@@ -6,15 +15,6 @@ import { IconButton } from '@study/ui/icon-button';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
-import {
-  FileText,
-  MessagesSquare,
-  SquareDashed,
-  ChevronDown,
-  Trash2,
-  Merge,
-  X
-} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -118,7 +118,7 @@ function SidebarNoteList(props: Props) {
             disabled={!selected.length}
             onClick={() => setAction({ kind: 'page', notes: [...selected] })}
           >
-            <FileText aria-hidden="true" />
+            <PageIcon aria-hidden="true" />
             {t('NoteCreatePage')}
           </Button>
           <Button
@@ -128,7 +128,7 @@ function SidebarNoteList(props: Props) {
             disabled={!canMergeNotes(selected, props.notes)}
             onClick={() => setAction({ kind: 'merge', notes: [...selected] })}
           >
-            <Merge aria-hidden="true" />
+            <MergeIcon aria-hidden="true" />
             <span data-selection-action-label>{t('NoteMerge')}</span>
           </Button>
           <Button
@@ -139,7 +139,7 @@ function SidebarNoteList(props: Props) {
             disabled={!selected.length}
             onClick={() => setAction({ kind: 'delete', notes: [...selected] })}
           >
-            <Trash2 aria-hidden="true" />
+            <DeleteIcon aria-hidden="true" />
             <span data-selection-action-label>{t('SidebarDeleteSelected')}</span>
           </Button>
           <IconButton
@@ -149,7 +149,7 @@ function SidebarNoteList(props: Props) {
 
             onClick={() => setSelected(null)}
           >
-            <X aria-hidden="true" />
+            <CloseIcon aria-hidden="true" />
           </IconButton>
         </SidebarUI.SelectionBar>
       )}
@@ -251,7 +251,7 @@ function SettledNotes(
       </SidebarUI.SettledRows>
       {more > 0 && (
         <SidebarUI.NoteMore onClick={() => setVisible((count) => count + 25)}>
-          <ChevronDown aria-hidden="true" />
+          <ExpandIcon aria-hidden="true" />
           {t('SidebarShowMore', { count: more })}
         </SidebarUI.NoteMore>
       )}
@@ -405,7 +405,7 @@ function NoteRowIcon({
 }) {
   if (owner) return <SubjectIdentity name={owner.name} icon={owner.icon} />;
 
-  return settled ? <SquareDashed aria-hidden="true" /> : <MessagesSquare aria-hidden="true" />;
+  return settled ? <SelectIcon aria-hidden="true" /> : <NoteIcon aria-hidden="true" />;
 }
 
 function noteDestination(note: NoteDto, project: Props['project'], selection: SelectionControls) {
@@ -468,7 +468,7 @@ function NotePageCount({ progress }: { progress?: Progress }) {
 
   return (
     <SidebarUI.NoteCount title={t('SidebarGeneratedPages')}>
-      <FileText size={12} aria-hidden="true" />
+      <PageIcon size={12} aria-hidden="true" />
       {progress ? String(progress.generatedPageCount) : '—'}
     </SidebarUI.NoteCount>
   );

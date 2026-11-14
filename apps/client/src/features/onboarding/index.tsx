@@ -1,6 +1,6 @@
+import { StartIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Settings } from '@study/ui/settings';
-import { Play } from 'lucide-react';
 import { createContext, useContext } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -17,7 +17,7 @@ export function ReplayOnboarding() {
       description={t('OnboardingReplayDescription')}
     >
       <Button variant="outline" onClick={() => replay?.()} disabled={!replay}>
-        <Play aria-hidden="true" />
+        <StartIcon aria-hidden="true" />
         {t('ReplayOnboarding')}
       </Button>
     </Settings.Row>

@@ -1,5 +1,6 @@
 import { assistantToolNameSchema } from '@study/contracts/ai/assistant-tools';
 import type { agentToolProgressSchema } from '@study/contracts/ai/progress';
+import { CompletedIcon, PendingIcon, FailedIcon } from '@study/icons';
 import { ToolActivity } from '@study/ui/tool-activity';
 import {
   TraceCollapsible,
@@ -11,7 +12,6 @@ import {
   TraceDescription
 } from '@study/ui/trace';
 import { Schema } from 'effect';
-import { Check, Circle, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -47,11 +47,11 @@ export function AgentToolCall({
         >
           <TraceIcon>
             {tool.status === 'completed' ? (
-              <Check />
+              <CompletedIcon />
             ) : tool.status === 'running' ? (
-              <Circle />
+              <PendingIcon />
             ) : (
-              <X />
+              <FailedIcon />
             )}
           </TraceIcon>
           <TraceTitle>{t(key)}</TraceTitle>{' '}

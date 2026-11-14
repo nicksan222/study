@@ -1,9 +1,16 @@
 import { StudyError } from '@study/contracts/errors';
+import {
+  ThinkingIcon,
+  CompletedIcon,
+  ErrorIcon,
+  CancelledIcon,
+  QueuedIcon,
+  DisclosureIcon
+} from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/note-workspace';
 import { useQuery } from '@tanstack/react-query';
-import { Brain, Check, CircleAlert, CircleSlash, Clock, ChevronRight } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
@@ -72,13 +79,13 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
     >
       {!state.data?.items.length && (
         <Notebook.WorkRow>
-          <Brain aria-hidden="true" />
+          <ThinkingIcon aria-hidden="true" />
           <span>{t('NotePending')}</span>
         </Notebook.WorkRow>
       )}
       {state.data?.items.toReversed().map((item) => {
         const failure = item.outcome === 'failure';
-        const Icon = failure ? CircleAlert : workIcon(item.status);
+        const Icon = failure ? ErrorIcon : workIcon(item.status);
 
         return (
           <Notebook.WorkItem key={item.id}>
@@ -89,7 +96,7 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
                 <span aria-hidden="true">·</span>
                 <span>{t(`workspace.state.${failure ? 'failure' : item.status}`)}</span>
               </Notebook.WorkCopy>
-              <ChevronRight aria-hidden="true" />
+              <DisclosureIcon aria-hidden="true" />
             </Notebook.WorkSummary>
             <Notebook.WorkMetadata>
               <dt>{t('NoteWorkStarted')}</dt>
@@ -128,13 +135,13 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
 function workIcon(status: string) {
   switch (status) {
     case 'completed':
-      return Check;
+      return CompletedIcon;
     case 'cancelled':
-      return CircleSlash;
+      return CancelledIcon;
     case 'suspended':
     case 'cancelling':
-      return Clock;
+      return QueuedIcon;
     default:
-      return Brain;
+      return ThinkingIcon;
   }
 }

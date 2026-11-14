@@ -4,6 +4,7 @@ import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
 import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
+import { StartIcon, GradeIcon } from '@study/icons';
 import { questionNumber, reviewProgress, questionCount } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
@@ -12,7 +13,6 @@ import { Practice } from '@study/ui/practice';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { Play, CheckCheck } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
@@ -95,7 +95,7 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
           )}
           <QuizOutline version={version} />
           <Practice.Muted>
-            <CheckCheck aria-hidden="true" />
+            <GradeIcon aria-hidden="true" />
             {t('PracticeQuizSaveHint')}
           </Practice.Muted>
           {preferences.isError && <OperationError retry={() => void preferences.refetch()} />}
@@ -110,7 +110,7 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
           disabled={start.isPending || !preferences.isSuccess || count === 0}
           onClick={() => start.mutate()}
         >
-          <Play aria-hidden="true" />
+          <StartIcon aria-hidden="true" />
           {t(start.isPending ? 'PracticeStarting' : 'PracticeStartQuiz')}
         </Button>
       </Practice.StageFooter>

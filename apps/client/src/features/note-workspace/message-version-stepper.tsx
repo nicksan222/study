@@ -1,8 +1,8 @@
 import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { PreviousVersionIcon, NextVersionIcon } from '@study/icons';
 import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/note-workspace';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -35,7 +35,7 @@ export function MessageVersionStepper({
           if (previous) onChange(previous.id);
         }}
       >
-        <ChevronLeft size={14} aria-hidden="true" />
+        <PreviousVersionIcon size={14} aria-hidden="true" />
       </IconButton>
       <Notebook.VersionLabel
         role="status"
@@ -56,7 +56,7 @@ export function MessageVersionStepper({
           if (next) onChange(next.id);
         }}
       >
-        <ChevronRight size={14} aria-hidden="true" />
+        <NextVersionIcon size={14} aria-hidden="true" />
       </IconButton>
     </Notebook.VersionStepper>
   );

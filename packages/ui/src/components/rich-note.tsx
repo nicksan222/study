@@ -1,3 +1,17 @@
+import {
+  BoldIcon,
+  UnderlineIcon,
+  StrikethroughIcon,
+  ExpandIcon,
+  ClearFormattingIcon,
+  ItalicIcon,
+  BulletListIcon,
+  NumberedListIcon,
+  BlockquoteIcon,
+  CodeBlockIcon,
+  UndoIcon,
+  RedoIcon
+} from '@study/icons';
 import { generateText } from '@tiptap/core';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
@@ -5,20 +19,6 @@ import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import type { Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { renderToReactElement } from '@tiptap/static-renderer/pm/react';
-import {
-  Bold,
-  Underline,
-  Strikethrough,
-  ChevronDown,
-  RemoveFormatting,
-  Italic,
-  List,
-  ListOrdered,
-  Quote,
-  Code2,
-  Undo2,
-  Redo2
-} from 'lucide-react';
 import {
   cloneElement,
   isValidElement,
@@ -344,18 +344,34 @@ function RichNoteFormatting({
     })
   });
   const actions = [
-    { id: 'bold', Icon: Bold, run: () => editor.chain().focus().toggleBold().run() },
-    { id: 'italic', Icon: Italic, run: () => editor.chain().focus().toggleItalic().run() },
-    { id: 'underline', Icon: Underline, run: () => editor.chain().focus().toggleUnderline().run() },
-    { id: 'strike', Icon: Strikethrough, run: () => editor.chain().focus().toggleStrike().run() },
-    { id: 'bullets', Icon: List, run: () => editor.chain().focus().toggleBulletList().run() },
+    { id: 'bold', Icon: BoldIcon, run: () => editor.chain().focus().toggleBold().run() },
+    { id: 'italic', Icon: ItalicIcon, run: () => editor.chain().focus().toggleItalic().run() },
+    {
+      id: 'underline',
+      Icon: UnderlineIcon,
+      run: () => editor.chain().focus().toggleUnderline().run()
+    },
+    {
+      id: 'strike',
+      Icon: StrikethroughIcon,
+      run: () => editor.chain().focus().toggleStrike().run()
+    },
+    {
+      id: 'bullets',
+      Icon: BulletListIcon,
+      run: () => editor.chain().focus().toggleBulletList().run()
+    },
     {
       id: 'numbered',
-      Icon: ListOrdered,
+      Icon: NumberedListIcon,
       run: () => editor.chain().focus().toggleOrderedList().run()
     },
-    { id: 'quote', Icon: Quote, run: () => editor.chain().focus().toggleBlockquote().run() },
-    { id: 'code', Icon: Code2, run: () => editor.chain().focus().toggleCodeBlock().run() }
+    {
+      id: 'quote',
+      Icon: BlockquoteIcon,
+      run: () => editor.chain().focus().toggleBlockquote().run()
+    },
+    { id: 'code', Icon: CodeBlockIcon, run: () => editor.chain().focus().toggleCodeBlock().run() }
   ] as const;
 
   return (
@@ -372,7 +388,7 @@ function RichNoteFormatting({
           }
         >
           {labels[state.heading ? 'heading' : state.subheading ? 'subheading' : 'paragraph']}
-          <ChevronDown size={14} aria-hidden="true" />
+          <ExpandIcon size={14} aria-hidden="true" />
         </MenuTrigger>
         <MenuPopup align="start">
           <MenuItem onClick={() => editor.chain().focus().setParagraph().run()}>
@@ -413,7 +429,7 @@ function RichNoteFormatting({
         disabled={disabled}
         onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
       >
-        <RemoveFormatting size={16} aria-hidden="true" />
+        <ClearFormattingIcon size={16} aria-hidden="true" />
       </Button>
       {controls}
       <span className="rich-note-toolbar-divider" aria-hidden="true" />
@@ -425,7 +441,7 @@ function RichNoteFormatting({
         disabled={disabled || !state.undo}
         onClick={() => editor.chain().focus().undo().run()}
       >
-        <Undo2 size={16} aria-hidden="true" />
+        <UndoIcon size={16} aria-hidden="true" />
       </Button>
       <Button
         size="icon-sm"
@@ -435,7 +451,7 @@ function RichNoteFormatting({
         disabled={disabled || !state.redo}
         onClick={() => editor.chain().focus().redo().run()}
       >
-        <Redo2 size={16} aria-hidden="true" />
+        <RedoIcon size={16} aria-hidden="true" />
       </Button>
     </div>
   );

@@ -3,6 +3,7 @@ import type {
   quizAttemptSchema,
   quizAttemptInProgressSchema
 } from '@study/contracts/learning/schemas';
+import { OpenIcon, HistoryIcon } from '@study/icons';
 import { questionNumber, reviewProgress } from '@study/localization';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { NextButton, PreviousButton } from '@study/ui/navigation-button';
@@ -12,7 +13,6 @@ import { Textarea } from '@study/ui/textarea';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
-import { ArrowUpRight, History } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -33,9 +33,9 @@ export function AttemptsAction({ id }: { id: MaterialId }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<WorkspaceCard.Item />}>
-        <History aria-hidden="true" />
+        <HistoryIcon aria-hidden="true" />
         <span>{t('PracticeAttempts')}</span>
-        <ArrowUpRight aria-hidden="true" />
+        <OpenIcon aria-hidden="true" />
       </DialogTrigger>
       <AttemptsPopup id={id} open={open} onOpenChange={setOpen} />
     </Dialog>
@@ -108,7 +108,7 @@ function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; clo
             key={String(attempt.id)}
             aria-current={active?.attempt.id === attempt.id ? 'true' : undefined}
             onClick={() => select(attempt.id)}
-            icon={<History aria-hidden="true" />}
+            icon={<HistoryIcon aria-hidden="true" />}
             label={date(attempt.started_at)}
             description={t(attemptStatus(attempt.status))}
           />
@@ -136,7 +136,7 @@ function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; clo
             <Surface.Body>
               <PracticeQueryState state={history}>
                 <Surface.EmptyState
-                  icon={<History aria-hidden="true" />}
+                  icon={<HistoryIcon aria-hidden="true" />}
                   title={<>{t(search ? 'SearchNoResults' : 'PracticeNoAttempts')}</>}
                   description={
                     <>{t(search ? 'PracticeAttemptSearchHelp' : 'PracticeQuizSaveHint')}</>

@@ -1,6 +1,6 @@
+import { InsertImageIcon, LinkIcon, SubscriptIcon, SuperscriptIcon } from '@study/icons';
 import type { Editor } from '@tiptap/core';
 import { useEditorState } from '@tiptap/react';
-import { ImagePlus, Link2, Subscript, Superscript } from 'lucide-react';
 
 import { Button } from './button';
 import { StructuredTableControls } from './structured-editor-table';
@@ -42,7 +42,7 @@ export function StructuredEditorControls({
         disabled={disabled}
         onClick={onEditLink}
       >
-        <Link2 size={16} aria-hidden="true" />
+        <LinkIcon size={16} aria-hidden="true" />
       </Button>
       <StructuredTableControls
         editor={editor}
@@ -61,7 +61,7 @@ export function StructuredEditorControls({
             aria-busy={uploading || undefined}
             onClick={onInsertImage}
           >
-            <ImagePlus size={16} aria-hidden="true" />
+            <InsertImageIcon size={16} aria-hidden="true" />
           </Button>
         </>
       )}
@@ -75,7 +75,7 @@ export function StructuredEditorControls({
         disabled={disabled}
         onClick={() => editor.chain().focus().toggleSubscript().run()}
       >
-        <Subscript size={16} aria-hidden="true" />
+        <SubscriptIcon size={16} aria-hidden="true" />
       </Button>
       <Button
         size="icon-sm"
@@ -86,7 +86,7 @@ export function StructuredEditorControls({
         disabled={disabled}
         onClick={() => editor.chain().focus().toggleSuperscript().run()}
       >
-        <Superscript size={16} aria-hidden="true" />
+        <SuperscriptIcon size={16} aria-hidden="true" />
       </Button>
     </>
   );

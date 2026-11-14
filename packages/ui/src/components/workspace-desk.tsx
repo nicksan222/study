@@ -2,16 +2,16 @@ import { mergeProps } from '@base-ui/react/merge-props';
 import { Tabs } from '@base-ui/react/tabs';
 import { useRender } from '@base-ui/react/use-render';
 import {
-  FileText,
-  X,
-  PanelRightClose,
-  Maximize2,
-  Minimize2,
-  Plus,
-  ArrowLeft,
-  ChevronRight,
-  ArrowUpRight
-} from 'lucide-react';
+  PageIcon,
+  CloseIcon,
+  ClosePanelIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+  AddIcon,
+  BackIcon,
+  DisclosureIcon,
+  OpenIcon
+} from '@study/icons';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
@@ -158,7 +158,7 @@ function Panel({
           title={hideLabel}
           onClick={onHide}
         >
-          <ArrowLeft size={16} aria-hidden="true" />
+          <BackIcon size={16} aria-hidden="true" />
         </Button>
         <Tabs.List className="workspace-desk-tabs" aria-label={closeLabel}>
           {tabs.map((tab) => (
@@ -168,7 +168,7 @@ function Panel({
               ref={tab.id === active ? activeTab : undefined}
             >
               <Tabs.Tab value={tab.id}>
-                <FileText size={14} aria-hidden="true" />
+                <PageIcon size={14} aria-hidden="true" />
                 <span>{tab.label}</span>
               </Tabs.Tab>
               <button
@@ -177,7 +177,7 @@ function Panel({
                 title={tab.closeLabel}
                 onClick={() => onClose(tab.id)}
               >
-                <X size={13} aria-hidden="true" />
+                <CloseIcon size={13} aria-hidden="true" />
               </button>
             </div>
           ))}
@@ -189,7 +189,7 @@ function Panel({
           title={createLabel}
           onClick={onCreate}
         >
-          <Plus size={16} aria-hidden="true" />
+          <AddIcon size={16} aria-hidden="true" />
         </Button>
         <div className="workspace-desk-panel-controls">
           <Button
@@ -199,7 +199,7 @@ function Panel({
             title={expandLabel}
             onClick={onExpand}
           >
-            {expanded ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            {expanded ? <MinimizeIcon size={15} /> : <MaximizeIcon size={15} />}
           </Button>
           <Button
             variant="ghost-muted"
@@ -208,7 +208,7 @@ function Panel({
             title={hideLabel}
             onClick={onHide}
           >
-            <PanelRightClose size={15} />
+            <ClosePanelIcon size={15} />
           </Button>
         </div>
       </div>
@@ -250,7 +250,7 @@ function PageCard({
       onClick={onOpen}
     >
       <span className="workspace-desk-page-icon">
-        <FileText size={20} aria-hidden="true" />
+        <PageIcon size={20} aria-hidden="true" />
       </span>
       <span className="workspace-desk-page-copy">
         <span className="workspace-desk-page-title">{title}</span>
@@ -258,7 +258,7 @@ function PageCard({
         {meta && <span className="workspace-desk-page-meta">{meta}</span>}
       </span>
       <span className="workspace-desk-page-open" aria-hidden="true">
-        <ArrowUpRight size={16} />
+        <OpenIcon size={16} />
       </span>
     </button>
   );
@@ -317,7 +317,7 @@ function AttachmentCard({
               <span className="workspace-desk-attachment-name">{name}</span>
               <span className="workspace-desk-attachment-meta">{meta}</span>
             </span>
-            <ChevronRight size={14} aria-hidden="true" />
+            <DisclosureIcon size={14} aria-hidden="true" />
           </>
         )
       },

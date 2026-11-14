@@ -1,11 +1,11 @@
 import { materialVersionIdSchema } from '@study/contracts/ids';
 import type { PageVersionId, MaterialId } from '@study/contracts/ids';
+import { OpenIcon, PageIcon } from '@study/icons';
 import { ErrorState } from '@study/ui/error-state';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { ArrowUpRight, FileText } from 'lucide-react';
 
 import { notePageOptions } from '#client/features/note-workspace/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -52,7 +52,7 @@ function SourcePage({ id }: { id: PageVersionId }) {
     <PageLink id={version.data.pageId} version={id} />
   ) : (
     <WorkspaceCard.Item disabled>
-      <FileText aria-hidden="true" />
+      <PageIcon aria-hidden="true" />
       <span>{t(version.isError ? 'ReaderUnavailable' : 'LoadingStudy')}</span>
     </WorkspaceCard.Item>
   );
@@ -81,9 +81,9 @@ function PageLink({
         ) : undefined
       }
     >
-      <FileText aria-hidden="true" />
+      <PageIcon aria-hidden="true" />
       <span>{page.data?.title ?? t(page.isError ? 'ReaderUnavailable' : 'LoadingStudy')}</span>
-      <ArrowUpRight aria-hidden="true" />
+      <OpenIcon aria-hidden="true" />
     </WorkspaceCard.Item>
   );
 }

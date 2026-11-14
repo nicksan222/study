@@ -31,6 +31,7 @@ import effectV4Api from './rules/effect-v4-api.ts';
 import featureOrchestration from './rules/feature-orchestration.ts';
 import featurePreviewBoundary from './rules/feature-preview-boundary.ts';
 import harnessBoundary from './rules/harness-boundary.ts';
+import iconAliases from './rules/icon-aliases.ts';
 import integrationTestEnvironment from './rules/integration-test-environment.ts';
 import metricCardinality from './rules/metric-cardinality.ts';
 import nativeClock from './rules/native-clock.ts';
@@ -92,6 +93,7 @@ export default definePlugin({
     ...factoryRules,
     ...observabilityRules,
     ...persistenceRules,
+    'icon-aliases': iconAliases,
     'drizzle-boundary': drizzleBoundary,
     'effect-scoped-fibers': effectScopedFibers,
     'effect-no-native-timers': effectNoNativeTimers,

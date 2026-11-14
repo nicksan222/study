@@ -1,13 +1,13 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { learningRatingSchema } from '@study/contracts/learning/schemas';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { SelectedIcon, RetryIcon } from '@study/icons';
 import { reviewProgress } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Practice } from '@study/ui/practice';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Check, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -78,11 +78,11 @@ function ScheduledReview({
   if (!cards.length)
     return (
       <Practice.Complete>
-        <Check aria-hidden="true" />
+        <SelectedIcon aria-hidden="true" />
         <h2>{t('PracticeNothingDue')}</h2>
         <p>{t('PracticeNothingDueHint')}</p>
         <Button variant="outline" onClick={replay}>
-          <RotateCcw aria-hidden="true" />
+          <RetryIcon aria-hidden="true" />
           {t('PracticeReplayFlashcards')}
         </Button>
       </Practice.Complete>
@@ -171,7 +171,7 @@ function ReviewCards({
         </>
       ) : (
         <Practice.Complete role="status">
-          <Check aria-hidden="true" />
+          <SelectedIcon aria-hidden="true" />
           <h2>{t('PracticeReviewComplete')}</h2>
           <p>{t('PracticeReviewSaved')}</p>
           <Button
@@ -187,7 +187,7 @@ function ReviewCards({
               setCompleted(0);
             }}
           >
-            <RotateCcw aria-hidden="true" />
+            <RetryIcon aria-hidden="true" />
             {t('PracticeReviewAgain')}
           </Button>
         </Practice.Complete>

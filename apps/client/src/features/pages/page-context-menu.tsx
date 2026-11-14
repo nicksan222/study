@@ -1,6 +1,15 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
 import {
+  ArchiveIcon,
+  RestoreArchiveIcon,
+  OpenIcon,
+  HistoryIcon,
+  AskAiIcon,
+  RenameIcon,
+  DeleteIcon
+} from '@study/icons';
+import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
@@ -12,15 +21,6 @@ import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import {
-  Archive,
-  ArchiveRestore,
-  ArrowUpRight,
-  History,
-  Sparkles,
-  Text,
-  Trash2
-} from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -64,15 +64,15 @@ export function PageContextMenu({
               <Link to="/pages/$pageId" params={{ pageId: String(page.id) }} search={search} />
             }
           >
-            <ArrowUpRight aria-hidden="true" />
+            <OpenIcon aria-hidden="true" />
             {t('PageOpen')}
           </ContextMenuItem>
           <ContextMenuItem onClick={() => setAction('metadata')}>
-            <Text aria-hidden="true" />
+            <RenameIcon aria-hidden="true" />
             {t('PageRename')}
           </ContextMenuItem>
           <ContextMenuItem disabled={!page.headVersionId} onClick={() => setAction('ai')}>
-            <Sparkles aria-hidden="true" />
+            <AskAiIcon aria-hidden="true" />
             {t('PageAskAI')}
           </ContextMenuItem>
           <ContextMenuItem
@@ -85,20 +85,20 @@ export function PageContextMenu({
               />
             }
           >
-            <History aria-hidden="true" />
+            <HistoryIcon aria-hidden="true" />
             {t('ReaderHistory')}
           </ContextMenuItem>
           <ContextMenuItem disabled={archive.isPending} onClick={() => archive.mutate()}>
             {page.archivedAt === null ? (
-              <Archive aria-hidden="true" />
+              <ArchiveIcon aria-hidden="true" />
             ) : (
-              <ArchiveRestore aria-hidden="true" />
+              <RestoreArchiveIcon aria-hidden="true" />
             )}
             {t(page.archivedAt === null ? 'PagesArchive' : 'PagesUnarchive')}
           </ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" onClick={() => setAction('delete')}>
-            <Trash2 aria-hidden="true" />
+            <DeleteIcon aria-hidden="true" />
             {t('PageDeleteAction')}
           </ContextMenuItem>
         </ContextMenuPopup>

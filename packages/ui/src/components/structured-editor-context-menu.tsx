@@ -1,22 +1,22 @@
+import {
+  BoldIcon,
+  CopyIcon,
+  PasteIcon,
+  CutIcon,
+  ItalicIcon,
+  StrikethroughIcon,
+  ClearFormattingIcon,
+  UndoIcon,
+  RedoIcon,
+  SelectAllIcon,
+  DeleteIcon,
+  LinkIcon,
+  InsertImageIcon,
+  InsertTableIcon,
+  ImagePropertiesIcon
+} from '@study/icons';
 import type { Editor } from '@tiptap/core';
 import { useEditorState } from '@tiptap/react';
-import {
-  Bold,
-  Copy,
-  ClipboardPaste,
-  Scissors,
-  Italic,
-  Strikethrough,
-  RemoveFormatting,
-  Undo2,
-  Redo2,
-  TextSelect,
-  Trash2,
-  Link2,
-  ImagePlus,
-  Table2,
-  Image
-} from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -67,10 +67,10 @@ export function StructuredEditorContextMenu({
     })
   });
   const formatting = [
-    ['bold', Bold, () => editor.chain().focus().toggleBold().run()],
-    ['italic', Italic, () => editor.chain().focus().toggleItalic().run()],
-    ['strike', Strikethrough, () => editor.chain().focus().toggleStrike().run()],
-    ['clear', RemoveFormatting, () => editor.chain().focus().unsetAllMarks().run()]
+    ['bold', BoldIcon, () => editor.chain().focus().toggleBold().run()],
+    ['italic', ItalicIcon, () => editor.chain().focus().toggleItalic().run()],
+    ['strike', StrikethroughIcon, () => editor.chain().focus().toggleStrike().run()],
+    ['clear', ClearFormattingIcon, () => editor.chain().focus().unsetAllMarks().run()]
   ] as const;
 
   async function clipboard(action: () => Promise<void>) {
@@ -100,28 +100,28 @@ export function StructuredEditorContextMenu({
             disabled={disabled || !state.selected}
             onClick={() => void clipboard(() => copyEditorSelection(editor, true))}
           >
-            <Scissors aria-hidden="true" />
+            <CutIcon aria-hidden="true" />
             {labels.cut}
           </ContextMenuItem>
           <ContextMenuItem
             disabled={!state.selected}
             onClick={() => void clipboard(() => copyEditorSelection(editor, false))}
           >
-            <Copy aria-hidden="true" />
+            <CopyIcon aria-hidden="true" />
             {labels.copy}
           </ContextMenuItem>
           <ContextMenuItem
             disabled={disabled}
             onClick={() => void clipboard(() => pasteIntoEditor(editor, upload))}
           >
-            <ClipboardPaste aria-hidden="true" />
+            <PasteIcon aria-hidden="true" />
             {labels.paste}
           </ContextMenuItem>
           <ContextMenuSeparator />
           {state.image ? (
             <>
               <ContextMenuItem disabled={disabled} onClick={onEditImage}>
-                <Image aria-hidden="true" />
+                <ImagePropertiesIcon aria-hidden="true" />
                 {labels.imageDescription}
               </ContextMenuItem>
               <ContextMenuItem
@@ -129,7 +129,7 @@ export function StructuredEditorContextMenu({
                 variant="destructive"
                 onClick={() => editor.chain().focus().deleteSelection().run()}
               >
-                <Trash2 aria-hidden="true" />
+                <DeleteIcon aria-hidden="true" />
                 {labels.deleteImage}
               </ContextMenuItem>
             </>
@@ -143,7 +143,7 @@ export function StructuredEditorContextMenu({
                   </ContextMenuItem>
                 ))}
               <ContextMenuItem disabled={disabled} onClick={onEditLink}>
-                <Link2 aria-hidden="true" />
+                <LinkIcon aria-hidden="true" />
                 {labels.link}
               </ContextMenuItem>
             </>
@@ -165,12 +165,12 @@ export function StructuredEditorContextMenu({
           )}
           <ContextMenuSeparator />
           <ContextMenuItem disabled={disabled} onClick={onInsertTable}>
-            <Table2 aria-hidden="true" />
+            <InsertTableIcon aria-hidden="true" />
             {labels.insertTable}
           </ContextMenuItem>
           {onInsertImage && (
             <ContextMenuItem disabled={disabled} onClick={onInsertImage}>
-              <ImagePlus aria-hidden="true" />
+              <InsertImageIcon aria-hidden="true" />
               {labels.image}
             </ContextMenuItem>
           )}
@@ -179,18 +179,18 @@ export function StructuredEditorContextMenu({
             disabled={disabled || !state.undo}
             onClick={() => editor.chain().focus().undo().run()}
           >
-            <Undo2 aria-hidden="true" />
+            <UndoIcon aria-hidden="true" />
             {labels.undo}
           </ContextMenuItem>
           <ContextMenuItem
             disabled={disabled || !state.redo}
             onClick={() => editor.chain().focus().redo().run()}
           >
-            <Redo2 aria-hidden="true" />
+            <RedoIcon aria-hidden="true" />
             {labels.redo}
           </ContextMenuItem>
           <ContextMenuItem onClick={() => editor.chain().focus().selectAll().run()}>
-            <TextSelect aria-hidden="true" />
+            <SelectAllIcon aria-hidden="true" />
             {labels.selectAll}
           </ContextMenuItem>
         </ContextMenuPopup>

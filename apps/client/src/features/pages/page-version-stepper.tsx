@@ -1,9 +1,9 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import type { PageVersion } from '@study/contracts/pages/types';
+import { PreviousVersionIcon, NextVersionIcon } from '@study/icons';
 import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/note-workspace';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -39,7 +39,7 @@ export function PageVersionStepper({
           disabled={pending || busy || !previous}
           onClick={older}
         >
-          <ChevronLeft size={14} aria-hidden="true" />
+          <PreviousVersionIcon size={14} aria-hidden="true" />
         </IconButton>
         <PageVersionLabel version={version} headVersionId={headVersionId} />
         <IconButton
@@ -52,7 +52,7 @@ export function PageVersionStepper({
             if (next) onChange(next.id);
           }}
         >
-          <ChevronRight size={14} aria-hidden="true" />
+          <NextVersionIcon size={14} aria-hidden="true" />
         </IconButton>
       </Notebook.VersionStepper>
       {history.query.error && (

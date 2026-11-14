@@ -1,5 +1,5 @@
+import { BackIcon } from '@study/icons';
 import { cn } from '@study/ui/utils';
-import { ArrowLeft } from 'lucide-react';
 import { cloneElement, isValidElement } from 'react';
 import type { ComponentPropsWithRef, ReactElement, ReactNode } from 'react';
 
@@ -41,7 +41,7 @@ function Header({
             'groam-shell-header-back',
             (parent.props as { className?: string }).className
           ),
-          children: <ArrowLeft aria-hidden="true" />
+          children: <BackIcon aria-hidden="true" />
         })
       : null;
 
