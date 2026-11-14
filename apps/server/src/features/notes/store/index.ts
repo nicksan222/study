@@ -13,6 +13,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import type { ProjectId } from '@study/contracts/ids';
 import { noteIdSchema } from '@study/contracts/ids';
 import {
   createNoteInputSchema,
@@ -20,7 +21,7 @@ import {
   notePageInputSchema
 } from '@study/contracts/notes/rpc';
 import { NoteMode, noteModeSchema, noteSchema } from '@study/contracts/notes/schemas';
-import { and, desc, eq, lt, or, sql } from '@study/db';
+import { and, asc, desc, eq, lt, or, sql } from '@study/db';
 import {
   notes,
   projects,
@@ -35,6 +36,13 @@ import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
+
+const projectMembership = (project: ProjectId | null | undefined) =>
+  project === undefined
+    ? undefined
+    : project === null
+      ? sql`NOT EXISTS (SELECT 1 FROM ${project_notes} WHERE ${project_notes.note_id} = ${notes.id})`
+      : sql`EXISTS (SELECT 1 FROM ${project_notes} WHERE ${project_notes.note_id} = ${notes.id} AND ${project_notes.project_id} = ${project})`;
 
 const resolvedMode = (mode: NoteMode | undefined) => mode ?? NoteMode.Notebook;
 
@@ -87,6 +95,28 @@ export const NoteStore = defineStore({
               Option.map(present)
             )
         }),
+        findNotebookByTitle: storeQuery({
+          role: 'optional',
+          input: createNoteInputSchema,
+          output: Schema.Option(noteSchema),
+          run: (input) =>
+            Option.fromNullishOr(
+              db.orm
+                .select()
+                .from(notes)
+                .where(
+                  and(
+                    eq(notes.title, input.title),
+                    eq(notes.mode, NoteMode.Notebook),
+                    sql`${notes.archived_at} IS NULL`,
+                    projectMembership(input.project ?? null)
+                  )
+                )
+                .orderBy(asc(notes.id))
+                .limit(1)
+                .get()
+            ).pipe(Option.map(present))
+        }),
         notes: storeQuery({
           role: 'collection',
           input: notePageInputSchema,
@@ -98,11 +128,7 @@ export const NoteStore = defineStore({
               .where(
                 and(
                   eq(notes.mode, NoteMode.Notebook),
-                  input.project === undefined
-                    ? undefined
-                    : input.project === null
-                      ? sql`NOT EXISTS (SELECT 1 FROM ${project_notes} WHERE ${project_notes.note_id} = ${notes.id})`
-                      : sql`EXISTS (SELECT 1 FROM ${project_notes} WHERE ${project_notes.note_id} = ${notes.id} AND ${project_notes.project_id} = ${input.project})`,
+                  projectMembership(input.project),
                   input.before === undefined
                     ? undefined
                     : or(

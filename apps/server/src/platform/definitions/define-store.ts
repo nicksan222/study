@@ -172,16 +172,6 @@ export function defineStore<
 
       if (!['required', 'optional', 'collection'].includes(role))
         throw new TypeError(`Invalid query role ${role}`);
-
-      const singular = definition.entity.singular;
-      const expected =
-        role === 'required'
-          ? singular
-          : role === 'optional'
-            ? `find${singular[0]?.toUpperCase()}${singular.slice(1)}`
-            : definition.entity.plural;
-
-      if (name !== expected) throw new TypeError(`Query ${name} must be named ${expected}`);
     }
   }
 

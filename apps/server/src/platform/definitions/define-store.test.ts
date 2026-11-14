@@ -216,7 +216,7 @@ testStable('transaction rolls back a write when a later step throws', async () =
   }
 });
 
-testStable('rejects invalid query names and decodes inputs before executing', async () => {
+testStable('rejects malformed operation names and decodes inputs before executing', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
 
@@ -230,7 +230,7 @@ testStable('rejects invalid query names and decodes inputs before executing', as
 
             make: () => ({
               queries: {
-                list: storeQuery({
+                'bad-name': storeQuery({
                   input: Schema.Number,
                   output: Schema.Number,
                   role: 'required',
@@ -245,9 +245,7 @@ testStable('rejects invalid query names and decodes inputs before executing', as
     ).toThrow(
       expect.toSatisfy(
         (error: unknown) =>
-          error instanceof Error &&
-          error.cause instanceof Error &&
-          /must be named item/.test(error.cause.message)
+          error instanceof Error && error.cause instanceof Error && error.cause instanceof TypeError
       )
     );
     await expect(
@@ -475,7 +473,7 @@ testStable(
 
       make: () => ({
         queries: {
-          items: storeQuery({
+          matchingItems: storeQuery({
             role: 'collection',
             input: Schema.Struct({ limit: Schema.Int }),
             output: Schema.Unknown,
@@ -493,7 +491,7 @@ testStable(
         await Effect.runPromise(
           Effect.runSync(
             useStore(store).pipe(Effect.provideService(Database, { store: context }))
-          ).items({ limit: 1 })
+          ).matchingItems({ limit: 1 })
         )
       ).toStrictEqual(result);
 
@@ -503,7 +501,7 @@ testStable(
           Effect.runPromise(
             Effect.runSync(
               useStore(store).pipe(Effect.provideService(Database, { store: context }))
-            ).items({ limit: 1 })
+            ).matchingItems({ limit: 1 })
           )
         ).rejects.toSatisfy(() => true);
       }
@@ -931,7 +929,7 @@ for (const [role, name] of [
   ['required', 'selection'],
   ['optional', 'existing']
 ] as const)
-  testStable('rejects a noncanonical ' + role + ' read during store initialization', async () => {
+  testStable('allows multiple descriptive ' + role + ' reads in one store', async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
     const operation =
@@ -948,19 +946,28 @@ for (const [role, name] of [
             output: Schema.Option(Schema.Number),
             run: (id) => Option.some(id)
           });
-    const invalid = defineStore({
-      name: 'test/NoncanonicalRead',
+    const descriptive = defineStore({
+      name: 'test/DescriptiveReads',
       entity: { singular: 'item', plural: 'items' },
-      make: () => ({ queries: { [name]: operation }, mutations: {} })
+      make: () => ({ queries: { [name]: operation, anotherQuery: operation }, mutations: {} })
     });
 
     try {
-      const error = await Effect.runPromise(
-        useStore(invalid).pipe(Effect.provideService(Database, { store: context }), Effect.flip)
+      const bound = await Effect.runPromise(
+        useStore(descriptive).pipe(Effect.provideService(Database, { store: context }))
       );
 
-      assert.ok(error.kind === 'internal');
-      assert.ok(error.cause instanceof TypeError);
+      const expected = role === 'required' ? 42 : Option.some(42);
+
+      expect(await Effect.runPromise(bound[name](42))).toStrictEqual(expected);
+      expect(await Effect.runPromise(bound.anotherQuery(42))).toStrictEqual(expected);
+      expect(
+        await Effect.runPromise(
+          transaction((tx) => tx.store(descriptive)[name](42)).pipe(
+            Effect.provideService(Database, { store: context })
+          )
+        )
+      ).toStrictEqual(expected);
     } finally {
       context.close();
       await location.cleanup();
