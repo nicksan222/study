@@ -43,7 +43,10 @@ downloads. The package’s bundled CPU runtime remains available for the checks.
 
 ### In the devcontainer
 
-The devcontainer (`.devcontainer/`) installs every tool. Open the folder in VS Code and
+The devcontainer (`.devcontainer/`) installs every tool. Its Dockerfile-specific ignore
+file admits only tool setup inputs; dependencies and build outputs stay outside the image
+build context. The Devcontainer workflow verifies the allowlist against Docker’s real
+ignore matcher with `bash tooling/scripts/devcontainer/test-build-context.sh`. Open the folder in VS Code and
 reopen it in the container, or use the devcontainer CLI:
 
 ```sh
@@ -78,7 +81,8 @@ Testcontainers integration suite. For Linux release packaging, use
 its image build and workspace setup.
 
 The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
-development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
+development commands do not prune the Cargo cache automatically. Direct Cargo commands,
+editors and package scripts all default to `target/devcontainer`, including `cargo clean`. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the
 image independently of its path filters.
 
@@ -389,8 +393,13 @@ images. Pixelmatch uses a 0.2 perceptual color threshold, ignores detected anti-
 allows zero differing pixels beyond that tolerance. Dimension changes always fail.
 Missing references and changed pixels fail ordinary comparison without
 rewriting references. Actual/expected/diff PNGs, profile metadata and failure traces
-are retained under ignored `test-results/`. Set `E2E_REVIEW=1` to retain successful
-traces too; open a trace with `bun x --bun playwright show-trace PATH`.
+are retained under ignored `test-results/`. Each workflow retains its three newest completed
+attempts regardless of owner scope. For unfinished attempts without `timing.json`, live
+process owners are excluded from retirement, and abandoned owners become retirement
+candidates within the same boot/PID namespace. Unfinished owners from another namespace
+are preserved because their liveness cannot be checked safely. Contract fixtures use temporary directories removed
+by test finalizers, and their disposable Vitest runners disable persistent module caching. Set `E2E_REVIEW=1` to retain successful
+traces too and bypass attempt retirement; open a trace with `bun x --bun playwright show-trace PATH`.
 
 After building, `bun run web:e2e:capacity 3 2` measures three complete comparison
 runs with two workers and writes timings under `test-results/`. Counts represent
@@ -412,6 +421,12 @@ packages participate in the graph without redundant builds or separate typecheck
 The existing server, client and tooling TypeScript projects remain the checking boundaries.
 
 Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
+Root task commands evict entries older than seven days and then the oldest entries above
+512 MiB after Turbo exits. Persistent Vitest transforms are bounded separately to 128 MiB
+and seven days, so edited source revisions cannot accumulate indefinitely. Eviction removes archives and their metadata together; cache
+misses simply rerun the task. Architecture checks reject bypassed root entry points,
+divergent native output paths and broadened image contexts. Oxlint rejects persistent
+module caching in disposable runners and contract fixtures allocated under `test-results/`. Direct `bun --bun turbo` calls bypass this maintenance.
 Server/database, real integration, browser-journey, tooling and native tests stay uncached.
 Build output and generated routes are restored on cache hits. Shared configuration and
 explicit cross-package inputs invalidate affected task results; task-input-aware selection

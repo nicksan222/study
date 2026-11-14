@@ -1,0 +1,8 @@
+# The image installs tools only. The checkout is mounted at runtime.
+# Keep build outputs, dependencies and credentials out of the context entirely.
+**
+!mise.toml
+!rust-toolchain.toml
+!tooling/scripts/setup/apt-packages.txt
+!tooling/scripts/setup/system.sh
+!tooling/scripts/devcontainer/install-patchelf.sh

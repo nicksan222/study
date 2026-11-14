@@ -5,6 +5,7 @@ import { expect } from 'vite-plus/test';
 
 import { safeName } from './identity.ts';
 import { compareImages, updateAllowed, requireScreenshots } from './screenshots.ts';
+import { temporaryArtifacts } from './temporary.ts';
 
 function image(width = 2, height = 2, white = false) {
   const png = new PNG({ width, height });
@@ -52,7 +53,7 @@ testStable(
   'missing and changed references preserve actionable evidence without accepting pixels',
   async () => {
     const { compareScreenshot } = await import('./screenshots.ts');
-    const directory = `test-results/contracts/${crypto.randomUUID()}`;
+    const directory = await temporaryArtifacts();
     const reference = `${directory}/reference.png`;
     const actual = image();
 
@@ -113,7 +114,7 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
     const screenshots = screenshotAssertions(
       page as unknown as Page,
       'late',
-      'test-results/late',
+      await temporaryArtifacts(),
       'contract'
     );
     const pending = screenshots.expectScreenshot(stage, {
@@ -168,7 +169,7 @@ testStable(
         const screenshots = screenshotAssertions(
           page as unknown as Page,
           'focus',
-          'test-results/focus',
+          await temporaryArtifacts(),
           'contract'
         );
 

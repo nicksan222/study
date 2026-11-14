@@ -1,6 +1,6 @@
 import { testStable } from '@study/testing/vitest';
 import { $ } from 'bun';
-import { assert } from 'vite-plus/test';
+import { assert, onTestFinished } from 'vite-plus/test';
 
 const root = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -234,3 +234,100 @@ testStable('deterministic unit tests are reusable while server tests always exec
     'MISS'
   );
 });
+
+testStable.each([
+  'SIGINT',
+  'SIGTERM',
+  ...(process.platform === 'win32' ? [] : ['SIGHUP' as const, 'SIGQUIT' as const])
+] as const)(
+  'a signal sent only to the task wrapper stops its native process group: %s',
+  async (signal) => {
+    await using repo = await fixture();
+    const pkg = await Bun.file(`${repo.path}/apps/client/package.json`).json();
+
+    pkg.scripts.hold = 'bun hold.ts';
+    await Bun.write(`${repo.path}/apps/client/package.json`, JSON.stringify(pkg));
+    await Bun.write(
+      `${repo.path}/apps/client/hold.ts`,
+      `await Bun.write('worker.pid', String(process.pid)); console.log('worker-ready'); setInterval(() => {}, 1000);`
+    );
+    await Bun.write(
+      `${repo.path}/turbo.json`,
+      JSON.stringify({ ...config, tasks: { ...config.tasks, hold: { cache: false } } })
+    );
+    const child = Bun.spawn(
+      [
+        'bun',
+        `${root}tooling/scripts/development/turbo.ts`,
+        'run',
+        'hold',
+        '--filter=@study/client',
+        '--log-order=stream'
+      ],
+      {
+        cwd: repo.path,
+        env: { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true', TURBO_TELEMETRY_DISABLED: '1' },
+        stdout: 'pipe',
+        stderr: 'pipe'
+      }
+    );
+    const stderr = new Response(child.stderr).text();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    let worker: number | undefined;
+
+    onTestFinished(async () => {
+      child.kill('SIGTERM');
+      await child.exited;
+      stopWorker(worker);
+    });
+
+    try {
+      const reader = child.stdout.getReader();
+      let output = '';
+
+      while (!output.includes('worker-ready')) {
+        const chunk = await reader.read();
+
+        assert.equal(chunk.done, false, output);
+        output += new TextDecoder().decode(chunk.value);
+      }
+
+      const remaining = (async () => {
+        while (!(await reader.read()).done) {}
+
+        reader.releaseLock();
+      })();
+
+      worker = Number(await Bun.file(`${repo.path}/apps/client/worker.pid`).text());
+
+      child.kill(signal);
+      const code = await Promise.race([
+        child.exited,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Wrapper did not stop')), 5000);
+        })
+      ]);
+
+      assert.strictEqual(code, { SIGINT: 130, SIGTERM: 143, SIGHUP: 129, SIGQUIT: 131 }[signal]);
+      assert.throws(() => process.kill(worker!, 0));
+      await Promise.all([remaining, stderr]);
+    } finally {
+      clearTimeout(timeout);
+      child.kill('SIGTERM');
+      await child.exited;
+      stopWorker(worker);
+    }
+  }
+);
+
+function stopWorker(pid: number | undefined): void {
+  if (pid === undefined) return;
+
+  try {
+    process.kill(pid, 'SIGTERM');
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') return;
+
+    throw error;
+  }
+}

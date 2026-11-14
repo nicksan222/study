@@ -9,6 +9,7 @@ import activityHarness from './rules/activity-harness.ts';
 import aiReadiness from './rules/ai-readiness.ts';
 import assertionBoundary from './rules/assertion-boundary.ts';
 import browserBoundary from './rules/browser-boundary.ts';
+import buildArtifactOwnership from './rules/build-artifact-ownership.ts';
 import cleanupHarness from './rules/cleanup-harness.ts';
 import contextIdentity from './rules/context-identity.ts';
 import databaseOwnership from './rules/database-ownership.ts';
@@ -73,6 +74,7 @@ export default definePlugin({
     'service-access': serviceAccess,
     'validated-mutation': validatedMutation,
     'cleanup-harness': cleanupHarness,
+    'build-artifact-ownership': buildArtifactOwnership,
     'activity-harness': activityHarness,
     'definition-generators': definitionGenerators,
     'assertion-boundary': assertionBoundary,

@@ -18,6 +18,7 @@
 import { workflow_clocks, workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
+import type { Clock } from 'effect';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
@@ -219,15 +220,15 @@ testStable(
   }
 );
 
-testStable(
-  'native recovery delivers due clocks across batches and retains future clocks',
-  async () => {
-    const { Effect, Schema } = await import('effect');
+testStable('native recovery delivers due clocks across batches and retains future clocks', () =>
+  withRecoveryClock(async (clock) => {
+    const { Clock, Effect, Schema } = await import('effect');
+    const suspended = () => Effect.never;
     const { Workflow, WorkflowEngine } = await import('effect/workflow');
     const { recoverWorkflowEngine, workflowEngineLayer } =
       await import('#server/platform/workflows/engine');
     const location = await createTestDatabase();
-    const context = new ServerContext(await location.open());
+    const context = new ServerContext(await location.open(), clock);
     const workflow = Workflow.make('clock-recovery', {
       payload: { id: Schema.String },
       idempotencyKey: ({ id }) => id
@@ -257,7 +258,7 @@ testStable(
               execution_id: id,
               name: 'clock',
               deferred_name: 'gate',
-              due_at: i === 1001 ? BigInt(Date.now() + 60000) : 0n
+              due_at: i === 1001 ? BigInt(clock.currentTimeMillisUnsafe() + 1) : 0n
             })
             .run();
         }
@@ -267,7 +268,7 @@ testStable(
           Effect.gen(function* () {
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
-            yield* engine.register(workflow, () => Effect.never);
+            yield* engine.register(workflow, suspended);
             yield* recoverWorkflowEngine(context, engine, [workflow]);
             assert.strictEqual(store.dueClocks([workflow._tag]).length, 1);
             yield* recoverWorkflowEngine(context, engine, [workflow]);
@@ -275,12 +276,28 @@ testStable(
             assert.strictEqual(context.db.orm.select().from(workflow_clocks).all().length, 1);
             assert.ok(store.deferred('1000', 'gate'));
             assert.strictEqual(store.deferred('1001', 'gate'), undefined);
-          }).pipe(Effect.provide(workflowEngineLayer(context)))
+          }).pipe(
+            Effect.provide(workflowEngineLayer(context)),
+            Effect.provideService(Clock.Clock, clock)
+          )
         )
       );
     } finally {
       context.close();
       await location.cleanup();
     }
-  }
+  })
 );
+
+async function withRecoveryClock(run: (clock: Clock.Clock) => Promise<void>): Promise<void> {
+  const { Clock, Effect } = await import('effect');
+  const { TestClock } = await import('effect/testing');
+
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const clock = yield* Clock.Clock;
+
+      yield* Effect.promise(() => run(clock));
+    }).pipe(Effect.provide(TestClock.layer()))
+  );
+}

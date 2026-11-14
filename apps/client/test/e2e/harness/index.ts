@@ -10,6 +10,7 @@ import { expect } from 'playwright/test';
 import { preview } from 'vite-plus';
 import { onTestFinished } from 'vite-plus/test';
 
+import { artifactOwner, retireArtifacts } from './artifacts.ts';
 import { creationResponse } from './creation-response.ts';
 import { safeName, workflowName } from './identity.ts';
 import { owned } from './lifecycle.ts';
@@ -25,6 +26,8 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
   const started = performance.now();
   const directory = `test-results/${workflow}/${crypto.randomUUID()}`;
   const profile = 'linux-x64-chromium';
+
+  await Bun.write(`${directory}/owner.json`, JSON.stringify(artifactOwner));
 
   let acquired = started;
   let bodyFinished = started;
@@ -169,7 +172,11 @@ async function withWebE2e(browser: Browser, workflow: string, run: Journey): Pro
         teardownMs: performance.now() - bodyFinished,
         rssBytes: process.memoryUsage.rss()
       })
-    ).catch(() => undefined);
+    )
+      .then(async () => {
+        if (!process.env.E2E_REVIEW) await retireArtifacts(`test-results/${workflow}`);
+      })
+      .catch(() => undefined);
   });
 }
 

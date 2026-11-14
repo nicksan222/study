@@ -2,6 +2,8 @@ import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 import { createVitest } from 'vite-plus/test/node';
 
+import { temporaryArtifacts } from './temporary.ts';
+
 testStable(
   'native suite preflight rejects cross-file identities before baseline writes, including filtered titles',
   async () => {
@@ -12,7 +14,7 @@ testStable(
       ['Notes\tretain edits', 'Notes retain edits'],
       ['Notes\u00a0retain edits', 'Notes retain edits']
     ]) {
-      const directory = `test-results/collisions-${crypto.randomUUID()}`;
+      const directory = await temporaryArtifacts();
       const marker = `${directory}/baseline.png`;
 
       for (const [index, title] of titles.entries())
@@ -28,6 +30,7 @@ testStable(
 
       const runner = await createVitest('test', {
         config: false,
+        fsModuleCache: false,
         root: process.cwd(),
         include: [`${directory}/*.test.ts`],
         globalSetup: [Bun.fileURLToPath(new URL('./preflight.ts', import.meta.url))],
@@ -70,7 +73,7 @@ async function assertSelectedMarkers(directory: string, titles: string[], select
 testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
   'scoped updates resolve exact leaf titles inside suite %s',
   async (suite) => {
-    const directory = `test-results/update-selection-${crypto.randomUUID()}`;
+    const directory = await temporaryArtifacts();
     const titles = [
       '2 Notes: retain edits. [draft]?',
       'Reopened 2 Notes: retain edits. [draft]?',
@@ -100,6 +103,7 @@ testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
         process.env.E2E_UPDATE = workflow;
         const runner = await createVitest('test', {
           config: false,
+          fsModuleCache: false,
           root: process.cwd(),
           include: [`${directory}/*.test.ts`],
           globalSetup: [Bun.fileURLToPath(new URL('./preflight.ts', import.meta.url))],
