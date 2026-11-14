@@ -1,6 +1,6 @@
 import { testStable } from '@study/testing/vitest';
 import { $ } from 'bun';
-import { assert } from 'vite-plus/test';
+import { assert, onTestFinished } from 'vite-plus/test';
 
 const root = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
@@ -234,3 +234,79 @@ testStable('deterministic unit tests are reusable while server tests always exec
     'MISS'
   );
 });
+
+testStable.each(['SIGINT', 'SIGTERM'] as const)(
+  'a signal sent only to the task wrapper stops its native process group: %s',
+  async (signal) => {
+    await using repo = await fixture();
+    const pkg = await Bun.file(`${repo.path}/apps/client/package.json`).json();
+
+    pkg.scripts.hold = 'bun hold.ts';
+    await Bun.write(`${repo.path}/apps/client/package.json`, JSON.stringify(pkg));
+    await Bun.write(
+      `${repo.path}/apps/client/hold.ts`,
+      `await Bun.write('worker.pid', String(process.pid)); console.log('worker-ready'); setInterval(() => {}, 1000);`
+    );
+    await Bun.write(
+      `${repo.path}/turbo.json`,
+      JSON.stringify({ ...config, tasks: { ...config.tasks, hold: { cache: false } } })
+    );
+    const child = Bun.spawn(
+      [
+        'bun',
+        `${root}tooling/scripts/development/turbo.ts`,
+        'run',
+        'hold',
+        '--filter=@study/client'
+      ],
+      {
+        cwd: repo.path,
+        env: { ...process.env, TURBO_TELEMETRY_DISABLED: '1' },
+        stdout: 'pipe',
+        stderr: 'pipe'
+      }
+    );
+    const stderr = new Response(child.stderr).text();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    onTestFinished(async () => {
+      child.kill('SIGTERM');
+      await child.exited;
+    });
+
+    try {
+      const reader = child.stdout.getReader();
+      let output = '';
+
+      while (!output.includes('worker-ready')) {
+        const chunk = await reader.read();
+
+        assert.equal(chunk.done, false, output);
+        output += new TextDecoder().decode(chunk.value);
+      }
+
+      const remaining = (async () => {
+        while (!(await reader.read()).done) {}
+
+        reader.releaseLock();
+      })();
+      const worker = Number(await Bun.file(`${repo.path}/apps/client/worker.pid`).text());
+
+      child.kill(signal);
+      const code = await Promise.race([
+        child.exited,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Wrapper did not stop')), 5000);
+        })
+      ]);
+
+      await Promise.all([remaining, stderr]);
+      assert.notEqual(code, 0);
+      assert.throws(() => process.kill(worker, 0));
+    } finally {
+      clearTimeout(timeout);
+      child.kill('SIGTERM');
+      await child.exited;
+    }
+  }
+);

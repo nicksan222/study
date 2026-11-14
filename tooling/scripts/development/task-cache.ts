@@ -56,3 +56,14 @@ async function cacheEntries(directory: string, format: 'turbo' | 'vitest') {
 
   return entries;
 }
+
+/** Independent cache owners must still run when another cache has a permissions or I/O failure. */
+export function maintainTaskCaches(root: string): Promise<PromiseSettledResult<void>[]> {
+  return Promise.allSettled([
+    pruneTaskCache(`${root}.turbo/cache`),
+    pruneTaskCache(`${root}node_modules/.vitest-cache`, {
+      format: 'vitest',
+      maxBytes: 128 * 1024 * 1024
+    })
+  ]);
+}

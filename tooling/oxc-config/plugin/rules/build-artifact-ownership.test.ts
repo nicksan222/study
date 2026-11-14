@@ -32,3 +32,18 @@ testStable(
     ]);
   }
 );
+
+testStable('computed runner options cannot hide a later cache override', async () => {
+  const header = "import { createVitest } from 'vite-plus/test/node';";
+  const paths = await lintRulePaths('build-artifact-ownership', {
+    'apps/client/test/e2e/harness/known.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {fsModuleCache:false, [key]:true});`,
+    'apps/client/test/e2e/harness/unknown.test.ts': `${header} createVitest('test', {fsModuleCache:false, [key]:true});`,
+    'apps/client/test/e2e/harness/good.test.ts': `${header} const key = 'fsModuleCache'; createVitest('test', {[key]:false});`,
+    'apps/client/test/e2e/harness/earlier.test.ts': `${header} createVitest('test', {[key]:true, fsModuleCache:false});`
+  });
+
+  expect(paths).toEqual([
+    'apps/client/test/e2e/harness/known.test.ts',
+    'apps/client/test/e2e/harness/unknown.test.ts'
+  ]);
+});

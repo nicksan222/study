@@ -29,12 +29,8 @@ function dockerContextIssues(source: string): string[] {
     '**',
     '!mise.toml',
     '!rust-toolchain.toml',
-    '!tooling/',
-    '!tooling/scripts/',
-    '!tooling/scripts/setup/',
     '!tooling/scripts/setup/apt-packages.txt',
     '!tooling/scripts/setup/system.sh',
-    '!tooling/scripts/devcontainer/',
     '!tooling/scripts/devcontainer/install-patchelf.sh'
   ]);
   const rules = source

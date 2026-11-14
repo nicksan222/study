@@ -3,7 +3,7 @@ import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem } from 'effect';
 import { expect } from 'vite-plus/test';
 
-import { pruneTaskCache } from './task-cache.ts';
+import { maintainTaskCaches, pruneTaskCache } from './task-cache.ts';
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
@@ -65,3 +65,23 @@ testStable(
     }
   }
 );
+
+testStable('a broken Turbo cache does not disable transform-cache retirement', async () => {
+  const directory = await Effect.runPromise(
+    fs.makeTempDirectory({ prefix: 'study-independent-caches-' })
+  );
+
+  try {
+    await Bun.write(`${directory}/.turbo/cache`, 'not a directory');
+    const entry = `${directory}/node_modules/.vitest-cache/${'a'.repeat(40)}`;
+
+    await Bun.write(entry, 'expired');
+    await Effect.runPromise(fs.utimes(entry, new Date(0), new Date(0)));
+    const results = await maintainTaskCaches(`${directory}/`);
+
+    expect(results.map((result) => result.status)).toEqual(['rejected', 'fulfilled']);
+    expect(await Bun.file(entry).exists()).toBe(false);
+  } finally {
+    await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
+  }
+});

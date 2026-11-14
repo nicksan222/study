@@ -32,6 +32,9 @@ testStable(
       buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!target/**\n` })
     ).toHaveLength(1);
     expect(
+      buildStoragePolicy({ ...config, dockerIgnore: `${config.dockerIgnore}\n!tooling/\n` })
+    ).toHaveLength(1);
+    expect(
       buildStoragePolicy({ ...config, dockerIgnore: config.dockerIgnore.replace('!mise.toml', '') })
     ).toHaveLength(1);
   }

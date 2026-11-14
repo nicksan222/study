@@ -39,6 +39,8 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version-file: apps/landing/package.json
+      - name: Verify the Docker build context allowlist
+        run: bash tooling/scripts/devcontainer/test-build-context.sh
       - name: Build, start and run the lifecycle commands
         run: bunx --bun --package @devcontainers/cli@0.89.0 devcontainer up --workspace-folder .
       - name: Verify the shared toolchain inside

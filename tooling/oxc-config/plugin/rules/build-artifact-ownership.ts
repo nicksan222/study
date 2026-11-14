@@ -19,11 +19,22 @@ function disablesCache(context: any, options: any): boolean {
   for (const property of [...value.properties].reverse()) {
     if (property.type === 'SpreadElement') return false;
 
-    if ((property.key?.name ?? property.key?.value) === 'fsModuleCache')
-      return resolveValue(context, property.value)?.value === false;
+    const key = propertyKey(context, property);
+
+    if (property.computed && key === undefined) return false;
+
+    if (key === 'fsModuleCache') return resolveValue(context, property.value)?.value === false;
   }
 
   return false;
+}
+
+function propertyKey(context: any, property: any): string | undefined {
+  if (!property.computed) return property.key?.name ?? property.key?.value;
+
+  const value = resolveValue(context, property.key)?.value;
+
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined;
 }
 
 export default defineRule({

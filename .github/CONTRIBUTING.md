@@ -45,7 +45,8 @@ downloads. The package’s bundled CPU runtime remains available for the checks.
 
 The devcontainer (`.devcontainer/`) installs every tool. Its Dockerfile-specific ignore
 file admits only tool setup inputs; dependencies and build outputs stay outside the image
-build context. Open the folder in VS Code and
+build context. The Devcontainer workflow verifies the allowlist against Docker’s real
+ignore matcher with `bash tooling/scripts/devcontainer/test-build-context.sh`. Open the folder in VS Code and
 reopen it in the container, or use the devcontainer CLI:
 
 ```sh
@@ -393,9 +394,10 @@ allows zero differing pixels beyond that tolerance. Dimension changes always fai
 Missing references and changed pixels fail ordinary comparison without
 rewriting references. Actual/expected/diff PNGs, profile metadata and failure traces
 are retained under ignored `test-results/`. Each workflow retains its three newest completed
-attempts; live process owners are excluded from retirement, and abandoned owners become
-retirement candidates on the next run within the same process namespace. Owners from
-another namespace are preserved because their liveness cannot be checked safely. Contract fixtures use temporary directories removed
+attempts regardless of owner scope. For unfinished attempts without `timing.json`, live
+process owners are excluded from retirement, and abandoned owners become retirement
+candidates within the same boot/PID namespace. Unfinished owners from another namespace
+are preserved because their liveness cannot be checked safely. Contract fixtures use temporary directories removed
 by test finalizers, and their disposable Vitest runners disable persistent module caching. Set `E2E_REVIEW=1` to retain successful
 traces too and bypass attempt retirement; open a trace with `bun x --bun playwright show-trace PATH`.
 
