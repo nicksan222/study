@@ -310,6 +310,7 @@ testE2e(
     await controls();
     await expectScreenshot('completed-source', {
       target: 'viewport',
+      center: entry.getByRole('button', { name: 'coastal-evidence.md', exact: true }),
       ready: async () => {
         await expect(
           preview.getByText('Source beginning: the lighthouse marks the first observation.', {
