@@ -55,6 +55,12 @@ testStable(
 
       insert('Biology', { mode: NoteMode.Assistant });
       insert('Biology', { archived_at: 2n });
+      const firstOnly = insert('Biology');
+
+      context.db.orm
+        .insert(project_notes)
+        .values({ note_id: firstOnly.id, project_id: firstProject.id })
+        .run();
       const collected = insert('Biology');
 
       context.db.orm
@@ -82,7 +88,7 @@ testStable(
             Option.getOrUndefined(
               store.findNotebookByTitle({ title: 'Biology', project: firstProject.id })
             )?.id
-          ).toBe(collected.id);
+          ).toBe(firstOnly.id);
           expect(
             Option.getOrUndefined(
               store.findNotebookByTitle({ title: 'Biology', project: secondProject.id })
@@ -107,6 +113,9 @@ testStable(
 
       expect((await run(ensureNote({ title: '  Biology  ' }))).id).toBe(earliest.id);
       expect((await run(ensureNote({ title: 'Biology', project: firstProject.id }))).id).toBe(
+        firstOnly.id
+      );
+      expect((await run(ensureNote({ title: 'Biology', project: secondProject.id }))).id).toBe(
         collected.id
       );
       const created = await run(ensureNote({ title: '  New title  ', project: secondProject.id }));
