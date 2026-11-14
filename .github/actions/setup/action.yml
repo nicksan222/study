@@ -29,10 +29,6 @@ runs:
       env:
         PACKAGES: ${{ inputs.packages }}
       run: |
-        # Use independent mirror DNS during the Ubuntu archive DNS outage.
-        for mirror_list in /etc/apt/apt-mirrors*.txt; do
-          printf '%s\n' 'https://mirrors.edge.kernel.org/ubuntu/' | sudo tee "$mirror_list" > /dev/null
-        done
         sudo apt-get update
         # shellcheck disable=SC2086 # one word per package
         sudo apt-get install -y --no-install-recommends \

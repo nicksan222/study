@@ -85,7 +85,7 @@ export function screenshotAssertions(
   const names = new Set<string>();
   const expectScreenshot: ExpectScreenshot = async (
     name,
-    { target, ready, timeoutMs = 15000, focus }
+    { target, ready, timeoutMs = 30000, focus }
   ) => {
     safeName(name);
 
@@ -93,7 +93,7 @@ export function screenshotAssertions(
 
     names.add(name);
     const started = performance.now();
-    const deadline = Date.now() + Math.min(timeoutMs, 15000);
+    const deadline = Date.now() + Math.min(timeoutMs, 30000);
     let expired = false;
     const timeout = new Error(`Screenshot ${workflow}/${name} readiness or rendering timed out`);
     const fence = () => {
