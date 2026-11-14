@@ -58,9 +58,6 @@ export default defineRule({
 
       if (descriptor?.type !== 'ObjectExpression') return;
 
-      const entity = get(descriptor, 'entity');
-      const singular = literal(get(entity, 'singular'));
-      const plural = literal(get(entity, 'plural'));
       const make = value(field(descriptor, 'make'));
       let result = make?.body;
 
@@ -74,7 +71,7 @@ export default defineRule({
       const mutations = get(value(result) ?? descriptor, 'mutations');
 
       checkConstructors(queries, mutations);
-      checkQueries(queries, singular, plural);
+      checkQueries(queries);
     }
 
     function checkConstructors(queries: any, mutations: any) {
@@ -84,67 +81,54 @@ export default defineRule({
       ] as const) {
         if (operations?.type !== 'ObjectExpression') continue;
 
-        for (const item of operationFields(operations)) {
-          if (item.type !== 'Property') continue;
-
-          const operation = value(item.value);
-
-          if (
-            operation?.type !== 'CallExpression' ||
-            !canonicalImport(context, operation.callee, 'define-store', constructor)
-          )
-            report(item, `Store operations must use the canonical ${constructor} constructor.`);
-        }
+        for (const item of operationFields(operations)) checkOperation(item, constructor);
       }
     }
 
-    function checkQueries(queries: any, singular: string | null, plural: string | null) {
+    function checkOperation(item: any, constructor: string) {
+      if (item.type !== 'Property') return;
+
+      const name = propertyName(item.key);
+
+      if (namedProperty(item) && (name === null || !/^[a-z][a-zA-Z0-9]*$/.test(name)))
+        report(item, 'Store operation names must use lower camel case.');
+
+      const operation = value(item.value);
+
+      if (
+        operation?.type !== 'CallExpression' ||
+        !canonicalImport(context, operation.callee, 'define-store', constructor)
+      )
+        report(item, `Store operations must use the canonical ${constructor} constructor.`);
+    }
+
+    function checkQueries(queries: any) {
       if (queries?.type !== 'ObjectExpression') return;
 
       for (const item of operationFields(queries)) {
         if (!namedProperty(item)) continue;
 
-        const name = propertyName(item.key);
         let operation = value(item.value);
 
         if (operation?.type === 'CallExpression') operation = value(operation.arguments[0]);
 
         if (operation?.type !== 'ObjectExpression') continue;
 
-        checkQuery(item, operation, name, singular, plural);
+        checkQuery(item, operation);
 
         if (literal(get(operation, 'role')) === 'collection') collectionInput(item, operation);
       }
     }
 
-    function queryName(role: string | null, singular: string | null, plural: string | null) {
-      return role === 'required'
-        ? singular
-        : role === 'optional' && singular
-          ? `find${singular[0].toUpperCase()}${singular.slice(1)}`
-          : role === 'collection'
-            ? plural
-            : null;
-    }
-
-    function checkQuery(
-      item: any,
-      operation: any,
-      name: string | null,
-      singular: string | null,
-      plural: string | null
-    ) {
-      const role = literal(get(operation, 'role'));
-      const expected = queryName(role, singular, plural);
+    function checkQuery(item: any, operation: any) {
+      const role = get(operation, 'role');
 
       if (
         (!field(operation, 'role') &&
           operation.properties.every((p: any) => p.type !== 'SpreadElement')) ||
-        (role && !['required', 'optional', 'collection'].includes(role))
+        (role?.type === 'Literal' && !['required', 'optional', 'collection'].includes(role.value))
       )
         report(item, 'Store queries must use a required, optional, or collection role.');
-      else if (expected && name && name !== expected)
-        report(item, `The ${role} query must be named ${expected}.`);
     }
 
     function collectReturns(body: any, objects: any[]) {
