@@ -72,9 +72,18 @@ sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-d
   libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev dbus-x11 sway
 ```
 
-Install Rust with [rustup](https://rustup.rs) (`rust-toolchain.toml` picks the version) and
-Bun 1.4.4 for the application and build tooling. Run `bun install --frozen-lockfile` and
-`bun install --cwd apps/landing --frozen-lockfile`, then `bun run check`. The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
+Install [mise](https://mise.jdx.dev/getting-started.html), then run these commands from the
+repository root:
+
+```sh
+mise trust
+mise install
+mise exec -- bun install --frozen-lockfile
+mise exec -- bun install --cwd apps/landing --frozen-lockfile
+mise exec -- bun run check
+```
+
+The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
 The Devcontainer workflow can also be run manually in GitHub Actions to build and start the
 image independently of its path filters.
