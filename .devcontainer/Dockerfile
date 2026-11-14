@@ -7,19 +7,8 @@ ARG COZEMPIC_VERSION=1.8.39
 # Cozempic's plugin starts its MCP server with uv.
 ARG UV_VERSION=0.12.22
 
-# Build, rendering, PDF and development tools, and the virtual desktop (`bun run desktop`).
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential pkg-config clang lldb \
-      libfontconfig-dev libwayland-dev libxkbcommon-x11-dev libx11-xcb-dev \
-      libssl-dev libzstd-dev libvulkan1 libasound2-dev \
-      libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-      dbus dbus-x11 libsoup-3.0-dev \
-      mesa-vulkan-drivers vulkan-tools libgl1-mesa-dri libegl-mesa0 poppler-utils ffmpeg \
-      ca-certificates curl git gh python3 python3-pip python3-venv \
-      ripgrep fd-find shellcheck jq patchelf file libfuse2 minisign \
-      sway grim wtype wlrctl wf-recorder wayvnc novnc websockify \
-      chromium chromium-sandbox xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+COPY tooling/scripts/setup/apt-packages.txt tooling/scripts/setup/system.sh /opt/study-setup/
+RUN bash /opt/study-setup/system.sh --image
 
 # Install the same toolchain used by native development. The global config also
 # makes Bun and cargo-deny available to container hooks outside the checkout.
@@ -91,8 +80,3 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_VERSION} \
     && chmod +x /home/vscode/.local/bin/herdr \
     && herdr plugin install persiyanov/herdr-reviewr --ref v${REVIEWR_VERSION} --yes
 USER root
-
-# Stable font set shared by local browser captures and CI. Playwright itself comes from bun.lock.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      fonts-liberation fonts-dejavu-core fonts-noto-color-emoji fonts-noto-cjk fonts-freefont-ttf \
-    && rm -rf /var/lib/apt/lists/*

@@ -4,10 +4,26 @@ name: Devcontainer
 on:
   workflow_dispatch:
   pull_request:
-    paths: ['.devcontainer/**', 'mise.toml', 'rust-toolchain.toml', '.github/workflows/devcontainer.yml']
+    paths:
+      [
+        '.devcontainer/**',
+        'mise.toml',
+        'rust-toolchain.toml',
+        'tooling/scripts/setup/**',
+        'tooling/scripts/devcontainer/**',
+        '.github/workflows/devcontainer.yml'
+      ]
   push:
     branches: [main]
-    paths: ['.devcontainer/**', 'mise.toml', 'rust-toolchain.toml', '.github/workflows/devcontainer.yml']
+    paths:
+      [
+        '.devcontainer/**',
+        'mise.toml',
+        'rust-toolchain.toml',
+        'tooling/scripts/setup/**',
+        'tooling/scripts/devcontainer/**',
+        '.github/workflows/devcontainer.yml'
+      ]
 
 permissions:
   contents: read

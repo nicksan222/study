@@ -4,3 +4,21 @@ cargo-deny = "0.20.2"
 
 [settings]
 idiomatic_version_file_enable_tools = ["rust"]
+
+[tasks.setup]
+description = "Install Study's Linux prerequisites, toolchain, dependencies and browser"
+run = [
+  "bash tooling/scripts/setup/system.sh",
+  "mise install",
+  "mise run setup:workspace",
+  "bun --bun playwright install-deps chromium"
+]
+
+[tasks."setup:workspace"]
+description = "Install Study's locked dependencies and Playwright Chromium"
+run = [
+  "bash tooling/scripts/devcontainer/install-patchelf.sh target/mise",
+  "bun install --frozen-lockfile",
+  "bun install --cwd apps/landing --frozen-lockfile",
+  "bun --bun playwright install chromium"
+]

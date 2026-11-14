@@ -60,28 +60,22 @@ run `bun run check`. The former Rust
 server and browser bridge have been retired; the replacement server does not yet provide
 all application features. Browser screenshots use the devcontainer's lockfile-pinned Playwright Chromium; setup installs it before tests. The system Chromium remains for desktop tools.
 
-### Manual native Linux prerequisites
+### Native Linux setup
 
-Browser references and repository checks assume the devcontainer above. For manual native builds,
-the shell uses Tauri 2 with WebKitGTK 4.1. On Debian or Ubuntu:
-
-```sh
-sudo apt install build-essential pkg-config clang libfontconfig-dev libwayland-dev \
-  libxkbcommon-x11-dev libx11-xcb-dev libssl-dev libzstd-dev libvulkan1 \
-  libasound2-dev mesa-vulkan-drivers ffmpeg libgtk-3-dev libwebkit2gtk-4.1-dev \
-  libsoup-3.0-dev libayatana-appindicator3-dev librsvg2-dev dbus-x11 sway
-```
-
-Install [mise](https://mise.jdx.dev/getting-started.html), then run these commands from the
-repository root:
+On Debian or Ubuntu, install [mise](https://mise.jdx.dev/getting-started.html) and run
+these commands from the repository root:
 
 ```sh
 mise trust
-mise install
-mise exec -- bun install --frozen-lockfile
-mise exec -- bun install --cwd apps/landing --frozen-lockfile
+mise run setup
 mise exec -- bun run check
 ```
+
+Setup uses sudo for system packages, then installs the project toolchain, both locked
+dependency sets, and the pinned Playwright Chromium. Start Docker separately for the
+Testcontainers integration suite. For Linux release packaging, use
+`PATCHELF="$PWD/target/mise/bin/patchelf"`. The devcontainer installs the same dependencies during
+its image build and workspace setup.
 
 The first build takes a while. Use `cargo clean` when you explicitly want to remove native build artifacts;
 development commands do not prune the Cargo cache automatically. Desktop IPC tests use `swaymsg` from the `sway` package.
