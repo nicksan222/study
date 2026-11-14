@@ -1,4 +1,5 @@
 import type { UsageQuery } from '@study/contracts/settings/usage';
+import { RefreshIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { IconButton } from '@study/ui/icon-button';
 import { Loading } from '@study/ui/loading';
@@ -7,7 +8,6 @@ import { Settings } from '@study/ui/settings';
 import { Toggle, ToggleGroup } from '@study/ui/toggle-group';
 import { Usage } from '@study/ui/usage';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -60,7 +60,7 @@ export function UsageSettings() {
             disabled={query.isFetching}
             onClick={() => void query.refetch()}
           >
-            <RefreshCw aria-hidden="true" />
+            <RefreshIcon aria-hidden="true" />
           </IconButton>
         </Usage.Toolbar>
         {query.isPending && <Loading label={t('UsageLoading')} layout="panel" />}

@@ -1,6 +1,6 @@
+import { DarkThemeIcon, LightThemeIcon } from '@study/icons';
 import { resolveTheme } from '@study/ui/theme';
 import type { Appearance, ThemeDefinition, ThemeColors } from '@study/ui/theme';
-import { Moon, Sun } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
 function previewColor(
@@ -49,7 +49,7 @@ export function ThemeSwatches({
           </span>
           {selected && (
             <span className="theme-swatch-badge">
-              {appearance === 'light' ? <Sun /> : <Moon />}
+              {appearance === 'light' ? <LightThemeIcon /> : <DarkThemeIcon />}
             </span>
           )}
         </span>

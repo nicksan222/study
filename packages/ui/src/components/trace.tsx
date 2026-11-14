@@ -1,5 +1,5 @@
 import { Collapsible as BaseCollapsible } from '@base-ui/react/collapsible';
-import { ChevronRight } from 'lucide-react';
+import { DisclosureIcon } from '@study/icons';
 import * as React from 'react';
 
 import { cn } from '../utils';
@@ -128,7 +128,7 @@ function TraceCollapsibleTrigger({
     >
       {children}
       <TraceIcon className="transition-transform group-aria-expanded/trace-collapsible-trigger:rotate-90 motion-reduce:transition-none">
-        <ChevronRight />
+        <DisclosureIcon />
       </TraceIcon>
     </CollapsibleTrigger>
   );

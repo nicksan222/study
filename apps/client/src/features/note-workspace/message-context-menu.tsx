@@ -1,3 +1,12 @@
+import {
+  EditIcon,
+  RewriteIcon,
+  SummarizeIcon,
+  RefineIcon,
+  AcceptIcon,
+  ChecklistIcon,
+  ConvertToTextIcon
+} from '@study/icons';
 import { ChatMessageContent } from '@study/ui/chat';
 import {
   ContextMenu,
@@ -6,15 +15,6 @@ import {
   ContextMenuItem,
   ContextMenuSeparator
 } from '@study/ui/context-menu';
-import {
-  Pencil,
-  Sparkles,
-  AlignLeft,
-  SlidersHorizontal,
-  Check,
-  ListChecks,
-  FileText
-} from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -28,11 +28,11 @@ import type { MessageWorkTarget } from './message-work-details';
 type Model = ReturnType<typeof useMessageActions>;
 
 const actions = [
-  { mode: 'edit', label: 'NoteEditNote', icon: Pencil },
-  { mode: 'improve', label: 'NoteImprove', icon: Sparkles },
-  { mode: 'summarize', label: 'NoteSummarize', icon: AlignLeft },
-  { mode: 'instruction', label: 'NoteCustomTransform', icon: SlidersHorizontal },
-  { mode: 'activate', label: 'NoteUseVersion', icon: Check }
+  { mode: 'edit', label: 'NoteEditNote', icon: EditIcon },
+  { mode: 'improve', label: 'NoteImprove', icon: RewriteIcon },
+  { mode: 'summarize', label: 'NoteSummarize', icon: SummarizeIcon },
+  { mode: 'instruction', label: 'NoteCustomTransform', icon: RefineIcon },
+  { mode: 'activate', label: 'NoteUseVersion', icon: AcceptIcon }
 ] as const;
 
 /** Exposes selection-aware message actions through the shared context menu. */
@@ -90,7 +90,7 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                   }
                   onClick={model.conversion.convert}
                 >
-                  <FileText aria-hidden="true" />
+                  <ConvertToTextIcon aria-hidden="true" />
                   {model.t('NoteConvertText')}
                 </ContextMenuItem>
               )}
@@ -105,7 +105,7 @@ export function MessageContextMenu({ model, children }: { model: Model; children
                   setWorkOpen(true);
                 }}
               >
-                <ListChecks aria-hidden="true" />
+                <ChecklistIcon aria-hidden="true" />
                 {model.t('NoteWorkDetails')}
               </ContextMenuItem>
               <ArchiveMenuItem

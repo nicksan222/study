@@ -1,11 +1,11 @@
 import type { MaterialId, ProjectId } from '@study/contracts/ids';
+import { ArchiveIcon, QuizIcon, FlashcardsIcon, RestoreIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Archive, GraduationCap, Layers, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -39,7 +39,7 @@ export function ArchivedPracticeAction({
           />
         }
       >
-        <Archive aria-hidden="true" />
+        <ArchiveIcon aria-hidden="true" />
       </DialogTrigger>
       <Surface.Popup
         contentLayout="fill"
@@ -82,9 +82,9 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
             description={t(item.kind === 'quiz' ? 'SidebarQuiz' : 'Flashcards')}
             icon={
               item.kind === 'quiz' ? (
-                <GraduationCap aria-hidden="true" />
+                <QuizIcon aria-hidden="true" />
               ) : (
-                <Layers aria-hidden="true" />
+                <FlashcardsIcon aria-hidden="true" />
               )
             }
           />
@@ -106,7 +106,7 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
             <Surface.Body>
               <PracticeQueryState state={state}>
                 <Surface.EmptyState
-                  icon={<Archive aria-hidden="true" />}
+                  icon={<ArchiveIcon aria-hidden="true" />}
                   title={<>{t(archiveEmptyTitle(search, Boolean(state.hasNextPage)))}</>}
                   description={
                     <>{t(search ? 'PracticeArchiveSearchHelp' : 'PracticeArchiveHelp')}</>
@@ -143,7 +143,7 @@ function ArchivedPreview({ id, open }: { id: MaterialId; open: boolean }) {
             disabled={restore.isPending || !state.data || state.data.archived_at === null}
             onClick={() => restore.mutate()}
           >
-            <RotateCcw aria-hidden="true" />
+            <RestoreIcon aria-hidden="true" />
             {t(restore.isPending ? 'PracticeSaving' : 'PracticeRestore')}
           </Button>
         </Surface.ArchiveActions>

@@ -1,31 +1,31 @@
 import type { ProjectId } from '@study/contracts/ids';
+import {
+  AppearanceIcon,
+  GeneralSettingsIcon,
+  FlashcardsIcon,
+  DataStorageIcon,
+  ProjectIcon,
+  WritingIcon,
+  SidebarSettingsIcon,
+  ReadingIcon,
+  AccountIcon,
+  OptionsIcon,
+  AgentInstructionsIcon,
+  GenerateIcon,
+  PerformanceIcon,
+  AnalyticsIcon,
+  QuizSettingsIcon,
+  UsageIcon,
+  FillBlankIcon,
+  OrderingIcon,
+  MatchingIcon,
+  TrueFalseIcon,
+  IntegrationsIcon,
+  DownloadIcon
+} from '@study/icons';
+import type { IconComponent } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
 import { Settings } from '@study/ui/settings';
-import {
-  Palette,
-  Settings2,
-  Layers,
-  Database,
-  Folder,
-  PenLine,
-  PanelLeft,
-  BookOpen,
-  UserRound,
-  SlidersHorizontal,
-  FileText,
-  Sparkles,
-  Gauge,
-  Activity,
-  ListChecks,
-  ChartNoAxesColumn,
-  TextCursorInput,
-  ListOrdered,
-  Link2,
-  Binary,
-  Plug,
-  Download
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '#client/features/collections/index.ts';
@@ -59,25 +59,25 @@ const sections = [
   {
     id: 'general',
     label: 'GeneralSettingsTitle',
-    Icon: Settings2,
+    Icon: GeneralSettingsIcon,
     keywords: ['GeneralSettingsLanguage', 'ReplayOnboarding']
   },
   {
     id: 'updates',
     label: 'Updates',
-    Icon: Download,
+    Icon: DownloadIcon,
     keywords: ['UpdateCheck', 'UpdateInstall', 'UpdatesMenuSubtitle']
   },
   {
     id: 'appearance',
     label: 'Appearance',
-    Icon: Palette,
+    Icon: AppearanceIcon,
     keywords: ['Themes', 'AppearanceContrast', 'GlassOpacity', 'PanelAnimations', 'TextSize']
   },
   {
     id: 'sidebar',
     label: 'SettingsSidebar',
-    Icon: PanelLeft,
+    Icon: SidebarSettingsIcon,
     keywords: [
       'WorkspaceSidebarTitle',
       'WorkspaceDensity',
@@ -89,7 +89,7 @@ const sections = [
   {
     id: 'writing',
     label: 'WorkspaceWritingTitle',
-    Icon: PenLine,
+    Icon: WritingIcon,
     keywords: [
       'WorkspaceAutosave',
       'WorkspaceSpellcheck',
@@ -101,25 +101,25 @@ const sections = [
   {
     id: 'reading',
     label: 'WorkspaceReadingTitle',
-    Icon: BookOpen,
+    Icon: ReadingIcon,
     keywords: ['WorkspaceReaderFont', 'WorkspaceExportFormat']
   },
   {
     id: 'account',
     label: 'AiSettingsAccount',
-    Icon: UserRound,
+    Icon: AccountIcon,
     keywords: ['AiSettingsChatGpt', 'AiSettingsSignIn', 'AiSettingsSignOut']
   },
   {
     id: 'models',
     label: 'AiSettingsModels',
-    Icon: SlidersHorizontal,
+    Icon: OptionsIcon,
     keywords: ['SettingsAi', 'AiSettingsTiny', 'AiSettingsMedium', 'AiSettingsSmart']
   },
   {
     id: 'instructions',
     label: 'AgentRulesTitle',
-    Icon: FileText,
+    Icon: AgentInstructionsIcon,
     keywords: [
       'AgentRulesPages',
       'AgentRulesTitles',
@@ -134,7 +134,7 @@ const sections = [
   {
     id: 'automation',
     label: 'SettingsAiBehavior',
-    Icon: Sparkles,
+    Icon: GenerateIcon,
     keywords: [
       'WorkspaceAiTitle',
       'WorkspaceAiDetail',
@@ -145,19 +145,19 @@ const sections = [
   {
     id: 'usage',
     label: 'UsageTitle',
-    Icon: ChartNoAxesColumn,
+    Icon: UsageIcon,
     keywords: ['UsageTokens', 'UsageProvider', 'UsageAgents']
   },
   {
     id: 'analytics',
     label: 'AnalyticsTitle',
-    Icon: Activity,
+    Icon: AnalyticsIcon,
     keywords: ['AnalyticsSearch', 'AnalyticsLevel']
   },
   {
     id: 'performance',
     label: 'SettingsPerformance',
-    Icon: Gauge,
+    Icon: PerformanceIcon,
     keywords: [
       'PerformanceSettingsTitle',
       'PerformanceSettingsParallel',
@@ -167,13 +167,13 @@ const sections = [
   {
     id: 'flashcards',
     label: 'Flashcards',
-    Icon: Layers,
+    Icon: FlashcardsIcon,
     keywords: ['StudySettingsTitle', 'StudySettingsNewCards']
   },
   {
     id: 'quizzes',
     label: 'SettingsQuizzes',
-    Icon: ListChecks,
+    Icon: QuizSettingsIcon,
     keywords: [
       'QuizSettingsTitle',
       'QuizQuestionCount',
@@ -187,49 +187,49 @@ const sections = [
   {
     id: 'fill_blank',
     label: 'PracticeFillBlank',
-    Icon: TextCursorInput,
+    Icon: FillBlankIcon,
     keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
   },
   {
     id: 'ordering',
     label: 'PracticeOrdering',
-    Icon: ListOrdered,
+    Icon: OrderingIcon,
     keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
   },
   {
     id: 'matching',
     label: 'PracticeMatching',
-    Icon: Link2,
+    Icon: MatchingIcon,
     keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
   },
   {
     id: 'true_false',
     label: 'PracticeTrueFalse',
-    Icon: Binary,
+    Icon: TrueFalseIcon,
     keywords: ['PracticeSettingsQuestionCount', 'QuizDifficulty']
   },
   {
     id: 'projects',
     label: 'ProjectSettingsTitle',
-    Icon: Folder,
+    Icon: ProjectIcon,
     keywords: ['ProjectName', 'SubjectIconTitle', 'SubjectSettings']
   },
   {
     id: 'data',
     label: 'DataSettingsTitle',
-    Icon: Database,
+    Icon: DataStorageIcon,
     keywords: ['DataCreate', 'DataImport', 'DataPreview']
   },
   {
     id: 'integrations',
     label: 'IntegrationsTitle',
-    Icon: Plug,
+    Icon: IntegrationsIcon,
     keywords: ['IntegrationObsidian', 'IntegrationChooseVault']
   }
 ] as const satisfies readonly {
   id: string;
   label: StaticMessageKey;
-  Icon: LucideIcon;
+  Icon: IconComponent;
   keywords: readonly StaticMessageKey[];
 }[];
 

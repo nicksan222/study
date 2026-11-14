@@ -1,7 +1,7 @@
 import type { NoteId } from '@study/contracts/ids';
+import { SavedIcon, UnsavedIcon, SaveErrorIcon } from '@study/icons';
 import { Disclosure } from '@study/ui/disclosure';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { Check, Cloud, CloudOff } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -46,7 +46,7 @@ function SaveStatus({ model }: { model: Model }) {
   const { t } = useI18n();
   const { draft } = model;
   const saved = draft.text === draft.savedText;
-  const Icon = draft.error ? CloudOff : saved ? Check : Cloud;
+  const Icon = draft.error ? SaveErrorIcon : saved ? SavedIcon : UnsavedIcon;
   const label = draft.pending ? 'NoteAutosaving' : saved ? 'NoteAutosaved' : 'NoteAutosavePending';
 
   return (

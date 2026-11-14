@@ -1,13 +1,13 @@
 import type { ProjectId } from '@study/contracts/ids';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { OpenIcon, PageIcon, RefreshIcon } from '@study/icons';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { IconButton } from '@study/ui/icon-button';
 import { PageOverview } from '@study/ui/page-overview';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { ArrowUpRight, FileText, RefreshCw } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { pagesOptions } from '#client/lib/study-client/pages.queries.ts';
@@ -64,7 +64,7 @@ function PagesOverviewPage({ project }: { project?: ProjectId }) {
             disabled={state.isFetching}
             onClick={() => void state.refetch()}
           >
-            <RefreshCw aria-hidden="true" />
+            <RefreshIcon aria-hidden="true" />
           </IconButton>
         </PageOverview.Actions>
       </PageOverview.Heading>
@@ -92,7 +92,7 @@ function PageRowContent({ item }: { item: PageSummary }) {
   return (
     <>
       <PageOverview.Icon aria-hidden="true">
-        <FileText />
+        <PageIcon />
       </PageOverview.Icon>
       <PageOverview.Copy>
         <PageOverview.Name>{item.title}</PageOverview.Name>
@@ -119,7 +119,7 @@ function PageRow({ item, project }: { item: PageSummary; project?: ProjectId }) 
           search={project ? { project: String(project) } : {}}
         >
           <PageRowContent item={item} />
-          <ArrowUpRight aria-hidden="true" />
+          <OpenIcon aria-hidden="true" />
         </Link>
       </PageContextMenu>
     </li>
@@ -174,7 +174,7 @@ function PagesEmpty({
     <>
       {ready && empty && (
         <PageOverview.Empty>
-          <FileText aria-hidden="true" />
+          <PageIcon aria-hidden="true" />
           <h3>{t('PagesEmptyTitle')}</h3>
           <p>{t(archived ? 'PagesArchivedEmpty' : 'PagesOverviewEmpty')}</p>
         </PageOverview.Empty>

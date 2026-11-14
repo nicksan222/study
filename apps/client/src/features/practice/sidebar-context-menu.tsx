@@ -1,4 +1,5 @@
 import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
+import { ArchiveIcon, OpenIcon, PageIcon, HistoryIcon } from '@study/icons';
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -8,7 +9,6 @@ import {
 } from '@study/ui/context-menu';
 import { toastManager } from '@study/ui/toast';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Archive, ArrowUpRight, FileText, History } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 
@@ -47,18 +47,18 @@ export function PracticeSidebarContextMenu({
         <ContextMenuTrigger render={children} />
         <ContextMenuPopup>
           <ContextMenuItem render={<Link to={destination} params={params} search={search} />}>
-            <ArrowUpRight aria-hidden="true" />
+            <OpenIcon aria-hidden="true" />
             {t('OpenPractice')}
           </ContextMenuItem>
           <ContextMenuItem
             render={<Link to="/materials/$materialId" params={params} search={search} />}
           >
-            <FileText aria-hidden="true" />
+            <PageIcon aria-hidden="true" />
             {t('PracticeViewMaterial')}
           </ContextMenuItem>
           {material.kind === 'quiz' && (
             <ContextMenuItem onClick={() => setHistory(true)}>
-              <History aria-hidden="true" />
+              <HistoryIcon aria-hidden="true" />
               {t('PracticeAttempts')}
             </ContextMenuItem>
           )}
@@ -74,7 +74,7 @@ export function PracticeSidebarContextMenu({
               })
             }
           >
-            <Archive aria-hidden="true" />
+            <ArchiveIcon aria-hidden="true" />
             {t('PracticeArchiveMaterial')}
           </ContextMenuItem>
         </ContextMenuPopup>

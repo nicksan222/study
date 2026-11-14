@@ -1,5 +1,6 @@
 import type { NoteId } from '@study/contracts/ids';
 import { sniff, detectedMime } from '@study/contracts/sources/sniff';
+import { AttachmentIcon, RetryIcon, RemoveAttachmentIcon } from '@study/icons';
 import { mediaSize } from '@study/localization';
 import type { StaticMessageKey } from '@study/localization';
 import { AttachmentPreview, useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
@@ -7,7 +8,6 @@ import { ComposerSurface } from '@study/ui/composer';
 import { Disclosure } from '@study/ui/disclosure';
 import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/note-workspace';
-import { Paperclip, RotateCcw, X } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -23,7 +23,7 @@ export function AttachmentPicker({ id, blocked }: { id: NoteId; blocked: boolean
 
   return (
     <Notebook.FileButton title={t('NoteAttachFiles')}>
-      <Paperclip size={16} aria-hidden="true" />
+      <AttachmentIcon size={16} aria-hidden="true" />
       <span>{t('NoteAttach')}</span>
       <input
         type="file"
@@ -144,7 +144,7 @@ function AttachmentActions({
           disabled={blocked}
           onClick={() => files.retry(entry)}
         >
-          <RotateCcw size={14} aria-hidden="true" />
+          <RetryIcon size={14} aria-hidden="true" />
         </IconButton>
       )}
       {entry.state !== 'uploading' && (
@@ -156,7 +156,7 @@ function AttachmentActions({
           disabled={blocked}
           onClick={() => files.remove(entry)}
         >
-          <X size={14} aria-hidden="true" />
+          <RemoveAttachmentIcon size={14} aria-hidden="true" />
         </IconButton>
       )}
     </>

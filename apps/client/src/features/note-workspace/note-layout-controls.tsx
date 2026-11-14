@@ -1,8 +1,8 @@
 import type { NoteId } from '@study/contracts/ids';
+import { DockBelowIcon, DockBesideIcon, GenerateIcon } from '@study/icons';
 import { IconButton } from '@study/ui/icon-button';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { PanelBottom, PanelRight, Sparkles } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -21,7 +21,7 @@ export function NoteLayoutControls({ id }: { id: NoteId }) {
         label={t('NoteAssistantOpen')}
         onClick={() => model.open({ kind: 'assistant' })}
       >
-        <Sparkles aria-hidden="true" />
+        <GenerateIcon aria-hidden="true" />
       </IconButton>
       <WorkspaceCard.Toggle
         label={t('NoteActions')}
@@ -37,7 +37,7 @@ export function NoteLayoutControls({ id }: { id: NoteId }) {
         disabled={unavailable}
         onClick={() => model.showEditor('bottom')}
       >
-        <PanelBottom aria-hidden="true" />
+        <DockBelowIcon aria-hidden="true" />
       </IconButton>
       <IconButton
         size="icon-sm"
@@ -48,7 +48,7 @@ export function NoteLayoutControls({ id }: { id: NoteId }) {
         disabled={unavailable}
         onClick={() => model.showEditor('side')}
       >
-        <PanelRight aria-hidden="true" />
+        <DockBesideIcon aria-hidden="true" />
       </IconButton>
     </Desk.LayoutControls>
   );

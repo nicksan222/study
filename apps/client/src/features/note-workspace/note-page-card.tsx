@@ -1,9 +1,9 @@
 import type { NoteId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { PageIcon } from '@study/icons';
 import { ChatEntryLabel } from '@study/ui/chat';
 import { WorkspaceAttachments } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { FileText } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -52,7 +52,7 @@ export function NotePageCard({
               title={page.title}
               label={page.title}
               meta={page.description ?? t('SourcePage')}
-              icon={<FileText aria-hidden="true" />}
+              icon={<PageIcon aria-hidden="true" />}
               tone="blue"
             />
           ) : (

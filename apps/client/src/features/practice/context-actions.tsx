@@ -1,12 +1,12 @@
 import { quizAttemptIdSchema } from '@study/contracts/ids';
 import type { ProjectId } from '@study/contracts/ids';
 import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
+import { ArchiveIcon, OpenIcon, PageIcon, StartIcon, RetryIcon } from '@study/icons';
 import { ErrorState } from '@study/ui/error-state';
 import { WorkspaceCard } from '@study/ui/workspace';
 import { useQuery, useIsMutating } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { Archive, ArrowUpRight, FileText, Play, RotateCcw } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -44,9 +44,9 @@ export function MaterialActions({ material }: { material: MaterialDetailDto }) {
             />
           }
         >
-          <FileText aria-hidden="true" />
+          <PageIcon aria-hidden="true" />
           <span>{t('PracticeViewMaterial')}</span>
-          <ArrowUpRight aria-hidden="true" />
+          <OpenIcon aria-hidden="true" />
         </WorkspaceCard.Item>
         {material.kind === 'quiz' && (
           <>
@@ -61,7 +61,7 @@ export function MaterialActions({ material }: { material: MaterialDetailDto }) {
                   />
                 }
               >
-                <Play aria-hidden="true" />
+                <StartIcon aria-hidden="true" />
                 <span>{t('PracticeNewQuiz')}</span>
               </WorkspaceCard.Item>
             )}
@@ -109,7 +109,7 @@ function ArchiveAction({
           })
         }
       >
-        {archived ? <RotateCcw aria-hidden="true" /> : <Archive aria-hidden="true" />}
+        {archived ? <RetryIcon aria-hidden="true" /> : <ArchiveIcon aria-hidden="true" />}
         <span>{t(archived ? 'PracticeRestore' : 'PracticeArchiveMaterial')}</span>
       </WorkspaceCard.Item>
       {mutation.isError && <ErrorState layout="inline" title={t('PracticeArchiveError')} />}

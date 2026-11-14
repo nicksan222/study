@@ -1,6 +1,6 @@
 import type { NoteId } from '@study/contracts/ids';
+import { CollapseIcon } from '@study/icons';
 import { NotebookRail } from '@study/ui/notebook-rail';
-import { ChevronUp } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -32,7 +32,7 @@ export function NotebookNavigation({
           disabled={pending}
           onClick={onMore}
         >
-          <ChevronUp size={12} />
+          <CollapseIcon size={12} />
         </NotebookRail.More>
       )}
       {entries.map((entry) => {

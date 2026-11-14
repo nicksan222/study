@@ -77,6 +77,10 @@
         "patterns": ["packages/localization/src/**"]
       },
       {
+        "name": "icons",
+        "patterns": ["packages/icons/src/**"]
+      },
+      {
         "name": "ui",
         "patterns": ["packages/ui/src/**"]
       },
@@ -143,8 +147,12 @@
         "allow": []
       },
       {
+        "from": "icons",
+        "allow": []
+      },
+      {
         "from": "ui",
-        "allow": ["theme"]
+        "allow": ["theme", "icons"]
       },
       {
         "from": "db",
@@ -176,15 +184,15 @@
       },
       {
         "from": "client-previews",
-        "allow": ["client", "contracts", "ui", "localization", "theme"]
+        "allow": ["client", "contracts", "ui", "icons", "localization", "theme"]
       },
       {
         "from": "client",
-        "allow": ["server-client", "contracts", "ui", "localization", "theme"]
+        "allow": ["server-client", "contracts", "ui", "icons", "localization", "theme"]
       },
       {
         "from": "landing",
-        "allow": ["theme", "localization", "ui", "contracts", "client-previews"]
+        "allow": ["theme", "localization", "ui", "icons", "contracts", "client-previews"]
       },
       {
         "from": "tests",
@@ -195,6 +203,7 @@
           "theme",
           "localization",
           "ui",
+          "icons",
           "db",
           "server-client",
           "server-platform",
@@ -214,6 +223,7 @@
           "theme",
           "localization",
           "ui",
+          "icons",
           "db",
           "server-client",
           "server-platform",

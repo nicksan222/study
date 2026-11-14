@@ -1,4 +1,5 @@
 import type { NoteId } from '@study/contracts/ids';
+import { OpenIcon, PageIcon, ChecklistIcon, DeleteIcon } from '@study/icons';
 import { AiIcon } from '@study/ui/ai-button';
 import {
   ContextMenu,
@@ -8,7 +9,6 @@ import {
   ContextMenuSeparator
 } from '@study/ui/context-menu';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowUpRight, FileText, ListChecks, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
@@ -51,11 +51,11 @@ export function SidebarNoteActions({
               });
             }}
           >
-            <ArrowUpRight aria-hidden="true" />
+            <OpenIcon aria-hidden="true" />
             {t('OpenNote')}
           </ContextMenuItem>
           <ContextMenuItem onClick={() => setCreating(true)}>
-            <FileText aria-hidden="true" />
+            <PageIcon aria-hidden="true" />
             {t('NoteTransform')}
           </ContextMenuItem>
           <ContextMenuItem
@@ -68,13 +68,13 @@ export function SidebarNoteActions({
           </ContextMenuItem>
           {onSelect && (
             <ContextMenuItem onClick={onSelect}>
-              <ListChecks aria-hidden="true" />
+              <ChecklistIcon aria-hidden="true" />
               {t('SidebarSelectNotes')}
             </ContextMenuItem>
           )}
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" onClick={() => setDeleting(true)}>
-            <Trash2 aria-hidden="true" />
+            <DeleteIcon aria-hidden="true" />
             {t('NoteDelete')}
           </ContextMenuItem>
         </ContextMenuPopup>

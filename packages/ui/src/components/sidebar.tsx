@@ -1,4 +1,5 @@
 import { useRender } from '@base-ui/react/use-render';
+import { ToggleSidebarIcon, CloseIcon, ExpandIcon, DisclosureIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import {
   Combobox,
@@ -12,7 +13,6 @@ import {
 import type { InputProps } from '@study/ui/input';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { cn } from '@study/ui/utils';
-import { PanelLeft, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -348,7 +348,7 @@ function Toggle({
       title={label}
       aria-expanded={expanded}
     >
-      <PanelLeft aria-hidden="true" />
+      <ToggleSidebarIcon aria-hidden="true" />
     </Button>
   );
 }
@@ -428,7 +428,7 @@ function SearchField({
       trailing={
         props.value ? (
           <Button size="icon-xs" variant="ghost-muted" aria-label={clearLabel} onClick={onClear}>
-            <X aria-hidden="true" />
+            <CloseIcon aria-hidden="true" />
           </Button>
         ) : undefined
       }
@@ -650,7 +650,7 @@ function NativeNoteGroup({ title, count, children, defaultOpen = false, variant 
       <summary aria-label={title}>
         <span>{title}</span>
         <span>{count}</span>
-        <ChevronRight aria-hidden="true" />
+        <DisclosureIcon aria-hidden="true" />
       </summary>
       <div>{children}</div>
     </details>
@@ -731,7 +731,7 @@ function SlidingNoteGroup({ title, count, children, defaultOpen = false }: NoteG
       >
         <span>{title}</span>
         <span>{count}</span>
-        <ChevronRight aria-hidden="true" />
+        <DisclosureIcon aria-hidden="true" />
       </summary>
       <div
         className="study-note-group-slide"
@@ -843,7 +843,7 @@ function PickerSelection<T>({
         <Switcher
           icon={value ? (getIcon?.(value) ?? initial) : (fallbackIcon ?? initial)}
           label={selectedLabel}
-          trailing={<ChevronDown className="study-subject-chevron" aria-hidden="true" />}
+          trailing={<ExpandIcon className="study-subject-chevron" aria-hidden="true" />}
         />
       }
     />

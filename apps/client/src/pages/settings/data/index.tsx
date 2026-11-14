@@ -1,5 +1,6 @@
 import { MAX_MANAGED_BACKUPS, restoreStatusSchema } from '@study/contracts/system/backups';
 import type { BackupId, RestorePreview } from '@study/contracts/system/backups';
+import { ArchiveIcon, DownloadIcon, RefreshIcon, DeleteIcon, UploadIcon } from '@study/icons';
 import { mediaSize } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { DangerDialog, DangerDialogContext } from '@study/ui/danger-dialog';
@@ -9,7 +10,6 @@ import { IconButton } from '@study/ui/icon-button';
 import { Settings } from '@study/ui/settings';
 import { StatusMessage } from '@study/ui/status-message';
 import { Schema } from 'effect';
-import { Archive, Download, RefreshCw, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -79,7 +79,7 @@ function BackupControls({ state, owner, mutable }: DataView) {
             void owner.refresh();
           }}
         >
-          <RefreshCw size={14} aria-hidden="true" />
+          <RefreshIcon size={14} aria-hidden="true" />
           {t('DataRefresh')}
         </Button>
       }
@@ -125,7 +125,7 @@ function BackupControls({ state, owner, mutable }: DataView) {
             disabled={!mutable || state.backups.length >= MAX_MANAGED_BACKUPS}
             onClick={() => fileInput.current?.click()}
           >
-            <Upload size={14} aria-hidden="true" />
+            <UploadIcon size={14} aria-hidden="true" />
             {t('DataChooseFile')}
           </Button>
         </Settings.Row>
@@ -142,7 +142,7 @@ function SavedBackups({ state, owner, busy, mutable, setDeletion }: DataView & D
     <Settings.Section title={t('DataSavedBackups')}>
       <Settings.Group>
         {state.loaded && !state.backups.length && (
-          <Settings.Empty title={t('DataEmptyTitle')} icon={<Archive aria-hidden="true" />}>
+          <Settings.Empty title={t('DataEmptyTitle')} icon={<ArchiveIcon aria-hidden="true" />}>
             {t('DataEmpty')}
           </Settings.Empty>
         )}
@@ -159,7 +159,7 @@ function SavedBackups({ state, owner, busy, mutable, setDeletion }: DataView & D
                 disabled={busy}
                 onClick={() => void owner.download(backup.id)}
               >
-                <Download size={14} aria-hidden="true" />
+                <DownloadIcon size={14} aria-hidden="true" />
                 {t('DataDownload')}
               </Button>
               <Button
@@ -182,7 +182,7 @@ function SavedBackups({ state, owner, busy, mutable, setDeletion }: DataView & D
                   setDeletion({ id: backup.id });
                 }}
               >
-                <Trash2 size={14} aria-hidden="true" />
+                <DeleteIcon size={14} aria-hidden="true" />
               </IconButton>
             </DataManagement.Actions>
           </Settings.Row>
@@ -339,7 +339,7 @@ function DeletionDialog({
           .filter((backup) => backup.id === deletion.id)
           .map((backup) => (
             <DangerDialogContext key={backup.id}>
-              <Archive aria-hidden="true" />
+              <ArchiveIcon aria-hidden="true" />
               <span>{date(backup.createdAtMs / 1000)}</span>
               <span>{mediaSize(locale, backup.bytes)}</span>
             </DangerDialogContext>
@@ -437,7 +437,7 @@ function RestorePreviewContent({
   return (
     <DataManagement.PreviewContent>
       <DangerDialogContext>
-        <Archive aria-hidden="true" />
+        <ArchiveIcon aria-hidden="true" />
         <span>{date(preview.backup.createdAtMs / 1000)}</span>
         <span>{mediaSize(locale, preview.backup.bytes)}</span>
       </DangerDialogContext>

@@ -1,10 +1,10 @@
 import type { NoteId, SourceId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { AttachmentIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceAttachments, WorkspaceCard } from '@study/ui/workspace';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Paperclip } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -47,7 +47,7 @@ export function WorkspaceContext({
     >
       {actions}
       <WorkspaceAttachments.Heading>
-        <Paperclip size={13} aria-hidden="true" />
+        <AttachmentIcon size={13} aria-hidden="true" />
         <h2>{t('NoteAttachments')}</h2>
       </WorkspaceAttachments.Heading>
       {id ? (

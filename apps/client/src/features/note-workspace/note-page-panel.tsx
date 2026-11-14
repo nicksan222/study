@@ -1,9 +1,9 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import type { Page, PageVersion } from '@study/contracts/pages/types';
+import { SavedIcon, UnsavedIcon, SaveErrorIcon } from '@study/icons';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Cloud, CloudOff } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -80,7 +80,7 @@ function useViewedPage(page: Page, versionId?: PageVersionId) {
 
 function PageSaveStatus({ model }: { model: ReturnType<typeof useNotePageAutosave> }) {
   const { t } = useI18n();
-  const Icon = model.error ? CloudOff : model.dirty ? Cloud : Check;
+  const Icon = model.error ? SaveErrorIcon : model.dirty ? UnsavedIcon : SavedIcon;
   const label = model.pending
     ? 'NoteAutosaving'
     : model.dirty

@@ -1,7 +1,7 @@
 import type { NoteId } from '@study/contracts/ids';
 import type { NoteArchiveTarget } from '@study/contracts/notes/archive';
+import { ArchiveIcon } from '@study/icons';
 import { ContextMenuItem } from '@study/ui/context-menu';
-import { Archive } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -23,7 +23,7 @@ export function ArchiveMenuItem({
   return (
     <>
       <ContextMenuItem disabled={disabled || archive.pending} onClick={() => archive.change(true)}>
-        <Archive aria-hidden="true" />
+        <ArchiveIcon aria-hidden="true" />
         {t('NoteArchive')}
       </ContextMenuItem>
       {archive.error && <NoteError error={archive.error} />}

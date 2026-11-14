@@ -1,6 +1,6 @@
+import { RemoveFromPageIcon, DeleteIcon } from '@study/icons';
 import { ContextMenuItem, ContextMenuSeparator } from '@study/ui/context-menu';
 import type { ItemDeletionActions } from '@study/ui/context-menu';
-import { FileMinus2, Trash2 } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -18,7 +18,7 @@ export function ItemDeletionMenu({
     <>
       <ContextMenuSeparator />
       <ContextMenuItem variant="destructive" disabled={disabled} onClick={onDeleteItem}>
-        <Trash2 aria-hidden="true" />
+        <DeleteIcon aria-hidden="true" />
         {t('NoteDeleteItem')}
       </ContextMenuItem>
       <ContextMenuItem
@@ -26,7 +26,7 @@ export function ItemDeletionMenu({
         disabled={disabled || versionDisabled}
         onClick={onDeleteVersion}
       >
-        <FileMinus2 aria-hidden="true" />
+        <RemoveFromPageIcon aria-hidden="true" />
         {t('NoteDeleteVersion')}
       </ContextMenuItem>
     </>

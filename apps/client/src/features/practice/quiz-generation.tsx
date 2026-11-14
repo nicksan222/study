@@ -2,6 +2,16 @@ import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
 import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
+import {
+  MatchingIcon,
+  QuizIcon,
+  FlashcardsIcon,
+  OptionsIcon,
+  ExpandIcon,
+  OrderingIcon,
+  FillBlankIcon,
+  TrueFalseIcon
+} from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogDismissButton } from '@study/ui/dialog-form-actions';
@@ -11,16 +21,6 @@ import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
 import { Textarea } from '@study/ui/textarea';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  Link2,
-  GraduationCap,
-  Layers,
-  SlidersHorizontal,
-  ChevronDown,
-  ListOrdered,
-  TextCursorInput,
-  Binary
-} from 'lucide-react';
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 
@@ -217,7 +217,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('quiz')}
               >
-                <GraduationCap aria-hidden="true" />
+                <QuizIcon aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
                 label={t('Flashcards')}
@@ -225,7 +225,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('flashcards')}
               >
-                <Layers aria-hidden="true" />
+                <FlashcardsIcon aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
                 label={t('PracticeFillBlank')}
@@ -233,7 +233,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('fill_blank')}
               >
-                <TextCursorInput aria-hidden="true" />
+                <FillBlankIcon aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
                 label={t('PracticeOrdering')}
@@ -241,7 +241,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('ordering')}
               >
-                <ListOrdered aria-hidden="true" />
+                <OrderingIcon aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
                 label={t('PracticeMatching')}
@@ -249,7 +249,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('matching')}
               >
-                <Link2 aria-hidden="true" />
+                <MatchingIcon aria-hidden="true" />
               </Settings.Choice>
               <Settings.Choice
                 label={t('PracticeTrueFalse')}
@@ -257,7 +257,7 @@ function GenerationPanel({
                 disabled={model.busy}
                 onSelect={() => model.setKind('true_false')}
               >
-                <Binary aria-hidden="true" />
+                <TrueFalseIcon aria-hidden="true" />
               </Settings.Choice>
             </Settings.ChoiceGroup>
             {model.kind === 'matching' && (
@@ -275,9 +275,9 @@ function GenerationPanel({
           </Settings.Section>
           <Practice.Customize>
             <Practice.CustomizeSummary>
-              <SlidersHorizontal aria-hidden="true" />
+              <OptionsIcon aria-hidden="true" />
               <span>{t('PracticeCustomize')}</span>
-              <ChevronDown aria-hidden="true" />
+              <ExpandIcon aria-hidden="true" />
             </Practice.CustomizeSummary>
             <Practice.CustomizeBody>
               <Settings.Section title={t('PracticeGeneratePrompt')}>

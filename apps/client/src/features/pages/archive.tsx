@@ -1,12 +1,12 @@
 import type { ProjectId, PageId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { PageIcon } from '@study/icons';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { Loading } from '@study/ui/loading';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { FileText } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -62,7 +62,7 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
                     aria-current={item === active ? 'page' : undefined}
                     onClick={() => setSelected(String(item.id))}
                     label={item.title}
-                    icon={<FileText aria-hidden="true" />}
+                    icon={<PageIcon aria-hidden="true" />}
                   />
                 </PageContextMenu>
               </li>

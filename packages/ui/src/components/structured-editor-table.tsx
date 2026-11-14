@@ -1,6 +1,6 @@
+import { TableGridIcon, InsertTableIcon } from '@study/icons';
 import type { Editor } from '@tiptap/core';
 import { useEditorState } from '@tiptap/react';
-import { Grid2X2, Table2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from './button';
@@ -42,7 +42,7 @@ export function StructuredTableControls({
         disabled={disabled}
         onClick={onInsert}
       >
-        <Table2 size={16} aria-hidden="true" />
+        <InsertTableIcon size={16} aria-hidden="true" />
       </Button>
       {state.active && (
         <Menu>
@@ -57,7 +57,7 @@ export function StructuredTableControls({
               />
             }
           >
-            <Grid2X2 size={16} aria-hidden="true" />
+            <TableGridIcon size={16} aria-hidden="true" />
           </MenuTrigger>
           <MenuPopup align="start">
             {actions.map(({ key, run, enabled }) => (

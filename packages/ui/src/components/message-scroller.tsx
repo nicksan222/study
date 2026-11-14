@@ -1,5 +1,5 @@
 import { MessageScroller as MessageScrollerPrimitive } from '@shadcn/react/message-scroller';
-import { ArrowDown } from 'lucide-react';
+import { ScrollToLatestIcon } from '@study/icons';
 // Adapted from shadcn/ui (MIT). See ../vendor/shadcn/LICENSE.
 import * as React from 'react';
 
@@ -108,7 +108,7 @@ function MessageScrollerButton({
     >
       {children ?? (
         <>
-          <ArrowDown />
+          <ScrollToLatestIcon />
           <span className="sr-only">{props['aria-label']}</span>
         </>
       )}

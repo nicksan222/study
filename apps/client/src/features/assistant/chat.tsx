@@ -1,3 +1,4 @@
+import { ScrollToLatestIcon, SendIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
@@ -15,7 +16,6 @@ import {
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { ArrowDown, ArrowUp } from 'lucide-react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -85,7 +85,7 @@ export function AssistantThread({ model, scoped = false }: { model: Model; scope
           </MessageScrollerContent>
         </MessageScrollerViewport>
         <MessageScrollerButton aria-label={t('JumpToLatest')}>
-          <ArrowDown aria-hidden="true" />
+          <ScrollToLatestIcon aria-hidden="true" />
         </MessageScrollerButton>
       </MessageScroller>
     </MessageScrollerProvider>
@@ -128,7 +128,7 @@ export function AssistantComposer({ model }: { model: ComposerModel }) {
               disabled={model.blocked || !model.draft.trim()}
               onClick={model.send}
             >
-              <ArrowUp size={18} aria-hidden="true" />
+              <SendIcon size={18} aria-hidden="true" />
             </WorkspaceSurface.ComposerSubmit>
           </ComposerSurface.Footer>
           <AiReadinessNotice state={model.readiness} />

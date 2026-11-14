@@ -6,6 +6,7 @@ import {
   projectSymbols,
   projectEmojis
 } from '@study/contracts/projects/schemas';
+import { EditIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogHeading } from '@study/ui/dialog-heading';
@@ -17,7 +18,6 @@ import { Label } from '@study/ui/label';
 import { toastManager } from '@study/ui/toast';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
-import { Pencil } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -378,7 +378,7 @@ export function SubjectIconEditor({
   return (
     <>
       <Button variant="ghost-muted" size="sm" disabled={disabled} onClick={() => setOpen(true)}>
-        <Pencil size={14} aria-hidden="true" />
+        <EditIcon size={14} aria-hidden="true" />
         {t('SubjectIconChange')}
       </Button>
       {open && <SubjectIconDialog project={project} open onOpenChange={setOpen} />}

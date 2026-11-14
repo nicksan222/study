@@ -1,5 +1,5 @@
+import { RetryIcon } from '@study/icons';
 import { IconButton } from '@study/ui/icon-button';
-import { RotateCcw } from 'lucide-react';
 import { useId } from 'react';
 import type { CSSProperties } from 'react';
 
@@ -87,7 +87,7 @@ function ResetButton({
 
   return (
     <IconButton label={label} disabled={disabled} size="icon-micro" onClick={onReset}>
-      <RotateCcw aria-hidden="true" />
+      <RetryIcon aria-hidden="true" />
     </IconButton>
   );
 }

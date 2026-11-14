@@ -1,10 +1,10 @@
 import type { exportFormatSchema, exportOmissionSchema } from '@study/contracts/materials/export';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { DownloadIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { MaterialLibrary } from '@study/ui/material-library';
 import { SelectControl } from '@study/ui/select-control';
-import { Download } from 'lucide-react';
 import { useState } from 'react';
 
 import { exportOmissionLabels } from '#client/lib/export-labels.ts';
@@ -68,7 +68,7 @@ export function ReaderExport({ version }: { version: MaterialVersionDetailDto })
           }
         }}
       >
-        <Download size={16} aria-hidden="true" />
+        <DownloadIcon size={16} aria-hidden="true" />
         {t('ExportDownload')}
       </Button>
       {status === 'failed' && (

@@ -1,7 +1,7 @@
+import { CloseIcon, DisclosureIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogTitle, DialogClose } from '@study/ui/dialog';
 import { cn } from '@study/ui/utils';
-import { X, ChevronRight } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
@@ -71,7 +71,7 @@ function Root({
               aria-label={closeLabel}
               render={<Button size="icon-sm" variant="ghost" />}
             >
-              <X aria-hidden="true" />
+              <CloseIcon aria-hidden="true" />
             </DialogClose>
           </header>
           <div className="settings-scroll">
@@ -203,7 +203,7 @@ function Item({
         <span className="settings-drilldown-label">{label}</span>
         {description && <span className="settings-drilldown-description">{description}</span>}
       </span>
-      <ChevronRight aria-hidden="true" />
+      <DisclosureIcon aria-hidden="true" />
     </button>
   );
 }

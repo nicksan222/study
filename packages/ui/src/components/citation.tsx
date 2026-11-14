@@ -1,5 +1,5 @@
 import { Popover } from '@base-ui/react/popover';
-import { X } from 'lucide-react';
+import { CloseIcon } from '@study/icons';
 import type { ReactNode } from 'react';
 
 import { Button } from './button';
@@ -35,7 +35,7 @@ export function Citation({
               className="citation-close"
               aria-label={closeLabel}
             >
-              <X size={14} aria-hidden="true" />
+              <CloseIcon size={14} aria-hidden="true" />
             </Popover.Close>
             {children}
           </Popover.Popup>

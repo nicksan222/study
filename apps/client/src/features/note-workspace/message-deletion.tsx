@@ -1,9 +1,9 @@
 import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { RemoveFromPageIcon, DeleteIcon } from '@study/icons';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { IconButton } from '@study/ui/icon-button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileMinus2, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -73,7 +73,7 @@ export function MessageDeletion({
             disabled={disabled || remove.isPending}
             onClick={() => show('item')}
           >
-            <Trash2 aria-hidden="true" />
+            <DeleteIcon aria-hidden="true" />
           </IconButton>
           <IconButton
             size="icon-sm"
@@ -83,7 +83,7 @@ export function MessageDeletion({
             disabled={disabled || last || remove.isPending}
             onClick={() => show(versionId)}
           >
-            <FileMinus2 aria-hidden="true" />
+            <RemoveFromPageIcon aria-hidden="true" />
           </IconButton>
         </>
       )}
