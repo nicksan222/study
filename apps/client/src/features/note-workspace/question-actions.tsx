@@ -1,8 +1,8 @@
 import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { AnswerQuestionIcon, InsertAnswerIcon, SaveAnswerIcon } from '@study/icons';
 import { IconButton } from '@study/ui/icon-button';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
-import { MessageSquare, ArrowDownToLine, StickyNote } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -68,7 +68,7 @@ function QuestionResponse({ model, message }: { model: Model; message: ChatMessa
           disabled={model.blocked || model.readiness !== 'ready'}
           onClick={model.submitAnswer}
         >
-          <MessageSquare size={15} aria-hidden="true" />
+          <AnswerQuestionIcon size={15} aria-hidden="true" />
         </QuestionToolbarButton>
       ) : (
         <QuestionAnswer model={model} message={message} />
@@ -95,9 +95,9 @@ function QuestionKindAction({ model }: { model: Model }) {
         }
       >
         {model.isQuestion ? (
-          <StickyNote size={15} aria-hidden="true" />
+          <SaveAnswerIcon size={15} aria-hidden="true" />
         ) : (
-          <MessageSquare size={15} aria-hidden="true" />
+          <AnswerQuestionIcon size={15} aria-hidden="true" />
         )}
       </TooltipTrigger>
       <TooltipPopup>{model.isQuestion ? label : t('NoteMarkAsQuestionHelp')}</TooltipPopup>
@@ -123,7 +123,7 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
           else jumpToNotebookTarget(notebookTargetId(message.noteId, 'message', answerId));
         }}
       >
-        <ArrowDownToLine size={15} aria-hidden="true" />
+        <InsertAnswerIcon size={15} aria-hidden="true" />
       </QuestionToolbarButton>
     );
 
@@ -133,7 +133,7 @@ function QuestionAnswer({ model, message }: { model: Model; message: ChatMessage
       disabled={model.blocked || model.readiness !== 'ready'}
       onClick={model.submitAnswer}
     >
-      <MessageSquare size={15} aria-hidden="true" />
+      <AnswerQuestionIcon size={15} aria-hidden="true" />
     </QuestionToolbarButton>
   );
 }

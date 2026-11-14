@@ -1,6 +1,6 @@
 import { Toast as ToastPrimitive } from '@base-ui/react/toast';
+import { ErrorIcon, SuccessIcon, InfoIcon, CloseIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
-import { CircleAlert, CircleCheck, Info, X } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 
 export const toastManager = ToastPrimitive.createToastManager();
@@ -34,7 +34,7 @@ function Toaster({ closeLabel, viewportLabel }: { closeLabel: string; viewportLa
       <ToastPrimitive.Viewport className="ui-toast-viewport" aria-label={viewportLabel}>
         {toasts.map((toast) => {
           const Icon =
-            toast.type === 'error' ? CircleAlert : toast.type === 'success' ? CircleCheck : Info;
+            toast.type === 'error' ? ErrorIcon : toast.type === 'success' ? SuccessIcon : InfoIcon;
 
           return (
             <ToastPrimitive.Root key={toast.id} toast={toast} className="ui-toast">
@@ -53,7 +53,7 @@ function Toaster({ closeLabel, viewportLabel }: { closeLabel: string; viewportLa
                   aria-label={closeLabel}
                   render={<Button size="icon-sm" variant="ghost-muted" />}
                 >
-                  <X aria-hidden="true" />
+                  <CloseIcon aria-hidden="true" />
                 </ToastPrimitive.Close>
               </ToastPrimitive.Content>
             </ToastPrimitive.Root>

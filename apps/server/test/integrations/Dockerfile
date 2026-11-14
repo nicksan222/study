@@ -36,6 +36,7 @@ COPY --chown=bun:bun apps/client/package.json apps/client/package.json
 COPY --chown=bun:bun apps/desktop/package.json apps/desktop/package.json
 COPY --chown=bun:bun packages/contracts/package.json packages/contracts/package.json
 COPY --chown=bun:bun packages/db/package.json packages/db/package.json
+COPY --chown=bun:bun packages/icons/package.json packages/icons/package.json
 COPY --chown=bun:bun packages/integrations/package.json packages/integrations/package.json
 COPY --chown=bun:bun packages/localization/package.json packages/localization/package.json
 COPY --chown=bun:bun packages/testing/package.json packages/testing/package.json

@@ -1,16 +1,16 @@
 import { selectionReferenceKey } from '@study/contracts/notes/context';
 import type { runSelectionContextSchema } from '@study/contracts/notes/context';
+import {
+  PageIcon,
+  PrivateContextIcon,
+  ReplyIcon,
+  ContextSettingsIcon,
+  AssistantMessageIcon,
+  MessageAuthorIcon
+} from '@study/icons';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/note-workspace';
 import { useQuery } from '@tanstack/react-query';
-import {
-  FileText,
-  LockKeyhole,
-  MessageSquare,
-  SlidersHorizontal,
-  Sparkles,
-  User
-} from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -39,13 +39,13 @@ function ContextSnapshot({ context }: { context: typeof runSelectionContextSchem
   return (
     <>
       <Notebook.ContextNotice>
-        <LockKeyhole aria-hidden="true" />
+        <PrivateContextIcon aria-hidden="true" />
         <p>{t('NoteContextSnapshot')}</p>
       </Notebook.ContextNotice>
       {context.instruction && (
         <Notebook.ContextCard>
           <Notebook.ContextCardHeading>
-            <SlidersHorizontal aria-hidden="true" />
+            <ContextSettingsIcon aria-hidden="true" />
             <h4>{t('NoteContextInstructions')}</h4>
           </Notebook.ContextCardHeading>
           <NoteContent value={context.instruction} />
@@ -61,7 +61,7 @@ function ContextSnapshot({ context }: { context: typeof runSelectionContextSchem
             {context.inputs.map((input) => (
               <Notebook.ContextSource key={selectionReferenceKey(input.input)}>
                 <Notebook.ContextCardHeading>
-                  <FileText aria-hidden="true" />
+                  <PageIcon aria-hidden="true" />
                   <CapturedInputLink input={input.input} name={input.name} />
                 </Notebook.ContextCardHeading>
                 <Notebook.ContextScope>
@@ -95,7 +95,7 @@ function ContextSnapshot({ context }: { context: typeof runSelectionContextSchem
             {context.messages.map((message) => (
               <Notebook.ContextEvent key={`${message.messageId}-${message.versionId}`}>
                 <Notebook.ContextMarker aria-hidden="true">
-                  {message.role === 'user' ? <User /> : <Sparkles />}
+                  {message.role === 'user' ? <MessageAuthorIcon /> : <AssistantMessageIcon />}
                 </Notebook.ContextMarker>
                 <Notebook.ContextCard>
                   <Notebook.ContextCardHeading>
@@ -110,13 +110,13 @@ function ContextSnapshot({ context }: { context: typeof runSelectionContextSchem
       )}
       {!context.instruction && context.inputs.length === 0 && context.messages.length === 0 && (
         <Notebook.ContextNotice>
-          <MessageSquare aria-hidden="true" />
+          <ReplyIcon aria-hidden="true" />
           <p>{t('NoteContextEmpty')}</p>
         </Notebook.ContextNotice>
       )}
       {context.excludedMessages > 0 && (
         <Notebook.ContextNotice>
-          <MessageSquare aria-hidden="true" />
+          <ReplyIcon aria-hidden="true" />
           <p>
             {t('NoteExcludedNotes')} {context.excludedMessages}
           </p>

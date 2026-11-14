@@ -1,4 +1,5 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
+import { CloseIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import {
   DIALOG_BACKDROP_CLASS,
@@ -8,7 +9,6 @@ import {
   DIALOG_POPUP_CLASS
 } from '@study/ui/dialog-styles';
 import { cn } from '@study/ui/utils';
-import { XIcon } from 'lucide-react';
 import { createContext, use, useState } from 'react';
 import type { ComponentProps, ReactNode } from 'react';
 
@@ -141,7 +141,7 @@ function DialogPopup({
               className="absolute end-2 top-2"
               render={<Button size="icon" variant="ghost" />}
             >
-              <XIcon />
+              <CloseIcon />
             </DialogPrimitive.Close>
           )}
         </DialogPrimitive.Popup>

@@ -1,9 +1,9 @@
 import type { ProjectId, PageId } from '@study/contracts/ids';
+import { CreatePageIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { useNavigate } from '@tanstack/react-router';
-import { FilePlus2 } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -80,7 +80,7 @@ export function NewBlankPage({
         disabled={disabled || creation.pending}
         onClick={() => void creation.create()}
       >
-        <FilePlus2 aria-hidden="true" />
+        <CreatePageIcon aria-hidden="true" />
         {!compact && t('PageNew')}
       </Button>
       {creation.error && (

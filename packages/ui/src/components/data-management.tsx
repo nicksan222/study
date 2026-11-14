@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react';
+import { SuccessIcon } from '@study/icons';
 
 import { semanticPart } from './semantic-part';
 
@@ -22,6 +22,6 @@ export const DataManagement = {
 /** A healthy idle restore status is a completed state, with no progress indicator. */
 function StatusIcon({ idle }: { idle: boolean }) {
   return idle ? (
-    <CheckCircle2 size={17} aria-hidden="true" className="text-(--contrast-muted-foreground)" />
+    <SuccessIcon size={17} aria-hidden="true" className="text-(--contrast-muted-foreground)" />
   ) : null;
 }

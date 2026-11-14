@@ -1,4 +1,5 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { PageIcon } from '@study/icons';
 import { age } from '@study/localization';
 import { RetryButton } from '@study/ui/action-button';
 import { useNowMinute } from '@study/ui/clock';
@@ -7,7 +8,6 @@ import { Loading } from '@study/ui/loading';
 import { Sidebar } from '@study/ui/sidebar';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
-import { FileText } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import type { Subjects } from '#client/lib/study-client/operations.ts';
@@ -75,7 +75,7 @@ export function PagesSidebar({
             <Sidebar.Item
               layout={preferences.sidebarDensity === 'compact' ? 'compact' : 'detailed'}
               label={item.title}
-              icon={<FileText aria-hidden="true" />}
+              icon={<PageIcon aria-hidden="true" />}
               context={owner?.name ?? t('SourcePage')}
               description={item.description ?? t('SourcePage')}
               timestamp={

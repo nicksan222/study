@@ -2,6 +2,7 @@ import type {
   integrationImportSchema,
   integrationWarningSchema
 } from '@study/contracts/integrations/schemas';
+import { UploadIcon } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
@@ -11,7 +12,6 @@ import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
 import { Link } from '@tanstack/react-router';
-import { Upload } from 'lucide-react';
 import { useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -89,7 +89,7 @@ function ImportHistory({ model }: { model: Model }) {
         {model.imports.data?.map((run) => (
           <Settings.Item
             key={run.id}
-            icon={<Upload aria-hidden="true" />}
+            icon={<UploadIcon aria-hidden="true" />}
             label={run.sourceKey}
             description={t(statuses[run.status])}
             onClick={() => {

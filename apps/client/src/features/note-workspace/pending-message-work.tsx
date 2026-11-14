@@ -1,9 +1,9 @@
+import { CancelIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { Thinking } from '@study/ui/loading';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -104,7 +104,7 @@ function PendingWorkStatus({
             disabled={stopping || cancel.isError || !execution.canCancel}
             onClick={() => cancel.mutate({ kind: 'reply', title: null, requestId, execution })}
           >
-            <X aria-hidden="true" />
+            <CancelIcon aria-hidden="true" />
           </IconButton>
         )
       }

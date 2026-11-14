@@ -1,4 +1,12 @@
-import { ArrowUp, ArrowDown, Check, X, CircleMinus, Clock3, Minus } from 'lucide-react';
+import {
+  MoveUpIcon,
+  MoveDownIcon,
+  CorrectIcon,
+  IncorrectIcon,
+  PartiallyCorrectIcon,
+  AwaitingGradeIcon,
+  UnansweredIcon
+} from '@study/icons';
 import { useId } from 'react';
 import type { ReactNode, ComponentProps } from 'react';
 
@@ -112,7 +120,12 @@ function ChoiceOption({
       <Practice.ChoiceLetterText aria-hidden="true">{number}</Practice.ChoiceLetterText>
       <span>{text}</span>
       {status && <Practice.MutedText>{status}</Practice.MutedText>}
-      {selected && (tone === 'incorrect' ? <X aria-hidden="true" /> : <Check aria-hidden="true" />)}
+      {selected &&
+        (tone === 'incorrect' ? (
+          <IncorrectIcon aria-hidden="true" />
+        ) : (
+          <CorrectIcon aria-hidden="true" />
+        ))}
     </Practice.Choice>
   );
 }
@@ -158,7 +171,7 @@ function Ordering({
                 disabled={disabled || index === 0}
                 onClick={() => move(index, -1)}
               >
-                <ArrowUp aria-hidden="true" />
+                <MoveUpIcon aria-hidden="true" />
               </Button>
               <Button
                 type="button"
@@ -169,7 +182,7 @@ function Ordering({
                 disabled={disabled || index === items.length - 1}
                 onClick={() => move(index, 1)}
               >
-                <ArrowDown aria-hidden="true" />
+                <MoveDownIcon aria-hidden="true" />
               </Button>
             </div>
           )}
@@ -200,11 +213,11 @@ function ResultVerdict({
   children: ReactNode;
 }) {
   const Icon = {
-    correct: Check,
-    incorrect: X,
-    partial: CircleMinus,
-    pending: Clock3,
-    unanswered: Minus
+    correct: CorrectIcon,
+    incorrect: IncorrectIcon,
+    partial: PartiallyCorrectIcon,
+    pending: AwaitingGradeIcon,
+    unanswered: UnansweredIcon
   }[tone];
 
   return (

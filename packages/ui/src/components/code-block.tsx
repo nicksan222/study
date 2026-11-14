@@ -1,6 +1,6 @@
+import { CopiedIcon, CopyIcon } from '@study/icons';
 import { cva } from 'class-variance-authority';
 import type { VariantProps } from 'class-variance-authority';
-import { Check, Copy } from 'lucide-react';
 // Adapted from shadcn/ui (MIT). See ../vendor/shadcn/LICENSE.
 import * as React from 'react';
 
@@ -112,7 +112,7 @@ function CodeBlockCopyButton({
         }}
         {...props}
       >
-        {copied ? <Check /> : <Copy />}
+        {copied ? <CopiedIcon /> : <CopyIcon />}
       </Button>
       <span aria-live="polite" className="sr-only">
         {copied ? copiedLabel : ''}

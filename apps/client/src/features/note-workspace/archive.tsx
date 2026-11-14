@@ -1,5 +1,6 @@
 import type { MessageId, NoteId, SourceId, PageId } from '@study/contracts/ids';
 import type { ArchivedNoteItem, NoteArchiveTarget } from '@study/contracts/notes/archive';
+import { PageIcon, ConvertedMessageIcon, RestoreIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ChatMessage, ChatMessageText } from '@study/ui/chat';
@@ -8,7 +9,6 @@ import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/note-workspace';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, FileInput, RotateCcw } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -138,9 +138,9 @@ function ArchiveNavigation({
               onClick={() => onSelect(itemKey(item.target))}
               icon={
                 item.target.kind === 'source' ? (
-                  <FileInput aria-hidden="true" />
+                  <ConvertedMessageIcon aria-hidden="true" />
                 ) : (
-                  <FileText aria-hidden="true" />
+                  <PageIcon aria-hidden="true" />
                 )
               }
             />
@@ -195,7 +195,7 @@ function ArchiveActions({
             disabled={archive.pending || blocked}
             onClick={() => archive.change(false)}
           >
-            <RotateCcw aria-hidden="true" />
+            <RestoreIcon aria-hidden="true" />
             {t('NoteRestore')}
           </Button>
         </Surface.PageActions>

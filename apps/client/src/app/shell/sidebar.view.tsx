@@ -1,3 +1,16 @@
+import {
+  HomeIcon,
+  PageIcon,
+  QuizIcon,
+  NoteIcon,
+  LibraryIcon,
+  ProjectIcon,
+  HelpIcon,
+  SearchIcon,
+  CreateProjectIcon,
+  GeneralSettingsIcon,
+  CreateNoteIcon
+} from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogHeading } from '@study/ui/dialog-heading';
@@ -8,19 +21,6 @@ import { Loading } from '@study/ui/loading';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
 import { Spinner } from '@study/ui/spinner';
 import { Link } from '@tanstack/react-router';
-import {
-  Home,
-  FileText,
-  GraduationCap,
-  MessagesSquare,
-  Library,
-  Folder,
-  CircleHelp,
-  Search,
-  FolderPlus,
-  Settings2,
-  SquarePen
-} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { NewBlankPage } from '#client/features/pages/index.ts';
@@ -69,15 +69,15 @@ export function SidebarView(model: SidebarViewModel) {
 function searchPresentation(kind: SidebarModel['hits'][number]['kind']) {
   switch (kind) {
     case 'page':
-      return { Icon: FileText, label: 'SourcePage' as const };
+      return { Icon: PageIcon, label: 'SourcePage' as const };
     case 'material':
-      return { Icon: GraduationCap, label: 'SearchKindMaterial' as const };
+      return { Icon: QuizIcon, label: 'SearchKindMaterial' as const };
     case 'source':
-      return { Icon: Library, label: 'SearchKindFile' as const };
+      return { Icon: LibraryIcon, label: 'SearchKindFile' as const };
     case 'project':
-      return { Icon: Folder, label: 'SearchKindProject' as const };
+      return { Icon: ProjectIcon, label: 'SearchKindProject' as const };
     default:
-      return { Icon: MessagesSquare, label: 'SearchKindNote' as const };
+      return { Icon: NoteIcon, label: 'SearchKindNote' as const };
   }
 }
 
@@ -264,7 +264,7 @@ function SidebarSubjectPicker({
       }}
       collapsed={collapsed}
       label={t('ChooseProject')}
-      fallbackIcon={<Folder aria-hidden="true" />}
+      fallbackIcon={<ProjectIcon aria-hidden="true" />}
       searchLabel={t('FindSubject')}
       empty={projectPickerEmpty(subjectState, subjects.length, t)}
       status={<SidebarProjectStatus subjectState={subjectState} reloadSubjects={reloadSubjects} />}
@@ -319,7 +319,7 @@ function SidebarPickerActions({
           setActionError(false);
         }}
       >
-        <FolderPlus aria-hidden="true" />
+        <CreateProjectIcon aria-hidden="true" />
         {t('NewProject')}
       </Button>
       <Button
@@ -336,7 +336,7 @@ function SidebarPickerActions({
           />
         }
       >
-        <Folder aria-hidden="true" />
+        <ProjectIcon aria-hidden="true" />
         {t('Projects')}
       </Button>
       {subject && (
@@ -348,7 +348,7 @@ function SidebarPickerActions({
             onEditSubject();
           }}
         >
-          <Settings2 aria-hidden="true" />
+          <GeneralSettingsIcon aria-hidden="true" />
           {t('SubjectSettings')}
         </Button>
       )}
@@ -388,7 +388,7 @@ function SidebarPickerShortcuts({
           />
         }
       >
-        <Home aria-hidden="true" />
+        <HomeIcon aria-hidden="true" />
         {t('Home')}
       </Button>
       <Button
@@ -401,7 +401,7 @@ function SidebarPickerShortcuts({
           replay?.();
         }}
       >
-        <CircleHelp aria-hidden="true" />
+        <HelpIcon aria-hidden="true" />
         {t('Help')}
       </Button>
     </SidebarUI.PickerShortcuts>
@@ -466,7 +466,7 @@ function SidebarToolbar({
           setActionError(false);
         }}
       >
-        <FolderPlus aria-hidden="true" />
+        <CreateProjectIcon aria-hidden="true" />
       </IconButton>
       <SidebarCreationControl
         metadata={metadata}
@@ -659,7 +659,7 @@ function SidebarSearchControl({
 
           onClick={openSearch}
         >
-          <Search aria-hidden="true" />
+          <SearchIcon aria-hidden="true" />
         </IconButton>
       ) : (
         <SidebarUI.Search
@@ -684,7 +684,7 @@ function SidebarSearchControl({
 function SidebarCreateNoteIcon({ creating }: Pick<SidebarModel, 'creating'>) {
   const { t } = useI18n();
 
-  return creating ? <Spinner label={t('Saving')} /> : <SquarePen aria-hidden="true" />;
+  return creating ? <Spinner label={t('Saving')} /> : <CreateNoteIcon aria-hidden="true" />;
 }
 
 /** Keep picker icon rendering stable while subject and selection state change. */

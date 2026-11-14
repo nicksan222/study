@@ -1,5 +1,5 @@
 import { Select } from '@base-ui/react/select';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { SelectedIcon, ScrollOptionsDownIcon, ScrollOptionsUpIcon } from '@study/icons';
 
 export interface SelectControlProps {
   label: string;
@@ -31,7 +31,7 @@ export function SelectControl({
       <Select.Trigger aria-label={label} className="study-select-trigger">
         <Select.Value className="study-select-value" />
         <Select.Icon className="study-select-icon">
-          <ChevronDown aria-hidden="true" size={14} />
+          <ScrollOptionsDownIcon aria-hidden="true" size={14} />
         </Select.Icon>
       </Select.Trigger>
       <Select.Portal>
@@ -43,7 +43,7 @@ export function SelectControl({
         >
           <Select.Popup className="study-select-popup" data-option-text={optionText}>
             <Select.ScrollUpArrow className="study-select-scroll-arrow" aria-hidden="true">
-              <ChevronUp size={16} />
+              <ScrollOptionsUpIcon size={16} />
             </Select.ScrollUpArrow>
             <Select.List className="study-select-list">
               {options.map((option) => (
@@ -55,13 +55,13 @@ export function SelectControl({
                 >
                   <Select.ItemText className="study-select-value">{option.label}</Select.ItemText>
                   <Select.ItemIndicator className="study-select-indicator">
-                    <Check size={16} aria-hidden="true" />
+                    <SelectedIcon size={16} aria-hidden="true" />
                   </Select.ItemIndicator>
                 </Select.Item>
               ))}
             </Select.List>
             <Select.ScrollDownArrow className="study-select-scroll-arrow" aria-hidden="true">
-              <ChevronDown size={16} />
+              <ScrollOptionsDownIcon size={16} />
             </Select.ScrollDownArrow>
           </Select.Popup>
         </Select.Positioner>

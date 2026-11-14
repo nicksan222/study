@@ -1,5 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
+import { QuizIcon, FlashcardsIcon, StopIcon } from '@study/icons';
 import { AiActivity } from '@study/ui/ai-button';
 import {
   ContextMenu,
@@ -9,7 +10,6 @@ import {
 } from '@study/ui/context-menu';
 import { Sidebar } from '@study/ui/sidebar';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GraduationCap, Layers, Square } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -74,7 +74,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
     }
   });
   const owner = subjects.find((subject) => subject.id === generation.projectId);
-  const Icon = generation.kind === 'flashcards' ? Layers : GraduationCap;
+  const Icon = generation.kind === 'flashcards' ? FlashcardsIcon : QuizIcon;
   const stopLabel = t('PracticeGenerationStop', { title: generation.title });
   const status = t(stop.isPending ? 'PracticeGenerationStopping' : 'PracticeGenerationRunning');
 
@@ -102,7 +102,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
         />
         <ContextMenuPopup>
           <ContextMenuItem disabled={stop.isPending} onClick={() => stop.mutate()}>
-            <Square aria-hidden="true" />
+            <StopIcon aria-hidden="true" />
             {t('PracticeGenerationStopAction')}
           </ContextMenuItem>
         </ContextMenuPopup>
@@ -114,7 +114,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           disabled={stop.isPending}
           onClick={() => stop.mutate()}
         >
-          <Square aria-hidden="true" />
+          <StopIcon aria-hidden="true" />
           {t('StopJob')}
         </Sidebar.SettleAction>
       </Sidebar.NoteRowActions>

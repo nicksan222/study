@@ -1,5 +1,15 @@
 import type { ProjectId } from '@study/contracts/ids';
 import {
+  CreatePageIcon,
+  PageIcon,
+  OpenProjectIcon,
+  QuizIcon,
+  HelpIcon,
+  NoteIcon,
+  SettingsIcon,
+  CreateNoteIcon
+} from '@study/icons';
+import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
@@ -8,16 +18,6 @@ import {
 } from '@study/ui/context-menu';
 import { toastManager } from '@study/ui/toast';
 import { Link, useNavigate } from '@tanstack/react-router';
-import {
-  FilePlus2,
-  FileText,
-  FolderOpen,
-  GraduationCap,
-  HelpCircle,
-  MessagesSquare,
-  Settings,
-  SquarePen
-} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useContext } from 'react';
 
@@ -26,14 +26,14 @@ import { useNewBlankPage } from '#client/features/pages/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 const destinations = [
-  ['/notes', 'Notes', MessagesSquare],
-  ['/pages', 'SourcePage', FileText],
-  ['/practice', 'Practice', GraduationCap]
+  ['/notes', 'Notes', NoteIcon],
+  ['/pages', 'SourcePage', PageIcon],
+  ['/practice', 'Practice', QuizIcon]
 ] as const;
 
 const globalDestinations = [
-  ['/projects', 'Projects', FolderOpen],
-  ['/settings', 'Settings', Settings]
+  ['/projects', 'Projects', OpenProjectIcon],
+  ['/settings', 'Settings', SettingsIcon]
 ] as const;
 
 /** Provides workspace shortcuts wherever a descendant has not handled its own context menu. */
@@ -74,11 +74,11 @@ export function DefaultContextMenu({
           disabled={disabled}
           onClick={() => void navigate({ to: '/notes', search })}
         >
-          <SquarePen aria-hidden="true" />
+          <CreateNoteIcon aria-hidden="true" />
           {t('NewNote')}
         </ContextMenuItem>
         <ContextMenuItem disabled={disabled || page.pending} onClick={() => void createPage()}>
-          <FilePlus2 aria-hidden="true" />
+          <CreatePageIcon aria-hidden="true" />
           {t('PageNew')}
         </ContextMenuItem>
         <ContextMenuSeparator />
@@ -96,7 +96,7 @@ export function DefaultContextMenu({
           </ContextMenuItem>
         ))}
         <ContextMenuItem disabled={!replay} onClick={() => replay?.()}>
-          <HelpCircle aria-hidden="true" />
+          <HelpIcon aria-hidden="true" />
           {t('Help')}
         </ContextMenuItem>
       </ContextMenuPopup>

@@ -1,8 +1,8 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { NoteIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogHeading } from '@study/ui/dialog-heading';
-import { MessagesSquare } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -21,7 +21,7 @@ export function PagesFromNotes({ project }: { project?: ProjectId }) {
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger render={<Button variant="outline" />}>
-          <MessagesSquare aria-hidden="true" />
+          <NoteIcon aria-hidden="true" />
           {t('PagesFromNotes')}
         </DialogTrigger>
         <DialogPopup closeLabel={t('Close')}>

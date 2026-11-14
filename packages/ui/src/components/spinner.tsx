@@ -1,8 +1,8 @@
+import { LoadingIcon } from '@study/icons';
 import { cn } from '@study/ui/utils';
 import { observeVisibleAnimation } from '@study/ui/visible-animation';
 import { cva } from 'class-variance-authority';
 import type { VariantProps } from 'class-variance-authority';
-import { LoaderCircleIcon } from 'lucide-react';
 
 // No default size: inside a Button the parent's svg rule sizes the glyph.
 const spinnerVariants = cva('motion-safe:visible-animate-spin', {
@@ -27,10 +27,10 @@ function Spinner({
   tone,
   label,
   ...props
-}: React.ComponentPropsWithoutRef<typeof LoaderCircleIcon> &
+}: React.ComponentPropsWithoutRef<typeof LoadingIcon> &
   VariantProps<typeof spinnerVariants> & { label: string }) {
   return (
-    <LoaderCircleIcon
+    <LoadingIcon
       aria-label={label}
       ref={observeVisibleAnimation}
       className={cn(spinnerVariants({ size, tone }), className)}

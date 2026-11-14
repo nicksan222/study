@@ -1,5 +1,6 @@
 import { projectIdSchema } from '@study/contracts/ids';
 import type { NoteId } from '@study/contracts/ids';
+import { SendIcon, AttachmentIcon, CloseIcon } from '@study/icons';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
@@ -13,7 +14,6 @@ import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
-import { ArrowUp, Paperclip, X } from 'lucide-react';
 import { useEffect, useId, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -267,7 +267,7 @@ function StarterComposer({ view }: { view: StartView }) {
         <NoteStarter.Files>
           {attachmentEntries(files.data).map(({ file, index, key }) => (
             <li key={key}>
-              <Paperclip size={14} aria-hidden="true" />
+              <AttachmentIcon size={14} aria-hidden="true" />
               <span>{file.name}</span>
               <IconButton
                 size="icon-sm"
@@ -281,7 +281,7 @@ function StarterComposer({ view }: { view: StartView }) {
                   )
                 }
               >
-                <X size={14} aria-hidden="true" />
+                <CloseIcon size={14} aria-hidden="true" />
               </IconButton>
             </li>
           ))}
@@ -308,7 +308,7 @@ function StarterComposer({ view }: { view: StartView }) {
       <ComposerSurface.Footer variant="notebook">
         <Notebook.CaptureTools>
           <Notebook.FileButton title={t('NoteAttachFiles')}>
-            <Paperclip size={16} aria-hidden="true" />
+            <AttachmentIcon size={16} aria-hidden="true" />
             <span>{t('NoteAttach')}</span>
             <input
               id={attachmentId}
@@ -333,7 +333,7 @@ function StarterComposer({ view }: { view: StartView }) {
             aria-busy={view.flow.data.pending}
             onClick={beginNote}
           >
-            <ArrowUp size={18} aria-hidden="true" />
+            <SendIcon size={18} aria-hidden="true" />
           </WorkspaceSurface.ComposerSubmit>
         </Notebook.Actions>
       </ComposerSurface.Footer>

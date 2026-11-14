@@ -27,7 +27,17 @@ async function writeManifests(
   directory: string,
   manifests: Record<string, unknown>
 ): Promise<void> {
-  for (const name of ['contracts', 'ui', 'theme', 'localization', 'db', 'ai', 'server', 'client']) {
+  for (const name of [
+    'contracts',
+    'ui',
+    'icons',
+    'theme',
+    'localization',
+    'db',
+    'ai',
+    'server',
+    'client'
+  ]) {
     const workspace = ['server', 'client'].includes(name) ? 'apps' : 'packages';
     const path = join(directory, workspace, name, 'package.json');
 

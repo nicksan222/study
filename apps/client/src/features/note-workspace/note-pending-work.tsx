@@ -1,4 +1,5 @@
 import type { NoteId } from '@study/contracts/ids';
+import { WorkActivityIcon, CancelIcon } from '@study/icons';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
@@ -8,7 +9,6 @@ import { IconButton } from '@study/ui/icon-button';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceWork } from '@study/ui/workspace';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, X } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -40,7 +40,7 @@ export function NotePendingWork({ id }: { id: NoteId }) {
   return (
     <WorkspaceWork.Root aria-label={t('NoteWorkHeading')}>
       <WorkspaceWork.Heading>
-        <Activity size={13} aria-hidden="true" />
+        <WorkActivityIcon size={13} aria-hidden="true" />
         <h2>{t('NoteWorkHeading')}</h2>
       </WorkspaceWork.Heading>
       {state.isPending && <Loading label={t('NoteWorkLoading')} />}
@@ -111,7 +111,7 @@ function WorkRow({
         aria-busy={stopping}
         onClick={() => cancel.mutate(item)}
       >
-        <X size={14} aria-hidden="true" />
+        <CancelIcon size={14} aria-hidden="true" />
       </IconButton>
       {!stopping && item.execution.configurationWaitReason && (
         <WorkspaceWork.Progress>

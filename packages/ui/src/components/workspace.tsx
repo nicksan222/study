@@ -1,7 +1,7 @@
+import { OpenIcon, MenuIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { cn } from '@study/ui/utils';
-import { ArrowUpRight, SquareMenu } from 'lucide-react';
 import {
   createContext,
   useContext,
@@ -78,7 +78,7 @@ function Toggle({
       aria-controls={context.id}
       onClick={() => (onOpenChange ?? context.setOpen)(!(open ?? context.open))}
     >
-      <SquareMenu aria-hidden="true" />
+      <MenuIcon aria-hidden="true" />
     </Button>
   );
 }
@@ -227,7 +227,7 @@ function AttachmentItem({
         <span className="note-attachment-name">{label}</span>
         <span className="note-attachment-meta">{meta}</span>
       </span>
-      <ArrowUpRight className="note-attachment-open" aria-hidden="true" />
+      <OpenIcon className="note-attachment-open" aria-hidden="true" />
     </Button>
   );
 }

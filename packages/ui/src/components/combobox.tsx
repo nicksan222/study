@@ -1,6 +1,6 @@
 import { Combobox as Primitive } from '@base-ui/react/combobox';
+import { SelectedIcon, SearchIcon } from '@study/icons';
 import { cn } from '@study/ui/utils';
-import { Check, Search } from 'lucide-react';
 import type * as React from 'react';
 
 import { Input } from './input';
@@ -64,7 +64,7 @@ function ComboboxInput({
 export function ComboboxSearchInput(props: Primitive.Input.Props) {
   return (
     <div className="study-combobox-search">
-      <Search aria-hidden="true" />
+      <SearchIcon aria-hidden="true" />
       <ComboboxInput {...props} unstyled />
     </div>
   );
@@ -95,7 +95,7 @@ export function ComboboxItem({ className, children, ...props }: Primitive.Item.P
     >
       <span className="min-w-0 flex-1">{children}</span>
       <Primitive.ItemIndicator className="shrink-0" data-slot="combobox-item-indicator">
-        <Check className="size-4" aria-hidden="true" />
+        <SelectedIcon className="size-4" aria-hidden="true" />
       </Primitive.ItemIndicator>
     </Primitive.Item>
   );

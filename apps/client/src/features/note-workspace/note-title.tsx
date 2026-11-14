@@ -1,4 +1,5 @@
 import type { NoteId } from '@study/contracts/ids';
+import { EditIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
 import { DialogFormActions } from '@study/ui/dialog-form-actions';
@@ -6,7 +7,6 @@ import { DialogHeading } from '@study/ui/dialog-heading';
 import { Input } from '@study/ui/input';
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { Pencil } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -41,7 +41,7 @@ export function NoteTitleEdit({ id, title }: { id: NoteId; title: string }) {
         aria-label={t('NoteRename')}
         title={t('NoteRename')}
       >
-        <Pencil aria-hidden="true" />
+        <EditIcon aria-hidden="true" />
       </DialogTrigger>
       <DialogPopup closeLabel={t('Close')} showCloseButton={!mutation.isPending}>
         <DialogHeading title={<> {t('NoteRename')} </>} />

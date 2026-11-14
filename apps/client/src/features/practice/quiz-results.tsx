@@ -1,11 +1,11 @@
 import type { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
+import { RetryIcon } from '@study/icons';
 import { questionNumber, reviewProgress, questionCount } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { NextButton, PreviousButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { Link, useSearch } from '@tanstack/react-router';
-import { RotateCcw } from 'lucide-react';
 import { useState, useId } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -90,7 +90,7 @@ export function QuizResults({
             />
           }
         >
-          <RotateCcw aria-hidden="true" />
+          <RetryIcon aria-hidden="true" />
           {t('PracticeTryAgain')}
         </Button>
       )}

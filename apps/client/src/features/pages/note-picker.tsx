@@ -1,9 +1,9 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { SelectedIcon, UnselectedIcon } from '@study/icons';
 import { Loading } from '@study/ui/loading';
 import { PageOverview } from '@study/ui/page-overview';
 import { SearchField } from '@study/ui/search-field';
 import { useQuery } from '@tanstack/react-query';
-import { Check, Circle } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -57,7 +57,11 @@ export function NotePicker({
                   )
                 }
               >
-                {checked ? <Check aria-hidden="true" /> : <Circle aria-hidden="true" />}
+                {checked ? (
+                  <SelectedIcon aria-hidden="true" />
+                ) : (
+                  <UnselectedIcon aria-hidden="true" />
+                )}
                 <span>{note.title || t('NoteUntitled')}</span>
               </PageOverview.NoteChoice>
             </li>

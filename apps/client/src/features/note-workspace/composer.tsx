@@ -1,11 +1,11 @@
 import { StudyError } from '@study/contracts/errors';
 import type { NoteId } from '@study/contracts/ids';
+import { SendIcon, ComposeIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { ArrowUp, FilePenLine } from 'lucide-react';
 
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
@@ -72,7 +72,7 @@ export function Composer({ id, onPage }: { id: NoteId; onPage?: () => void }) {
           <AttachmentPicker id={id} blocked={blocked} />
           {onPage && (
             <Button variant="ghost-muted" size="sm" onClick={onPage} disabled={blocked}>
-              <FilePenLine size={16} aria-hidden="true" />
+              <ComposeIcon size={16} aria-hidden="true" />
               {t('NoteWritePage')}
             </Button>
           )}
@@ -99,7 +99,7 @@ function ComposerActions({ model }: { model: ComposerModel }) {
         disabled={blocked || filesBlocked || (!draft.text.trim() && !sourceIds.length)}
         onClick={submitNote}
       >
-        <ArrowUp size={18} aria-hidden="true" />
+        <SendIcon size={18} aria-hidden="true" />
       </WorkspaceSurface.ComposerSubmit>
     </Notebook.Actions>
   );

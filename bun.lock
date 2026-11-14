@@ -38,6 +38,7 @@
       "dependencies": {
         "@fontsource-variable/inter": "^5.3.0",
         "@study/contracts": "*",
+        "@study/icons": "*",
         "@study/localization": "*",
         "@study/server": "*",
         "@study/ui": "*",
@@ -46,7 +47,6 @@
         "@tauri-apps/api": "^2.12.4",
         "@tauri-apps/plugin-opener": "^2.7.2",
         "effect": "4.0.7",
-        "lucide-react": "^1.61.0",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
       },
@@ -115,6 +115,16 @@
         "drizzle-kit": "1.0.0-rc.5",
       },
     },
+    "packages/icons": {
+      "name": "@study/icons",
+      "version": "0.1.0",
+      "dependencies": {
+        "lucide-react": "^1.61.0",
+      },
+      "peerDependencies": {
+        "react": "^19.3.1",
+      },
+    },
     "packages/integrations": {
       "name": "@study/integrations",
       "dependencies": {
@@ -156,6 +166,7 @@
       "dependencies": {
         "@base-ui/react": "^1.9.0",
         "@shadcn/react": "0.3.1",
+        "@study/icons": "*",
         "@study/theme": "*",
         "@tiptap/core": "^3.32.2",
         "@tiptap/extension-file-handler": "3.32.2",
@@ -170,7 +181,6 @@
         "@tiptap/static-renderer": "^3.32.2",
         "class-variance-authority": "^0.7.1",
         "katex": "^0.16.47",
-        "lucide-react": "^1.61.0",
         "tailwind-merge": "^3.7.0",
         "tailwindcss": "4.3.3",
       },
@@ -501,6 +511,8 @@
     "@study/db": ["@study/db@workspace:packages/db"],
 
     "@study/desktop": ["@study/desktop@workspace:apps/desktop"],
+
+    "@study/icons": ["@study/icons@workspace:packages/icons"],
 
     "@study/integrations": ["@study/integrations@workspace:packages/integrations"],
 

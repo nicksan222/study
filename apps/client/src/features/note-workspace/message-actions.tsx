@@ -1,4 +1,13 @@
 import type { VersionId } from '@study/contracts/ids';
+import {
+  EditIcon,
+  RewriteIcon,
+  SummarizeIcon,
+  RefineIcon,
+  AcceptIcon,
+  ArchiveIcon,
+  ConvertToTextIcon
+} from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ChatMessageActionToolbar } from '@study/ui/chat';
@@ -9,15 +18,6 @@ import { Notebook } from '@study/ui/note-workspace';
 import { Textarea } from '@study/ui/textarea';
 import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import {
-  Pencil,
-  Sparkles,
-  AlignLeft,
-  SlidersHorizontal,
-  Check,
-  Archive,
-  FileText
-} from 'lucide-react';
 import type { ReactNode } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
@@ -119,7 +119,7 @@ function MessageToolbar({
           mode="edit"
           disabled={!active}
           label="NoteEditNote"
-          icon={<Pencil size={15} aria-hidden="true" />}
+          icon={<EditIcon size={15} aria-hidden="true" />}
         />
       )}
       {onVersionChange && (
@@ -136,21 +136,21 @@ function MessageToolbar({
           mode="improve"
           disabled={!active}
           label="NoteImprove"
-          icon={<Sparkles size={15} aria-hidden="true" />}
+          icon={<RewriteIcon size={15} aria-hidden="true" />}
         />
         <MessageActionButton
           model={model}
           mode="summarize"
           disabled={!active}
           label="NoteSummarize"
-          icon={<AlignLeft size={15} aria-hidden="true" />}
+          icon={<SummarizeIcon size={15} aria-hidden="true" />}
         />
         <MessageActionButton
           model={model}
           mode="instruction"
           disabled={!active}
           label="NoteCustomTransform"
-          icon={<SlidersHorizontal size={15} aria-hidden="true" />}
+          icon={<RefineIcon size={15} aria-hidden="true" />}
         />
       </>
       <MessageActionButton
@@ -158,7 +158,7 @@ function MessageToolbar({
         mode="activate"
         disabled={active}
         label="NoteUseVersion"
-        icon={<Check size={15} aria-hidden="true" />}
+        icon={<AcceptIcon size={15} aria-hidden="true" />}
       />
       <MessageConversionButton model={model} />
       {questionAction}
@@ -198,7 +198,7 @@ function MessageConversionButton({ model }: { model: MessageActionsModel }) {
           />
         }
       >
-        <FileText size={15} aria-hidden="true" />
+        <ConvertToTextIcon size={15} aria-hidden="true" />
         <Notebook.ActionLabel>{model.t('NoteConvertText')}</Notebook.ActionLabel>
       </TooltipTrigger>
       <TooltipPopup role="tooltip">{model.t('NoteConvertText')}</TooltipPopup>
@@ -224,7 +224,7 @@ function MessageArchiveButton({ model }: { model: MessageActionsModel }) {
           />
         }
       >
-        <Archive size={15} aria-hidden="true" />
+        <ArchiveIcon size={15} aria-hidden="true" />
         <Notebook.ActionLabel>{model.t('NoteArchive')}</Notebook.ActionLabel>
       </TooltipTrigger>
       <TooltipPopup>{model.t('NoteArchive')}</TooltipPopup>

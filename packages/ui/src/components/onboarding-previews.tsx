@@ -1,9 +1,9 @@
+import { PageIcon, NoteIcon, NextIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Identity } from '@study/ui/identity';
 import { List } from '@study/ui/list';
 import { OnboardingNotebook } from '@study/ui/onboarding';
 import { RichNoteContent } from '@study/ui/rich-note';
-import { FileText, MessagesSquare, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 
 /** Shows the subject identity and its real navigation primitives without creating saved data. */
@@ -35,7 +35,7 @@ export function OnboardingSubject({
         <List.Row>
           <List.Leading>
             <List.Icon>
-              <MessagesSquare aria-hidden="true" />
+              <NoteIcon aria-hidden="true" />
             </List.Icon>
           </List.Leading>
           <List.Main>
@@ -46,7 +46,7 @@ export function OnboardingSubject({
         <List.Row>
           <List.Leading>
             <List.Icon>
-              <FileText aria-hidden="true" />
+              <PageIcon aria-hidden="true" />
             </List.Icon>
           </List.Leading>
           <List.Main>
@@ -72,7 +72,7 @@ export function OnboardingPage({
   return (
     <figure className="ui-onboarding-preview">
       <figcaption>
-        <FileText aria-hidden="true" />
+        <PageIcon aria-hidden="true" />
         {label}
       </figcaption>
       <article className="ui-onboarding-page">
@@ -109,7 +109,7 @@ export function OnboardingWorkflow({
     <div className="ui-onboarding-workflow">
       <div className="ui-onboarding-workflow-path">
         <span data-current={!showPage}>{captureLabel}</span>
-        <ArrowRight aria-hidden="true" />
+        <NextIcon aria-hidden="true" />
         <span data-current={showPage}>{pagesLabel}</span>
       </div>
       <div aria-live="polite">
@@ -121,7 +121,7 @@ export function OnboardingWorkflow({
       </div>
       <Button variant="outline" onClick={() => setShowPage((value) => !value)}>
         {showPage ? captureLabel : transformLabel}
-        {!showPage && <ArrowRight aria-hidden="true" />}
+        {!showPage && <NextIcon aria-hidden="true" />}
       </Button>
     </div>
   );

@@ -1,4 +1,4 @@
-import { ArrowDown } from 'lucide-react';
+import { ScrollToLatestIcon } from '@study/icons';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ComponentPropsWithRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -129,7 +129,7 @@ export function ChatNote({
                 />
               }
             >
-              <ArrowDown size={16} aria-hidden="true" />
+              <ScrollToLatestIcon size={16} aria-hidden="true" />
             </TooltipTrigger>
             <TooltipPopup>{jumpLabel}</TooltipPopup>
           </Tooltip>

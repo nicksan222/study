@@ -1,10 +1,10 @@
+import { OpenIcon } from '@study/icons';
 import {
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem
 } from '@study/ui/context-menu';
-import { ArrowUpRight } from 'lucide-react';
 import { cloneElement, useRef } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
@@ -38,7 +38,7 @@ export function ItemContextMenu({
         }
       >
         <ContextMenuItem render={cloneElement(target, { 'aria-label': label })} disabled={disabled}>
-          <ArrowUpRight aria-hidden="true" />
+          <OpenIcon aria-hidden="true" />
           {label}
         </ContextMenuItem>
         {actions}

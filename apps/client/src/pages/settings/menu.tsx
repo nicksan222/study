@@ -1,6 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { SettingsIcon } from '@study/icons';
 import { Sidebar } from '@study/ui/sidebar';
-import { Settings } from 'lucide-react';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -32,7 +32,7 @@ export function SettingsMenu({
           setOpen(true);
         }}
       >
-        <Settings aria-hidden="true" />
+        <SettingsIcon aria-hidden="true" />
       </Sidebar.NavigationItem>
       {open && <Page workspaceProject={workspaceProject} onClose={() => setOpen(false)} />}
     </>

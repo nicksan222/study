@@ -1,8 +1,8 @@
+import { AssistantHistoryIcon, AddIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceCard } from '@study/ui/workspace';
-import { MessageSquare, Plus } from 'lucide-react';
 import type { Ref } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -34,7 +34,7 @@ export function AssistantHistory({
     >
       <WorkspaceCard.Group>
         <WorkspaceCard.Primary disabled={model.createChat.isPending} onClick={model.newChat}>
-          <Plus size={16} />
+          <AddIcon size={16} />
           {t('AssistantNewChat')}
         </WorkspaceCard.Primary>
         {model.createChat.isError && (
@@ -54,7 +54,7 @@ export function AssistantHistory({
                 aria-current={model.note.data?.id === chat.id ? 'page' : undefined}
                 onClick={() => model.selectChat(chat.id)}
               >
-                <MessageSquare size={16} />
+                <AssistantHistoryIcon size={16} />
                 <span>{chat.title || t('Assistant')}</span>
               </WorkspaceCard.Item>
             ))}

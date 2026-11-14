@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { BackIcon, NextIcon } from '@study/icons';
 import type { ComponentProps } from 'react';
 
 import { Button } from './button';
@@ -9,7 +9,7 @@ type NavigationProps = Omit<ComponentProps<typeof Button>, 'children'> & { label
 export function PreviousButton({ label, variant = 'outline', ...props }: NavigationProps) {
   return (
     <Button type="button" {...props} variant={variant}>
-      <ArrowLeft aria-hidden="true" />
+      <BackIcon aria-hidden="true" />
       {label}
     </Button>
   );
@@ -19,7 +19,7 @@ export function NextButton({ label, variant = 'outline', ...props }: NavigationP
   return (
     <Button type="button" {...props} variant={variant}>
       {label}
-      <ArrowRight aria-hidden="true" />
+      <NextIcon aria-hidden="true" />
     </Button>
   );
 }

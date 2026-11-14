@@ -1,7 +1,7 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { NoteIcon, PageIcon, QuizIcon, AssistantIcon } from '@study/icons';
 import { Sidebar } from '@study/ui/sidebar';
 import { Link } from '@tanstack/react-router';
-import { MessagesSquare, FileText, GraduationCap, MessageCircle } from 'lucide-react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import type { Section } from '#client/lib/navigation/route-contract.ts';
@@ -10,9 +10,9 @@ import { SettingsMenu } from '#client/pages/settings/menu.tsx';
 import type { useSidebarCounts } from './sidebar-counts.queries';
 
 const sections = [
-  ['/notes', 'notes', MessagesSquare, 'Notes'],
-  ['/pages', 'pages', FileText, 'SourcePage'],
-  ['/practice', 'practice', GraduationCap, 'Practice']
+  ['/notes', 'notes', NoteIcon, 'Notes'],
+  ['/pages', 'pages', PageIcon, 'SourcePage'],
+  ['/practice', 'practice', QuizIcon, 'Practice']
 ] as const;
 
 /** Preserves subject scope in section links and passes resolved workspace ownership into settings. */
@@ -65,7 +65,7 @@ export function SidebarNavigation({
             />
           }
         >
-          <MessageCircle aria-hidden="true" />
+          <AssistantIcon aria-hidden="true" />
         </Sidebar.NavigationItem>
       </Sidebar.Navigation>
       <Sidebar.Footer aria-label={t('Settings')}>
