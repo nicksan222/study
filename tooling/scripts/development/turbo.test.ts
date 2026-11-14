@@ -261,11 +261,12 @@ testStable.each([
         `${root}tooling/scripts/development/turbo.ts`,
         'run',
         'hold',
-        '--filter=@study/client'
+        '--filter=@study/client',
+        '--log-order=stream'
       ],
       {
         cwd: repo.path,
-        env: { ...process.env, TURBO_TELEMETRY_DISABLED: '1' },
+        env: { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true', TURBO_TELEMETRY_DISABLED: '1' },
         stdout: 'pipe',
         stderr: 'pipe'
       }
