@@ -2,26 +2,18 @@ import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import { projectSchema } from '@study/contracts/projects/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { ProjectSettings } from './project-settings';
 
 const api = vi.hoisted(() => ({ list: vi.fn(), rename: vi.fn(), remove: vi.fn(), icon: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/operations.ts', () => ({ listProjects: api.list }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (fn: (client: unknown) => unknown) =>
-    fn({
-      'projects.renameProject': api.rename,
-      'projects.deleteProject': api.remove,
-      'projects.setIcon': api.icon
-    })
-}));
 
 const first = Schema.decodeUnknownSync(projectSchema)({
   id: 9007199254740993n,
@@ -38,25 +30,32 @@ const second = {
   name: 'Math 101'
 };
 
-const clients: QueryClient[] = [];
-
 beforeEach(() => {
   vi.resetAllMocks();
   api.list.mockResolvedValue([first, second]);
 });
-afterEach(() => clients.splice(0).forEach((client) => client.clear()));
 
 function mount(initialProject: ProjectId | null = second.id) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const harness = rpcHandlersTransport({
+    'projects.projects': async () => ({ items: await api.list(), next: null }),
+    'projects.project': async ({ id }) => {
+      const items = await api.list();
+      const item = items.find((value: typeof first) => value.id === id);
 
-  clients.push(client);
+      if (!item) throw new StudyError('not_found', 'Subject unavailable');
+
+      return item;
+    },
+    'projects.renameProject': api.rename,
+    'projects.deleteProject': api.remove,
+    'projects.setIcon': api.icon
+  });
 
   return {
-    client,
     ...render(
-      <QueryClientProvider client={client}>
+      <harness.wrapper>
         <ProjectSettings initialProject={initialProject ?? undefined} />
-      </QueryClientProvider>
+      </harness.wrapper>
     )
   };
 }
@@ -69,19 +68,14 @@ testStable(
 
       return true;
     });
-    const { client } = mount();
+    mount();
     const name = await screen.findByRole('textbox', { name: 'ProjectName' });
 
     expect(name).toHaveValue('Math 101');
     fireEvent.change(name, { target: { value: 'Linear algebra' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() =>
-      expect(client.getQueryData(['projects'])).toContainEqual({
-        ...second,
-        name: 'Linear algebra'
-      })
-    );
+    await screen.findAllByText('Linear algebra');
     expect(api.rename).toHaveBeenCalledExactlyOnceWith({ id: second.id, name: 'Linear algebra' });
     expect(name).toHaveValue('Linear algebra');
   }

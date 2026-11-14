@@ -1,26 +1,18 @@
 import { projectSchema, automaticProjectIcon } from '@study/contracts/projects/schemas';
 import type { ProjectIcon } from '@study/contracts/projects/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { SubjectIconEditor } from './subject-icon-editor';
 
 const save = vi.hoisted(() => vi.fn());
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (fn: (client: unknown) => unknown) => fn({ 'projects.setIcon': save })
-}));
-
-const clients: QueryClient[] = [];
-
-afterEach(() => {
-  clients.splice(0).forEach((client) => client.clear());
-  save.mockReset();
-});
+afterEach(() => save.mockReset());
 
 const project = Schema.decodeUnknownSync(projectSchema)({
   id: 91n,
@@ -32,25 +24,22 @@ const project = Schema.decodeUnknownSync(projectSchema)({
 });
 
 function mount(icon: ProjectIcon = automaticProjectIcon) {
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const transport = rpcTestTransport(async (tag, input) => {
+    if (tag !== 'projects.setIcon') throw new Error(`Unexpected ${tag}`);
 
-  clients.push(cache);
+    return save(input);
+  });
 
-  return {
-    cache,
-    ...render(
-      <QueryClientProvider client={cache}>
-        <SubjectIconEditor project={{ ...project, icon }} />
-      </QueryClientProvider>
-    )
-  };
+  return render(<SubjectIconEditor project={{ ...project, icon }} />, {
+    wrapper: transport.wrapper
+  });
 }
 
 testStable(
-  'saves a valid custom monogram with exact subject identity, preserving canonical response in cache',
+  'saves a valid custom monogram with exact subject identity, closing the reviewed dialog',
   async () => {
     save.mockImplementation(async (input) => ({ ...project, icon: input.icon }));
-    const { cache } = mount();
+    mount();
 
     fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
     expect(screen.getByText('CB')).toBeVisible();
@@ -67,9 +56,7 @@ testStable(
         icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
       })
     );
-    expect(cache.getQueryData(['projects', 'collection', String(project.id)])).toMatchObject({
-      icon: { kind: 'monogram', value: 'BIO', color: 'neutral' }
-    });
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   }
 );
 
@@ -115,11 +102,7 @@ testStable(
     const icon = { kind: 'symbol', value: 'atom', color: 'violet' } as const;
 
     await waitFor(() => expect(save).toHaveBeenCalledExactlyOnceWith({ id: project.id, icon }));
-    view.rerender(
-      <QueryClientProvider client={view.cache}>
-        <SubjectIconEditor project={{ ...project, icon }} />
-      </QueryClientProvider>
-    );
+    view.rerender(<SubjectIconEditor project={{ ...project, icon }} />);
     fireEvent.click(screen.getByRole('button', { name: 'SubjectIconChange' }));
     expect(screen.getByRole('radio', { name: 'SubjectSymbolAtom' })).toHaveAttribute(
       'aria-checked',

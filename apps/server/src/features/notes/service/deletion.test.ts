@@ -29,6 +29,7 @@ import { Pages } from '#server/features/pages/index';
 import { pageTransformWorkflow } from '#server/features/pages/workflows/transform';
 import { workflowStore } from '#server/platform/workflows/store';
 import { dispatchPending } from '#server/platform/workflows/triggers';
+import { testLiveQueries } from '#testing/live-queries';
 import {
   setup,
   deletionEvent,
@@ -54,7 +55,9 @@ testStable(
           Effect.provide(fixture.domain())
         )
       );
-      const handlers = NotesRpcLive.pipe(Layer.provideMerge(fixture.domain()));
+      const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+        Layer.provideMerge(fixture.domain())
+      );
       const accepted = await Effect.runPromise(
         Effect.scoped(
           Effect.gen(function* () {

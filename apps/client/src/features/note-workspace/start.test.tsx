@@ -3,7 +3,6 @@ import { noteSchema } from '@study/contracts/notes/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { WorkspaceCard } from '@study/ui/workspace';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
   createRoute,
@@ -15,36 +14,35 @@ import {
 } from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { SidebarNoteDrafts } from '#client/app/shell/sidebar-note-drafts.tsx';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { NoteStart } from './start';
-import { startDraftKey, startDraftsOptions } from './start-drafts.queries';
+import { startDraftKey, startDraft, startDrafts } from './start-drafts.queries';
 
 const api = vi.hoisted(() => ({ create: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('./workspace-context', () => ({ WorkspaceContext: () => null }));
-vi.mock('#client/lib/study-client/operations.ts', async (load) => ({
-  ...(await load<object>()),
-  createNote: api.create,
-  listProjects: async () => []
-}));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.notes': async () => ({ items: [], next: null }),
-      'settings.workspacePreferences': async () => defaultWorkspacePreferences
-    })
-}));
 
-const clients: QueryClient[] = [];
+const clients: AtomRegistry.AtomRegistry[] = [];
 
 function mount() {
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  const cache = AtomRegistry.make();
+  const fixture = rpcHandlersTransport(
+    {
+      'notes.createUntitledNote': ({ project, initialMessage }) =>
+        api.create(project, initialMessage),
+      'notes.notes': async () => ({ items: [], next: null }),
+      'projects.projects': async () => ({ items: [], next: null }),
+      'settings.workspacePreferences': async () => defaultWorkspacePreferences
+    },
+    cache
+  );
+  const Provider = fixture.wrapper;
 
   clients.push(cache);
   const root = createRootRoute({
@@ -84,9 +82,9 @@ function mount() {
     history: createMemoryHistory({ initialEntries: ['/notes?project=1'] })
   });
   const view = render(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </Provider>
   );
 
   return { cache, router, ...view };
@@ -95,7 +93,7 @@ function mount() {
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((cache) => cache.clear());
+  clients.splice(0).forEach((cache) => cache.dispose());
 });
 
 testStable(
@@ -118,14 +116,14 @@ testStable(
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('Math draft')
     );
-    expect(cache.getQueryData(startDraftsOptions().queryKey)).toEqual(['2', '1']);
+    expect(cache.get(startDrafts)).toEqual(['2', '1']);
     expect(api.create).not.toHaveBeenCalled();
     fireEvent.click(screen.getAllByRole('button', { name: 'SidebarDismissDraft' })[1]!);
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toHaveValue('')
     );
-    expect(cache.getQueryData(startDraftKey('1'))).toBe('');
-    expect(cache.getQueryData(startDraftKey('2'))).toBe('History draft');
+    expect(cache.get(startDraft(startDraftKey('1')))).toBe('');
+    expect(cache.get(startDraft(startDraftKey('2')))).toBe('History draft');
   }
 );
 
@@ -164,8 +162,8 @@ testStable('first send creates once, consumes its draft, and preserves later typ
   );
   await screen.findByText('Saved note');
   expect(api.create).toHaveBeenCalledTimes(1);
-  expect(cache.getQueryData(startDraftKey('1'))).toBe('Newer notes');
-  expect(cache.getQueryData(startDraftsOptions().queryKey)).toEqual(['1']);
+  expect(cache.get(startDraft(startDraftKey('1')))).toBe('Newer notes');
+  expect(cache.get(startDrafts)).toEqual(['1']);
 });
 
 testStable(

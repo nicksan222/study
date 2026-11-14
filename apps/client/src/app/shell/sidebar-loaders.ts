@@ -1,30 +1,22 @@
-import { libraryQueryOptions } from '#client/features/library/index.ts';
+import { rpc } from '@study/contracts/react';
+
 import type { AppSearch } from '#client/lib/navigation/route-contract.ts';
-import { projectsQueryOptions, notesQueryOptions } from '#client/lib/study-client/study.queries.ts';
 
-import type { AppRouterContext } from '../router-context';
-
-export function loadSidebar({ context }: { context: AppRouterContext }) {
-  // Keep the shell usable while its independently retryable panels load.
-  void context.queryClient.prefetchQuery(projectsQueryOptions());
-  void context.queryClient.prefetchQuery(notesQueryOptions());
+/** Preloading is a bounded one-shot read; mounted views always reconcile independently. */
+export function loadSidebar() {
+  void rpc.projects.list.read({ limit: 100 }).catch(() => {});
+  void rpc.notes.list.read({ limit: 100 }).catch(() => {});
 }
 
 export const practiceLoaderDeps = ({ search }: { search: AppSearch }) => ({
   project: search.project
 });
 
-export const loadPracticeSidebar = async ({
-  context,
-  deps
-}: {
-  context: AppRouterContext;
-  deps: { project?: string };
-}) => {
-  const subjects = await context.queryClient.ensureQueryData(projectsQueryOptions());
-  const project = subjects.find((subject) => String(subject.id) === deps.project);
+export const loadPracticeSidebar = async ({ deps }: { deps: { project?: string } }) => {
+  const subjects = await rpc.projects.list.read({ limit: 100 });
+  const project = subjects.items.find((subject) => String(subject.id) === deps.project);
 
   if (deps.project && !project) return;
 
-  await context.queryClient.ensureQueryData(libraryQueryOptions(subjects, project?.id));
+  await rpc.materials.list.read({ projectId: project?.id, archived: false, limit: 100 });
 };

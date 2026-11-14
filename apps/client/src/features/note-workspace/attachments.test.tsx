@@ -1,13 +1,14 @@
+import { RegistryContext } from '@effect/atom-react';
 import { noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { AtomRegistry } from 'effect/reactivity';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { AttachmentPicker, AttachmentTray } from './attachments';
-import { attachmentKey } from './attachments.queries';
+import { attachmentState } from './attachments.queries';
 import type { Attachment } from './attachments.queries';
 
 vi.mock('#client/lib/i18n.tsx', () => ({
@@ -16,28 +17,28 @@ vi.mock('#client/lib/i18n.tsx', () => ({
 
 const id = noteIdSchema.make(14n);
 
-const clients: QueryClient[] = [];
+const clients: AtomRegistry.AtomRegistry[] = [];
 
 function mount(entry: Attachment) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = AtomRegistry.make();
 
   clients.push(client);
-  client.setQueryData(attachmentKey(id), [entry]);
+  client.set(attachmentState(id), [entry]);
 
   return {
     client,
     ...render(
-      <QueryClientProvider client={client}>
+      <RegistryContext.Provider value={client}>
         <AttachmentTray id={id} blocked={false} />
         <AttachmentPicker id={id} blocked={false} />
-      </QueryClientProvider>
+      </RegistryContext.Provider>
     )
   };
 }
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
+  clients.splice(0).forEach((client) => client.dispose());
   vi.unstubAllGlobals();
 });
 
@@ -58,7 +59,7 @@ testStable(
 
     expect(remove.textContent).toBe('');
     fireEvent.click(remove);
-    await waitFor(() => expect(view.client.getQueryData(attachmentKey(id))).toEqual([]));
+    await waitFor(() => expect(view.client.get(attachmentState(id))).toEqual([]));
     expect(screen.queryByRole('list')).toBeNull();
   }
 );

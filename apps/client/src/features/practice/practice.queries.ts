@@ -1,113 +1,48 @@
-import { StudyError } from '@study/contracts/errors';
-import type {
-  ProjectId,
-  MaterialId,
-  QuizAttemptId,
-  MaterialVersionId,
-  MaterialCardId
-} from '@study/contracts/ids';
-import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
-import type { learningRatingSchema } from '@study/contracts/learning/schemas';
-import type { QuizSettings } from '@study/contracts/settings/types';
-import {
-  infiniteQueryOptions,
-  queryOptions,
-  useMutation,
-  useQueryClient
-} from '@tanstack/react-query';
+import type { MaterialId, ProjectId, QuizAttemptId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 
-import { listDueCards } from '#client/lib/study-client/learning.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
 
-export const attemptsOptions = (materialId: MaterialId) =>
-  infiniteQueryOptions({
-    queryKey: ['learning', 'attempts', String(materialId)],
-    initialPageParam: undefined as QuizAttemptId | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      request(
-        (client) => client['learning.attempts']({ materialId, limit: 20, cursor: pageParam }),
-        signal
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined
-  });
+export function useAttempts(materialId: MaterialId, enabled: boolean) {
+  const pagination = useCursorWindow<QuizAttemptId>(String(materialId));
+  const query = rpc.learning.attempts.useQuery(
+    { materialId, limit: pagination.limit, cursor: pagination.cursor },
+    { enabled }
+  );
 
-export const attemptOptions = (id: QuizAttemptId) =>
-  queryOptions({
-    queryKey: ['learning', 'attempt', String(id)],
-    queryFn: ({ signal }) =>
-      request((client) => client['learning.attempt']({ attemptId: id }), signal),
-    refetchInterval: (query) => {
-      const data = query.state.data;
+  useCursorRecovery(pagination, query.error);
 
-      return data?.status === 'completed' &&
-        data.questions.some((question) => question.grading === 'ungraded')
-        ? 3000
-        : false;
-    }
-  });
+  return {
+    ...query,
+    pagination,
+    hasNextPage: !!query.data?.nextCursor,
+    isFetchingNextPage: query.isFetching,
+    fetchNextPage: () => pagination.more(query.data?.nextCursor)
+  };
+}
 
-export const startQuizOptions = (versionId: MaterialVersionId, configuration?: QuizSettings) => ({
-  mutationFn: () => request((rpc) => rpc['learning.startQuiz']({ versionId, configuration }))
-});
+export function useArchivedMaterials(projectId: ProjectId | undefined, enabled: boolean) {
+  const pagination = useCursorWindow<MaterialId>(String(projectId ?? 'global'));
+  const query = rpc.materials.list.useQuery(
+    { projectId, archived: true, limit: pagination.limit, cursor: pagination.cursor },
+    { enabled }
+  );
 
-export const answerOptions = (slotId?: string) => ({
-  mutationFn: (input: typeof answerQuestionInputSchema.Type) =>
-    request((rpc) =>
-      slotId
-        ? rpc['learning.answerPracticeQuestion']({ slotId, answer: input.answer })
-        : rpc['learning.answerQuestion'](input)
-    )
-});
+  useCursorRecovery(pagination, query.error);
 
-export const finishQuizOptions = (attemptId: QuizAttemptId) => ({
-  mutationFn: () => request((rpc) => rpc['learning.finishQuiz']({ attemptId }))
-});
-
-export const reviewCardOptions = (
-  versionId: MaterialVersionId,
-  cardId: MaterialCardId | undefined
-) => ({
-  mutationFn: (rating: typeof learningRatingSchema.Type) => {
-    if (cardId === undefined) throw new StudyError('invalid_input', 'No card selected');
-
-    return request((rpc) => rpc['learning.reviewCard']({ versionId, cardId, rating }));
-  }
-});
-
-export const dueCardsOptions = (projectId: ProjectId) =>
-  queryOptions({
-    queryKey: ['learning', 'due', String(projectId)],
-    queryFn: ({ signal }) => listDueCards(projectId, signal)
-  });
-
-export const archivedMaterialsOptions = (projectId?: ProjectId) =>
-  infiniteQueryOptions({
-    queryKey: ['materials', 'archived', projectId?.toString()],
-    initialPageParam: undefined as MaterialId | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      request(
-        (rpc) =>
-          rpc['materials.materials']({ projectId, archived: true, cursor: pageParam, limit: 30 }),
-        signal
-      ),
-    getNextPageParam: (page) => page.nextCursor ?? undefined
-  });
+  return {
+    ...query,
+    pagination,
+    hasNextPage: !!query.data?.nextCursor,
+    isFetchingNextPage: query.isFetching,
+    fetchNextPage: () => pagination.more(query.data?.nextCursor)
+  };
+}
 
 export function useMaterialArchive(id: MaterialId, archived: boolean) {
-  const cache = useQueryClient();
+  const archive = rpc.materials.archive.useMutation();
+  const restore = rpc.materials.unarchive.useMutation();
+  const mutation = archived ? restore : archive;
 
-  return useMutation({
-    mutationKey: ['materials', 'archive', String(id)],
-    mutationFn: () =>
-      request((rpc) =>
-        archived ? rpc['materials.unarchive']({ id }) : rpc['materials.archive']({ id })
-      ),
-    onSuccess: (material) => {
-      cache.setQueryData(['materials', 'detail', String(id)], material);
-      void cache.invalidateQueries({ queryKey: ['materials'] });
-      void cache.invalidateQueries({ queryKey: ['library'] });
-      void cache.invalidateQueries({ queryKey: ['search'] });
-      void cache.invalidateQueries({ queryKey: ['learning', 'due'] });
-    }
-  });
+  return { ...mutation, mutate: () => mutation.mutate({ id }) };
 }

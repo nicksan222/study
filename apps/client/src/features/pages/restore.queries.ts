@@ -1,26 +1,47 @@
+import { RegistryContext, useAtom } from '@effect/atom-react';
 import type { restoreSchema } from '@study/contracts/pages/editing';
 import type { Page, PageVersion } from '@study/contracts/pages/types';
-import type { QueryClient } from '@tanstack/react-query';
+import { rpc, useIndependentMutation } from '@study/contracts/react';
+import { Effect } from 'effect';
+import { Atom } from 'effect/reactivity';
+import { useContext } from 'react';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
-export function restorePageOptions(cache: QueryClient, page: Page, version: PageVersion) {
-  const attemptKey = ['page-restore-attempt', String(page.id), String(version.id)];
+type Input = typeof restoreSchema.Type;
 
-  cache.setQueryDefaults(['page-restore-attempt'], { gcTime: Infinity });
+const attempts = Atom.family((_key: string) =>
+  Atom.make<Input | undefined>(undefined).pipe(Atom.keepAlive)
+);
 
-  return {
-    mutationFn: async () => {
-      const input = cache.getQueryData<typeof restoreSchema.Type>(attemptKey) ?? {
-        pageId: page.id,
-        expectedVersionId: page.headVersionId!,
-        restoreVersionId: version.id,
-        key: crypto.randomUUID()
-      };
+/** Keep the same explicit idempotency key after an uncertain response. */
+export function usePageRestore(page: Page, version: PageVersion, onRestored: () => void) {
+  const atom = attempts(`${page.id}:${version.id}`);
+  const registry = useContext(RegistryContext);
+  const [, setAttempt] = useAtom(atom);
 
-      cache.setQueryData(attemptKey, input);
+  return useIndependentMutation((_input: void) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (page.headVersionId === null) throw new Error('Page has no current version');
 
-      return request((rpc) => rpc['pages.restore'](input));
-    }
-  };
+        const input = registry.get(atom) ?? {
+          pageId: page.id,
+          expectedVersionId: page.headVersionId,
+          restoreVersionId: version.id,
+          key: crypto.randomUUID()
+        };
+
+        setAttempt(input);
+        const outcome = await rpc.pages.restore.call(input);
+
+        setAttempt(undefined);
+
+        if (outcome.outcome === 'saved') onRestored();
+
+        return outcome;
+      },
+      catch: toStudyError
+    })
+  );
 }

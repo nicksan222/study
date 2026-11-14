@@ -101,7 +101,7 @@ testStable('new notes preserve captured work and explicitly named notes', async 
         );
         assert.ok((yield* notes.note(second.id)).title === 'Next topic');
 
-        context.transaction((tx) => {
+        context.transaction(['notes'], (tx) => {
           tx.db.orm
             .insert(recordings)
             .values({

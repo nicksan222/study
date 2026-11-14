@@ -3,17 +3,22 @@ import { noteIdSchema } from '@study/contracts/ids';
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
 import { TooltipProvider } from '@study/ui/tooltip';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
+import { useMemo } from 'react';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { attachmentKey } from './attachments';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+
+import { attachmentState } from './attachments';
 import { Composer } from './composer';
+import { composerDraft } from './composer.queries';
 import { MessageActions } from './message-actions';
+import { messageActionDraft } from './message-actions.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import {
   activateVersion,
@@ -39,22 +44,6 @@ vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' })
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (
-    fn: (client: {
-      'sources.conversionStrategies': typeof rpc.strategies;
-      'notes.convertMessage': typeof rpc.convert;
-      'notes.message': typeof rpc.message;
-      'notes.setItemArchived': typeof rpc.archive;
-    }) => unknown
-  ) =>
-    fn({
-      'sources.conversionStrategies': rpc.strategies,
-      'notes.convertMessage': rpc.convert,
-      'notes.message': rpc.message,
-      'notes.setItemArchived': rpc.archive
-    })
-}));
 vi.mock('../document-editing/proposal-review', () => ({
   ProposalReview: ({ requestId }: { requestId: string }) => (
     <div data-testid="proposal">{requestId}</div>
@@ -71,30 +60,7 @@ vi.mock('./note-workspace.queries', async (load) => {
     editNote: vi.fn(),
     rewriteNote: vi.fn(),
     reanswerNote: vi.fn(),
-    activateVersion: vi.fn(),
-    selectionOptions: () => ({
-      queryKey: ['canvas-selection'],
-      queryFn: async () => ({ revision: 8n, targets: [] })
-    }),
-    noteGenerationsOptions: (id: unknown) => ({
-      queryKey: ['canvas-generations', String(id)],
-      initialPageParam: undefined,
-      queryFn: ({ pageParam }: { pageParam: unknown }) => rpc.pages(pageParam),
-      getNextPageParam: (page: { next: string | null }) => page.next ?? undefined
-    }),
-    generationOptions: (id: string) => ({
-      queryKey: ['canvas-generation', id],
-      queryFn: async () => ({
-        title: 'Retained generation title',
-        cancelled: true,
-        resultVersionId: null,
-        report: null
-      })
-    }),
-    executionOptions: (id: string) => ({
-      queryKey: ['canvas-execution', id],
-      queryFn: async () => ({ items: [], next: null })
-    })
+    activateVersion: vi.fn()
   };
 });
 
@@ -137,17 +103,52 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   citations: []
 });
 
-const clients: QueryClient[] = [];
+const clients: AtomRegistry.AtomRegistry[] = [];
 
-function mount(
-  node: ReactNode,
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  })
-) {
+function CanvasProvider({
+  registry,
+  children
+}: {
+  registry: AtomRegistry.AtomRegistry;
+  children: ReactNode;
+}) {
+  const fixture = useMemo(
+    () =>
+      rpcHandlersTransport(
+        {
+          'sources.conversionStrategies': rpc.strategies,
+          'notes.convertMessage': rpc.convert,
+          'notes.message': rpc.message,
+          'notes.setItemArchived': rpc.archive,
+          'notes.noteSelection': async () => ({ revision: 8n, targets: [] }),
+          'notes.noteGenerations': ({ before, limit }) => rpc.pages(before, limit),
+          'workflows.executions': async () => ({ items: [], next: null }),
+          'pages.transform': async ({ requestId }) => ({
+            id: requestId,
+            title: 'Retained generation title',
+            instruction: '',
+            contextRequestId: 'capture',
+            operations: ['clarity'],
+            noteId: id,
+            eventId: requestId,
+            errorKind: null,
+            cancelled: true,
+            resultVersionId: null,
+            report: null
+          })
+        },
+        registry
+      ),
+    [registry]
+  );
+
+  return <fixture.wrapper>{children}</fixture.wrapper>;
+}
+
+function mount(node: ReactNode, client = AtomRegistry.make()) {
   if (!clients.includes(client)) clients.push(client);
 
-  return { client, ...render(<QueryClientProvider client={client}>{node}</QueryClientProvider>) };
+  return { client, ...render(<CanvasProvider registry={client}>{node}</CanvasProvider>) };
 }
 
 const actions = (versionId = message.activeVersionId!, value = message) => (
@@ -165,7 +166,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
 
-  for (const client of clients.splice(0)) client.clear();
+  for (const client of clients.splice(0)) client.dispose();
 });
 
 testStable(
@@ -239,7 +240,7 @@ testStable('keeps upload ownership while a receipt arrives after unmount', async
   expect(screen.getByText('NoteUploading')).toBeVisible();
   await act(async () => accept({ id: 45n } as Awaited<ReturnType<typeof uploadSource>>));
   await screen.findByText('NoteFileAccepted');
-  expect(first.client.getQueryData(attachmentKey(id))).toEqual([
+  expect(first.client.get(attachmentState(id))).toEqual([
     expect.objectContaining({ sourceId: 45n, state: 'ready' })
   ]);
   expect(uploadSource).toHaveBeenCalledTimes(1);
@@ -442,9 +443,7 @@ testStable(
   'retains exact retry identity for an Ask operation already stored before the capture-only UI',
   async () => {
     vi.mocked(ask).mockResolvedValue({ requestId: 'ask-exact' } as Awaited<ReturnType<typeof ask>>);
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-    });
+    const client = AtomRegistry.make();
     const input = {
       noteId: id,
       expectedSelectionRevision: 8n,
@@ -457,13 +456,13 @@ testStable(
       })
     };
 
-    client.setQueryData(['note-drafts', String(id), 'message-action', String(message.id)], {
+    client.set(messageActionDraft(id, message.id), {
       text: '',
       instruction: '',
       error: new StudyError('transient', 'Unconfirmed'),
       attempt: {
         action: 'ask',
-        versionId: message.activeVersionId,
+        versionId: message.versions[1]!.id,
         text: '',
         instruction: '',
         askInput: input
@@ -493,9 +492,9 @@ testStable(
       baseVersionId: 89n
     };
 
-    rpc.pages.mockImplementation((before) =>
+    rpc.pages.mockImplementation((before, limit) =>
       Promise.resolve(
-        before
+        before || limit > 30
           ? {
               items: [
                 {
@@ -530,8 +529,8 @@ testStable(
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await screen.findAllByText('NoteRunRetired');
-    expect(rpc.pages).toHaveBeenCalledWith('request-z');
-    expect(screen.getAllByTestId('proposal')).toHaveLength(1);
+    expect(rpc.pages).toHaveBeenCalledWith(undefined, 60);
+    expect(screen.queryByTestId('proposal')).toBeNull();
   }
 );
 
@@ -583,7 +582,7 @@ testStable(
     await screen.findByText('NoteNoteUncertain');
     first.unmount();
     mount(<Composer id={id} />, first.client);
-    expect(first.client.getQueryData(['note-drafts', String(id), 'note'])).toMatchObject({
+    expect(first.client.get(composerDraft(id))).toMatchObject({
       noteAttempt: '',
       noteSourceIds: [48n]
     });
@@ -901,9 +900,7 @@ testStable('retries the original conversion payload after viewing another versio
   fireEvent.click(await screen.findByRole('button', { name: 'NoteConvertText' }));
   await screen.findByRole('button', { name: 'Retry' });
   view.rerender(
-    <QueryClientProvider client={view.client}>
-      {actions(message.versions[0].id)}
-    </QueryClientProvider>
+    <CanvasProvider registry={view.client}>{actions(message.versions[0].id)}</CanvasProvider>
   );
   fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
   await waitFor(() => expect(rpc.convert).toHaveBeenCalledTimes(2));

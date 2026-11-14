@@ -1,19 +1,17 @@
 import { noteIdSchema } from '@study/contracts/ids';
 import { messagePartSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { AttachmentCards } from './attachment-cards';
 import { NotePageCard } from './note-page-card';
 
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
@@ -27,27 +25,37 @@ vi.mock('../source-library', () => ({
     renderTrigger
   }: {
     renderTrigger?: (show: () => void, open: boolean) => unknown;
-  }) => renderTrigger?.(() => {}, false) ?? null,
-  sourceOptions: (id: unknown) => ({
-    queryKey: ['item-source', String(id)],
-    queryFn: async () => (id === null ? null : { id, name: 'Lecture.pdf', sizeBytes: 10n })
-  })
+  }) => renderTrigger?.(() => {}, false) ?? null
 }));
 
-const clients: QueryClient[] = [];
+let archiveHandler = vi.fn();
 
-afterEach(() => {
-  cleanup();
+function Provider({ children }: { children: React.ReactNode }) {
+  const fixture = rpcHandlersTransport({
+    'sources.source': async ({ id }) => ({
+      id,
+      name: 'Lecture.pdf',
+      sizeBytes: 10n,
+      kind: 'pdf',
+      mime: 'application/pdf',
+      origin: 'attachment',
+      projectId: null,
+      projectName: null,
+      sha256: new Uint8Array(),
+      uri: null,
+      createdAt: 1n
+    }),
+    'notes.setItemArchived': (input) => archiveHandler(input)
+  });
 
-  for (const client of clients.splice(0)) client.clear();
-});
+  return <fixture.wrapper>{children}</fixture.wrapper>;
+}
+
+afterEach(cleanup);
 
 testStable.each([false, true])(
   'opens the exact attachment from its context menu (compact: %s)',
   async (compact) => {
-    const client = new QueryClient();
-
-    clients.push(client);
     const open = vi.fn();
     const part = Schema.decodeUnknownSync(messagePartSchema)({
       id: 3n,
@@ -57,9 +65,9 @@ testStable.each([false, true])(
     });
 
     render(
-      <QueryClientProvider client={client}>
+      <Provider>
         <AttachmentCards parts={[part]} compact={compact} onOpenSource={open} />
-      </QueryClientProvider>
+      </Provider>
     );
     await screen.findByRole('button', { name: 'Lecture.pdf' });
     await vi.waitFor(() =>
@@ -74,24 +82,20 @@ testStable.each([false, true])(
     expect(screen.getByRole('menuitem', { name: 'NoteDeleteVersion' })).toBeVisible();
     expect(open).not.toHaveBeenCalled();
     await userEvent.setup().click(await screen.findByRole('menuitem', { name: 'OpenMaterial' }));
-    expect(open).toHaveBeenCalledExactlyOnceWith({
-      id: part.sourceId,
-      name: 'Lecture.pdf',
-      sizeBytes: 10n
-    });
+    expect(open).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ id: part.sourceId, name: 'Lecture.pdf', sizeBytes: 10n })
+    );
   }
 );
 
 testStable('opens the exact authored page from its context menu', async () => {
   const document = authoredPage();
   const open = vi.fn();
-  const client = new QueryClient();
 
-  clients.push(client);
   render(
-    <QueryClientProvider client={client}>
+    <Provider>
       <NotePageCard page={document} active={false} onOpen={open} />
-    </QueryClientProvider>
+    </Provider>
   );
   expect(screen.queryByRole('button', { name: 'NoteDeleteItem' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'NoteDeleteVersion' })).not.toBeInTheDocument();
@@ -108,9 +112,6 @@ testStable('opens the exact authored page from its context menu', async () => {
 });
 
 testStable('keeps unavailable attachment context actions disabled', async () => {
-  const client = new QueryClient();
-
-  clients.push(client);
   const part = Schema.decodeUnknownSync(messagePartSchema)({
     id: 3n,
     sourceId: null,
@@ -119,9 +120,9 @@ testStable('keeps unavailable attachment context actions disabled', async () => 
   });
 
   render(
-    <QueryClientProvider client={client}>
+    <Provider>
       <AttachmentCards parts={[part]} onOpenSource={vi.fn()} />
-    </QueryClientProvider>
+    </Provider>
   );
   fireEvent.contextMenu(screen.getByText('Missing.pdf'), { button: 2, clientX: 80, clientY: 80 });
   expect(await screen.findByRole('menuitem', { name: 'OpenMaterial' })).toHaveAttribute(
@@ -136,12 +137,7 @@ testStable.each(['page', 'source'] as const)(
     const noteId = Schema.decodeUnknownSync(noteIdSchema)(15n);
     const archive = vi.fn().mockResolvedValue(undefined);
 
-    vi.mocked(request).mockImplementation(async (invoke) =>
-      invoke({ 'notes.setItemArchived': archive } as never)
-    );
-    const client = new QueryClient();
-
-    clients.push(client);
+    archiveHandler = archive;
     const document = authoredPage();
     const part = Schema.decodeUnknownSync(messagePartSchema)({
       id: 3n,
@@ -151,13 +147,13 @@ testStable.each(['page', 'source'] as const)(
     });
 
     render(
-      <QueryClientProvider client={client}>
+      <Provider>
         {kind === 'page' ? (
           <NotePageCard noteId={noteId} page={document} active={false} onOpen={vi.fn()} />
         ) : (
           <AttachmentCards noteId={noteId} parts={[part]} compact onOpenSource={vi.fn()} />
         )}
-      </QueryClientProvider>
+      </Provider>
     );
     const name = kind === 'page' ? /New page/ : 'Lecture.pdf';
 

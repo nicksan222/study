@@ -1,8 +1,8 @@
 import { Effect, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import { projectIdSchema } from '../ids.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
   backupInputSchema,
   backupManifestSchema,
@@ -34,71 +34,129 @@ export const healthSchema = Schema.Struct({
   testMode: Schema.Boolean
 });
 
-export const SystemRpc = RpcGroup.make(
-  Rpc.make('createBackup', {
-    payload: Schema.Struct({}),
-    success: backupManifestSchema,
-    error: failureSchema
-  }),
-  Rpc.make('listBackups', {
-    payload: Schema.Struct({}),
-    success: Schema.Array(backupManifestSchema),
-    error: failureSchema
-  }),
-  Rpc.make('readBackup', {
-    payload: backupInputSchema,
-    success: backupBytesSchema,
-    error: failureSchema
-  }),
-  Rpc.make('importBackup', {
-    payload: Schema.Struct({ bytes: backupBytesSchema }),
-    success: backupManifestSchema,
-    error: failureSchema
-  }),
-  Rpc.make('deleteBackup', {
-    payload: backupInputSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('previewRestore', {
-    payload: backupInputSchema,
-    success: restorePreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('acceptRestore', {
-    payload: acceptRestoreSchema,
-    success: restoreStatusSchema,
-    error: failureSchema
-  }),
-  Rpc.make('restoreStatus', {
-    payload: Schema.Struct({}),
-    success: restoreStatusSchema,
-    error: failureSchema
-  }),
-  Rpc.make('discardRestoreRecovery', {
-    payload: Schema.Struct({}),
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('health', { payload: Schema.Struct({}), success: healthSchema, error: failureSchema }),
-  Rpc.make('materialSearch', {
-    payload: materialSearchInputSchema,
-    success: materialSearchResultSchema,
-    error: failureSchema
-  }),
-  Rpc.make('search', {
-    payload: searchInputSchema,
-    success: searchResultSchema,
-    error: failureSchema
-  }),
-  Rpc.make('startWorkers', {
-    payload: Schema.Struct({}),
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('stopWorkers', {
-    payload: Schema.Struct({}),
-    success: Schema.Void,
-    error: failureSchema
-  })
-).prefix('system.');
+export const systemEndpoints = {
+  createBackup: mutation(
+    'system.createBackup',
+    {
+      payload: Schema.Struct({}),
+      success: backupManifestSchema,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  listBackups: liveQuery(
+    'system.listBackups',
+    {
+      payload: Schema.Struct({}),
+      success: Schema.Array(backupManifestSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  readBackup: liveQuery(
+    'system.readBackup',
+    {
+      payload: backupInputSchema,
+      success: backupBytesSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  importBackup: mutation(
+    'system.importBackup',
+    {
+      payload: Schema.Struct({ bytes: backupBytesSchema }),
+      success: backupManifestSchema,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  deleteBackup: mutation(
+    'system.deleteBackup',
+    {
+      payload: backupInputSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  previewRestore: mutation(
+    'system.previewRestore',
+    {
+      payload: backupInputSchema,
+      success: restorePreviewSchema,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  acceptRestore: mutation(
+    'system.acceptRestore',
+    {
+      payload: acceptRestoreSchema,
+      success: restoreStatusSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.system] }
+  ),
+  restoreStatus: liveQuery(
+    'system.restoreStatus',
+    {
+      payload: Schema.Struct({}),
+      success: restoreStatusSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  discardRestoreRecovery: mutation(
+    'system.discardRestoreRecovery',
+    {
+      payload: Schema.Struct({}),
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  health: liveQuery(
+    'system.health',
+    { payload: Schema.Struct({}), success: healthSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  materialSearch: liveQuery(
+    'system.materialSearch',
+    {
+      payload: materialSearchInputSchema,
+      success: materialSearchResultSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  search: liveQuery(
+    'system.search',
+    {
+      payload: searchInputSchema,
+      success: searchResultSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  startWorkers: mutation(
+    'system.startWorkers',
+    {
+      payload: Schema.Struct({}),
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  ),
+  stopWorkers: mutation(
+    'system.stopWorkers',
+    {
+      payload: Schema.Struct({}),
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: 'external' }
+  )
+};
+
+export const SystemRpc = endpointGroup(systemEndpoints);

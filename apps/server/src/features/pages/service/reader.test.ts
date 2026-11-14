@@ -28,6 +28,7 @@ import { Sources } from '#server/features/sources/index';
 import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 const body = (blocks: ReturnType<typeof createBlock>[]) => ({
   blocks,
@@ -53,7 +54,10 @@ async function fixture() {
       return context;
     },
     handlers: () =>
-      Layer.mergeAll(PagesRpcLive, SourcesRpcLive).pipe(
+      Layer.mergeAll(
+        PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
+        SourcesRpcLive.pipe(Layer.provide(testLiveQueries))
+      ).pipe(
         Layer.provideMerge(Layer.mergeAll(Pages.layer, Sources.layer)),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       ),

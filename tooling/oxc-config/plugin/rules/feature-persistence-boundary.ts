@@ -105,6 +105,9 @@ const groups: Record<string, string[]> = {
   themes: ['themes'],
   'settings,auth,themes': ['preferences'],
   readonly: [
+    // Revision metadata is advanced only by the shared transaction boundary.
+    'reactive_generation',
+    'reactive_revisions',
     'ai_usage',
     'document_assets',
     'codes_source_origin',

@@ -1,13 +1,8 @@
 import { StudyError } from '@study/contracts/errors';
 import type { NoteId } from '@study/contracts/ids';
-import { queryOptions, mutationOptions } from '@tanstack/react-query';
+import { Atom } from 'effect/reactivity';
 
-import {
-  captureContext,
-  transformPage,
-  cancelGeneration,
-  retryGeneration
-} from './note-workspace.queries';
+import { captureContext, transformPage } from './note-workspace.queries';
 import type { TransformInput } from './note-workspace.queries';
 
 export type Attempt = {
@@ -35,76 +30,45 @@ export type TransformDraft = {
   runs?: { id: string; contextId: string }[];
 };
 
-export function transformDraftOptions(id: NoteId, additionalNoteIds: readonly NoteId[] = []) {
-  const initial: TransformDraft = { title: '', instruction: '', operations: ['clarity'] };
+const drafts = Atom.family((_scope: string) =>
+  Atom.make<TransformDraft>({ title: '', instruction: '', operations: ['clarity'] }).pipe(
+    Atom.keepAlive
+  )
+);
 
-  return queryOptions({
-    queryKey: [
-      'note-drafts',
-      String(id),
-      'transform',
-      ...(additionalNoteIds.length
-        ? [[...new Set(additionalNoteIds)].map(String).toSorted().join(',')]
-        : [])
-    ],
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
+export function transformDraft(id: NoteId, additionalNoteIds: readonly NoteId[] = []) {
+  return drafts([String(id), ...[...new Set(additionalNoteIds)].map(String).toSorted()].join(':'));
 }
 
-export function transformAttemptOptions(
+export const transformRetry = Atom.family((_requestId: string) =>
+  Atom.make<{ key: string; acknowledged: boolean } | null>(null).pipe(Atom.keepAlive)
+);
+
+export async function runTransformAttempt(
   id: NoteId,
+  attempt: Attempt,
   captured: (contextId: string) => void,
   received: (result: Awaited<ReturnType<typeof transformPage>>, contextId: string) => void
 ) {
-  return mutationOptions({
-    mutationFn: async (attempt: Attempt) => {
-      const context = await captureContext({
-        noteId: id,
-        additionalNoteIds: attempt.additionalNoteIds?.length
-          ? attempt.additionalNoteIds
-          : undefined,
-        intentKey: attempt.key,
-        instruction: attempt.instruction,
-        preferences: { language: attempt.language }
-      });
-
-      if (context.selectionRevision !== attempt.revision)
-        throw new StudyError('invalid_input', 'Selection changed before capture');
-
-      captured(context.requestId);
-      const result = await transformPage({
-        contextRequestId: context.requestId,
-        operations: attempt.operations,
-        title: attempt.title
-      });
-
-      received(result, context.requestId);
-
-      return result;
-    }
+  const context = await captureContext({
+    noteId: id,
+    additionalNoteIds: attempt.additionalNoteIds?.length ? attempt.additionalNoteIds : undefined,
+    intentKey: attempt.key,
+    instruction: attempt.instruction,
+    preferences: { language: attempt.language }
   });
-}
 
-export function transformRetryOptions(requestId: string) {
-  return queryOptions({
-    queryKey: ['note-drafts', 'transform-retry', requestId],
-    queryFn: () => null as { key: string; acknowledged: boolean } | null,
-    initialData: null,
-    staleTime: Infinity,
-    gcTime: Infinity
+  if (context.selectionRevision !== attempt.revision)
+    throw new StudyError('invalid_input', 'Selection changed before capture');
+
+  captured(context.requestId);
+  const result = await transformPage({
+    contextRequestId: context.requestId,
+    operations: attempt.operations,
+    title: attempt.title
   });
-}
 
-export function cancelTransformOptions(requestId: string) {
-  return mutationOptions({ mutationFn: () => cancelGeneration(requestId), retry: false });
-}
+  received(result, context.requestId);
 
-export function retryTransformOptions(requestId: string) {
-  return mutationOptions({
-    mutationFn: (key: string) => retryGeneration(requestId, key),
-    retry: false
-  });
+  return result;
 }

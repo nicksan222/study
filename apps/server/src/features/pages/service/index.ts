@@ -241,6 +241,7 @@ export const Pages = defineService(
         publicationTransaction((tx) => tx.store(PageProposalsStore).proposeGenerated(v)),
       updateMetadata: (v: typeof r.metadataSchema.Type) =>
         transaction((tx) => tx.store(PagesStore).updateMetadata(v)),
+      count: docs.count,
       ...versions,
       ...exports,
       exportFile: (v: typeof exportPageInputSchema.Type) =>

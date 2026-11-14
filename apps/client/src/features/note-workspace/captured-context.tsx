@@ -1,5 +1,6 @@
 import { selectionReferenceKey } from '@study/contracts/notes/context';
 import type { runSelectionContextSchema } from '@study/contracts/notes/context';
+import { rpc } from '@study/contracts/react';
 import {
   PageIcon,
   PrivateContextIcon,
@@ -10,18 +11,16 @@ import {
 } from '@study/icons';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/note-workspace';
-import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { CapturedInputLink } from '../source-library';
 import { NoteContent } from './note-editor';
-import { contextOptions } from './note-workspace.queries';
 import { NoteReadError } from './status';
 
 export function CapturedContext({ requestId }: { requestId: string }) {
   const { t } = useI18n();
-  const state = useQuery(contextOptions(requestId));
+  const state = rpc.notes.inspectNoteContext.useQuery({ requestId: requestId });
   const context = state.isError ? undefined : state.data;
 
   return (

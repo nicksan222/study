@@ -1,7 +1,9 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { StudyError } from '@study/contracts/errors';
 import type { NoteId, PageVersionId } from '@study/contracts/ids';
 import type { noteGenerationSchema } from '@study/contracts/notes/rpc';
-import { LoadMoreButton } from '@study/ui/action-button';
+import { rpc, useIndependentMutation } from '@study/contracts/react';
+import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Disclosure } from '@study/ui/disclosure';
@@ -10,44 +12,25 @@ import { Notebook } from '@study/ui/note-workspace';
 import { StatusMessage } from '@study/ui/status-message';
 import { Textarea } from '@study/ui/textarea';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient
-} from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect } from 'react';
+import { Effect } from 'effect';
+import { useContext, useEffect, useRef } from 'react';
 
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { pageVersionOptions, invalidatePages } from '#client/lib/study-client/pages.queries.ts';
 
 import { AgentProgress } from '../agent-progress';
 import { ProposalReview } from '../document-editing';
 import { CapturedContext } from './history';
-import {
-  executionOptions,
-  generationOptions,
-  selectionOptions,
-  noteGenerationsOptions,
-  noteKey,
-  noteOptions
-} from './note-workspace.queries';
+import { useNoteGenerations } from './note-reads';
+import { NoteWindowNavigation } from './note-window-navigation';
 import type { SelectedNote } from './page-creation-dialog';
 import { ExecutionStatus, NoteError, NoteReadError } from './status';
 import { TransformSuggestion } from './transform-suggestion';
-import {
-  transformDraftOptions,
-  transformAttemptOptions,
-  transformRetryOptions,
-  cancelTransformOptions,
-  retryTransformOptions
-} from './transformation.queries';
+import { transformDraft, runTransformAttempt, transformRetry } from './transformation.queries';
 import type { Attempt, TransformDraft } from './transformation.queries';
 import { UnavailableAttempt } from './unavailable-attempt';
 
@@ -73,64 +56,87 @@ function useTransformation(
   const { t, locale } = useI18n();
   const readiness = useAiReadiness('medium');
   const suggestionReadiness = useAiReadiness('tiny');
-  const cache = useQueryClient();
+  const cache = useContext(RegistryContext);
   const additionalNoteIds = [
     ...new Set(notes?.map((note) => note.id).filter((value) => value !== id) ?? [])
   ];
-  const options = transformDraftOptions(id, additionalNoteIds);
-  const key = options.queryKey;
-  const initial: TransformDraft = { title: '', instruction: '', operations: ['clarity'] };
-  const state = useQuery(options);
-  const draft = state.data;
+  const key = transformDraft(id, additionalNoteIds);
+  const draft = useAtomValue(key);
   const setDraft = (patch: Partial<TransformDraft>) =>
-    cache.setQueryData<TransformDraft>(key, (previous) => ({
-      ...(previous ?? initial),
+    cache.update(key, (previous) => ({
+      ...previous,
       ...patch,
-      titleRevision: (previous?.titleRevision ?? 0) + (patch.title !== undefined ? 1 : 0),
+      titleRevision: (previous.titleRevision ?? 0) + (patch.title !== undefined ? 1 : 0),
       instructionRevision:
-        (previous?.instructionRevision ?? 0) + (patch.instruction !== undefined ? 1 : 0)
+        (previous.instructionRevision ?? 0) + (patch.instruction !== undefined ? 1 : 0)
     }));
-  const selection = useQuery(selectionOptions(id));
+  const selection = rpc.notes.noteSelection.useQuery({ noteId: id });
   const contextIds = [id, ...additionalNoteIds];
-  const contextNotes = useQueries({ queries: contextIds.map(noteOptions) });
-  const contextSelections = useQueries({ queries: contextIds.map(selectionOptions) });
+  const contextNotes = rpc.notes.get.useQueries(contextIds.map((id) => ({ id })));
+  const contextSelections = rpc.notes.noteSelection.useQueries(
+    contextIds.map((noteId) => ({ noteId }))
+  );
   const suggestionIdentity = JSON.stringify([
-    key,
+    String(id),
+    additionalNoteIds.map(String),
     locale,
     active,
     contextNotes.map((query) => query.data?.updatedAt?.toString()),
     contextSelections.map((query) => query.data?.revision.toString())
   ]);
-  const submit = useMutation({
-    retry: false,
-    onError: (error) => setDraft({ unavailable: toStudyError(error).kind === 'not_found' }),
-    onSettled: () => setDraft({ pending: false }),
-    ...transformAttemptOptions(
-      id,
-      (contextId) => setDraft({ contextId }),
-      (result, contextId) => {
-        cache.setQueryData<TransformDraft>(key, (previous) => ({
-          ...(previous ?? initial),
-          requestId: result.id,
-          runs: [
-            ...(previous?.runs ?? []).filter((run) => run.id !== result.id),
-            { id: result.id, contextId }
-          ]
-        }));
-        void cache.invalidateQueries({ queryKey: [...noteKey(id), 'generations'] });
-        void cache.invalidateQueries({ queryKey: ['note-work', String(id)] });
-      }
-    )
-  });
+  const suggestionContextRef = useRef({ identity: suggestionIdentity, version: 0 });
+
+  if (suggestionContextRef.current.identity !== suggestionIdentity)
+    suggestionContextRef.current = {
+      identity: suggestionIdentity,
+      version: suggestionContextRef.current.version + 1
+    };
+
+  useEffect(
+    () => () => {
+      suggestionContextRef.current.version++;
+    },
+    []
+  );
+  const recordRun = (result: { id: string }, contextId: string) =>
+    cache.update(key, (previous) => ({
+      ...previous,
+      requestId: result.id,
+      runs: [
+        ...(previous.runs ?? []).filter((run) => run.id !== result.id),
+        { id: result.id, contextId }
+      ]
+    }));
+  const submit = useIndependentMutation((attempt: Attempt) =>
+    Effect.tryPromise({
+      try: async () => {
+        try {
+          return await runTransformAttempt(
+            id,
+            attempt,
+            (contextId) => setDraft({ contextId }),
+            recordRun
+          );
+        } catch (error) {
+          setDraft({ unavailable: toStudyError(error).kind === 'not_found' });
+
+          throw error;
+        } finally {
+          setDraft({ pending: false });
+        }
+      },
+      catch: toStudyError
+    })
+  );
   const pending = !!draft.pending || submit.isPending;
 
   function start(attempt: Attempt) {
-    const current = cache.getQueryData<TransformDraft>(key);
+    const current = cache.get(key);
 
     if (readiness !== 'ready' || current?.pending || current?.unavailable) return;
 
     setDraft({ attempt, pending: true, unavailable: false });
-    submit.mutate(attempt);
+    void submit.mutate(attempt).catch(() => {});
     onStarted?.();
   }
 
@@ -142,10 +148,7 @@ function useTransformation(
     suggestionIdentity,
     suggestionReady: [...contextNotes, ...contextSelections].every((query) => query.isSuccess),
     suggestionContext: () =>
-      JSON.stringify(
-        contextIds.map((noteId) => cache.getQueriesData({ queryKey: noteKey(noteId) })),
-        (_, value: unknown) => (typeof value === 'bigint' ? String(value) : value)
-      ),
+      `${suggestionContextRef.current.version}:${suggestionContextRef.current.identity}`,
     notes,
     additionalNoteIds,
     t,
@@ -327,8 +330,8 @@ function CreateTransform({ model }: { model: TransformationModel }) {
           if (
             model.readiness !== 'ready' ||
             !selection.data ||
-            cache.getQueryData<TransformDraft>(key)?.attempt ||
-            cache.getQueryData<TransformDraft>(key)?.pending
+            cache.get(key)?.attempt ||
+            cache.get(key)?.pending
           )
             return;
 
@@ -411,7 +414,7 @@ function TransformRecovery({ model }: { model: TransformationModel }) {
           id={id}
           busy={pending}
           onAbandon={() => {
-            const current = cache.getQueryData<TransformDraft>(key);
+            const current = cache.get(key);
 
             if (current?.pending || current?.attempt?.key !== draft.attempt?.key) return;
 
@@ -439,7 +442,7 @@ function TransformReceipt({ model }: { model: TransformationModel }) {
           variant="ghost"
           disabled={pending}
           onClick={() => {
-            if (cache.getQueryData<TransformDraft>(key)?.pending) return;
+            if (cache.get(key)?.pending) return;
 
             setDraft({
               attempt: undefined,
@@ -461,52 +464,37 @@ function TransformReceipt({ model }: { model: TransformationModel }) {
 function useTransformResult(requestId: string) {
   const readiness = useAiReadiness('medium');
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const retryKey = ['note-drafts', 'transform-retry', requestId];
-  const retryState = useQuery(transformRetryOptions(requestId));
-  const attempt = retryState.data;
-  const retryExecution = useQuery({
-    ...executionOptions(requestId, attempt?.key),
-    enabled: retryAcknowledged(attempt)
-  });
-  const state = useQuery(generationOptions(requestId));
-  const executions = useQuery(executionOptions(requestId));
+  const cache = useContext(RegistryContext);
+  const retryKey = transformRetry(requestId);
+  const attempt = useAtomValue(retryKey);
+  const retryExecution = rpc.workflows.executions.useQuery(
+    retryAcknowledged(attempt)
+      ? { correlationId: requestId, eventId: attempt?.key, limit: 30 }
+      : undefined
+  );
+  const state = rpc.pages.transform.useQuery({ requestId });
+  const executions = rpc.workflows.executions.useQuery({ correlationId: requestId, limit: 30 });
   const latest = executions.data?.items[0];
-  const refresh = () => {
-    void cache.invalidateQueries({ queryKey: ['note-generation', requestId] });
-    void cache.invalidateQueries({ queryKey: ['note-execution', requestId] });
-  };
-  const cancel = useMutation({
-    ...cancelTransformOptions(requestId),
-    onSuccess: refresh
-  });
-  const retry = useMutation({
-    ...retryTransformOptions(requestId),
-    onSuccess: (_, key) => {
-      cache.setQueryData(retryKey, { key, acknowledged: true });
-      refresh();
+  const cancelOperation = rpc.pages.cancelTransform.useMutation();
+  const cancel = {
+    ...cancelOperation,
+    mutate: () => {
+      void cancelOperation.mutate({ requestId }).catch(() => {});
     }
-  });
-  const retryableFailure =
-    latest?.outcome === 'failure' &&
-    (!attempt?.acknowledged ||
-      retryExecution.data?.items.some(
-        (item) => item.id === latest.id && item.outcome === 'failure'
-      ));
+  };
+  const retryOperation = rpc.pages.retryTransform.useMutation();
+  const retry = {
+    ...retryOperation,
+    variables: retryOperation.variables?.retryId,
+    mutate: (key: string) => {
+      void retryOperation.mutate({ requestId, retryId: key }).then(
+        () => cache.set(retryKey, { key, acknowledged: true }),
+        () => {}
+      );
+    }
+  };
+  const retryableFailure = canRetryTransformExecution(latest, attempt, retryExecution.data?.items);
 
-  useEffect(() => {
-    const result = state.data?.resultVersionId;
-
-    if (!result) return;
-
-    const publishedKey = ['note-drafts', 'published', requestId];
-
-    if (cache.getQueryData(publishedKey) === result) return;
-
-    cache.setQueryDefaults(['note-drafts', 'published'], { gcTime: Infinity });
-    cache.setQueryData(publishedKey, result);
-    void invalidatePages(cache);
-  }, [cache, requestId, state.data?.resultVersionId]);
   const active = !state.data?.cancelled && !state.data?.resultVersionId;
 
   return {
@@ -525,7 +513,7 @@ function useTransformResult(requestId: string) {
 
       const key = attempt && !attempt.acknowledged ? attempt.key : crypto.randomUUID();
 
-      cache.setQueryData(retryKey, { key, acknowledged: false });
+      cache.set(retryKey, { key, acknowledged: false });
       retry.mutate(key);
     },
     retrySubmit: (key: string) => {
@@ -594,7 +582,7 @@ function TransformControls({ model }: { model: TransformResultModel }) {
 
 function OutputLink({ id }: { id: PageVersionId }) {
   const { t } = useI18n();
-  const state = useQuery(pageVersionOptions(id));
+  const state = rpc.pages.version.useQuery({ id: id });
 
   return (
     <>
@@ -619,10 +607,8 @@ function OutputLink({ id }: { id: PageVersionId }) {
 
 export function NoteRuns({ id }: { id: NoteId }) {
   const { t } = useI18n();
-  const state = useInfiniteQuery(noteGenerationsOptions(id));
-  const runs = new Map(
-    state.data?.pages.flatMap((page) => page.items).map((run) => [run.requestId, run])
-  );
+  const state = useNoteGenerations(id);
+  const runs = new Map(state.data?.items.map((run) => [run.requestId, run]));
 
   if (state.isSuccess && !state.isError && runs.size === 0) return null;
 
@@ -661,24 +647,16 @@ export function NoteRuns({ id }: { id: NoteId }) {
           )}
         </Notebook.TransformRun>
       ))}
-      {state.hasNextPage && (
-        <LoadMoreButton
-          variant="ghost"
-          disabled={state.isFetchingNextPage}
-          onClick={() => void state.fetchNextPage()}
-          label={t('LibraryMore')}
-        />
-      )}
+      <NoteWindowNavigation state={state} />
     </Notebook.Runs>
   );
 }
 
 function RunHeading({ run }: { run: typeof noteGenerationSchema.Type }) {
   const { t } = useI18n();
-  const state = useQuery({
-    ...generationOptions(run.requestId),
-    enabled: run.state === 'available'
-  });
+  const state = rpc.pages.transform.useQuery(
+    run.state === 'available' ? { requestId: run.requestId } : undefined
+  );
 
   return (
     <Notebook.RunHeading>
@@ -730,4 +708,16 @@ function retryAcknowledged(attempt: { acknowledged: boolean } | null) {
 
 function canRetryTransform(draft: TransformDraft, pending: boolean) {
   return !!draft.attempt && !draft.requestId && !pending && !draft.unavailable;
+}
+
+function canRetryTransformExecution(
+  latest: typeof executionSchema.Type | undefined,
+  attempt: Parameters<typeof retryAcknowledged>[0],
+  executions: readonly (typeof executionSchema.Type)[] | undefined
+) {
+  if (latest?.outcome !== 'failure') return false;
+
+  if (!attempt?.acknowledged) return true;
+
+  return executions?.some((item) => item.id === latest.id && item.outcome === 'failure') ?? false;
 }

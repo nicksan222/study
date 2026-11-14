@@ -25,6 +25,7 @@ import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 import { makeMaterialOutput } from '#testing/material-output';
 
 const paragraph = (text: string) =>
@@ -52,7 +53,8 @@ testStable(
     const services = () =>
       Pages.layer.pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
 
-    const handlers = () => PagesRpcLive.pipe(Layer.provide(services()));
+    const handlers = () =>
+      PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provide(services()));
 
     const call = <A, E>(
       action: Effect.Effect<A, E, Database | Context.Service.Identifier<typeof Pages>>

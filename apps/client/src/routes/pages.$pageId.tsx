@@ -1,11 +1,10 @@
 import { pageIdSchema } from '@study/contracts/ids';
 import { pageVersionIdSchema } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { notePageOptions } from '../features/note-workspace';
 import { PageReaderPage } from '../features/pages';
-import { pageVersionOptions } from '../lib/study-client/pages.queries';
 import { sidebarOwner } from '../lib/study-client/sidebar-owner.queries';
 
 export const Route = createFileRoute('/pages/$pageId')({
@@ -14,24 +13,20 @@ export const Route = createFileRoute('/pages/$pageId')({
     section: 'pages',
     scope: 'project',
     sidebar: {
-      owner: sidebarOwner(pageIdSchema, ({ pageId }) => pageId, notePageOptions)
+      owner: sidebarOwner(pageIdSchema, ({ pageId }) => pageId, 'page')
     }
   },
   beforeLoad: ({ params }) => {
     Schema.decodeUnknownSync(pageIdSchema)(BigInt(params.pageId));
   },
   loaderDeps: ({ search }) => ({ pageVersion: search.pageVersion }),
-  loader: ({ context, params, deps }) =>
+  loader: ({ params, deps }) =>
     Promise.all([
-      context.queryClient.prefetchQuery(
-        notePageOptions(Schema.decodeUnknownSync(pageIdSchema)(BigInt(params.pageId)))
-      ),
+      rpc.pages.get.read({ id: pageIdSchema.make(BigInt(params.pageId)) }).catch(() => undefined),
       deps.pageVersion
-        ? context.queryClient.prefetchQuery(
-            pageVersionOptions(
-              Schema.decodeUnknownSync(pageVersionIdSchema)(BigInt(deps.pageVersion))
-            )
-          )
+        ? rpc.pages.version
+            .read({ id: pageVersionIdSchema.make(BigInt(deps.pageVersion)) })
+            .catch(() => undefined)
         : undefined
     ]),
   component: PageReaderPage

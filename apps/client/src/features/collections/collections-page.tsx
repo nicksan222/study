@@ -1,7 +1,9 @@
 import type { ErrorKind } from '@study/contracts/errors';
 import { StudyError } from '@study/contracts/errors';
+import type { MaterialId } from '@study/contracts/ids';
 import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { CollectionPanel } from '@study/ui/collection-panel';
 import { DangerDialog } from '@study/ui/danger-dialog';
@@ -10,16 +12,17 @@ import { Input } from '@study/ui/input';
 import { Loading } from '@study/ui/loading';
 import { StatusMessage } from '@study/ui/status-message';
 import { toastManager } from '@study/ui/toast';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
+import {
+  useCursorRecovery,
+  useCursorWindow,
+  CursorWindowActions
+} from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
 
-import { materialsOptions } from '../material-library';
-import { paginatedNotesOptions } from '../note-workspace';
 import { SubjectIconEditor, SubjectIdentity } from '../subjects';
 import { useCollectionState, validCollectionName } from './collection-state';
 import { materialMembership, noteMembership } from './collections.queries';
@@ -112,9 +115,7 @@ function Collection({
 
           if (validCollectionName(name))
             void mutate(async () => {
-              const changed = await request((c) =>
-                c['projects.renameProject']({ id: project.id, name: name.trim() })
-              );
+              const changed = await rpc.projects.rename.call({ id: project.id, name: name.trim() });
 
               if (!changed) throw new StudyError('not_found', 'Collection no longer exists');
 
@@ -160,7 +161,7 @@ function Collection({
           if (busy) return;
 
           return mutate(async () => {
-            const deleted = await request((c) => c['projects.deleteProject']({ id: project.id }));
+            const deleted = await rpc.projects.delete.call({ id: project.id });
 
             if (!deleted) throw new StudyError('not_found', 'Subject no longer exists');
 
@@ -188,23 +189,7 @@ function Members({
 }) {
   const { t } = useI18n();
   const [picker, setPicker] = useState(false);
-  const materials = useInfiniteQuery({
-    ...materialsOptions(picker ? undefined : project),
-    enabled: kind === 'materials'
-  });
-  const notes = useInfiniteQuery({
-    ...paginatedNotesOptions(picker ? undefined : project),
-    enabled: kind === 'notes'
-  });
-  const state = kind === 'materials' ? materials : notes;
-  const members =
-    kind === 'materials'
-      ? materials.data?.pages
-          .flatMap((page) => page.items)
-          .map((item) => ({ ...item, action: () => materialMembership(project, item.id, picker) }))
-      : notes.data?.pages
-          .flatMap((page) => page.items)
-          .map((item) => ({ ...item, action: () => noteMembership(project, item.id, picker) }));
+  const { state, members, navigation, hasMore, more } = useCollectionMembers(project, kind, picker);
 
   return (
     <CollectionPanel.Members>
@@ -219,34 +204,101 @@ function Members({
         pending={state.isPending}
         emptyMessage={t(picker ? 'collections.emptyPicker' : 'collections.emptyMembers')}
         error={state.isError}
-        empty={pagesEmpty(state.data)}
+        empty={state.data?.items.length === 0}
         retry={() => void state.refetch()}
       />
       <Button disabled={state.isFetching || busy} onClick={() => void state.refetch()}>
         {t('collections.retry')}
       </Button>
-      <CollectionPanel.List>
-        {members?.map((item) => (
-          <MemberRow
-            key={String(item.id)}
-            title={item.title}
-            picker={picker}
-            disabled={busy || (picker && item.projectIds.includes(project))}
-            onClick={() => void mutate(item.action)}
-          />
-        ))}
-      </CollectionPanel.List>
-      {state.hasNextPage ? (
-        <Button disabled={state.isFetching} onClick={() => void state.fetchNextPage()}>
-          {t('collections.more')}
-        </Button>
-      ) : null}
+      <MembershipRows {...{ members, project, picker, busy, mutate }} />
+
+      <CursorWindowActions
+        {...navigation}
+        hasMore={hasMore}
+        pending={state.isFetching || busy}
+        more={more}
+      />
     </CollectionPanel.Members>
   );
 }
 
+function MembershipRows({
+  members,
+  project,
+  picker,
+  busy,
+  mutate
+}: {
+  members: ReturnType<typeof useCollectionMembers>['members'];
+  project: ProjectId;
+  picker: boolean;
+  busy: boolean;
+  mutate: (action: () => Promise<unknown>) => Promise<void>;
+}) {
+  return (
+    <CollectionPanel.List>
+      {members?.map((item) => (
+        <MemberRow
+          key={String(item.id)}
+          title={item.title}
+          picker={picker}
+          disabled={busy || (picker && item.projectIds.includes(project))}
+          onClick={() => void mutate(item.action)}
+        />
+      ))}
+    </CollectionPanel.List>
+  );
+}
+
+function useCollectionMembers(project: ProjectId, kind: 'materials' | 'notes', picker: boolean) {
+  const materialWindow = useCursorWindow<MaterialId>(`${project}:${picker}`);
+  const noteWindow = useCursorWindow<
+    NonNullable<Parameters<typeof rpc.notes.list.read>[0]['before']>
+  >(`${project}:${picker}`);
+  const materials = rpc.materials.list.useQuery(
+    {
+      projectId: picker ? undefined : project,
+      archived: false,
+      limit: materialWindow.limit,
+      cursor: materialWindow.cursor
+    },
+    { enabled: kind === 'materials' }
+  );
+
+  useCursorRecovery(materialWindow, materials.error);
+  const notes = rpc.notes.list.useQuery(
+    { project: picker ? undefined : project, limit: noteWindow.limit, before: noteWindow.cursor },
+    { enabled: kind === 'notes' }
+  );
+
+  useCursorRecovery(noteWindow, notes.error);
+
+  if (kind === 'materials')
+    return {
+      state: materials,
+      members: materials.data?.items.map((item) => ({
+        ...item,
+        action: () => materialMembership(project, item.id, picker)
+      })),
+      navigation: materialWindow,
+      hasMore: !!materials.data?.nextCursor,
+      more: () => materialWindow.more(materials.data?.nextCursor)
+    };
+
+  return {
+    state: notes,
+    members: notes.data?.items.map((item) => ({
+      ...item,
+      action: () => noteMembership(project, item.id, picker)
+    })),
+    navigation: noteWindow,
+    hasMore: !!notes.data?.next,
+    more: () => noteWindow.more(notes.data?.next)
+  };
+}
+
 function CreateCollection({ view }: { view: CollectionsView }) {
-  const { t, client, draft, update, mutate, name, busy } = view;
+  const { t, draft, update, mutate, name, busy } = view;
 
   return (
     <>
@@ -262,11 +314,8 @@ function CreateCollection({ view }: { view: CollectionsView }) {
             update((value) => ({ ...value, uncertain: true }));
 
             try {
-              const created = await request((c) =>
-                c['projects.createProject']({ name: submitted.text.trim() })
-              );
+              const created = await rpc.projects.create.call({ name: submitted.text.trim() });
 
-              client.setQueryData(['projects', 'collection', String(created.id)], created);
               update((value) => ({
                 ...value,
                 accepted: created.id,
@@ -318,7 +367,7 @@ function CollectionCatalog({ view }: { view: CollectionsView }) {
         pending={list.isPending}
         emptyMessage={t('collections.emptyCatalog')}
         error={list.isError}
-        empty={list.data?.pages.every((p) => p.items.length === 0) ?? false}
+        empty={list.data?.items.length === 0}
         retry={() => void list.refetch()}
       />
       <Button
@@ -326,38 +375,46 @@ function CollectionCatalog({ view }: { view: CollectionsView }) {
         size="sm"
         disabled={list.isFetching || busy}
         onClick={async () => {
-          const result = await list.refetch();
+          try {
+            await rpc.projects.list.read({ limit: view.window.limit, before: view.window.cursor });
 
-          if (draft.selected !== null) await selected.refetch();
+            if (draft.selected !== null) await rpc.projects.get.read({ id: draft.selected });
 
-          update((value) => ({ ...value, reviewed: !result.isError && !value.pending }));
+            list.retry();
+            selected.retry();
+            update((value) => ({ ...value, reviewed: !value.pending }));
+          } catch {
+            list.retry();
+            selected.retry();
+            update((value) => ({ ...value, reviewed: false }));
+          }
         }}
       >
         {t('collections.retry')}
       </Button>
       <CollectionPanel.List>
-        {list.data?.pages
-          .flatMap((p) => p.items)
-          .map((project) => (
-            <CollectionPanel.CatalogRow key={String(project.id)}>
-              <CollectionPanel.SelectCollection
-                variant="ghost"
+        {list.data?.items.map((project) => (
+          <CollectionPanel.CatalogRow key={String(project.id)}>
+            <CollectionPanel.SelectCollection
+              variant="ghost"
 
-                onClick={() => update((value) => ({ ...value, selected: project.id }))}
-                aria-pressed={draft.selected === project.id}
-              >
-                <SubjectIdentity name={project.name} icon={project.icon} />
-                {project.name}
-              </CollectionPanel.SelectCollection>
-              <CollectionPanel.ExamDate>{project.examOn}</CollectionPanel.ExamDate>
-            </CollectionPanel.CatalogRow>
-          ))}
+              onClick={() => update((value) => ({ ...value, selected: project.id }))}
+              aria-pressed={draft.selected === project.id}
+            >
+              <SubjectIdentity name={project.name} icon={project.icon} />
+              {project.name}
+            </CollectionPanel.SelectCollection>
+            <CollectionPanel.ExamDate>{project.examOn}</CollectionPanel.ExamDate>
+          </CollectionPanel.CatalogRow>
+        ))}
       </CollectionPanel.List>
-      {list.hasNextPage ? (
-        <Button disabled={list.isFetching} onClick={() => void list.fetchNextPage()}>
-          {t('collections.more')}
-        </Button>
-      ) : null}
+
+      <CursorWindowActions
+        {...view.window}
+        hasMore={!!list.data?.next}
+        pending={list.isFetching}
+        more={view.loadMore}
+      />
     </>
   );
 }
@@ -473,10 +530,6 @@ function CreationStatus({ view }: { view: CollectionsView }) {
       <CollectionPanel.Muted>{t('collections.nameLimit')}</CollectionPanel.Muted>
     </>
   );
-}
-
-function pagesEmpty(data: { pages: readonly { items: readonly unknown[] }[] } | undefined) {
-  return data?.pages.every((page) => page.items.length === 0) ?? false;
 }
 
 function collectionFailure(error: ErrorKind) {

@@ -1,5 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { rpc } from '@study/contracts/react';
 import {
   ArchiveIcon,
   RestoreArchiveIcon,
@@ -19,18 +20,15 @@ import {
 import { Dialog, DialogPopup } from '@study/ui/dialog';
 import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { invalidatePages } from '#client/lib/study-client/pages.queries.ts';
 
 import { ContentReadError } from '../document-presentation';
-import { PageMetadataDialog, notePageOptions } from '../note-workspace';
+import { PageMetadataDialog } from '../note-workspace';
 import { PageAiDialog } from './page-ai-dialog';
-import { archivePageOptions } from './page-context.queries';
 import { PageDeletionDialog } from './retirement';
 
 type Action = 'metadata' | 'ai' | 'delete';
@@ -47,11 +45,7 @@ export function PageContextMenu({
 }) {
   const { t } = useI18n();
   const [action, setAction] = useState<Action>();
-  const cache = useQueryClient();
-  const archive = useMutation({
-    ...archivePageOptions(page),
-    onSuccess: () => invalidatePages(cache)
-  });
+  const archive = rpc.pages.archive.useMutation();
   const search = project ? { project: String(project) } : {};
 
   return (
@@ -88,7 +82,10 @@ export function PageContextMenu({
             <HistoryIcon aria-hidden="true" />
             {t('ReaderHistory')}
           </ContextMenuItem>
-          <ContextMenuItem disabled={archive.isPending} onClick={() => archive.mutate()}>
+          <ContextMenuItem
+            disabled={archive.isPending}
+            onClick={() => void archive.mutate({ id: page.id, archived: page.archivedAt === null })}
+          >
             {page.archivedAt === null ? (
               <ArchiveIcon aria-hidden="true" />
             ) : (
@@ -128,7 +125,7 @@ function PageActionDialog({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const state = useQuery(notePageOptions(id));
+  const state = rpc.pages.get.useQuery({ id });
 
   if (!state.data || state.error)
     return (

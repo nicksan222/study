@@ -24,6 +24,7 @@ import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
+import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument, acceptMaterialDeletion } from '#testing/material-deletion';
 import { cleanupHistory as cleanup } from '#testing/material-history';
 import { cleanup as cleanupNote } from '#testing/note-deletion';
@@ -86,7 +87,7 @@ testStable(
           const current = yield* m.material({ id: root.id });
 
           const client = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true }).pipe(
-            Effect.provide(MaterialsRpcLive),
+            Effect.provide(MaterialsRpcLive.pipe(Layer.provide(testLiveQueries))),
             Effect.provide(Layer.succeed(Materials, m))
           );
 

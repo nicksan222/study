@@ -1,23 +1,16 @@
 import { noteIdSchema, messageIdSchema, versionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { PendingMessageWork } from './pending-message-work';
 
 const api = vi.hoisted(() => ({ provenance: vi.fn(), executions: vi.fn(), cancel: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.replyVersion': api.provenance,
-      'workflows.executions': api.executions,
-      'workflows.cancelExecution': api.cancel
-    })
-}));
 
 const target = {
   noteId: Schema.decodeUnknownSync(noteIdSchema)(1n),
@@ -32,32 +25,30 @@ const execution = {
   status: 'running',
   outcome: null,
   failureKind: null,
+  configurationWaitReason: null,
   canCancel: true,
   createdAtMs: 1n,
   updatedAtMs: 1n
 };
 
-let cache: QueryClient;
+let fixture: ReturnType<typeof rpcHandlersTransport>;
 
 beforeEach(() => {
   vi.resetAllMocks();
-  cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  fixture = rpcHandlersTransport({
+    'notes.replyVersion': api.provenance,
+    'workflows.executions': api.executions,
+    'workflows.cancelExecution': api.cancel
   });
   api.provenance.mockResolvedValue({ state: 'available', requestId: 'exact-request' });
   api.executions.mockResolvedValue({ items: [execution], next: null });
 });
 afterEach(() => {
   cleanup();
-  cache.clear();
 });
 
 function mount() {
-  render(
-    <QueryClientProvider client={cache}>
-      <PendingMessageWork {...target} />
-    </QueryClientProvider>
-  );
+  render(<PendingMessageWork {...target} />, { wrapper: fixture.wrapper });
 }
 
 testStable('cancels the exact pending version and waits for committed stopping state', async () => {
@@ -66,6 +57,8 @@ testStable('cancels the exact pending version and waits for committed stopping s
       items: [{ ...execution, status: 'cancelling', canCancel: false }],
       next: null
     });
+
+    return { ...execution, status: 'cancelling', canCancel: false };
   });
   mount();
   const button = await screen.findByRole('button', { name: 'NoteCancel' });

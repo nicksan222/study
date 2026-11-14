@@ -171,6 +171,7 @@ export const NoteSelectionStore = defineStore({
       },
       mutations: {
         updateSelection: storeMutation({
+          changes: ['notes'],
           input: updateNoteSelectionSchema,
           output: noteSelectionSchema,
           run: (input) => {
@@ -347,6 +348,7 @@ export const NoteContextStore = defineStore({
       },
       mutations: {
         capture: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             ...noteContextIntentSchema.fields,
             requestId: Schema.String,

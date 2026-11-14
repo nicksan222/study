@@ -7,7 +7,6 @@ import { Effect } from 'effect';
 import { assert, expect, vi } from 'vite-plus/test';
 
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 testStable(
   'keeps unavailable historical extraction unavailable without falling back to current content or bytes',
   async () => {

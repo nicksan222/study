@@ -1,30 +1,28 @@
 import { quizAttemptIdSchema } from '@study/contracts/ids';
 import type { ProjectId } from '@study/contracts/ids';
 import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { ArchiveIcon, OpenIcon, PageIcon, StartIcon, RetryIcon } from '@study/icons';
 import { ErrorState } from '@study/ui/error-state';
 import { WorkspaceCard } from '@study/ui/workspace';
-import { useQuery, useIsMutating } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Schema } from 'effect';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AttemptsAction } from './history-dialog';
 import { MaterialPages } from './material-pages';
-import { attemptOptions, useMaterialArchive } from './practice.queries';
+import { useMaterialArchive } from './practice.queries';
 
 export function MaterialActions({ material }: { material: MaterialDetailDto }) {
   const { t } = useI18n();
-  const busy = useIsMutating() > 0;
   const search = useSearch({ from: '__root__' });
   const project =
     material.projectIds.find((value) => String(value) === search.project) ?? material.projectIds[0];
   const scope = project ? { project: String(project) } : {};
-  const attempt = useQuery({
-    ...attemptOptions(Schema.decodeUnknownSync(quizAttemptIdSchema)(BigInt(search.attempt ?? '1'))),
-    enabled: search.attempt !== undefined
-  });
+  const attempt = rpc.learning.attempt.useQuery(
+    { attemptId: quizAttemptIdSchema.make(BigInt(search.attempt ?? '1')) },
+    { enabled: search.attempt !== undefined }
+  );
   const version = search.attempt
     ? attempt.data?.materialId === material.id
       ? attempt.data.versionId.toString()
@@ -52,7 +50,7 @@ export function MaterialActions({ material }: { material: MaterialDetailDto }) {
           <>
             {search.attempt && (
               <WorkspaceCard.Item
-                disabled={busy}
+                disabled={false}
                 render={
                   <Link
                     to="/practice/$materialId"
@@ -73,7 +71,7 @@ export function MaterialActions({ material }: { material: MaterialDetailDto }) {
         <MaterialPages version={version} materialId={material.id} />
       </WorkspaceCard.Group>
       <WorkspaceCard.Group>
-        <ArchiveAction material={material} busy={busy} project={project} />
+        <ArchiveAction material={material} busy={false} project={project} />
       </WorkspaceCard.Group>
     </>
   );
@@ -98,15 +96,16 @@ function ArchiveAction({
       <WorkspaceCard.Item
         disabled={mutation.isPending || busy}
         onClick={() =>
-          mutation.mutate(undefined, {
-            onSuccess: () => {
+          void mutation
+            .mutate()
+            .then(() => {
               if (!archived)
                 void navigate({
                   to: '/practice',
                   search: project ? { project: String(project) } : {}
                 });
-            }
-          })
+            })
+            .catch(() => {})
         }
       >
         {archived ? <RetryIcon aria-hidden="true" /> : <ArchiveIcon aria-hidden="true" />}

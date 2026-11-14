@@ -56,7 +56,7 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
     retired: (id: string) => executionRetired(id),
     execution: (id: string) => execution(id),
     start(id: string, tag: string, payload: string, parent: string | undefined) {
-      return context.transaction((context) => {
+      return context.transaction(['workflows'], (context) => {
         const db = context.db.orm;
         const row = execution(id, db);
 
@@ -98,7 +98,7 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
       });
     },
     interrupt(id: string, mode: 'safe' | 'unsafe') {
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         const db = context.db.orm;
         const row = execution(id, db);
 
@@ -127,7 +127,7 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
     },
     /** Atomically claim an eligible lease and discard previews captured by replaced owners. */
     claim(id: string, owner: string) {
-      return context.transaction((context) => {
+      return context.transaction(['workflows'], (context) => {
         const db = context.db.orm;
 
         if (executionRetired(id, db)) return false;
@@ -171,31 +171,41 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
       });
     },
     renew(id: string, owner: string) {
-      const time = now();
+      return context.transaction(['workflows'], (context) => {
+        const db = context.db.orm;
+        const time = now();
 
-      return (
-        Number(
-          db
-            .update(workflow_executions)
-            .set({ updated_at: time })
-            .where(
-              and(
-                eq(workflow_executions.execution_id, id),
-                eq(workflow_executions.owner_token, owner),
-                gt(workflow_executions.updated_at, time - BigInt(leaseMs))
+        return (
+          Number(
+            db
+              .update(workflow_executions)
+              .set({ updated_at: time })
+              .where(
+                and(
+                  eq(workflow_executions.execution_id, id),
+                  eq(workflow_executions.owner_token, owner),
+                  gt(workflow_executions.updated_at, time - BigInt(leaseMs))
+                )
               )
-            )
-            .run().changes
-        ) === 1
-      );
+              .run().changes
+          ) === 1
+        );
+      });
     },
     release(id: string, owner: string) {
-      db.update(workflow_executions)
-        .set({ owner_token: null, updated_at: now() })
-        .where(
-          and(eq(workflow_executions.execution_id, id), eq(workflow_executions.owner_token, owner))
-        )
-        .run();
+      return context.transaction(['workflows'], (context) => {
+        const db = context.db.orm;
+
+        db.update(workflow_executions)
+          .set({ owner_token: null, updated_at: now() })
+          .where(
+            and(
+              eq(workflow_executions.execution_id, id),
+              eq(workflow_executions.owner_token, owner)
+            )
+          )
+          .run();
+      });
     },
     checkpoint(
       id: string,
@@ -203,27 +213,31 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
       result: string,
       status: 'completed' | 'suspended' | 'cancelled'
     ) {
-      if (executionRetired(id)) return;
+      return context.transaction(['workflows'], (context) => {
+        const db = context.db.orm;
 
-      const changed = db
-        .update(workflow_executions)
-        .set({ result, status, owner_token: null, updated_at: now() })
-        .where(
-          and(
-            eq(workflow_executions.execution_id, id),
-            eq(workflow_executions.owner_token, owner),
-            gt(workflow_executions.updated_at, now() - BigInt(leaseMs)),
-            ...(status !== 'cancelled'
-              ? [sql`${workflow_executions.result} IS NOT ${'"__interrupt_unsafe__"'}`]
-              : []),
-            ...(status === 'suspended'
-              ? [sql`${workflow_executions.result} IS NOT ${'"__interrupt_safe__"'}`]
-              : [])
+        if (executionRetired(id, db)) return;
+
+        const changed = db
+          .update(workflow_executions)
+          .set({ result, status, owner_token: null, updated_at: now() })
+          .where(
+            and(
+              eq(workflow_executions.execution_id, id),
+              eq(workflow_executions.owner_token, owner),
+              gt(workflow_executions.updated_at, now() - BigInt(leaseMs)),
+              ...(status !== 'cancelled'
+                ? [sql`${workflow_executions.result} IS NOT ${'"__interrupt_unsafe__"'}`]
+                : []),
+              ...(status === 'suspended'
+                ? [sql`${workflow_executions.result} IS NOT ${'"__interrupt_safe__"'}`]
+                : [])
+            )
           )
-        )
-        .run();
+          .run();
 
-      if (Number(changed.changes) !== 1) throw new Error('Workflow owner was fenced');
+        if (Number(changed.changes) !== 1) throw new Error('Workflow owner was fenced');
+      });
     },
     activity(id: string, name: string, attempt: number) {
       return db
@@ -239,7 +253,7 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
         .get()?.result;
     },
     saveActivity(id: string, owner: string, name: string, attempt: number, result: string) {
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         const db = context.db.orm;
 
         workflowStore(context).assertOwner(id, owner);
@@ -275,7 +289,7 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
       if (!row) throw new Error('Workflow owner was fenced');
     },
     saveDeferred(id: string, name: string, result: string, source?: { id: string; owner: string }) {
-      return context.transaction((context) => {
+      return context.transaction(['workflows'], (context) => {
         const db = context.db.orm;
 
         if (executionRetired(id, db)) return false;
@@ -335,12 +349,16 @@ export function workflowStore(context: ServerContext | ServerTransactionContext)
         .all();
     },
     removeClock(id: string, name: string) {
-      db.delete(workflow_clocks)
-        .where(and(eq(workflow_clocks.execution_id, id), eq(workflow_clocks.name, name)))
-        .run();
+      return context.transaction(['workflows'], (context) => {
+        const db = context.db.orm;
+
+        db.delete(workflow_clocks)
+          .where(and(eq(workflow_clocks.execution_id, id), eq(workflow_clocks.name, name)))
+          .run();
+      });
     },
     clock(id: string, name: string, deferredName: string, due: bigint, owner: string) {
-      return context.transaction((context) => {
+      return context.transaction(['workflows'], (context) => {
         const db = context.db.orm;
 
         workflowStore(context).assertOwner(id, owner);

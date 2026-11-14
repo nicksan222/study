@@ -1,31 +1,19 @@
+import { rpc } from '@study/contracts/react';
 import type { ModelTier } from '@study/contracts/settings/schemas';
 import type { TierSetup } from '@study/contracts/settings/types';
-import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import type { loadAiSettings } from '#client/lib/study-client/ai-settings.ts';
+import type { AiConfiguration } from '#client/lib/study-client/ai-settings.ts';
 
-import { saveModelsOptions, saveApiKeyOptions } from './ai.queries';
-
-/** Model selection and write-only credential mutations share invalidation, not sign-in state. */
-export function useProviderSettings(
-  data: Awaited<ReturnType<typeof loadAiSettings>> | undefined,
-  refresh: () => Promise<void>
-) {
+/** Keep provider edits local; committed settings arrive through the live protocol. */
+export function useProviderSettings(data: AiConfiguration | undefined) {
   const [credentialProvider, selectCredentialProvider] = useState('1');
-  const save = useMutation({ ...saveModelsOptions(), onSuccess: refresh });
+  const save = rpc.settings.saveLlmSettings.useMutation();
+  const saveKey = rpc.auth.saveApiKey.useMutation();
   const [keyError, setKeyError] = useState(false);
-  const saveKey = useMutation({
-    ...saveApiKeyOptions(),
-    onSuccess: refresh,
-    onSettled: (_data, error) => {
-      setKeyError(!!error);
-      saveKey.reset();
-    }
-  });
 
   function setSetup(tier: ModelTier, setup: TierSetup) {
-    if (data) save.mutate({ ...data.settings, [tier]: setup });
+    if (data) void save.mutateAsync({ ...data.settings, [tier]: setup }).catch(() => {});
   }
 
   return {
@@ -38,7 +26,17 @@ export function useProviderSettings(
       setKeyError(false);
     },
     setSetup,
-    saveApiKey: (provider: string, apiKey: string | null) =>
-      saveKey.mutateAsync({ provider, apiKey })
+    saveApiKey: async (provider: string, apiKey: string | null) => {
+      try {
+        await saveKey.mutateAsync({ provider, apiKey });
+        setKeyError(false);
+      } catch (error) {
+        setKeyError(true);
+
+        throw error;
+      } finally {
+        saveKey.reset();
+      }
+    }
   };
 }

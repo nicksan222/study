@@ -1,38 +1,19 @@
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage as material } from '../document-editing/test-support';
 import { usePageMetadata } from './note-page-metadata.queries';
 
 const api = vi.hoisted(() => ({ description: vi.fn() }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (run: (rpc: Record<string, unknown>) => unknown) =>
-    run({ 'pages.updateMetadata': api.description })
-}));
-
-const clients: QueryClient[] = [];
-
 function mount() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
-
-  clients.push(client);
+  const fixture = rpcTestTransport(async (_tag, input) => api.description(input));
   const original = { ...material(), description: 'Original summary' };
 
-  return {
-    client,
-    original,
-    ...renderHook(() => usePageMetadata(original), {
-      wrapper: ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
-      )
-    })
-  };
+  return { original, ...renderHook(() => usePageMetadata(original), { wrapper: fixture.wrapper }) };
 }
 
 beforeEach(() => {
@@ -41,7 +22,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
 });
 
 testStable(
@@ -76,18 +56,3 @@ testStable('keeps edits on a description conflict and does not rename the materi
   expect(view.result.current.description).toBe('My summary');
   expect(view.result.current.title).toBe(view.original.title);
 });
-
-testStable(
-  'refreshes the library and search summaries after authored metadata changes',
-  async () => {
-    const view = mount();
-
-    view.client.setQueryData(['library', 'library', ['1']], []);
-    view.client.setQueryData(['search', { query: 'notes' }], { hits: [] });
-    await act(async () => {
-      await view.result.current.mutation.mutateAsync();
-    });
-    expect(view.client.getQueryState(['library', 'library', ['1']])?.isInvalidated).toBe(true);
-    expect(view.client.getQueryState(['search', { query: 'notes' }])?.isInvalidated).toBe(true);
-  }
-);

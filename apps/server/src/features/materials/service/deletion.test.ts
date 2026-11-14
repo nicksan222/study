@@ -32,6 +32,7 @@ import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { workflowStore } from '#server/platform/workflows/store';
 import { learningGeneration, queueLearningGeneration } from '#testing/learning-generation';
+import { testLiveQueries } from '#testing/live-queries';
 import {
   acceptMaterialDeletion,
   cleanupMaterial,
@@ -130,7 +131,13 @@ testStable(
 
             return input;
           })
-        ).pipe(Effect.provide(MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()))))
+        ).pipe(
+          Effect.provide(
+            MaterialsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+              Layer.provideMerge(f.domain())
+            )
+          )
+        )
       );
 
       await f.reopen();

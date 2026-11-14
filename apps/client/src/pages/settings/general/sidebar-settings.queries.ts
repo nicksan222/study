@@ -1,25 +1,13 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 import { useState } from 'react';
 
-import { request } from '#client/lib/study-client/request.ts';
-import { sidebarSettingsOptions } from '#client/lib/study-client/sidebar.queries.ts';
-
-/** Validates and saves the threshold, preserving failed input for retry. */
 export function useSidebarSettings() {
-  const cache = useQueryClient();
-  const query = useQuery(sidebarSettingsOptions());
+  const query = rpc.settings.sidebarSettings.useQuery({});
   const [draft, setDraft] = useState<string>();
   const value = draft ?? String(query.data?.settledPageThreshold ?? '');
   const number = Number(value);
   const valid = value.trim() !== '' && Number.isInteger(number) && number >= 1 && number <= 100;
-  const mutation = useMutation({
-    mutationFn: () =>
-      request((rpc) => rpc['settings.saveSidebarSettings']({ settledPageThreshold: number })),
-    onSuccess: async () => {
-      await cache.invalidateQueries({ queryKey: sidebarSettingsOptions().queryKey });
-      setDraft(undefined);
-    }
-  });
+  const mutation = rpc.settings.saveSidebarSettings.useMutation();
 
   return {
     query,
@@ -29,7 +17,11 @@ export function useSidebarSettings() {
     setDraft,
     changed: query.data && number !== query.data.settledPageThreshold,
     save: () => {
-      if (valid && query.data && !mutation.isPending) mutation.mutate();
+      if (valid && query.data && !mutation.isPending)
+        void mutation
+          .mutateAsync({ settledPageThreshold: number })
+          .then(() => setDraft(undefined))
+          .catch(() => {});
     }
   };
 }

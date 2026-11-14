@@ -66,12 +66,12 @@ export function PracticeSidebarContextMenu({
           <ContextMenuItem
             disabled={archive.isPending}
             onClick={() =>
-              archive.mutate(undefined, {
-                onSuccess: () => {
+              void archive
+                .mutate()
+                .then(() => {
                   if (active) void navigate({ to: '/practice', search });
-                },
-                onError: () => toastManager.add({ title: t('PracticeArchiveError'), type: 'error' })
-              })
+                })
+                .catch(() => toastManager.add({ title: t('PracticeArchiveError'), type: 'error' }))
             }
           >
             <ArchiveIcon aria-hidden="true" />

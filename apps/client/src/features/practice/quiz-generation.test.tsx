@@ -10,7 +10,7 @@ import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
 import {
@@ -18,13 +18,11 @@ import {
   materialRpc,
   mountLibraryRoute
 } from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 const readiness = vi.hoisted(() => ({ state: 'ready' }));
 
 vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => readiness.state }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 vi.mock('../agent-progress', () => ({
   AgentProgress: () => <div>Leaked generation activity</div>
@@ -48,6 +46,11 @@ function rpcFixture(linked = true) {
       ],
       next: null
     })
+  );
+  rpc['projects.findProject'].mockImplementation(() =>
+    rpc['projects.projects']({ limit: 100 }).pipe(
+      Effect.map((page) => Option.fromNullishOr(page.items[0]))
+    )
   );
   const version = Schema.decodeUnknownSync(materialVersionDetailSchema)({
     ...learningVersion(102n),
@@ -256,7 +259,7 @@ testStable(
 );
 
 testStable(
-  'generates flashcards from the sidebar with all paginated pages selected and optional filtering',
+  'generates flashcards from explicitly loaded pages with optional filtering',
   async () => {
     const rpc = rpcFixture(false);
     const first = rpc['pages.pages'].getMockImplementation()!;
@@ -273,8 +276,10 @@ testStable(
     });
 
     rpc['pages.pages'].mockImplementation((input) =>
-      input.cursor
-        ? Effect.succeed({ items: [extra], nextCursor: null })
+      input.cursor || input.limit > 30
+        ? first(input).pipe(
+            Effect.map((page) => ({ items: [...page.items, extra], nextCursor: null }))
+          )
         : first(input).pipe(Effect.map((page) => ({ ...page, nextCursor: extra.id })))
     );
     rpc['materials.materialVersion'].mockImplementation((input) =>
@@ -289,11 +294,13 @@ testStable(
     const user = userEvent.setup();
 
     mountLibraryRoute('/practice?project=1', rpc);
-    const generate = await screen.findByRole('button', { name: en.PracticeGenerate });
-
-    await waitFor(() => expect(generate).toBeEnabled());
-    await user.click(generate);
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: en.PracticeGenerate })).toBeEnabled()
+    );
+    await user.click(screen.getByRole('button', { name: en.PracticeGenerate }));
     const dialog = await screen.findByRole('dialog', { name: en.PracticeGenerate });
+
+    await user.click(await within(dialog).findByRole('button', { name: en.LibraryMore }));
     const selected = await within(dialog).findByRole('switch', { name: 'Index notes' });
 
     expect(selected).toBeChecked();

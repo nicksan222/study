@@ -34,6 +34,7 @@ import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { testLiveQueries } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
 
 const content = (value: string) => ({
@@ -60,7 +61,8 @@ testStable(
       Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const handlers = () => NotesRpcLive.pipe(Layer.provideMerge(services()));
+    const handlers = () =>
+      NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(services()));
 
     try {
       const captured = await Effect.runPromise(
@@ -621,7 +623,8 @@ testStable(
       Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
-    const handlers = () => NotesRpcLive.pipe(Layer.provideMerge(services()));
+    const handlers = () =>
+      NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(services()));
     const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
 
     try {
@@ -812,7 +815,7 @@ testStable(
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     const handlers = () =>
-      NotesRpcLive.pipe(
+      NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
         Layer.provideMerge(Layer.mergeAll(Notes.layer, Pages.layer, Sources.layer, Settings.layer)),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );
@@ -992,7 +995,7 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const handlers = NotesRpcLive.pipe(
+    const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(
         Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer, Sources.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))

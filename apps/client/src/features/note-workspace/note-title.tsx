@@ -51,7 +51,10 @@ export function NoteTitleEdit({ id, title }: { id: NoteId; title: string }) {
 
             if (!draft.trim() || mutation.isPending) return;
 
-            mutation.mutate(draft.trim(), { onSuccess: () => setOpen(false) });
+            void mutation.mutate(draft.trim()).then(
+              () => setOpen(false),
+              () => {}
+            );
           }}
         >
           <WorkspaceSurface.ContextDialogBody>

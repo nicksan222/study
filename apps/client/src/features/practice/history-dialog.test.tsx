@@ -20,9 +20,7 @@ import {
   materialRpc,
   mountLibraryRoute
 } from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 const en = catalogs.english;
 

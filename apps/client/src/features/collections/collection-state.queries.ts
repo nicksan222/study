@@ -1,6 +1,8 @@
+import { RegistryContext, useAtom } from '@effect/atom-react';
 import type { ErrorKind } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Atom } from 'effect/reactivity';
+import { useContext } from 'react';
 
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
@@ -17,8 +19,6 @@ type CollectionState = {
   error?: ErrorKind;
 };
 
-const key = ['collection-drafts'] as const;
-
 const initial: CollectionState = {
   name: { text: '', revision: 0 },
   names: {},
@@ -29,6 +29,8 @@ const initial: CollectionState = {
   reviewed: false
 };
 
+const drafts = Atom.make(initial).pipe(Atom.keepAlive);
+
 /** Matches the database name limit using Unicode code points after trimming. */
 export function validCollectionName(name: string) {
   return name.trim().length > 0 && [...name.trim()].length <= 100;
@@ -36,18 +38,8 @@ export function validCollectionName(name: string) {
 
 /** Shares drafts and mutation ownership across collection views and subject settings. */
 export function useCollectionState() {
-  const client = useQueryClient();
-  const query = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    gcTime: Infinity,
-    staleTime: Infinity
-  });
-
-  function update(change: (state: CollectionState) => CollectionState) {
-    client.setQueryData<CollectionState>(key, (value) => change(value ?? initial));
-  }
+  const registry = useContext(RegistryContext);
+  const [state, update] = useAtom(drafts);
 
   /** Advances the subject-specific draft revision so late responses cannot erase newer edits. */
   function changeName(id: ProjectId, text: string) {
@@ -78,7 +70,7 @@ export function useCollectionState() {
 
   /** Serializes collection writes and reconciles reads even when a committed response is lost. */
   async function mutate(action: () => Promise<unknown>) {
-    if (client.getQueryData<CollectionState>(key)?.pending) return;
+    if (registry.get(drafts).pending) return;
 
     update((value) => ({ ...value, pending: true, error: undefined, reviewed: false }));
 
@@ -87,15 +79,9 @@ export function useCollectionState() {
     } catch (error) {
       update((value) => ({ ...value, error: toStudyError(error).kind }));
     } finally {
-      // A lost response may follow a committed write. Reconcile reads without replaying it.
-      await Promise.allSettled(
-        ['projects', 'materials', 'notes', 'note-workspace', 'search'].map((prefix) =>
-          client.invalidateQueries({ queryKey: [prefix] })
-        )
-      );
       update((value) => ({ ...value, pending: false }));
     }
   }
 
-  return { state: query.data, update, mutate, changeName, acceptName };
+  return { state, update, mutate, changeName, acceptName };
 }

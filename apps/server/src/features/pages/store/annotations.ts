@@ -216,11 +216,13 @@ export const PageAnnotationsStore = defineStore({
       },
       mutations: {
         createAnnotation: storeMutation({
+          changes: ['pages'],
           input: c.createAnnotationSchema,
           output: c.annotationOutcomeSchema,
           run: a.create
         }),
         reviseAnnotation: storeMutation({
+          changes: ['pages'],
           input: c.reviseAnnotationSchema,
           output: c.annotationOutcomeSchema,
           run: a.revise

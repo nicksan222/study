@@ -81,15 +81,26 @@
     "./sources/conversion": "./src/sources/conversion.ts",
     "./notes/conversion": "./src/notes/conversion.ts",
     "./integrations/schemas": "./src/integrations/schemas.ts",
-    "./integrations/rpc": "./src/integrations/rpc.ts"
+    "./integrations/rpc": "./src/integrations/rpc.ts",
+    "./protocol": "./src/protocol.ts",
+    "./react": "./src/react.ts"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project server packages/contracts"
   },
   "dependencies": {
+    "@effect/atom-react": "4.0.7",
     "effect": "4.0.7"
   },
   "devDependencies": {
     "@study/testing": "*"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }

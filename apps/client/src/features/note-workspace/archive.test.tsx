@@ -2,20 +2,19 @@ import { StudyError } from '@study/contracts/errors';
 import { noteIdSchema } from '@study/contracts/ids';
 import { archivedNoteItemSchema } from '@study/contracts/notes/archive';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { ArchivePanel } from './archive';
 import { useItemArchive } from './archive.queries';
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
-vi.mock('../document-presentation', () => ({
+vi.mock(import('../document-presentation'), async (importOriginal) => ({
+  ...(await importOriginal()),
   DocumentReader: ({ document }: { document: { blocks: readonly { text: string }[] } }) => (
     <article>{document.blocks.map((block) => block.text).join(' ')}</article>
   )
@@ -31,23 +30,17 @@ const item = Schema.decodeUnknownSync(archivedNoteItemSchema)({
   archivedAt: 1n
 });
 
-const clients: QueryClient[] = [];
+let fixture: ReturnType<typeof rpcHandlersTransport>;
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
   vi.resetAllMocks();
 });
 
 function mount(children = <ArchivePanel id={id} />) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  render(children, { wrapper: fixture.wrapper });
 
-  clients.push(client);
-  render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
-
-  return client;
+  return fixture;
 }
 
 function setup(items = [item]) {
@@ -59,12 +52,13 @@ function setup(items = [item]) {
       pageId: document.id,
       token: 'preview',
       versionIds: [document.version!.id],
-      blockedVersionIds: []
+      blockedVersionIds: [],
+      semantics: 'retire_bodies_retain_identities'
     }),
     'pages.delete': vi.fn().mockResolvedValue(undefined)
   };
 
-  vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
+  fixture = rpcHandlersTransport(rpc);
 
   return rpc;
 }
@@ -105,7 +99,7 @@ testStable('shows honest empty and failed archive reads', async () => {
   await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('NoteArchiveEmpty'));
   rpc['notes.archivedItems'].mockRejectedValue(new StudyError('internal', 'Unavailable'));
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['note-workspace', String(id), 'archived'] });
+    await client.notify();
   });
   expect(await screen.findByRole('button', { name: 'Retry' })).toBeVisible();
   expect(screen.getByText('NoteArchiveLoadFailed')).toBeVisible();

@@ -1,23 +1,19 @@
 import type { NoteId, SourceId } from '@study/contracts/ids';
 import type { MessagePart } from '@study/contracts/notes/messages';
+import { rpc } from '@study/contracts/react';
 import type { Source } from '@study/contracts/sources/schemas';
 import { mediaSize } from '@study/localization';
 import { AttachmentPreview } from '@study/ui/attachment-preview';
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceAttachments } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import {
-  SourceDeletion,
-  SourceVersionDeletion,
-  sourceOptions as attachmentSourceOptions
-} from '../source-library';
+import { SourceDeletion, SourceVersionDeletion } from '../source-library';
 import { ArchiveMenuItem } from './archive-menu-item';
 import { appearances } from './attachment-appearance';
 import { useAttachmentMedia } from './attachment-cards.queries';
@@ -73,7 +69,9 @@ function AttachmentCard({
 }) {
   const { t } = useI18n();
   const [deleted, setDeleted] = useState(false);
-  const source = useQuery(attachmentSourceOptions(deleted ? null : part.sourceId));
+  const source = rpc.sources.get.useQuery(
+    !deleted && part.sourceId ? { id: part.sourceId } : undefined
+  );
   const { icon: Icon, tone } = appearances[part.sourceKind];
 
   const target = attachmentTarget({
@@ -143,7 +141,6 @@ function AttachmentContextMenu({
   label: string;
   children: ReactNode;
 }) {
-  const cache = useQueryClient();
   const menu = (actions?: ItemDeletionActions) => (
     <ItemContextMenu
       target={target}
@@ -170,16 +167,11 @@ function AttachmentContextMenu({
       source={source}
       onDeleted={() => {
         onDeleted();
-        void cache.invalidateQueries({ queryKey: ['note-workspace'] });
       }}
       renderTrigger={(onDeleteItem, deleting) => (
         <SourceVersionDeletion
           source={source}
-          onDeleted={() => {
-            void cache.invalidateQueries({
-              queryKey: ['sources', 'current-extraction', String(source.id)]
-            });
-          }}
+          onDeleted={() => {}}
           renderTrigger={(onDeleteVersion, deletingVersion) =>
             menu({ onDeleteItem, onDeleteVersion, open: deleting || deletingVersion })
           }

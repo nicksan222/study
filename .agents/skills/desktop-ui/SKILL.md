@@ -10,14 +10,15 @@ description: Use when adding, moving or reviewing desktop React pages, shared UI
   Reuse them for both native and browser consumers; do not build a second component set.
 - The native shell is `apps/desktop/src-tauri`: only native capabilities and transport.
   Business behavior belongs in `apps/server`; typed Effect RPC contracts live in `packages/contracts`.
-- The React frontend uses the browser-safe Effect RPC client from `@study/server/client`
-  and the same typed contracts as other consumers.
+- React consumers use the canonical `rpc` facade from `@study/contracts/react`.
+  Application composition supplies transport; protocol definitions remain React-free.
 - Access native capabilities through `apps/client/src/lib/host.ts`; shared components
   use this host boundary instead of importing Tauri APIs or detecting the native host.
 - All user-visible copy comes from `@study/localization` in English and Italian; run
   `bun gen` when changing the database schema and check drift with `bun gen:check`.
-- Keep asynchronous state in query/mutation hooks and invalidate after committed mutations.
-  Events are refresh hints; a reconnect or missed event must recover through queries.
+- Mounted server reads use canonical live query hooks and converge through persisted revisions.
+  Components do not invalidate reads. Local drafts use ordinary React state or Effect atoms;
+  native asynchronous operations stay behind the host boundary.
 - Run focused frontend checks and package tests. The old `just e2e` runner is retired;
   do not substitute a fake server to claim end-to-end coverage.
 - For native-only file dialogs, microphone and updater, verify the Tauri app with the

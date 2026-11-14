@@ -2,7 +2,6 @@ import { StudyError } from '@study/contracts/errors';
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
 import { ChatMessageActionToolbar } from '@study/ui/chat';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as Router from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -10,13 +9,12 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { QuestionActions } from './question-actions';
 
 vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: vi.fn(() => 'ready') }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 vi.mock('@tanstack/react-router', async (load) => ({
   ...(await load<typeof Router>()),
   Link: ({ to, children }: { to: string; children?: ReactNode }) => <a href={to}>{children}</a>
@@ -28,8 +26,6 @@ vi.mock('#client/lib/i18n.tsx', () => ({
 vi.mock('./pending-message-work', () => ({
   PendingMessageWork: () => <div role="status">NoteThinking</div>
 }));
-
-const caches: QueryClient[] = [];
 
 const answer = vi.fn();
 
@@ -43,19 +39,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
   executions.mockResolvedValue({ items: [] });
-  vi.mocked(request).mockImplementation(async (invoke) =>
-    invoke({
-      'notes.answerQuestion': answer,
-      'notes.setMessageKind': mark,
-      'workflows.executions': executions,
-      'notes.setItemArchived': restore
-    } as never)
-  );
 });
 afterEach(() => {
   vi.useRealTimers();
-
-  for (const cache of caches.splice(0)) cache.clear();
 });
 
 function note(
@@ -101,26 +87,58 @@ function note(
 }
 
 function mount(message = note(), versionId = message.activeVersionId!) {
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  const fixture = rpcTestTransport(async (tag, input) => {
+    if (tag === 'notes.answerQuestion')
+      return {
+        requestId: 'answer',
+        noteId: 1n,
+        messageId: 2n,
+        versionId: 3n,
+        ...(await answer(input))
+      };
 
-  caches.push(cache);
+    if (tag === 'notes.setMessageKind') return mark(input);
+
+    if (tag === 'notes.setItemArchived') return restore(input);
+
+    if (tag === 'workflows.executions') {
+      const page = await executions(input);
+
+      return {
+        next: null,
+        ...page,
+        items: page.items.map((item: object) => ({
+          workflow: 'reply',
+          correlationId: 'request-1',
+          failureKind: null,
+          configurationWaitReason: null,
+          canCancel: false,
+          createdAtMs: 1n,
+          updatedAtMs: 1n,
+          ...item
+        }))
+      };
+    }
+
+    throw new StudyError('unsupported', tag);
+  });
+  const Provider = fixture.wrapper;
   const view = render(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <QuestionActions message={message} versionId={versionId}>
         {(action) => (
           <ChatMessageActionToolbar aria-label="NoteItemActions">{action}</ChatMessageActionToolbar>
         )}
       </QuestionActions>
-    </QueryClientProvider>
+    </Provider>
   );
 
   return {
     ...view,
+    notify: fixture.notify,
     update: (next: typeof message) =>
       view.rerender(
-        <QueryClientProvider client={cache}>
+        <Provider>
           <QuestionActions message={next} versionId={versionId}>
             {(action) => (
               <ChatMessageActionToolbar aria-label="NoteItemActions">
@@ -128,7 +146,7 @@ function mount(message = note(), versionId = message.activeVersionId!) {
               </ChatMessageActionToolbar>
             )}
           </QuestionActions>
-        </QueryClientProvider>
+        </Provider>
       )
   };
 }
@@ -316,23 +334,18 @@ testStable('uses the authoritative receipt after a linked answer is deleted', as
 });
 
 testStable.each(['completed', 'cancelled', 'running'])(
-  'polls only while the answer is active: %s',
+  'observes authoritative answer updates without a component polling timer: %s',
   async (status) => {
-    vi.useFakeTimers();
     executions.mockResolvedValue({
       items: [{ id: 'execution', status, outcome: status === 'completed' ? 'success' : null }]
     });
-    mount(note('question', 8n, 'request-1'));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(50);
-    });
-    expect(executions).toHaveBeenCalledOnce();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(9000);
-    });
+    const view = mount(note('question', 8n, 'request-1'));
 
-    if (status === 'running') expect(executions.mock.calls.length).toBeGreaterThan(1);
-    else expect(executions).toHaveBeenCalledOnce();
+    await waitFor(() => expect(executions).toHaveBeenCalledOnce());
+    await act(async () => {
+      await view.notify();
+    });
+    expect(executions).toHaveBeenCalledTimes(2);
   }
 );
 

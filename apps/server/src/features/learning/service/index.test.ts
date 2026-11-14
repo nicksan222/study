@@ -364,7 +364,9 @@ testStable(
               questionId
             };
 
-            context.transaction((context) => emitEvent(context, foreignEvent, Date.now()));
+            context.transaction(['learning'], (context) =>
+              emitEvent(context, foreignEvent, Date.now())
+            );
             assert.ok(
               (yield* Effect.flip(learning.gradingSnapshot(foreignEvent))).kind === 'invalid_input'
             );

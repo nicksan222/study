@@ -54,19 +54,17 @@ export function NoteMergeDialog({
             onClick={() => {
               if (merge.isPending) return;
 
-              merge.mutate(
-                { noteIds: notes.map((note) => note.id), intentKey },
-                {
-                  onSuccess: (note) => {
-                    onMerged();
-                    onOpenChange(false);
-                    void navigate({
-                      to: '/notes/$noteId',
-                      params: { noteId: note.id },
-                      search: note.projectIds[0] ? { project: String(note.projectIds[0]) } : {}
-                    });
-                  }
-                }
+              void merge.mutate({ noteIds: notes.map((note) => note.id), intentKey }).then(
+                (note) => {
+                  onMerged();
+                  onOpenChange(false);
+                  void navigate({
+                    to: '/notes/$noteId',
+                    params: { noteId: note.id },
+                    search: note.projectIds[0] ? { project: String(note.projectIds[0]) } : {}
+                  });
+                },
+                () => {}
               );
             }}
           >

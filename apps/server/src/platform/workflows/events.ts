@@ -55,19 +55,21 @@ export function emitEvent(
   )
     throw new StudyError('cancelled', 'Workflow correlation has been retired');
 
-  context.db.orm
-    .insert(workflowEvents)
-    .values({
-      eventId: validated.eventId,
-      type: validated.type,
-      causationId: validated.causationId,
-      correlationId: validated.correlationId,
-      inputVersion: validated.inputVersion,
-      depth: validated.depth,
-      payload: encodeEvent(validated),
-      createdAt
-    })
-    .run();
+  context.transaction(['workflows'], (transaction) => {
+    transaction.db.orm
+      .insert(workflowEvents)
+      .values({
+        eventId: validated.eventId,
+        type: validated.type,
+        causationId: validated.causationId,
+        correlationId: validated.correlationId,
+        inputVersion: validated.inputVersion,
+        depth: validated.depth,
+        payload: encodeEvent(validated),
+        createdAt
+      })
+      .run();
+  });
 }
 
 /** Preserve event identity and dispatch receipts while clearing exactly fenced event payloads. */

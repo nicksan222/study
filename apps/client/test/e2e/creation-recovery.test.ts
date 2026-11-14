@@ -39,11 +39,19 @@ testE2e(
     await composer.press('ControlOrMeta+Enter');
     await expect(composer).toHaveValue(original);
     await expect(page).toHaveURL(/\/notes$/);
+    const committed = page
+      .getByRole('navigation', { name: copy.Notes, exact: true })
+      .locator(`a[href="${savedPath}"]`);
+
+    await expect(committed).toHaveCount(1);
+    await composer.press('ControlOrMeta+End');
+    await composer.press('PageDown');
     await expectScreenshot('pending-save', {
       target: 'viewport',
       ready: async () => {
         await expect(save).toBeDisabled();
         await expect(save).toHaveAttribute('aria-busy', 'true');
+        await expect(committed).toHaveCount(1);
         await expect(composer).toHaveValue(original);
       }
     });

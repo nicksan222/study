@@ -1,9 +1,11 @@
 import { StudyError } from '@study/contracts/errors';
 import { noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { Transformation } from './transformation';
 
@@ -18,36 +20,55 @@ vi.mock('#client/lib/ai-readiness-notice.tsx', () => ({
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
 }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.suggestTransformField': api.suggest,
-      'notes.noteSelection': async () => ({ revision: 1n, targets: [] }),
-      'notes.note': async () => ({ updatedAt: 1n }),
-      'notes.noteGenerations': async () => ({ items: [], next: null })
-    })
-}));
 vi.mock('./history', () => ({ CapturedContext: () => null }));
 
 const id = noteIdSchema.make(1n);
 
-let cache: QueryClient;
+let fixture: ReturnType<typeof rpcTestTransport>;
+
+let revision = 1n;
+
+function Provider({ children }: { children: React.ReactNode }) {
+  return <fixture.wrapper>{children}</fixture.wrapper>;
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
   api.readiness = 'ready';
-  cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  revision = 1n;
+  fixture = rpcTestTransport(async (tag, input) => {
+    if (tag === 'notes.suggestTransformField') return api.suggest(input);
+
+    if (tag === 'notes.noteSelection') return { revision, targets: [] };
+
+    if (tag === 'notes.note') {
+      const { id } = Schema.decodeUnknownSync(Schema.Struct({ id: noteIdSchema }))(input);
+
+      return {
+        id,
+        title: 'Note',
+        titleSource: 'user',
+        projectIds: [],
+        archivedAt: null,
+        createdAt: 1n,
+        updatedAt: 1n
+      };
+    }
+
+    if (tag === 'notes.noteGenerations') return { items: [], next: null };
+
+    throw new StudyError('unsupported', tag);
+  });
 });
 afterEach(() => {
   cleanup();
-  cache.clear();
 });
 
 function mount(active = true) {
   return render(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <Transformation id={id} active={active} />
-    </QueryClientProvider>
+    </Provider>
   );
 }
 
@@ -98,14 +119,14 @@ testStable('ignores old results after dismiss and reopen even when kept mounted'
   fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
   await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(1));
   view.rerender(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <Transformation id={id} active={false} />
-    </QueryClientProvider>
+    </Provider>
   );
   view.rerender(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <Transformation id={id} active />
-    </QueryClientProvider>
+    </Provider>
   );
   await act(async () => title.resolve('Old title'));
   expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
@@ -137,9 +158,10 @@ testStable('ignores results after saved context changes or the selected notes ch
   );
   fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
   await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(1));
-  act(() =>
-    cache.setQueryData(['note-workspace', '1', 'selection'], { revision: 2n, targets: [] })
-  );
+  revision = 2n;
+  await act(async () => {
+    await fixture.notify();
+  });
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeEnabled()
   );
@@ -151,7 +173,7 @@ testStable('ignores results after saved context changes or the selected notes ch
   fireEvent.click(screen.getByRole('button', { name: 'NoteGenerateTitle' }));
   await waitFor(() => expect(api.suggest).toHaveBeenCalledTimes(2));
   view.rerender(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <Transformation
         id={id}
         notes={[
@@ -159,7 +181,7 @@ testStable('ignores results after saved context changes or the selected notes ch
           { id: noteIdSchema.make(2n), title: 'Second' }
         ]}
       />
-    </QueryClientProvider>
+    </Provider>
   );
   await act(async () => next.resolve('Wrong group'));
   expect(screen.getByLabelText('NoteOutputTitle')).toHaveValue('');
@@ -167,7 +189,7 @@ testStable('ignores results after saved context changes or the selected notes ch
 
 testStable('disables suggestions above twenty notes without truncating the selection', () => {
   render(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <Transformation
         id={id}
         notes={Array.from({ length: 21 }, (_, index) => ({
@@ -175,7 +197,7 @@ testStable('disables suggestions above twenty notes without truncating the selec
           title: `Note ${index + 1}`
         }))}
       />
-    </QueryClientProvider>
+    </Provider>
   );
   expect(screen.getByRole('button', { name: 'NoteGenerateTitle' })).toBeDisabled();
   expect(screen.getByRole('button', { name: 'NoteGenerateInstructions' })).toBeDisabled();

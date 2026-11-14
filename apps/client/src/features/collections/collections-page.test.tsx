@@ -5,7 +5,6 @@ import { projectSchema } from '@study/contracts/projects/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { toastManager } from '@study/ui/toast';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -21,7 +20,8 @@ import { Effect, Schema } from 'effect';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { CollectionsPage } from './collections-page';
 
@@ -40,12 +40,6 @@ const rpc = vi.hoisted(() => ({
   'materials.materials': vi.fn<StudyClient['materials.materials']>(),
   'notes.notes': vi.fn<StudyClient['notes.notes']>()
 }));
-
-vi.mock('#client/lib/study-client/client.ts', async () => {
-  const { Effect } = await import('effect');
-
-  return { studyClient: Effect.succeed(rpc) };
-});
 
 const t = catalogs.english;
 
@@ -67,9 +61,7 @@ function deferred<T>() {
 }
 
 function mount() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  const harness = rpcHandlersTransport(rpc);
   const root = createRootRoute({ component: Outlet });
   const router = createRouter({
     routeTree: root.addChildren([
@@ -81,14 +73,14 @@ function mount() {
     history: createMemoryHistory({ initialEntries: ['/projects'] })
   });
   const view = render(
-    <QueryClientProvider client={client}>
+    <harness.wrapper>
       <LanguageProvider locale="english">
         <RouterProvider router={router} />
       </LanguageProvider>
-    </QueryClientProvider>
+    </harness.wrapper>
   );
 
-  return { ...view, client, router };
+  return { ...view, notify: harness.notify, router };
 }
 
 async function remount(router: ReturnType<typeof mount>['router']) {
@@ -384,7 +376,8 @@ testStable.each(['materials', 'notes'] as const)(
 
     rpc['projects.removeMaterial'].mockImplementation(failed);
     rpc['projects.removeNote'].mockImplementation(failed);
-    mount();
+    const { notify } = mount();
+
     await selectProject();
     const title = kind === 'materials' ? 'Reading' : 'Discussion';
     const button = await screen.findByRole('button', {
@@ -397,6 +390,7 @@ testStable.each(['materials', 'notes'] as const)(
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
     await screen.findByText(t['collections.mutationError']);
+    await act(() => notify());
     await waitFor(() => expect(within(section).queryByText(title)).toBeNull());
     await waitFor(() =>
       expect(within(section).getByRole('button', { name: t['collections.retry'] })).toBeEnabled()
@@ -420,11 +414,11 @@ testStable.each(['materials', 'notes'] as const)(
 
 testStable('provides contextual empty guidance for catalog, members and picker', async () => {
   rpc['projects.projects'].mockReturnValueOnce(Effect.succeed({ items: [], next: null }));
-  const { client } = mount();
+  const { notify } = mount();
 
   await screen.findByText(t['collections.emptyCatalog']);
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['projects'] });
+    await notify();
   });
   await selectProject();
   await waitFor(() => expect(screen.getAllByText(t['collections.emptyMembers'])).toHaveLength(2));
@@ -497,16 +491,7 @@ testStable(
         attached = true;
       }).pipe(Effect.flatMap(() => Effect.fail(new StudyError('internal', 'lost after commit'))))
     );
-    const { client } = mount();
-    // Inactive consumers must also become stale when an ambiguous write settles.
-    const sidebarKeys = [
-      ['projects'],
-      ['notes'],
-      ['note-workspace', 'cached'],
-      ['search', 'cached']
-    ];
-
-    for (const key of sidebarKeys) client.setQueryData(key, 'cached');
+    mount();
 
     await selectProject();
     const picker = screen.getAllByRole('button', { name: t['collections.picker'] })[1]!;
@@ -547,8 +532,6 @@ testStable(
       noteId: note.id
     });
     expect(rpc['projects.removeNote']).not.toHaveBeenCalled();
-
-    for (const key of sidebarKeys) expect(client.getQueryState(key)?.isInvalidated).toBe(true);
   }
 );
 

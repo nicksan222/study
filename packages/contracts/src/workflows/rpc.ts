@@ -1,8 +1,15 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { agentProgressInputSchema, agentProgressPageSchema } from '../ai/progress.ts';
 import { failureSchema } from '../errors.ts';
+import {
+  allDependencies,
+  dependency,
+  endpointGroup,
+  eventStream,
+  liveQuery,
+  mutation
+} from '../protocol.ts';
 import {
   executionIdSchema,
   executionSchema,
@@ -11,42 +18,62 @@ import {
   cancelExecutionInputSchema
 } from './schemas.ts';
 
-export const WorkflowsRpc = RpcGroup.make(
-  Rpc.make('agentProgress', {
+export const workflowsEndpoints = {
+  agentProgress: liveQuery(
+    'workflows.agentProgress',
+    {
+      payload: agentProgressInputSchema,
+      success: agentProgressPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  subscribeAgentProgress: eventStream('workflows.subscribeAgentProgress', {
     payload: agentProgressInputSchema,
     success: agentProgressPageSchema,
     error: failureSchema
   }),
-  Rpc.make('subscribeAgentProgress', {
-    payload: agentProgressInputSchema,
-    success: agentProgressPageSchema,
-    error: failureSchema,
-    stream: true
-  }),
-  Rpc.make('execution', {
-    payload: { id: executionIdSchema },
-    success: executionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('findExecution', {
-    payload: { id: executionIdSchema },
-    success: Schema.Option(executionSchema),
-    error: failureSchema
-  }),
-  Rpc.make('executions', {
+  execution: liveQuery(
+    'workflows.execution',
+    {
+      payload: { id: executionIdSchema },
+      success: executionSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  findExecution: liveQuery(
+    'workflows.findExecution',
+    {
+      payload: { id: executionIdSchema },
+      success: Schema.Option(executionSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  executions: liveQuery(
+    'workflows.executions',
+    {
+      payload: executionsInputSchema,
+      success: executionsPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  subscribeExecutions: eventStream('workflows.subscribeExecutions', {
     payload: executionsInputSchema,
     success: executionsPageSchema,
     error: failureSchema
   }),
-  Rpc.make('subscribeExecutions', {
-    payload: executionsInputSchema,
-    success: executionsPageSchema,
-    error: failureSchema,
-    stream: true
-  }),
-  Rpc.make('cancelExecution', {
-    payload: cancelExecutionInputSchema,
-    success: executionSchema,
-    error: failureSchema
-  })
-).prefix('workflows.');
+  cancelExecution: mutation(
+    'workflows.cancelExecution',
+    {
+      payload: cancelExecutionInputSchema,
+      success: executionSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.workflows] }
+  )
+};
+
+export const WorkflowsRpc = endpointGroup(workflowsEndpoints);

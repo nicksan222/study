@@ -1,14 +1,15 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type {
   applyProposalSchema,
   keepProposalSchema,
   comparisonSchema,
   proposalOutcomeSchema
 } from '@study/contracts/pages/editing';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
+import { Atom } from 'effect/reactivity';
+import { useContext } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { invalidatePages } from '#client/lib/study-client/pages.queries.ts';
-import { request } from '#client/lib/study-client/request.ts';
 
 type Outcome = typeof proposalOutcomeSchema.Type;
 
@@ -28,44 +29,31 @@ function proposalActionBlocked(kind: 'apply' | 'keep', owned: ProposalState | un
 
 const initial: ProposalState = { pending: false, failed: false };
 
+const proposals = Atom.family((_requestId: string) => Atom.make(initial).pipe(Atom.keepAlive));
+
 export function useProposalReview({ requestId }: { requestId: string }) {
   const { t } = useI18n();
-  const client = useQueryClient();
-  const comparison = useQuery({
-    queryKey: ['pages', 'proposal-comparison', requestId],
-    queryFn: () => request((rpc) => rpc['pages.compareProposal']({ requestId }))
-  });
-  const key = ['document-proposal-actions', requestId];
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const { outcome, pending: busy, failed, attempt } = state.data;
+  const registry = useContext(RegistryContext);
+  const atom = proposals(requestId);
+  const comparison = rpc.pages.compareProposal.useQuery({ requestId });
+  const { outcome, pending: busy, failed, attempt } = useAtomValue(atom);
   const update = (patch: Partial<ProposalState>) =>
-    client.setQueryData<ProposalState>(key, (old) => ({ ...(old ?? initial), ...patch }));
+    registry.set(atom, { ...registry.get(atom), ...patch });
 
   async function run(input: Attempt) {
-    const owned = client.getQueryData<ProposalState>(key);
+    const owned = registry.get(atom);
 
-    if (owned?.pending || (owned?.outcome && owned.outcome.outcome !== 'conflict')) return;
-
-    if (owned?.attempt && owned.attempt.input.key !== input.input.key) return;
+    if (receiptBlocked(owned, input)) return;
 
     update({ attempt: input, pending: true, failed: false });
 
     try {
-      const receipt = await request((rpc) =>
-        input.kind === 'apply'
-          ? rpc['pages.applyProposal'](input.input)
-          : rpc['pages.keepProposal'](input.input)
-      );
+      const receipt = await (input.kind === 'apply'
+        ? rpc.pages.applyProposal.call(input.input)
+        : rpc.pages.keepProposal.call(input.input));
 
       // Retain the exact receipt before refreshing or navigating away.
       update({ outcome: receipt, attempt: undefined });
-      await invalidatePages(client);
     } catch {
       update({ failed: true });
     } finally {
@@ -74,7 +62,7 @@ export function useProposalReview({ requestId }: { requestId: string }) {
   }
 
   function act(kind: 'apply' | 'keep', value: typeof comparisonSchema.Type) {
-    const owned = client.getQueryData<ProposalState>(key);
+    const owned = registry.get(atom);
 
     if (!comparison.isSuccess || proposalActionBlocked(kind, owned)) return;
 
@@ -95,4 +83,12 @@ export function useProposalReview({ requestId }: { requestId: string }) {
   }
 
   return { t, comparison, outcome, busy, failed, attempt, run, act };
+}
+
+function receiptBlocked(owned: ProposalState, input: Attempt) {
+  if (owned.pending) return true;
+
+  if (owned.outcome && owned.outcome.outcome !== 'conflict') return true;
+
+  return owned.attempt !== undefined && owned.attempt.input.key !== input.input.key;
 }

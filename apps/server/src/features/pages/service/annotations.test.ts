@@ -29,6 +29,7 @@ import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 const meta = {
   extractor: null,
@@ -51,7 +52,7 @@ testStable(
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     const handlers = () =>
-      PagesRpcLive.pipe(
+      PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
         Layer.provideMerge(Pages.layer),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );

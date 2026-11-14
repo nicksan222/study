@@ -1,13 +1,12 @@
 import type { proposalOutcomeSchema } from '@study/contracts/pages/editing';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { DocumentEditing } from '@study/ui/document-editing';
 import { ErrorState } from '@study/ui/error-state';
 import { StatusMessage } from '@study/ui/status-message';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pageVersionOptions } from '#client/lib/study-client/pages.queries.ts';
 
 import { ComparisonView } from './page-actions';
 import { useProposalReview } from './proposal-review.queries';
@@ -53,7 +52,7 @@ export function ProposalReview({ requestId }: { requestId: string }) {
 
 function ProposalResult({ versionId }: { versionId: NonNullable<Outcome['resultVersionId']> }) {
   const { t } = useI18n();
-  const version = useQuery(pageVersionOptions(versionId));
+  const version = rpc.pages.version.useQuery({ id: versionId });
 
   return version.isSuccess && version.data ? (
     <Link
@@ -73,7 +72,7 @@ function ProposalActions({ view }: { view: ProposalView }) {
 
   return (
     <>
-      {comparison.isSuccess && (
+      {comparison.isSuccess && comparison.data && (
         <>
           <ComparisonView value={comparison.data} />
           <Button

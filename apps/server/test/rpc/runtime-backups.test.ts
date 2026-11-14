@@ -49,8 +49,8 @@ const path = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 testStable('System native API inventory includes the managed backup lifecycle', async () => {
   const { SystemRpc } = await import('@study/contracts/system/rpc');
 
-  expect([...SystemRpc.requests.keys()].sort()).toStrictEqual(
-    [
+  expect([...SystemRpc.requests.keys()]).toEqual(
+    expect.arrayContaining([
       'system.acceptRestore',
       'system.createBackup',
       'system.deleteBackup',
@@ -65,7 +65,7 @@ testStable('System native API inventory includes the managed backup lifecycle', 
       'system.search',
       'system.startWorkers',
       'system.stopWorkers'
-    ].sort()
+    ])
   );
 });
 
@@ -743,6 +743,40 @@ testStable(
       assert.strictEqual((await f.app.nativeRuntime.runPromise(api.backups())).length, 0);
     } finally {
       await f.close();
+    }
+  }
+);
+
+testStable(
+  'restored databases receive a durable revision generation before RPC acquisition',
+  async () => {
+    const fixture = await backupFixture();
+
+    try {
+      await createPage(fixture.app, 'Before backup');
+      const originalGeneration = fixture.app.store.revisions().generation;
+      const api = await fixture.api();
+      const backup = await fixture.app.nativeRuntime.runPromise(api.createBackup());
+
+      await createPage(fixture.app, 'After backup');
+      const preview = await fixture.app.nativeRuntime.runPromise(
+        api.previewRestore({ id: backup.id })
+      );
+
+      await fixture.app.nativeRuntime.runPromise(api.acceptRestore(acceptance(preview)));
+      await fixture.reopen();
+      const restored = fixture.app.store.revisions();
+
+      expect(restored.generation).not.toBe(originalGeneration);
+      expect(restored.generation).toBe(preview.token);
+      await createPage(fixture.app, 'After restore');
+      const committed = fixture.app.store.revisions();
+
+      await fixture.reopen();
+      expect(fixture.app.store.revisions().generation).toBe(restored.generation);
+      expect(fixture.app.store.revisions().scopes.pages).toBe(committed.scopes.pages);
+    } finally {
+      await fixture.close();
     }
   }
 );

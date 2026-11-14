@@ -1,19 +1,18 @@
 import type { ContentSnapshotId } from '@study/contracts/ids';
 import type { Source } from '@study/contracts/sources/schemas';
-import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { Loading } from '@study/ui/loading';
 import { VersionDeletionList } from '@study/ui/version-deletion-list';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { ContentReadError } from '../document-presentation';
 import { useSourceHistoryRetirement } from './history-retirement.queries';
-import { sourceHistoryOptions } from './history.queries';
+import { useSourceHistory } from './history.queries';
 
 /** Removes one reviewed extraction through the existing source history service. */
 export function SourceVersionDeletion({
@@ -94,7 +93,7 @@ function SourceVersionDialog({ model, source }: { model: Model; source: Source }
 function useSourceVersionDeletion(source: Source, onDeleted: () => void) {
   const [selected, setSelected] = useState<ContentSnapshotId>();
   const view = useSourceHistoryRetirement(source.id, onDeleted, selected ?? null);
-  const history = useInfiniteQuery(sourceHistoryOptions(source.id, view.open));
+  const history = useSourceHistory(source.id, view.open);
   const preview = view.preview;
   const blocked =
     selected === undefined ||
@@ -103,9 +102,7 @@ function useSourceVersionDeletion(source: Source, onDeleted: () => void) {
   const pending = view.pending;
 
   const confirming = selected !== undefined && preview.isSuccess && !preview.isFetching && !blocked;
-  const selectedVersion = history.data?.pages
-    .flatMap((page) => page.items)
-    .find((version) => version.snapshotId === selected);
+  const selectedVersion = history.data?.items.find((version) => version.snapshotId === selected);
 
   return {
     selected,
@@ -124,36 +121,56 @@ type Model = ReturnType<typeof useSourceVersionDeletion>;
 
 function SourceVersionChoices({ model }: { model: Model }) {
   const { t, date } = useI18n();
-  const { selected, setSelected, view, history, preview, pending } = model;
-  const versions = history.data?.pages.flatMap((page) => page.items) ?? [];
-  const latest = versions[0]?.snapshotId;
+  const { selected, setSelected, history, pending } = model;
+  const choices = sourceVersionChoices(model);
 
   return (
     <>
       {history.isPending && <Loading label={t('LoadingStudy')} />}
       <VersionDeletionList
-        items={versions.map((version) => ({
-          id: version.snapshotId,
-          label: t('ReaderVersion') + ' ' + String(version.revision),
-          description: date(version.createdAt),
-          disabled: version.snapshotId === latest,
-          status: version.snapshotId === latest ? t('NoteVersionLatest') : undefined
-        }))}
+        items={sourceVersionRows(choices.versions, choices.latest, t, date)}
         selected={selected}
-        pending={pending || preview.isFetching || !!view.state.attempt}
+        pending={choices.pending}
         pendingLabel={t('LoadingStudy')}
         onSelect={setSelected}
       />
-      {versions.length === 1 && !history.hasNextPage && <p>{t('NoteDeleteNoOlderVersions')}</p>}
-      {history.hasNextPage && (
-        <LoadMoreButton
-          disabled={history.isFetchingNextPage || pending}
-          onClick={() => void history.fetchNextPage()}
-          label={t('LibraryMore')}
-        />
-      )}
+      {choices.noOlderVersions && <p>{t('NoteDeleteNoOlderVersions')}</p>}
+
+      <CursorWindowActions
+        hasPrevious={history.hasPrevious}
+        previous={history.previous}
+        hasMore={!!history.data?.next}
+        pending={history.isFetching || pending}
+        more={history.loadMore}
+      />
     </>
   );
+}
+
+function sourceVersionChoices(model: Model) {
+  const versions = model.history.data?.items ?? [];
+
+  return {
+    versions,
+    latest: model.history.hasPrevious ? undefined : versions[0]?.snapshotId,
+    pending: model.pending || model.preview.isFetching || !!model.view.state.attempt,
+    noOlderVersions: versions.length === 1 && !model.history.data?.next
+  };
+}
+
+function sourceVersionRows(
+  versions: NonNullable<Model['history']['data']>['items'],
+  latest: ContentSnapshotId | undefined,
+  t: ReturnType<typeof useI18n>['t'],
+  date: ReturnType<typeof useI18n>['date']
+) {
+  return versions.map((version) => ({
+    id: version.snapshotId,
+    label: t('ReaderVersion') + ' ' + String(version.revision),
+    description: date(version.createdAt),
+    disabled: version.snapshotId === latest,
+    status: version.snapshotId === latest ? t('NoteVersionLatest') : undefined
+  }));
 }
 
 function SourceVersionFeedback({ model }: { model: Model }) {

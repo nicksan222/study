@@ -1,15 +1,16 @@
 import { noteIdSchema } from '@study/contracts/ids';
-import { sourceIdSchema } from '@study/contracts/ids';
+import { contentSnapshotIdSchema, sourceIdSchema } from '@study/contracts/ids';
 import { createSchema as createManualPageSchema } from '@study/contracts/pages/editing';
 import { detailSchema as materialDetailSchema } from '@study/contracts/pages/schemas';
 import { testStable } from '@study/testing/vitest';
 import { WorkspaceCard } from '@study/ui/workspace';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { Effect, Schema } from 'effect';
+import { Schema } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { AssistantProvider } from '../assistant';
 import { authoredPage as material } from '../document-editing/test-support';
@@ -32,68 +33,74 @@ const rpc = vi.hoisted(() => ({
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
 }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: Record<string, unknown>) => Effect.Effect<unknown, unknown>) => {
-    const methods = {
-      'pages.create': rpc.create,
-      'pages.copySource': rpc.copy,
-      'sources.source': async () => ({ id: 41n, name: 'Current extraction 41', sizeBytes: 1n }),
-      'sources.currentExtraction': async () => ({
-        sourceId: 41n,
-        revision: 3n,
-        snapshotId: 141n,
-        name: 'Current extraction 41',
-        document: material(41n, 'Current extraction 41').version!.document
-      }),
-      'sources.sources': async () => ({ items: [], next: null }),
-      'sources.noteSources': async () => [],
-      'pages.page': rpc.material,
-      'pages.pages': rpc.materials,
-      'notes.thread': rpc.thread,
-      'notes.noteAssistant': rpc.assistant,
-      'notes.assistantAsk': rpc.ask,
-      'notes.assistantContext': async () => ({
-        estimatedTokens: 0,
-        maxTokens: 50000,
-        autoCompact: true,
-        lastCompactedAtMs: null
-      }),
-      'notes.postMessage': rpc.post,
-      'notes.noteGenerations': async () => ({ items: [], next: null }),
-      'notes.noteSelection': async () => ({ revision: 0n, targets: [] }),
-      'notes.note': async () => ({ id: 12n, title: 'Notebook', projectIds: [] })
-    };
-    const client = Object.fromEntries(
-      Object.entries(methods).map(([name, method]) => [
-        name,
-        (...args: never[]) => Effect.promise(() => Promise.resolve(method(...args)))
-      ])
-    );
 
-    return Effect.runPromise(invoke(client));
-  }
-}));
+function testFixture() {
+  return rpcHandlersTransport({
+    'pages.create': rpc.create,
+    'pages.copySource': rpc.copy,
+    'sources.source': async () => ({
+      id: sourceIdSchema.make(41n),
+      name: 'Current extraction 41',
+      sizeBytes: 1n,
+      kind: 'text',
+      mime: 'text/plain',
+      origin: 'attachment',
+      projectId: null,
+      projectName: null,
+      sha256: new Uint8Array(),
+      uri: null,
+      createdAt: 1n
+    }),
+    'sources.currentExtraction': async () => ({
+      sourceId: sourceIdSchema.make(41n),
+      revision: 3n,
+      snapshotId: contentSnapshotIdSchema.make(141n),
+      name: 'Current extraction 41',
+      document: material(41n, 'Current extraction 41').version!.document
+    }),
+    'sources.sources': async () => ({ items: [], next: null }),
+    'sources.noteSources': async () => [],
+    'pages.page': rpc.material,
+    'pages.pages': rpc.materials,
+    'notes.thread': rpc.thread,
+    'notes.noteAssistant': rpc.assistant,
+    'notes.assistantAsk': rpc.ask,
+    'notes.assistantContext': async () => ({
+      estimatedTokens: 0,
+      maxTokens: 50000,
+      autoCompact: true,
+      lastCompactedAtMs: null
+    }),
+    'notes.postMessage': rpc.post,
+    'notes.noteGenerations': async () => ({ items: [], next: null }),
+    'notes.noteSelection': async () => ({ revision: 0n, targets: [] }),
+    'notes.note': async () => ({
+      id: noteIdSchema.make(12n),
+      title: 'Notebook',
+      projectIds: [],
+      titleSource: 'user',
+      archivedAt: null,
+      createdAt: 1n,
+      updatedAt: 1n
+    })
+  });
+}
+
 vi.mock('./composer', () => ({ Composer: () => null }));
 
 const noteId = noteIdSchema.make(12n);
 
-const clients: QueryClient[] = [];
-
 let created: ReturnType<typeof material> | undefined;
 
 function mount(children: ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
-
-  clients.push(client);
+  const Provider = testFixture().wrapper;
 
   return render(
-    <QueryClientProvider client={client}>
+    <Provider>
       <AssistantProvider>
         <WorkspaceCard.Provider>{children}</WorkspaceCard.Provider>
       </AssistantProvider>
-    </QueryClientProvider>
+    </Provider>
   );
 }
 
@@ -141,7 +148,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
 });
 
 testStable(
@@ -199,9 +205,9 @@ testStable(
     expect(rpc.copy.mock.calls[0]![0]).toEqual({
       noteId,
       title: 'Current extraction 41',
-      sourceId: 41n,
+      sourceId: sourceIdSchema.make(41n),
       revision: 3n,
-      snapshotId: 141n,
+      snapshotId: contentSnapshotIdSchema.make(141n),
       createKey: expect.any(String)
     });
     await waitFor(() =>

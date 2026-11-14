@@ -1,3 +1,4 @@
+import { rpc } from '@study/contracts/react';
 import type { UsageQuery } from '@study/contracts/settings/usage';
 import { RefreshIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
@@ -7,20 +8,18 @@ import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { Toggle, ToggleGroup } from '@study/ui/toggle-group';
 import { Usage } from '@study/ui/usage';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { UsageReportView } from './report';
-import { usageQueryOptions } from './usage.queries';
 
 export function UsageSettings() {
   const { t } = useI18n();
   const [days, setDays] = useState<UsageQuery['days']>(30);
   const [provider, setProvider] = useState('');
   const [group, setGroup] = useState('models');
-  const query = useQuery(usageQueryOptions(days, provider));
+  const query = rpc.settings.usage.useQuery({ days, ...(provider ? { provider } : {}) });
   const report = query.data;
 
   return (

@@ -1,21 +1,17 @@
 import { assessmentViewSchema } from '@study/contracts/pages/evidence';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { EvidenceDetails } from './reader-evidence';
 
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 vi.mock('../source-library/input-link', () => ({
   CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
 }));
@@ -72,15 +68,12 @@ testStable.each([
         .mockReturnValue(Effect.succeed({ items: [record], nextCursor: null }))
     };
 
-    vi.mocked(request).mockImplementation((invoke, signal) =>
-      runRequest(invoke(rpc as never).pipe(Effect.mapError(toStudyError)), signal)
-    );
+    const harness = rpcHandlersTransport(rpc);
+
     render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
+      <harness.wrapper>
         <EvidenceDetails version={version} />
-      </QueryClientProvider>
+      </harness.wrapper>
     );
     await userEvent.setup().click(await screen.findByText(catalogs.english.PageEvidence));
     expect(await screen.findByText(label)).toBeInTheDocument();

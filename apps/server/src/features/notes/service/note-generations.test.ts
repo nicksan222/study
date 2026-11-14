@@ -22,6 +22,7 @@ import { assert } from 'vite-plus/test';
 import { Notes } from '#server/features/notes/index';
 import { NotesRpcLive } from '#server/features/notes/rpc/index';
 import { Pages } from '#server/features/pages/index';
+import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
@@ -123,7 +124,13 @@ testStable(
                 limit: 100
               })).items
             ).toStrictEqual([]);
-          }).pipe(Effect.provide(NotesRpcLive.pipe(Layer.provideMerge(fixture.domain()))))
+          }).pipe(
+            Effect.provide(
+              NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+                Layer.provideMerge(fixture.domain())
+              )
+            )
+          )
         )
       );
       await Effect.runPromise(

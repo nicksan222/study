@@ -1,41 +1,31 @@
 import { projectIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import type { SearchInput } from '#client/lib/study-client/operations.ts';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { useSidebarSearch } from './use-sidebar-search.queries';
 
 const api = vi.hoisted(() => ({ search: vi.fn() }));
 
-vi.mock('#client/lib/study-client/study.queries.ts', () => ({
-  searchQueryOptions: (input: SearchInput, enabled: boolean) => ({
-    queryKey: ['search', { ...input, project: input.project?.toString() }],
-    queryFn: () => api.search(input),
-    enabled
-  })
-}));
-
 const project = projectIdSchema.make(2n);
 
-let cache: QueryClient;
+let cache: ReturnType<typeof rpcTestTransport>;
 
 beforeEach(() => {
   vi.useFakeTimers();
   api.search.mockReset().mockResolvedValue({ hits: [] });
-  cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  cache = rpcTestTransport(async (_tag, input) => api.search(input));
 });
 afterEach(() => {
   cleanup();
-  cache.clear();
   vi.useRealTimers();
 });
 
 function wrapper({ children }: { children: ReactNode }) {
-  return <QueryClientProvider client={cache}>{children}</QueryClientProvider>;
+  return <cache.wrapper>{children}</cache.wrapper>;
 }
 
 testStable(

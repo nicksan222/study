@@ -3,13 +3,15 @@ import { noteIdSchema } from '@study/contracts/ids';
 import { askResultSchema } from '@study/contracts/notes/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
+import { rpcTestTransport } from '#client/test/rpc.tsx';
+
 import { Composer } from './composer';
-import type { Draft } from './draft';
+import { composerDraft } from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import { ask, saveNote } from './note-workspace.queries';
 
@@ -22,11 +24,7 @@ vi.mock('./note-workspace.queries', async (importOriginal) => {
   return {
     ...actual,
     ask: vi.fn(),
-    saveNote: vi.fn(),
-    selectionOptions: () => ({
-      queryKey: ['test-selection'],
-      queryFn: async () => ({ revision: 8n, targets: [] })
-    })
+    saveNote: vi.fn()
   };
 });
 
@@ -49,17 +47,19 @@ const receipt = Schema.decodeUnknownSync(askResultSchema)({
 
 beforeEach(() => vi.clearAllMocks());
 
-function mount(
-  cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  })
-) {
+function mount(cache = AtomRegistry.make()) {
+  const { wrapper: Provider } = rpcTestTransport(async (tag) => {
+    if (tag === 'notes.noteSelection') return { revision: 8n, targets: [] };
+
+    throw new StudyError('unsupported', tag);
+  }, cache);
+
   return {
     cache,
     ...render(
-      <QueryClientProvider client={cache}>
+      <Provider>
         <Composer id={id} />
-      </QueryClientProvider>
+      </Provider>
     )
   };
 }
@@ -95,9 +95,7 @@ testStable(
     vi.mocked(ask)
       .mockRejectedValueOnce(new StudyError('transient', 'Unconfirmed'))
       .mockResolvedValueOnce(receipt);
-    const cache = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-    });
+    const cache = AtomRegistry.make();
     const submitted = {
       noteId: id,
       intentKey: 'retained-ask',
@@ -105,7 +103,7 @@ testStable(
       text: 'Original question'
     };
 
-    cache.setQueryData<Draft>(['note-drafts', String(id), 'note'], {
+    cache.set(composerDraft(id), {
       text: 'Original question',
       instruction: '',
       askAttempt: submitted
@@ -140,9 +138,8 @@ testStable('does not automatically resubmit a note whose save was not confirmed'
 });
 
 testStable('keeps plain capture available while selection edits remain unsaved', async () => {
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const cache = AtomRegistry.make();
 
-  cache.setQueryData(['note-drafts', String(id), 'selection'], { revision: 8n, targets: [] });
   vi.mocked(saveNote).mockResolvedValue({} as Awaited<ReturnType<typeof saveNote>>);
   mount(cache);
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'A quick note' } });

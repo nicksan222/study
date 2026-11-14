@@ -44,6 +44,7 @@ export const LearningMaterialDeletionStore = defineStore({
       queries: {},
       mutations: {
         prepare: storeMutation({
+          changes: ['learning'],
           input: Schema.Array(materialIdSchema),
           output: Schema.Array(Schema.String),
           run: (ids) => {
@@ -53,6 +54,7 @@ export const LearningMaterialDeletionStore = defineStore({
           }
         }),
         scrub: storeMutation({
+          changes: ['learning'],
           input: Schema.Array(materialIdSchema),
           output: Schema.Void,
           run: (ids) => {

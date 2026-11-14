@@ -1,16 +1,20 @@
-import { LoadMoreButton } from '@study/ui/action-button';
+import type { MaterialVersionId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 
+import {
+  useCursorRecovery,
+  useCursorWindow,
+  CursorWindowActions
+} from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { belongsToMaterial, materialId, versionId } from './identity';
-import { historyOptions, materialOptions, versionOptions } from './material-library.queries';
 import { MaterialLifecycle, DeletionRecovery } from './material-lifecycle';
 import { ReaderExport } from './reader-export';
 import { MaterialVersionContent } from './version-content';
@@ -19,7 +23,7 @@ export function ReaderPage() {
   const params = useParams({ from: '/materials/$materialId' });
   const search = useSearch({ from: '__root__' });
   const id = materialId(params.materialId);
-  const state = useQuery(materialOptions(id));
+  const state = rpc.materials.get.useQuery({ id });
   const { t } = useI18n();
 
   useEffect(() => {
@@ -89,7 +93,7 @@ function SelectedVersion({
   const { t } = useI18n();
   const search = useSearch({ from: '__root__' });
   const [selected] = useState(requested);
-  const state = useQuery(versionOptions(selected));
+  const state = rpc.materials.version.useQuery({ id: selected });
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
@@ -147,7 +151,14 @@ function History({
 }) {
   const { t, date } = useI18n();
   const [open, setOpen] = useState(false);
-  const state = useInfiniteQuery({ ...historyOptions(id), enabled: open });
+  const window = useCursorWindow<MaterialVersionId>(String(id));
+  const limit = window.limit;
+  const state = rpc.materials.versions.useQuery(
+    { materialId: id, limit, cursor: window.cursor },
+    { enabled: open }
+  );
+
+  useCursorRecovery(window, state.error);
   const search = useSearch({ from: '__root__' });
   const loading = state.isPending && open;
 
@@ -162,34 +173,31 @@ function History({
         />
       )}
       <ul>
-        {state.data?.pages
-          .flatMap((page) => page.items)
-          .map((version) => (
-            <li key={String(version.id)}>
-              <Link
-                to="/materials/$materialId"
-                params={{ materialId: String(id) }}
-                search={{ ...search, version: String(version.id) }}
-                aria-current={
-                  search.version === String(version.id) ||
-                  (!search.version && version.id === current)
-                    ? 'page'
-                    : undefined
-                }
-              >
-                {t('ReaderVersion')} {String(version.number)} · {date(version.created_at)}
-                {version.availability === 'unavailable' && <> · {t('ReaderUnavailable')}</>}
-              </Link>
-            </li>
-          ))}
+        {state.data?.items.map((version) => (
+          <li key={String(version.id)}>
+            <Link
+              to="/materials/$materialId"
+              params={{ materialId: String(id) }}
+              search={{ ...search, version: String(version.id) }}
+              aria-current={
+                search.version === String(version.id) || (!search.version && version.id === current)
+                  ? 'page'
+                  : undefined
+              }
+            >
+              {t('ReaderVersion')} {String(version.number)} · {date(version.created_at)}
+              {version.availability === 'unavailable' && <> · {t('ReaderUnavailable')}</>}
+            </Link>
+          </li>
+        ))}
       </ul>
-      {state.hasNextPage && (
-        <LoadMoreButton
-          disabled={state.isFetchingNextPage}
-          onClick={() => void state.fetchNextPage()}
-          label={t('LibraryMore')}
-        />
-      )}
+
+      <CursorWindowActions
+        {...window}
+        hasMore={!!state.data?.nextCursor}
+        pending={state.isFetching}
+        more={() => window.more(state.data?.nextCursor)}
+      />
     </MaterialLibrary.History>
   );
 }

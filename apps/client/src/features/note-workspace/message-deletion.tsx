@@ -1,17 +1,17 @@
 import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { RemoveFromPageIcon, DeleteIcon } from '@study/icons';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { IconButton } from '@study/ui/icon-button';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Effect } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import type { ItemDeletionActions } from './item-deletion-menu';
-import { messageDeletionOptions } from './message-deletion.queries';
-import { noteKey } from './note-workspace.queries';
 import { NoteError } from './status';
 
 /** Keeps whole-item removal and exact-version removal as separate confirmed intents. */
@@ -31,20 +31,24 @@ export function MessageDeletion({
   renderActions?: (actions: ItemDeletionActions) => ReactNode;
 }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
   const [target, setTarget] = useState<'item' | VersionId>();
   const last = message.versions.filter((version) => version.status === 'complete').length < 2;
-  const remove = useMutation({
-    ...messageDeletionOptions(message.id),
-    onSuccess: (_, intent) => {
-      if (intent !== 'item') onVersionDeleted?.();
-      else onDeleted?.();
+  const remove = useIndependentMutation((intent: 'item' | VersionId) =>
+    Effect.tryPromise({
+      try: async () => {
+        if (intent === 'item') {
+          await rpc.notes.deleteMessage.call({ id: message.id });
+          onDeleted?.();
+        } else {
+          await rpc.notes.deleteMessageVersion.call({ messageId: message.id, versionId: intent });
+          onVersionDeleted?.();
+        }
 
-      setTarget(undefined);
-      void cache.invalidateQueries({ queryKey: noteKey(message.noteId) });
-      void cache.invalidateQueries({ queryKey: ['notes'] });
-    }
-  });
+        setTarget(undefined);
+      },
+      catch: toStudyError
+    })
+  );
   const item = target === 'item';
   const label = t(item ? 'NoteDeleteItem' : 'NoteDeleteVersion');
 
@@ -104,7 +108,7 @@ export function MessageDeletion({
           label: t('DeleteConfirmationInstruction', { word: t('DeleteConfirmationWord') })
         }}
         onConfirm={() => {
-          if (target !== undefined) remove.mutate(target);
+          if (target !== undefined) void remove.mutate(target).catch(() => {});
         }}
       >
         {remove.error && <NoteError error={remove.error} />}

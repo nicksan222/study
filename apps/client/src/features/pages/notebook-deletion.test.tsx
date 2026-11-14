@@ -1,26 +1,21 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { PageNotebookDeletion } from '../document-editing';
 import { authoredPage } from '../document-editing/test-support';
 import { ItemContextMenu } from '../note-workspace/item-context-menu';
 import { ItemDeletionMenu } from '../note-workspace/item-deletion-menu';
 
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
-
 const en = catalogs.english;
-
-const clients: QueryClient[] = [];
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
+
   vi.clearAllMocks();
 });
 
@@ -33,7 +28,7 @@ testStable('confirms one authored note revision separately from the full item', 
     token: 'preview',
     versionIds: [old.id],
     blockedVersionIds: [],
-    semantics: 'retire_bodies_retain_identities'
+    semantics: 'retire_bodies_retain_identities' as const
   };
   const retire = vi.fn().mockResolvedValue(impact);
   const remove = vi.fn().mockResolvedValue(undefined);
@@ -45,12 +40,10 @@ testStable('confirms one authored note revision separately from the full item', 
     'pages.delete': remove
   };
 
-  vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
-  const client = new QueryClient();
+  const harness = rpcHandlersTransport(rpc);
 
-  clients.push(client);
   render(
-    <QueryClientProvider client={client}>
+    <harness.wrapper>
       <PageNotebookDeletion
         page={document}
         renderActions={(actions) => (
@@ -64,7 +57,7 @@ testStable('confirms one authored note revision separately from the full item', 
           </ItemContextMenu>
         )}
       />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
   const user = userEvent.setup();
 
@@ -126,14 +119,12 @@ testStable('shows a review-only list when the current version is the only versio
     'pages.versions': async () => ({ items: [document.version!], nextCursor: null })
   };
 
-  vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
-  const client = new QueryClient();
+  const harness = rpcHandlersTransport(rpc);
 
-  clients.push(client);
   render(
-    <QueryClientProvider client={client}>
+    <harness.wrapper>
       <PageNotebookDeletion page={document} />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
   await userEvent.setup().click(screen.getByRole('button', { name: en.NoteDeleteVersion }));
   const dialog = await screen.findByRole('alertdialog', { name: en.NoteDeleteChooseVersion });

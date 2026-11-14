@@ -1,3 +1,4 @@
+import { RegistryContext } from '@effect/atom-react';
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
 import type {
   BackupManifest,
@@ -5,9 +6,9 @@ import type {
   restoreStatusSchema
 } from '@study/contracts/system/backups';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
@@ -32,19 +33,20 @@ const rpc = vi.hoisted(() => ({
   read: vi.fn()
 }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: unknown) => unknown) =>
-    invoke({
-      'system.listBackups': rpc.list,
-      'system.restoreStatus': rpc.status,
-      'system.createBackup': rpc.create,
-      'system.importBackup': rpc.import,
-      'system.deleteBackup': rpc.delete,
-      'system.previewRestore': rpc.preview,
-      'system.acceptRestore': rpc.accept,
-      'system.discardRestoreRecovery': rpc.discard,
-      'system.readBackup': rpc.read
-    })
+vi.mock('@study/contracts/react', () => ({
+  rpc: {
+    system: {
+      listBackups: { read: rpc.list },
+      restoreStatus: { read: rpc.status },
+      createBackup: { call: rpc.create },
+      importBackup: { call: rpc.import },
+      deleteBackup: { call: rpc.delete },
+      previewRestore: { call: rpc.preview },
+      acceptRestore: { call: rpc.accept },
+      discardRestoreRecovery: { call: rpc.discard },
+      readBackup: { read: rpc.read }
+    }
+  }
 }));
 
 const id = Schema.decodeUnknownSync(backupIdSchema)('11111111-1111-4111-8111-111111111111');
@@ -101,9 +103,7 @@ const idle: typeof restoreStatusSchema.Type = {
 };
 
 function client() {
-  return new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  return AtomRegistry.make();
 }
 
 beforeEach(() => {
@@ -144,7 +144,7 @@ testStable('synchronously excludes duplicate actions across section remounts', a
       })
   );
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={shared}>{children}</QueryClientProvider>
+    <RegistryContext.Provider value={shared}>{children}</RegistryContext.Provider>
   );
   const first = renderHook(useDataSettings, { wrapper });
 
@@ -263,7 +263,6 @@ testStable('does not treat failed downloads as uncertain mutations', async () =>
   await owner.download(id);
   expect(owner.state.error).toBe('read');
   expect(owner.state.uncertain).toBeUndefined();
-  expect(shared.getQueryData(['settings-data', 'bytes', id])).toBeUndefined();
 });
 
 testStable('enforces managed capacity without counting external downloads', async () => {
@@ -458,7 +457,7 @@ testStable(
   async () => {
     const shared = client();
     const wrapper = ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={shared}>{children}</QueryClientProvider>
+      <RegistryContext.Provider value={shared}>{children}</RegistryContext.Provider>
     );
     const first = renderHook(useDataSettings, { wrapper });
 
@@ -517,7 +516,7 @@ testStable(
 );
 
 testStable(
-  'serializes exact-ID download against discovery and clears successful byte transport from cache',
+  'serializes exact-ID download against discovery without retaining byte payloads in owner state',
   async () => {
     const shared = client();
     const owner = dataOwner(shared);
@@ -543,9 +542,6 @@ testStable(
     finish('U1RVRFlCSzEK');
     await pending;
     expect(downloadBackup).toHaveBeenCalledWith('U1RVRFlCSzEK', id);
-    expect(
-      shared.getQueryCache().find({ queryKey: ['settings-data', 'bytes', id] })
-    ).toBeUndefined();
     expect(owner.state.busy).toBe(false);
   }
 );

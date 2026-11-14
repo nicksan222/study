@@ -17,6 +17,7 @@ import { Effect, Layer } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { RpcClient, RpcSerialization } from 'effect/rpc';
 import type { Rpc, RpcGroup } from 'effect/rpc';
+import { Socket } from 'effect/socket';
 
 export type StudyClientOptions = {
   baseUrl: string | (() => string | Promise<string>);
@@ -70,3 +71,21 @@ export function makeStudyClient<R extends Rpc.Any>(
 }
 
 export { workflowSnapshots } from './reactivity.ts';
+
+/** One memoized protocol per security context; observer scopes reference-count the socket. */
+export function studySocketProtocol(options: StudyClientOptions) {
+  const url = Effect.tryPromise(async () => {
+    const base = typeof options.baseUrl === 'function' ? await options.baseUrl() : options.baseUrl;
+    const address = new URL(`${base.replace(/\/$/, '')}/rpc/live`);
+
+    address.protocol = address.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    return address.href;
+  }).pipe(Effect.orDie);
+
+  return RpcClient.layerProtocolSocket().pipe(
+    Layer.provide(RpcSerialization.layerNdjson),
+    Layer.provide(Socket.layerWebSocket(url)),
+    Layer.provide(Socket.layerWebSocketConstructorGlobal)
+  );
+}

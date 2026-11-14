@@ -2,13 +2,13 @@ import { noteIdSchema, pageIdSchema } from '@study/contracts/ids';
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
-import type { ReactNode } from 'react';
+import { AtomRegistry } from 'effect/reactivity';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { threadOptions } from './note-workspace.queries';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
+
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
 
 const preferences = vi.hoisted(() => ({ expandPages: false }));
@@ -19,27 +19,22 @@ vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
 
 const api = vi.hoisted(() => ({ thread: vi.fn() }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({ 'notes.thread': api.thread })
-}));
-
 const id = noteIdSchema.make(1n);
 
 const otherId = noteIdSchema.make(2n);
 
-const caches: QueryClient[] = [];
+const caches: AtomRegistry.AtomRegistry[] = [];
 
 function mount() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = AtomRegistry.make();
 
   caches.push(client);
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  const fixture = rpcTestTransport(async () => api.thread(), client);
+  const wrapper = fixture.wrapper;
 
   return {
     client,
+    notify: fixture.notify,
     ...renderHook(({ noteId }) => useWorkbench(noteId), {
       wrapper,
       initialProps: { noteId: id }
@@ -84,7 +79,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  caches.splice(0).forEach((cache) => cache.clear());
+  caches.splice(0).forEach((cache) => cache.dispose());
 });
 
 testStable(
@@ -97,7 +92,7 @@ testStable(
       title: 'Document'
     };
 
-    await waitFor(() => expect(view.client.isFetching()).toBe(0));
+    await waitFor(() => expect(api.thread).toHaveBeenCalled());
     act(() => view.result.current.open(target));
     await waitFor(() => expect(view.result.current.tabs).toEqual([target]));
     act(() => view.result.current.hide());
@@ -108,12 +103,10 @@ testStable(
     const message = persistedPage('legacy-page');
 
     act(() => view.result.current.open({ kind: 'message', message }));
-    act(() =>
-      view.client.setQueryData(threadOptions(id).queryKey, {
-        pages: [{ items: [{ ...message, description: 'Updated' }], next: null }],
-        pageParams: [undefined]
-      })
-    );
+    api.thread.mockResolvedValue({ items: [{ ...message, description: 'Updated' }], next: null });
+    await act(async () => {
+      await view.notify();
+    });
     await waitFor(() =>
       expect(view.result.current.tabs[1]).toMatchObject({
         kind: 'message',

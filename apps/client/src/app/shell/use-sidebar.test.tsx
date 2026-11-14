@@ -1,10 +1,16 @@
+import { materialSummarySchema } from '@study/contracts/materials/schemas';
+import { automaticProjectIcon } from '@study/contracts/projects/schemas';
+import { configureRpcTransport } from '@study/contracts/react';
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Option, Schema } from 'effect';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { NoteStart } from '#client/features/note-workspace/start.tsx';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { App } from '../app';
 
@@ -27,69 +33,157 @@ const api = vi.hoisted(() => ({
   createNote: vi.fn()
 }));
 
-vi.mock('#client/lib/study-client/client.ts', async () => {
-  const { Effect, Schema } = await import('effect');
-  const { materialSummarySchema } = await import('@study/contracts/materials/schemas');
-  const summary = (item: {
-    id: bigint;
-    kind: string;
-    title: string;
-    projectIds: bigint[];
-    updated_at: bigint;
-  }) => {
-    const version = {
-      id: item.id + 1000n,
-      material_id: item.id,
-      kind: item.kind,
-      number: 1n,
-      status: 'published',
-      operation: 'original',
-      creator: 'user',
-      instruction: null,
-      language: null,
-      created_at: 0n,
-      published_at: 0n
-    };
-
-    return Schema.decodeUnknownSync(materialSummarySchema)({
-      ...item,
-      created_at: 0n,
-      archived_at: null,
-      version,
-      latestPublishedVersion: version,
-      latestDraftVersion: null
-    });
-  };
-  const call = (fn: typeof api.projects) => (input: unknown) => Effect.tryPromise(() => fn(input));
-  const client = {
-    'system.health': () =>
-      Effect.succeed({ protocolVersion: 1, workersRunning: true, testMode: false }),
-    'projects.projects': call(api.projects),
-    'projects.createProject': call(api.createProject),
-    'sources.sources': call(api.sources),
-    'pages.pages': call(api.pages),
-    'pages.page': call(api.document),
-    'materials.materials': (input: unknown) =>
-      Effect.tryPromise(async () => {
-        const page = await api.materials(input);
-
-        return { ...page, items: page.items.map(summary) };
-      }),
-    'system.search': call(api.search),
-    'notes.notes': call(api.notes),
-    'notes.note': call(api.note),
-    'notes.createUntitledNote': call(api.createNote)
+const summary = (item: {
+  id: bigint;
+  kind: string;
+  title: string;
+  projectIds: bigint[];
+  updated_at: bigint;
+}) => {
+  const version = {
+    id: item.id + 1000n,
+    material_id: item.id,
+    kind: item.kind,
+    number: 1n,
+    status: 'published',
+    operation: 'original',
+    creator: 'user',
+    instruction: null,
+    language: null,
+    created_at: 0n,
+    published_at: 0n
   };
 
-  return {
-    studyClient: Effect.succeed(client)
+  return Schema.decodeUnknownSync(materialSummarySchema)({
+    ...item,
+    created_at: 0n,
+    archived_at: null,
+    version,
+    latestPublishedVersion: version,
+    latestDraftVersion: null
+  });
+};
+
+function sidebarTransport() {
+  let created: (typeof subjects)[number] | undefined;
+  const note = (value: { id: bigint; projectIds?: bigint[] }) => ({
+    title: 'Note',
+    titleSource: 'user',
+    archivedAt: null,
+    createdAt: 0n,
+    updatedAt: 0n,
+    ...value,
+    projectIds: value.projectIds ?? []
+  });
+
+  const foundation = async (tag: string) => {
+    if (tag === 'system.health')
+      return { protocolVersion: 1, workersRunning: true, testMode: false };
+
+    if (tag === 'settings.appSettings')
+      return { language: 1, appearance: 3, zoomPercent: 100, onboarded: true };
+
+    if (tag === 'settings.workspacePreferences') return defaultWorkspacePreferences;
+
+    if (tag === 'settings.sidebarSettings') return { settledPageThreshold: 1 };
+
+    if (tag === 'notes.noteSummaries') return { items: [] };
+
+    return undefined;
   };
-});
+
+  const projectSnapshot = async (tag: string, input: unknown) => {
+    if (tag === 'projects.projects') {
+      const page = await api.projects(input);
+
+      return {
+        ...page,
+        next: page.next ?? null,
+        items: page.items.map((item: object) => ({ icon: automaticProjectIcon, ...item }))
+      };
+    }
+
+    if (tag === 'projects.createProject') {
+      created = await api.createProject(input);
+
+      return { icon: automaticProjectIcon, ...created };
+    }
+
+    if (tag === 'projects.findProject') {
+      const { id } = Schema.decodeUnknownSync(Schema.Struct({ id: Schema.BigInt }))(input);
+      const project = [...subjects, ...(created ? [created] : [])].find(
+        (project) => project.id === id
+      );
+
+      return project ? Option.some({ ...project, icon: automaticProjectIcon }) : Option.none();
+    }
+
+    return undefined;
+  };
+
+  const noteSnapshot = async (tag: string, input: unknown) => {
+    if (tag === 'notes.notes') {
+      const page = await api.notes(input);
+
+      return { ...page, next: page.next ?? null };
+    }
+
+    if (tag === 'notes.note') return note(await api.note(input));
+
+    if (tag === 'notes.createUntitledNote') return note(await api.createNote(input));
+
+    return undefined;
+  };
+
+  return rpcTestTransport(async (tag, input) => {
+    const base = await foundation(tag);
+
+    if (base !== undefined) return base;
+
+    const project = await projectSnapshot(tag, input);
+
+    if (project !== undefined) return project;
+
+    const noteResult = await noteSnapshot(tag, input);
+
+    if (noteResult !== undefined) return noteResult;
+
+    if (tag === 'sources.sources')
+      return { next: null, nextCursor: null, ...(await api.sources(input)) };
+
+    if (tag === 'materials.materials') {
+      const page = await api.materials(input);
+
+      return { ...page, items: page.items.map(summary) };
+    }
+
+    if (tag === 'pages.pages') return api.pages(input);
+
+    if (tag === 'pages.page')
+      return {
+        title: 'Cell notes',
+        description: null,
+        createdAt: 0n,
+        updatedAt: 0n,
+        archivedAt: null,
+        headVersionId: null,
+        version: null,
+        ...(await api.document(input))
+      };
+
+    if (tag === 'system.search') return api.search(input);
+
+    throw new Error(tag);
+  });
+}
 
 const en = catalogs.english;
 
 async function renderWithNavigation() {
-  render(<App />);
+  const fixture = sidebarTransport();
+
+  configureRpcTransport(fixture.transport);
+  render(<App transport={fixture.transport} />);
   const toggle = await screen.findByRole('button', { name: en.ToggleSidebar });
 
   if (toggle.getAttribute('aria-expanded') === 'false') {
@@ -383,7 +477,8 @@ testStable('lists flashcards and quizzes together and follows material paginatio
   await screen.findByLabelText('Biology');
   await user.click(screen.getByRole('link', { name: en.Practice }));
   await screen.findByRole('link', { name: 'Cell cards' });
-  expect(screen.getByRole('link', { name: 'Cell quiz' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+  expect(await screen.findByRole('link', { name: 'Cell quiz' })).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
   expect(api.materials).toHaveBeenLastCalledWith({
     projectId: 1n,
@@ -391,7 +486,8 @@ testStable('lists flashcards and quizzes together and follows material paginatio
     limit: 100,
     archived: false
   });
-  await user.click(screen.getByRole('link', { name: 'Cell cards' }));
+  await user.click(screen.getByRole('button', { name: en.Back }));
+  await user.click(await screen.findByRole('link', { name: 'Cell cards' }));
   await waitFor(() =>
     expect(location.pathname + location.search).toBe('/projects/1/flashcards/21')
   );
@@ -424,10 +520,16 @@ testStable('loads later project and note pages', async () => {
     )
   );
   await renderWithNavigation();
+  await userEvent.click(await screen.findByRole('button', { name: en.LibraryMore }));
   expect(await screen.findByRole('link', { name: 'Later note' })).toBeInTheDocument();
   const user = userEvent.setup();
 
-  await user.click(await screen.findByLabelText('Biology'));
+  const picker = await screen.findByLabelText('Biology');
+
+  if (picker.getAttribute('aria-expanded') !== 'true') await user.click(picker);
+
+  await screen.findByLabelText(en.FindSubject);
+  await user.click(screen.getByRole('button', { name: en.LibraryMore }));
   expect(await screen.findByRole('option', { name: 'History' })).toBeInTheDocument();
 });
 

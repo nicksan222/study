@@ -34,6 +34,7 @@ import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const content = {
@@ -81,7 +82,7 @@ testStable(
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     const handlers = () =>
-      Layer.mergeAll(materialRpcHandlers, NotesRpcLive).pipe(
+      Layer.mergeAll(materialRpcHandlers, NotesRpcLive.pipe(Layer.provide(testLiveQueries))).pipe(
         Layer.provide(Layer.mergeAll(Materials.layer, Notes.layer, Settings.layer)),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );

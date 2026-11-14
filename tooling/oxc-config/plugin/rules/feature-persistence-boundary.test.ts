@@ -448,3 +448,14 @@ testStable(
     assert.ok(diagnostics.every((d) => d.filename.endsWith('/system/store/backup.ts')));
   }
 );
+
+testStable(
+  'features cannot advance shared revision metadata outside the transaction boundary',
+  async () => {
+    const diagnostics = await lintRule('feature-persistence-boundary', {
+      'src/features/notes/store/index.ts': `import { reactiveGeneration, reactiveRevisions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.orm.update(reactiveGeneration).set({ generation: 'bypass' }).run(); db.orm.insert(reactiveRevisions).values({ scope: 'notes', revision: 1n }).run();`
+    });
+
+    expect(diagnostics).toHaveLength(2);
+  }
+);

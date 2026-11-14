@@ -32,7 +32,11 @@ export function dependencyIdentity(
 function retiredDependencyIssues(path: string, name: string): string[] {
   const issues: string[] = [];
 
-  if (name.startsWith('@trpc/') || name === 'superjson')
+  if (
+    name.startsWith('@trpc/') ||
+    name === 'superjson' ||
+    /^@tanstack\/(?:react-query|query-core|react-query-devtools)(?:\/|$)/.test(name)
+  )
     issues.push(`${path}: remove retired transport dependency ${name}.`);
 
   if (name === '@study/ai') issues.push(`${path}: remove the retired @study/ai dependency.`);
@@ -57,8 +61,12 @@ function dependencyIssues(
     if ((name === 'ai' || name.startsWith('@ai-sdk/')) && path !== 'apps/server')
       issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
 
-    if (path === 'packages/contracts' && section !== 'devDependencies' && name !== 'effect')
-      issues.push(`${path}: public contracts may depend only on Effect.`);
+    if (
+      path === 'packages/contracts' &&
+      section !== 'devDependencies' &&
+      !['effect', '@effect/atom-react', 'react'].includes(name)
+    )
+      issues.push(`${path}: contracts permit Effect and optional official React bindings only.`);
 
     issues.push(...effectRequirementIssues(path, name, requirement, version));
   }

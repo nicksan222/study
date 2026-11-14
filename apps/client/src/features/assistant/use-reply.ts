@@ -1,60 +1,20 @@
 import type { MessageId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import type { executionSchema } from '@study/contracts/workflows/schemas';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
 
 import { useAgentProgress } from '#client/features/agent-progress/index.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
-import { applyAppearance } from '#client/lib/appearance.ts';
-
-import {
-  assistantAppearanceOptions,
-  assistantAuthOptions,
-  assistantExecutionOptions,
-  assistantKey,
-  retryAssistantReplyOptions,
-  stopAssistantReplyOptions
-} from './assistant.queries';
 
 /** Keeps cancellation, retry and live progress tied to the exact durable reply request. */
 export function useReply(requestId: string, messageId: MessageId) {
-  const cache = useQueryClient();
   const readiness = useAiReadiness('smart');
   const progress = useAgentProgress({ correlationId: requestId });
-  const observedTools = useRef(new Set<string>());
-  const completedTools = progress.runs.flatMap((run) =>
-    run.tools.filter((tool) => tool.status === 'completed')
-  );
-  const toolRevision = completedTools.map((tool) => tool.toolCallId).join('|');
-
-  useEffect(() => {
-    const fresh = completedTools.filter((tool) => !observedTools.current.has(tool.toolCallId));
-
-    if (!fresh.length) return;
-
-    for (const tool of fresh) observedTools.current.add(tool.toolCallId);
-
-    void cache.invalidateQueries({
-      predicate: (query) =>
-        query.queryKey[0] !== assistantKey[0] && query.queryKey[0] !== 'note-drafts'
-    });
-
-    if (
-      fresh.some((tool) => tool.toolName.startsWith('update_') || tool.toolName.includes('theme'))
-    )
-      void cache
-        .fetchQuery(assistantAppearanceOptions())
-        .then(applyAppearance)
-        .catch(() => {});
-  }, [cache, completedTools, toolRevision]);
-
-  const work = useQuery(assistantExecutionOptions(requestId));
+  const work = rpc.workflows.executions.useQuery({ correlationId: requestId, limit: 1 });
   const execution = work.data?.items[0];
   const outcome = replyOutcome(execution);
-  const account = useQuery(assistantAuthOptions(outcome.suspended));
-  const refresh = () => cache.invalidateQueries({ queryKey: assistantKey });
-  const retry = useMutation({ ...retryAssistantReplyOptions(), onSuccess: refresh });
-  const stop = useMutation({ ...stopAssistantReplyOptions(), onSuccess: refresh });
+  const account = rpc.auth.status.useQuery({}, { enabled: outcome.suspended });
+  const retry = rpc.notes.reanswer.useMutation();
+  const stop = rpc.workflows.cancelExecution.useMutation();
 
   return {
     run: progress.runs.findLast(
@@ -70,10 +30,10 @@ export function useReply(requestId: string, messageId: MessageId) {
     readiness,
     retrying: retry.isPending,
     retry: () => {
-      if (readiness === 'ready') retry.mutate(messageId);
+      if (readiness === 'ready') void retry.mutateAsync({ messageId }).catch(() => {});
     },
     stop: () => {
-      if (execution) stop.mutate(execution.id);
+      if (execution) void stop.mutateAsync({ id: execution.id, mode: 'safe' }).catch(() => {});
     }
   };
 }

@@ -1,20 +1,20 @@
-import type { ProjectId, PageId } from '@study/contracts/ids';
+import type { PageId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { rpc } from '@study/contracts/react';
 import { PageIcon } from '@study/icons';
-import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { Loading } from '@study/ui/loading';
 import { SelectionSurface as Surface } from '@study/ui/selection';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pagesOptions } from '#client/lib/study-client/pages.queries.ts';
 
 import { ContentReadError, DocumentReader } from '../document-presentation';
-import { notePageOptions } from '../note-workspace';
 import { PageContextMenu } from './page-context-menu';
+import { usePageBrowse } from './use-page-browse';
 
 export function PagesArchive({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
@@ -34,8 +34,8 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<string>();
-  const state = useInfiniteQuery(pagesOptions(project, true));
-  const items = state.isError ? [] : (state.data?.pages.flatMap((page) => page.items) ?? []);
+  const { query: state, navigation: window } = usePageBrowse(project, true);
+  const items = state.isError ? [] : (state.data?.items ?? []);
   const active = items.find((item) => String(item.id) === selected);
 
   return (
@@ -68,14 +68,13 @@ function ArchiveContents({ project }: { project?: ProjectId }) {
               </li>
             ))}
         </Surface.Materials>
-        {state.hasNextPage && (
-          <LoadMoreButton
-            variant="ghost"
-            disabled={state.isFetchingNextPage}
-            onClick={() => void state.fetchNextPage()}
-            label={t('LibraryMore')}
-          />
-        )}
+
+        <CursorWindowActions
+          {...window}
+          hasMore={!!state.data?.nextCursor}
+          pending={state.isFetching}
+          more={() => window.more(state.data?.nextCursor)}
+        />
       </Surface.Navigation>
       <Surface.Main>
         <Surface.DetailHeader title={<>{active?.title ?? t('PagesArchived')}</>} />
@@ -99,7 +98,7 @@ function ArchiveBody({ active, empty }: { active?: PageSummary; empty: boolean }
 
 function ArchivePreview({ id }: { id: PageId }) {
   const { t } = useI18n();
-  const page = useQuery(notePageOptions(id));
+  const page = rpc.pages.get.useQuery({ id });
 
   if (page.isPending) return <Loading label={t('LoadingStudy')} />;
 

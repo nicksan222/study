@@ -22,11 +22,9 @@ import {
   materialRpc,
   mountLibraryRoute
 } from '#client/features/material-library/test/support.tsx';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const en = catalogs.english;
 
@@ -124,7 +122,8 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
 
   rpc['materials.material'].mockReturnValue(Effect.succeed(material));
 
-  return {
+  let persistedAttempt: typeof initial | typeof completed = initial;
+  const handlers = {
     ...rpc,
     fixture: material,
     'settings.quizSettings': vi
@@ -150,18 +149,39 @@ function practiceRpc(kind: 'quiz' | 'flashcards' = 'quiz', scoped = false) {
       .mockReturnValue(Effect.succeed(initial)),
     'learning.attempt': vi
       .fn<StudyClient['learning.attempt']>()
-      .mockReturnValue(Effect.succeed(initial)),
+      .mockImplementation(() => Effect.succeed(persistedAttempt)),
     'learning.answerQuestion': vi
       .fn<StudyClient['learning.answerQuestion']>()
-      .mockReturnValue(Effect.succeed(answered)),
-    'learning.finishQuiz': vi
-      .fn<StudyClient['learning.finishQuiz']>()
-      .mockReturnValue(Effect.succeed(completed)),
+      .mockImplementation(() =>
+        Effect.sync(() => {
+          persistedAttempt = answered;
+          handlers['learning.attempt'].mockReturnValue(Effect.succeed(answered));
+
+          return answered;
+        })
+      ),
+    'learning.finishQuiz': vi.fn<StudyClient['learning.finishQuiz']>().mockImplementation(() =>
+      Effect.sync(() => {
+        persistedAttempt = completed;
+        handlers['learning.attempt'].mockReturnValue(Effect.succeed(completed));
+
+        return completed;
+      })
+    ),
     'learning.answerPracticeQuestion': vi
       .fn<StudyClient['learning.answerPracticeQuestion']>()
-      .mockReturnValue(Effect.succeed(answered)),
+      .mockImplementation(() =>
+        Effect.sync(() => {
+          persistedAttempt = answered;
+          handlers['learning.attempt'].mockReturnValue(Effect.succeed(answered));
+
+          return answered;
+        })
+      ),
     'learning.reviewCard': vi.fn<StudyClient['learning.reviewCard']>()
   };
+
+  return handlers;
 }
 
 testStable(

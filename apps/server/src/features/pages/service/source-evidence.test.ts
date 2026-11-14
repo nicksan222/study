@@ -33,6 +33,7 @@ import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { testLiveQueries } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
 
 function requireRow<T>(value: T | null | undefined): T {
@@ -58,7 +59,10 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const handlers = Layer.mergeAll(PagesRpcLive, NotesRpcLive).pipe(
+    const handlers = Layer.mergeAll(
+      PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
+      NotesRpcLive.pipe(Layer.provide(testLiveQueries))
+    ).pipe(
       Layer.provideMerge(Layer.mergeAll(Pages.layer, Notes.layer, Sources.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );

@@ -1,14 +1,15 @@
 import type { ProjectId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import type { AppearancePreferences } from '@study/contracts/settings/types';
+import { Appearance } from '@study/contracts/settings/types';
 import type { Appearance as AppearanceMode } from '@study/ui/theme';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { applyAppearance } from '#client/lib/appearance.ts';
 
-import { appearanceQueryOptions, appearanceMutationOptions } from './appearance.queries';
 import type { AppearanceData } from './appearance.queries';
+import { useAppSettingsPatch } from './general/app-settings';
 import type { SettingsSectionId } from './page.view';
 
 export interface AppearanceModel {
@@ -28,35 +29,71 @@ export interface AppearanceModel {
 
 /** Loads persisted appearance data and refreshes it after preference or theme mutations. */
 export function useAppearance(): AppearanceModel {
-  const client = useQueryClient();
-  const query = useQuery(appearanceQueryOptions());
+  const settings = rpc.settings.appSettings.useQuery({});
+  const selected = rpc.themes.selectedTheme.useQuery({});
+  const themes = rpc.themes.list.useQuery({ limit: 100 });
+  const preferences = rpc.settings.appearancePreferences.useQuery({});
+  const data = useMemo(
+    () =>
+      settings.data && selected.isSuccess && themes.data && preferences.data
+        ? {
+            settings: settings.data,
+            selected: selected.data ?? null,
+            themes: [...themes.data.items],
+            preferences: preferences.data
+          }
+        : undefined,
+    [settings.data, selected.isSuccess, selected.data, themes.data, preferences.data]
+  );
+  const saveSettings = useAppSettingsPatch();
+  const savePreferences = rpc.settings.saveAppearancePreferences.useMutation();
+  const select = rpc.themes.select.useMutation();
+  const importTheme = rpc.themes.importTheme.useMutation();
+  const saveTheme = rpc.themes.save.useMutation();
+  const deleteTheme = rpc.themes.delete.useMutation();
+  const queries = [settings, selected, themes, preferences];
+  const mutations = [saveSettings, savePreferences, select, importTheme, saveTheme, deleteTheme];
 
   useEffect(() => {
-    if (query.data) applyAppearance(query.data);
-  }, [query.data]);
-  const mutation = useMutation({
-    ...appearanceMutationOptions(),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: appearanceQueryOptions().queryKey });
-    }
-  });
+    if (data) applyAppearance(data);
+  }, [data]);
 
   return {
-    data: query.data,
-    loading: query.isPending,
-    error: query.isError || mutation.isError,
-    pending: mutation.isPending,
+    data,
+    loading: queries.some((query) => query.isPending),
+    error:
+      queries.some((query) => query.isError || query.stale) ||
+      mutations.some((mutation) => mutation.isError),
+    pending: mutations.some((mutation) => mutation.isPending),
     retry: () => {
-      mutation.reset();
-      void query.refetch();
+      queries.forEach((query) => query.refetch());
+      mutations.forEach((mutation) => mutation.reset());
     },
-    setPreferences: (preferences) => mutation.mutate({ type: 'preferences', preferences }),
-    setZoom: (percent) => mutation.mutate({ type: 'zoom', percent }),
-    setAppearance: (mode) => mutation.mutate({ type: 'appearance', mode }),
-    selectTheme: (id) => mutation.mutate({ type: 'select', id }),
-    importTheme: (json) => mutation.mutateAsync({ type: 'import', json }),
-    saveTheme: (json) => mutation.mutateAsync({ type: 'save', json }),
-    deleteTheme: (id) => mutation.mutateAsync({ type: 'delete', id })
+    setPreferences: (value) => {
+      void savePreferences.mutateAsync(value).catch(() => {});
+    },
+    setZoom: (zoomPercent) => {
+      if (settings.data) void saveSettings.mutateAsync({ zoomPercent }).catch(() => {});
+    },
+    setAppearance: (mode) => {
+      if (settings.data)
+        void saveSettings
+          .mutateAsync({
+            appearance:
+              mode === 'system'
+                ? Appearance.SYSTEM
+                : mode === 'light'
+                  ? Appearance.LIGHT
+                  : Appearance.DARK
+          })
+          .catch(() => {});
+    },
+    selectTheme: (id) => {
+      void select.mutateAsync({ id }).catch(() => {});
+    },
+    importTheme: (json) => importTheme.mutateAsync({ json }),
+    saveTheme: (json) => saveTheme.mutateAsync({ json }),
+    deleteTheme: (id) => deleteTheme.mutateAsync({ id })
   };
 }
 

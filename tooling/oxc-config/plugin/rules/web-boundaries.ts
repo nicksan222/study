@@ -13,7 +13,7 @@ export default defineRule({
     if (!current) return {};
 
     const [layer, domain] = current.split('/');
-    const transport = current.startsWith('lib/study-client/');
+    const transport = current === 'lib/effect/rpc.ts';
     const bindings = effectBindings(context);
     const report = (node: any, message: string) => context.report({ node, message });
 

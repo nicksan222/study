@@ -1,5 +1,4 @@
 import { Effect, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
@@ -10,6 +9,7 @@ import {
   projectIdSchema,
   noteIdSchema
 } from '../ids.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import * as e from './editing.ts';
 import * as evidence from './evidence.ts';
 import { exportPageInputSchema, pageFileSchema } from './export.ts';
@@ -98,171 +98,336 @@ export const deleteSchema = Schema.Struct({
   token: Schema.String
 });
 
-export const PagesRpc = RpcGroup.make(
-  Rpc.make('merges', {
-    payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
-    success: Schema.Array(t.transformSnapshotSchema),
-    error: failureSchema
-  }),
-  Rpc.make('merge', {
-    payload: t.mergeRequestSchema,
-    success: t.transformSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('requestTransform', {
-    payload: t.transformRequestSchema,
-    success: t.transformSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('transform', {
-    payload: t.transformKeySchema,
-    success: t.transformSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('cancelTransform', {
-    payload: t.transformKeySchema,
-    success: t.transformSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retryTransform', {
-    payload: Schema.Struct({ ...t.transformKeySchema.fields, retryId: e.keySchema }),
-    success: t.transformSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('updateMetadata', {
-    payload: metadataSchema,
-    success: s.detailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('compareProposal', {
-    payload: e.proposalKeySchema,
-    success: e.comparisonSchema,
-    error: failureSchema
-  }),
-  Rpc.make('proposal', {
-    payload: e.proposalKeySchema,
-    success: e.proposalSchema,
-    error: failureSchema
-  }),
-  Rpc.make('applyProposal', {
-    payload: e.applyProposalSchema,
-    success: e.proposalOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('keepProposal', {
-    payload: e.keepProposalSchema,
-    success: e.proposalOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('assessCitation', {
-    payload: evidence.assessCitationSchema,
-    success: evidence.assessmentRecordSchema,
-    error: failureSchema
-  }),
-  Rpc.make('assessments', {
-    payload: evidence.assessmentsInputSchema,
-    success: evidence.assessmentsPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('annotations', {
-    payload: evidence.annotationsSchema,
-    success: evidence.annotationsPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('annotation', {
-    payload: evidence.annotationKeySchema,
-    success: evidence.annotationSchema,
-    error: failureSchema
-  }),
-  Rpc.make('annotationHistory', {
-    payload: evidence.annotationHistorySchema,
-    success: evidence.annotationPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('createAnnotation', {
-    payload: evidence.createAnnotationSchema,
-    success: evidence.annotationOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('reviseAnnotation', {
-    payload: evidence.reviseAnnotationSchema,
-    success: evidence.annotationOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('create', { payload: e.createSchema, success: s.detailSchema, error: failureSchema }),
-  Rpc.make('page', {
-    payload: pageKeySchema,
-    success: s.detailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('pages', {
-    payload: listSchema,
-    success: s.pageListSchema,
-    error: failureSchema
-  }),
-  Rpc.make('version', {
-    payload: versionKeySchema,
-    success: s.versionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('versions', {
-    payload: versionsSchema,
-    success: s.versionPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('save', { payload: e.saveSchema, success: e.editOutcomeSchema, error: failureSchema }),
-  Rpc.make('restore', {
-    payload: e.restoreSchema,
-    success: e.editOutcomeSchema,
-    error: failureSchema
-  }),
-  Rpc.make('compare', {
-    payload: e.compareSchema,
-    success: e.comparisonSchema,
-    error: failureSchema
-  }),
-  Rpc.make('copySource', {
-    payload: sourceCopySchema,
-    success: s.detailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('archive', { payload: archiveSchema, success: s.detailSchema, error: failureSchema }),
-  Rpc.make('attachProject', {
-    payload: projectLinkSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('detachProject', {
-    payload: projectLinkSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('attach', { payload: linkSchema, success: Schema.Void, error: failureSchema }),
-  Rpc.make('detach', { payload: linkSchema, success: Schema.Void, error: failureSchema }),
-  Rpc.make('exportFile', {
-    payload: exportPageInputSchema,
-    success: pageFileSchema,
-    error: failureSchema
-  }),
-  Rpc.make('exportVersion', {
-    payload: versionKeySchema,
-    success: exportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('previewHistory', {
-    payload: historySchema,
-    success: retirementPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retireHistory', {
-    payload: retireSchema,
-    success: retirementPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('previewDeletion', {
-    payload: pageKeySchema,
-    success: retirementPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('delete', { payload: deleteSchema, success: Schema.Void, error: failureSchema })
-).prefix('pages.');
+export const countInputSchema = Schema.Struct({
+  projectId: listSchema.fields.projectId,
+  noteId: listSchema.fields.noteId,
+  archived: listSchema.fields.archived
+});
+
+export const pagesEndpoints = {
+  count: liveQuery(
+    'pages.count',
+    { payload: countInputSchema, success: Schema.BigInt, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  merges: liveQuery(
+    'pages.merges',
+    {
+      payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+      success: Schema.Array(t.transformSnapshotSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  merge: mutation(
+    'pages.merge',
+    {
+      payload: t.mergeRequestSchema,
+      success: t.transformSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  requestTransform: mutation(
+    'pages.requestTransform',
+    {
+      payload: t.transformRequestSchema,
+      success: t.transformSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  transform: liveQuery(
+    'pages.transform',
+    {
+      payload: t.transformKeySchema,
+      success: t.transformSnapshotSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  cancelTransform: mutation(
+    'pages.cancelTransform',
+    {
+      payload: t.transformKeySchema,
+      success: t.transformSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  retryTransform: mutation(
+    'pages.retryTransform',
+    {
+      payload: Schema.Struct({ ...t.transformKeySchema.fields, retryId: e.keySchema }),
+      success: t.transformSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  updateMetadata: mutation(
+    'pages.updateMetadata',
+    {
+      payload: metadataSchema,
+      success: s.detailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  compareProposal: liveQuery(
+    'pages.compareProposal',
+    {
+      payload: e.proposalKeySchema,
+      success: e.comparisonSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  proposal: liveQuery(
+    'pages.proposal',
+    {
+      payload: e.proposalKeySchema,
+      success: e.proposalSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  applyProposal: mutation(
+    'pages.applyProposal',
+    {
+      payload: e.applyProposalSchema,
+      success: e.proposalOutcomeSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  keepProposal: mutation(
+    'pages.keepProposal',
+    {
+      payload: e.keepProposalSchema,
+      success: e.proposalOutcomeSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  assessCitation: mutation(
+    'pages.assessCitation',
+    {
+      payload: evidence.assessCitationSchema,
+      success: evidence.assessmentRecordSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  assessments: liveQuery(
+    'pages.assessments',
+    {
+      payload: evidence.assessmentsInputSchema,
+      success: evidence.assessmentsPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  annotations: liveQuery(
+    'pages.annotations',
+    {
+      payload: evidence.annotationsSchema,
+      success: evidence.annotationsPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  annotation: liveQuery(
+    'pages.annotation',
+    {
+      payload: evidence.annotationKeySchema,
+      success: evidence.annotationSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  annotationHistory: liveQuery(
+    'pages.annotationHistory',
+    {
+      payload: evidence.annotationHistorySchema,
+      success: evidence.annotationPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  createAnnotation: mutation(
+    'pages.createAnnotation',
+    {
+      payload: evidence.createAnnotationSchema,
+      success: evidence.annotationOutcomeSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  reviseAnnotation: mutation(
+    'pages.reviseAnnotation',
+    {
+      payload: evidence.reviseAnnotationSchema,
+      success: evidence.annotationOutcomeSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  create: mutation(
+    'pages.create',
+    { payload: e.createSchema, success: s.detailSchema, error: failureSchema },
+    { changes: [dependency.pages] }
+  ),
+  get: liveQuery(
+    'pages.page',
+    {
+      payload: pageKeySchema,
+      success: s.detailSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  list: liveQuery(
+    'pages.pages',
+    {
+      payload: listSchema,
+      success: s.pageListSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  version: liveQuery(
+    'pages.version',
+    {
+      payload: versionKeySchema,
+      success: s.versionSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  versions: liveQuery(
+    'pages.versions',
+    {
+      payload: versionsSchema,
+      success: s.versionPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  save: mutation(
+    'pages.save',
+    { payload: e.saveSchema, success: e.editOutcomeSchema, error: failureSchema },
+    { changes: [dependency.pages] }
+  ),
+  restore: mutation(
+    'pages.restore',
+    {
+      payload: e.restoreSchema,
+      success: e.editOutcomeSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  compare: liveQuery(
+    'pages.compare',
+    {
+      payload: e.compareSchema,
+      success: e.comparisonSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  copySource: mutation(
+    'pages.copySource',
+    {
+      payload: sourceCopySchema,
+      success: s.detailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  archive: mutation(
+    'pages.archive',
+    { payload: archiveSchema, success: s.detailSchema, error: failureSchema },
+    { changes: [dependency.pages] }
+  ),
+  attachProject: mutation(
+    'pages.attachProject',
+    {
+      payload: projectLinkSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  detachProject: mutation(
+    'pages.detachProject',
+    {
+      payload: projectLinkSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  attach: mutation(
+    'pages.attach',
+    { payload: linkSchema, success: Schema.Void, error: failureSchema },
+    { changes: [dependency.pages] }
+  ),
+  detach: mutation(
+    'pages.detach',
+    { payload: linkSchema, success: Schema.Void, error: failureSchema },
+    { changes: [dependency.pages] }
+  ),
+  exportFile: liveQuery(
+    'pages.exportFile',
+    {
+      payload: exportPageInputSchema,
+      success: pageFileSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  exportVersion: liveQuery(
+    'pages.exportVersion',
+    {
+      payload: versionKeySchema,
+      success: exportSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  previewHistory: liveQuery(
+    'pages.previewHistory',
+    {
+      payload: historySchema,
+      success: retirementPreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  retireHistory: mutation(
+    'pages.retireHistory',
+    {
+      payload: retireSchema,
+      success: retirementPreviewSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.pages] }
+  ),
+  previewDeletion: liveQuery(
+    'pages.previewDeletion',
+    {
+      payload: pageKeySchema,
+      success: retirementPreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  delete: mutation(
+    'pages.delete',
+    { payload: deleteSchema, success: Schema.Void, error: failureSchema },
+    { changes: [dependency.pages] }
+  )
+};
+
+export const PagesRpc = endpointGroup(pagesEndpoints);

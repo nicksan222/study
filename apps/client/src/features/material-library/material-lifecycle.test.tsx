@@ -5,17 +5,13 @@ import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import type * as ToastModule from '@study/ui/toast';
 import { toastManager } from '@study/ui/toast';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import { createStudyQueryClient } from '#client/lib/query-client.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { materialId, versionId } from './identity';
 import { MaterialLifecycle } from './material-lifecycle';
@@ -27,8 +23,6 @@ vi.mock('@study/ui/toast', async (load) => {
   return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
 });
 beforeEach(() => vi.mocked(toastManager.add).mockClear());
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 function prunePreview() {
   return Schema.decodeUnknownSync(historyPreviewSchema)({
@@ -66,8 +60,14 @@ testStable(
 
     rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
     rpc['materials.deletion'].mockReturnValue(Effect.succeed(operation));
-    rpc['materials.retryDeletion'].mockReturnValue(
-      Effect.succeed({ ...operation, status: 'pending', attempt: 2, errorKind: null })
+    rpc['materials.retryDeletion'].mockImplementation(() =>
+      Effect.sync(() => {
+        const pending = { ...operation, status: 'pending' as const, attempt: 2, errorKind: null };
+
+        rpc['materials.deletion'].mockReturnValue(Effect.succeed(pending));
+
+        return pending;
+      })
     );
     const { router } = mountLibraryRoute('/materials/41', rpc);
 
@@ -123,17 +123,15 @@ testStable(
           })
         )
     );
-    vi.mocked(request).mockImplementation((invoke, signal) =>
-      runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-    );
-    const client = createStudyQueryClient();
+
+    const harness = rpcHandlersTransport(rpc);
     const mount = () =>
       render(
-        <QueryClientProvider client={client}>
+        <harness.wrapper>
           <MaterialLifecycle id={materialId('41')} />
-        </QueryClientProvider>
+        </harness.wrapper>
       );
-    let view = mount();
+    const view = mount();
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
@@ -158,15 +156,23 @@ testStable(
     expect(screen.queryByRole('button', { name: catalogs.english.PagePruneNext })).toBeNull();
     const first = rpc['materials.requestHistoryPrune'].mock.calls[0]![0];
 
-    view.unmount();
-    view = mount();
+    view.rerender(<harness.wrapper>{null}</harness.wrapper>);
+    view.rerender(
+      <harness.wrapper>
+        <MaterialLifecycle id={materialId('41')} />
+      </harness.wrapper>
+    );
     await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
     expect(screen.queryByRole('button', { name: catalogs.english.PagePreview })).toBeNull();
     await user.click(screen.getByRole('button', { name: catalogs.english.PageRetryCleanup }));
     await screen.findByText(catalogs.english.PageCleanupCompleted);
     expect(rpc['materials.requestHistoryPrune'].mock.calls[1]![0]).toEqual(first);
-    view.unmount();
-    mount();
+    view.rerender(<harness.wrapper>{null}</harness.wrapper>);
+    view.rerender(
+      <harness.wrapper>
+        <MaterialLifecycle id={materialId('41')} />
+      </harness.wrapper>
+    );
     await user.click(screen.getByRole('button', { name: catalogs.english.PagePrune }));
     await screen.findByText(catalogs.english.PageCleanupCompleted);
     await user.click(screen.getByRole('button', { name: catalogs.english.PagePruneNext }));
@@ -203,9 +209,7 @@ testStable(
     expect(next.operationId).not.toBe(first.operationId);
     expect(next.token).toBe('b'.repeat(64));
     expect(next.candidateIds).toEqual([versionId('100')]);
-    await act(async () => {
-      client.clear();
-    });
+    await act(async () => {});
   }
 );
 
@@ -232,15 +236,12 @@ testStable(
         .mockReturnValue(Effect.succeed(failed))
     };
 
-    vi.mocked(request).mockImplementation((invoke, signal) =>
-      runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-    );
-    const client = createStudyQueryClient();
+    const harness = rpcHandlersTransport(rpc);
 
     render(
-      <QueryClientProvider client={client}>
+      <harness.wrapper>
         <MaterialLifecycle id={materialId('41')} />
-      </QueryClientProvider>
+      </harness.wrapper>
     );
     const user = userEvent.setup();
 
@@ -272,6 +273,5 @@ testStable(
     expect(submitted.token).toBe(preview.token);
     expect(submitted.candidateIds).toEqual(preview.candidateIds);
     expect(submitted.operationId).toBeTruthy();
-    client.clear();
   }
 );

@@ -28,6 +28,7 @@ import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
@@ -40,7 +41,7 @@ testStable(
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     const handlers = () =>
-      NotesRpcLive.pipe(
+      NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
         Layer.provideMerge(Layer.mergeAll(Notes.layer, Pages.layer, Settings.layer, Sources.layer)),
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
       );

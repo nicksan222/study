@@ -1,7 +1,8 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { NoteId } from '@study/contracts/ids';
+import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { SendIcon, AttachmentIcon, CloseIcon } from '@study/icons';
-import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ComposerSurface } from '@study/ui/composer';
 import { IconButton } from '@study/ui/icon-button';
@@ -11,27 +12,25 @@ import { Notebook } from '@study/ui/note-workspace';
 import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { Schema } from 'effect';
-import { useEffect, useId, useState } from 'react';
+import { Effect, Schema } from 'effect';
+import { useContext, useEffect, useId, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
-import type { Notes } from '#client/lib/study-client/operations.ts';
-import { projectsQueryOptions } from '#client/lib/study-client/study.queries.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { isNoteSubmit } from './draft';
-import { noteKey, paginatedNotesOptions } from './note-workspace.queries';
-import { startDraftKey, openStartDraft, finishStartDraft } from './start-drafts.queries';
+import { useNoteList } from './note-reads';
+import { NoteWindowNavigation } from './note-window-navigation';
 import {
-  startDraftOptions,
-  startFilesOptions,
-  creationFlowOptions,
-  startNoteMutation
-} from './start.queries';
-import type { CreationFlow } from './start.queries';
+  startDraftKey,
+  startDraft,
+  startFiles,
+  openStartDraft,
+  finishStartDraft
+} from './start-drafts.queries';
+import { creationFlow, startNote } from './start.queries';
 import { NoteError, NoteReadError } from './status';
 import { WorkspaceContext } from './workspace-context';
 import { WorkspaceHeader } from './workspace-header';
@@ -40,14 +39,14 @@ import { WorkspaceHeader } from './workspace-header';
 
 function useStartDraft(project: string | undefined) {
   const draftKey = startDraftKey(project);
-  const cache = useQueryClient();
+  const cache = useContext(RegistryContext);
 
   useEffect(() => {
     openStartDraft(cache, project);
   }, [cache, project]);
-  const draft = useQuery(startDraftOptions(draftKey));
-  const filesKey = [...draftKey, 'files'];
-  const files = useQuery(startFilesOptions(filesKey));
+  const draft = { data: useAtomValue(startDraft(draftKey)) };
+  const filesKey = draftKey;
+  const files = { data: useAtomValue(startFiles(filesKey)) };
 
   return { draftKey, draft, filesKey, files };
 }
@@ -55,15 +54,15 @@ function useStartDraft(project: string | undefined) {
 /** Creation owns the shared uncertainty fence and transfers only the submitted draft keys. */
 
 function useNoteStart() {
-  const cache = useQueryClient();
+  const cache = useContext(RegistryContext);
   const navigate = useNavigate();
   const search = useSearch({ from: '__root__' });
   const project = search.project
     ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(search.project))
     : undefined;
-  const state = useInfiniteQuery(paginatedNotesOptions(project));
+  const state = useNoteList(project);
   const { draftKey, draft, filesKey, files } = useStartDraft(search.project);
-  const flow = useQuery(creationFlowOptions());
+  const flow = { data: useAtomValue(creationFlow) };
   const [navigationError, setNavigationError] = useState<unknown>();
   const [reviewed, setReviewed] = useState(false);
 
@@ -74,59 +73,54 @@ function useNoteStart() {
         params: { noteId: id },
         search: scope ? { project: scope } : {}
       });
-      cache.setQueryData(['note-workspace', 'creation'], {});
+      cache.set(creationFlow, {});
       setNavigationError(undefined);
     } catch (error) {
       setNavigationError(error);
     }
   }
 
-  const create = useMutation({
-    ...startNoteMutation,
-    onMutate: () => {
-      cache.setQueryData(['note-workspace', 'creation'], { uncertain: true, pending: true });
-      setReviewed(false);
-    },
-    onError: (error) => {
-      if (toStudyError(error).kind === 'invalid_input')
-        cache.setQueryData(['note-workspace', 'creation'], {});
-    },
-    onSettled: () => {
-      cache.setQueryData<CreationFlow>(['note-workspace', 'creation'], (previous) => ({
-        ...previous,
-        pending: false
-      }));
-    },
-    onSuccess: async (created, input) => {
-      await cache.cancelQueries({ queryKey: ['notes'] });
-      cache.setQueryData<Notes>(['notes'], (items) => [
-        created,
-        ...(items ?? []).filter((note) => note.id !== created.id)
-      ]);
-      finishStartDraft(cache, input);
-      cache.setQueryData(['note-workspace', 'creation'], { id: created.id });
-      void cache.invalidateQueries({ queryKey: ['notes'] });
-      void cache.invalidateQueries({ queryKey: noteKey(created.id) });
-      void select(created.id, input.project ? String(input.project) : null);
-    }
-  });
+  const create = useIndependentMutation((input: Parameters<typeof startNote>[0]) =>
+    Effect.tryPromise({
+      try: async () => {
+        setReviewed(false);
+
+        try {
+          const created = await startNote(input);
+
+          finishStartDraft(cache, input);
+          cache.set(creationFlow, { id: created.id });
+          void select(created.id, input.project ? String(input.project) : null);
+
+          return created;
+        } catch (error) {
+          if (toStudyError(error).kind === 'invalid_input') cache.set(creationFlow, {});
+
+          throw error;
+        } finally {
+          cache.update(creationFlow, (previous) => ({ ...previous, pending: false }));
+        }
+      },
+      catch: toStudyError
+    })
+  );
 
   function beginNote() {
-    const current = cache.getQueryData<CreationFlow>(['note-workspace', 'creation']) ?? {};
+    const current = cache.get(creationFlow) ?? {};
 
     if (current.id || current.uncertain || current.pending) return;
 
-    cache.setQueryData(['note-workspace', 'creation'], { uncertain: true, pending: true });
-    const text = cache.getQueryData<string>(draftKey) ?? '';
-    const selectedFiles = cache.getQueryData<File[]>(filesKey) ?? [];
+    cache.set(creationFlow, { uncertain: true, pending: true });
+    const text = cache.get(startDraft(draftKey)) ?? '';
+    const selectedFiles = cache.get(startFiles(filesKey)) ?? [];
 
     if (!text.trim() && !selectedFiles.length) {
-      cache.setQueryData(['note-workspace', 'creation'], {});
+      cache.set(creationFlow, {});
 
       return;
     }
 
-    create.mutate({ project, draftKey, filesKey, text, files: selectedFiles });
+    void create.mutate({ project, draftKey, filesKey, text, files: selectedFiles }).catch(() => {});
   }
 
   const blocked = create.isPending || !!flow.data.id || !!flow.data.uncertain;
@@ -158,8 +152,8 @@ export function NoteStart() {
   const { t } = useI18n();
   const view = useNoteStart();
   const { state, flow } = view;
-  const subjects = useQuery(projectsQueryOptions());
-  const owner = subjects.data?.find((subject) => String(subject.id) === view.search.project);
+  const subjects = rpc.projects.list.useQuery({ limit: 100 });
+  const owner = subjects.data?.items.find((subject) => String(subject.id) === view.search.project);
   const [cardVisible, setCardVisible] = useState(true);
 
   if (state.isError && !flow.data.uncertain && !flow.data.id) {
@@ -259,7 +253,7 @@ function StarterComposer({ view }: { view: StartView }) {
         if (!blocked) {
           const added = Array.from(event.dataTransfer.files);
 
-          cache.setQueryData<File[]>(filesKey, (previous) => [...(previous ?? []), ...added]);
+          cache.update(startFiles(filesKey), (previous) => [...(previous ?? []), ...added]);
         }
       }}
     >
@@ -275,8 +269,8 @@ function StarterComposer({ view }: { view: StartView }) {
                 label={t('NoteRemoveAttachment')}
                 disabled={blocked}
                 onClick={() =>
-                  cache.setQueryData(
-                    filesKey,
+                  cache.set(
+                    startFiles(filesKey),
                     files.data.filter((_, i) => i !== index)
                   )
                 }
@@ -296,7 +290,7 @@ function StarterComposer({ view }: { view: StartView }) {
         aria-describedby="note-start-hint"
         placeholder={t('NoteComposeHint')}
         value={draft.data}
-        onChange={(event) => cache.setQueryData(draftKey, event.target.value)}
+        onChange={(event) => cache.set(startDraft(draftKey), event.target.value)}
         onKeyDown={(event) => {
           if (isNoteSubmit(event, preferences.submitOnEnter)) {
             event.preventDefault();
@@ -319,7 +313,7 @@ function StarterComposer({ view }: { view: StartView }) {
               onChange={(event) => {
                 const added = Array.from(event.target.files ?? []);
 
-                cache.setQueryData<File[]>(filesKey, (previous) => [...(previous ?? []), ...added]);
+                cache.update(startFiles(filesKey), (previous) => [...(previous ?? []), ...added]);
                 event.target.value = '';
               }}
             />
@@ -372,9 +366,8 @@ function CreationStatus({ view }: { view: StartView }) {
 /** An uncertain creation can be cleared only after a successful note-list review. */
 
 function CreationRecovery({ view }: { view: StartView }) {
-  const { t, date } = useI18n();
-  const { flow, state, reviewed, setReviewed, cache, create, search } = view;
-  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+  const { t } = useI18n();
+  const { flow, state, reviewed, setReviewed, cache, create } = view;
 
   return (
     <>
@@ -386,9 +379,18 @@ function CreationRecovery({ view }: { view: StartView }) {
               variant="outline"
               disabled={state.isFetching}
               onClick={async () => {
-                const result = await state.refetch();
-
-                setReviewed(!result.isError);
+                try {
+                  await rpc.notes.list.read({
+                    project: view.search.project
+                      ? Schema.decodeUnknownSync(projectIdSchema)(BigInt(view.search.project))
+                      : undefined,
+                    limit: 30
+                  });
+                  state.refetch();
+                  setReviewed(true);
+                } catch {
+                  setReviewed(false);
+                }
               }}
             >
               {t('LibraryRefresh')}
@@ -396,7 +398,7 @@ function CreationRecovery({ view }: { view: StartView }) {
             {reviewed && (
               <Button
                 onClick={() => {
-                  cache.setQueryData(['note-workspace', 'creation'], {});
+                  cache.set(creationFlow, {});
                   create.reset();
                   setReviewed(false);
                 }}
@@ -406,33 +408,39 @@ function CreationRecovery({ view }: { view: StartView }) {
             )}
           </NoteStarter.Actions>
 
-          {state.isPending && <Loading label={t('LoadingStudy')} />}
-          {state.error && <NoteReadError error={state.error} retry={() => void state.refetch()} />}
-          {state.isSuccess && items.length === 0 && <p>{t('NoteListEmpty')}</p>}
-          <NoteStarter.Notes>
-            {items.map((item) => (
-              <li key={String(item.id)}>
-                <Link
-                  to="/notes/$noteId"
-                  params={{ noteId: item.id }}
-                  search={search.project ? { project: search.project } : {}}
-                >
-                  <span>{item.title || t('NoteUntitled')}</span>
-                  <time>{date(item.updatedAt)}</time>
-                </Link>
-              </li>
-            ))}
-          </NoteStarter.Notes>
-          {state.hasNextPage && (
-            <LoadMoreButton
-              variant="ghost"
-              disabled={state.isFetchingNextPage}
-              onClick={() => void state.fetchNextPage()}
-              label={t('LibraryMore')}
-            />
-          )}
+          <CreationReviewList view={view} />
+          <NoteWindowNavigation state={state} />
         </NoteStarter.Recovery>
       )}
+    </>
+  );
+}
+
+function CreationReviewList({ view }: { view: StartView }) {
+  const { t, date } = useI18n();
+  const { state, search } = view;
+  const items = state.data?.items ?? [];
+
+  return (
+    <>
+      {' '}
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
+      {state.error && <NoteReadError error={state.error} retry={() => void state.refetch()} />}
+      {state.isSuccess && items.length === 0 && <p>{t('NoteListEmpty')}</p>}
+      <NoteStarter.Notes>
+        {items.map((item) => (
+          <li key={String(item.id)}>
+            <Link
+              to="/notes/$noteId"
+              params={{ noteId: item.id }}
+              search={search.project ? { project: search.project } : {}}
+            >
+              <span>{item.title || t('NoteUntitled')}</span>
+              <time>{date(item.updatedAt)}</time>
+            </Link>
+          </li>
+        ))}
+      </NoteStarter.Notes>
     </>
   );
 }

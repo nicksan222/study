@@ -1,23 +1,22 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import { StudyError } from '@study/contracts/errors';
-import type { VersionId } from '@study/contracts/ids';
+import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
 import type { chatMessageSchema } from '@study/contracts/notes/schemas';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { rpc } from '@study/contracts/react';
+import { Atom } from 'effect/reactivity';
+import { useContext, useEffect, useRef } from 'react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { request } from '#client/lib/study-client/request.ts';
 
+import { composerDraft } from './composer.queries';
 import { useMessageConversion } from './conversion.queries';
-import type { Draft } from './draft';
 import {
   activateVersion,
   ask,
   editNote,
   reanswerNote,
-  rewriteNote,
-  selectionOptions,
-  noteKey
+  rewriteNote
 } from './note-workspace.queries';
 import type { AskInput } from './note-workspace.queries';
 
@@ -47,6 +46,13 @@ type State = {
   reviewed?: boolean;
 };
 
+const actionDraft = Atom.family((_key: string) =>
+  Atom.make<State>({ text: '', instruction: '' }).pipe(Atom.keepAlive)
+);
+
+export const messageActionDraft = (noteId: NoteId, messageId: MessageId) =>
+  actionDraft(`${noteId}:${messageId}`);
+
 /** Coordinates version-scoped edits, generation attempts and conversion controls. */
 export function useMessageActions({
   message,
@@ -60,17 +66,9 @@ export function useMessageActions({
   const { t, locale } = useI18n();
   const readiness = useAiReadiness('medium');
   const conversion = useMessageConversion(message, versionId);
-  const cache = useQueryClient();
-  const key = ['note-drafts', String(message.noteId), 'message-action', String(message.id)];
-  const initial: State = { text: '', instruction: '' };
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const draft = state.data;
+  const cache = useContext(RegistryContext);
+  const atom = messageActionDraft(message.noteId, message.id);
+  const draft = useAtomValue(atom);
   const editor = useRef<HTMLElement>(null);
   const launcher = useRef<HTMLElement | null>(null);
   const previousMode = useRef<Action | undefined>(undefined);
@@ -86,8 +84,8 @@ export function useMessageActions({
     previousMode.current = draft.mode;
   }, [draft.mode]);
   const patch = (value: Partial<State>) =>
-    cache.setQueryData<State>(key, (previous) => ({ ...(previous ?? initial), ...value }));
-  const selection = useQuery(selectionOptions(message.noteId));
+    cache.update(atom, (previous) => ({ ...previous, ...value }));
+  const selection = rpc.notes.noteSelection.useQuery({ noteId: message.noteId });
   const version = message.versions.find((item) => item.id === versionId);
   const active = versionId === message.activeVersionId;
   const blocked = !!draft.attempt || !!draft.pending || version?.status !== 'complete';
@@ -99,7 +97,7 @@ export function useMessageActions({
       requestId = (await ask(attempt.askInput!)).requestId;
     } else {
       // These APIs target a message's active version, never a historical version.
-      const latest = await request((rpc) => rpc['notes.message']({ id: message.id }));
+      const latest = await rpc.notes.message.read({ id: message.id });
 
       if (attempt.action !== 'activate' && latest.activeVersionId !== attempt.versionId)
         throw new StudyError('invalid_input', 'Active message version changed');
@@ -122,7 +120,7 @@ export function useMessageActions({
   }
 
   async function execute(attempt: Attempt) {
-    const current = cache.getQueryData<State>(key);
+    const current = cache.get(atom);
 
     if (
       current?.pending ||
@@ -138,10 +136,6 @@ export function useMessageActions({
       patch({ attempt: undefined, mode: undefined, requestId, error: undefined });
 
       if (attempt.action === 'activate') onActive();
-
-      void cache.invalidateQueries({ queryKey: noteKey(message.noteId) });
-      void cache.invalidateQueries({ queryKey: ['note-work', String(message.noteId)] });
-      void cache.invalidateQueries({ queryKey: ['notes'] });
     } catch (error) {
       patch({ error });
     } finally {
@@ -179,8 +173,7 @@ export function useMessageActions({
         targetVersionId: String(attempt.versionId),
         targetText: draft.targetText
       }),
-      preferences: cache.getQueryData<Draft>(['note-drafts', String(message.noteId), 'note'])
-        ?.preferences ?? { language: locale }
+      preferences: cache.get(composerDraft(message.noteId))?.preferences ?? { language: locale }
     };
   }
 
@@ -211,14 +204,7 @@ export function useMessageActions({
 
   async function review() {
     try {
-      await cache.fetchQuery({
-        queryKey: [...noteKey(message.noteId), 'action-review', String(message.id)],
-        queryFn: () => request((rpc) => rpc['notes.message']({ id: message.id })),
-        staleTime: 0
-      });
-      await cache.invalidateQueries({
-        queryKey: [...noteKey(message.noteId), 'thread']
-      });
+      await rpc.notes.message.read({ id: message.id });
       patch({ reviewed: true });
     } catch (error) {
       patch({ error, reviewed: false });
@@ -233,8 +219,6 @@ export function useMessageActions({
     t,
     locale,
     cache,
-    key,
-    initial,
     draft,
     editor,
     launcher,

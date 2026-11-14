@@ -166,23 +166,38 @@ export function makePageReads({ db }: StoreResources) {
     return { ...a, version: a.headVersionId === null ? null : version(a.headVersionId) };
   }
 
+  const pageFilters = (v: typeof r.countInputSchema.Type) =>
+    and(
+      v.archived ? sql`${s.pages.archived_at} IS NOT NULL` : isNull(s.pages.archived_at),
+      sql`NOT EXISTS(SELECT 1 FROM page_deletions d WHERE d.page_id=${s.pages.id})`,
+      v.projectId === undefined
+        ? undefined
+        : sql`EXISTS(SELECT 1 FROM project_pages p WHERE p.page_id=${s.pages.id} AND p.project_id=${v.projectId})`,
+      v.noteId === undefined
+        ? undefined
+        : sql`EXISTS(SELECT 1 FROM note_pages p WHERE p.page_id=${s.pages.id} AND p.note_id=${v.noteId} AND p.archived_at IS NULL)`
+    );
+
+  function count(v: typeof r.countInputSchema.Type) {
+    return required(
+      orm
+        .select({ count: sql<bigint>`count(*)` })
+        .from(s.pages)
+        .where(
+          and(
+            pageFilters(v),
+            sql`EXISTS(SELECT 1 FROM page_versions v WHERE v.page_id=${s.pages.id} AND v.status='published' AND NOT EXISTS(SELECT 1 FROM page_retirements r WHERE r.version_id=v.id))`
+          )
+        )
+        .get()
+    ).count;
+  }
+
   function pages(v: typeof r.listSchema.Type) {
     const rows = orm
       .select()
       .from(s.pages)
-      .where(
-        and(
-          v.cursor === undefined ? undefined : lt(s.pages.id, v.cursor),
-          v.archived ? sql`${s.pages.archived_at} IS NOT NULL` : isNull(s.pages.archived_at),
-          sql`NOT EXISTS(SELECT 1 FROM page_deletions d WHERE d.page_id=${s.pages.id})`,
-          v.projectId === undefined
-            ? undefined
-            : sql`EXISTS(SELECT 1 FROM project_pages p WHERE p.page_id=${s.pages.id} AND p.project_id=${v.projectId})`,
-          v.noteId === undefined
-            ? undefined
-            : sql`EXISTS(SELECT 1 FROM note_pages p WHERE p.page_id=${s.pages.id} AND p.note_id=${v.noteId} AND p.archived_at IS NULL)`
-        )
-      )
+      .where(and(pageFilters(v), v.cursor === undefined ? undefined : lt(s.pages.id, v.cursor)))
       .orderBy(desc(s.pages.id))
       .limit(v.limit + 1)
       .all();
@@ -236,6 +251,7 @@ export function makePageReads({ db }: StoreResources) {
     summary,
     page,
     pages,
+    count,
     versions
   };
 }

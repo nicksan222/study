@@ -104,26 +104,31 @@ export const AttemptStore = defineStore({
       },
       mutations: {
         answerQuestion: storeMutation({
+          changes: ['learning'],
           input: answerQuestionInputSchema,
           output: quizAttemptInProgressSchema,
           run: (input) => answerQuestion(input)
         }),
         finishQuiz: storeMutation({
+          changes: ['learning'],
           input: attemptInputSchema,
           output: quizAttemptCompletedSchema,
           run: finishQuiz
         }),
         gradeResponse: storeMutation({
+          changes: ['learning'],
           input: gradeResponseInputSchema,
           output: quizAttemptInProgressSchema,
           run: gradeResponse
         }),
         startQuiz: storeMutation({
+          changes: ['learning'],
           input: startQuizInputSchema,
           output: quizAttemptInProgressSchema,
           run: startQuiz
         }),
         publishGrade: storeMutation({
+          changes: ['learning'],
           input: publishGradeInputSchema,
           output: quizAttemptSchema,
           run: (input) => {
@@ -237,6 +242,7 @@ export const CardStore = defineStore({
       },
       mutations: {
         reviewCard: storeMutation({
+          changes: ['learning'],
           input: reviewCardInputSchema,
           output: reviewedCardSchema,
           run: (input) =>

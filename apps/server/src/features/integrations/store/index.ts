@@ -71,6 +71,7 @@ export const IntegrationImportsStore = defineStore({
     },
     mutations: {
       stage: storeMutation({
+        changes: ['integrations'],
         input: stagedImportSchema,
         output: Schema.Void,
         run: ({ state, plan, fingerprints }) => {
@@ -105,6 +106,7 @@ export const IntegrationImportsStore = defineStore({
         }
       }),
       progress: storeMutation({
+        changes: ['integrations'],
         input: integrationImportSchema,
         output: Schema.Void,
         run: (state) => {

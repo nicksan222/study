@@ -55,6 +55,7 @@ export const RecordingPostStore = defineStore({
     queries: {},
     mutations: {
       prepareRecordingPost: storeMutation({
+        changes: ['notes'],
         input: inputSchema,
         output: Schema.NullOr(messageIdSchema),
         run: (input) => {
@@ -85,6 +86,7 @@ export const RecordingPostStore = defineStore({
         }
       }),
       finishRecordingPost: storeMutation({
+        changes: ['notes'],
         input: Schema.Struct({ ...inputSchema.fields, messageId: messageIdSchema }),
         output: messageIdSchema,
         run: (input) => {

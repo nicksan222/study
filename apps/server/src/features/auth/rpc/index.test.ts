@@ -26,6 +26,7 @@ import { AuthManager } from '#server/platform/ai/auth/index';
 import { ChatGptSession } from '#server/platform/ai/auth/service';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { AuthRpcLive } from './index.ts';
 
@@ -47,7 +48,7 @@ testStable('auth RPC exposes only public account and operations', async () => {
     })
     .run();
   const manager = new AuthManager({ issuer: 'http://localhost', saveRefresh: async () => {} });
-  const handlers = AuthRpcLive.pipe(
+  const handlers = AuthRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(Auth.layer),
     Layer.provideMerge(
       Layer.merge(
@@ -78,7 +79,9 @@ testStable('auth RPC exposes only public account and operations', async () => {
 
           expect(providers.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
           expect(JSON.stringify(providers)).not.toContain('rpc-secret');
-          expect([...AuthRpc.requests.keys()].sort()).toStrictEqual(
+          expect(
+            [...AuthRpc.requests.keys()].filter((tag) => !tag.endsWith('.live')).sort()
+          ).toStrictEqual(
             [
               'auth.providers',
               'auth.saveApiKey',

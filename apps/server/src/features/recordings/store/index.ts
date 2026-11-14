@@ -139,6 +139,7 @@ export const RecordingStore = defineStore({
       },
       mutations: {
         createRecording: storeMutation({
+          changes: ['recordings'],
           input: noteIdSchema,
           output: recordingViewSchema,
           run: (id) => {
@@ -154,6 +155,7 @@ export const RecordingStore = defineStore({
           }
         }),
         appendRecording: storeMutation({
+          changes: ['recordings'],
           input: appendRecordingInputSchema,
           output: Schema.Void,
           run: ({ id, samples }) => {
@@ -185,6 +187,7 @@ export const RecordingStore = defineStore({
           }
         }),
         deleteRecording: storeMutation({
+          changes: ['recordings'],
           input: recordingIdSchema,
           output: Schema.Boolean,
           run: (id) => {
@@ -219,6 +222,7 @@ export const RecordingPostStore = defineStore({
       },
       mutations: {
         captureRecordingPost: storeMutation({
+          changes: ['recordings'],
           input: Schema.Struct({ ...postRecordingInputSchema.fields, requestId: Schema.String }),
           output: recordingPostSchema,
           run: (input) => {
@@ -271,6 +275,7 @@ export const RecordingPostStore = defineStore({
           }
         }),
         finishRecordingPost: storeMutation({
+          changes: ['recordings'],
           input: finishRecordingPostInputSchema,
           output: recordingPostSchema,
           run: (input) => {

@@ -1,47 +1,40 @@
-import { queryOptions } from '@tanstack/react-query';
-import type { QueryClient } from '@tanstack/react-query';
+import type { AtomRegistry } from 'effect/reactivity';
+import { Atom } from 'effect/reactivity';
 
-/** Starter drafts belong to the query cache for this app lifetime, never the database. */
-export const startDraftKey = (project?: string) => ['note-start-draft', project ?? 'unassigned'];
+/** App-lifetime local drafts survive navigation and connection recovery. */
+export const startDraftKey = (project?: string) => project ?? 'unassigned';
 
-export const startDraftsOptions = () =>
-  queryOptions({
-    queryKey: ['note-start-drafts'],
-    queryFn: (): string[] => [],
-    initialData: [] as string[],
-    gcTime: Infinity,
-    staleTime: Infinity
-  });
+export const startDrafts = Atom.make<string[]>([]).pipe(Atom.keepAlive);
 
-export function openStartDraft(cache: QueryClient, project?: string) {
-  cache.setQueryDefaults(['note-start-draft'], { gcTime: Infinity, staleTime: Infinity });
-  cache.setQueryDefaults(startDraftsOptions().queryKey, { gcTime: Infinity, staleTime: Infinity });
-  const scope = project ?? 'unassigned';
+export const startDraft = Atom.family((_scope: string) => Atom.make('').pipe(Atom.keepAlive));
 
-  cache.setQueryData<string[]>(startDraftsOptions().queryKey, (scopes) =>
-    scopes?.includes(scope) ? scopes : [scope, ...(scopes ?? [])]
-  );
+export const startFiles = Atom.family((_scope: string) =>
+  Atom.make<File[]>([]).pipe(Atom.keepAlive)
+);
+
+export function openStartDraft(registry: AtomRegistry.AtomRegistry, project?: string) {
+  const scope = startDraftKey(project);
+
+  registry.update(startDrafts, (scopes) => (scopes.includes(scope) ? scopes : [scope, ...scopes]));
 }
 
-export function dismissStartDraft(cache: QueryClient, project?: string) {
-  const key = startDraftKey(project);
+export function dismissStartDraft(registry: AtomRegistry.AtomRegistry, project?: string) {
+  const scope = startDraftKey(project);
 
-  cache.setQueryData(key, '');
-  cache.setQueryData([...key, 'files'], []);
-  cache.setQueryData<string[]>(startDraftsOptions().queryKey, (scopes) =>
-    (scopes ?? []).filter((scope) => scope !== key[1])
-  );
+  registry.set(startDraft(scope), '');
+  registry.set(startFiles(scope), []);
+  registry.update(startDrafts, (scopes) => scopes.filter((item) => item !== scope));
 }
 
-/** A receipt consumes its snapshot while later edits remain available as a draft. */
+/** A receipt consumes only its submitted snapshot; subsequent edits remain local. */
 export function finishStartDraft(
-  cache: QueryClient,
-  input: { draftKey: string[]; filesKey: string[]; text: string; files: File[] }
+  registry: AtomRegistry.AtomRegistry,
+  input: { draftKey: string; filesKey: string; text: string; files: File[] }
 ) {
-  cache.setQueryData<File[]>(input.filesKey, (current) => {
+  registry.update(startFiles(input.filesKey), (current) => {
     const submitted = [...input.files];
 
-    return (current ?? []).filter((file) => {
+    return current.filter((file) => {
       const index = submitted.indexOf(file);
 
       if (index < 0) return true;
@@ -51,12 +44,11 @@ export function finishStartDraft(
       return false;
     });
   });
-  cache.setQueryData<string>(input.draftKey, (current) => (current === input.text ? '' : current));
-  const text = cache.getQueryData<string>(input.draftKey) ?? '';
-  const files = cache.getQueryData<File[]>(input.filesKey) ?? [];
+  registry.update(startDraft(input.draftKey), (current) => (current === input.text ? '' : current));
 
-  if (!text.trim() && !files.length)
-    cache.setQueryData<string[]>(startDraftsOptions().queryKey, (scopes) =>
-      (scopes ?? []).filter((scope) => scope !== input.draftKey[1])
-    );
+  if (
+    !registry.get(startDraft(input.draftKey)).trim() &&
+    !registry.get(startFiles(input.filesKey)).length
+  )
+    registry.update(startDrafts, (scopes) => scopes.filter((scope) => scope !== input.draftKey));
 }

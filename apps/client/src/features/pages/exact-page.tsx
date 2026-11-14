@@ -1,11 +1,10 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
-import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pageVersionOptions } from '#client/lib/study-client/pages.queries.ts';
 
 import { RetainedDocumentReader } from '../document-presentation';
 
@@ -13,11 +12,11 @@ import { RetainedDocumentReader } from '../document-presentation';
 
 export function ExactAuthoredPageContent({ id, pageId }: { id: PageVersionId; pageId: PageId }) {
   const { t } = useI18n();
-  const state = useQuery(pageVersionOptions(id));
+  const state = rpc.pages.version.useQuery({ id });
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
-  if (state.isError || state.data.pageId !== pageId)
+  if (state.isError || !state.data || state.data.pageId !== pageId)
     return (
       <ErrorState
         title={t('ReaderUnavailable')}

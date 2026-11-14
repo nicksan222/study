@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import { projectIdSchema, materialIdSchema, noteIdSchema } from '../ids.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { projectSchema, projectIconSchema } from './schemas.ts';
 
 export const projectPageInputSchema = Schema.Struct({
@@ -41,65 +41,115 @@ export const projectNoteInputSchema = Schema.Struct({
   noteId: noteIdSchema
 });
 
-export const ProjectsRpc = RpcGroup.make(
-  Rpc.make('addMaterial', {
-    payload: projectMaterialInputSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('removeMaterial', {
-    payload: projectMaterialInputSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('addNote', {
-    payload: projectNoteInputSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('removeNote', {
-    payload: projectNoteInputSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('project', {
-    payload: projectIdInputSchema,
-    success: projectSchema,
-    error: failureSchema
-  }),
-  Rpc.make('findProject', {
-    payload: projectIdInputSchema,
-    success: Schema.Option(projectSchema),
-    error: failureSchema
-  }),
-  Rpc.make('projects', {
-    payload: projectPageInputSchema,
-    success: projectPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('createProject', {
-    payload: createProjectInputSchema,
-    success: projectSchema,
-    error: failureSchema
-  }),
-  Rpc.make('renameProject', {
-    payload: renameProjectInputSchema,
-    success: Schema.Boolean,
-    error: failureSchema
-  }),
-  Rpc.make('deleteProject', {
-    payload: projectIdInputSchema,
-    success: Schema.Boolean,
-    error: failureSchema
-  }),
-  Rpc.make('setIcon', {
-    payload: setProjectIconInputSchema,
-    success: projectSchema,
-    error: failureSchema
-  }),
-  Rpc.make('setExam', {
-    payload: setExamInputSchema,
-    success: Schema.Boolean,
-    error: failureSchema
-  })
-).prefix('projects.');
+export const projectsEndpoints = {
+  addMaterial: mutation(
+    'projects.addMaterial',
+    {
+      payload: projectMaterialInputSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  removeMaterial: mutation(
+    'projects.removeMaterial',
+    {
+      payload: projectMaterialInputSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  addNote: mutation(
+    'projects.addNote',
+    {
+      payload: projectNoteInputSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  removeNote: mutation(
+    'projects.removeNote',
+    {
+      payload: projectNoteInputSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  get: liveQuery(
+    'projects.project',
+    {
+      payload: projectIdInputSchema,
+      success: projectSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  find: liveQuery(
+    'projects.findProject',
+    {
+      payload: projectIdInputSchema,
+      success: Schema.Option(projectSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  list: liveQuery(
+    'projects.projects',
+    {
+      payload: projectPageInputSchema,
+      success: projectPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  create: mutation(
+    'projects.createProject',
+    {
+      payload: createProjectInputSchema,
+      success: projectSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  rename: mutation(
+    'projects.renameProject',
+    {
+      payload: renameProjectInputSchema,
+      success: Schema.Boolean,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  delete: mutation(
+    'projects.deleteProject',
+    {
+      payload: projectIdInputSchema,
+      success: Schema.Boolean,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  setIcon: mutation(
+    'projects.setIcon',
+    {
+      payload: setProjectIconInputSchema,
+      success: projectSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  ),
+  setExam: mutation(
+    'projects.setExam',
+    {
+      payload: setExamInputSchema,
+      success: Schema.Boolean,
+      error: failureSchema
+    },
+    { changes: [dependency.projects] }
+  )
+};
+
+export const ProjectsRpc = endpointGroup(projectsEndpoints);

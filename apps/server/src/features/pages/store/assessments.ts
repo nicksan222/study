@@ -60,6 +60,7 @@ export const PageCitationAssessmentsStore = defineStore({
     },
     mutations: {
       assessCitation: storeMutation({
+        changes: ['pages'],
         input: c.assessmentSchema,
         output: c.assessmentRecordSchema,
         run: (assessment) => {

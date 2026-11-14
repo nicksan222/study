@@ -1,8 +1,9 @@
 import { sourceIdSchema } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { SourcePage, sourceOptions } from '../features/source-library';
+import { SourcePage } from '../features/source-library';
 
 export const Route = createFileRoute('/sources/$sourceId')({
   staticData: { title: 'AnswerSources', section: 'notes', scope: 'global' },
@@ -13,9 +14,9 @@ export const Route = createFileRoute('/sources/$sourceId')({
     sourceRevision: search.sourceRevision,
     sourceSnapshot: search.sourceSnapshot
   }),
-  loader: ({ context, params }) =>
-    context.queryClient.prefetchQuery(
-      sourceOptions(Schema.decodeUnknownSync(sourceIdSchema)(BigInt(params.sourceId)))
-    ),
+  loader: ({ params }) =>
+    rpc.sources.get
+      .read({ id: sourceIdSchema.make(BigInt(params.sourceId)) })
+      .catch(() => undefined),
   component: SourcePage
 });

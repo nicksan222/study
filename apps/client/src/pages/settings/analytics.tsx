@@ -5,13 +5,11 @@ import { SearchField } from '@study/ui/search-field';
 import { SelectControl } from '@study/ui/select-control';
 import { Settings } from '@study/ui/settings';
 import { Usage } from '@study/ui/usage';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import { hostCapabilities } from '#client/lib/host.ts';
+import { useNativeAsync } from '#client/lib/effect/native.ts';
+import { diagnosticLog, hostCapabilities } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-
-import { diagnosticLogQueryOptions } from './analytics.queries';
 
 /** Keep continuation lines, such as panic backtraces, with their tracing event. */
 export function diagnosticEntries(snapshot: string) {
@@ -36,7 +34,7 @@ export function AnalyticsSettings() {
   const [search, setSearch] = useState('');
   const [level, setLevel] = useState('');
   const diagnostics = hostCapabilities().diagnostics;
-  const query = useQuery(diagnosticLogQueryOptions());
+  const query = useNativeAsync(diagnosticLog, diagnostics);
   const entries = diagnosticEntries(query.data ?? '');
   const filtered = entries.filter((entry) => {
     const severity = entry.split('\n', 1)[0].match(/\b(TRACE|DEBUG|INFO|WARN|ERROR)\b/)?.[1];

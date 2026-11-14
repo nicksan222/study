@@ -81,7 +81,7 @@ testStable('dispatch commits bounded executions and receipts and survives reopen
   let context = await openContext(location);
 
   try {
-    context.transaction((context) => {
+    context.transaction(['workflows'], (context) => {
       for (let i = 0; i < 3; i++) emitEvent(context, event(String(i)), i);
     });
     assert.strictEqual(dispatchPending(context, [trigger], 10, 2), 2);
@@ -102,7 +102,7 @@ testStable('a disabled subscription does not starve an enabled subscription', as
   const context = await openContext(location);
 
   try {
-    context.transaction((context) => emitEvent(context, event('one'), 1));
+    context.transaction(['workflows'], (context) => emitEvent(context, event('one'), 1));
     assert.strictEqual(
       dispatchPending(
         context,
@@ -123,7 +123,7 @@ testStable('a scheduling failure rolls back execution and receipt together', asy
   const context = await openContext(location);
 
   try {
-    context.transaction((context) => {
+    context.transaction(['workflows'], (context) => {
       emitEvent(context, event('one'), 1);
       emitEvent(context, event('two'), 2);
     });
@@ -150,7 +150,7 @@ testStable('re-enabling a policy delivers its retained events', async () => {
   let enabled = false;
 
   try {
-    context.transaction((context) => emitEvent(context, event('one'), 1));
+    context.transaction(['workflows'], (context) => emitEvent(context, event('one'), 1));
     const policy = { ...trigger, enabled: () => enabled };
 
     assert.strictEqual(dispatchPending(context, [policy], 2), 0);
@@ -171,7 +171,7 @@ testStable(
     let calls = 0;
 
     try {
-      context.transaction((context) => emitEvent(context, event('recover'), 1));
+      context.transaction(['workflows'], (context) => emitEvent(context, event('recover'), 1));
       assert.strictEqual(dispatchPending(context, [trigger], 2), 1);
       context.close();
       context = await openContext(location);
@@ -274,7 +274,7 @@ testStable('disabled subscriptions leave events unscheduled', async () => {
   const context = await openContext(location);
 
   try {
-    context.transaction((context) => emitEvent(context, event('disabled'), 1));
+    context.transaction(['workflows'], (context) => emitEvent(context, event('disabled'), 1));
     assert.strictEqual(dispatchPending(context, [{ ...trigger, enabled: () => false }], 2), 0);
     assert.strictEqual(context.db.orm.select().from(workflow_executions).all().length, 0);
     assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);

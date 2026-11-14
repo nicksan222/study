@@ -75,6 +75,7 @@ export const QuestionStore = defineStore({
       },
       mutations: {
         retireQuestionAnswer: storeMutation({
+          changes: ['notes'],
           input: questionVersionInputSchema,
           output: Schema.Void,
           run: (input) => {
@@ -99,6 +100,7 @@ export const QuestionStore = defineStore({
         }),
 
         setQuestionKind: storeMutation({
+          changes: ['notes'],
           input: setMessageKindInputSchema,
           output: Schema.Void,
           run: (input) => {
@@ -115,6 +117,7 @@ export const QuestionStore = defineStore({
           }
         }),
         publishQuestion: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             ...questionVersionInputSchema.fields,
             ...questionClassificationSchema.fields
@@ -139,6 +142,7 @@ export const QuestionStore = defineStore({
           }
         }),
         retainQuestionAnswer: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             ...questionVersionInputSchema.fields,
             answer: replyRequestSchema,
@@ -161,6 +165,7 @@ export const QuestionStore = defineStore({
           }
         }),
         assertQuestionAnswer: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({ requestId: Schema.String }),
           output: Schema.Void,
           run: (input) => {

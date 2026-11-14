@@ -1,17 +1,16 @@
+import { RegistryContext, useAtomInitialValues, useAtomValue } from '@effect/atom-react';
 import { StudyError } from '@study/contracts/errors';
 import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
 import type { postMessageInputSchema, editMessageInputSchema } from '@study/contracts/notes/rpc';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { QueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
+import { rpc } from '@study/contracts/react';
+import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
+import { useContext, useEffect, useMemo, useRef } from 'react';
 
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 import { repeatRequest } from '#client/lib/study-client/repeat-request.ts';
-import { request } from '#client/lib/study-client/request.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
-
-import { noteKey } from './note-workspace.queries';
 
 export type PageTarget =
   | { kind: 'new'; captureKey: string; text?: string }
@@ -40,8 +39,11 @@ export function pageIdentity(target: PageTarget) {
     : (target.message.captureKey ?? String(target.message.id));
 }
 
-const pageKey = (id: NoteId, identity: string) =>
-  ['note-drafts', String(id), 'page-autosave', identity] as const;
+const drafts = Atom.family((_identity: string) =>
+  Atom.make<PageDraft | undefined>(undefined).pipe(Atom.keepAlive)
+);
+
+const pageAtom = (id: NoteId, identity: string) => drafts(`${id}:${identity}`);
 
 function initialDraft(target: PageTarget): PageDraft {
   if (target.kind === 'new')
@@ -62,15 +64,13 @@ function initialDraft(target: PageTarget): PageDraft {
 }
 
 async function writePage(write: Write): Promise<ChatMessage> {
-  if (write.kind === 'create') return request((rpc) => rpc['notes.postMessage'](write.input));
+  if (write.kind === 'create') return rpc.notes.postMessage.call(write.input);
 
   try {
-    return await request((rpc) => rpc['notes.editMessage'](write.input));
+    return await rpc.notes.editMessage.call(write.input);
   } catch (error) {
     // A lost edit receipt can be reconciled without creating another immutable version.
-    const message = await request((rpc) =>
-      rpc['notes.message']({ id: write.input.messageId })
-    ).catch(() => null);
+    const message = await rpc.notes.message.read({ id: write.input.messageId }).catch(() => null);
     const active = message?.versions.find((version) => version.id === message.activeVersionId);
 
     if (
@@ -115,23 +115,20 @@ function prepareWrite(id: NoteId, target: PageTarget, draft: PageDraft): Write |
   return undefined;
 }
 
-/** Serializes periodic writes through shared cache ownership, retaining typing and uncertain attempts. */
+/** Serializes periodic writes through shared local atom ownership, retaining typing and uncertain attempts. */
 export function usePageAutosave(id: NoteId, target: PageTarget) {
   const { autosaveIntervalSeconds } = useWorkspacePreferences();
-  const cache = useQueryClient();
+  const registry = useContext(RegistryContext);
   const identity = pageIdentity(target);
-  const key = pageKey(id, identity);
-  const initial = initialDraft(target);
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const draft = state.data;
+  const atom = pageAtom(id, identity);
+  const initial = useMemo(() => initialDraft(target), [target]);
+
+  useAtomInitialValues([[atom, registry.get(atom) ?? initial]]);
+  const stored = useAtomValue(atom);
+  const draft = stored ?? initial;
+
   const patch = (update: (value: PageDraft) => PageDraft) =>
-    cache.setQueryData<PageDraft>(key, (value) => update(value ?? initial));
+    registry.set(atom, update(registry.get(atom) ?? initial));
 
   const ownerRef = useRef({ identity, target });
 
@@ -140,28 +137,33 @@ export function usePageAutosave(id: NoteId, target: PageTarget) {
   const owner = ownerRef.current.target;
 
   useEffect(() => {
-    const stop = repeatRequest(() => persistPage(cache, id, owner), autosaveIntervalSeconds * 1000);
+    const stop = repeatRequest(
+      () => persistPage(registry, id, owner),
+      autosaveIntervalSeconds * 1000
+    );
 
     return () => {
       stop();
-      void persistPage(cache, id, owner);
+      void persistPage(registry, id, owner);
     };
-  }, [cache, id, owner, autosaveIntervalSeconds]);
+  }, [registry, id, owner, autosaveIntervalSeconds]);
   useEffect(() => {
     if (target.kind !== 'message') return;
 
     const incoming = initialDraft(target);
 
-    cache.setQueryData<PageDraft>(pageKey(id, identity), (value) =>
-      value &&
-      !value.pending &&
-      !value.attempt &&
-      value.text === value.savedText &&
-      incoming.versionNumber > value.versionNumber
-        ? incoming
-        : value
+    registry.set(
+      atom,
+      ((value) =>
+        value &&
+        !value.pending &&
+        !value.attempt &&
+        value.text === value.savedText &&
+        incoming.versionNumber > value.versionNumber
+          ? incoming
+          : value)(registry.get(atom))
     );
-  }, [cache, id, identity, target]);
+  }, [registry, id, identity, target, atom]);
 
   function acceptSavedVersion() {
     if (!draft.conflict) return;
@@ -175,16 +177,21 @@ export function usePageAutosave(id: NoteId, target: PageTarget) {
     draft,
     identity,
     setText: (text: string) => patch((value) => ({ ...value, text })),
-    save: () => persistPage(cache, id, target, true),
+    save: () => persistPage(registry, id, target, true),
     acceptSavedVersion
   };
 }
 
 /** Takes write ownership before awaiting transport so remounts and timer ticks cannot replay it. */
-async function persistPage(cache: QueryClient, id: NoteId, target: PageTarget, manual = false) {
-  const key = pageKey(id, pageIdentity(target));
+async function persistPage(
+  registry: AtomRegistry.AtomRegistry,
+  id: NoteId,
+  target: PageTarget,
+  manual = false
+) {
+  const atom = pageAtom(id, pageIdentity(target));
   const initial = initialDraft(target);
-  const current = cache.getQueryData<PageDraft>(key) ?? initial;
+  const current = registry.get(atom) ?? initial;
 
   if (current.pending || (!manual && current.error)) return;
 
@@ -193,7 +200,7 @@ async function persistPage(cache: QueryClient, id: NoteId, target: PageTarget, m
   if (!write) return;
 
   const patch = (update: (value: PageDraft) => PageDraft) =>
-    cache.setQueryData<PageDraft>(key, (value) => update(value ?? initial));
+    registry.set(atom, update(registry.get(atom) ?? initial));
 
   patch((value) => ({ ...value, pending: true, attempt: write, error: undefined }));
 
@@ -201,15 +208,12 @@ async function persistPage(cache: QueryClient, id: NoteId, target: PageTarget, m
     const message = await writePage(write);
 
     patch((value) => committedPage(value, write, message));
-    refreshPages(cache, id);
     // Flush typing received during the write, even if its editor has since unmounted.
-    await persistPage(cache, id, target);
+    await persistPage(registry, id, target);
   } catch (error) {
     const conflict =
       current.messageId && toStudyError(error).kind === 'invalid_input'
-        ? await request((rpc) => rpc['notes.message']({ id: current.messageId! })).catch(
-            () => undefined
-          )
+        ? await rpc.notes.message.read({ id: current.messageId! }).catch(() => undefined)
         : undefined;
 
     patch((value) => ({ ...value, pending: false, error, conflict }));
@@ -239,9 +243,4 @@ function committedPage(value: PageDraft, write: Write, message: ChatMessage): Pa
     error: undefined,
     conflict: undefined
   };
-}
-
-function refreshPages(cache: QueryClient, id: NoteId) {
-  void cache.invalidateQueries({ queryKey: [...noteKey(id), 'thread'] });
-  void cache.invalidateQueries({ queryKey: ['notes'] });
 }

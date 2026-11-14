@@ -115,7 +115,7 @@ export function dispatchPending(
     identities.add(trigger.subscription);
   }
 
-  return context.transaction((context) => {
+  return context.transaction(['workflows'], (context) => {
     const db = context.db.orm;
     let scheduled = 0;
 

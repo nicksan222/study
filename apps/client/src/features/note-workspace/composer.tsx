@@ -12,7 +12,6 @@ import { useWorkspacePreferences } from '#client/lib/study-client/workspace-pref
 import { AttachmentPicker, AttachmentTray } from './attachments';
 import { useComposer } from './composer.queries';
 import { isNoteSubmit } from './draft';
-import { noteKey } from './note-workspace.queries';
 import { NoteError } from './status';
 import { UnavailableAttempt } from './unavailable-attempt';
 
@@ -132,7 +131,7 @@ function AskRecovery({ model }: { model: ComposerModel }) {
 }
 
 function NoteRecovery({ model }: { model: ComposerModel }) {
-  const { id, t, cache, draft, setDraft, noteMutation, pending } = model;
+  const { t, draft, setDraft, noteMutation, pending } = model;
 
   return (
     <>
@@ -145,7 +144,6 @@ function NoteRecovery({ model }: { model: ComposerModel }) {
             onClick={() => {
               setDraft((previous) => ({ ...previous, noteAttempt: undefined }));
               noteMutation.reset();
-              void cache.invalidateQueries({ queryKey: [...noteKey(id), 'thread'] });
             }}
           >
             {t('NoteReviewedHistory')}

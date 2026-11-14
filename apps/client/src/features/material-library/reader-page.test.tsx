@@ -15,12 +15,10 @@ import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import type { StudyClient } from '#client/lib/study-client/client.ts';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { materialId, versionId } from './identity';
 import { learningVersion, materialRpc, mountLibraryRoute } from './test/support';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 testStable(
   'rejects a foreign Material version before rendering extraction or exposing its original',
@@ -43,7 +41,7 @@ testStable(
 );
 
 testStable(
-  'loads history only on opening, paginates by version cursor and preserves collection on selection',
+  'loads history only on opening, refreshes the bounded prefix and preserves collection on selection',
   async () => {
     const rpc = materialRpc();
     const decode = Schema.decodeUnknownSync(materialVersionSummarySchema);
@@ -52,7 +50,7 @@ testStable(
 
     rpc['materials.materialVersions']
       .mockReturnValueOnce(Effect.succeed({ items: [current], nextCursor: versionId('102') }))
-      .mockReturnValueOnce(Effect.succeed({ items: [old], nextCursor: null }));
+      .mockReturnValueOnce(Effect.succeed({ items: [current, old], nextCursor: null }));
     rpc['materials.materialVersion'].mockImplementation(({ id }) =>
       id === versionId('101')
         ? Effect.fail(new StudyError('not_found', 'Historical version unavailable'))
@@ -81,8 +79,8 @@ testStable(
     });
     expect(rpc['materials.materialVersions']).toHaveBeenNthCalledWith(2, {
       materialId: materialId('41'),
-      cursor: versionId('102'),
-      limit: 30
+      cursor: undefined,
+      limit: 60
     });
     await user.click(historic);
     expect(await within(await screen.findByRole('main')).findByRole('alert')).toHaveTextContent(
@@ -161,7 +159,7 @@ testStable(
       materialId: materialId('41')
     });
     expect(rpc['materials.requestDeletion']).not.toHaveBeenCalled();
-    // Accepted deletion retires content before invalidation refetches the reader.
+    // Accepted deletion retires content before the next live reader snapshot.
     rpc['materials.material'].mockReturnValue(Effect.fail(new StudyError('not_found', 'Retired')));
     await user.click(dialog.getByRole('button', { name: catalogs.english.PageConfirmDelete }));
     const confirmation = within(await screen.findByRole('alertdialog'));
@@ -211,7 +209,7 @@ testStable('reports CSV structure loss without an unrelated image warning', asyn
       format: 'csv',
       filename: 'cards.csv',
       mediaType: 'text/csv; charset=utf-8',
-      bytes: new TextEncoder().encode('cardId,front,back'),
+      bytes: new Uint8Array(new TextEncoder().encode('cardId,front,back')),
       omissions: [{ code: 'csv_structure' }]
     })
   );

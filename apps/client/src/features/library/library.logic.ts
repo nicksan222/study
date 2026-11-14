@@ -1,6 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 
-import type { Materials } from '#client/lib/study-client/operations.ts';
+import type { Materials } from '#client/lib/study-client/types.ts';
 
 export type LibraryItem = { type: 'material'; value: Materials[number] };
 

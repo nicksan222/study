@@ -6,6 +6,7 @@ import {
   projectSymbols,
   projectEmojis
 } from '@study/contracts/projects/schemas';
+import { rpc } from '@study/contracts/react';
 import { EditIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
@@ -16,30 +17,36 @@ import { IdentityEditor } from '@study/ui/identity-editor';
 import { Input } from '@study/ui/input';
 import { Label } from '@study/ui/label';
 import { toastManager } from '@study/ui/toast';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
 import { useId, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { subjectIconMutationOptions } from './subject-icon-editor.queries';
 import { subjectColors, subjectSymbols } from './subject-icon-options';
+import { useSubjectIconFence } from './subject-icon-pending';
 import { SubjectIdentity } from './subject-identity';
 
 /** Persists the canonical icon before refreshing every subject presentation. */
 function useSubjectIconMutation(project: Project, onSaved: () => void) {
   const { t } = useI18n();
-  const cache = useQueryClient();
+  const mutation = rpc.projects.setIcon.useMutation();
+  const fence = useSubjectIconFence(project.id);
 
-  return useMutation({
-    ...subjectIconMutationOptions(project.id),
-    onSuccess: (updated) => {
-      cache.setQueryData(['projects', 'collection', String(project.id)], updated);
-      void cache.invalidateQueries({ queryKey: ['projects'] });
-      toastManager.add({ title: t('SubjectIconSaved'), type: 'success' });
-      onSaved();
+  return {
+    ...mutation,
+    mutate: (icon: ProjectIcon) => {
+      if (!fence.acquire()) return;
+
+      void mutation
+        .mutate({ id: project.id, icon })
+        .then(() => {
+          toastManager.add({ title: t('SubjectIconSaved'), type: 'success' });
+          onSaved();
+        })
+        .catch(() => {})
+        .finally(fence.release);
     }
-  });
+  };
 }
 
 /** Retains per-mode choices locally while sharing the selected accent across modes. */

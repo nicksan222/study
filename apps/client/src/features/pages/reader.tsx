@@ -1,11 +1,11 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import { pageVersionIdSchema } from '@study/contracts/ids';
 import type { Page, PageVersion } from '@study/contracts/pages/types';
-import { useQuery } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 import { Schema } from 'effect';
 import { useCallback, useState } from 'react';
 
-import { notePageOptions, NotePagePanel } from '../note-workspace';
+import { NotePagePanel } from '../note-workspace';
 import { MakePageCurrent } from './make-page-current';
 import { PageVersionStepper } from './page-version-stepper';
 
@@ -32,7 +32,7 @@ function PageReaderContent({ id, initialVersion }: { id: PageId; initialVersion?
       : undefined
   );
 
-  const current = useQuery(notePageOptions(id));
+  const current = rpc.pages.get.useQuery({ id });
 
   if (selected !== undefined && selected === current.data?.headVersionId) setSelected(undefined);
 

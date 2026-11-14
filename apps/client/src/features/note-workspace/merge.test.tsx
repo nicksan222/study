@@ -1,9 +1,10 @@
 import { noteSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { NoteMergeDialog } from './merge';
 
@@ -11,10 +12,6 @@ const api = vi.hoisted(() => ({ merge: vi.fn(), navigate: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => api.navigate }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({ 'notes.mergeNotes': api.merge })
-}));
 afterEach(cleanup);
 
 testStable(
@@ -31,7 +28,7 @@ testStable(
     });
     const first = Schema.decodeUnknownSync(noteSchema)({ ...note, id: 1n, title: 'First' });
     const second = Schema.decodeUnknownSync(noteSchema)({ ...note, id: 2n, title: 'Second' });
-    const cache = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { wrapper: Provider } = rpcTestTransport(async (_tag, input) => api.merge(input));
     const onMerged = vi.fn();
     const onOpenChange = vi.fn();
 
@@ -39,13 +36,13 @@ testStable(
 
     try {
       render(
-        <QueryClientProvider client={cache}>
+        <Provider>
           <NoteMergeDialog
             notes={[first, second]}
             onMerged={onMerged}
             onOpenChange={onOpenChange}
           />
-        </QueryClientProvider>
+        </Provider>
       );
       fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
       await screen.findByText('NoteActionErrorTitle');
@@ -62,7 +59,7 @@ testStable(
         search: {}
       });
     } finally {
-      cache.clear();
+      cleanup();
     }
   }
 );

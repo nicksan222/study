@@ -42,6 +42,7 @@ import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { testLiveQueries } from '#testing/live-queries';
 
 testStable(
   'native ingestion lets quick notes capture a historic exact source extraction without projections',
@@ -56,7 +57,7 @@ testStable(
       );
     const services = () =>
       Layer.mergeAll(
-        NotesRpcLive.pipe(Layer.provideMerge(domain())),
+        NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(domain())),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
           model: () => Effect.succeed(model),

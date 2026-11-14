@@ -1,3 +1,5 @@
+import { RegistryContext } from '@effect/atom-react';
+import { rpc } from '@study/contracts/react';
 import type {
   BackupId,
   BackupManifest,
@@ -6,11 +8,9 @@ import type {
   restoreStatusSchema
 } from '@study/contracts/system/backups';
 import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
-import type { QueryClient } from '@tanstack/react-query';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useSyncExternalStore } from 'react';
+import type { AtomRegistry } from 'effect/reactivity';
+import { useContext, useEffect, useSyncExternalStore } from 'react';
 
-import * as api from './data.queries';
 import { downloadBackup, encodeBackupFile } from './files';
 
 type Status = typeof restoreStatusSchema.Type;
@@ -37,7 +37,7 @@ type State = {
   reconciled: boolean;
 };
 
-const owners = new WeakMap<QueryClient, DataOwner>();
+const owners = new WeakMap<AtomRegistry.AtomRegistry, DataOwner>();
 
 class DataOwner {
   state: State = {
@@ -49,8 +49,6 @@ class DataOwner {
     reconciled: false
   };
   private listeners = new Set<() => void>();
-
-  constructor(private client: QueryClient) {}
 
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -110,14 +108,14 @@ class DataOwner {
 
     try {
       // Status discovery must survive a corrupt or unreadable managed artifact list.
-      const status = await this.client.fetchQuery(api.restoreStatusQueryOptions());
+      const status = await rpc.system.restoreStatus.read({});
 
       this.update({
         status,
         statusReady: true,
         reconciled: this.state.uncertain?.kind === 'discard'
       });
-      const backups = await this.client.fetchQuery(api.backupsQueryOptions());
+      const backups = await rpc.system.listBackups.read({});
 
       this.update({ backups, loaded: true, listReady: true, reconciled: true });
     } catch {
@@ -131,7 +129,7 @@ class DataOwner {
       this.update({ uncertain: undefined, submitted: undefined, receipt: undefined });
   };
 
-  private async mutate<A>(submission: Submission, run: () => Promise<A>) {
+  private async mutate(submission: Submission, run: () => Promise<BackupManifest | Status | void>) {
     const permitted = submission.kind === 'discard' ? this.canDiscard() : this.mutable();
 
     if (!permitted || !this.lock()) return;
@@ -146,7 +144,7 @@ class DataOwner {
     try {
       const receipt = await run();
 
-      this.update({ receipt: (receipt ?? { completed: true }) as State['receipt'] });
+      this.update({ receipt: receipt ?? { completed: true } });
     } catch {
       this.update({ uncertain: submission });
     } finally {
@@ -159,12 +157,7 @@ class DataOwner {
   create = () => {
     if (this.state.backups.length >= MAX_MANAGED_BACKUPS) return;
 
-    return this.mutate({ kind: 'create' }, () =>
-      this.client
-        .getMutationCache()
-        .build(this.client, api.createBackupOptions())
-        .execute(undefined)
-    );
+    return this.mutate({ kind: 'create' }, () => rpc.system.createBackup.call({}));
   };
   importFile = async (file: File) => {
     if (!this.mutable() || this.state.backups.length >= MAX_MANAGED_BACKUPS || !this.lock()) return;
@@ -182,20 +175,13 @@ class DataOwner {
     this.update({ busy: false });
 
     return this.mutate({ kind: 'import', fileName: file.name }, () =>
-      this.client.getMutationCache().build(this.client, api.importBackupOptions()).execute(bytes)
+      rpc.system.importBackup.call({ bytes })
     );
   };
   delete = (id: BackupId) =>
-    this.mutate({ kind: 'delete', id }, () =>
-      this.client.getMutationCache().build(this.client, api.deleteBackupOptions()).execute(id)
-    );
+    this.mutate({ kind: 'delete', id }, () => rpc.system.deleteBackup.call({ id }));
   discard = () =>
-    this.mutate({ kind: 'discard' }, () =>
-      this.client
-        .getMutationCache()
-        .build(this.client, api.discardRecoveryOptions())
-        .execute(undefined)
-    );
+    this.mutate({ kind: 'discard' }, () => rpc.system.discardRestoreRecovery.call({}));
   preview = async (id: BackupId) => {
     if (!this.mutable() || !this.lock()) return;
 
@@ -203,7 +189,7 @@ class DataOwner {
 
     try {
       this.update({
-        preview: await this.client.fetchQuery({ ...api.previewRestoreOptions(id), staleTime: 0 })
+        preview: await rpc.system.previewRestore.call({ id })
       });
     } catch {
       this.update({ error: 'read' });
@@ -231,31 +217,27 @@ class DataOwner {
     };
 
     return this.mutate({ kind: 'accept', id: expected.backup.id, acceptance }, () =>
-      this.client
-        .getMutationCache()
-        .build(this.client, api.acceptRestoreOptions())
-        .execute(acceptance)
+      rpc.system.acceptRestore.call(acceptance)
     );
   };
   download = async (id: BackupId) => {
     if (this.state.uncertain || !this.lock()) return;
 
     try {
-      downloadBackup(await this.client.fetchQuery(api.readBackupOptions(id)), id);
+      downloadBackup(await rpc.system.readBackup.read({ id }), id);
     } catch {
       this.update({ error: 'read' });
     } finally {
-      this.client.removeQueries({ queryKey: api.readBackupOptions(id).queryKey });
       this.update({ busy: false });
     }
   };
 }
 
-export function dataOwner(client: QueryClient) {
+export function dataOwner(client: AtomRegistry.AtomRegistry) {
   let owner = owners.get(client);
 
   if (!owner) {
-    owner = new DataOwner(client);
+    owner = new DataOwner();
     owners.set(client, owner);
   }
 
@@ -263,7 +245,7 @@ export function dataOwner(client: QueryClient) {
 }
 
 export function useDataSettings() {
-  const owner = dataOwner(useQueryClient());
+  const owner = dataOwner(useContext(RegistryContext));
   const state = useSyncExternalStore(owner.subscribe, owner.snapshot, owner.snapshot);
 
   useEffect(() => {
@@ -271,4 +253,8 @@ export function useDataSettings() {
   }, [owner]);
 
   return { state, owner };
+}
+
+export function useBackupOwner() {
+  return dataOwner(useContext(RegistryContext));
 }

@@ -2,10 +2,11 @@ import { noteIdSchema } from '@study/contracts/ids';
 import type { noteWorkItemSchema } from '@study/contracts/notes/work';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { NotePendingWork } from './note-pending-work';
 
@@ -22,14 +23,6 @@ vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({
     t: (key: string, values?: { title: string }) => (values ? key + ' ' + values.title : key)
   })
-}));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.noteWork': api.work,
-      'workflows.cancelExecution': api.cancel,
-      'pages.cancelTransform': api.transform
-    })
 }));
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(1n);
@@ -52,27 +45,21 @@ const row: typeof noteWorkItemSchema.Type = {
   }
 };
 
-const clients: QueryClient[] = [];
-
 function mount() {
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = rpcHandlersTransport({
+    'notes.noteWork': api.work,
+    'workflows.cancelExecution': api.cancel,
+    'pages.cancelTransform': api.transform
   });
 
-  clients.push(cache);
-  render(
-    <QueryClientProvider client={cache}>
-      <NotePendingWork id={id} />
-    </QueryClientProvider>
-  );
+  render(<NotePendingWork id={id} />, { wrapper: fixture.wrapper });
 
-  return cache;
+  return fixture;
 }
 
 beforeEach(() => vi.resetAllMocks());
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((cache) => cache.clear());
 });
 
 testStable('stops the exact execution safely and waits for committed cancellation', async () => {

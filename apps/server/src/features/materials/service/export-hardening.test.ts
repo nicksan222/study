@@ -38,6 +38,7 @@ import { exportBudget } from '#server/platform/content-export/budget';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
@@ -50,9 +51,11 @@ async function fixture() {
   const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
     Layer.provideMerge(database)
   );
-  const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive, PagesRpcLive).pipe(
-    Layer.provideMerge(services)
-  );
+  const handlers = Layer.mergeAll(
+    materialRpcHandlers,
+    SourcesRpcLive.pipe(Layer.provide(testLiveQueries)),
+    PagesRpcLive.pipe(Layer.provide(testLiveQueries))
+  ).pipe(Layer.provideMerge(services));
 
   return {
     handlers,
@@ -431,7 +434,7 @@ testStable(
               id: claim.version.id,
               limit: 10
             })).items;
-            const actual = f.context.transaction((tx) =>
+            const actual = f.context.transaction(['materials'], (tx) =>
               makeCitations(tx).readCitations(claim.version.id)
             );
 

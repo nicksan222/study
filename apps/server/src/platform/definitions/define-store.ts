@@ -17,6 +17,7 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type { WorkflowEvent } from '@study/contracts/events';
+import type { DependencyScope } from '@study/contracts/protocol';
 import type { Db, DbTransaction } from '@study/db';
 import type { Clock, Context } from 'effect';
 import { Effect, Option, Schema } from 'effect';
@@ -65,7 +66,10 @@ type QueryDefinition = AnyDefinition & {
   readonly role: 'required' | 'optional' | 'collection';
 };
 
-type MutationDefinition = AnyDefinition & { readonly [mutationBrand]: true };
+type MutationDefinition = AnyDefinition & {
+  readonly [mutationBrand]: true;
+  readonly changes: readonly [DependencyScope, ...DependencyScope[]];
+};
 
 type SyncMethods<D extends Definitions> = {
   [K in keyof D]: D[K] extends { input: infer I extends Decoder; output: infer O extends Decoder }
@@ -95,7 +99,9 @@ export function storeQuery<I extends Decoder, O extends Decoder>(
   return { ...definition, [queryBrand]: true as const };
 }
 
-export function storeMutation<I extends Decoder, O extends Decoder>(definition: Definition<I, O>) {
+export function storeMutation<I extends Decoder, O extends Decoder>(
+  definition: Definition<I, O> & { changes: readonly [DependencyScope, ...DependencyScope[]] }
+) {
   return { ...definition, [mutationBrand]: true as const };
 }
 
@@ -248,7 +254,7 @@ export function defineStore<
           return instrument(`${definition.name}.${name}`, () =>
             name in bound.queries
               ? runQuery(bound.queries[name]!, input)
-              : execute(operation, input)
+              : context.transaction(bound.mutations[name]!.changes, () => execute(operation, input))
           );
         }
       ])
@@ -306,7 +312,7 @@ function runTransaction<T>(
   work: (tx: Transaction) => T,
   guard?: PublicationGuard['Service']
 ): T {
-  return context.transaction((transactionContext) => {
+  return context.transaction([], (transactionContext) => {
     if (Object.prototype.toString.call(work) === '[object AsyncFunction]')
       throw new TypeError('Transaction callbacks must be synchronous');
 

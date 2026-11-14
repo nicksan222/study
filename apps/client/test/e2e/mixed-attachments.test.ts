@@ -154,6 +154,9 @@ testE2e(
     await expect(queue.getByText('duplicate.txt', { exact: true })).toHaveCount(2);
     await expect(composer).toHaveValue(original);
     await expect(save).toBeEnabled();
+    await composer.press('ControlOrMeta+Home');
+    await composer.press('PageUp');
+    await expect(composer).toHaveJSProperty('scrollTop', 0);
     await queue.getByText('coastal-evidence.md', { exact: true }).scrollIntoViewIfNeeded();
     await expectScreenshot('mixed-queue', {
       target: 'viewport',

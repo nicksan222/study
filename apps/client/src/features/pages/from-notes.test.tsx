@@ -1,18 +1,16 @@
 import { projectIdSchema, noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { PagesFromNotes } from './from-notes';
 
 const api = vi.hoisted(() => ({ notes: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/study.queries.ts', () => ({
-  notesQueryOptions: () => ({ queryKey: ['notes'], queryFn: api.notes })
-}));
 vi.mock('../note-workspace', () => ({
   NotePageDialog: ({
     id,
@@ -51,13 +49,17 @@ testStable(
       note(2n, 'Exercises'),
       note(3n, 'Other subject', projectIdSchema.make(3n))
     ]);
-    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const harness = rpcTestTransport(async (tag) => {
+      if (tag === 'notes.notes') return { items: await api.notes(), next: null };
+
+      throw new Error(tag);
+    });
     const user = userEvent.setup();
 
     render(
-      <QueryClientProvider client={cache}>
+      <harness.wrapper>
         <PagesFromNotes project={projectId} />
-      </QueryClientProvider>
+      </harness.wrapper>
     );
     await user.click(screen.getByRole('button', { name: 'PagesFromNotes' }));
     expect(screen.getByRole('button', { name: 'NoteApplyAction' })).toBeDisabled();
@@ -71,6 +73,5 @@ testStable(
 
     expect(transform).toHaveAttribute('data-note', '1');
     expect(transform).toHaveTextContent('Lecture, Exercises');
-    cache.clear();
   }
 );

@@ -1,6 +1,9 @@
+import type { PageId } from '@study/contracts/ids';
 import type { ProjectId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
+import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
 import {
   MatchingIcon,
@@ -20,18 +23,17 @@ import { ErrorState } from '@study/ui/error-state';
 import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
 import { Textarea } from '@study/ui/textarea';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { SetStateAction } from 'react';
 import { useState, useCallback } from 'react';
 
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
+import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
+import { useNativeAction } from '#client/lib/effect/native.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { quizSettingsOptions } from '#client/lib/study-client/quiz-settings.queries.ts';
 
 import { GenerationWatcher } from './generation-watcher';
-import { generationPagesOptions, quizGenerationMutationOptions } from './quiz-generation.queries';
 import { QuizInputPicker } from './quiz-input-picker';
 
 export function QuizGenerationAction({
@@ -120,25 +122,24 @@ function GenerationDialog({
 /** Build document-grounded generation requests using the selected kind and saved preferences. */
 function useGeneration(projectId: ProjectId | undefined, accepted: (id: string) => void) {
   const { t } = useI18n();
-  const client = useQueryClient();
   const readiness = useAiReadiness('medium');
   const [kind, setKind] = useState<
     'quiz' | 'flashcards' | 'fill_blank' | 'matching' | 'true_false' | 'ordering'
   >('quiz');
   const [instruction, setInstruction] = useState('');
   const { pages, inputs, setInputs } = useGenerationPages(projectId);
-  const preferences = useQuery(quizSettingsOptions());
+  const preferences = rpc.settings.quizSettings.useQuery({});
   const saved = preferences.data ?? defaultQuizSettings;
   const configuration =
     kind === 'quiz' || kind === 'flashcards'
       ? saved
       : { ...saved, ...practiceGenerationSettings(saved, kind) };
-  const start = useMutation({
-    ...quizGenerationMutationOptions(),
-    onSuccess: (result) => {
-      accepted(result.id);
-      void client.invalidateQueries({ queryKey: ['materials', 'active-generations'] });
-    }
+  const start = useNativeAction(async (input: typeof materialGenerationInputSchema.Type) => {
+    const result = await rpc.materials.requestMaterialGeneration.call(input);
+
+    accepted(result.id);
+
+    return result;
   });
   const busy = start.isPending;
   const hasSources = pages.isSuccess && inputs.length > 0 && inputs.length <= 20;
@@ -371,9 +372,18 @@ function GenerationAction({ model }: { model: GenerationModel }) {
 }
 
 function useGenerationPages(projectId?: ProjectId) {
-  const pages = useQuery(generationPagesOptions(projectId));
+  const pagination = useCursorWindow<PageId>(String(projectId ?? 'global'));
+  const query = rpc.pages.list.useQuery({
+    projectId,
+    limit: pagination.limit,
+    cursor: pagination.cursor,
+    archived: false
+  });
+
+  useCursorRecovery(pagination, query.error);
+  const pages = { ...query, pagination };
   const [excluded, setExcluded] = useState<bigint[]>([]);
-  const inputs: ContentInput[] = (pages.data ?? [])
+  const inputs: ContentInput[] = (pages.data?.items ?? [])
     .filter((doc) => doc.headVersionId !== null && !excluded.includes(doc.headVersionId))
     .map((doc) => ({ kind: 'page', versionId: doc.headVersionId! }));
   const setInputs = (update: SetStateAction<ContentInput[]>) => {
@@ -383,7 +393,7 @@ function useGenerationPages(projectId?: ProjectId) {
     );
 
     setExcluded(
-      (pages.data ?? []).flatMap((doc) =>
+      (pages.data?.items ?? []).flatMap((doc) =>
         doc.headVersionId !== null && !selected.has(doc.headVersionId) ? [doc.headVersionId] : []
       )
     );

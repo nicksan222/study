@@ -79,6 +79,7 @@ export const NoteSummaryStore = defineStore({
     },
     mutations: {
       setNoteSettled: storeMutation({
+        changes: ['notes'],
         input: setNoteSettledInputSchema,
         output: Schema.Struct({}),
         run: ({ id, settled }) => {

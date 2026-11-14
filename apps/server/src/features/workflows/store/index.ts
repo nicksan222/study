@@ -20,7 +20,7 @@ import {
   executionSchema,
   executionsInputSchema
 } from '@study/contracts/workflows/schemas';
-import { and, desc, eq, getTableColumns, lt, or, sql } from '@study/db';
+import { inArray, and, desc, eq, getTableColumns, lt, or, sql } from '@study/db';
 import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
 import { Cause, Exit, Option, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
@@ -165,6 +165,9 @@ export const ExecutionStore = defineStore({
               .from(workflow_executions)
               .where(
                 and(
+                  input.workflows === undefined
+                    ? undefined
+                    : inArray(workflow_executions.workflow_tag, [...input.workflows]),
                   input.correlationId === undefined
                     ? undefined
                     : eq(

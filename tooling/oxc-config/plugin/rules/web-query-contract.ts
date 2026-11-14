@@ -1,111 +1,80 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
-import { effectBindings, propertyName } from '../effect-bindings.ts';
 import { webFile, webTarget } from '../web-files.ts';
 
+/** Import ownership only; endpoint constructors enforce the reactive contract types. */
 export default defineRule({
   meta: { type: 'problem' },
   create(context) {
+    const filename = context.filename.replaceAll('\\', '/');
     const current = webFile(context.filename);
+    const composition = current?.startsWith('lib/effect/');
+    const protocol = reactFreeProtocol(filename);
 
-    if (!current) return {};
+    return moduleEdges(context, (node, source, typeOnly) => {
+      if (source === null) return;
 
-    const queries = current.endsWith('.queries.ts');
-    const adapter =
-      current === 'lib/effect/runtime.ts' || (current.startsWith('lib/study-client/') && !queries);
-    const bindings = effectBindings(context);
-    const report = (node: any, message: string) => context.report({ node, message });
+      if (/^@tanstack\/(?:react-query|query-core|react-query-devtools)(?:\/|$)/.test(source)) {
+        context.report({
+          node,
+          message:
+            'Use canonical reactive RPC bindings or local Effect atoms; React Query is retired.'
+        });
 
-    function checkQueryOptions(node: any, source: string) {
-      if (
-        !queries &&
-        source === '@tanstack/react-query' &&
-        node.type === 'ImportDeclaration' &&
-        node.specifiers.some((item: any) =>
-          ['queryOptions', 'infiniteQueryOptions', 'mutationOptions'].includes(
-            propertyName(item.imported) ?? ''
-          )
-        )
-      )
-        report(node, 'Define shared query and mutation options in .queries.ts modules.');
-    }
-
-    const edges = moduleEdges(context, (node, source, typeOnly) => {
-      if (typeOnly || source === null) return;
-
-      if (requiresEffectAdapter(adapter, source)) {
-        const schemaOnly = schemaImport(node, source);
-
-        if (!schemaOnly)
-          report(
-            node,
-            'Keep Effect execution and composition inside the browser transport adapter; use Promise requests and Query options.'
-          );
+        return;
       }
+
+      if (typeOnly) return;
+
+      if (protocol && importsReact(source))
+        context.report({
+          node,
+          message:
+            'Keep protocol schemas and endpoint definitions React-free; React bindings belong to the optional react entry point.'
+        });
+
+      if (!current || composition) return;
 
       const target = webTarget(context.filename, source);
 
-      if (!adapter && target?.startsWith('lib/effect/'))
-        report(
-          node,
-          'Use TanStack Query for async state; only the transport adapter may access the Effect runtime.'
-        );
+      if (ownsTransport(current, target)) return;
 
-      if (target === 'lib/study-client/operations' && !queries && current !== 'lib/appearance.ts')
-        report(
+      if (importsTransport(source, target))
+        context.report({
           node,
-          'Call browser requests from .queries.ts modules; consume shared Query options in hooks and loaders.'
-        );
-
-      checkQueryOptions(node, source);
+          message:
+            'Consume endpoints from @study/contracts/react; transport execution belongs to application runtime composition.'
+        });
     });
-
-    return {
-      ...edges,
-      ImportDeclaration(node) {
-        bindings.imports(node);
-        edges.ImportDeclaration(node);
-      },
-      Property(node) {
-        if (!queries && ['queryFn', 'mutationFn'].includes(propertyName(node.key) ?? ''))
-          report(
-            node,
-            'Define queryFn and mutationFn in .queries.ts modules so loaders and hooks share one data contract.'
-          );
-      },
-      CallExpression(node) {
-        edges.CallExpression(node);
-
-        if (bindings.resolve(node.callee) !== 'Effect.gen') return;
-
-        for (let parent: typeof node.parent | null = node.parent; parent; parent = parent.parent) {
-          if (
-            parent.type === 'CallExpression' &&
-            bindings.resolve(parent.callee) === 'Effect.gen'
-          ) {
-            report(node, 'Extract a named operation instead of nesting Effect generators.');
-
-            break;
-          }
-        }
-      }
-    };
   }
 });
 
-function schemaImport(node: any, source: string): boolean {
+function importsReact(source: string) {
   return (
-    source === 'effect/Schema' ||
-    (source === 'effect' &&
-      node.type === 'ImportDeclaration' &&
-      node.specifiers.length > 0 &&
-      node.specifiers.every(
-        (item: any) => item.importKind === 'type' || propertyName(item.imported) === 'Schema'
-      ))
+    /^(?:react|@effect\/atom-react)(?:\/|$)/.test(source) ||
+    /(?:^|\/)react(?:-state)?(?:\.[cm]?[jt]sx?)?$/.test(source)
   );
 }
 
-function requiresEffectAdapter(adapter: boolean, source: string): boolean {
-  return !adapter && (source === 'effect' || source.startsWith('effect/'));
+function importsTransport(source: string, target: string | undefined) {
+  return (
+    /^(?:@study\/server\/client|effect\/(?:unstable\/)?rpc)(?:\/|$)/.test(source) ||
+    (target?.startsWith('lib/effect/') && target !== 'lib/effect/native') ||
+    target === 'lib/study-client/operations'
+  );
+}
+
+function ownsTransport(current: string, target: string | undefined) {
+  return (
+    (current === 'app/providers.tsx' && target === 'lib/effect/rpc') ||
+    (current === 'lib/study-client/repeat-request.ts' && target === 'lib/effect/runtime')
+  );
+}
+
+function reactFreeProtocol(filename: string) {
+  return (
+    filename.includes('/packages/contracts/src/') &&
+    !/\/packages\/contracts\/src\/react(?:-state)?\.ts$/.test(filename)
+  );
 }

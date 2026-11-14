@@ -29,6 +29,7 @@ import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { testLiveQueries } from '#testing/live-queries';
 
 const body = (text: string, id?: PageVersion['document']['blocks'][number]['id']) => ({
   blocks: [
@@ -168,7 +169,12 @@ testStable(
           );
 
           return { id: a.id, latestId: latest.id, conflictInput, conflict };
-        }).pipe(Effect.provide(PagesRpcLive.pipe(Layer.provide(f.services))), Effect.scoped)
+        }).pipe(
+          Effect.provide(
+            PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provide(f.services))
+          ),
+          Effect.scoped
+        )
       );
 
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) AS n FROM materials`)?.n, 0n);

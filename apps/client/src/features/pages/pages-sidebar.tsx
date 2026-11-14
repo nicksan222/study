@@ -6,15 +6,15 @@ import { useNowMinute } from '@study/ui/clock';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Sidebar } from '@study/ui/sidebar';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useParams } from '@tanstack/react-router';
 
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import type { Subjects } from '#client/lib/study-client/operations.ts';
-import { pagesOptions } from '#client/lib/study-client/pages.queries.ts';
+import type { Subjects } from '#client/lib/study-client/types.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { PageContextMenu } from './page-context-menu';
+import { usePageBrowse } from './use-page-browse';
 
 /** Lists published pages using the same scoped cache and rows as the library. */
 export function PagesSidebar({
@@ -30,12 +30,8 @@ export function PagesSidebar({
   const now = useNowMinute();
   const preferences = useWorkspacePreferences();
   const { pageId } = useParams({ strict: false });
-  const state = useInfiniteQuery({
-    ...pagesOptions(project),
-    refetchOnWindowFocus: 'always',
-    refetchInterval: 15_000
-  });
-  const items = (state.data?.pages.flatMap((page) => page.items) ?? [])
+  const { query: state, navigation: window } = usePageBrowse(project);
+  const items = (state.data?.items ?? [])
     .filter(
       (item) =>
         item.headVersionId !== null &&
@@ -63,6 +59,7 @@ export function PagesSidebar({
           }
         />
       )}
+
       {items.map((item) => {
         const owner = subjects.find(
           (subject) =>
@@ -105,14 +102,13 @@ export function PagesSidebar({
       {state.isSuccess && items.length === 0 && (
         <Sidebar.Message>{t(query.trim() ? 'SearchNoResults' : 'PagesEmpty')}</Sidebar.Message>
       )}
-      {state.hasNextPage && (
-        <Sidebar.NoteMore
-          disabled={state.isFetchingNextPage}
-          onClick={() => void state.fetchNextPage()}
-        >
-          {state.isFetchingNextPage ? t('LoadingStudy') : t('LibraryMore')}
-        </Sidebar.NoteMore>
-      )}
+
+      <CursorWindowActions
+        {...window}
+        hasMore={!!state.data?.nextCursor}
+        pending={state.isFetching}
+        more={() => window.more(state.data?.nextCursor)}
+      />
     </Sidebar.Items>
   );
 }

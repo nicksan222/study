@@ -96,6 +96,7 @@ export const PageBackupStore = defineStore({
       },
       mutations: {
         prepareBackup: storeMutation({
+          changes: ['pages'],
           input: Schema.Void,
           output: Schema.Array(Schema.String),
           run: () =>

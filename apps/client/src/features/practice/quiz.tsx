@@ -3,6 +3,7 @@ import { quizAttemptIdSchema } from '@study/contracts/ids';
 import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
 import type { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import { StartIcon, GradeIcon } from '@study/icons';
 import { questionNumber, reviewProgress, questionCount } from '@study/localization';
@@ -10,23 +11,15 @@ import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { NextButton } from '@study/ui/navigation-button';
 import { Practice } from '@study/ui/practice';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 import { useRef, useState } from 'react';
 import type { RefObject } from 'react';
 
+import { useNativeAction } from '#client/lib/effect/native.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { quizSettingsOptions } from '#client/lib/study-client/quiz-settings.queries.ts';
 
 import { AttemptState } from './attempt-state';
-import {
-  attemptOptions,
-  attemptsOptions,
-  startQuizOptions,
-  answerOptions,
-  finishQuizOptions
-} from './practice.queries';
 import { QuizGenerationAction } from './quiz-generation';
 import { QuizQuestion } from './quiz-question';
 import { QuizResults } from './quiz-results';
@@ -52,21 +45,17 @@ export function Quiz({ version, projectId, title }: QuizSetupProps) {
 function QuizStart({ version, projectId, title }: QuizSetupProps) {
   const search = useSearch({ from: '__root__' });
   const navigate = useNavigate();
-  const client = useQueryClient();
   const { t, locale } = useI18n();
-  const preferences = useQuery(quizSettingsOptions());
+  const preferences = rpc.settings.quizSettings.useQuery({});
   const configuration = preferences.data ?? defaultQuizSettings;
-  const start = useMutation({
-    ...startQuizOptions(version.id, configuration),
-    onSuccess: async (attempt) => {
-      client.setQueryData(attemptOptions(attempt.id).queryKey, attempt);
-      void client.invalidateQueries({ queryKey: attemptsOptions(version.material_id).queryKey });
-      await navigate({
-        to: '/practice/$materialId',
-        params: { materialId: String(version.material_id) },
-        search: { ...search, attempt: String(attempt.id) }
-      });
-    }
+  const start = useNativeAction(async () => {
+    const attempt = await rpc.learning.startQuiz.call({ versionId: version.id, configuration });
+
+    await navigate({
+      to: '/practice/$materialId',
+      params: { materialId: String(version.material_id) },
+      search: { ...search, attempt: String(attempt.id) }
+    });
   });
 
   const available =
@@ -99,7 +88,7 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
             {t('PracticeQuizSaveHint')}
           </Practice.Muted>
           {preferences.isError && <OperationError retry={() => void preferences.refetch()} />}
-          {start.isError && <OperationError retry={() => start.mutate()} />}
+          {start.isError && <OperationError retry={() => start.mutate(undefined)} />}
         </Practice.Intro>
       </Practice.StageBody>
       <Practice.StageFooter>
@@ -108,7 +97,7 @@ function QuizStart({ version, projectId, title }: QuizSetupProps) {
         </Practice.FooterContext>
         <Button
           disabled={start.isPending || !preferences.isSuccess || count === 0}
-          onClick={() => start.mutate()}
+          onClick={() => start.mutate(undefined)}
         >
           <StartIcon aria-hidden="true" />
           {t(start.isPending ? 'PracticeStarting' : 'PracticeStartQuiz')}
@@ -125,25 +114,21 @@ function QuizAttempt({
   id: typeof quizAttemptIdSchema.Type;
   material: MaterialVersionDetailDto['material_id'];
 }) {
-  const client = useQueryClient();
-  const state = useQuery(attemptOptions(id));
+  const state = rpc.learning.attempt.useQuery({ attemptId: id });
   const heading = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  const answer = useMutation({
-    ...answerOptions(state.data?.practiceSlotId),
-    onSuccess: (attempt) => {
-      client.setQueryData(attemptOptions(id).queryKey, attempt);
-      setSelected(null);
-      heading.current?.focus();
-    }
+  const answer = useNativeAction(async (input: typeof answerQuestionInputSchema.Type) => {
+    if (state.data?.practiceSlotId)
+      await rpc.learning.answerPracticeQuestion.call({
+        slotId: state.data.practiceSlotId,
+        answer: input.answer
+      });
+    else await rpc.learning.answerQuestion.call(input);
+
+    setSelected(null);
+    heading.current?.focus();
   });
-  const finish = useMutation({
-    ...finishQuizOptions(id),
-    onSuccess: (attempt) => {
-      client.setQueryData(attemptOptions(id).queryKey, attempt);
-      void client.invalidateQueries({ queryKey: attemptsOptions(material).queryKey });
-    }
-  });
+  const finish = rpc.learning.finishQuiz.useMutation();
 
   return (
     <AttemptState state={state} material={material}>
@@ -159,7 +144,9 @@ function QuizAttempt({
             pending={answer.isPending}
             submit={answer.mutate}
             finishing={finish.isPending}
-            finish={() => finish.mutate()}
+            finish={() => {
+              void finish.mutate({ attemptId: id }).catch(() => {});
+            }}
             answerError={answer.isError}
             finishError={finish.isError}
           />

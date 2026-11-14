@@ -1,69 +1,57 @@
 import { isRetryable } from '@study/contracts/errors';
 import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
+import type { executionSchema } from '@study/contracts/workflows/schemas';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
-
-import { executionOptions, noteKey } from './note-workspace.queries';
 
 /** Shares version-bound question mutations and polls only active answer executions. */
 export function useQuestionActions(message: ChatMessage, versionId: VersionId) {
   const readiness = useAiReadiness('medium');
-  const cache = useQueryClient();
-  const key = [...noteKey(message.noteId), 'question', String(message.id), String(versionId)];
   const target = { messageId: message.id, expectedActiveVersionId: versionId };
-  const refresh = () => cache.invalidateQueries({ queryKey: noteKey(message.noteId) });
-  const answer = useMutation({
-    mutationKey: [...key, 'answer'],
-    mutationFn: () =>
-      request((client) => client['notes.answerQuestion'](questionAnswerTarget(message, versionId))),
-    retry: false,
-    onSettled: refresh
-  });
-  const mark = useMutation({
-    mutationKey: [...key, 'mark'],
-    mutationFn: (kind: 'note' | 'question') =>
-      request((client) => client['notes.setMessageKind']({ ...target, kind })),
-    retry: false,
-    onSettled: refresh
-  });
+  const answerOperation = rpc.notes.answerQuestion.useMutation();
+  const markOperation = rpc.notes.setMessageKind.useMutation();
+  const restoreOperation = rpc.notes.setItemArchived.useMutation();
+  const answer = {
+    ...answerOperation,
+    mutate: () => {
+      void answerOperation.mutate(questionAnswerTarget(message, versionId)).catch(() => {});
+    }
+  };
+  const mark = {
+    ...markOperation,
+    variables: markOperation.variables?.kind,
+    mutate: (kind: 'note' | 'question') => {
+      void markOperation.mutate({ ...target, kind }).catch(() => {});
+    }
+  };
+  const restore = {
+    ...restoreOperation,
+    mutate: () => {
+      const id = message.question?.answerMessageId;
 
-  const restore = useMutation({
-    mutationKey: [...key, 'restore'],
-    mutationFn: () =>
-      request((client) =>
-        client['notes.setItemArchived']({
-          noteId: message.noteId,
-          target: { kind: 'message', id: message.question!.answerMessageId! },
-          archived: false
-        })
-      ),
-    retry: false,
-    onSettled: refresh
-  });
+      if (id)
+        void restoreOperation
+          .mutate({ noteId: message.noteId, target: { kind: 'message', id }, archived: false })
+          .catch(() => {});
+    }
+  };
   const state = questionActionState(
     message,
     versionId,
     [answer, mark, restore].some((action) => action.isPending)
   );
   const requestId = state.question?.answerRequestId;
-  const execution = useQuery({
-    ...executionOptions(requestId ?? ''),
-    enabled: !!requestId,
-    refetchInterval: (query) => {
-      const run = query.state.data?.items[0];
-
-      return run && (run.status === 'completed' || run.status === 'cancelled') ? false : 3000;
-    },
-    select: (page) => page.items[0]
-  });
-  const canRetry = execution.data?.outcome === 'failure' || execution.data?.status === 'cancelled';
+  const executionPage = rpc.workflows.executions.useQuery(
+    requestId ? { correlationId: requestId, limit: 30 } : undefined
+  );
+  const execution = { ...executionPage, data: executionPage.data?.items[0] };
+  const canRetry = answerExecutionRetryable(execution.data);
   const answerState = questionAnswerState(message, state.question, canRetry);
   const blocked = state.blocked || answerState.answering;
-  const error = [answer.error, mark.error, restore.error].find((value) => value !== null);
+  const error = [answer.error, mark.error, restore.error].find((value) => value != null);
   const submitAnswer = () => {
     if (readiness !== 'ready') return;
 
@@ -157,4 +145,8 @@ function questionRetryNeedsAi(
   mark: { error: unknown; variables?: 'note' | 'question' }
 ) {
   return !!answer.error || (!!mark.error && mark.variables === 'question');
+}
+
+function answerExecutionRetryable(execution: typeof executionSchema.Type | undefined) {
+  return execution?.outcome === 'failure' || execution?.status === 'cancelled';
 }

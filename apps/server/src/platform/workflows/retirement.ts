@@ -125,6 +125,7 @@ export const WorkflowRetirementStore = defineStore({
       },
       mutations: {
         prepareBackup: storeMutation({
+          changes: ['workflows'],
           input: Schema.Void,
           output: Schema.Void,
           run: () => {
@@ -143,6 +144,7 @@ export const WorkflowRetirementStore = defineStore({
           }
         }),
         fence: storeMutation({
+          changes: ['workflows'],
           input: Schema.Struct({ ids: correlations, eventTypes: Schema.Array(Schema.String) }),
           output: Schema.Array(Schema.String),
           run: ({ ids, eventTypes }) => {
@@ -185,6 +187,7 @@ export const WorkflowRetirementStore = defineStore({
           }
         }),
         scrubCorrectionInputs: storeMutation({
+          changes: ['workflows'],
           input: correlations,
           output: Schema.Void,
           run: (ids) => {
@@ -214,6 +217,7 @@ export const WorkflowRetirementStore = defineStore({
           }
         }),
         scrub: storeMutation({
+          changes: ['workflows'],
           input: correlations,
           output: Schema.Void,
           run: (ids) => {

@@ -1,12 +1,13 @@
 import { materialIdSchema } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 
 import type { AppRouterContext } from '#client/app/router-context.ts';
-import { materialId, materialOptions } from '#client/features/material-library/index.ts';
+import { materialId } from '#client/features/material-library/index.ts';
 import type { AppSearch } from '#client/lib/navigation/route-contract.ts';
 import { sidebarOwner } from '#client/lib/study-client/sidebar-owner.queries.ts';
 
 export const materialSidebar = {
-  owner: sidebarOwner(materialIdSchema, (params) => params.materialId, materialOptions)
+  owner: sidebarOwner(materialIdSchema, (params) => params.materialId, 'material')
 };
 
 export const validateMaterialParams = ({ params }: { params: { materialId: string } }) => {
@@ -19,9 +20,8 @@ export const materialLoaderDeps = ({ search }: { search: AppSearch }) => ({
 });
 
 export const loadMaterial = ({
-  context,
   params
 }: {
   context: AppRouterContext;
   params: { materialId: string };
-}) => context.queryClient.ensureQueryData(materialOptions(materialId(params.materialId)));
+}) => rpc.materials.get.read({ id: materialId(params.materialId) }).catch(() => undefined);

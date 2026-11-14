@@ -36,6 +36,7 @@ import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
 const text = (value: string) => [{ type: 'text' as const, text: value, marks: [] }];
@@ -55,9 +56,11 @@ testStable(
         Settings.layer
       ).pipe(Layer.provideMerge(Layer.succeed(Database, { store: context })));
     const handlers = () =>
-      Layer.mergeAll(PagesRpcLive, NotesRpcLive, materialRpcHandlers).pipe(
-        Layer.provideMerge(services())
-      );
+      Layer.mergeAll(
+        PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
+        NotesRpcLive.pipe(Layer.provide(testLiveQueries)),
+        materialRpcHandlers
+      ).pipe(Layer.provideMerge(services()));
 
     try {
       const setup = await Effect.runPromise(

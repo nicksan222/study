@@ -56,6 +56,7 @@ export const IntegrationReceiptsStore = defineStore({
     },
     mutations: {
       retain: storeMutation({
+        changes: ['integrations'],
         input: receiptSchema,
         output: Schema.Void,
         run: (receipt) => {

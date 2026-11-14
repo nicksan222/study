@@ -1,16 +1,12 @@
 import { materialVersionIdSchema } from '@study/contracts/ids';
-import type { PageVersionId, MaterialId } from '@study/contracts/ids';
+import type { PageId, PageVersionId, MaterialId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { OpenIcon, PageIcon } from '@study/icons';
 import { ErrorState } from '@study/ui/error-state';
 import { WorkspaceCard } from '@study/ui/workspace';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Schema } from 'effect';
 
-import { notePageOptions } from '#client/features/note-workspace/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { versionOptions } from '#client/lib/study-client/materials.queries.ts';
-import { pageVersionOptions } from '#client/lib/study-client/pages.queries.ts';
 
 export function MaterialPages({
   version,
@@ -20,10 +16,10 @@ export function MaterialPages({
   materialId: MaterialId;
 }) {
   const { t } = useI18n();
-  const state = useQuery({
-    ...versionOptions(Schema.decodeUnknownSync(materialVersionIdSchema)(BigInt(version ?? '1'))),
-    enabled: version !== undefined
-  });
+  const state = rpc.materials.version.useQuery(
+    { id: materialVersionIdSchema.make(BigInt(version ?? '1')) },
+    { enabled: version !== undefined }
+  );
   const inputs =
     state.data?.material_id === materialId
       ? state.data.inputs.filter((input) => input.kind === 'page')
@@ -46,7 +42,7 @@ export function MaterialPages({
 
 function SourcePage({ id }: { id: PageVersionId }) {
   const { t } = useI18n();
-  const version = useQuery(pageVersionOptions(id));
+  const version = rpc.pages.version.useQuery({ id });
 
   return version.data ? (
     <PageLink id={version.data.pageId} version={id} />
@@ -58,15 +54,9 @@ function SourcePage({ id }: { id: PageVersionId }) {
   );
 }
 
-function PageLink({
-  id,
-  version
-}: {
-  id: Parameters<typeof notePageOptions>[0];
-  version: PageVersionId;
-}) {
+function PageLink({ id, version }: { id: PageId; version: PageVersionId }) {
   const { t } = useI18n();
-  const page = useQuery(notePageOptions(id));
+  const page = rpc.pages.get.useQuery({ id });
 
   return (
     <WorkspaceCard.Item

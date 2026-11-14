@@ -3,13 +3,12 @@ import { validBlockTextRange } from '@study/contracts/sources/document';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { Notebook } from '@study/ui/note-workspace';
 import { SelectionSurface } from '@study/ui/selection';
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { selectedContentOptions } from './selection.queries';
+import { useSelectedContent } from './selection.queries';
 import { NoteReadError } from './status';
 
 type Target = typeof noteSelectionTargetSchema.Type;
@@ -43,7 +42,7 @@ function selectedVersion(target: Target, number: bigint | undefined) {
 
 export function SelectedTarget({ target, action }: { target: Target; action?: ReactNode }) {
   const { t } = useI18n();
-  const exact = useQuery(selectedContentOptions(target.input));
+  const exact = useSelectedContent(target.input);
   const content = exact.isError ? undefined : exact.data;
   const excerpts = content ? selectedExcerpts(target, content.document) : undefined;
 

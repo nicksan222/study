@@ -222,7 +222,12 @@ export const SourceStore = defineStore({
           run: (input) =>
             selectSources()
               .where(
-                and(input.before === undefined ? undefined : lt(tables.sources.id, input.before))
+                and(
+                  input.before === undefined ? undefined : lt(tables.sources.id, input.before),
+                  input.projectId === undefined
+                    ? undefined
+                    : eq(tables.sources.project_id, input.projectId)
+                )
               )
               .orderBy(desc(tables.sources.id))
               .limit(input.limit)
@@ -232,6 +237,7 @@ export const SourceStore = defineStore({
       },
       mutations: {
         createSource: storeMutation({
+          changes: ['sources'],
           input: inputSchema,
           output: sourceSchema,
           run: (input) => {
@@ -276,6 +282,7 @@ export const SourceStore = defineStore({
           }
         }),
         replaceSourceInput: storeMutation({
+          changes: ['sources'],
           input: replacementSchema,
           output: sourceProcessingSchema,
           run: (input) => {
@@ -333,6 +340,7 @@ export const SourceStore = defineStore({
           }
         }),
         deleteSource: storeMutation({
+          changes: ['sources'],
           input: sourceIdSchema,
           output: Schema.Boolean,
           run: (id) => {
@@ -359,6 +367,7 @@ export const SourceStore = defineStore({
           }
         }),
         requestSourceProcessing: storeMutation({
+          changes: ['sources'],
           input: changeSchema,
           output: sourceProcessingSchema,
           run: (input) => {
@@ -369,6 +378,7 @@ export const SourceStore = defineStore({
           }
         }),
         setSourceProject: storeMutation({
+          changes: ['sources'],
           input: setSourceProjectInputSchema,
           output: sourceSchema,
           run: (input) => {
@@ -398,6 +408,7 @@ export const SourceStore = defineStore({
           }
         }),
         requestCorrection: storeMutation({
+          changes: ['sources'],
           input: Schema.Struct({ ...correctBlockInputSchema.fields, requestId: request }),
           output: sourceProcessingSchema,
           run: (input) => {
@@ -431,6 +442,7 @@ export const SourceStore = defineStore({
           }
         }),
         publishSourceDocument: storeMutation({
+          changes: ['sources'],
           input: Schema.Struct({ ...changeSchema.fields, document: documentSchema }),
           output: Schema.Struct({ documentId: contentSnapshotIdSchema, published: Schema.Boolean }),
           run: (input) => {

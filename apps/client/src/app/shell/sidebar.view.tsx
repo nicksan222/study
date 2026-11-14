@@ -11,6 +11,7 @@ import {
   GeneralSettingsIcon,
   CreateNoteIcon
 } from '@study/icons';
+import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
 import { DialogHeading } from '@study/ui/dialog-heading';
@@ -146,27 +147,29 @@ function SidebarNotes({
   invalidSubject,
   notes,
   noteState,
-  reloadNotes
+  reloadNotes,
+  notesNext,
+  notesPrevious,
+  loadMoreNotes,
+  previousNotes
 }: Pick<
   SidebarModel,
-  'project' | 'subjects' | 'invalidSubject' | 'notes' | 'noteState' | 'reloadNotes'
+  | 'project'
+  | 'subjects'
+  | 'invalidSubject'
+  | 'notes'
+  | 'noteState'
+  | 'reloadNotes'
+  | 'notesNext'
+  | 'notesPrevious'
+  | 'loadMoreNotes'
+  | 'previousNotes'
 > & { selectedNote?: string | null }) {
   const { t } = useI18n();
 
   return (
     <SidebarUI.Items id="study-sidebar-notes" aria-label={t('Notes')}>
-      {noteState === 'loading' && <Loading layout="sidebar" label={t('LoadingNotes')} />}
-      {noteState === 'error' && (
-        <ErrorState
-          layout="sidebar"
-          title={t('NotesLoadError')}
-          action={
-            <Button variant="ghost-muted" onClick={() => reloadNotes()}>
-              {t('NotesLoadError')}
-            </Button>
-          }
-        />
-      )}
+      <SidebarNotesStatus noteState={noteState} reloadNotes={reloadNotes} />
       {noteState === 'ready' && !invalidSubject && (
         <RichSidebarNotes
           project={project}
@@ -174,6 +177,14 @@ function SidebarNotes({
           subjects={subjects}
           notes={notes}
         />
+      )}
+      {notesPrevious && (
+        <Button variant="ghost-muted" onClick={previousNotes}>
+          {t('Back')}
+        </Button>
+      )}
+      {notesNext && (
+        <LoadMoreButton variant="ghost-muted" onClick={loadMoreNotes} label={t('LibraryMore')} />
       )}
       {noteState === 'ready' && !invalidSubject && notes.length === 0 && (
         <SidebarUI.Message>{t('DashboardNoNotes')}</SidebarUI.Message>
@@ -212,43 +223,32 @@ function SidebarHeader(model: SidebarModel) {
   );
 }
 
-function SidebarSubjectPicker({
-  collapsed,
-  requestedProject,
-  subjects,
-  subject,
-  subjectState,
-  pickerOpen,
-  setPickerOpen,
-  setNewSubjectOpen,
-  setActionError,
-  clearSearch,
-  selectSubject,
-  reloadSubjects,
-  setSettingsProject,
-  replay
-}: Pick<
-  SidebarModel,
-  | 'collapsed'
-  | 'requestedProject'
-  | 'subjects'
-  | 'subject'
-  | 'subjectState'
-  | 'pickerOpen'
-  | 'setPickerOpen'
-  | 'setNewSubjectOpen'
-  | 'setActionError'
-  | 'clearSearch'
-  | 'selectSubject'
-  | 'reloadSubjects'
-  | 'setSettingsProject'
-  | 'replay'
->) {
+function SidebarSubjectPicker(model: SidebarModel) {
+  const {
+    collapsed,
+    requestedProject,
+    subjects,
+    subject,
+    subjectState,
+    pickerOpen,
+    setPickerOpen,
+    setNewSubjectOpen,
+    setActionError,
+    clearSearch,
+    selectSubject,
+    reloadSubjects,
+    projectsNext,
+    projectsPrevious,
+    loadMoreProjects,
+    previousProjects,
+    setSettingsProject,
+    replay
+  } = model;
   const { t, date } = useI18n();
 
   return (
     <SidebarUI.Picker
-      items={subjects}
+      items={[...subjects]}
       value={subject ?? null}
       getLabel={(item) => item.name}
       getValue={(item) => String(item.id)}
@@ -257,11 +257,7 @@ function SidebarSubjectPicker({
       listLabel={t('SidebarPolishSubjects')}
       onValueChange={(item) => selectSubject(item.id)}
       open={pickerOpen}
-      onOpenChange={(open) => {
-        setPickerOpen(open);
-
-        if (open) reloadSubjects();
-      }}
+      onOpenChange={pickerOpenChange(setPickerOpen, reloadSubjects)}
       collapsed={collapsed}
       label={t('ChooseProject')}
       fallbackIcon={<ProjectIcon aria-hidden="true" />}
@@ -269,6 +265,12 @@ function SidebarSubjectPicker({
       empty={projectPickerEmpty(subjectState, subjects.length, t)}
       status={<SidebarProjectStatus subjectState={subjectState} reloadSubjects={reloadSubjects} />}
     >
+      <SidebarProjectPages
+        projectsPrevious={projectsPrevious}
+        previousProjects={previousProjects}
+        projectsNext={projectsNext}
+        loadMoreProjects={loadMoreProjects}
+      />
       <SidebarPickerActions
         subject={subject}
         requestedProject={requestedProject}
@@ -744,4 +746,64 @@ function SidebarCreationControl({
       )}
     </>
   );
+}
+
+function SidebarNotesStatus({
+  noteState,
+  reloadNotes
+}: Pick<SidebarModel, 'noteState' | 'reloadNotes'>) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {noteState === 'loading' && <Loading layout="sidebar" label={t('LoadingNotes')} />}
+      {noteState === 'error' && (
+        <ErrorState
+          layout="sidebar"
+          title={t('NotesLoadError')}
+          action={
+            <Button variant="ghost-muted" onClick={() => reloadNotes()}>
+              {t('NotesLoadError')}
+            </Button>
+          }
+        />
+      )}
+    </>
+  );
+}
+
+function SidebarProjectPages({
+  projectsPrevious,
+  previousProjects,
+  projectsNext,
+  loadMoreProjects
+}: Pick<
+  SidebarModel,
+  'projectsPrevious' | 'previousProjects' | 'projectsNext' | 'loadMoreProjects'
+>) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {projectsPrevious && (
+        <Button variant="ghost-muted" onClick={previousProjects}>
+          {t('Back')}
+        </Button>
+      )}
+      {projectsNext && (
+        <LoadMoreButton variant="ghost-muted" onClick={loadMoreProjects} label={t('LibraryMore')} />
+      )}
+    </>
+  );
+}
+
+function pickerOpenChange(
+  setOpen: SidebarModel['setPickerOpen'],
+  reload: SidebarModel['reloadSubjects']
+) {
+  return (open: boolean) => {
+    setOpen(open);
+
+    if (open) reload();
+  };
 }

@@ -41,8 +41,11 @@ testStable('Materials rejects retired source and authored document kinds', () =>
 testStable('native materials RPC names cover the complete public API', async () => {
   const { MaterialsRpc } = await import('@study/contracts/materials/rpc');
 
-  expect([...MaterialsRpc.requests.keys()].sort()).toStrictEqual(
+  expect(
+    [...MaterialsRpc.requests.keys()].filter((tag) => !tag.endsWith('.live')).sort()
+  ).toStrictEqual(
     [
+      'count',
       'exportMaterialVersion',
       'previewHistoryPrune',
       'requestHistoryPrune',

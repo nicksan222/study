@@ -105,6 +105,7 @@ export const PageTransformsStore = defineStore({
       },
       mutations: {
         retireNoteRequests: storeMutation({
+          changes: ['pages'],
           input: Schema.Struct({
             noteId: noteIdSchema,
             contextIds: Schema.Array(Schema.String)
@@ -134,6 +135,7 @@ export const PageTransformsStore = defineStore({
           }
         }),
         requestTransform: storeMutation({
+          changes: ['pages'],
           input: Schema.Struct({
             ...t.storedTransformRequestSchema.fields,
             noteId: Schema.NullOr(noteIdSchema),
@@ -174,6 +176,7 @@ export const PageTransformsStore = defineStore({
           }
         }),
         finishTransform: storeMutation({
+          changes: ['pages'],
           input: Schema.Struct({
             ...t.transformPublicationSchema.fields,
             versionId: t.transformSnapshotSchema.fields.resultVersionId
@@ -218,6 +221,7 @@ export const PageTransformsStore = defineStore({
           }
         }),
         changeTransform: storeMutation({
+          changes: ['pages'],
           input: Schema.Struct({
             ...t.transformKeySchema.fields,
             eventId: Schema.optional(Schema.String),

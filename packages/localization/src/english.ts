@@ -1339,6 +1339,7 @@ export const english = Object.freeze({
   LibraryProcessingFailed: 'Reading failed; the original is retained',
   LibraryReady: 'Ready',
   LibraryMore: 'Load more',
+  LibraryLimitReached: 'Showing the first 100 items. Narrow the selection to find more.',
   LibraryFile: 'Choose one file',
   LibraryLink: 'Or enter a web link',
   LibraryClearFile: 'Remove file choice',

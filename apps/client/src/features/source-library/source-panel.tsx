@@ -1,5 +1,6 @@
 import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
 import type { Page } from '@study/contracts/pages/types';
+import { rpc } from '@study/contracts/react';
 import type { documentSchema, Source } from '@study/contracts/sources/schemas';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
@@ -7,7 +8,6 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
@@ -17,11 +17,10 @@ import { RetainedDocumentPreview, ContentReadError } from '../document-presentat
 import { SourceDeletion } from './deletion';
 import { SourceHistory } from './history';
 import { SourceHistoryRetirement } from './history-retirement';
-import { sourceExportOptions } from './source-export.queries';
+import { useSourceExport } from './source-export.queries';
 import {
-  sourceExtractionOptions,
-  sourceProcessingExecutionOptions,
-  sourceOptions,
+  useSourceExtraction,
+  useSourceProcessingExecution,
   useSourceCopy
 } from './source-panel.queries';
 
@@ -55,17 +54,23 @@ function SourceHeader({
 function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?: bigint }) {
   const { t } = useI18n();
 
-  const download = useMutation(sourceExportOptions(sourceId, revision));
+  const download = useSourceExport(sourceId, revision);
 
   return (
     <>
-      <Button variant="ghost" disabled={download.isPending} onClick={() => download.mutate()}>
+      <Button
+        variant="ghost"
+        disabled={download.pending > 0}
+        onClick={() => void download.mutate(undefined)}
+      >
         {t('ReaderOriginal')}
       </Button>
       {download.error && (
         <ErrorState
           title={t('ReaderOriginalUnavailable')}
-          action={<RetryButton onClick={() => download.mutate()} label={t('Retry')} />}
+          action={
+            <RetryButton onClick={() => void download.mutate(undefined)} label={t('Retry')} />
+          }
         />
       )}
     </>
@@ -75,7 +80,7 @@ function SourceOriginal({ sourceId, revision }: { sourceId: SourceId; revision?:
 function SourceProcessingOutcome({ sourceId }: { sourceId: SourceId }) {
   const { t } = useI18n();
 
-  const state = useQuery(sourceProcessingExecutionOptions(sourceId));
+  const state = useSourceProcessingExecution(sourceId);
 
   if (state.error)
     return <ContentReadError error={state.error} retry={() => void state.refetch()} />;
@@ -178,9 +183,9 @@ export function SourcePanel({
 
   const [deleted, setDeleted] = useState(false);
 
-  const source = useQuery(sourceOptions(deleted ? null : sourceId));
+  const source = rpc.sources.get.useQuery(deleted ? undefined : { id: sourceId });
 
-  const state = useQuery({ ...sourceExtractionOptions(sourceId, selected), enabled: !deleted });
+  const state = useSourceExtraction(sourceId, selected, !deleted);
 
   const copy = useSourceCopy(sourceId, noteId);
 

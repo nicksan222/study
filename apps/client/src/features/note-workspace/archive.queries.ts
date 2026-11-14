@@ -1,59 +1,40 @@
-import type { MessageId, NoteId } from '@study/contracts/ids';
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
+import type { NoteId } from '@study/contracts/ids';
 import type { NoteArchiveTarget } from '@study/contracts/notes/archive';
+import { rpc } from '@study/contracts/react';
 import { toastManager } from '@study/ui/toast';
-import { queryOptions, useIsMutating, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Atom } from 'effect/reactivity';
+import { useContext } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { request } from '#client/lib/study-client/request.ts';
 
-import { noteKey } from './note-workspace.queries';
+const pendingArchive = Atom.family((_key: string) => Atom.make(false).pipe(Atom.keepAlive));
 
-export const archivedItemsOptions = (noteId: NoteId) =>
-  queryOptions({
-    queryKey: [...noteKey(noteId), 'archived'],
-    queryFn: ({ signal }) => request((rpc) => rpc['notes.archivedItems']({ noteId }), signal)
-  });
-
-export const archivedMessageOptions = (id: MessageId) =>
-  queryOptions({
-    queryKey: ['note-archive-message', String(id)],
-    queryFn: ({ signal }) => request((rpc) => rpc['notes.message']({ id }), signal)
-  });
-
-/** Membership changes are idempotent; every mounted instance shares the pending fence. */
+/** Committed membership changes update every mounted reader through server revisions. */
 export function useItemArchive(noteId: NoteId, target: NoteArchiveTarget) {
-  const cache = useQueryClient();
   const { t } = useI18n();
-  const mutationKey = [...noteKey(noteId), 'archive', target.kind, String(target.id)];
-  const pending = useIsMutating({ mutationKey, exact: true }) > 0;
-  const mutation = useMutation({
-    mutationKey,
-    retry: false,
-    mutationFn: (archived: boolean) =>
-      request((rpc) => rpc['notes.setItemArchived']({ noteId, target, archived })),
-    onError: () => {
-      toastManager.add({
-        title: t('NoteActionErrorTitle'),
-        description: t('NoteRequestError'),
-        type: 'error'
-      });
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        cache.invalidateQueries({ queryKey: noteKey(noteId) }),
-        cache.invalidateQueries({ queryKey: ['pages', 'note', String(noteId)] }),
-        cache.invalidateQueries({ queryKey: ['notes'] })
-      ]);
-    }
-  });
+  const mutation = rpc.notes.setItemArchived.useMutation();
+  const registry = useContext(RegistryContext);
+  const atom = pendingArchive(`${noteId}:${target.kind}:${target.id}`);
+  const pending = useAtomValue(atom);
 
   return {
     pending,
     error: mutation.error,
     change: (archived: boolean) => {
-      if (cache.isMutating({ mutationKey, exact: true })) return;
+      if (registry.get(atom)) return;
 
-      mutation.mutate(archived);
+      registry.set(atom, true);
+      void mutation
+        .mutate({ noteId, target, archived })
+        .catch(() =>
+          toastManager.add({
+            title: t('NoteActionErrorTitle'),
+            description: t('NoteRequestError'),
+            type: 'error'
+          })
+        )
+        .finally(() => registry.set(atom, false));
     }
   };
 }

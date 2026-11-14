@@ -79,7 +79,7 @@ for (const hinted of [true, false])
                   })
                   .run();
 
-              if (hinted) app.store.transaction((tx) => write(tx.db.orm));
+              if (hinted) app.store.transaction(['workflows'], (tx) => write(tx.db.orm));
               else write(app.store.db.orm);
 
               const pages = yield* Fiber.join(fiber).pipe(Effect.timeout('3 seconds'));

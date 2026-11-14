@@ -70,7 +70,7 @@ export const MaterialsStore = defineStore({
 
     const { get } = makeGetAction(resources);
 
-    const { list } = makeListAction(resources);
+    const { list, count } = makeListAction(resources);
 
     const { publishVersion } = makePublishVersionAction(resources);
 
@@ -86,6 +86,12 @@ export const MaterialsStore = defineStore({
 
     return {
       queries: {
+        count: storeQuery({
+          role: 'required',
+          input: input.countInputSchema,
+          output: Schema.BigInt,
+          run: count
+        }),
         material: storeQuery({
           role: 'required',
           input: input.materialInputSchema,
@@ -107,66 +113,79 @@ export const MaterialsStore = defineStore({
       },
       mutations: {
         create: storeMutation({
+          changes: ['materials'],
           input: input.createInputSchema,
           output: materialDetailSchema,
           run: create
         }),
         createVersion: storeMutation({
+          changes: ['materials'],
           input: input.createVersionInputSchema,
           output: materialVersionDetailSchema,
           run: createVersion
         }),
         archive: storeMutation({
+          changes: ['materials'],
           input: input.archiveInputSchema,
           output: materialDetailSchema,
           run: archive
         }),
         unarchive: storeMutation({
+          changes: ['materials'],
           input: input.unarchiveInputSchema,
           output: materialDetailSchema,
           run: unarchive
         }),
         updateDescription: storeMutation({
+          changes: ['materials'],
           input: input.updateDescriptionInputSchema,
           output: materialDetailSchema,
           run: updateDescription
         }),
         rename: storeMutation({
+          changes: ['materials'],
           input: input.renameInputSchema,
           output: materialDetailSchema,
           run: rename
         }),
         deleteDraft: storeMutation({
+          changes: ['materials'],
           input: input.deleteDraftInputSchema,
           output: input.deleteDraftInputSchema,
           run: deleteDraft
         }),
         publishVersion: storeMutation({
+          changes: ['materials'],
           input: input.publishVersionInputSchema,
           output: materialVersionDetailSchema,
           run: publishVersion
         }),
         replaceDraft: storeMutation({
+          changes: ['materials'],
           input: input.replaceDraftInputSchema,
           output: materialVersionDetailSchema,
           run: replaceDraft
         }),
         setCitations: storeMutation({
+          changes: ['materials'],
           input: input.setCitationsInputSchema,
           output: Schema.Array(materialCitationSchema),
           run: setCitations
         }),
         attach: storeMutation({
+          changes: ['materials'],
           input: input.attachInputSchema,
           output: input.attachInputSchema,
           run: attach
         }),
         detach: storeMutation({
+          changes: ['materials'],
           input: input.detachInputSchema,
           output: input.detachInputSchema,
           run: detach
         }),
         reorder: storeMutation({
+          changes: ['materials'],
           input: input.reorderInputSchema,
           output: Schema.Struct({ materialIds: input.reorderInputSchema.fields.materialIds }),
           run: reorder
@@ -284,11 +303,13 @@ export const MaterialGenerationStore = defineStore({
       },
       mutations: {
         cancelGeneration: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({ requestId: Schema.String }),
           output: materialGenerationSnapshotSchema,
           run: cancelGeneration
         }),
         prepareRetry: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             requestId: Schema.String.check(Schema.isMinLength(1)),
             retryId: Schema.String.check(Schema.isMinLength(1))
@@ -300,6 +321,7 @@ export const MaterialGenerationStore = defineStore({
           run: prepareGenerationRetry
         }),
         prepareFailure: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             requestId: Schema.String,
             generationEventId: Schema.String,
@@ -314,6 +336,7 @@ export const MaterialGenerationStore = defineStore({
           run: prepareGenerationFailure
         }),
         openScope: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             scopeId: Schema.String.check(Schema.isMinLength(1)),
             projectId: projectIdSchema
@@ -322,6 +345,7 @@ export const MaterialGenerationStore = defineStore({
           run: (value) => setGenerationScope(value, true)
         }),
         closeScope: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             scopeId: Schema.String.check(Schema.isMinLength(1)),
             projectId: projectIdSchema
@@ -330,6 +354,7 @@ export const MaterialGenerationStore = defineStore({
           run: (value) => setGenerationScope(value, false)
         }),
         requestOnce: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             requestId: Schema.String.check(Schema.isMinLength(1)),
             request: materialGenerationInputSchema
@@ -338,6 +363,7 @@ export const MaterialGenerationStore = defineStore({
           run: requestGenerationOnce
         }),
         publishGeneration: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             ...materialGenerationPublicationSchema.fields,
             inputSnapshots: Schema.Array(resolvedContentInputSchema)
@@ -350,6 +376,7 @@ export const MaterialGenerationStore = defineStore({
           run: publishGeneration
         }),
         request: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             requestId: Schema.String,
             request: materialGenerationInputSchema

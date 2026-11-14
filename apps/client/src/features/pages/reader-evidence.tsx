@@ -101,7 +101,7 @@ function EvidenceQueryStatus({ c }: { c: EvidenceController }) {
 function CitationResults({ c }: { c: EvidenceController }) {
   const { t } = useI18n();
   const { citations, assessments } = c;
-  const records = assessments.data?.pages.flatMap((page) => page.items) ?? [];
+  const records = assessments.data?.items ?? [];
 
   return (
     <>
@@ -112,10 +112,16 @@ function CitationResults({ c }: { c: EvidenceController }) {
           assessment={records.find((record) => record.assessment.marker === citation.marker)}
         />
       ))}
-      {assessments.hasNextPage && (
+
+      {c.assessmentWindow.hasPrevious && (
+        <Button variant="ghost" onClick={c.assessmentWindow.previous}>
+          {t('LibraryPrevious')}
+        </Button>
+      )}
+      {assessments.data?.nextCursor && (
         <LoadMoreButton
-          disabled={assessments.isFetchingNextPage}
-          onClick={() => void assessments.fetchNextPage()}
+          disabled={assessments.isFetching}
+          onClick={() => c.loadMoreAssessments()}
           label={t('LibraryMore')}
         />
       )}
@@ -138,10 +144,16 @@ function AnnotationResults({ c }: { c: EvidenceController }) {
           </li>
         ))}
       </ul>
-      {annotations.hasNextPage && (
+
+      {c.annotationWindow.hasPrevious && (
+        <Button variant="ghost" onClick={c.annotationWindow.previous}>
+          {t('LibraryPrevious')}
+        </Button>
+      )}
+      {!!annotations.data?.nextCursor && (
         <LoadMoreButton
-          disabled={annotations.isFetchingNextPage}
-          onClick={() => void annotations.fetchNextPage()}
+          disabled={annotations.isFetching}
+          onClick={() => c.loadMoreAnnotations()}
           label={t('LibraryMore')}
         />
       )}
@@ -275,7 +287,7 @@ function AnnotationRecovery({ c }: { c: EvidenceController }) {
                   !reviewed ||
                   annotations.isFetching ||
                   annotations.isError ||
-                  annotations.hasNextPage
+                  !!annotations.data?.nextCursor
                 }
                 onClick={c.acknowledgeCreation}
               >

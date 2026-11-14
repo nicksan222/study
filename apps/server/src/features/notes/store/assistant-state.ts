@@ -53,6 +53,7 @@ export const AssistantChatStartStore = defineStore({
     },
     mutations: {
       retain: storeMutation({
+        changes: ['notes'],
         input: Schema.Struct({ ...assistantChatStartSchema.fields, noteId: noteIdSchema }),
         output: Schema.Void,
         run: ({ key, noteId }) => {
@@ -145,6 +146,7 @@ export const AssistantStateStore = defineStore({
     },
     mutations: {
       saveMemory: storeMutation({
+        changes: ['notes'],
         input: assistantMemorySchema,
         output: assistantMemorySchema,
         run: (input) => {

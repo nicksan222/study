@@ -1,14 +1,17 @@
+import type { PageId } from '@study/contracts/ids';
 import type { ContentInput } from '@study/contracts/inputs';
 import type { summarySchema } from '@study/contracts/pages/schemas';
+import type { rpc } from '@study/contracts/react';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Practice } from '@study/ui/practice';
 import { Settings } from '@study/ui/settings';
-import type { UseQueryResult } from '@tanstack/react-query';
 import type { Dispatch, SetStateAction } from 'react';
 
+import type { useCursorWindow } from '#client/lib/cursor-window.tsx';
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 export function QuizInputPicker({
@@ -17,18 +20,26 @@ export function QuizInputPicker({
   onChange,
   disabled
 }: {
-  pages: UseQueryResult<(typeof summarySchema.Type)[]>;
+  pages: ReturnType<typeof rpc.pages.list.useQuery> & {
+    pagination: ReturnType<typeof useCursorWindow<PageId>>;
+  };
   inputs: ContentInput[];
   onChange: Dispatch<SetStateAction<ContentInput[]>>;
   disabled: boolean;
 }) {
   const { t } = useI18n();
-  const rows = pages.data ?? [];
+  const rows = pages.data?.items ?? [];
 
   return (
     <Practice.SourceInputs>
       <Settings.Section title={t('QuizChooseInputs')}>
         <Settings.Intro>{t('QuizChooseInputsHelp')}</Settings.Intro>
+        <CursorWindowActions
+          {...pages.pagination}
+          more={() => pages.pagination.more(pages.data?.nextCursor)}
+          hasMore={!!pages.data?.nextCursor}
+          pending={pages.isFetching}
+        />
         <Practice.PageChoices>
           {pages.isPending && <Loading label={t('LoadingPractice')} layout="panel" />}
           {pages.isError && (
@@ -62,35 +73,12 @@ export function QuizInputPicker({
           )}
         </Practice.PageChoices>
         {pages.isSuccess && rows.length > 0 && (
-          <Practice.SetupActions>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={disabled}
-              onClick={() =>
-                onChange(
-                  rows.flatMap((doc) =>
-                    doc.headVersionId
-                      ? [{ kind: 'page' as const, versionId: doc.headVersionId }]
-                      : []
-                  )
-                )
-              }
-            >
-              {t('SelectAll')}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={disabled || inputs.length === 0}
-              onClick={() => onChange([])}
-            >
-              {t('PracticeClearSelection')}
-            </Button>
-            <Practice.MutedText>
-              {inputs.length} / {rows.length}
-            </Practice.MutedText>
-          </Practice.SetupActions>
+          <InputSelectionActions
+            rows={rows}
+            inputs={inputs}
+            onChange={onChange}
+            disabled={disabled}
+          />
         )}
       </Settings.Section>
     </Practice.SourceInputs>
@@ -134,5 +122,51 @@ function PageInput({
         });
       }}
     />
+  );
+}
+
+function InputSelectionActions({
+  rows,
+  inputs,
+  onChange,
+  disabled
+}: {
+  rows: readonly (typeof summarySchema.Type)[];
+  inputs: ContentInput[];
+  onChange: Dispatch<SetStateAction<ContentInput[]>>;
+  disabled: boolean;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <Practice.SetupActions>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={disabled}
+        onClick={() =>
+          onChange(
+            rows
+              .slice(0, 20)
+              .flatMap((doc) =>
+                doc.headVersionId ? [{ kind: 'page' as const, versionId: doc.headVersionId }] : []
+              )
+          )
+        }
+      >
+        {t('SelectAll')}
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={disabled || inputs.length === 0}
+        onClick={() => onChange([])}
+      >
+        {t('PracticeClearSelection')}
+      </Button>
+      <Practice.MutedText>
+        {inputs.length} / {rows.length}
+      </Practice.MutedText>
+    </Practice.SetupActions>
   );
 }

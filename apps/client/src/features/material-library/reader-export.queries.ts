@@ -1,8 +1,7 @@
 import type { learningExportFormatSchema } from '@study/contracts/materials/export';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { downloadFile } from '@study/ui/download';
-
-import { request } from '#client/lib/study-client/request.ts';
 
 type Format = typeof learningExportFormatSchema.Type;
 
@@ -12,9 +11,7 @@ export function availableExportFormats(): Format[] {
 }
 
 export async function exportReaderVersion(id: MaterialVersionDetailDto['id'], format: Format) {
-  const result = await request((client) =>
-    client['materials.exportMaterialVersion']({ id, format })
-  );
+  const result = await rpc.materials.exportMaterialVersion.read({ id, format });
 
   downloadFile(
     result.filename,

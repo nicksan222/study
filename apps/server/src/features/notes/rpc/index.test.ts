@@ -28,13 +28,14 @@ import { Notes } from '#server/features/notes/service/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { NotesRpcLive } from './index.ts';
 
 testStable('native note RPC returns typed missing failures and optional reads', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = NotesRpcLive.pipe(
+  const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -66,7 +67,7 @@ testStable('native message RPC persists and reads a versioned message', async ()
     .values({ name: 'RPC', created_at: 1n, updated_at: 1n })
     .returning()
     .get();
-  const handlers = NotesRpcLive.pipe(
+  const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -174,7 +175,7 @@ testStable('native RPC keeps attachment thread messages isolated', async () => {
     })
     .returning()
     .get();
-  const handlers = NotesRpcLive.pipe(
+  const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );
@@ -224,7 +225,7 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const handlers = NotesRpcLive.pipe(
+    const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
@@ -333,7 +334,7 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const handlers = NotesRpcLive.pipe(
+    const handlers = NotesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provideMerge(Layer.merge(Notes.layer, Settings.layer)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );

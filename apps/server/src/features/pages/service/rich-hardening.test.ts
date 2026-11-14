@@ -90,7 +90,7 @@ testStable(
       });
       // Model a durable request admitted by the earlier textual-content predicate. Guards stay on.
 
-      f.context.transaction((tx) => {
+      f.context.transaction(['pages'], (tx) => {
         tx.db.orm
           .insert(s.material_generation_requests)
           .values({ id: 'historical-empty', project_id: saved.project.id, payload, created_at: 1n })

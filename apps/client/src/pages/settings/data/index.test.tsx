@@ -1,8 +1,8 @@
 import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import { DataSettings } from './index';
@@ -57,7 +57,7 @@ const backup = {
 };
 
 function model() {
-  const owner = dataOwner(new QueryClient());
+  const owner = dataOwner(AtomRegistry.make());
 
   vi.spyOn(owner, 'refresh').mockResolvedValue(undefined);
   vi.spyOn(owner, 'create').mockResolvedValue(undefined);

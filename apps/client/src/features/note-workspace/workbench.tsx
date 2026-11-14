@@ -1,9 +1,10 @@
 import type { NoteId, PageId, SourceId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { useQuery } from '@tanstack/react-query';
 
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { NoteAssistantPanel } from '../assistant';
@@ -13,7 +14,7 @@ import { NoteContextActions } from './context-actions';
 import { History } from './history';
 import { NoteSummary } from './note-editor';
 import { NotePagePanel } from './note-page-panel';
-import { linkedPagesOptions, notePageOptions, useNotePageCreation } from './note-page.queries';
+import { useLinkedPages, useNotePageCreation } from './note-page.queries';
 import { PagePanel } from './page-panel';
 import { NoteReadError } from './status';
 import { useWorkbench, workbenchIdentity } from './workbench.queries';
@@ -39,7 +40,7 @@ function TabLabel({ target }: { target: WorkbenchTarget }) {
 }
 
 function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }> }) {
-  const material = useQuery(notePageOptions(target.pageId));
+  const material = rpc.pages.get.useQuery({ id: target.pageId });
 
   return material.data?.title ?? target.title;
 }
@@ -49,7 +50,7 @@ function PageTab({ target }: { target: Extract<WorkbenchTarget, { kind: 'page' }
 export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => void }) {
   const { t } = useI18n();
   const model = useWorkbench(id);
-  const pages = useQuery(linkedPagesOptions(id));
+  const pages = useLinkedPages(id);
   const creation = useNotePageCreation(id);
   const active = model.tabs.find((tab) => workbenchIdentity(tab) === model.active);
   const openPage = (material: { id: PageId; title: string }) =>
@@ -92,6 +93,13 @@ export function NoteWorkbench({ id, onDelete }: { id: NoteId; onDelete: () => vo
                   onPage={create}
                   activePage={model.visible ? model.active : undefined}
                   onOpen={(message) => model.open({ kind: 'message', message })}
+                />
+                <CursorWindowActions
+                  hasPrevious={pages.pagination.hasPrevious}
+                  previous={pages.pagination.previous}
+                  hasMore={pages.data?.nextCursor != null}
+                  more={() => pages.pagination.more(pages.data?.nextCursor)}
+                  pending={pages.isFetching}
                 />
               </Desk.BoardBody>
             </Desk.Board>
@@ -190,7 +198,7 @@ function BoardFeedback({
   pending: boolean;
   creationError: unknown;
   create: () => void;
-  listError: Error | null;
+  listError: unknown;
   reload: () => void;
 }) {
   const { t } = useI18n();

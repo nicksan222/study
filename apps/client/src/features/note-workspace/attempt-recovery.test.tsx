@@ -1,17 +1,19 @@
 import { StudyError } from '@study/contracts/errors';
 import { noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as Router from '@tanstack/react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { Composer } from './composer';
-import type { Draft } from './draft';
+import { composerDraft } from './composer.queries';
 import type * as NoteQueries from './note-workspace.queries';
 import {
   ask,
@@ -40,20 +42,7 @@ vi.mock('./note-workspace.queries', async (load) => ({
   saveNote: vi.fn(),
   captureContext: vi.fn(),
   transformPage: vi.fn(),
-  uploadSource: vi.fn(),
-  selectionOptions: () => ({ queryKey: ['recovery-selection'], queryFn: () => reads.selection() }),
-  threadOptions: () => ({
-    queryKey: ['recovery-thread'],
-    initialPageParam: undefined,
-    queryFn: () => reads.thread(),
-    getNextPageParam: () => undefined
-  }),
-  noteGenerationsOptions: () => ({
-    queryKey: ['recovery-runs'],
-    initialPageParam: undefined,
-    queryFn: () => reads.runs(),
-    getNextPageParam: () => undefined
-  })
+  uploadSource: vi.fn()
 }));
 
 function deferred<T>() {
@@ -67,17 +56,52 @@ function deferred<T>() {
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(501n);
 
-const clients: QueryClient[] = [];
+const clients: AtomRegistry.AtomRegistry[] = [];
 
-function mount(
-  node: ReactNode,
-  client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  })
-) {
+function RecoveryProvider({
+  registry,
+  children
+}: {
+  registry: AtomRegistry.AtomRegistry;
+  children: ReactNode;
+}) {
+  const fixture = useMemo(
+    () =>
+      rpcTestTransport(async (tag, input) => {
+        if (tag === 'notes.noteSelection') return reads.selection();
+
+        if (tag === 'notes.thread') return reads.thread();
+
+        if (tag === 'notes.noteGenerations') return reads.runs();
+
+        if (tag === 'notes.note') {
+          const { id: noteId } = Schema.decodeUnknownSync(Schema.Struct({ id: noteIdSchema }))(
+            input
+          );
+
+          return {
+            id: noteId,
+            title: 'Note',
+            titleSource: 'user',
+            projectIds: [],
+            archivedAt: null,
+            createdAt: 1n,
+            updatedAt: 1n
+          };
+        }
+
+        throw new StudyError('unsupported', tag);
+      }, registry),
+    [registry]
+  );
+
+  return <fixture.wrapper>{children}</fixture.wrapper>;
+}
+
+function mount(node: ReactNode, client = AtomRegistry.make()) {
   if (!clients.includes(client)) clients.push(client);
 
-  return { client, ...render(<QueryClientProvider client={client}>{node}</QueryClientProvider>) };
+  return { client, ...render(<RecoveryProvider registry={client}>{node}</RecoveryProvider>) };
 }
 
 beforeEach(() => {
@@ -89,7 +113,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
+  clients.splice(0).forEach((client) => client.dispose());
 });
 
 testStable.each(['selection', 'thread', 'runs'] as const)(
@@ -118,13 +142,13 @@ testStable.each(['selection', 'thread', 'runs'] as const)(
     fireEvent.click(screen.getByRole('button', { name: 'NoteReviewUnavailableAttempt' }));
     await screen.findByRole('button', { name: 'NoteAbandonAttempt' });
     reopened.rerender(
-      <QueryClientProvider client={first.client}>
+      <RecoveryProvider registry={first.client}>
         <UnavailableAttempt id={id} busy onAbandon={abandon} />
-      </QueryClientProvider>
+      </RecoveryProvider>
     );
     fireEvent.click(screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
     expect(abandon).not.toHaveBeenCalled();
-    reopened.rerender(<QueryClientProvider client={first.client}>{node}</QueryClientProvider>);
+    reopened.rerender(<RecoveryProvider registry={first.client}>{node}</RecoveryProvider>);
     fireEvent.click(screen.getByRole('button', { name: 'NoteAbandonAttempt' }));
     expect(abandon).toHaveBeenCalledTimes(1);
     expect(ask).not.toHaveBeenCalled();
@@ -146,7 +170,7 @@ testStable(
     });
     await screen.findByText('NoteFileAccepted');
     act(() =>
-      first.client.setQueryData<Draft>(['note-drafts', String(id), 'note'], {
+      first.client.set(composerDraft(id), {
         text: 'Later draft',
         instruction: '',
         askUnavailable: true,
@@ -329,7 +353,7 @@ testStable(
       preferences: { language: 'english' }
     });
     view.rerender(
-      <QueryClientProvider client={view.client}>
+      <RecoveryProvider registry={view.client}>
         <Transformation
           id={id}
           notes={[
@@ -340,7 +364,7 @@ testStable(
             }
           ]}
         />
-      </QueryClientProvider>
+      </RecoveryProvider>
     );
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(captureContext).toHaveBeenCalledTimes(2));

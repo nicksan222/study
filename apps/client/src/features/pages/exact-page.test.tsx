@@ -4,23 +4,17 @@ import { createBlock } from '@study/contracts/sources/document';
 import { revisionExportSchema } from '@study/contracts/sources/rpc';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import { createStudyQueryClient } from '#client/lib/query-client.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
 import { ExactAuthoredPageContent } from './exact-page';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 testStable(
   'retries the exact document and individual image, distinguishes loading, and releases URLs on replacement/unmount',
@@ -56,9 +50,6 @@ testStable(
         .mockReturnValue(Effect.succeed({ ...image, bytes: new Uint8Array([2]) }))
     };
 
-    vi.mocked(request).mockImplementation((invoke, signal) =>
-      runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-    );
     const create = vi
       .fn()
       .mockReturnValueOnce('blob:first')
@@ -72,11 +63,11 @@ testStable(
         static revokeObjectURL = revoke;
       }
     );
-    const client = createStudyQueryClient();
+    const harness = rpcHandlersTransport(rpc);
     const view = render(
-      <QueryClientProvider client={client}>
+      <harness.wrapper>
         <ExactAuthoredPageContent id={document.id} pageId={document.pageId} />
-      </QueryClientProvider>
+      </harness.wrapper>
     );
     const user = userEvent.setup();
 
@@ -111,7 +102,7 @@ testStable(
       }
 
       await act(async () => {
-        await client.invalidateQueries({ queryKey: ['sources', 'image'] });
+        await harness.notify();
       });
       await waitFor(() =>
         expect(screen.getByRole('img')).toHaveAttribute('src', 'blob:replacement')
@@ -122,7 +113,7 @@ testStable(
       expect(create).toHaveBeenCalledTimes(2);
     } finally {
       view.unmount();
-      client.clear();
+
       vi.unstubAllGlobals();
     }
   }
@@ -170,9 +161,6 @@ testStable(
         })
     };
 
-    vi.mocked(request).mockImplementation((invoke, signal) =>
-      runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-    );
     const revoke = vi.fn();
     let urlNumber = 0;
 
@@ -183,11 +171,11 @@ testStable(
         static revokeObjectURL = revoke;
       }
     );
-    const client = createStudyQueryClient();
+    const harness = rpcHandlersTransport(rpc);
     const view = render(
-      <QueryClientProvider client={client}>
+      <harness.wrapper>
         <ExactAuthoredPageContent id={document.id} pageId={document.pageId} />
-      </QueryClientProvider>
+      </harness.wrapper>
     );
 
     try {
@@ -208,7 +196,7 @@ testStable(
       expect(revoke).toHaveBeenCalledTimes(2);
     } finally {
       view.unmount();
-      client.clear();
+
       vi.unstubAllGlobals();
     }
   }

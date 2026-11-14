@@ -1,23 +1,20 @@
+import { rpc } from '@study/contracts/react';
 import { Onboarding, OnboardingNotebook, OnboardingSetup } from '@study/ui/onboarding';
 import {
   OnboardingSubject,
   OnboardingPage,
   OnboardingWorkflow
 } from '@study/ui/onboarding-previews';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { ReplayContext } from '#client/features/onboarding/index.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { appSettingsQueryOptions } from '#client/lib/study-client/preferences.queries.ts';
 import { AiAccountSettings } from '#client/pages/settings/ai/index.tsx';
 import { AppearanceStatus } from '#client/pages/settings/appearance-status.tsx';
 import { GeneralSettings } from '#client/pages/settings/general/index.tsx';
 import { ColorScheme } from '#client/pages/settings/theme-library.tsx';
 import { useAppearance } from '#client/pages/settings/use-page.ts';
-
-import { onboardingMutationOptions } from './onboarding.queries';
 
 const slides = [
   { id: 'welcome', title: 'OnboardingWelcomeTitle', description: 'OnboardingWelcomeSimple' },
@@ -45,30 +42,27 @@ const slides = [
 /** Persists first-run dismissal and keeps settings replay independent of the saved flag. */
 export function OnboardingProvider({ children }: { children: ReactNode }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const settings = useQuery(appSettingsQueryOptions());
+  const settings = rpc.settings.appSettings.useQuery({});
   const [replaying, setReplaying] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [step, setStep] = useState(0);
-  const save = useMutation({
-    ...onboardingMutationOptions(),
-    onSuccess: async () => {
-      setDismissed(true);
-      setReplaying(false);
-      await cache.invalidateQueries({ queryKey: appSettingsQueryOptions().queryKey });
-      await cache.invalidateQueries({ queryKey: ['appearance'] });
-    }
-  });
+  const save = rpc.settings.saveAppSettings.useMutation();
   const open = replaying || (!dismissed && settings.data?.onboarded === false);
   const slide = slides[step]!;
   const finish = () => {
-    if (!save.isPending) save.mutate();
+    if (!save.isPending && settings.data)
+      void save
+        .mutate({ ...settings.data, onboarded: true })
+        .then(() => {
+          setDismissed(true);
+          setReplaying(false);
+        })
+        .catch(() => {});
   };
 
   return (
     <ReplayContext
       value={() => {
-        save.reset();
         setStep(0);
         setReplaying(true);
       }}

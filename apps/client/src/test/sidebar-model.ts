@@ -7,6 +7,14 @@ const noop = () => {};
 export function sidebarModel(): SidebarModel {
   return {
     replay: null,
+    projectsNext: false,
+    projectsPrevious: false,
+    loadMoreProjects: noop,
+    previousProjects: noop,
+    notesNext: false,
+    notesPrevious: false,
+    loadMoreNotes: noop,
+    previousNotes: noop,
     settingsProject: undefined,
     setSettingsProject: noop,
     metadata: { title: 'Notes', section: 'notes', scope: 'project' },

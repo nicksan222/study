@@ -15,7 +15,7 @@ import { appearances, attachmentPreviewKind } from './attachment-appearance';
 import { useAttachments } from './attachments.queries';
 import type { Attachment } from './attachments.queries';
 import { NoteError } from './status';
-export { useAttachments, attachmentKey } from './attachments.queries';
+export { useAttachments, attachmentState } from './attachments.queries';
 
 export function AttachmentPicker({ id, blocked }: { id: NoteId; blocked: boolean }) {
   const { t } = useI18n();

@@ -70,7 +70,7 @@ function MetadataForm({ page, onSaved }: { page: Page; onSaved: () => void }) {
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        mutation.mutate(undefined, { onSuccess: onSaved });
+        void mutation.mutate().then(onSaved, () => {});
       }}
     >
       <WorkspaceSurface.ContextDialogBody>

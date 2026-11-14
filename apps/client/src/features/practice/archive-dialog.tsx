@@ -1,20 +1,17 @@
 import type { MaterialId, ProjectId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { ArchiveIcon, QuizIcon, FlashcardsIcon, RestoreIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { SelectionSurface as Surface } from '@study/ui/selection';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
-import {
-  MaterialVersionContent,
-  materialOptions
-} from '#client/features/material-library/index.ts';
+import { MaterialVersionContent } from '#client/features/material-library/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { archivedMaterialsOptions, useMaterialArchive } from './practice.queries';
+import { useArchivedMaterials, useMaterialArchive } from './practice.queries';
 import { PracticeQueryState } from './query-state';
 
 export function ArchivedPracticeAction({
@@ -56,10 +53,10 @@ export function ArchivedPracticeAction({
 
 function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boolean }) {
   const { t } = useI18n();
-  const state = useInfiniteQuery({ ...archivedMaterialsOptions(projectId), enabled: open });
+  const state = useArchivedMaterials(projectId, open);
   const [selected, select] = useState<MaterialId>();
   const [search, setSearch] = useState('');
-  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = state.data?.items ?? [];
   const visible = items.filter((item) =>
     item.title.toLocaleLowerCase().includes(search.toLocaleLowerCase())
   );
@@ -89,6 +86,13 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
             }
           />
         ))}
+        {state.pagination.hasPrevious && (
+          <Surface.More
+            pending={state.isFetching}
+            onLoad={state.pagination.previous}
+            label={t('LibraryPrevious')}
+          />
+        )}
         {state.hasNextPage && (
           <Surface.More
             pending={state.isFetchingNextPage}
@@ -123,7 +127,7 @@ function ArchivedPanel({ projectId, open }: { projectId?: ProjectId; open: boole
 
 function ArchivedPreview({ id, open }: { id: MaterialId; open: boolean }) {
   const { t } = useI18n();
-  const state = useQuery({ ...materialOptions(id), enabled: open });
+  const state = rpc.materials.get.useQuery({ id }, { enabled: open });
   const restore = useMaterialArchive(id, true);
   const version = state.data?.latestPublishedVersion ?? state.data?.version;
 

@@ -1,54 +1,25 @@
 import type { ProjectId, NoteId } from '@study/contracts/ids';
-import { queryOptions } from '@tanstack/react-query';
-
-import { createNote } from '#client/lib/study-client/operations.ts';
+import { rpc } from '@study/contracts/react';
+import { Atom } from 'effect/reactivity';
 
 import { uploadSource } from './note-workspace.queries';
 
-export type CreationFlow = { id?: NoteId; uncertain?: boolean; pending?: boolean };
+type CreationFlow = { id?: NoteId; uncertain?: boolean; pending?: boolean };
 
-export const startDraftOptions = (queryKey: string[]) =>
-  queryOptions({
-    queryKey,
-    queryFn: () => '',
-    initialData: '',
-    gcTime: Infinity,
-    staleTime: Infinity
+export const creationFlow = Atom.make<CreationFlow>({}).pipe(Atom.keepAlive);
+
+/** Capture the originating draft and files before starting independent uploads. */
+export async function startNote(input: {
+  project?: ProjectId;
+  draftKey: string;
+  filesKey: string;
+  text: string;
+  files: File[];
+}) {
+  const sources = await Promise.all(input.files.map(uploadSource));
+
+  return rpc.notes.createUntitledNote.call({
+    project: input.project,
+    initialMessage: { text: input.text, sourceIds: sources.map((source) => source.id) }
   });
-
-export const startFilesOptions = (queryKey: string[]) =>
-  queryOptions({
-    queryKey,
-    queryFn: () => [] as File[],
-    initialData: [] as File[],
-    gcTime: Infinity,
-    staleTime: Infinity
-  });
-
-export const creationFlowOptions = () =>
-  queryOptions({
-    queryKey: ['note-workspace', 'creation'],
-    queryFn: (): CreationFlow => ({}),
-    initialData: {} as CreationFlow,
-    gcTime: Infinity,
-    staleTime: Infinity
-  });
-
-/** The mutation retains its originating draft keys when the selected project changes. */
-export const startNoteMutation = {
-  mutationFn: async (input: {
-    project?: ProjectId;
-    draftKey: string[];
-    filesKey: string[];
-    text: string;
-    files: File[];
-  }) => {
-    const sources = await Promise.all(input.files.map(uploadSource));
-
-    return createNote(input.project, {
-      text: input.text,
-      sourceIds: sources.map((source) => source.id)
-    });
-  },
-  retry: false
-};
+}

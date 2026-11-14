@@ -1,4 +1,5 @@
 import { StudyError } from '@study/contracts/errors';
+import { rpc } from '@study/contracts/react';
 import {
   ThinkingIcon,
   CompletedIcon,
@@ -10,13 +11,11 @@ import {
 import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/note-workspace';
-import { useQuery } from '@tanstack/react-query';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { ConfigurationWait } from './configuration-wait';
-import { executionOptions } from './note-workspace.queries';
 import { workflowLabel } from './workflow-label';
 
 export function NoteError({ error, retry }: { error: unknown; retry?: () => void }) {
@@ -66,7 +65,7 @@ export function NoteReadError({
 
 export function ExecutionStatus({ requestId }: { requestId: string }) {
   const { t, date } = useI18n();
-  const state = useQuery(executionOptions(requestId));
+  const state = rpc.workflows.executions.useQuery({ correlationId: requestId, limit: 30 });
 
   if (state.error) return <NoteReadError error={state.error} retry={() => void state.refetch()} />;
 

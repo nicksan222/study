@@ -1,10 +1,13 @@
+import { quizSettingsSchema } from '@study/contracts/settings/schemas';
 import { defaultQuizSettings } from '@study/contracts/settings/types';
 import type { QuizSettings as QuizPreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { Schema } from 'effect';
+import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { QuizSettings } from './quiz-settings';
 
@@ -14,39 +17,34 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (
-    invoke: (rpc: {
-      'settings.quizSettings': typeof api.read;
-      'settings.saveQuizSettings': typeof api.save;
-    }) => unknown
-  ) => invoke({ 'settings.quizSettings': api.read, 'settings.saveQuizSettings': api.save })
-}));
-
-const clients: QueryClient[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
   api.read.mockResolvedValue(defaultQuizSettings);
   api.save.mockImplementation(async (value) => value);
 });
-afterEach(() => {
-  for (const client of clients) client.clear();
 
-  clients.length = 0;
-});
+function mount(kind?: 'matching') {
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.quizSettings') return api.read();
 
-function mount() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    if (tag === 'settings.saveQuizSettings') {
+      const value = Schema.decodeUnknownSync(quizSettingsSchema)(input);
+
+      await api.save(value);
+
+      api.read.mockResolvedValue(value);
+      await fixture.notify();
+
+      return {};
+    }
+
+    throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  clients.push(client);
-  render(
-    <QueryClientProvider client={client}>
-      <QuizSettings />
-    </QueryClientProvider>
-  );
+  render(<QuizSettings kind={kind} />, { wrapper: fixture.wrapper });
+
+  return fixture;
 }
 
 testStable('persists quiz order while preserving count, type, and answer settings', async () => {
@@ -108,14 +106,7 @@ testStable('persists new quiz choice count and difficulty in study settings', as
 });
 
 testStable('saves matching defaults independently of quiz defaults', async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  clients.push(client);
-  render(
-    <QueryClientProvider client={client}>
-      <QuizSettings kind="matching" />
-    </QueryClientProvider>
-  );
+  mount('matching');
   const difficulty = await screen.findByRole('combobox', { name: 'QuizDifficulty' });
 
   await waitFor(() => expect(difficulty).toBeEnabled());

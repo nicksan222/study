@@ -11,6 +11,7 @@ export default defineRule({
 
     if (!contractFile(path)) return {};
 
+    const reactImplementation = /\/packages\/contracts\/src\/react(?:-state)?\.ts$/.test(path);
     const effects = effectBindings(context);
     const report = (node: any) =>
       context.report({
@@ -83,9 +84,9 @@ export default defineRule({
       ExportNamedDeclaration(node) {
         const declaration = node.declaration;
 
-        if (handwrittenDeclaration(declaration)) report(declaration);
+        if (!reactImplementation && handwrittenDeclaration(declaration)) report(declaration);
 
-        if (!node.source && !declaration)
+        if (!reactImplementation && !node.source && !declaration)
           for (const specifier of node.specifiers)
             if (handwritten(binding(context, specifier.local)?.defs[0]?.node)) report(specifier);
       },
@@ -108,7 +109,11 @@ export default defineRule({
           });
       },
       MemberExpression(node) {
-        if (['Schema.Any', 'Schema.Unknown'].includes(effects.resolve(node) ?? '')) report(node);
+        if (
+          !reactImplementation &&
+          ['Schema.Any', 'Schema.Unknown'].includes(effects.resolve(node) ?? '')
+        )
+          report(node);
       },
       TSTypeQuery(node) {
         if (

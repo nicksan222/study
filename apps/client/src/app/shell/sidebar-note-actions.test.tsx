@@ -1,8 +1,8 @@
+import { StudyError } from '@study/contracts/errors';
 import { noteIdSchema } from '@study/contracts/ids';
 import { noteDeletionSchema } from '@study/contracts/notes/deletion';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -14,16 +14,11 @@ import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import type * as WorkspaceQueries from '#client/features/note-workspace/note-workspace.queries.ts';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { SidebarNoteActions } from './sidebar-note-actions';
 
 const titles = vi.hoisted(() => ({ request: vi.fn(), executions: vi.fn() }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (fn: (client: unknown) => unknown) =>
-    fn({ 'notes.requestTitle': titles.request, 'workflows.executions': titles.executions })
-}));
 
 const notices = vi.hoisted(() => ({ add: vi.fn() }));
 
@@ -31,45 +26,39 @@ vi.mock('@study/ui/toast', () => ({ toastManager: notices }));
 
 const deletion = vi.hoisted(() => ({ remove: vi.fn(), read: vi.fn(), retry: vi.fn() }));
 
-vi.mock('#client/features/note-workspace/note-workspace.queries.ts', async (load) => {
-  const actual = await load<typeof WorkspaceQueries>();
-
-  return {
-    ...actual,
-    deleteNoteMutationOptions: (id: unknown) => ({
-      mutationFn: () => deletion.remove(id),
-      retry: false
-    }),
-    retryNoteDeletionMutationOptions: (id: unknown) => ({
-      mutationFn: () => deletion.retry(id),
-      retry: false
-    }),
-    deletionOptions: (id: unknown) => ({
-      queryKey: ['delete-note-test', String(id)],
-      queryFn: deletion.read
-    })
-  };
-});
-
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
 const en = catalogs.english;
 
-const clients: QueryClient[] = [];
-
 function mount() {
-  deletion.read.mockResolvedValue(null);
+  deletion.read.mockRejectedValue(new StudyError('not_found', 'No deletion'));
   titles.executions.mockResolvedValue({ items: [], next: null });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = rpcTestTransport(async (tag, input) => {
+    if (tag === 'notes.requestTitle') return titles.request(input);
 
-  clients.push(client);
+    if (tag === 'workflows.executions') return titles.executions(input);
+
+    if (tag === 'notes.deleteNote') return deletion.remove(id);
+
+    if (tag === 'notes.retryNoteDeletion') {
+      const value = await deletion.retry(id);
+
+      deletion.read.mockResolvedValue(value);
+
+      return value;
+    }
+
+    if (tag === 'notes.noteDeletion') return deletion.read();
+
+    throw new Error(tag);
+  });
   const root = createRootRoute({
     component: () => (
-      <QueryClientProvider client={client}>
+      <client.wrapper>
         <SidebarNoteActions id={id} project="9007199254740995">
           <a href="/notes/9007199254740993">Cell division</a>
         </SidebarNoteActions>
-      </QueryClientProvider>
+      </client.wrapper>
     )
   });
   const router = createRouter({
@@ -83,8 +72,6 @@ function mount() {
 }
 
 afterEach(() => {
-  for (const client of clients.splice(0)) client.clear();
-
   vi.clearAllMocks();
 });
 
@@ -254,20 +241,4 @@ testStable('reports title request failures and allows another attempt', async ()
   );
 });
 
-testStable('refreshes titles when background generation completes', async () => {
-  titles.request.mockResolvedValue({ noteId: id, requestId: 'completed-title' });
-  mount();
-  const client = clients.at(-1)!;
-
-  client.setQueryData(['notes'], []);
-  client.setQueryData(['search', 'cells'], []);
-  titles.executions.mockResolvedValue({
-    items: [{ status: 'completed', outcome: 'success' }],
-    next: null
-  });
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Cell division' }), { button: 2 });
-  await userEvent.setup().click(await screen.findByRole('menuitem', { name: en.RegenerateTitle }));
-  await waitFor(() => expect(client.getQueryState(['notes'])?.isInvalidated).toBe(true));
-  expect(client.getQueryState(['search', 'cells'])?.isInvalidated).toBe(true);
-});
 vi.mock('#client/lib/ai-readiness.ts', () => ({ useAiReadiness: () => 'ready' }));

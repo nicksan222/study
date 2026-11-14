@@ -29,6 +29,7 @@ import { Projects } from '#server/features/projects/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 import { withTestPublication } from '#testing/publication';
 
 const meta = {
@@ -54,7 +55,7 @@ testStable(
     const domain = Layer.mergeAll(Pages.layer, Notes.layer, Settings.layer, Projects.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-    const handlers = PagesRpcLive.pipe(Layer.provide(domain));
+    const handlers = PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provide(domain));
 
     try {
       const setup = await Effect.runPromise(

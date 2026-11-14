@@ -1,170 +1,154 @@
-import { StudyError } from '@study/contracts/errors';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import type { signInAttemptSchema } from '@study/contracts/auth/schemas';
+import { rpc } from '@study/contracts/react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 
-import { prepareSignInBrowser } from '#client/lib/host.ts';
+import { prepareSignInBrowser, signInOptions } from '#client/lib/host.ts';
 import type { SignInBrowser } from '#client/lib/host.ts';
+import type { AiConfiguration } from '#client/lib/study-client/ai-settings.ts';
 
-import {
-  aiSettingsQueryOptions,
-  startSignInOptions,
-  finishSignInOptions,
-  cancelSignInOptions,
-  signOutOptions,
-  disposeSignIn
-} from './ai.queries';
-import type { SignInAttempt } from './ai.queries';
 import { useProviderSettings } from './use-provider-settings';
 
-function requestState(results: readonly { isPending: boolean; isError: boolean }[]) {
-  return {
-    pending: results.some((result) => result.isPending),
-    error: results.some((result) => result.isError)
-  };
-}
-
-function isUnsupportedSignIn(error: unknown) {
-  return error instanceof StudyError && error.kind === 'unsupported';
-}
-
-async function openAttemptBrowser(browser: SignInBrowser | undefined, attempt: SignInAttempt) {
-  try {
-    return (await browser?.open(attempt.url)) ?? false;
-  } catch (error) {
-    await disposeSignIn(attempt.attemptId).catch(() => {});
-
-    throw error;
-  }
-}
-
-/** Keep settings refresh ownership shared by sign-in and provider configuration. */
-function useSettingsQuery() {
-  const client = useQueryClient();
-  const query = useQuery(aiSettingsQueryOptions());
-
-  return {
-    query,
-    refresh: () => client.invalidateQueries({ queryKey: aiSettingsQueryOptions().queryKey })
-  };
-}
+type SignInAttempt = typeof signInAttemptSchema.Type;
 
 export function useAiSettings() {
-  const { query, refresh } = useSettingsQuery();
+  const status = rpc.auth.status.useQuery({});
+  const providers = rpc.auth.providers.useQuery({});
+  const settings = rpc.settings.llmSettings.useQuery({});
+  const data = configurationData(status.data, providers.data, settings.data);
   const [attempt, setAttempt] = useState<SignInAttempt>();
   const [popupBlocked, setPopupBlocked] = useState(false);
+  const [startError, setStartError] = useState<unknown>();
+  const [browserError, setBrowserError] = useState(false);
   const browser = useRef<SignInBrowser | undefined>(undefined);
-  const closeBrowser = () => {
-    browser.current?.close();
-    browser.current = undefined;
-  };
   const owned = useRef<SignInAttempt | undefined>(undefined);
   const mounted = useRef(true);
-  const finishing = useRef<AbortController | undefined>(undefined);
-  const start = useMutation({
-    ...startSignInOptions(),
-    onSuccess: async (value) => {
-      if (!mounted.current) {
-        void disposeSignIn(value.attemptId).catch(() => {});
+  const start = rpc.auth.startSignIn.useMutation();
+  const finish = rpc.auth.finishSignIn.useMutation();
+  const cancel = rpc.auth.cancelSignIn.useMutation();
+  const signOut = rpc.auth.signOut.useMutation();
+  const models = useProviderSettings(data);
 
-        return;
-      }
+  function closeBrowser() {
+    browser.current?.close();
+    browser.current = undefined;
+  }
 
-      owned.current = value;
-      const opened = await openAttemptBrowser(browser.current, value);
-
-      if (!mounted.current || owned.current !== value) return;
-
-      setAttempt(value);
-      setPopupBlocked(!opened);
-      finishing.current = new AbortController();
-      finish.mutate({ attemptId: value.attemptId, signal: finishing.current.signal });
-    },
-    onError: () => {
-      owned.current = undefined;
-      closeBrowser();
-    }
+  const cancelOwned = useEffectEvent(() => {
+    if (owned.current)
+      void cancel.mutateAsync({ attemptId: owned.current.attemptId }).catch(() => {});
   });
-  const finish = useMutation({
-    ...finishSignInOptions(),
-    onSuccess: (_result, input) => {
-      if (owned.current?.attemptId !== input.attemptId) return;
-
-      owned.current = undefined;
-      setAttempt(undefined);
-      closeBrowser();
-
-      return refresh();
-    },
-    onError: (_error, input) => {
-      if (owned.current?.attemptId !== input.attemptId) return;
-
-      owned.current = undefined;
-      setAttempt(undefined);
-      closeBrowser();
-    }
-  });
-  const cancel = useMutation({
-    ...cancelSignInOptions(),
-    onSuccess: () => {
-      finishing.current?.abort();
-      closeBrowser();
-      owned.current = undefined;
-      setAttempt(undefined);
-      finish.reset();
-      start.reset();
-
-      return refresh();
-    }
-  });
-  const signOut = useMutation({ ...signOutOptions(), onSuccess: refresh });
-  const models = useProviderSettings(query.data, refresh);
 
   useEffect(() => {
     mounted.current = true;
 
     return () => {
       mounted.current = false;
-      finishing.current?.abort();
       closeBrowser();
 
-      if (owned.current) void disposeSignIn(owned.current.attemptId).catch(() => {});
+      cancelOwned();
     };
   }, []);
+  const queries = [status, providers, settings];
+  const mutations = [start, finish, cancel, signOut];
 
   return {
-    data: query.data,
-    signInUnsupported: isUnsupportedSignIn(start.error),
-    loading: query.isPending,
-    ...requestState([
-      { isPending: false, isError: query.isError || models.error },
-      start,
-      { isPending: finish.isPending, isError: finish.isError && !cancel.isPending },
-      cancel,
-      signOut,
-      { isPending: models.pending, isError: false }
-    ]),
+    data,
+    signInUnsupported: unsupported(start.error) || unsupported(startError),
+    loading: queries.some((query) => query.isPending),
+    pending: [
+      start.isPending,
+      attempt !== undefined && finish.isPending,
+      cancel.isPending,
+      signOut.isPending,
+      models.pending
+    ].some(Boolean),
+    error:
+      queries.some((query) => query.isError || query.stale) ||
+      mutations.some((mutation) => mutation.isError) ||
+      models.error ||
+      browserError,
     cancelling: cancel.isPending,
     attempt,
     popupBlocked,
     retry: () => {
-      start.reset();
-      finish.reset();
-      cancel.reset();
-      signOut.reset();
+      mutations.forEach((mutation) => mutation.reset());
       models.retry();
-      void query.refetch();
+      setBrowserError(false);
+      queries.forEach((query) => query.refetch());
     },
     start: () => {
       finish.reset();
       cancel.reset();
+      setBrowserError(false);
+      setStartError(undefined);
       browser.current = prepareSignInBrowser();
       setPopupBlocked(false);
-      start.mutate();
+      let options: ReturnType<typeof signInOptions>;
+
+      try {
+        options = signInOptions();
+      } catch (error) {
+        setStartError(error);
+        closeBrowser();
+
+        return;
+      }
+
+      void start
+        .mutateAsync(options)
+        .then(async (value) => {
+          if (!mounted.current) {
+            await cancel.mutateAsync({ attemptId: value.attemptId });
+
+            return;
+          }
+
+          owned.current = value;
+
+          try {
+            const opened = (await browser.current?.open(value.url)) ?? false;
+
+            if (!mounted.current || owned.current !== value) return;
+
+            setAttempt(value);
+            setPopupBlocked(!opened);
+            await finish.mutateAsync({ attemptId: value.attemptId });
+          } catch {
+            if (owned.current === value) setBrowserError(true);
+
+            await cancel.mutateAsync({ attemptId: value.attemptId }).catch(() => {});
+          } finally {
+            if (owned.current === value) {
+              owned.current = undefined;
+
+              if (mounted.current) setAttempt(undefined);
+
+              closeBrowser();
+            }
+          }
+        })
+        .catch(() => {
+          owned.current = undefined;
+          closeBrowser();
+        });
     },
     cancel: () => {
-      if (attempt) cancel.mutate(attempt.attemptId);
+      if (!attempt) return;
+
+      void cancel
+        .mutateAsync({ attemptId: attempt.attemptId })
+        .then(() => {
+          owned.current = undefined;
+          setAttempt(undefined);
+          closeBrowser();
+          finish.reset();
+          start.reset();
+        })
+        .catch(() => {});
     },
-    signOut: () => signOut.mutate(),
+    signOut: () => {
+      void signOut.mutateAsync({}).catch(() => {});
+    },
     credentialProvider: models.credentialProvider,
     selectCredentialProvider: models.selectCredentialProvider,
     setSetup: models.setSetup,
@@ -173,3 +157,17 @@ export function useAiSettings() {
 }
 
 export type AiSettingsModel = ReturnType<typeof useAiSettings>;
+
+function unsupported(error: unknown) {
+  return (
+    typeof error === 'object' && error !== null && 'kind' in error && error.kind === 'unsupported'
+  );
+}
+
+function configurationData(
+  status: AiConfiguration['status'] | undefined,
+  providers: AiConfiguration['providers'] | undefined,
+  settings: AiConfiguration['settings'] | undefined
+): AiConfiguration | undefined {
+  return status && providers && settings ? { status, providers, settings } : undefined;
+}

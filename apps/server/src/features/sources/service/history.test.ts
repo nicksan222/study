@@ -30,6 +30,7 @@ import { SourceStore } from '#server/features/sources/store/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { testLiveQueries } from '#testing/live-queries';
 
 const document = (text: string) => ({
   blocks: [plainBlock('paragraph', text, { type: 'paragraph', index: 0 })],
@@ -49,7 +50,10 @@ const document = (text: string) => ({
 async function fixture() {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = Layer.mergeAll(PagesRpcLive, SourcesRpcLive).pipe(
+  const handlers = Layer.mergeAll(
+    PagesRpcLive.pipe(Layer.provide(testLiveQueries)),
+    SourcesRpcLive.pipe(Layer.provide(testLiveQueries))
+  ).pipe(
     Layer.provideMerge(Layer.mergeAll(Pages.layer, Sources.layer)),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );

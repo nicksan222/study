@@ -71,11 +71,13 @@ export const NoteMergeStore = defineStore({
     },
     mutations: {
       copyMessages: storeMutation({
+        changes: ['notes'],
         input: copyMessagesInputSchema,
         output: Schema.Void,
         run: makeMessageCopy(resources)
       }),
       merge: storeMutation({
+        changes: ['notes'],
         input: mergeNotesInputSchema,
         output: Schema.Struct({ id: noteIdSchema, created: Schema.Boolean }),
         run: ({ noteIds, intentKey }) => {

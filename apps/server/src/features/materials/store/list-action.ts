@@ -13,7 +13,7 @@
  */
 
 import type { MaterialId } from '@study/contracts/ids';
-import type { materialsInputSchema } from '@study/contracts/materials/rpc';
+import type { materialsInputSchema, countInputSchema } from '@study/contracts/materials/rpc';
 import { and, asc, desc, eq, gt, isNotNull, isNull, lt, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
 
@@ -27,7 +27,7 @@ export function makeListAction(resources: StoreResources) {
   const { db: store } = resources;
   const { materialRow, readMaterialSummaries } = makeReads(resources);
   const { assertProject, assertNote, assertMembership } = makeWrites(resources);
-  const filtersFor = (input: Input) => {
+  const filtersFor = (input: typeof countInputSchema.Type) => {
     if (input.projectId !== undefined) assertProject(input.projectId);
 
     return [
@@ -109,5 +109,24 @@ export function makeListAction(resources: StoreResources) {
     };
   };
 
-  return { list };
+  const count = (input: typeof countInputSchema.Type) => {
+    const filters = filtersFor(input);
+
+    if (input.noteId !== undefined) {
+      assertNote(input.noteId);
+      filters.push(
+        sql`EXISTS(SELECT 1 FROM note_materials n WHERE n.material_id=${s.materials.id} AND n.note_id=${input.noteId})`
+      );
+    }
+
+    return required(
+      store.orm
+        .select({ count: sql<bigint>`count(*)` })
+        .from(s.materials)
+        .where(and(...filters))
+        .get()
+    ).count;
+  };
+
+  return { list, count };
 }

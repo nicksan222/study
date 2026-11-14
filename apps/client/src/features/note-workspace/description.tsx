@@ -46,7 +46,7 @@ function DescriptionForm({ message, onSaved }: { message: ChatMessage; onSaved: 
     <form
       onSubmit={(event) => {
         event.preventDefault();
-        mutation.mutate(undefined, { onSuccess: onSaved });
+        void mutation.mutate().then(onSaved, () => {});
       }}
     >
       <WorkspaceSurface.ContextDialogBody>

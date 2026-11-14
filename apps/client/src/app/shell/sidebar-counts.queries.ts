@@ -1,16 +1,13 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { useQuery } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 
-import { libraryQueryOptions } from '#client/features/library/index.ts';
-import type { Notes, Subjects } from '#client/lib/study-client/operations.ts';
-import { countPages } from '#client/lib/study-client/operations.ts';
+import type { Notes, Subjects } from '#client/lib/study-client/types.ts';
 
 import { useSidebarProgress } from './rich-sidebar.queries';
 
 /** Counts every retained item, independently of search and loaded sidebar pages. */
 export function useSidebarCounts({
   project,
-  subjects,
   notes,
   notesReady,
   ready
@@ -22,13 +19,15 @@ export function useSidebarCounts({
   ready: boolean;
 }) {
   const { settings, progress } = useSidebarProgress();
-  const pages = useQuery({
-    queryKey: ['pages', 'navigation-count', project?.toString()],
-    queryFn: ({ signal }) => countPages(project, signal),
-    enabled: ready,
-    refetchInterval: 15_000
-  });
-  const practice = useQuery(libraryQueryOptions(subjects, project, ready));
+  const count = rpc.notes.count.useQuery({ project }, { enabled: ready });
+  const pages = rpc.pages.count.useQuery(
+    { projectId: project, archived: false },
+    { enabled: ready }
+  );
+  const practice = rpc.materials.count.useQuery(
+    { projectId: project, archived: false },
+    { enabled: ready }
+  );
   const threshold = BigInt(settings.data?.settledPageThreshold ?? 1);
   const summaries = new Map(progress.data?.items.map((item) => [item.id, item]));
   const unresolved = notes.some((note) => {
@@ -42,13 +41,13 @@ export function useSidebarCounts({
   });
 
   return {
-    notes: { count: ready && notesReady ? notes.length : undefined, unresolved },
-    pages: { count: ready && pages.isSuccess ? pages.data : undefined },
+    notes: {
+      count: ready && notesReady && count.isSuccess ? Number(count.data) : undefined,
+      unresolved
+    },
+    pages: { count: ready && pages.isSuccess ? Number(pages.data) : undefined },
     practice: {
-      count:
-        ready && practice.isSuccess
-          ? new Set(practice.data.map((item) => item.value.id)).size
-          : undefined
+      count: ready && practice.isSuccess ? Number(practice.data) : undefined
     }
   };
 }

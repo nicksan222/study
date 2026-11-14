@@ -1,5 +1,6 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { QuizIcon, FlashcardsIcon, StopIcon } from '@study/icons';
 import { AiActivity } from '@study/ui/ai-button';
 import {
@@ -9,13 +10,9 @@ import {
   ContextMenuItem
 } from '@study/ui/context-menu';
 import { Sidebar } from '@study/ui/sidebar';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import type { Subjects } from '#client/lib/study-client/operations.ts';
-
-import { activeGenerationsOptions, cancelGenerationOptions } from './quiz-generation.queries';
+import type { Subjects } from '#client/lib/study-client/types.ts';
 
 type Generation = typeof materialGenerationSnapshotSchema.Type;
 
@@ -32,20 +29,10 @@ export function PracticeSidebarGenerations({
   enabled: boolean;
 }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const state = useQuery(activeGenerationsOptions(project, enabled));
-  const previous = useRef<readonly Generation[]>([]);
-
-  useEffect(() => {
-    if (!enabled || !state.data) return;
-
-    if (previous.current.some((item) => !state.data.some((next) => next.id === item.id))) {
-      void cache.invalidateQueries({ queryKey: ['library', 'practice'] });
-      void cache.invalidateQueries({ queryKey: ['materials', 'detail'] });
-    }
-
-    previous.current = state.data;
-  }, [cache, state.data, enabled]);
+  const state = rpc.materials.activeMaterialGenerations.useQuery(
+    { projectId: project },
+    { enabled }
+  );
 
   if (!enabled || (!state.isError && !state.data?.length)) return null;
 
@@ -65,14 +52,7 @@ export function PracticeSidebarGenerations({
 
 function GenerationCard({ generation, subjects }: { generation: Generation; subjects: Subjects }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const stop = useMutation({
-    ...cancelGenerationOptions(generation.id),
-    onSuccess: () => {
-      void cache.invalidateQueries({ queryKey: ['materials'] });
-      void cache.invalidateQueries({ queryKey: ['library', 'practice'] });
-    }
-  });
+  const stop = rpc.materials.cancelMaterialGeneration.useMutation();
   const owner = subjects.find((subject) => subject.id === generation.projectId);
   const Icon = generation.kind === 'flashcards' ? FlashcardsIcon : QuizIcon;
   const stopLabel = t('PracticeGenerationStop', { title: generation.title });
@@ -101,7 +81,10 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           }
         />
         <ContextMenuPopup>
-          <ContextMenuItem disabled={stop.isPending} onClick={() => stop.mutate()}>
+          <ContextMenuItem
+            disabled={stop.isPending}
+            onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
+          >
             <StopIcon aria-hidden="true" />
             {t('PracticeGenerationStopAction')}
           </ContextMenuItem>
@@ -112,7 +95,7 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           aria-label={stopLabel}
           title={stopLabel}
           disabled={stop.isPending}
-          onClick={() => stop.mutate()}
+          onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
         >
           <StopIcon aria-hidden="true" />
           {t('StopJob')}

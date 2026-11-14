@@ -1,10 +1,12 @@
+import { workspacePreferencesSchema } from '@study/contracts/settings/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { Schema } from 'effect';
+import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import {
   useWorkspacePreferences,
@@ -16,38 +18,25 @@ const api = vi.hoisted(() => ({
   save: vi.fn<(value: WorkspacePreferences) => Promise<WorkspacePreferences>>()
 }));
 
-vi.mock('./request', () => ({
-  request: (
-    invoke: (rpc: {
-      'settings.workspacePreferences': typeof api.read;
-      'settings.saveWorkspacePreferences': typeof api.save;
-    }) => unknown
-  ) =>
-    invoke({
-      'settings.workspacePreferences': api.read,
-      'settings.saveWorkspacePreferences': api.save
-    })
-}));
-
-const caches: QueryClient[] = [];
-
 beforeEach(() => vi.clearAllMocks());
-afterEach(() => {
-  for (const cache of caches) cache.clear();
-
-  caches.length = 0;
-});
 
 function wrapper() {
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  let saved: WorkspacePreferences | undefined;
 
-  caches.push(cache);
+  return rpcTestTransport(async (tag, input) => {
+    if (tag === 'settings.workspacePreferences') return saved ?? api.read();
 
-  return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={cache}>{children}</QueryClientProvider>
-  );
+    if (tag === 'settings.saveWorkspacePreferences') {
+      const preferences = Schema.decodeUnknownSync(workspacePreferencesSchema)(input);
+
+      saved = preferences;
+      await api.save(preferences);
+
+      return {};
+    }
+
+    throw new Error(`Unexpected ${tag}`);
+  }).wrapper;
 }
 
 testStable('uses canonical defaults when preferences cannot be loaded', async () => {

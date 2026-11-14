@@ -120,9 +120,9 @@ testStable(
 
     try {
       expect(context.timestampClock).toBe(context.clock);
-      context.transaction((outer) => {
+      context.transaction(['settings'], (outer) => {
         expect(outer.timestampClock).toBe(context.clock);
-        outer.transaction((inner) => {
+        outer.transaction(['settings'], (inner) => {
           expect(inner.clock).toBe(context.clock);
           expect(inner.timestampClock).toBe(context.clock);
         });

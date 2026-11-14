@@ -67,6 +67,7 @@ export const AuthStore = defineStore({
       },
       mutations: {
         ensureHostId: storeMutation({
+          changes: ['auth'],
           input: Schema.Void,
           output: Schema.String,
           run: () => {
@@ -89,6 +90,7 @@ export const AuthStore = defineStore({
           }
         }),
         sanitizeBackup: storeMutation({
+          changes: ['auth'],
           input: Schema.Void,
           output: Schema.Void,
           run: () => {
@@ -99,6 +101,7 @@ export const AuthStore = defineStore({
           }
         }),
         saveAccount: storeMutation({
+          changes: ['auth'],
           input: Schema.Json,
           output: Schema.Void,
           run: (value) => {
@@ -114,6 +117,7 @@ export const AuthStore = defineStore({
           }
         }),
         deleteAccount: storeMutation({
+          changes: ['auth'],
           input: Schema.Void,
           output: Schema.Void,
           run: () => {
@@ -205,6 +209,7 @@ export const ApiKeyStore = defineStore({
       },
       mutations: {
         saveApiKey: storeMutation({
+          changes: ['auth'],
           input: Schema.Struct({ provider: Schema.String, apiKey: Schema.NullOr(Schema.String) }),
           output: Schema.Void,
           run: ({ provider, apiKey }) => {

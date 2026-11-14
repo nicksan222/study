@@ -123,7 +123,7 @@ export function retryResumableActivity<
 
           const registered = yield* Effect.try({
             try: () =>
-              context.transaction((context) => {
+              context.transaction(['workflows'], (context) => {
                 workflowStore(context).assertOwner(owner.executionId, owner.ownerToken);
 
                 return (

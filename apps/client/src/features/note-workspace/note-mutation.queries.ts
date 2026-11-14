@@ -1,22 +1,18 @@
 import type { NoteId } from '@study/contracts/ids';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useIndependentMutation } from '@study/contracts/react';
+import { Effect } from 'effect';
 
-import { noteKey } from './note-workspace.queries';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
-/** Refreshes committed note state even when a mutation's transport outcome is uncertain. */
+/** Composed note actions own independent results; committed revisions refresh all readers. */
 export function useNoteMutation<Variables, Output>(
-  noteId: NoteId,
+  _noteId: NoteId,
   mutationFn: (variables: Variables) => Promise<Output>
 ) {
-  const cache = useQueryClient();
-
-  return useMutation({
-    mutationFn,
-    onSettled: async () => {
-      await Promise.all([
-        cache.invalidateQueries({ queryKey: noteKey(noteId) }),
-        cache.invalidateQueries({ queryKey: ['notes'] })
-      ]);
-    }
-  });
+  return useIndependentMutation((variables: Variables) =>
+    Effect.tryPromise({
+      try: () => mutationFn(variables),
+      catch: toStudyError
+    })
+  );
 }

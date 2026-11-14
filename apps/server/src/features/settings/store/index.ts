@@ -82,41 +82,49 @@ export const SettingsStore = defineStore({
       },
       mutations: {
         saveAgentRules: storeMutation({
+          changes: ['settings'],
           input: agentRulesSchema,
           output: Schema.Void,
           run: (input) => replace('agent-rules', { ...input })
         }),
         saveQuizSettings: storeMutation({
+          changes: ['settings'],
           input: quizSettingsSchema,
           output: Schema.Void,
           run: (input) => replace('quiz', { ...input })
         }),
         saveWorkspacePreferences: storeMutation({
+          changes: ['settings'],
           input: workspacePreferencesSchema,
           output: Schema.Void,
           run: (input) => replace('workspace', { ...input })
         }),
         saveSidebarSettings: storeMutation({
+          changes: ['settings'],
           input: sidebarSettingsSchema,
           output: Schema.Void,
           run: (input) => replace('sidebar', { ...input })
         }),
         saveConcurrencySettings: storeMutation({
+          changes: ['settings'],
           input: concurrencySettingsSchema,
           output: Schema.Void,
           run: (input) => replace('concurrency', { ...input })
         }),
         saveAppearancePreferences: storeMutation({
+          changes: ['settings'],
           input: appearancePreferencesSchema,
           output: Schema.Void,
           run: (input) => replace('appearance', { ...input })
         }),
         saveAppSettings: storeMutation({
+          changes: ['settings'],
           input: appSettingsSchema,
           output: Schema.Void,
           run: (input) => replace('app', { ...input })
         }),
         saveLlmSettings: storeMutation({
+          changes: ['settings'],
           input: llmSettingsSchema,
           output: Schema.Void,
           run: (input) =>
@@ -127,11 +135,13 @@ export const SettingsStore = defineStore({
             })
         }),
         saveMaterialSettings: storeMutation({
+          changes: ['settings'],
           input: materialSettingsSchema,
           output: Schema.Void,
           run: (input) => replace('material', { ...input })
         }),
         saveReviewSettings: storeMutation({
+          changes: ['settings'],
           input: reviewSettingsSchema,
           output: Schema.Void,
           run: (input) => replace('review', { ...input })

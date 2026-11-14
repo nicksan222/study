@@ -131,7 +131,7 @@ function AnnotationDeletion({ view }: { view: AnnotationView }) {
 }
 
 function AnnotationReceipt({ view }: { view: AnnotationView }) {
-  const { t, client, draftKey, draft, result } = view;
+  const { t, updateDraft, draft, result } = view;
 
   return (
     <>
@@ -158,7 +158,7 @@ function AnnotationReceipt({ view }: { view: AnnotationView }) {
           <Button
             disabled={draft.pending}
             onClick={() =>
-              client.setQueryData<AnnotationDraft>(draftKey, (old) =>
+              updateDraft((old) =>
                 old &&
                 !old.pending &&
                 old.review &&
@@ -185,7 +185,7 @@ function AnnotationReceipt({ view }: { view: AnnotationView }) {
 }
 
 function AnnotationReconciliation({ view }: { view: AnnotationView }) {
-  const { t, client, draftKey, draft, error, latest } = view;
+  const { t, draft, error, latest } = view;
 
   return (
     <>
@@ -206,21 +206,7 @@ function AnnotationReconciliation({ view }: { view: AnnotationView }) {
               <Button
                 disabled={latest.isFetching || draft.pending}
                 onClick={async () => {
-                  const refreshed = await latest.refetch();
-
-                  if (refreshed.data && !refreshed.isError) {
-                    const stored = refreshed.data;
-
-                    client.setQueryData<AnnotationDraft>(draftKey, (old) =>
-                      old &&
-                      !old.pending &&
-                      stored.revision >= old.current.revision &&
-                      (!old.review || stored.revision >= old.review.revision)
-                        ? { ...old, review: stored }
-                        : old
-                    );
-                    await client.invalidateQueries({ queryKey: ['pages', 'annotations'] });
-                  }
+                  await view.reviewLatest();
                 }}
               >
                 {t('AnnotationRefreshRevision')}
@@ -256,34 +242,38 @@ function AnnotationHistory({ view }: { view: AnnotationView }) {
           />
         )}
         <ol>
-          {history.data?.pages
-            .flatMap((page) => page.items)
-            .map((item) => (
-              <li key={String(item.revision)}>
-                <p>
-                  {String(item.revision)} ·{' '}
-                  {t(
-                    (
-                      {
-                        create: 'AnnotationCreated',
-                        update: 'AnnotationUpdated',
-                        reanchor: 'AnnotationReanchored',
-                        delete: 'AnnotationDeleted'
-                      } as const
-                    )[item.operation]
-                  )}{' '}
-                  · {t(item.kind === 'note' ? 'AnnotationNote' : 'AnnotationHighlight')}
-                  {item.deleted && <> · {t('AnnotationDeleted')}</>}
-                </p>
-                <p>{item.note}</p>
-                <EvidenceTarget reference={{ kind: 'range', target: item.target }} />
-              </li>
-            ))}
+          {history.data?.items.map((item) => (
+            <li key={String(item.revision)}>
+              <p>
+                {String(item.revision)} ·{' '}
+                {t(
+                  (
+                    {
+                      create: 'AnnotationCreated',
+                      update: 'AnnotationUpdated',
+                      reanchor: 'AnnotationReanchored',
+                      delete: 'AnnotationDeleted'
+                    } as const
+                  )[item.operation]
+                )}{' '}
+                · {t(item.kind === 'note' ? 'AnnotationNote' : 'AnnotationHighlight')}
+                {item.deleted && <> · {t('AnnotationDeleted')}</>}
+              </p>
+              <p>{item.note}</p>
+              <EvidenceTarget reference={{ kind: 'range', target: item.target }} />
+            </li>
+          ))}
         </ol>
-        {history.hasNextPage && (
+
+        {view.historyWindow.hasPrevious && (
+          <Button variant="ghost" onClick={view.historyWindow.previous}>
+            {t('LibraryPrevious')}
+          </Button>
+        )}
+        {history.data?.nextCursor && (
           <LoadMoreButton
-            disabled={history.isFetchingNextPage}
-            onClick={() => void history.fetchNextPage()}
+            disabled={history.isFetching}
+            onClick={() => view.loadMoreHistory()}
             label={t('LibraryMore')}
           />
         )}

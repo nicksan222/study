@@ -336,6 +336,7 @@ export const MessageStore = defineStore({
       },
       mutations: {
         postMessage: storeMutation({
+          changes: ['notes'],
           input: postMessageInputSchema,
           output: chatMessageSchema,
           run: (input) => {
@@ -399,6 +400,7 @@ export const MessageStore = defineStore({
           }
         }),
         updateMessageDescription: storeMutation({
+          changes: ['notes'],
           input: updateMessageDescriptionInputSchema,
           output: chatMessageSchema,
           run: (input) => {
@@ -433,6 +435,7 @@ export const MessageStore = defineStore({
           }
         }),
         editMessage: storeMutation({
+          changes: ['notes'],
           input: editMessageInputSchema,
           output: chatMessageSchema,
           run: (input) => {
@@ -502,6 +505,7 @@ export const MessageStore = defineStore({
           }
         }),
         setActiveVersion: storeMutation({
+          changes: ['notes'],
           input: setActiveVersionInputSchema,
           output: chatMessageSchema,
           run: (input) => {
@@ -523,6 +527,7 @@ export const MessageStore = defineStore({
           }
         }),
         deleteMessageVersion: storeMutation({
+          changes: ['notes'],
           input: setActiveVersionInputSchema,
           output: chatMessageSchema,
           run: (input) => {
@@ -565,6 +570,7 @@ export const MessageStore = defineStore({
           }
         }),
         deleteMessage: storeMutation({
+          changes: ['notes'],
           input: messageIdSchema,
           output: Schema.Boolean,
           run: (id) => {

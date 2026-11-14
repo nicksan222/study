@@ -27,6 +27,7 @@ export const RecordingCopyStore = defineStore({
     queries: {},
     mutations: {
       copy: storeMutation({
+        changes: ['recordings'],
         input: copyNoteContentSchema,
         output: Schema.Array(recordingCopySchema),
         run: ({ noteIds: ids, targetNoteId: target }) => {

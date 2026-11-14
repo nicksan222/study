@@ -1,27 +1,13 @@
+import { configureRpcTransport } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
+import { pageTestTransport } from '#client/test/render-page.tsx';
+
 import { App } from '../app/app';
-
-vi.mock('../lib/study-client/client', async () => {
-  const { Effect } = await import('effect');
-  const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
-  const client = {
-    'system.health': () =>
-      Effect.succeed({ protocolVersion: 1, workersRunning: true, testMode: false }),
-    'projects.projects': page,
-    'notes.notes': page,
-    'sources.sources': page,
-    'materials.materials': page
-  };
-
-  return {
-    studyClient: Effect.succeed(client)
-  };
-});
 
 const pages = ['Notes', 'Projects', 'Flashcards', 'Practice'] as const;
 
@@ -33,7 +19,10 @@ testStable.each(pages)('renders the %s route without network access', async (pag
   history.replaceState(null, '', `/${page.toLowerCase()}`);
   const fetch = vi.spyOn(globalThis, 'fetch');
 
-  render(<App />);
+  const fixture = pageTestTransport();
+
+  configureRpcTransport(fixture.transport);
+  render(<App transport={fixture.transport} />);
   const title = catalogs.english[page];
 
   if (page === 'Practice' || page === 'Flashcards') {
@@ -57,7 +46,10 @@ testStable(
     const user = userEvent.setup();
 
     history.replaceState(null, '', '/projects/1/notes/42');
-    render(<App />);
+    const fixture = pageTestTransport();
+
+    configureRpcTransport(fixture.transport);
+    render(<App transport={fixture.transport} />);
     expect(
       await screen.findByRole('button', { name: catalogs.english.ToggleSidebar })
     ).toHaveAttribute('aria-expanded', 'true');
@@ -77,7 +69,10 @@ testStable(
 
 testStable('opens the appearance popup from its direct settings route', async () => {
   history.replaceState(null, '', '/settings');
-  render(<App />);
+  const fixture = pageTestTransport();
+
+  configureRpcTransport(fixture.transport);
+  render(<App transport={fixture.transport} />);
   expect(
     await screen.findByRole('dialog', { name: catalogs.english.Settings })
   ).toBeInTheDocument();
@@ -87,7 +82,10 @@ testStable('keeps Settings reachable while the sidebar is collapsed', async () =
   const user = userEvent.setup();
 
   history.replaceState(null, '', '/projects');
-  render(<App />);
+  const fixture = pageTestTransport();
+
+  configureRpcTransport(fixture.transport);
+  render(<App transport={fixture.transport} />);
   await screen.findByRole('heading', { name: catalogs.english.Projects });
 
   const toggle = screen.getByRole('button', { name: catalogs.english.ToggleSidebar });

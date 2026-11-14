@@ -44,11 +44,13 @@ export const LearningMaterialHistoryStore = defineStore({
       },
       mutations: {
         prepare: storeMutation({
+          changes: ['learning'],
           input: Schema.Array(materialVersionIdSchema),
           output: Schema.Array(Schema.String),
           run: cancelSlots
         }),
         scrub: storeMutation({
+          changes: ['learning'],
           input: Schema.Array(materialVersionIdSchema),
           output: Schema.Void,
           run: scrubVersions

@@ -1,13 +1,14 @@
-import { StudyError } from '@study/contracts/errors';
+import { configureRpcTransport } from '@study/contracts/react';
+import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts/settings/schemas';
 import { catalogs, createLocalization } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Schema } from 'effect';
 import { beforeEach, expect, vi } from 'vite-plus/test';
 
 import type * as Host from '#client/lib/host.ts';
-import * as operations from '#client/lib/study-client/ai-settings.ts';
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { AiAccountSettings, AiModelSettings } from './index';
 
@@ -39,7 +40,8 @@ beforeEach(() => {
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => createLocalization('english')
 }));
-vi.mock('#client/lib/study-client/ai-settings.ts', () => ({
+
+const operations = vi.hoisted(() => ({
   loadAiSettings: vi.fn(),
   startChatGptSignIn: vi.fn(),
   finishChatGptSignIn: vi.fn(),
@@ -61,15 +63,44 @@ function mount(Section = AiAccountSettings) {
     providers: [],
     status: { signedIn: Section === AiModelSettings, email: null, sharing: false }
   });
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'auth.status') return (await operations.loadAiSettings()).status;
+
+    if (tag === 'auth.providers') return (await operations.loadAiSettings()).providers;
+
+    if (tag === 'settings.llmSettings') return (await operations.loadAiSettings()).settings;
+
+    if (tag === 'auth.startSignIn') return operations.startChatGptSignIn();
+
+    if (tag === 'auth.finishSignIn') {
+      const value = await operations.finishChatGptSignIn(
+        Schema.decodeUnknownSync(Schema.Struct({ attemptId: Schema.String }))(input).attemptId
+      );
+
+      await fixture.notify();
+
+      return value;
+    }
+
+    if (tag === 'auth.cancelSignIn')
+      return operations.cancelChatGptSignIn(
+        Schema.decodeUnknownSync(Schema.Struct({ attemptId: Schema.String }))(input).attemptId
+      );
+
+    if (tag === 'auth.signOut') return operations.signOutChatGpt();
+
+    if (tag === 'settings.saveLlmSettings')
+      return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
+
+    if (tag === 'auth.saveApiKey')
+      return operations.saveProviderApiKey(Schema.decodeUnknownSync(apiKeyInputSchema)(input));
+
+    throw new Error(tag);
   });
 
-  return render(
-    <QueryClientProvider client={client}>
-      <Section />
-    </QueryClientProvider>
-  );
+  configureRpcTransport(fixture.transport);
+
+  return render(<Section />, { wrapper: fixture.wrapper });
 }
 
 testStable('saves a canonical model change while preserving the other tiers', async () => {
@@ -122,12 +153,7 @@ testStable('opens ChatGPT immediately and waits automatically with only a spinne
   await waitFor(() =>
     expect(popup.location.replace).toHaveBeenCalledWith('https://auth.openai.com/test')
   );
-  await waitFor(() =>
-    expect(operations.finishChatGptSignIn).toHaveBeenCalledWith(
-      'owned-attempt',
-      expect.any(AbortSignal)
-    )
-  );
+  await waitFor(() => expect(operations.finishChatGptSignIn).toHaveBeenCalledWith('owned-attempt'));
   expect(
     screen.getByRole('status', { name: catalogs.english.AiSettingsWaiting }).tagName.toLowerCase()
   ).toBe('svg');
@@ -224,10 +250,7 @@ testStable('a cancelled completion cannot clear or close its replacement sign-in
   fireEvent.click(await screen.findByRole('button', { name: 'Cancel sign-in' }));
   fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
   await waitFor(() =>
-    expect(operations.finishChatGptSignIn).toHaveBeenLastCalledWith(
-      'replacement-attempt',
-      expect.any(AbortSignal)
-    )
+    expect(operations.finishChatGptSignIn).toHaveBeenLastCalledWith('replacement-attempt')
   );
   await act(async () => {
     rejectOld(new Error('Cancelled'));
@@ -243,9 +266,11 @@ testStable(
   async () => {
     const { popup } = browserWindow();
 
-    vi.mocked(operations.startChatGptSignIn).mockRejectedValue(
-      new StudyError('unsupported', 'Loopback required')
-    );
+    vi.mocked(operations.startChatGptSignIn).mockRejectedValue({
+      kind: 'unsupported',
+      message: 'Loopback required',
+      retryAfterMs: null
+    });
     mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Sign in to ChatGPT' }));
     expect(await screen.findByText(catalogs.english.AiSettingsSignInLocalOnly)).toBeInTheDocument();

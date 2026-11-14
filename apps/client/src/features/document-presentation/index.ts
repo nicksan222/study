@@ -5,8 +5,6 @@ export { HistoryDisclosure } from './history';
 
 export { ContentReadError } from './read-error';
 
-export { releaseBodyPreviews } from './body-cache';
-
 export { documentToEditor, editorToDocument } from './document-editor-content';
 export type { EditableDocument } from './document-editor-content';
 export { useDocumentEditorImages } from './editor-images.queries';

@@ -1,48 +1,24 @@
+import { rpc, useIndependentMutation } from '@study/contracts/react';
 import type { Source } from '@study/contracts/sources/schemas';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Effect } from 'effect';
 import { useState } from 'react';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 import { deleteSourceRecovering } from '#client/lib/study-client/source-deletion.ts';
 
 export function useSourceDeletion(source: Source, onDeleted: () => void) {
-  const cache = useQueryClient();
   const [open, setOpen] = useState(false);
-  const key = ['sources', 'deletion-preview', String(source.id)];
-  const preview = useQuery({
-    queryKey: key,
-    enabled: open,
-    retry: false,
-    queryFn: ({ signal }) =>
-      request((rpc) => rpc['sources.previewDeletion']({ id: source.id }), signal)
-  });
-  const remove = useMutation({
-    mutationKey: ['sources', 'delete', String(source.id)],
-    retry: false,
-    mutationFn: () => deleteSourceRecovering(source.id),
-    onSuccess: async () => {
-      setOpen(false);
-      onDeleted();
-      const owned = {
-        predicate: ({ queryKey }: { queryKey: readonly unknown[] }) =>
-          sourceBodyQuery(queryKey, String(source.id))
-      };
-
-      await cache.cancelQueries(owned);
-      cache.removeQueries(owned);
-
-      for (const queryKey of [
-        ['sources', 'library'],
-        ['sources', 'selection'],
-        ['library'],
-        ['search']
-      ])
-        void cache.invalidateQueries({ queryKey });
-    },
-    onError: () => {
-      void cache.invalidateQueries({ queryKey: key });
-    }
-  });
+  const preview = rpc.sources.previewDeletion.useQuery({ id: source.id }, { enabled: open });
+  const remove = useIndependentMutation((_input: void) =>
+    Effect.tryPromise({
+      try: async () => {
+        await deleteSourceRecovering(source.id);
+        setOpen(false);
+        onDeleted();
+      },
+      catch: toStudyError
+    })
+  );
 
   function show() {
     remove.reset();
@@ -50,21 +26,4 @@ export function useSourceDeletion(source: Source, onDeleted: () => void) {
   }
 
   return { open, setOpen, show, preview, remove };
-}
-
-function sourceBodyQuery(query: readonly unknown[], id: string) {
-  if (query[0] === 'source-copy') return query[1] === id;
-
-  if (query[0] !== 'sources') return false;
-
-  if (query[1] === 'image') return query[4] === id;
-
-  if (query[1] === 'selected-input')
-    return typeof query[2] === 'string' && query[2].startsWith(`source:${id}:`);
-
-  return (
-    ['detail', 'current-extraction', 'extraction', 'history', 'deletion-preview'].includes(
-      String(query[1])
-    ) && query[2] === id
-  );
 }

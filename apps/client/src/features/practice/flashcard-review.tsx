@@ -1,18 +1,18 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { learningRatingSchema } from '@study/contracts/learning/schemas';
 import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { SelectedIcon, RetryIcon } from '@study/icons';
 import { reviewProgress } from '@study/localization';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Practice } from '@study/ui/practice';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
+import { useNativeAction } from '#client/lib/effect/native.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { reviewCardOptions, dueCardsOptions } from './practice.queries';
 import { OperationError } from './quiz';
 
 type Deck = Extract<MaterialVersionDetailDto, { kind: 'flashcards' }>;
@@ -49,17 +49,17 @@ function ScheduledReview({
   replay: () => void;
 }) {
   const { t } = useI18n();
-  const state = useQuery(dueCardsOptions(project));
+  const query = rpc.learning.dueCards.useQuery({ projectId: project, limit: 100 });
+  const state = { ...query, data: query.data?.items };
   const [round, setRound] = useState(0);
   const refresh = () => {
-    void state.refetch().then((result) => {
-      if (result.isSuccess) setRound((value) => value + 1);
-    });
+    state.refetch();
+    setRound((value) => value + 1);
   };
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
-  if (state.isError)
+  if (state.isError || !state.data)
     return (
       <ErrorState
         title={t('StudyLoadError')}
@@ -101,22 +101,19 @@ function ReviewCards({
   restart?: () => void;
 }) {
   const { t, locale } = useI18n();
-  const client = useQueryClient();
   const [queue, setQueue] = useState(() => cards);
   const [revealed, setRevealed] = useState(false);
   const [completed, setCompleted] = useState(0);
   const focus = useRef<HTMLDivElement>(null);
   const card = queue[0];
-  const rating = useMutation({
-    ...reviewCardOptions(version.id, card?.cardId),
-    onSuccess: () => {
-      setQueue((previous) => previous.slice(1));
-      setCompleted((previous) => previous + 1);
+  const rating = useNativeAction(async (rating: 'again' | 'hard' | 'good' | 'easy') => {
+    if (!card) return;
 
-      setRevealed(false);
-      void client.invalidateQueries({ queryKey: ['learning', 'due'], refetchType: 'none' });
-      focus.current?.focus();
-    }
+    await rpc.learning.reviewCard.call({ versionId: version.id, cardId: card.cardId, rating });
+    setQueue((previous) => previous.slice(1));
+    setCompleted((previous) => previous + 1);
+    setRevealed(false);
+    focus.current?.focus();
   });
 
   useEffect(() => {

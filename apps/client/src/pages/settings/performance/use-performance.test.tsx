@@ -1,17 +1,12 @@
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { usePerformanceSettings } from './use-performance';
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
-
-vi.mock('#client/lib/study-client/concurrency.ts', () => ({
-  loadConcurrencySettings: api.load,
-  saveConcurrencySettings: api.save
-}));
 
 beforeEach(() => {
   api.load.mockReset().mockResolvedValue({ maxConcurrentAi: 2, maxQueuedAi: 16 });
@@ -19,15 +14,21 @@ beforeEach(() => {
 });
 
 function setup() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.concurrencySettings') return api.load();
+
+    if (tag === 'settings.saveConcurrencySettings') {
+      const result = await api.save(input);
+
+      await fixture.notify();
+
+      return result;
+    }
+
+    throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  return renderHook(() => usePerformanceSettings(), {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    )
-  });
+  return renderHook(() => usePerformanceSettings(), { wrapper: fixture.wrapper });
 }
 
 testStable('rejects invalid active and queue limits without sending a request', async () => {
@@ -69,20 +70,23 @@ testStable(
   }
 );
 
-testStable('does not save unchanged values and rolls back a failed save before retry', async () => {
-  const { result } = setup();
+testStable(
+  'does not save unchanged values and retains a failed draft before explicit retry',
+  async () => {
+    const { result } = setup();
 
-  await waitFor(() => expect(result.current.active.value).toBe('2'));
-  act(() => result.current.active.save());
-  expect(api.save).not.toHaveBeenCalled();
-  api.save.mockRejectedValue(new Error('offline'));
-  act(() => result.current.active.setValue('1'));
-  act(() => result.current.active.save());
-  await waitFor(() => expect(result.current.error).toBe(true));
-  expect(result.current.active.value).toBe('2');
-  act(() => result.current.retry());
-  await waitFor(() => expect(result.current.error).toBe(false));
-});
+    await waitFor(() => expect(result.current.active.value).toBe('2'));
+    act(() => result.current.active.save());
+    expect(api.save).not.toHaveBeenCalled();
+    api.save.mockRejectedValue(new Error('offline'));
+    act(() => result.current.active.setValue('1'));
+    act(() => result.current.active.save());
+    await waitFor(() => expect(result.current.error).toBe(true));
+    expect(result.current.active.value).toBe('1');
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.error).toBe(false));
+  }
+);
 
 testStable('exposes loading failures and retries to recover saved limits', async () => {
   api.load.mockRejectedValueOnce(new Error('offline'));
