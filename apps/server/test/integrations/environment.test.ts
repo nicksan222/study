@@ -82,3 +82,23 @@ testStable(
     }
   }
 );
+
+testStable('the integration install layer contains every locked workspace manifest', async () => {
+  const root = new URL('../../../../', import.meta.url);
+  const lock = Bun.JSON5.parse(await Bun.file(new URL('bun.lock', root)).text()) as {
+    workspaces: Record<string, unknown>;
+  };
+  const dockerfile = await Bun.file(new URL('Dockerfile', import.meta.url)).text();
+  const installLayer = dockerfile.split('RUN bun install')[0]!;
+  const inputs = [...installLayer.matchAll(/^COPY(?: --\S+)* (.+)$/gm)].flatMap((match) =>
+    match[1]!.split(/\s+/).slice(0, -1)
+  );
+
+  expect(inputs).toEqual(
+    expect.arrayContaining(
+      Object.keys(lock.workspaces).map((workspace) =>
+        workspace ? `${workspace}/package.json` : 'package.json'
+      )
+    )
+  );
+});
