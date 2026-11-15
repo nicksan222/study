@@ -27,6 +27,7 @@ export function authoredPage(id = 2n, text = '', versionId = 10n) {
       snapshotId: versionId + 100n,
       status: 'published',
       inputs: [],
+      unavailableInputs: [],
       citations: [],
       parents: [],
       document: {

@@ -1038,6 +1038,7 @@ export const italian = Object.freeze({
   PageCitation: 'Citazione',
   PageExact: 'Passaggio esatto',
   PageApproximate: 'Posizione approssimativa',
+  PageEvidenceUnavailable: 'Alcuni riferimenti usati non sono più disponibili.',
   PageSupport: 'Supporto:',
   PageUserAssessed: 'Valutato dall’utente',
   PageStale: 'Valutazione non aggiornata',

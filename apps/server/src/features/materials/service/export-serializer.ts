@@ -31,6 +31,25 @@ const json = (value: unknown) =>
 const csvCell = (s: string) =>
   '"' + (/^(?:\s*[=+@-]|[\t\r\n])/.test(s) ? "'" : '') + s.replaceAll('"', '""') + '"';
 
+function serializeCsv(rows: readonly string[][], provenance: readonly string[]) {
+  let body = '';
+  let remaining = MAX_EXPORT_BYTES;
+  const encoder = new TextEncoder();
+
+  for (const [index, row] of rows.entries()) {
+    const metadata = index === 0 ? ['versionId', 'inputs', 'citations'] : provenance;
+    const line = [...row, ...metadata].map(csvCell).join(',') + '\r\n';
+
+    remaining -= encoder.encode(line).length;
+
+    if (remaining < 0) throw new StudyError('invalid_input', 'Export exceeds byte limit');
+
+    body += line;
+  }
+
+  return body;
+}
+
 /** Exports exact canonical material content within the shared byte budget. */
 export function serializeMaterialVersion(
   version: MaterialVersionDetailDto,
@@ -75,7 +94,7 @@ export function serializeMaterialVersion(
     else throw new StudyError('unsupported', 'CSV requires flashcards or quiz content');
 
     omissions.push({ code: 'csv_structure' });
-    body = rows.map((row) => row.map(csvCell).join(',')).join('\r\n') + '\r\n';
+    body = serializeCsv(rows, [String(version.id), json(version.inputs), json(citations)]);
   }
 
   const bytes = new TextEncoder().encode(body);
