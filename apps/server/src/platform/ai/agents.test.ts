@@ -19,6 +19,7 @@ import { StudyError } from '@study/contracts/errors';
 import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
 import { AgentRule } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
+import { createAiMock } from '@study/testing/ai-mock';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';
@@ -31,6 +32,7 @@ import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { defineAgent, defineTool } from '#server/platform/definitions/define-agent';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { createServerTest } from '#testing/server-test';
 
 const definition = defineAgent({
@@ -302,98 +304,109 @@ testStable(
   }
 );
 
-testStable('executes a source tool and sends its result back to the provider', async () => {
-  const bodies: string[] = [];
+for (const intercepted of [false, true])
+  testStable(`executes a validated source tool with runtime adapter ${intercepted}`, async () => {
+    const bodies: string[] = [];
 
-  await peer(
-    (_req, body) => {
-      bodies.push(body);
+    await peer(
+      (_req, body) => {
+        bodies.push(body);
 
-      if (bodies.length !== 1) return send('Cells use energy.');
+        if (bodies.length !== 1) return send('Cells use energy.');
 
-      const call = {
-        type: 'function_call',
-        id: 'item1',
-        call_id: 'call1',
-        name: 'sources',
-        arguments: '{"query":"cell"}'
-      };
+        const call = {
+          type: 'function_call',
+          id: 'item1',
+          call_id: 'call1',
+          name: 'sources',
+          arguments: '{"query":"cell"}'
+        };
 
-      let events = '';
+        let events = '';
 
-      for (const event of [
-        { type: 'response.output_item.added', output_index: 0, item: call },
-        {
-          type: 'response.output_item.done',
-          output_index: 0,
-          item: { ...call, status: 'completed' }
-        },
-        { type: 'response.completed', response: {} }
-      ])
-        events += `data: ${JSON.stringify(event)}\n\n`;
+        for (const event of [
+          { type: 'response.output_item.added', output_index: 0, item: call },
+          {
+            type: 'response.output_item.done',
+            output_index: 0,
+            item: { ...call, status: 'completed' }
+          },
+          { type: 'response.completed', response: {} }
+        ])
+          events += `data: ${JSON.stringify(event)}\n\n`;
 
-      return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
-    },
-    async (base, auth) => {
-      const queries: string[] = [];
-      const observed: string[] = [];
-      const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-      const withTool = defineAgent({
-        ...definition,
-        tools: {
-          sources: defineTool({
-            description: 'Find sources',
-            wiki: {
-              when: 'Find evidence.',
-              examples: ['Find cells.'],
-              limits: 'Captured sources only.'
-            },
-            output: Schema.Array(
-              Schema.Struct({ id: Schema.String, name: Schema.String, text: Schema.String })
-            ),
-            mutates: false,
-            input: Schema.Struct({ query: Schema.String }),
-            execute: (input, environment) =>
-              environment.searchSources(
-                Schema.decodeUnknownSync(Schema.Struct({ query: Schema.String }))(input).query
-              )
-          })
-        }
-      });
-      const output = await Effect.runPromise(
-        generateAgent(withTool, 'x').pipe(
-          Effect.provide(
-            layer({
-              observe: (observation) =>
-                Effect.sync(() => {
-                  observed.push(observation.event.type);
-                }),
-              model: () => Effect.succeed(model),
-              language: 'en',
-              rules: Effect.succeed(defaultAgentRules),
-              searchSources: (query) => {
-                queries.push(query);
-
-                return Effect.succeed([{ id: '1', name: 'notes', text: 'Cells use energy' }]);
-              }
+        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
+      },
+      async (base, auth) => {
+        const queries: string[] = [];
+        const observed: string[] = [];
+        const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+        const withTool = defineAgent({
+          ...definition,
+          tools: {
+            sources: defineTool({
+              description: 'Find sources',
+              wiki: {
+                when: 'Find evidence.',
+                examples: ['Find cells.'],
+                limits: 'Captured sources only.'
+              },
+              output: Schema.Array(
+                Schema.Struct({ id: Schema.String, name: Schema.String, text: Schema.String })
+              ),
+              mutates: false,
+              input: Schema.Struct({ query: Schema.String }),
+              execute: (input, environment) =>
+                environment.searchSources(
+                  Schema.decodeUnknownSync(Schema.Struct({ query: Schema.String }))(input).query
+                )
             })
-          )
-        )
-      );
+          }
+        });
+        const executeTool: AgentsConfig['executeTool'] = intercepted
+          ? (call, _execute) =>
+              Effect.sync(() => {
+                expect(call.definition).toBe(withTool.tools.sources);
+                expect(call.input).toStrictEqual({ query: 'cell' });
 
-      assert.ok(output === 'Cells use energy.');
-      expect(queries).toStrictEqual(['cell']);
-      expect(bodies[1]).toMatch(/Cells use energy/);
-      expect(observed).toStrictEqual([
-        'start',
-        'tool-start',
-        'tool-finish',
-        'text-delta',
-        'complete'
-      ]);
-    }
-  );
-});
+                return [{ id: '1', name: 'notes', text: 'Cells use energy' }];
+              })
+          : undefined;
+        const output = await Effect.runPromise(
+          generateAgent(withTool, 'x').pipe(
+            Effect.provide(
+              layer({
+                observe: (observation) =>
+                  Effect.sync(() => {
+                    observed.push(observation.event.type);
+                  }),
+                model: () => Effect.succeed(model),
+                executeTool,
+                language: 'en',
+                rules: Effect.succeed(defaultAgentRules),
+                searchSources: (query) => {
+                  queries.push(query);
+
+                  return Effect.succeed([{ id: '1', name: 'notes', text: 'Cells use energy' }]);
+                }
+              })
+            )
+          )
+        );
+
+        assert.ok(output === 'Cells use energy.');
+        expect(queries).toStrictEqual(intercepted ? [] : ['cell']);
+        expect(bodies[1]).toMatch(/Cells use energy/);
+        expect(observed).toStrictEqual([
+          'start',
+          'tool-start',
+          'tool-finish',
+          'text-delta',
+          'complete'
+        ]);
+      }
+    );
+  });
 
 testStable(
   'streams text before the provider completes and never completes a truncated response',
@@ -1256,5 +1269,63 @@ testStable(
         });
       }
     );
+  }
+);
+
+testStable('model adapters receive the actual agent contract and validated input', async () => {
+  await peer(
+    () => send('Biology'),
+    async (base, auth) => {
+      const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+      const output = await Effect.runPromise(
+        generateAgent(definition, 'cells').pipe(
+          Effect.provide(
+            layer({
+              model: (_tier, call) =>
+                Effect.sync(() => {
+                  expect(call.definition).toBe(definition);
+                  expect(call.input).toBe('cells');
+
+                  return model;
+                }),
+              language: 'en',
+              rules: Effect.succeed(defaultAgentRules),
+              searchSources: () => Effect.succeed([])
+            })
+          )
+        )
+      );
+
+      expect(output).toBe('Biology');
+    }
+  );
+});
+
+testStable(
+  'internal provider retries cannot consume the next agent invocation expectation',
+  async () => {
+    using mock = createAiMock();
+    const unavailable = new StudyError('transient', 'Try this logical call again later');
+
+    mock.failNext(definition, { input: 'cells', error: unavailable });
+    mock.next(definition, { input: 'cells', output: 'The next logical call' });
+    const services = layer({
+      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
+      language: 'en',
+      rules: Effect.succeed(defaultAgentRules),
+      searchSources: () => Effect.succeed([])
+    });
+
+    const failed = await Effect.runPromise(
+      generateAgent(definition, 'cells', { maxRetries: 1 }).pipe(
+        Effect.flip,
+        Effect.provide(services)
+      )
+    );
+
+    expect(failed.kind).toBe('transient');
+    expect(
+      await Effect.runPromise(generateAgent(definition, 'cells').pipe(Effect.provide(services)))
+    ).toBe('The next logical call');
   }
 );

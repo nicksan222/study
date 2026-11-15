@@ -57,6 +57,26 @@ testStable('workspace ownership rejects misplaced AI providers and Drizzle depen
 });
 
 testStable(
+  'shared AI mocks may implement the provider protocol without owning real providers',
+  () => {
+    expect(
+      workspaceArchitecture({
+        ...valid,
+        'packages/testing': { dependencies: { '@ai-sdk/provider': '3.0.19' } }
+      })
+    ).toStrictEqual([]);
+
+    const issues = workspaceArchitecture({
+      ...valid,
+      'packages/testing': { dependencies: { ai: '6.0.316', '@ai-sdk/openai': '3.0.132' } },
+      'apps/client': { dependencies: { '@ai-sdk/provider': '3.0.19' } }
+    });
+
+    assert.strictEqual(issues.length, 3, issues.join('\n'));
+  }
+);
+
+testStable(
   'contracts expose browser-safe explicit entrypoints and cannot gain implementation dependencies',
   () => {
     const issues = workspaceArchitecture({

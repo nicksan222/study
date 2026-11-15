@@ -46,12 +46,16 @@ import { adaptProviderTool } from '#server/platform/ai/providers/tools';
 import { standardSchema } from '#server/platform/ai/schema';
 import { adaptTool, adaptRequestCheck, adaptUsageRecorder } from '#server/platform/ai/tool-adapter';
 import { withUsageTracking } from '#server/platform/ai/usage';
-import type { AgentDefinition, AgentEnvironment } from '#server/platform/definitions/define-agent';
+import type {
+  AgentDefinition,
+  AgentEnvironment,
+  AiInvocation
+} from '#server/platform/definitions/define-agent';
 import { recordAiRetry } from '#server/platform/observability/index';
 
 export interface AgentsConfig extends AgentEnvironment {
   rules: Effect.Effect<AgentRules, StudyError>;
-  model: (tier: ModelTier) => Effect.Effect<LanguageModelV3, StudyError>;
+  model: (tier: ModelTier, call: AiInvocation) => Effect.Effect<LanguageModelV3, StudyError>;
   recordUsage?: (usage: UsageRecord) => Effect.Effect<void>;
   now?: () => number;
   observe?: (observation: typeof agentObservationSchema.Type) => Effect.Effect<void, StudyError>;
@@ -151,12 +155,12 @@ export function streamAgent<
     const { steps, retries } = yield* agentLimits(options);
 
     const validated = yield* Effect.try({
-      try: () => Schema.decodeUnknownSync(definition.input)(input),
+      try: () => Schema.decodeUnknownSync(Schema.toType(definition.input))(input),
       catch: () => new StudyError('invalid_input', 'Invalid agent input')
     });
     const outputSchema =
       definition.mode === 'object' ? Schema.toCodecJson(definition.output) : definition.output;
-    const model = yield* service.model(definition.model);
+    const model = yield* service.model(definition.model, { definition, input: validated });
     const language =
       typeof service.language === 'string' ? service.language : yield* service.language;
     const rules = yield* service.rules;
