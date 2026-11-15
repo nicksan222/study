@@ -98,7 +98,10 @@ testStable(
     expect(screen.getByRole('textbox', { name: 'content' })).toHaveAttribute('readonly');
     expect(screen.getByRole('region', { name: 'editor' })).toHaveAttribute('data-snapshot', '120');
     expect(screen.getByRole('button', { name: 'NotePreviousVersion' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'NoteNextVersion' }));
+    const next = screen.getByRole('button', { name: 'NoteNextVersion' });
+
+    await waitFor(() => expect(next).toBeEnabled());
+    fireEvent.click(next);
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'content' })).toHaveValue('Current text')
     );

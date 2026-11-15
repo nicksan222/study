@@ -191,7 +191,10 @@ testStable(
     const user = userEvent.setup();
     const { router } = mountLibraryRoute('/practice/41', rpc);
 
-    await user.click(await screen.findByRole('button', { name: en.PracticeStartQuiz }));
+    const start = await screen.findByRole('button', { name: en.PracticeStartQuiz });
+
+    await waitFor(() => expect(start).toBeEnabled());
+    await user.click(start);
     await screen.findByRole('heading', { name: question.prompt });
     expect(router.state.location.pathname).toBe('/practice/41');
     expect(router.state.location.search.attempt).toBe('70');
