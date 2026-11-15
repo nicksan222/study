@@ -98,14 +98,14 @@ jobs:
           if-no-files-found: ignore
 
   browser:
-    name: 🌐 Browser journeys (${{ matrix.shard }}/2)
+    name: 🌐 Browser journeys (${{ matrix.shard }}/3)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 3
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
@@ -118,7 +118,7 @@ jobs:
           env: |
             CI=true
             GITHUB_SHA
-          runCmd: bun run web:e2e:compare --shard=${{ matrix.shard }}/2
+          runCmd: bun run web:e2e:compare --shard=${{ matrix.shard }}/3
       - name: 📸 Retain screenshots, traces and browser reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7

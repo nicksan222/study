@@ -21,7 +21,7 @@ Thank you for helping with Study.
   🗄️ Database, 🌐 Browser journeys, 🦀 Desktop & runtime, 🔌 Provider integrations and
   🌍 Landing page. Each lane selects tasks from the same Turbo graph. Static checks and
   landing builds no longer wait for native toolchain setup; browser journeys have their
-  own two-shard matrix and canonical devcontainer. Each shard uses two workers;
+  own three-shard matrix and canonical devcontainer. Each shard uses two workers;
   independent cases, including settings pages in one file, can run in parallel. The
   required `Test and build` check fails if any lane fails, is cancelled, is skipped or is missing. Independent tasks continue after
   failures; dependent tasks run only when their prerequisites pass. The client build
@@ -452,8 +452,8 @@ commands. Their `ci:*` scripts allow two independent tasks at once. The JavaScri
 owns typechecks, the client build and client/tooling unit tests; server and database
 suites have separate jobs and reports. Browser, integration and landing jobs select
 `web:e2e:compare`, `integrations:e2e` and `landing-check`, respectively. Browser CI
-uses native Playwright `--shard=1/2` and `--shard=2/2` with case-level
-parallelism; the sequential harness cleanup checks stay in one worker. Both shards run
+uses native Playwright `--shard=1/3`, `--shard=2/3` and `--shard=3/3` with case-level
+parallelism; the sequential harness cleanup checks stay in one worker. All shards run
 even after a sibling fails and upload separately named diagnostics. The required gate
 waits for the entire matrix and rejects a failed or cancelled shard. Other lanes run
 without sharding. No lane uses a path filter or change detector. Turbo decides which

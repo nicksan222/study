@@ -160,24 +160,28 @@ testStable(
       return specs;
     }
 
-    const [all, first, second] = await Promise.all([catalog(), catalog('1/2'), catalog('2/2')]);
+    const [all, ...shards] = await Promise.all([
+      catalog(),
+      catalog('1/3'),
+      catalog('2/3'),
+      catalog('3/3')
+    ]);
     const ids = (specs: typeof all) => specs.map((spec) => spec.id).sort();
 
-    expect(ids([...first, ...second])).toEqual(ids(all));
-    expect(new Set(ids([...first, ...second])).size).toBe(all.length);
+    expect(ids(shards.flat())).toEqual(ids(all));
+    expect(new Set(ids(shards.flat())).size).toBe(all.length);
 
-    for (const shard of [first, second])
-      expect(shard.filter((spec) => spec.file.endsWith('settings.test.ts')).length).toBeGreaterThan(
-        0
-      );
+    expect(
+      shards.filter((shard) => shard.some((spec) => spec.file.endsWith('settings.test.ts'))).length
+    ).toBeGreaterThan(1);
 
     // The two consecutive fixtures must stay on one worker to exercise fixture cleanup.
     expect(
-      [first, second]
+      shards
         .map(
           (shard) => shard.filter((spec) => spec.file.endsWith('worker-a.browser.test.ts')).length
         )
         .sort()
-    ).toEqual([0, 2]);
+    ).toEqual([0, 0, 2]);
   }
 );

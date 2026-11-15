@@ -54,15 +54,15 @@ testStable('browser shards run the full catalog without cancelling sibling diagn
 
   assert.deepEqual(browser.strategy, {
     'fail-fast': false,
-    'max-parallel': 2,
-    matrix: { shard: [1, 2] }
+    'max-parallel': 3,
+    matrix: { shard: [1, 2, 3] }
   });
   const runner = browser.steps!.find((step) => step.with?.runCmd);
   const artifacts = browser.steps!.find((step) =>
     step.uses?.startsWith('actions/upload-artifact@')
   );
 
-  assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/2');
+  assert.equal(runner?.with?.runCmd, 'bun run web:e2e:compare --shard=${{ matrix.shard }}/3');
   assert.equal(artifacts?.if, '${{ always() }}');
   assert.equal(artifacts?.with?.name, 'web-e2e-diagnostics-${{ matrix.shard }}');
 });
