@@ -6,6 +6,11 @@ import { safeName } from './identity.ts';
 import { updateAllowed, requireScreenshots } from './screenshots.ts';
 import { temporaryArtifacts } from './temporary.ts';
 
+const snapshotPolicy = {
+  config: { updateSnapshots: 'none' as const },
+  project: { ignoreSnapshots: false }
+};
+
 testStable('screenshot paths and scoped baseline updates fail closed', () => {
   for (const name of ['../escape', '/absolute', '', 'a/b', 'x'.repeat(81)])
     expect(() => safeName(name)).toThrow();
@@ -57,7 +62,8 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
       page as unknown as Page,
       'late',
       await temporaryArtifacts(),
-      'contract'
+      'contract',
+      snapshotPolicy
     );
     const pending = screenshots.expectScreenshot(stage, {
       target: 'viewport',
@@ -112,7 +118,8 @@ testStable(
           page as unknown as Page,
           'focus',
           await temporaryArtifacts(),
-          'contract'
+          'contract',
+          snapshotPolicy
         );
 
         await expect(
@@ -130,5 +137,40 @@ testStable(
         if (focus !== 'preserve') expect(calls[3]).toBe('.note-index-target[tabindex="-1"]:focus');
       }
     }
+  }
+);
+
+testStable.each(['all', 'changed'] as const)(
+  'comparison rejects a native UI policy changed after fixture creation: %s',
+  async (mode) => {
+    const { screenshotAssertions } = await import('./screenshots.ts');
+    const policy: Parameters<typeof screenshotAssertions>[4] = {
+      config: { updateSnapshots: 'none' },
+      project: { ignoreSnapshots: false }
+    };
+    const calls: string[] = [];
+    const page = {
+      evaluate: async () => {},
+      locator: () => ({ evaluate: async () => {}, count: async () => 0 }),
+      screenshot: async (options: { path?: string }) => {
+        calls.push(options.path ? 'diagnostic' : 'capture');
+
+        return Buffer.from([]);
+      }
+    };
+    const screenshots = screenshotAssertions(
+      page as unknown as Page,
+      'ui-policy',
+      await temporaryArtifacts(),
+      'contract',
+      policy
+    );
+
+    policy.config.updateSnapshots = mode;
+    await expect(
+      screenshots.expectScreenshot('blocked', { target: 'viewport', ready: async () => {} })
+    ).rejects.toThrow('native snapshot overrides are forbidden');
+    expect(calls).toEqual(['diagnostic']);
+    expect(() => screenshots.verify()).toThrow('screenshot');
   }
 );

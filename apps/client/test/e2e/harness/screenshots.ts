@@ -1,7 +1,9 @@
 import type { Locator, Page } from 'playwright';
 import { expect } from 'playwright/test';
+import type { TestInfo } from 'playwright/test';
 
 import { safeName } from './identity.ts';
+import { assertSnapshotComparison } from './preflight.ts';
 
 export function updateAllowed(workflow: string, name: string, env = process.env): boolean {
   if (env.E2E_UPDATE && env.CI) throw new Error('Baseline updates are forbidden in CI');
@@ -31,6 +33,10 @@ export function screenshotAssertions(
   workflow: string,
   directory: string,
   profile: string,
+  info: {
+    config: Pick<TestInfo['config'], 'updateSnapshots'>;
+    project: Pick<TestInfo['project'], 'ignoreSnapshots'>;
+  },
   soft = false
 ) {
   let count = 0;
@@ -122,6 +128,7 @@ export function screenshotAssertions(
             fence();
             await Bun.write(baselinePath(profile, workflow, name), actual);
           } else {
+            assertSnapshotComparison(info.config.updateSnapshots, info.project.ignoreSnapshots);
             const snapshotExpect = soft ? expect.soft : expect;
 
             await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(

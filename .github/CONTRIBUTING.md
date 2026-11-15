@@ -399,6 +399,12 @@ and expected/actual/diff attachments; Study retains application readiness, focus
 and explicitly scoped updates. Native runner outputs live under `apps/client/test-results/playwright`, and
 its HTML report lives under `apps/client/test-results/report`. Playwright clears its previous
 run outputs at the start of the next run and retains test artifacts only for failures.
+CI also enables Vitest's built-in JUnit reporter. Every package writes under its own
+`test-results/vitest/` directory; integration runs use `integrations.xml` alongside unit
+`junit.xml`. CI retains reports for JavaScript, server and integration jobs even on failures.
+Turbo caches restore report files with deterministic test results. Use `CI=true` for the
+same reporters locally; ordinary local runs keep console output only.
+
 Selected Projects, Settings, composer and bilingual note-edit checkpoints also run
 `@axe-core/playwright` WCAG 2.1 A/AA scans through `expectAccessibility(name)`.
 Violations fail the journey and the native report includes the complete axe JSON result.

@@ -63,13 +63,10 @@ async function collect(configFile: string): Promise<Map<string, Journey>> {
 
 /** Validate the complete native catalog before any worker can write a baseline, even with --grep. */
 export default async function setup(config: FullConfig): Promise<void> {
-  if (
-    config.updateSnapshots !== 'none' ||
+  assertSnapshotComparison(
+    config.updateSnapshots,
     config.projects.some((project) => project.ignoreSnapshots)
-  )
-    throw new Error(
-      'Use web:e2e:update for scoped baseline updates; native snapshot overrides are forbidden'
-    );
+  );
 
   if (!process.env.E2E_UPDATE) await collect(config.configFile!);
 }
@@ -89,4 +86,15 @@ export async function workflowSelection(configFile: string, scope: string | unde
     .join('(?: @\\S+)* ');
 
   return new RegExp(`(?:^| )${pattern}(?: @\\S+)*$`);
+}
+
+/** UI mode can replace the run policy after global setup has already completed. */
+export function assertSnapshotComparison(
+  updateSnapshots: FullConfig['updateSnapshots'],
+  ignoreSnapshots: boolean
+): void {
+  if (updateSnapshots !== 'none' || ignoreSnapshots)
+    throw new Error(
+      'Use web:e2e:update for scoped baseline updates; native snapshot overrides are forbidden'
+    );
 }

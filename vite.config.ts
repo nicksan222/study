@@ -8,7 +8,9 @@ export default defineConfig({
   fmt,
   lint,
   test: {
-    reporters: ['verbose'],
+    reporters: process.env.CI
+      ? ['verbose', ['junit', { outputFile: `${process.cwd()}/test-results/vitest/junit.xml` }]]
+      : ['verbose'],
     maxWorkers: 2,
     silent: 'passed-only',
     projects: [

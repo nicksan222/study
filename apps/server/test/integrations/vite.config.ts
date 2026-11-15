@@ -15,6 +15,12 @@ import { defineConfig } from 'vite-plus';
 export default defineConfig({
   root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
   test: {
+    reporters: process.env.CI
+      ? [
+          'verbose',
+          ['junit', { outputFile: `${process.cwd()}/test-results/vitest/integrations.xml` }]
+        ]
+      : ['verbose'],
     disableConsoleIntercept: true,
     include: [
       'apps/server/test/integrations/integrations.e2e.ts',
