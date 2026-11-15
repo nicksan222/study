@@ -236,8 +236,10 @@ builds skip the updater. Linux in-app updates require the AppImage distribution.
 Tauri’s pre-build hook stages Bun, the private server’s source, locked production
 dependencies, the macOS SQLite library and Drizzle migrations under `target/desktop-runtime`. The same resources
 ship in both installers and updates. Every platform smoke-tests Tauri’s copied runtime
-from `target/devcontainer/<target>/release` in an isolated directory with a fresh database
-and no dependency on a system Bun installation. Release size reports use the same Cargo output directory. Run
+from `target/devcontainer/<target>/release` in an isolated directory with a fresh database,
+then restarts against that database without depending on a system Bun installation.
+On macOS, even read-only startup validation selects the bundled SQLite library before
+opening a connection. Release size reports use the same Cargo output directory. Run
 `bun run desktop:runtime` to stage it independently. macOS development also requires
 `brew install sqlite`, since Bun’s system SQLite cannot load the vector extension.
 Linux CI and the devcontainer use the pinned Patchelf 0.19.3 from

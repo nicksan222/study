@@ -1,4 +1,5 @@
 import { BunFileSystem } from '@effect/platform-bun';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { eq, sql } from 'drizzle-orm';
 import { Effect, FileSystem } from 'effect';
@@ -199,6 +200,38 @@ testStable('opens an in-memory database and closes the underlying connection', a
   db.close();
   assert.throws(() => db.exec('SELECT 1'), /closed/);
 });
+
+testStable('existing database preflight initializes SQLite in a fresh process', () =>
+  fixture(async (path) => {
+    const db = await Db.open(path);
+
+    try {
+      db.orm
+        .insert(projects)
+        .values({ name: 'Retained project', created_at: 1n, updated_at: 1n })
+        .run();
+    } finally {
+      db.close();
+    }
+
+    const child = spawnTestProcess(
+      [
+        process.execPath,
+        Bun.fileURLToPath(new URL('./fixtures/validate-first.ts', import.meta.url)),
+        path
+      ],
+      { stdout: 'pipe', stderr: 'pipe' }
+    );
+    const [status, stdout, stderr] = await Promise.all([
+      child.exited,
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text()
+    ]);
+
+    assert.strictEqual(status, 0, stderr);
+    expect(JSON.parse(stdout)).toStrictEqual([{ name: 'Retained project' }]);
+  })
+);
 
 testStable('nested commits return callback values and roll back with the outer transaction', () =>
   fixture(nestedCommits)
