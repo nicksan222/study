@@ -10,7 +10,8 @@
     "./client": "./src/client/index.ts",
     "./runtime": "./src/runtime/index.ts",
     "./runtime/ownership": "./src/runtime/ownership.ts",
-    "./runtime/database": "./src/runtime/database.ts"
+    "./runtime/database": "./src/runtime/database.ts",
+    "./testing": "./test/testing/study-materials.ts"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project server apps/server",

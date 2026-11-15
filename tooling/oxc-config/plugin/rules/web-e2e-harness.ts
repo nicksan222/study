@@ -402,6 +402,10 @@ export default defineRule({
     function registration(node: any): boolean {
       const owner = root(node.callee);
 
+      // Native fixture configuration does not register a browser journey.
+      if (node.callee?.type === 'MemberExpression' && node.callee.property?.name === 'use' && canonical(owner))
+        return false;
+
       return (
         owner?.type === 'Identifier' &&
         /^test(?:Stable|E2e|Regression|Migration|Characterization)$/.test(owner.name) &&
