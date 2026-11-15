@@ -58,3 +58,20 @@ testStable('shared fixture directories are removed after failures', async () => 
   ).rejects.toThrow('fixture failure');
   expect(await Bun.file(`${path}/fixture`).exists()).toBe(false);
 });
+
+testStable.each(['array', 'object'])(
+  'synchronous commands cannot ignore the shared timeout (%s options)',
+  (form) => {
+    const cmd = [
+      process.execPath,
+      '-e',
+      "process.on('SIGTERM', () => {}); setTimeout(() => process.exit(0), 3000);"
+    ];
+    const result =
+      form === 'array'
+        ? spawnTestProcessSync(cmd, { timeout: 500 })
+        : spawnTestProcessSync({ cmd, timeout: 500 });
+
+    expect(result.signalCode).toBe('SIGKILL');
+  }
+);

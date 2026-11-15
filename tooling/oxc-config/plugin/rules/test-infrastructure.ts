@@ -1,44 +1,17 @@
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';
-import { binding, imported, memberName } from '../lexical-bindings.ts';
+import { imported, memberName } from '../lexical-bindings.ts';
+import { bunOperation, namespaceImport } from '../process-operations.ts';
 import { resolveValue } from './module-factories.ts';
-
-function bunOperation(context: any, callee: any): string | undefined {
-  for (const name of ['spawn', 'spawnSync', 'sleep'])
-    if (imported(context, resolveValue(context, callee), /^bun$/, name)) return name;
-
-  const value = resolveValue(context, callee);
-
-  if (value?.type !== 'MemberExpression') return;
-
-  const owner = resolveValue(context, value.object);
-
-  if (
-    (owner?.type === 'Identifier' &&
-      owner.name === 'Bun' &&
-      !binding(context, owner)?.defs.length) ||
-    namespace(context, owner, /^bun$/)
-  )
-    return memberName(value);
-}
-
-function namespace(context: any, node: any, source: RegExp): boolean {
-  return (
-    binding(context, node)?.defs.some(
-      (definition: any) =>
-        definition.node.type === 'ImportNamespaceSpecifier' &&
-        source.test(definition.node.parent.source.value)
-    ) ?? false
-  );
-}
 
 function importedCall(context: any, node: any, source: RegExp, name: string): boolean {
   const value = resolveValue(context, node);
 
   return (
     imported(context, value, source, name) ||
-    (memberName(value) === name && namespace(context, resolveValue(context, value.object), source))
+    (memberName(value) === name &&
+      namespaceImport(context, resolveValue(context, value.object), source))
   );
 }
 

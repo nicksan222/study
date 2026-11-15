@@ -15,6 +15,7 @@
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
+import { testPolicy } from '@study/testing/config';
 import { spawnTestProcess } from '@study/testing/process';
 import { testStable, waitFor } from '@study/testing/vitest';
 import { Effect } from 'effect';
@@ -26,7 +27,7 @@ import { createServerTest } from '#testing/server-test';
 for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
   testStable(
     `server entry serves native RPC and shuts down on ${shutdown}`,
-    { timeout: 30_000 },
+    { timeout: testPolicy.processStartupTimeout },
     async (t) => {
       const testDatabase = createServerTest(t, { app: false });
       const env: Record<string, string | undefined> = {
@@ -72,7 +73,9 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
       });
 
       try {
-        await waitFor(() => assert.ok(stdout.length > 0 || child.exitCode !== null));
+        await waitFor(() => assert.ok(stdout.length > 0 || child.exitCode !== null), {
+          timeout: testPolicy.processStartupTimeout
+        });
 
         assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
 

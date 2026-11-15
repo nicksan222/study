@@ -10,6 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { connectDevTools } from '#tooling/testing/integrations/devtools';
 import { fs, path, run } from '#tooling/testing/integrations/filesystem';
 import { requireIntegrationContainer } from '#tooling/testing/integrations/guard';
 
@@ -39,46 +40,7 @@ async function renderer(port: number) {
 
   if (!page) throw new Error('Obsidian renderer is not ready');
 
-  const socket = new WebSocket(page.webSocketDebuggerUrl);
-
-  await new Promise<void>((resolve, reject) => {
-    socket.addEventListener('open', () => resolve(), { once: true });
-    socket.addEventListener('error', () => reject(new Error('DevTools connection failed')), {
-      once: true
-    });
-  });
-  let sequence = 0;
-  const pending = new Map<number, { resolve(value: unknown): void; reject(error: Error): void }>();
-
-  socket.addEventListener('message', (message) => {
-    const response = JSON.parse(String(message.data));
-    const request = pending.get(response.id);
-
-    if (!request) return;
-
-    pending.delete(response.id);
-
-    if (response.error || response.result?.exceptionDetails)
-      request.reject(new Error(JSON.stringify(response)));
-    else request.resolve(response.result?.result?.value);
-  });
-
-  return {
-    evaluate: (expression: string) =>
-      new Promise<unknown>((resolve, reject) => {
-        const id = ++sequence;
-
-        pending.set(id, { resolve, reject });
-        socket.send(
-          JSON.stringify({
-            id,
-            method: 'Runtime.evaluate',
-            params: { expression, awaitPromise: true, returnByValue: true }
-          })
-        );
-      }),
-    close: () => socket.close()
-  };
+  return connectDevTools(page.webSocketDebuggerUrl);
 }
 
 export async function startObsidian(directory: string) {

@@ -2,6 +2,8 @@ import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Effect, FileSystem, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
+import { imported } from '../lexical-bindings.ts';
+import { bunOperation } from '../process-operations.ts';
 import { property } from './effect-lifecycle-syntax.ts';
 import { resolveValue } from './module-factories.ts';
 
@@ -119,6 +121,28 @@ function commandArguments(context: any, input: any): any[] {
   return command?.type === 'ArrayExpression' ? command.elements : [];
 }
 
+function processCall(context: any, node: any): boolean {
+  const operation = bunOperation(context, node);
+
+  return (
+    operation === 'spawn' ||
+    operation === 'spawnSync' ||
+    imported(context, resolveValue(context, node), /^@study\/testing\/process$/)
+  );
+}
+
+function dockerArguments(context: any, node: any, shared: boolean): any[] | null {
+  const helper = shared && node.callee.type === 'Identifier' && node.callee.name === 'docker';
+
+  if (!helper && !processCall(context, node.callee)) return null;
+
+  const args = commandArguments(context, node.arguments[0]);
+
+  if (helper) return args;
+
+  return args[0]?.value === 'docker' ? args.slice(1) : null;
+}
+
 function sharedDockerfile(args: any[]): boolean {
   const index = args.findIndex((arg) => arg?.type === 'Literal' && arg.value === '--file');
   const file = args[index + 1];
@@ -155,17 +179,20 @@ export default defineRule({
 
     return {
       CallExpression(node) {
-        const args = commandArguments(context, node.arguments[0]);
+        const args = dockerArguments(context, node, shared);
 
-        if (args[0]?.type !== 'Literal') return;
+        if (!args) return;
 
-        if (!shared && args[0].value === 'docker') context.report({ node, messageId: 'runtime' });
-
-        if (shared && args[0].value === 'build' && !sharedDockerfile(args))
+        if (!shared) context.report({ node, messageId: 'runtime' });
+        else if (args[0]?.value === 'build' && !sharedDockerfile(args))
           context.report({ node, messageId: 'image' });
       },
       TaggedTemplateExpression(node) {
-        if (!shared && /^\s*docker\s/.test(node.quasi.quasis[0]?.value.cooked ?? ''))
+        if (
+          !shared &&
+          bunOperation(context, node.tag) === '$' &&
+          /^\s*docker\s/.test(node.quasi.quasis[0]?.value.cooked ?? '')
+        )
           context.report({ node, messageId: 'runtime' });
       },
       Program(node) {

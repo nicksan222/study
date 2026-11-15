@@ -6,8 +6,8 @@ import { testPolicy } from './config.ts';
 export const spawnTestProcess: typeof Bun.spawn = ((...args: any[]) => {
   const [input, options] = args;
   const child = Array.isArray(input)
-    ? Bun.spawn(input, { timeout: testPolicy.processTimeout, ...options })
-    : Bun.spawn({ timeout: testPolicy.processTimeout, ...input });
+    ? Bun.spawn(input, { timeout: testPolicy.processTimeout, killSignal: 'SIGKILL', ...options })
+    : Bun.spawn({ timeout: testPolicy.processTimeout, killSignal: 'SIGKILL', ...input });
 
   onTestFinished(async () => {
     if (child.exitCode !== null) return;
@@ -32,6 +32,10 @@ export const spawnTestProcessSync: typeof Bun.spawnSync = ((...args: any[]) => {
   const [input, options] = args;
 
   return Array.isArray(input)
-    ? Bun.spawnSync(input, { timeout: testPolicy.processTimeout, ...options })
-    : Bun.spawnSync({ timeout: testPolicy.processTimeout, ...input });
+    ? Bun.spawnSync(input, {
+        timeout: testPolicy.processTimeout,
+        killSignal: 'SIGKILL',
+        ...options
+      })
+    : Bun.spawnSync({ timeout: testPolicy.processTimeout, killSignal: 'SIGKILL', ...input });
 }) as typeof Bun.spawnSync;

@@ -80,11 +80,14 @@ testStable(
   }
 );
 
-testStable('the shared container builder cannot drift to a different Dockerfile', async () => {
+testStable.each([
+  "const docker = (_args: string[]) => {}; docker(['build', '--file', 'private/Dockerfile']);",
+  "Bun.spawn(['docker', 'build', '--file', 'private/Dockerfile', '.']);",
+  "Bun.spawn({cmd: ['docker', 'build', '--file', 'private/Dockerfile', '.']});"
+])('the shared container builder cannot drift to a different Dockerfile: %s', async (source) => {
   const diagnostics = await lintFiles(
     fixture({
-      [`${directory}/environment.ts`]:
-        "const docker = (_args: string[]) => {}; docker(['build', '--file', 'private/Dockerfile']);"
+      [`${directory}/environment.ts`]: source
     }),
     'integration-test-environment',
     true
@@ -121,4 +124,17 @@ testStable.each([
   expect(diagnostics.map((item) => item.message)).toContain(
     'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
   );
+});
+
+testStable('Docker command data and ordinary templates are not process launches', async () => {
+  const diagnostics = await lintFiles(
+    fixture({
+      [`${directory}/providers/obsidian/import.integration.test.ts`]:
+        "expect(['docker', 'run', 'other']); String.raw`docker run other`;"
+    }),
+    'integration-test-environment',
+    true
+  );
+
+  expect(diagnostics).toHaveLength(0);
 });
