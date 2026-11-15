@@ -55,7 +55,12 @@ function registration<T extends Callable>(runner: T, category: string): T & Regi
   for (const method of ['each', 'for', 'extend', 'override'])
     Object.defineProperty(classified, method, {
       value: (...args: unknown[]) => {
-        const expanded: unknown = Reflect.apply(Reflect.get(runner, method), runner, args);
+        const native: unknown = Reflect.get(runner, method);
+
+        if (!callable(native))
+          throw new TypeError(`Unsupported test registration method: ${method}`);
+
+        const expanded: unknown = Reflect.apply(native, runner, args);
 
         if (!callable(expanded))
           throw new TypeError('Fixture and parameterized APIs must return a registration function');
@@ -65,7 +70,13 @@ function registration<T extends Callable>(runner: T, category: string): T & Regi
     });
 
   Object.defineProperty(classified, 'concurrent', {
-    get: () => registration(Reflect.get(runner, 'concurrent'), category)
+    get() {
+      const concurrent: unknown = Reflect.get(runner, 'concurrent');
+
+      if (!callable(concurrent)) throw new TypeError('Concurrent test registration is unavailable');
+
+      return registration(concurrent, category);
+    }
   });
 
   return classified as T & Registration;
