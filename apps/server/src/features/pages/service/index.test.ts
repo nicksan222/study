@@ -366,10 +366,12 @@ testStable(
 
           assert.ok(linked.version);
           expect(linked.version.inputs).toStrictEqual([input]);
+          expect(linked.version.unavailableInputs).toStrictEqual([]);
           f.context.db.exec('DELETE FROM notes WHERE id=1');
           const retained = yield* docs.version({ id: linked.version.id });
 
           expect(retained.inputs).toStrictEqual([input]);
+          expect(retained.unavailableInputs).toStrictEqual([input]);
           assert.ok(retained.citations[0]?.quote === 'Exact message');
           assert.ok(
             f.context.db.orm.get(

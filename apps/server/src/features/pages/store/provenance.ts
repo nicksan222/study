@@ -14,6 +14,7 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import * as c from '@study/contracts/pages/schemas';
 import type { PageCitation, ExactPageInput } from '@study/contracts/pages/types';
+import { anchorSchema } from '@study/contracts/sources/schemas';
 import type { documentSchema } from '@study/contracts/sources/schemas';
 import { and, eq, inArray } from '@study/db';
 import * as s from '@study/db/schema';
@@ -106,7 +107,14 @@ export function makePageEvidence(resources: StoreResources) {
             ? content(input.snapshotId)
             : null;
 
-      if (!body || !validRange(body, citation.target, citation.quote))
+      const block = body?.blocks.find((block) => block.id === citation.target?.blockId);
+
+      if (
+        !body ||
+        !block ||
+        !Schema.toEquivalence(anchorSchema)(block.anchor, citation.anchor) ||
+        !validRange(body, citation.target, citation.quote)
+      )
         invalid('Citation target must match its exact input and quote');
     }
   }

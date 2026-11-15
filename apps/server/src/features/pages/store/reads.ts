@@ -119,6 +119,11 @@ export function makePageReads({ db }: StoreResources) {
         .all()
         .map((p) => p.parent_version_id),
       inputs: inputs.map(inputValue),
+      unavailableInputs: inputs
+        .filter(
+          (input) => input.exact_message_version_id !== null && input.message_version_id === null
+        )
+        .map(inputValue),
       citations,
       document: content(v.content_snapshot_id)
     };

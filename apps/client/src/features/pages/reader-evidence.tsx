@@ -1,4 +1,5 @@
 import type { assessmentViewSchema } from '@study/contracts/pages/evidence';
+import { exactInputSchema } from '@study/contracts/pages/schemas';
 import type { citationSchema } from '@study/contracts/pages/schemas';
 import type { PageVersion } from '@study/contracts/pages/types';
 import { LoadMoreButton } from '@study/ui/action-button';
@@ -9,6 +10,7 @@ import { Loading } from '@study/ui/loading';
 import { MaterialLibrary } from '@study/ui/material-library';
 import { StatusMessage } from '@study/ui/status-message';
 import { Textarea } from '@study/ui/textarea';
+import { Schema } from 'effect';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -42,9 +44,11 @@ const judgmentLabels = {
 
 function CitationDetails({
   citation,
+  unavailable,
   assessment
 }: {
   citation: Citation;
+  unavailable: boolean;
   assessment?: typeof assessmentViewSchema.Type;
 }) {
   const { t } = useI18n();
@@ -57,6 +61,7 @@ function CitationDetails({
         {t('PageCitation')} {citation.marker} ·{' '}
         {t(citation.target ? 'PageExact' : 'PageApproximate')}
       </p>
+      {unavailable && <p>{t('ReaderUnavailable')}</p>}
       {input.kind === 'page' && (
         <CapturedInputLink input={input} name={t('AnnotationOpenTarget')} />
       )}
@@ -105,10 +110,16 @@ function CitationResults({ c }: { c: EvidenceController }) {
 
   return (
     <>
+      {!!citations.data?.unavailableInputs.length && (
+        <StatusMessage>{t('PageEvidenceUnavailable')}</StatusMessage>
+      )}
       {citations.data?.citations.map((citation) => (
         <CitationDetails
           key={citation.marker}
           citation={citation}
+          unavailable={citations.data!.unavailableInputs.some((input) =>
+            Schema.toEquivalence(exactInputSchema)(input, citation.input)
+          )}
           assessment={records.find((record) => record.assessment.marker === citation.marker)}
         />
       ))}

@@ -13,8 +13,10 @@
  */
 
 import { materialVersionIdSchema } from '@study/contracts/ids';
+import { contentInputSchema } from '@study/contracts/inputs';
 import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
 import { MaterialsRpc } from '@study/contracts/materials/rpc';
+import { materialCitationSchema } from '@study/contracts/materials/schemas';
 import type { materialContentInputSchema } from '@study/contracts/materials/schemas';
 import { PagesRpc } from '@study/contracts/pages/rpc';
 import { SourcesRpc } from '@study/contracts/sources/rpc';
@@ -175,7 +177,7 @@ testStable(
             const rpc = yield* RpcTest.makeClient(MaterialsRpc, { flatten: true });
 
             const docs = yield* RpcTest.makeClient(PagesRpc, { flatten: true });
-            const document = deletionDocument('Evidence é😀');
+            const document = deletionDocument('Evidence é😀\nQuoted "text", next');
             const owner = yield* docs('pages.create', {
               createKey: crypto.randomUUID(),
               inputs: [],
@@ -219,7 +221,7 @@ testStable(
                 id: aid.version.id,
                 citations: [
                   {
-                    marker: 4294967295n,
+                    marker: 4294967294n,
                     input: { kind: 'page' as const, versionId: owner.version!.id },
                     anchor: { type: 'authored' },
                     quote: 'Evidence',
@@ -228,6 +230,12 @@ testStable(
                       start: 0,
                       end: 8
                     }
+                  },
+                  {
+                    marker: 4294967295n,
+                    input: { kind: 'page' as const, versionId: owner.version!.id },
+                    anchor: { type: 'authored' },
+                    quote: 'é😀\nQuoted "text", next'
                   }
                 ]
               });
@@ -267,6 +275,30 @@ testStable(
                   .id,
                 wide.id
               );
+              const csv = serializeMaterialVersion(wide, 'csv', citations);
+              const cells = Array.from(
+                new TextDecoder().decode(csv.bytes).matchAll(/"((?:[^"]|"")*)"(?:,|\r\n)/g),
+                (match) => match[1]!.replaceAll('""', '"')
+              );
+              const columns = content.kind === 'flashcards' ? 3 : 5;
+
+              expect(cells.slice(columns, columns + 3)).toStrictEqual([
+                'versionId',
+                'inputs',
+                'citations'
+              ]);
+              assert.strictEqual(cells[columns * 2 + 3], String(wide.id));
+              expect(
+                Schema.decodeUnknownSync(
+                  Schema.fromJsonString(Schema.toCodecJson(Schema.Array(contentInputSchema)))
+                )(cells[columns * 2 + 4])
+              ).toStrictEqual(version.inputs);
+              expect(
+                Schema.decodeUnknownSync(
+                  Schema.fromJsonString(Schema.toCodecJson(Schema.Array(materialCitationSchema)))
+                )(cells[columns * 2 + 5])
+              ).toEqual(citations);
+              assert.strictEqual(citations[1]!.target, undefined);
             }
           })
         ).pipe(Effect.provide(f.handlers))

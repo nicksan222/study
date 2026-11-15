@@ -399,6 +399,13 @@ testStable(
       await annotateLibrary(fixture, retainedIds);
 
       const beforeDeletion = await libraryState(fixture, retainedIds);
+      const afterDeletion = beforeDeletion.map((state) => ({
+        ...state,
+        version: {
+          ...state.version,
+          unavailableInputs: state.version.inputs.filter((input) => input.kind === 'message')
+        }
+      }));
 
       await Effect.runPromise(
         Effect.flatMap(Notes, (chats) => chats.deleteNote(saved.note.id)).pipe(
@@ -439,11 +446,11 @@ testStable(
       assert.ok(libraryEvent);
       assert.ok(libraryEvent.payload === '{}');
 
-      expect(await libraryState(fixture, retainedIds)).toStrictEqual(beforeDeletion);
+      expect(await libraryState(fixture, retainedIds)).toStrictEqual(afterDeletion);
 
       await fixture.reopen();
 
-      expect(await libraryState(fixture, retainedIds)).toStrictEqual(beforeDeletion);
+      expect(await libraryState(fixture, retainedIds)).toStrictEqual(afterDeletion);
 
       const native = workflowStore(fixture.context);
 

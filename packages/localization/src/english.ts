@@ -1019,6 +1019,7 @@ export const english = Object.freeze({
   PageCitation: 'Citation',
   PageExact: 'Exact passage',
   PageApproximate: 'Approximate location',
+  PageEvidenceUnavailable: 'Some input evidence is no longer available.',
   PageSupport: 'Support:',
   PageUserAssessed: 'User assessed',
   PageStale: 'Assessment is stale',

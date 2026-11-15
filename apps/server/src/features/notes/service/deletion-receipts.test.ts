@@ -117,6 +117,13 @@ testStable(
       rejectForged();
       await annotateLibrary(f, retained.ids);
       const before = await libraryState(f, retained.ids);
+      const after = before.map((state) => ({
+        ...state,
+        version: {
+          ...state.version,
+          unavailableInputs: state.version.inputs.filter((input) => input.kind === 'message')
+        }
+      }));
 
       await Effect.runPromise(
         Effect.flatMap(Notes, (chats) => chats.deleteNote(saved.note.id)).pipe(
@@ -128,12 +135,12 @@ testStable(
       await cleanup(f, saved.note.id);
       await checkReplay();
       rejectForged();
-      expect(await libraryState(f, retained.ids)).toStrictEqual(before);
+      expect(await libraryState(f, retained.ids)).toStrictEqual(after);
       assertScrubbed(f, marker);
       await f.reopen();
       await checkReplay();
       rejectForged();
-      expect(await libraryState(f, retained.ids)).toStrictEqual(before);
+      expect(await libraryState(f, retained.ids)).toStrictEqual(after);
       assertScrubbed(f, marker);
       await Effect.runPromise(
         Effect.gen(function* () {

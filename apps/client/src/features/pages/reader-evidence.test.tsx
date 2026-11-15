@@ -1,4 +1,5 @@
 import { assessmentViewSchema } from '@study/contracts/pages/evidence';
+import { exactInputSchema } from '@study/contracts/pages/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';
@@ -15,6 +16,49 @@ import { EvidenceDetails } from './reader-evidence';
 vi.mock('../source-library/input-link', () => ({
   CapturedInputLink: ({ name }: { name: string }) => <span>{name}</span>
 }));
+
+testStable.each([false, true])(
+  'shows unavailable message evidence with citations: %s',
+  async (cited) => {
+    const document = authoredPage(41n, 'An answer', 101n);
+    const input = Schema.decodeUnknownSync(exactInputSchema)({ kind: 'message', versionId: 7n });
+    const version = {
+      ...document.version!,
+      inputs: [input],
+      unavailableInputs: [input],
+      citations: cited
+        ? [
+            {
+              marker: 1,
+              input,
+              anchor: { type: 'authored' as const },
+              target: null,
+              quote: 'Retained quote'
+            }
+          ]
+        : []
+    };
+    const harness = rpcHandlersTransport({
+      'pages.version': () => Effect.succeed(version),
+      'pages.annotations': () => Effect.succeed({ items: [], nextCursor: null }),
+      'pages.assessments': () => Effect.succeed({ items: [], nextCursor: null })
+    });
+
+    render(
+      <harness.wrapper>
+        <EvidenceDetails version={version} />
+      </harness.wrapper>
+    );
+    await userEvent.setup().click(await screen.findByText(catalogs.english.PageEvidence));
+    expect(await screen.findByText(catalogs.english.PageEvidenceUnavailable)).toBeInTheDocument();
+
+    if (cited) {
+      const citation = (await screen.findByText('Retained quote')).closest('blockquote')!;
+
+      expect(citation).toHaveTextContent(catalogs.english.ReaderUnavailable);
+    }
+  }
+);
 
 testStable.each([
   ['assessed', 'contradicts', catalogs.english.PageContradicts, catalogs.english.PageUserAssessed],

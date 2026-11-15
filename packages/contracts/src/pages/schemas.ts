@@ -50,6 +50,8 @@ export const versionSchema = Schema.Struct({
   publishedAt: Schema.NullOr(Schema.BigInt),
   parents: Schema.Array(pageVersionIdSchema),
   inputs: Schema.Array(exactInputSchema),
+  /** Computed read state; immutable input identities and citations remain unchanged. */
+  unavailableInputs: Schema.Array(exactInputSchema),
   citations: Schema.Array(citationSchema),
   document: documentSchema
 });
