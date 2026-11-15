@@ -16,13 +16,14 @@ Thank you for helping with Study.
   checks and CI: Rust formatting/Clippy/dependencies/tests/doctests/docs, repository-wide
   Vite+ format/lint, Fallow, TypeScript checks, package tests, web build and browser E2E,
   generated database drift, real integrations, the packaged-runtime smoke test, and landing
-  checks/build. Docker is required for real integrations. CI starts eight unconditional,
-  unsharded lanes in parallel: 🧹 Code hygiene, 🧩 Types & unit tests, ⚙️ Server & contracts,
+  checks/build. Docker is required for real integrations. CI starts eight unconditional
+  lanes in parallel: 🧹 Code hygiene, 🧩 Types & unit tests, ⚙️ Server & contracts,
   🗄️ Database, 🌐 Browser journeys, 🦀 Desktop & runtime, 🔌 Provider integrations and
   🌍 Landing page. Each lane selects tasks from the same Turbo graph. Static checks and
   landing builds no longer wait for native toolchain setup; browser journeys have their
-  own runner and canonical devcontainer. The required `Test and build` check fails if any
-  lane fails, is cancelled, is skipped or is missing. Independent tasks continue after
+  own two-shard matrix and canonical devcontainer. Each shard uses two workers;
+  independent cases, including settings pages in one file, can run in parallel. The
+  required `Test and build` check fails if any lane fails, is cancelled, is skipped or is missing. Independent tasks continue after
   failures; dependent tasks run only when their prerequisites pass. The client build
   reuses its prerequisite typecheck and can overlap independent unit and tooling tests.
 - **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
@@ -361,7 +362,7 @@ await expectScreenshot('projects', {
 });
 ```
 
-Oxlint enforces this convention and forbids concurrent journeys, request mocking,
+Oxlint enforces direct journey registration and forbids wrapper registration, request mocking,
 fixed sleeps and directly owned resources. Resource lifetime is private to the
 harness; contexts, databases and RPC listeners are fresh for every attempt. A journey
 with no completed screenshot fails. Every normal run executes the entire suite;
@@ -450,9 +451,13 @@ CI group membership is defined in `turbo.json`: `check:hygiene`, `check:javascri
 commands. Their `ci:*` scripts allow two independent tasks at once. The JavaScript lane
 owns typechecks, the client build and client/tooling unit tests; server and database
 suites have separate jobs and reports. Browser, integration and landing jobs select
-`web:e2e`, `integrations:e2e` and `landing-check`, respectively. No lane uses a path filter,
-change detector, matrix or shard. Turbo decides which deterministic task results can be
-reused; server, database, integration and browser tests still execute every run.
+`web:e2e:compare`, `integrations:e2e` and `landing-check`, respectively. Browser CI
+uses native Playwright `--shard=1/2` and `--shard=2/2` with case-level
+parallelism; the sequential harness cleanup checks stay in one worker. Both shards run
+even after a sibling fails and upload separately named diagnostics. The required gate
+waits for the entire matrix and rejects a failed or cancelled shard. Other lanes run
+without sharding. No lane uses a path filter or change detector. Turbo decides which
+deterministic task results can be reused; server, database, integration and browser tests still execute every run.
 `web:e2e:compare` forwards runner options such as `--workers` and keeps the build
 prerequisite. The full check also stages the private server before its packaged-runtime
 smoke test. Regression tests compare runnable tasks across local and CI plans, exercise

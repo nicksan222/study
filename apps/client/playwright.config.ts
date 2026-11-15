@@ -12,6 +12,7 @@ export default defineConfig({
   forbidOnly: true,
   updateSnapshots: 'none',
   snapshotPathTemplate: '{testDir}/baselines/{arg}{ext}',
+  fullyParallel: true,
   workers: 2,
   timeout: 120000,
   expect: { timeout: 5000 },

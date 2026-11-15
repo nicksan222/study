@@ -1,5 +1,6 @@
 import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
+import type { JSONReport, JSONReportSpec, JSONReportSuite } from 'playwright/types/testReporter';
 import { expect } from 'vite-plus/test';
 
 import { workflowName } from './identity.ts';
@@ -114,3 +115,69 @@ testStable('per-comparison policy rejects UI run overrides and ignored snapshots
     'native snapshot overrides are forbidden'
   );
 });
+
+testStable(
+  'native shards partition every journey and distribute settings cases within one file',
+  async () => {
+    async function catalog(shard?: string) {
+      const child = spawnTestProcess(
+        [
+          'bun',
+          '--bun',
+          'playwright',
+          'test',
+          '--config',
+          'playwright.config.ts',
+          '--list',
+          '--reporter=json',
+          ...(shard ? [`--shard=${shard}`] : [])
+        ],
+        {
+          cwd: Bun.fileURLToPath(new URL('../../../', import.meta.url)),
+          env: { ...process.env, E2E_UPDATE: undefined },
+          stdout: 'pipe',
+          stderr: 'pipe'
+        }
+      );
+      const [stdout, stderr, code] = await Promise.all([
+        new Response(child.stdout).text(),
+        new Response(child.stderr).text(),
+        child.exited
+      ]);
+
+      expect(code, stderr).toBe(0);
+      const report: JSONReport = JSON.parse(stdout);
+      const specs: JSONReportSpec[] = [];
+
+      function visit(suite: JSONReportSuite) {
+        specs.push(...suite.specs);
+
+        for (const child of suite.suites ?? []) visit(child);
+      }
+
+      for (const suite of report.suites) visit(suite);
+
+      return specs;
+    }
+
+    const [all, first, second] = await Promise.all([catalog(), catalog('1/2'), catalog('2/2')]);
+    const ids = (specs: typeof all) => specs.map((spec) => spec.id).sort();
+
+    expect(ids([...first, ...second])).toEqual(ids(all));
+    expect(new Set(ids([...first, ...second])).size).toBe(all.length);
+
+    for (const shard of [first, second])
+      expect(shard.filter((spec) => spec.file.endsWith('settings.test.ts')).length).toBeGreaterThan(
+        0
+      );
+
+    // The two consecutive fixtures must stay on one worker to exercise fixture cleanup.
+    expect(
+      [first, second]
+        .map(
+          (shard) => shard.filter((spec) => spec.file.endsWith('worker-a.browser.test.ts')).length
+        )
+        .sort()
+    ).toEqual([0, 2]);
+  }
+);

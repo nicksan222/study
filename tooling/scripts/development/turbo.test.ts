@@ -159,11 +159,15 @@ testStable('CI gate groups cover the full check, including the packaged runtime'
 
   for (const job of Object.values(workflow.jobs)) {
     for (const step of job.steps ?? []) {
-      const script = /^bun run (\S+)$/.exec(step.run ?? step.with?.runCmd ?? '')?.[1];
+      const script = /^bun run (\S+)(?: .*)?$/.exec(step.run ?? step.with?.runCmd ?? '')?.[1];
 
       if (!script) continue;
 
-      const result = await repo.script(script, '--dry=json');
+      // Comparison forwards CLI flags to Playwright; inspect its identical build graph.
+      const result = await repo.script(
+        script === 'web:e2e:compare' ? 'web:e2e' : script,
+        '--dry=json'
+      );
 
       assert.equal(result.code, 0, result.stderr);
       groups.push(JSON.parse(result.stdout));
@@ -199,10 +203,10 @@ testStable(
 
     pkg.scripts.e2e = 'bun -e "console.log(JSON.stringify(Bun.argv))" --';
     await Bun.write(file, JSON.stringify(pkg));
-    const result = await repo.script('web:e2e:compare', '--workers', '2');
+    const result = await repo.script('web:e2e:compare', '--workers', '2', '--shard=2/2');
 
     assert.equal(result.code, 0, result.stderr);
-    assert.include(result.stdout, '"--workers","2"');
+    assert.include(result.stdout, '"--workers","2","--shard=2/2"');
     assert.equal(await Bun.file(`${repo.path}/apps/client/dist/result.txt`).text(), 'built');
   }
 );
