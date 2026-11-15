@@ -22,6 +22,7 @@ import { AuthManager } from '#server/platform/ai/auth/index';
 import { ManagedBackups } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
+import type { AiRuntimeAdapters } from '#server/platform/definitions/define-agent';
 import { initializeWorkflowInfrastructure } from '#server/platform/workflows/engine';
 
 import { backupPolicy } from './backups.ts';
@@ -67,6 +68,7 @@ export class App {
     /** Overrides store timestamps only; authentication and workflow scheduling keep live time. */
     timestampClock?: Clock.Clock;
     fetch?: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>;
+    ai?: AiRuntimeAdapters;
     onPhase?: (phase: OpenPhase) => void;
   }): Promise<App> {
     const report = (phase: OpenPhase) => {
@@ -211,7 +213,8 @@ export class App {
                       })
               })
           },
-          options.fetch
+          options.fetch,
+          options.ai
         );
 
         runtime = yield* Effect.acquireRelease(

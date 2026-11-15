@@ -150,6 +150,10 @@
     },
     "packages/testing": {
       "name": "@study/testing",
+      "dependencies": {
+        "@ai-sdk/provider": "3.0.19",
+        "effect": "4.0.7",
+      },
       "devDependencies": {
         "@effect/platform-bun": "4.0.7",
         "@testing-library/jest-dom": "^7.0.1",

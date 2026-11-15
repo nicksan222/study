@@ -15,6 +15,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { LanguageModelV3 } from '@ai-sdk/provider';
 import type { sourceEvidenceSchema } from '@study/contracts/ai/sources';
 import type { StudyError } from '@study/contracts/errors';
 import type { AgentRule, ModelTier } from '@study/contracts/settings/schemas';
@@ -23,7 +24,28 @@ import type { Effect, Schema } from 'effect';
 
 export type CitationEvidence = typeof sourceEvidenceSchema.Type;
 
+/** Exact decoded calls supplied to runtime model and tool dependency adapters. */
+export interface AiInvocation {
+  readonly definition: {
+    readonly id?: string;
+    readonly mode?: 'text' | 'object';
+    readonly input: Schema.ConstraintDecoder<unknown>;
+    readonly output: Schema.ConstraintDecoder<unknown>;
+  };
+  readonly input: unknown;
+}
+
+/** Optional external execution dependencies; application behavior stays in feature services. */
+export interface AiRuntimeAdapters {
+  readonly model?: (tier: ModelTier, call: AiInvocation) => Effect.Effect<LanguageModelV3, unknown>;
+  readonly executeTool?: (
+    call: AiInvocation,
+    execute: () => Effect.Effect<unknown, StudyError>
+  ) => Effect.Effect<unknown, unknown>;
+}
+
 export interface AgentEnvironment {
+  executeTool?: AiRuntimeAdapters['executeTool'];
   runTool?: (
     call: { name: string; ordinal: number; input: Schema.Json; mutates: boolean },
     execute: Effect.Effect<Schema.Json, StudyError>
