@@ -36,7 +36,14 @@ testStable('web composition remains free to use semantic props and unstyled HTML
     await lintRule(
       'web-presentation',
       {
-        'apps/client/src/example.tsx': `import { Sidebar } from '@study/ui'; export const view = <Sidebar.Footer trailing={<Sidebar.Utility variant="secondary" />}><form aria-label="Create" /></Sidebar.Footer>;`
+        'apps/client/src/example.tsx': `
+        import { Sidebar } from '@study/ui';
+        export const view = (
+          <Sidebar.Footer trailing={<Sidebar.Utility variant="secondary" />}>
+            <form aria-label="Create" />
+          </Sidebar.Footer>
+        );
+      `
       },
       true
     )

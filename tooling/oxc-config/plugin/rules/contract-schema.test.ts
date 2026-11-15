@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports the prohibited pattern', async () => {
+testStable('requires browser-safe contract values to use Effect schemas', async () => {
   const diagnostics = await lintRule(
     'contract-schema',
     { 'packages/contracts/src/user.ts': 'export interface User { id: string }' },
@@ -19,8 +19,12 @@ testStable(
     const diagnostics = await lintRule(
       'contract-schema',
       {
-        'packages/contracts/src/user.ts':
-          "import { Schema as S } from 'effect'; const alias = S; export const User = alias.Struct({ value: S.Unknown }); export type User = typeof User.Type; function f(S: any) { return S.Unknown; }",
+        'packages/contracts/src/user.ts': `import { Schema as S } from 'effect';
+const alias = S;
+export const User = alias.Struct({ value: S.Unknown });
+export type User = typeof User.Type;
+function f(S: any) { return S.Unknown;
+}`,
         'packages/contracts/src/good.ts':
           'const Schema = { Unknown: 1 }; export const value = Schema.Unknown; export type Result = string | number;'
       },
@@ -51,8 +55,10 @@ testStable('rejects handwritten brands tied to imported Effect Brand', async () 
   const diagnostics = await lintRule(
     'contract-schema',
     {
-      'packages/contracts/src/a.ts':
-        "import type { Brand as B } from 'effect'; export type A = string & B.Brand<'A'>; export type C = B.Branded<string, 'C'>;"
+      'packages/contracts/src/a.ts': `import type { Brand as B } from 'effect';
+ export type A = string & B.Brand<'A'>;
+ export type C = B.Branded<string, 'C'>;
+`
     },
     true
   );
@@ -82,8 +88,11 @@ testStable('native RPC declarations specify payload, success and error schemas',
   const diagnostics = await lintRule(
     'contract-schema',
     {
-      'packages/contracts/src/sources/rpc.ts':
-        "import { Rpc, RpcGroup } from 'effect/rpc'; const make = Rpc.make; export const Group = RpcGroup.make(make('a', { payload: {}, success: Schema.String, error: failure }), make('b', { success: Schema.String })); function f(Rpc: any) { Rpc.make('c', {}); }"
+      'packages/contracts/src/sources/rpc.ts': `import { Rpc, RpcGroup } from 'effect/rpc';
+const make = Rpc.make;
+export const Group = RpcGroup.make(make('a', { payload: {}, success: Schema.String, error: failure }), make('b', { success: Schema.String }));
+function f(Rpc: any) { Rpc.make('c', {});
+}`
     },
     true
   );
@@ -221,8 +230,14 @@ testStable(
     const diagnostics = await lintRule(
       'contract-schema',
       {
-        'packages/contracts/src/react.ts': `import { Schema } from 'effect'; export interface ProtocolTransport { execute<A>(input: A): A }; const erased = Schema.Unknown;`,
-        'packages/contracts/src/react-state.ts': `import { Rpc } from 'effect/rpc'; export interface LivePolicy<E> { retryable: (error: E) => boolean }; export const invalidWire = Rpc.make('missing');`,
+        'packages/contracts/src/react.ts': `import { Schema } from 'effect';
+ export interface ProtocolTransport { execute<A>(input: A): A };
+ const erased = Schema.Unknown;
+`,
+        'packages/contracts/src/react-state.ts': `import { Rpc } from 'effect/rpc';
+ export interface LivePolicy<E> { retryable: (error: E) => boolean };
+ export const invalidWire = Rpc.make('missing');
+`,
         'packages/contracts/src/react-domain.ts': `export interface Bypass { id: string }`,
         'packages/contracts/src/react-wire.ts': `import { Rpc } from 'effect/rpc'; export const invalid = Rpc.make('missing');`,
         'packages/contracts/src/react.tsx': `export interface Bypass { id: string }`

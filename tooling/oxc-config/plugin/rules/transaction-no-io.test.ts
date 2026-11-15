@@ -3,24 +3,30 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('transaction-no-io guards production and accepts safe alternatives', async () => {
-  const diagnostics = await lintRule('transaction-no-io', {
-    'src/bad.ts':
-      "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));",
-    'src/good.ts':
-      'const other = { transaction: fn => fn() }; other.transaction(() => fetch(url));',
-    'src/fixture.test.ts':
-      "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));"
-  });
+testStable(
+  'rejects network requests inside database transactions while allowing tests',
+  async () => {
+    const diagnostics = await lintRule('transaction-no-io', {
+      'src/bad.ts':
+        "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));",
+      'src/good.ts':
+        'const other = { transaction: fn => fn() }; other.transaction(() => fetch(url));',
+      'src/fixture.test.ts':
+        "import { Db } from '@study/db'; const db = Db.open(':memory:'); db.transaction(() => fetch(url));"
+    });
 
-  assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-  assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
-});
+    assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
+    assert.ok(diagnostics.every(({ filename }) => filename.endsWith('/src/bad.ts')));
+  }
+);
 
 testStable('transaction-no-io handles aliases and avoids unrelated bindings', async () => {
   const diagnostics = await lintRule('transaction-no-io', {
-    'src/bad.ts':
-      "import { Db } from '@study/db'; import { readFileSync as read } from 'node:fs'; function f(db: Db) { db.transaction(() => { read(path); }); }",
+    'src/bad.ts': `import { Db } from '@study/db';
+ import { readFileSync as read } from 'node:fs';
+ function f(db: Db) { db.transaction(() => { read(path);
+ });
+ }`,
     'src/good.ts':
       "import { Db } from '@study/db'; function f(db: Db, fetch) { db.transaction(() => fetch(url)); }"
   });
@@ -33,10 +39,20 @@ testStable(
   'named transaction callbacks cannot hide external I/O behind database aliases',
   async () => {
     const diagnostics = await lintRule('transaction-no-io', {
-      'src/bad.ts':
-        "import type { ServerContext } from '#server/runtime/context'; function operation(ctx: ServerContext) { const db = ctx.db; const work = () => { fetch(url); return 1; }; const alias = work; db.transaction(alias); }",
-      'src/good.ts':
-        "import type { ServerContext } from '#server/runtime/context'; function operation(ctx: ServerContext) { const work = () => { const later = () => fetch(url); return 1; }; ctx.transaction(work); }"
+      'src/bad.ts': `import type { ServerContext } from '#server/runtime/context';
+function operation(ctx: ServerContext) { const db = ctx.db;
+const work = () => { fetch(url);
+return 1;
+};
+const alias = work;
+db.transaction(alias);
+}`,
+      'src/good.ts': `import type { ServerContext } from '#server/runtime/context';
+function operation(ctx: ServerContext) { const work = () => { const later = () => fetch(url);
+return 1;
+};
+ctx.transaction(work);
+}`
     });
 
     assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));

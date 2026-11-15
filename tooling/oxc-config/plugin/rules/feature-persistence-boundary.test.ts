@@ -7,9 +7,23 @@ testStable(
   'feature writers respect table ownership while reads and shared pages remain available',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
-      'src/features/projects/store.ts': `import { notes, projects } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(notes); db.insert(projects); db.update(notes); db.execute('UPDATE notes SET title = 1');`,
-      'src/features/learning/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute('UPDATE preferences SET value = 1');`,
-      'src/features/pages/store.ts': `import { content_snapshots } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
+      'src/features/projects/store.ts': `import { notes, projects } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.select().from(notes);
+ db.insert(projects);
+ db.update(notes);
+ db.execute('UPDATE notes SET title = 1');
+`,
+      'src/features/learning/store.ts': `import type { Db } from '@study/db';
+ declare const db: Db;
+ db.execute('UPDATE preferences SET value = 1');
+`,
+      'src/features/pages/store.ts': `import { content_snapshots } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.insert(content_snapshots);
+`
     });
 
     assert.strictEqual(diagnostics.length, 3);
@@ -30,8 +44,17 @@ testStable('recognizes aliases and SQL without confusing unrelated APIs or reads
       logger.update(schema.notes); parser.run('UPDATE notes SET x=1');
       function shadow(s) { db.delete(s); }
     `,
-    'src/features/sources/store.ts': `import { content_snapshots, chunks } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots); db.insert(chunks);`,
-    'src/features/projects/store.test.ts': `import { notes } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.update(notes);`
+    'src/features/sources/store.ts': `import { content_snapshots, chunks } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.insert(content_snapshots);
+ db.insert(chunks);
+`,
+    'src/features/projects/store.test.ts': `import { notes } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.update(notes);
+`
   });
 
   assert.strictEqual(diagnostics.length, 4);
@@ -67,11 +90,39 @@ testStable(
   'collection membership writes stay with organization and the identity-creating feature',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
-      'src/features/projects/store.ts': `import { project_materials as materials, project_notes as notes } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(notes);`,
-      'src/features/materials/store.ts': `import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_notes);`,
-      'src/features/notes/store.ts': `import { project_notes, project_materials as links } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_notes); db.delete(links);`,
-      'src/features/sources/store.ts': `import * as schema from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; const ns = schema; const { project_materials: links } = ns; const alias = (links as any)!; db.insert(alias); db.update(ns['project_notes']);`,
-      'src/features/learning/store.ts': `import { project_materials, project_notes } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_notes);`
+      'src/features/projects/store.ts': `import { project_materials as materials, project_notes as notes } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.insert(materials);
+ db.delete(notes);
+`,
+      'src/features/materials/store.ts': `import * as s from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.insert(s.project_materials);
+ db.insert(s.project_notes);
+`,
+      'src/features/notes/store.ts': `import { project_notes, project_materials as links } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.insert(project_notes);
+ db.delete(links);
+`,
+      'src/features/sources/store.ts': `import * as schema from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ const ns = schema;
+ const { project_materials: links } = ns;
+ const alias = (links as any)!;
+ db.insert(alias);
+ db.update(ns['project_notes']);
+`,
+      'src/features/learning/store.ts': `import { project_materials, project_notes } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.delete(project_materials);
+ db.delete(project_notes);
+`
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
@@ -453,7 +504,12 @@ testStable(
   'features cannot advance shared revision metadata outside the transaction boundary',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
-      'src/features/notes/store/index.ts': `import { reactiveGeneration, reactiveRevisions } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.orm.update(reactiveGeneration).set({ generation: 'bypass' }).run(); db.orm.insert(reactiveRevisions).values({ scope: 'notes', revision: 1n }).run();`
+      'src/features/notes/store/index.ts': `import { reactiveGeneration, reactiveRevisions } from '@study/db';
+ import type { Db } from '@study/db';
+ declare const db: Db;
+ db.orm.update(reactiveGeneration).set({ generation: 'bypass' }).run();
+ db.orm.insert(reactiveRevisions).values({ scope: 'notes', revision: 1n }).run();
+`
     });
 
     expect(diagnostics).toHaveLength(2);

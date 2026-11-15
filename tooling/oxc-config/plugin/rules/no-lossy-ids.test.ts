@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('no-lossy-ids guards production and accepts safe alternatives', async () => {
+testStable('rejects lossy numeric conversions of identifiers while allowing counts', async () => {
   const diagnostics = await lintRule('no-lossy-ids', {
     'src/bad.ts': 'Number(item.id); parseInt(projectId, 10);',
     'src/good.ts': 'Number(count); Number(durationMs); function f(Number) { Number(item.id); }',
@@ -84,7 +84,11 @@ testStable(
   async () => {
     const diagnostics = await lintRule('no-lossy-ids', {
       'src/features/notes/store/deletion.ts': `Number(row.note_id); parseInt(value.noteId, 10); Number(row.attempt);`,
-      'src/features/materials/store/note-retirement.ts': `Number(row.result_version_id); Number(row.proposed_version_id); String(row.base_version_id); String(value.requestId);`
+      'src/features/materials/store/note-retirement.ts': `Number(row.result_version_id);
+ Number(row.proposed_version_id);
+ String(row.base_version_id);
+ String(value.requestId);
+`
     });
 
     assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));

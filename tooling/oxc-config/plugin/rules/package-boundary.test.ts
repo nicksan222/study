@@ -221,8 +221,13 @@ testStable('checks typed and aliased loader edges while honoring shadowing', asy
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/client/src/loader.ts':
-        "import { createRequire as cr } from 'node:module'; const load = cr(import.meta.url); load(`@study/missing`); type T = import('@study/missing').T; import x = require('@study/missing'); function f(require: (s: string) => void) { require('@study/missing'); }"
+      'apps/client/src/loader.ts': `import { createRequire as cr } from 'node:module';
+const load = cr(import.meta.url);
+load(\`@study/missing\`);
+type T = import('@study/missing').T;
+import x = require('@study/missing');
+function f(require: (s: string) => void) { require('@study/missing');
+}`
     },
     true
   );
@@ -234,8 +239,19 @@ testStable('loader edges follow lexical bindings and direct createRequire calls'
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/server/src/loader.ts':
-        "import * as mod from 'node:module'; const cr = mod.createRequire; const req = cr(import.meta.url); const alias = req; alias(`@study/missing`); cr(import.meta.url)('@study/missing'); globalThis.require('@study/missing'); module.require('@study/missing'); const r = require; r('@study/missing'); function f(globalThis: any, req: any) { globalThis.require('@study/missing'); req('@study/missing'); }"
+      'apps/server/src/loader.ts': `import * as mod from 'node:module';
+const cr = mod.createRequire;
+const req = cr(import.meta.url);
+const alias = req;
+alias(\`@study/missing\`);
+cr(import.meta.url)('@study/missing');
+globalThis.require('@study/missing');
+module.require('@study/missing');
+const r = require;
+r('@study/missing');
+function f(globalThis: any, req: any) { globalThis.require('@study/missing');
+req('@study/missing');
+}`
     },
     true
   );
@@ -295,16 +311,22 @@ testStable('only explicit web E2E runtime harness files can own server resources
   const diagnostics = await lintRule(
     'package-boundary',
     {
-      'apps/client/test/e2e/harness/index.ts':
-        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
+      'apps/client/test/e2e/harness/index.ts': `import '@study/db/testing';
+ import '@study/server/runtime';
+ import '@study/tooling/development/rpc-proxy';
+`,
       'apps/client/test/e2e/harness/stack.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/client/test/e2e/harness/creation-response.test.ts':
-        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
+      'apps/client/test/e2e/harness/creation-response.test.ts': `import '@study/db/testing';
+ import '@study/server/runtime';
+ import '@study/tooling/development/rpc-proxy';
+`,
       'apps/client/test/e2e/harness/other.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
-      'apps/client/test/e2e/other.ts':
-        "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';"
+      'apps/client/test/e2e/other.ts': `import '@study/db/testing';
+ import '@study/server/runtime';
+ import '@study/tooling/development/rpc-proxy';
+`
     },
     true
   );

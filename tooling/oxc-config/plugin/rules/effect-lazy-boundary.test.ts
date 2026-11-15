@@ -15,8 +15,17 @@ testStable('reports the prohibited pattern', async () => {
 
 testStable('checks imported Effect aliases, lazy IO, mapped promises and shadowing', async () => {
   const diagnostics = await lintRule('effect-lazy-boundary', {
-    'src/a.ts':
-      "import * as E from 'effect/Effect'; const alias = E; alias.sync(() => JSON.parse(text)); alias.succeed(Date.now()); Promise.all(items.map(async x => x)); function f(E: any, Promise: any) { E.sync(async () => 1); Promise.all(items.map(async x => x)); } alias.sync(() => 1); Promise.all([Promise.resolve(1)]);"
+    'src/a.ts': String.raw`import * as E from "effect/Effect";
+const alias = E;
+alias.sync(() => JSON.parse(text));
+alias.succeed(Date.now());
+Promise.all(items.map(async (x) => x));
+function f(E: any, Promise: any) {
+  E.sync(async () => 1);
+  Promise.all(items.map(async (x) => x));
+}
+alias.sync(() => 1);
+Promise.all([Promise.resolve(1)]);`
   });
 
   assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
@@ -26,8 +35,14 @@ testStable(
   'recognizes fs and Promise aliases and async try object while respecting resource path',
   async () => {
     const diagnostics = await lintRule('effect-lazy-boundary', {
-      'src/a.ts':
-        "import { Effect } from 'effect'; import { readFileSync as read } from 'node:fs'; const readAlias = read; const all = Promise.all; const task = () => Promise.resolve(1); Effect.sync(() => readAlias('x')); Effect.try({ try: async () => 1, catch: e => e }); all(items.map(task));",
+      'src/a.ts': String.raw`import { Effect } from "effect";
+import { readFileSync as read } from "node:fs";
+const readAlias = read;
+const all = Promise.all;
+const task = () => Promise.resolve(1);
+Effect.sync(() => readAlias("x"));
+Effect.try({ try: async () => 1, catch: (e) => e });
+all(items.map(task));`,
       'src/ai/runtime/resourceAnything.ts':
         "import { Effect } from 'effect'; Effect.uninterruptible(work);"
     });
@@ -38,8 +53,20 @@ testStable(
 
 testStable('deferred nested functions remain lazy and eager filesystem calls do not', async () => {
   const diagnostics = await lintRule('effect-lazy-boundary', {
-    'src/a.ts':
-      "import {Effect} from 'effect'; import {readFileSync} from 'node:fs'; Effect.sync(() => () => JSON.parse(text)); Effect.sync(() => { function deferred() { return Promise.resolve(1); } return deferred; }); Effect.succeed(readFileSync(path)); Effect.sync(() => { JSON.parse(text); return 1; });"
+    'src/a.ts': String.raw`import { Effect } from "effect";
+import { readFileSync } from "node:fs";
+Effect.sync(() => () => JSON.parse(text));
+Effect.sync(() => {
+  function deferred() {
+    return Promise.resolve(1);
+  }
+  return deferred;
+});
+Effect.succeed(readFileSync(path));
+Effect.sync(() => {
+  JSON.parse(text);
+  return 1;
+});`
   });
 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
@@ -70,10 +97,19 @@ testStable('keeps throwing schema codecs out of infallible Effect constructors',
   assertDiagnostics(
     'effect-lazy-boundary',
     await lintRule('effect-lazy-boundary', {
-      'src/bad.ts':
-        "import {Effect as E, Schema as S} from 'effect'; E.sync(() => S.decodeUnknownSync(schema)(input)); E.succeed(S.encodeSync(schema)(input)); const decode = S.decodeUnknownSync(schema); E.sync(() => decode(input));",
-      'src/good.ts':
-        "import {Effect as E, Schema as S} from 'effect'; const decode = S.decodeUnknownSync(schema); E.try({try: () => decode(input), catch: error => error}); E.sync(() => S.decodeUnknownEffect(schema)(input)); E.sync(() => S.decodeUnknownSync(schema)); function f(S: any) { return E.sync(() => S.decodeUnknownSync(schema)(input)); }"
+      'src/bad.ts': String.raw`import { Effect as E, Schema as S } from "effect";
+E.sync(() => S.decodeUnknownSync(schema)(input));
+E.succeed(S.encodeSync(schema)(input));
+const decode = S.decodeUnknownSync(schema);
+E.sync(() => decode(input));`,
+      'src/good.ts': String.raw`import { Effect as E, Schema as S } from "effect";
+const decode = S.decodeUnknownSync(schema);
+E.try({ try: () => decode(input), catch: (error) => error });
+E.sync(() => S.decodeUnknownEffect(schema)(input));
+E.sync(() => S.decodeUnknownSync(schema));
+function f(S: any) {
+  return E.sync(() => S.decodeUnknownSync(schema)(input));
+}`
     }),
     [
       ['src/bad.ts', message],

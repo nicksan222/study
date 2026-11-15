@@ -77,14 +77,25 @@ testStable(
   'server tests reject Node mock imports and context mocking through built-in rules',
   async () => {
     const diagnostics = await lintFiles({
-      'test/mock-context.test.ts':
-        "import { testStable } from '@study/testing/vitest';\n\ntestStable('mocked method', (t) => { t.mock.method(Math, 'random', () => 0.5); });\n",
+      'test/mock-context.test.ts': String.raw`import { testStable } from "@study/testing/vitest";
+
+testStable("mocked method", (t) => {
+  t.mock.method(Math, "random", () => 0.5);
+});`,
       'test/mock-import.ts':
         "import { mock as tracker } from 'node:test';\n\nexport const mocking = tracker;\n",
-      'test/mock-destructure.ts':
-        'export function tracker(context: { mock: unknown }) { const { mock: tracker } = context;\n\nreturn tracker; }\n',
-      'test/real.test.ts':
-        "import { assert } from 'vite-plus/test';\nimport { testStable } from '@study/testing/vitest';\n\ntestStable('real value', (t) => { t.onTestFinished(() => {}); assert.strictEqual(Math.max(1, 2), 2); });\n"
+      'test/mock-destructure.ts': String.raw`export function tracker(context: { mock: unknown }) {
+  const { mock: tracker } = context;
+
+  return tracker;
+}`,
+      'test/real.test.ts': String.raw`import { assert } from "vite-plus/test";
+import { testStable } from "@study/testing/vitest";
+
+testStable("real value", (t) => {
+  t.onTestFinished(() => {});
+  assert.strictEqual(Math.max(1, 2), 2);
+});`
     });
 
     assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
@@ -188,8 +199,10 @@ testStable(
   'production config enables feature orchestration, native clock and metric cardinality',
   async () => {
     const diagnostics = await lintFiles({
-      'src/features/example/service.ts':
-        "import { Metric } from 'effect'; async function operation() {} Date.now(); Metric.withAttributes({ requestId: 'id' });"
+      'src/features/example/service.ts': String.raw`import { Metric } from "effect";
+async function operation() {}
+Date.now();
+Metric.withAttributes({ requestId: "id" });`
     });
 
     for (const rule of ['feature-orchestration', 'native-clock', 'metric-cardinality'])
@@ -204,14 +217,20 @@ testStable(
   'Vitest expectations accept a diagnostic message and reject a third argument',
   async () => {
     const accepted = await lintFiles({
-      'src/shared/message.test.ts':
-        "import { testStable } from '@study/testing/vitest'; import { expect } from 'vite-plus/test'; testStable('message', () => { expect(1, 'context').toBe(1); });"
+      'src/shared/message.test.ts': String.raw`import { testStable } from "@study/testing/vitest";
+import { expect } from "vite-plus/test";
+testStable("message", () => {
+  expect(1, "context").toBe(1);
+});`
     });
 
     assert.strictEqual(accepted.length, 0, JSON.stringify(accepted));
     const rejected = await lintFiles({
-      'src/shared/message.test.ts':
-        "import { testStable } from '@study/testing/vitest'; import { expect } from 'vite-plus/test'; testStable('message', () => { expect(1, 'context', 'extra').toBe(1); });"
+      'src/shared/message.test.ts': String.raw`import { testStable } from "@study/testing/vitest";
+import { expect } from "vite-plus/test";
+testStable("message", () => {
+  expect(1, "context", "extra").toBe(1);
+});`
     });
 
     assert.strictEqual(rejected.length, 1, JSON.stringify(rejected));

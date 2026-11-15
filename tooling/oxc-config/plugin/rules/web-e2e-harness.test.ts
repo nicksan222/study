@@ -9,12 +9,27 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/client/test/e2e/good.test.ts':
-          "import { expect, testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page, expectScreenshot }) => { await page.goto('/notes'); await expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });",
+        'apps/client/test/e2e/good.test.ts': `
+        import { expect, testE2e } from './harness/index.ts';
+        testE2e('Notes retain edits', async ({ page, expectScreenshot }) => {
+          await page.goto('/notes');
+          await expectScreenshot('ready', {
+            target: 'viewport',
+            ready: () => expect(page.getByRole('heading')).toBeVisible()
+          });
+        });
+          `,
         'apps/client/test/e2e/bad.test.ts':
           "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ page }) => { await page.goto('/notes'); });",
-        'apps/client/test/e2e/old.test.ts':
-          "import { testE2e } from './harness/index.ts'; testE2e('Notes retain edits', async ({ checkpoint }) => { await checkpoint('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });"
+        'apps/client/test/e2e/old.test.ts': `
+        import { testE2e } from './harness/index.ts';
+        testE2e('Notes retain edits', async ({ checkpoint }) => {
+          await checkpoint('ready', {
+            target: 'viewport',
+            ready: () => expect(page.getByRole('heading')).toBeVisible()
+          });
+        });
+          `
       },
       true
     );
@@ -51,18 +66,21 @@ testStable('aliases cannot conceal interception or global timers', async () => {
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
 });
 
-testStable('opaque and concurrent registrations cannot bypass the fixture boundary', async () => {
-  const diagnostics = await lintRule(
-    'web-e2e-harness',
-    {
-      'apps/client/test/e2e/bad.test.ts':
-        "import { testE2e } from './harness/index.ts'; testStable('opaque', callback); testE2e.concurrent('parallel', async () => {}); testStable.each([1])('parameterized', async () => {});"
-    },
-    true
-  );
+testStable(
+  'opaque, concurrent and parameterized registrations cannot bypass fixture checks',
+  async () => {
+    const diagnostics = await lintRule(
+      'web-e2e-harness',
+      {
+        'apps/client/test/e2e/bad.test.ts':
+          "import { testE2e } from './harness/index.ts'; testStable('opaque', callback); testE2e.concurrent('parallel', async () => {}); testStable.each([1])('parameterized', async () => {});"
+      },
+      true
+    );
 
-  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
-});
+    assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
+  }
+);
 
 testStable(
   'unawaited captures, missing readiness and anonymous titles fail conventions',
@@ -70,8 +88,18 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/client/test/e2e/bad.test.ts':
-          "import { testE2e } from './harness/index.ts'; testE2e('W001', async ({ expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport' }); }); testE2e('Notes retain edits', async ({ expectScreenshot }) => { expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() }); });"
+        'apps/client/test/e2e/bad.test.ts': `
+        import { testE2e } from './harness/index.ts';
+        testE2e('W001', async ({ expectScreenshot }) => {
+          await expectScreenshot('ready', { target: 'viewport' });
+        });
+        testE2e('Notes retain edits', async ({ expectScreenshot }) => {
+          expectScreenshot('ready', {
+            target: 'viewport',
+            ready: () => expect(page.getByRole('heading')).toBeVisible()
+          });
+        });
+          `
       },
       true
     );
@@ -86,8 +114,14 @@ testStable(
     const diagnostics = await lintRule(
       'web-e2e-harness',
       {
-        'apps/client/test/e2e/bad.test.ts':
-          "import { testE2e } from './harness/index.ts'; import { testWeb } from './harness/worker.ts'; testE2e('Notes retain edits', async ({ expectScreenshot }) => { await expectScreenshot('ready', { target: 'viewport', ready: async () => {} }); }); Bun.sleep(10);"
+        'apps/client/test/e2e/bad.test.ts': `
+        import { testE2e } from './harness/index.ts';
+        import { testWeb } from './harness/worker.ts';
+        testE2e('Notes retain edits', async ({ expectScreenshot }) => {
+          await expectScreenshot('ready', { target: 'viewport', ready: async () => {} });
+        });
+        Bun.sleep(10);
+          `
       },
       true
     );
