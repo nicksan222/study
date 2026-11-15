@@ -261,9 +261,13 @@ function* statementOperations(tokens: string[]) {
     if (depth || consumed || !operationStart(tokens, i)) continue;
 
     consumed = true;
-    triggerHeader = word === 'create' && tokens.slice(i + 1, i + 3).includes('trigger');
+    triggerHeader = triggerDeclaration(tokens, i);
     yield i;
   }
+}
+
+function triggerDeclaration(tokens: string[], i: number) {
+  return tokens[i] === 'create' && tokens.slice(i + 1, i + 3).includes('trigger');
 }
 
 function operationStart(tokens: string[], i: number) {
@@ -295,15 +299,24 @@ function schemaMutationTargets(tokens: string[], i: number, word: string): numbe
 
   if (tokens[at] === 'if') at += tokens[at + 1] === 'not' ? 3 : 2;
 
-  const targets = [tokens[at + 1] === '.' ? at + 2 : at];
+  const targets = [qualifiedTarget(tokens, at)];
 
   if (word === 'create' && ['index', 'trigger'].includes(kind)) {
-    const end = tokens.indexOf(';', at);
-    const on = tokens.indexOf('on', at);
+    const table = schemaObjectTable(tokens, at);
 
-    if (on !== -1 && (end === -1 || on < end))
-      targets.push(tokens[on + 2] === '.' ? on + 3 : on + 1);
+    if (table !== null) targets.push(table);
   }
 
   return targets;
+}
+
+function qualifiedTarget(tokens: string[], at: number) {
+  return tokens[at + 1] === '.' ? at + 2 : at;
+}
+
+function schemaObjectTable(tokens: string[], at: number): number | null {
+  const end = tokens.indexOf(';', at);
+  const on = tokens.indexOf('on', at);
+
+  return on !== -1 && (end === -1 || on < end) ? qualifiedTarget(tokens, on + 1) : null;
 }
