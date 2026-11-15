@@ -16,7 +16,7 @@ env:
 
 jobs:
   version:
-    name: Check version and signing
+    name: 🔖 Version & signing
     runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -38,151 +38,53 @@ jobs:
           bash tooling/scripts/release/release.sh configure "$version" target/release-config.json > /dev/null
           printf 'version=%s\ntag=%s\n' "$version" "$tag" >> "$GITHUB_OUTPUT"
 
-  bundle:
-    name: Package ${{ matrix.platform }}
+  linux_x64:
+    name: 🐧 Linux x64
     needs: version
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux-x86_64
-            runner: ubuntu-24.04
-            target: x86_64-unknown-linux-gnu
-          - platform: linux-aarch64
-            runner: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-          - platform: macos-aarch64
-            runner: macos-15
-            target: aarch64-apple-darwin
-          - platform: windows-x86_64
-            runner: windows-2022
-            target: x86_64-pc-windows-msvc
-    runs-on: ${{ matrix.runner }}
-    env:
-      MACOSX_DEPLOYMENT_TARGET: '12.0'
-    steps:
-      - uses: actions/checkout@v7
-      - name: Select the existing updater signing identity
-        shell: bash
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
-          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
-        run: bash tooling/scripts/release/release.sh signing-environment
-      - name: Set up Linux
-        if: runner.os == 'Linux'
-        uses: ./.github/actions/setup
-        with:
-          packages: patchelf file
-          optimize-dependencies: 'true'
-      - name: Set up Bun
-        if: runner.os != 'Linux'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: apps/landing/package.json
-      - name: Install Rust
-        if: runner.os != 'Linux'
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      - name: Restore native build cache
-        if: runner.os != 'Linux'
-        uses: Swatinem/rust-cache@v2
-      - name: Native build tools
-        if: runner.os == 'macOS'
-        run: brew install cmake pkg-config python sqlite
-      - name: Install frontend dependencies
-        if: runner.os != 'Linux'
-        run: bun install --frozen-lockfile
-      - name: Verify Bun survives AppImage ELF rewriting
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          probe=$(mktemp -d)
-          trap 'rm -rf "$probe"' EXIT
-          cp "$(command -v bun)" "$probe/bun"
-          strip "$probe/bun"
-          for rpath in '$ORIGIN' '$ORIGIN/../lib:$ORIGIN'; do
-            "$PATCHELF" --set-rpath "$rpath" "$probe/bun"
-            ldd "$probe/bun"
-            "$probe/bun" --version
-          done
-      - name: Prepare effective signed updater configuration
-        id: config
-        shell: bash
-        env:
-          STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
-        run: |
-          config=$(bash tooling/scripts/release/release.sh configure "$STUDY_RELEASE_VERSION" target/release-config.json)
-          printf 'path=%s\n' "$config" >> "$GITHUB_OUTPUT"
-      - name: Normalize optional Apple credentials
-        shell: bash
-        if: runner.os == 'macOS'
-        env:
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: bash tooling/scripts/release/release.sh apple-environment
-      - name: Build signed Tauri bundles and updater assets
-        id: build
-        uses: tauri-apps/tauri-action@v0
-        with:
-          projectPath: apps/desktop
-          tauriScript: bun --bun tauri
-          includeUpdaterJson: false
-          args: --verbose --config "${{ steps.config.outputs.path }}" --target ${{ matrix.target }} -- --locked
-      - name: Verify signed macOS microphone permission metadata
-        shell: bash
-        if: runner.os == 'macOS'
-        env:
-          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
-        run: bash tooling/scripts/release/release.sh verify-macos
-      - name: Smoke-test Tauri's copied private server resources
-        shell: bash
-        run: python3 tooling/scripts/release/smoke_runtime.py target/devcontainer/${{ matrix.target }}/release
-      - name: Prepare stable platform downloads
-        shell: bash
-        env:
-          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
-          STUDY_RELEASE_VERSION: ${{ needs.version.outputs.version }}
-        run: bash tooling/scripts/release/release.sh prepare "${{ matrix.platform }}" "$STUDY_RELEASE_VERSION" "target/release-stage/${{ matrix.platform }}"
-      - name: Measure release payload and downloads
-        shell: bash
-        env:
-          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
-        run: |
-          app="target/devcontainer/${{ matrix.target }}/release/study"
-          if [ "$RUNNER_OS" = Windows ]; then app="$app.exe"; fi
-          if [ "$RUNNER_OS" = macOS ]; then
-            app=$(printf '%s' "$STUDY_ARTIFACT_PATHS" | jq -er '.[] | select(endswith(".app"))')
-          fi
-          stage="target/release-stage/${{ matrix.platform }}"
-          installer=$(jq -r .installer "$stage/manifest.json" | tr -d '\r')
-          update=$(jq -r .update "$stage/manifest.json" | tr -d '\r')
-          python3 tooling/scripts/release/size_report.py --runtime target/desktop-runtime --app "$app" \
-            --artifact "$stage/$installer" --artifact "$stage/$update" > "target/size-report-${{ matrix.platform }}.json"
-      - name: Retain size analysis
-        uses: actions/upload-artifact@v7
-        with:
-          name: size-report-${{ matrix.platform }}
-          path: target/size-report-${{ matrix.platform }}.json
-          if-no-files-found: error
-          retention-days: 90
-      - name: Retain this platform for single-writer release assembly
-        uses: actions/upload-artifact@v7
-        with:
-          name: bundle-${{ matrix.platform }}
-          path: target/release-stage/${{ matrix.platform }}/
-          if-no-files-found: error
-          retention-days: 3
+    uses: ./.github/workflows/release-platform.yml
+    with:
+      platform: linux-x86_64
+      runner: ubuntu-24.04
+      target: x86_64-unknown-linux-gnu
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  linux_arm64:
+    name: 🐧 Linux ARM64
+    needs: version
+    uses: ./.github/workflows/release-platform.yml
+    with:
+      platform: linux-aarch64
+      runner: ubuntu-24.04-arm
+      target: aarch64-unknown-linux-gnu
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  macos:
+    name: 🍎 macOS ARM64
+    needs: version
+    uses: ./.github/workflows/release-platform.yml
+    with:
+      platform: macos-aarch64
+      runner: macos-15
+      target: aarch64-apple-darwin
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  windows:
+    name: 🪟 Windows x64
+    needs: version
+    uses: ./.github/workflows/release-platform.yml
+    with:
+      platform: windows-x86_64
+      runner: windows-2022
+      target: x86_64-pc-windows-msvc
+      version: ${{ needs.version.outputs.version }}
+    secrets: inherit
 
   publish:
-    name: Verify and publish complete signed release
-    needs: [version, bundle]
+    name: 🚀 Verify & publish release
+    needs: [version, linux_x64, linux_arm64, macos, windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write

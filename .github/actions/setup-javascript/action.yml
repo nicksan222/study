@@ -1,0 +1,31 @@
+name: Prepare JavaScript checks
+description: Set up the pinned Bun runtime, frozen dependencies and reusable task results.
+inputs:
+  ignore-scripts:
+    description: Skip dependency lifecycle scripts for the isolated integration lane.
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: 🥟 Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version-file: apps/landing/package.json
+    - name: 📦 Restore dependency downloads
+      uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'apps/landing/bun.lock', 'apps/landing/package.json') }}
+        restore-keys: |
+          bun-${{ runner.os }}-${{ runner.arch }}-
+    - name: 📦 Install frozen workspace dependencies
+      shell: bash
+      env:
+        ONNXRUNTIME_NODE_INSTALL: skip
+        IGNORE_SCRIPTS: ${{ inputs.ignore-scripts }}
+      run: |
+        args=(--frozen-lockfile)
+        if [ "$IGNORE_SCRIPTS" = true ]; then args+=(--ignore-scripts); fi
+        bun install "${args[@]}"
+    - name: ♻️ Restore Turbo task cache
+      uses: ./.github/actions/turbo-cache

@@ -51,10 +51,6 @@ runs:
       env:
         ONNXRUNTIME_NODE_INSTALL: skip
       run: bun install --frozen-lockfile
-    - name: 🌍 Install landing dependencies
-      shell: bash
-      working-directory: apps/landing
-      run: bun install --frozen-lockfile
     - name: 🦀 Install Rust
       shell: bash
       run: rustup toolchain install

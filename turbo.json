@@ -219,7 +219,14 @@
       "cache": false
     },
     "//#check:native": {
-      "dependsOn": ["@study/desktop#check", "@study/db#gen:check"],
+      "dependsOn": [
+        "//#runtime:smoke",
+        "@study/desktop#fmt:check",
+        "@study/desktop#lint",
+        "@study/desktop#deny",
+        "@study/desktop#test",
+        "@study/desktop#docs"
+      ],
       "cache": false
     },
     "//#check:javascript": {
@@ -229,14 +236,14 @@
         "@study/client#test",
         "@study/ui#test",
         "@study/tooling#test",
-        "@study/testing#test"
+        "@study/testing#test",
+        "@study/client#build"
       ],
       "cache": false
     },
     "//#check:server": {
       "dependsOn": [
         "@study/server#test",
-        "@study/db#test",
         "@study/contracts#test",
         "@study/localization#test",
         "@study/theme#test",
@@ -275,6 +282,14 @@
     },
     "//#check:generated": {
       "dependsOn": ["//#gen:theme:check", "@study/db#gen:check"],
+      "cache": false
+    },
+    "//#check:hygiene": {
+      "dependsOn": ["//#check:global", "//#check:generated"],
+      "cache": false
+    },
+    "//#check:database": {
+      "dependsOn": ["@study/db#test"],
       "cache": false
     }
   },
