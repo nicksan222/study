@@ -74,7 +74,6 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
                   <AiActivity label={status} state={stop.isPending ? 'stopping' : 'running'} />
                 </Sidebar.NoteActivity>
               }
-              aria-label={generation.title}
               title={generation.title}
               render={<div />}
             />

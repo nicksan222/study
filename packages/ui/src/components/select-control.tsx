@@ -45,7 +45,7 @@ export function SelectControl({
             <Select.ScrollUpArrow className="study-select-scroll-arrow" aria-hidden="true">
               <ScrollOptionsUpIcon size={16} />
             </Select.ScrollUpArrow>
-            <Select.List className="study-select-list">
+            <Select.List aria-label={label} className="study-select-list">
               {options.map((option) => (
                 <Select.Item
                   key={option.value}

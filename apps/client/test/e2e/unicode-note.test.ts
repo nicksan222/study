@@ -27,7 +27,7 @@ const original = [
 
 testE2e(
   'Bilingual notes preserve Unicode edits search and locale changes',
-  async ({ page, expectScreenshot }) => {
+  async ({ page, expectScreenshot, expectAccessibility }) => {
     await page.goto('/notes');
     expect(page.viewportSize()).toEqual({ width: 2560, height: 1440 });
     const composer = page.getByRole('textbox', { name: copy.NoteCompose });
@@ -136,6 +136,7 @@ testE2e(
         // Navigate from the document end so the first caret line owns the scroll position.
         await editor.press('ControlOrMeta+End');
         await editor.press('ControlOrMeta+Home');
+        await expectAccessibility('edit-note');
         await expectScreenshot('selection-edit', {
           target: dialog,
           ready: async () => {
@@ -202,6 +203,7 @@ testE2e(
     await expect(
       settings.getByRole('combobox', { name: italian.GeneralSettingsLanguage })
     ).toBeEnabled();
+    await expectAccessibility('settings-italian');
     await settings.getByRole('button', { name: italian.Close }).click();
     await page.goto(secondUrl);
     await page.reload();

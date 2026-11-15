@@ -1,5 +1,5 @@
 :root {
-  --workspace-supporting: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
+  --workspace-supporting: var(--contrast-muted-foreground);
 }
 
 .ui-workspace {
@@ -353,7 +353,7 @@
   padding: 0.75rem 0.875rem;
   border-radius: 0.625rem;
   background: color-mix(in srgb, var(--muted) 35%, transparent);
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.75rem;
   line-height: 1.6;
   text-wrap: pretty;

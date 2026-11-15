@@ -30,7 +30,8 @@ export function screenshotAssertions(
   page: Page,
   workflow: string,
   directory: string,
-  profile: string
+  profile: string,
+  soft = false
 ) {
   let count = 0;
   let captureMs = 0;
@@ -121,7 +122,9 @@ export function screenshotAssertions(
             fence();
             await Bun.write(baselinePath(profile, workflow, name), actual);
           } else {
-            await expect(target === 'viewport' ? page : target).toHaveScreenshot(
+            const snapshotExpect = soft ? expect.soft : expect;
+
+            await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(
               [profile, workflow, `${name}.png`],
               { timeout: remaining(), threshold: 0.2, maxDiffPixels: 0 }
             );

@@ -57,7 +57,6 @@ function DraftRow({ scope, subjects }: { scope: string; subjects: Props['subject
           )
         }
         description={t('SidebarDraft')}
-        aria-label={label}
         aria-current={active ? 'page' : undefined}
         title={label}
         render={<Link to="/notes" search={project ? { project } : {}} />}

@@ -43,6 +43,7 @@
   "devDependencies": {
     "@study/testing": "*",
     "@types/yauzl": "3.4.0",
+    "fast-check": "4.10.2",
     "testcontainers": "12.2.1"
   }
 }

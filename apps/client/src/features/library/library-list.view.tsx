@@ -91,7 +91,6 @@ export function LibraryListView({
                   {age(locale, now - Number(updated))}
                 </time>
               }
-              aria-label={title}
               aria-current={active ? 'page' : undefined}
               title={title}
               render={<Link {...itemLocation(item, search.project)} />}

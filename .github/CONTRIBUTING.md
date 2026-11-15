@@ -399,6 +399,10 @@ and expected/actual/diff attachments; Study retains application readiness, focus
 and explicitly scoped updates. Native runner outputs live under `apps/client/test-results/playwright`, and
 its HTML report lives under `apps/client/test-results/report`. Playwright clears its previous
 run outputs at the start of the next run and retains test artifacts only for failures.
+Selected Projects, Settings, composer and bilingual note-edit checkpoints also run
+`@axe-core/playwright` WCAG 2.1 A/AA scans through `expectAccessibility(name)`.
+Violations fail the journey and the native report includes the complete axe JSON result.
+Keep keyboard and focus assertions alongside these automated scans.
 Set `E2E_REVIEW=1` to retain successful traces and capture artifacts for the current run too.
 Open the report with `bun --bun playwright show-report apps/client/test-results/report`,
 or a trace with `bun --bun playwright show-trace PATH`. Unit-level contract fixtures use

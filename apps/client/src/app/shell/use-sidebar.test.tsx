@@ -288,7 +288,7 @@ testStable(
     expect(screen.getByRole('button', { name: en.NoteSaveNote })).toBeDisabled();
     await user.type(screen.getByRole('textbox', { name: en.NoteCompose }), 'Unsent biology notes');
     const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
-    const draft = await sidebar.findByRole('link', { name: 'Unsent biology notes' });
+    const draft = await sidebar.findByRole('link', { name: /Unsent biology notes/ });
 
     expect(draft.closest('details')).toBeNull();
     expect(draft.closest('.study-note-entry')).toBe(
@@ -427,12 +427,12 @@ testStable('uses the body for notes and a labeled navigation block above setting
 
   await renderWithNavigation();
   await screen.findByLabelText('Biology');
-  const note = await screen.findByRole('link', { name: 'Cell division' });
+  const note = await screen.findByRole('link', { name: /Cell division/ });
 
   expect(note.closest('nav')).toHaveAttribute('aria-label', en.Notes);
   expect(note).toHaveAttribute('aria-current', 'page');
-  expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
-  const flashcards = screen.getByRole('link', { name: en.Practice });
+  expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
+  const flashcards = screen.getByRole('link', { name: new RegExp(`^${en.Practice}(?: \\d+)?$`) });
 
   expect(flashcards.closest('nav')).toHaveClass('study-sidebar-navigation');
   expect(flashcards).toHaveTextContent(en.Practice);
@@ -442,8 +442,8 @@ testStable('uses the body for notes and a labeled navigation block above setting
   );
   await user.click(flashcards);
   await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/practice'));
-  await user.click(screen.getByRole('link', { name: en.Notes }));
-  await user.click(await screen.findByRole('link', { name: 'Cell division' }));
+  await user.click(screen.getByRole('link', { name: new RegExp(`^${en.Notes}(?: \\d+)?$`) }));
+  await user.click(await screen.findByRole('link', { name: /Cell division/ }));
   await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/notes/42'));
 });
 
@@ -475,11 +475,11 @@ testStable('lists flashcards and quizzes together and follows material paginatio
 
   await renderWithNavigation();
   await screen.findByLabelText('Biology');
-  await user.click(screen.getByRole('link', { name: en.Practice }));
-  await screen.findByRole('link', { name: 'Cell cards' });
+  await user.click(screen.getByRole('link', { name: new RegExp(`^${en.Practice}(?: \\d+)?$`) }));
+  await screen.findByRole('link', { name: /Cell cards/ });
   await user.click(screen.getByRole('button', { name: en.LibraryMore }));
-  expect(await screen.findByRole('link', { name: 'Cell quiz' })).toBeInTheDocument();
-  expect(screen.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /Cell quiz/ })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
   expect(api.materials).toHaveBeenLastCalledWith({
     projectId: 1n,
     cursor: 21n,
@@ -487,7 +487,7 @@ testStable('lists flashcards and quizzes together and follows material paginatio
     archived: false
   });
   await user.click(screen.getByRole('button', { name: en.Back }));
-  await user.click(await screen.findByRole('link', { name: 'Cell cards' }));
+  await user.click(await screen.findByRole('link', { name: /Cell cards/ }));
   await waitFor(() =>
     expect(location.pathname + location.search).toBe('/projects/1/flashcards/21')
   );
@@ -521,7 +521,7 @@ testStable('loads later project and note pages', async () => {
   );
   await renderWithNavigation();
   await userEvent.click(await screen.findByRole('button', { name: en.LibraryMore }));
-  expect(await screen.findByRole('link', { name: 'Later note' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /Later note/ })).toBeInTheDocument();
   const user = userEvent.setup();
 
   const picker = await screen.findByLabelText('Biology');
@@ -639,7 +639,7 @@ testStable('first send adds a note to the sidebar and permits another lazy note'
   await act(async () => {
     finish({ items: [] });
   });
-  expect(await screen.findByRole('link', { name: 'Created note' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /Created note/ })).toBeInTheDocument();
   await user.click(
     within(screen.getByRole('complementary', { name: en.SidebarNavigation })).getByRole('button', {
       name: en.NewNote
@@ -664,7 +664,7 @@ testStable('first send adds a note to the sidebar and permits another lazy note'
   api.notes.mockResolvedValue({ items: [second] });
   await user.click(screen.getByRole('button', { name: en.NoteSaveNote }));
   await waitFor(() => expect(location.pathname).toBe('/projects/1/notes/8'));
-  expect(await screen.findByRole('link', { name: 'Second note' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /Second note/ })).toBeInTheDocument();
 });
 
 testStable.each(['/notes/42', '/projects/2/notes/42'])(
@@ -673,8 +673,8 @@ testStable.each(['/notes/42', '/projects/2/notes/42'])(
     history.replaceState(null, '', url);
     await renderWithNavigation();
     expect(await screen.findByLabelText('Biology')).toBeVisible();
-    expect(await screen.findByRole('link', { name: 'Cell division' })).toBeVisible();
-    expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Cell division/ })).toBeVisible();
+    expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
     await userEvent.setup().type(screen.getByRole('searchbox'), 'cell');
     await waitFor(() =>
       expect(api.search).toHaveBeenLastCalledWith({
@@ -692,7 +692,7 @@ testStable('does not reveal a foreign subject while note ownership is loading', 
   api.note.mockReturnValue(new Promise(() => {}));
   await renderWithNavigation();
   expect(screen.queryByLabelText('History')).not.toBeInTheDocument();
-  expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
   await userEvent.setup().type(screen.getByRole('searchbox'), 'rome');
   expect(api.search).not.toHaveBeenCalled();
 });
@@ -738,15 +738,14 @@ testStable.each(['/pages/10', '/projects/2/pages/10'])(
 
     await renderWithNavigation();
     expect(await screen.findByLabelText('Biology')).toBeVisible();
-    expect(screen.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
-    const document = await screen.findByRole('link', { name: 'Cell notes' });
+    expect(screen.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
+    const document = await screen.findByRole('link', { name: /Cell notes/ });
 
     expect(document).toHaveAttribute('aria-current', 'page');
-    expect(screen.getByRole('link', { name: en.SourcePage })).toHaveAttribute(
-      'aria-current',
-      'page'
-    );
-    expect(screen.queryByRole('link', { name: 'Roman Republic' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+    ).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByRole('link', { name: /Roman Republic/ })).not.toBeInTheDocument();
     await user.click(screen.getByLabelText('Biology'));
     await user.click(await screen.findByRole('option', { name: 'History' }));
     await waitFor(() => expect(location.pathname + location.search).toBe('/projects/2/pages'));
@@ -774,30 +773,32 @@ testStable('opens Pages between Notes and Practice with a pages-only sidebar', a
   await renderWithNavigation();
   const sidebar = within(screen.getByRole('complementary', { name: en.SidebarNavigation }));
 
-  expect(await sidebar.findByRole('link', { name: 'Cell division' })).toBeVisible();
-  expect(sidebar.queryByRole('link', { name: 'Cell notes' })).not.toBeInTheDocument();
+  expect(await sidebar.findByRole('link', { name: /Cell division/ })).toBeVisible();
+  expect(sidebar.queryByRole('link', { name: /Cell notes/ })).not.toBeInTheDocument();
   const navigation = within(sidebar.getByRole('navigation', { name: en.SidebarNavigation }));
 
   expect(
     navigation
       .getAllByRole('link')
       .slice(0, 3)
-      .map((link) => link.getAttribute('aria-label'))
+      .map((link) => link.querySelector('.study-sidebar-navigation-label')?.textContent)
   ).toEqual([en.Notes, en.SourcePage, en.Practice]);
-  await user.click(navigation.getByRole('link', { name: en.SourcePage }));
+  await user.click(
+    navigation.getByRole('link', { name: new RegExp(`^${en.SourcePage}(?: \\d+)?$`) })
+  );
   await waitFor(() => expect(location.pathname + location.search).toBe('/projects/1/pages'));
-  await sidebar.findByRole('link', { name: 'Cell notes' });
-  expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
+  await sidebar.findByRole('link', { name: /Cell notes/ });
+  expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
   expect(sidebar.queryByText(en.SidebarOpen)).not.toBeInTheDocument();
   expect(screen.getByRole('heading', { name: en.PagesOverviewTitle, level: 2 })).toBeVisible();
   await user.type(sidebar.getByRole('searchbox'), 'missing');
   expect(await sidebar.findByText(en.SearchNoResults)).toBeVisible();
   await user.clear(sidebar.getByRole('searchbox'));
-  await user.click(await sidebar.findByRole('link', { name: 'Cell notes' }));
+  await user.click(await sidebar.findByRole('link', { name: /Cell notes/ }));
   await waitFor(() => expect(location.pathname).toBe('/projects/1/pages/10'));
-  expect(await sidebar.findByRole('link', { name: 'Cell notes' })).toHaveAttribute(
+  expect(await sidebar.findByRole('link', { name: /Cell notes/ })).toHaveAttribute(
     'aria-current',
     'page'
   );
-  expect(sidebar.queryByRole('link', { name: 'Cell division' })).not.toBeInTheDocument();
+  expect(sidebar.queryByRole('link', { name: /Cell division/ })).not.toBeInTheDocument();
 });
