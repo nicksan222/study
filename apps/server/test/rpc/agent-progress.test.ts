@@ -16,17 +16,17 @@ import { StudyRpc } from '@study/contracts/rpc';
 import { AgentRule } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Schema, Stream } from 'effect';
+import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { generateAgent, layer } from '#server/platform/ai/agents';
 import { defineAgent } from '#server/platform/definitions/define-agent';
 import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
-import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
-import { workflowStore } from '#server/platform/workflows/store';
 import { App, serve } from '#server/runtime/index';
 
 function controlledModel() {
@@ -83,16 +83,24 @@ testStable(
     const app = await App.open({ path: location.path });
     const server = await serve(app);
     const executionId = executionIdSchema.make('rpc-agent');
-    const owner = { executionId, ownerToken: 'owner', activityName: 'generate', attempt: 0 };
-    const store = workflowStore(app.store);
+    const workflow = Workflow.make('rpc-progress', {
+      payload: { id: Schema.String },
+      idempotencyKey: ({ id }) => id
+    });
+    const instance = WorkflowEngine.WorkflowInstance.initial(workflow, executionId);
 
-    store.start(
-      executionId,
-      'reply',
-      JSON.stringify({ event: { correlationId: 'rpc-request' } }),
-      undefined
-    );
-    store.claim(executionId, owner.ownerToken);
+    app.store.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: executionId,
+        workflow_tag: workflow._tag,
+        version: 1,
+        payload: JSON.stringify({ event: { correlationId: 'rpc-request' } }),
+        status: 'running',
+        created_at: 0n,
+        updated_at: 0n
+      })
+      .run();
     const observe = observeAgentProgress(app.store);
     const provider = controlledModel();
     const agents = layer({
@@ -136,7 +144,7 @@ testStable(
             yield* Deferred.await(started);
             const generation = yield* generateAgent(definition, 'hello').pipe(
               Effect.provide(agents),
-              Effect.provideService(WorkflowActivityOwner, owner),
+              Effect.provideService(WorkflowEngine.WorkflowInstance, instance),
               Effect.forkChild
             );
 
@@ -155,7 +163,9 @@ testStable(
               text: 'first second',
               status: 'completed'
             });
-            expect(store.execution(executionId)?.status).toBe('running');
+            expect(app.store.db.orm.select().from(workflow_executions).get()?.status).toBe(
+              'running'
+            );
           })
         )
       );

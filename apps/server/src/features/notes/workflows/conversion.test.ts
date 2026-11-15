@@ -36,6 +36,7 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
@@ -152,10 +153,16 @@ testStable(
           yield* engine.register(noteReplyWorkflow, noteReplyHandler);
 
           for (let attempt = 0; attempt < 2; attempt++)
-            yield* engine.execute(noteReplyWorkflow, {
-              executionId: 'conversion-test',
-              payload: { event }
-            });
+            yield* withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              'conversion-test',
+              { event },
+              engine.execute(noteReplyWorkflow, {
+                executionId: 'conversion-test',
+                payload: { event }
+              })
+            );
 
           const completed = yield* c.message(noteMessage.id);
 
@@ -237,10 +244,16 @@ testStable(
               )
           );
 
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: 'pdf-conversion-test',
-            payload: { event: pdfEvent }
-          });
+          yield* withTestAdmission(
+            context,
+            noteReplyWorkflow,
+            'pdf-conversion-test',
+            { event: pdfEvent },
+            engine.execute(noteReplyWorkflow, {
+              executionId: 'pdf-conversion-test',
+              payload: { event: pdfEvent }
+            })
+          );
           const pdf = yield* c.message(attachment.id);
 
           expect(pdf.parts).toEqual(attachment.parts);
@@ -274,10 +287,16 @@ testStable(
               )
           );
 
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: 'thread-pdf-conversion-test',
-            payload: { event: threadEvent }
-          });
+          yield* withTestAdmission(
+            context,
+            noteReplyWorkflow,
+            'thread-pdf-conversion-test',
+            { event: threadEvent },
+            engine.execute(noteReplyWorkflow, {
+              executionId: 'thread-pdf-conversion-test',
+              payload: { event: threadEvent }
+            })
+          );
           expect((yield* c.message(threaded.id)).versions.at(-1)?.text).toBe(
             'First page\n\nSecond page'
           );
@@ -350,10 +369,16 @@ testStable(
 
           yield* engine.register(noteReplyWorkflow, noteReplyHandler);
           const result = yield* Effect.result(
-            engine.execute(noteReplyWorkflow, {
-              executionId: 'failed-conversion-test',
-              payload: { event }
-            })
+            withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              'failed-conversion-test',
+              { event },
+              engine.execute(noteReplyWorkflow, {
+                executionId: 'failed-conversion-test',
+                payload: { event }
+              })
+            )
           );
 
           expect(result._tag).toBe('Failure');
@@ -386,10 +411,16 @@ testStable(
               )
           );
 
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: 'retried-conversion-test',
-            payload: { event: retryEvent }
-          });
+          yield* withTestAdmission(
+            context,
+            noteReplyWorkflow,
+            'retried-conversion-test',
+            { event: retryEvent },
+            engine.execute(noteReplyWorkflow, {
+              executionId: 'retried-conversion-test',
+              payload: { event: retryEvent }
+            })
+          );
           expect(calls).toBe(5);
           expect((yield* c.message(noteMessage.id)).versions.at(-1)).toMatchObject({
             id: event.versionId,

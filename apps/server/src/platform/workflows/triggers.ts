@@ -17,13 +17,23 @@
 import { workflowEventSchema } from '@study/contracts/events';
 import type { WorkflowEvent } from '@study/contracts/events';
 import { and, eq, lt, sql } from '@study/db';
-import { workflowEvents, workflowReceipts, workflow_executions } from '@study/db/schema';
+import {
+  workflowEvents,
+  workflowReceipts,
+  workflow_executions,
+  workflow_retired_executions
+} from '@study/db/schema';
 import { CryptoHasher } from 'bun';
-import { Schema } from 'effect';
-import type { Workflow } from 'effect/workflow';
+import { Effect, Option, Schema } from 'effect';
+import { WorkflowEngine } from 'effect/workflow';
+import { Workflow } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
 import { decodeEvent } from '#server/platform/workflows/events';
+
+import { withDispatchPermit } from './admission.ts';
+import { reconcileCancellation } from './cancellation.ts';
+import { workflowStore } from './store.ts';
 
 export type EventType = WorkflowEvent['type'];
 
@@ -88,8 +98,12 @@ export function validateTriggerGraph(
   for (const edge of edges) visit(edge.event, []);
 }
 
+function eligibleEvent(trigger: Trigger) {
+  return sql`NOT EXISTS (SELECT 1 FROM ${workflow_executions} e WHERE json_extract(e.payload, '$.event.eventId') = ${workflowEvents.eventId} AND e.workflow_tag = ${trigger.workflow._tag} AND (e.cancellation_mode IS NOT NULL OR e.status IN ('cancelled','blocked') OR EXISTS (SELECT 1 FROM workflow_retired_executions r WHERE r.execution_id=e.execution_id))) AND NOT EXISTS (SELECT 1 FROM workflow_retired_correlations r WHERE r.correlation_id=${workflowEvents.correlationId} AND r.event_type=${workflowEvents.type})`;
+}
+
 /** Persist execution and receipt atomically; recovery starts executions after commit. */
-export function dispatchPending(
+export function admitPending(
   context: ServerContext,
   triggers: readonly Trigger[],
   now: number,
@@ -133,6 +147,7 @@ export function dispatchPending(
         .where(
           and(
             eq(workflowEvents.type, trigger.event),
+            eligibleEvent(trigger),
             sql`NOT EXISTS (SELECT 1 FROM workflow_retired_correlations r WHERE r.correlation_id = ${workflowEvents.correlationId} AND r.event_type = ${workflowEvents.type})`,
             lt(workflowEvents.depth, 8),
             sql`NOT EXISTS (SELECT 1 FROM ${workflowReceipts} WHERE ${workflowReceipts.eventId} = ${workflowEvents.eventId} AND ${workflowReceipts.subscription} = ${trigger.subscription} AND ${workflowReceipts.workflowVersion} = ${trigger.workflowVersion} AND ${workflowReceipts.inputVersion} = ${workflowEvents.inputVersion})`
@@ -155,26 +170,218 @@ export function dispatchPending(
             version: trigger.workflowVersion,
             payload,
             status: 'running',
-            owner_token: null,
             created_at: BigInt(now),
             updated_at: BigInt(now)
           })
           .onConflictDoNothing()
-          .run();
-        db.insert(workflowReceipts)
-          .values({
-            eventId: event.eventId,
-            subscription: trigger.subscription,
-            workflowVersion: trigger.workflowVersion,
-            inputVersion: event.inputVersion,
-            executionId,
-            createdAt: now
-          })
           .run();
         scheduled++;
       }
     }
 
     return scheduled;
+  });
+}
+
+/** Bridge committed domain intent to officially persisted messages before acknowledging delivery. */
+export function dispatchPending(
+  context: ServerContext,
+  triggers: readonly Trigger[],
+  now: number,
+  batchSize = 100
+) {
+  return withDispatchPermit(
+    context,
+    Effect.gen(function* () {
+      yield* Effect.sync(() => admitPending(context, triggers, now, batchSize));
+      const engine = yield* WorkflowEngine.WorkflowEngine;
+      let delivered = 0;
+
+      for (const trigger of triggers) {
+        const rows = yield* Effect.sync(() =>
+          context.db.orm
+            .select()
+            .from(workflowEvents)
+            .where(
+              and(
+                eq(workflowEvents.type, trigger.event),
+                eligibleEvent(trigger),
+                lt(workflowEvents.depth, 8),
+                sql`NOT EXISTS (SELECT 1 FROM ${workflowReceipts} WHERE ${workflowReceipts.eventId} = ${workflowEvents.eventId} AND ${workflowReceipts.subscription} = ${trigger.subscription} AND ${workflowReceipts.workflowVersion} = ${trigger.workflowVersion})`
+              )
+            )
+            .orderBy(workflowEvents.createdAt, workflowEvents.eventId)
+            .limit(batchSize)
+            .all()
+        );
+
+        for (const row of rows) {
+          const event = decodeEvent(row.payload);
+          const executionId = triggeredExecutionId(event, trigger);
+          const admitted = context.db.orm
+            .select()
+            .from(workflow_executions)
+            .where(eq(workflow_executions.execution_id, executionId))
+            .get();
+
+          if (
+            !admitted ||
+            admitted.status === 'blocked' ||
+            admitted.cancellation_mode ||
+            admitted.status === 'cancelled' ||
+            context.db.orm
+              .select()
+              .from(workflow_retired_executions)
+              .where(eq(workflow_retired_executions.execution_id, executionId))
+              .get()
+          )
+            continue;
+
+          yield* engine.execute(
+            trigger.workflow as Workflow.Workflow<
+              string,
+              typeof workflowPayloadSchema,
+              typeof Schema.Unknown,
+              typeof Schema.Unknown
+            >,
+            { executionId, payload: { event }, discard: true }
+          );
+          yield* Effect.sync(() =>
+            context.transaction(['workflows'], (tx) => {
+              tx.db.orm
+                .insert(workflowReceipts)
+                .values({
+                  eventId: event.eventId,
+                  subscription: trigger.subscription,
+                  workflowVersion: trigger.workflowVersion,
+                  inputVersion: event.inputVersion,
+                  executionId,
+                  createdAt: now
+                })
+                .onConflictDoNothing()
+                .run();
+            })
+          );
+          delivered++;
+        }
+      }
+
+      return delivered;
+    })
+  );
+}
+
+const snapshotCursors = new WeakMap<ServerContext, string>();
+
+/** Refresh domain snapshots from official replies; never schedule or recover execution here. */
+export function refreshExecutionSnapshots(context: ServerContext, triggers: readonly Trigger[]) {
+  return Effect.gen(function* () {
+    const engine = yield* WorkflowEngine.WorkflowEngine;
+    const rows = context.db.orm
+      .select()
+      .from(workflow_executions)
+      .where(
+        sql`(${workflow_executions.status} IN ('running','suspended','cancelling') OR EXISTS (SELECT 1 FROM workflow_retired_executions r WHERE r.execution_id=${workflow_executions.execution_id})) AND ${workflow_executions.execution_id} > ${snapshotCursors.get(context) ?? ''}`
+      )
+      .orderBy(workflow_executions.execution_id)
+      .limit(100)
+      .all();
+
+    snapshotCursors.set(context, rows.length === 100 ? rows[rows.length - 1]!.execution_id : '');
+
+    for (const row of rows) {
+      const trigger = triggers.find(
+        (t) => t.workflow._tag === row.workflow_tag && t.workflowVersion === Number(row.version)
+      );
+
+      if (!trigger) {
+        if (row.status === 'blocked') continue;
+
+        yield* Effect.sync(() =>
+          context.transaction(['workflows'], (tx) => {
+            tx.db.orm
+              .update(workflow_executions)
+              .set({
+                status: 'blocked',
+                blocked_reason: 'unsupported',
+                updated_at: BigInt(context.clock.currentTimeMillisUnsafe())
+              })
+              .where(eq(workflow_executions.execution_id, row.execution_id))
+              .run();
+          })
+        );
+        continue;
+      }
+
+      const retired = !!context.db.orm
+        .select()
+        .from(workflow_retired_executions)
+        .where(eq(workflow_retired_executions.execution_id, row.execution_id))
+        .get();
+
+      if (row.cancellation_mode || retired) {
+        yield* reconcileCancellation(
+          context,
+          trigger.workflow,
+          row.execution_id,
+          retired ? 'unsafe' : row.cancellation_mode!,
+          false
+        );
+        continue;
+      }
+
+      const reply = yield* engine.poll(
+        trigger.workflow as Workflow.Workflow<
+          string,
+          typeof workflowPayloadSchema,
+          typeof Schema.Unknown,
+          typeof Schema.Unknown
+        >,
+        row.execution_id
+      );
+
+      yield* Effect.sync(() =>
+        context.transaction(['workflows'], (tx) => {
+          const current = tx.db.orm
+            .select()
+            .from(workflow_executions)
+            .where(eq(workflow_executions.execution_id, row.execution_id))
+            .get();
+
+          if (
+            !current ||
+            current.generation !== row.generation ||
+            workflowStore(tx).retired(row.execution_id)
+          )
+            return;
+
+          if (Option.isNone(reply)) return;
+
+          const status = current.cancellation_mode
+            ? 'cancelling'
+            : reply.value._tag === 'Complete'
+              ? 'completed'
+              : 'suspended';
+          const result = JSON.stringify(
+            Schema.encodeSync(
+              Schema.toCodecJson(
+                Workflow.Result({
+                  success: trigger.workflow.successSchema as Schema.Codec<unknown, unknown>,
+                  error: trigger.workflow.errorSchema as Schema.Codec<unknown, unknown>
+                })
+              )
+            )(reply.value)
+          );
+
+          if (current.status === status && current.result === result) return;
+
+          tx.db.orm
+            .update(workflow_executions)
+            .set({ status, result, updated_at: BigInt(context.clock.currentTimeMillisUnsafe()) })
+            .where(eq(workflow_executions.execution_id, row.execution_id))
+            .run();
+        })
+      );
+    }
   });
 }

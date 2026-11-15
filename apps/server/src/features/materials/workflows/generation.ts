@@ -230,6 +230,7 @@ export const materialGenerationHandler = ({
   Effect.gen(() => generateMaterial(event));
 
 export const materialGenerationRegistration = defineWorkflowHandler(materialGenerationWorkflow, {
+  workload: 'bulk',
   execute: materialGenerationHandler,
   triggers: [
     {

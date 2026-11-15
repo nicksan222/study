@@ -27,6 +27,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { processSource } from '#testing/material-history';
 import { assertScrubbed } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 testStable(
   'unchanged original bytes survive obsolete extraction pruning while current and in-flight correction roots remain usable',
@@ -65,7 +66,7 @@ testStable(
               })).document.blocks[0]?.text,
               before.document.blocks[0]?.text
             );
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
         corrected.push(await processSource(f, true));
       }
@@ -102,7 +103,7 @@ testStable(
           yield* Effect.flip(sources.retireHistory({ ...scope, token: preview.token }));
           assert.strictEqual(
             f.context.db.orm.get(
-              sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'First corrected evidence')>0`
+              sql`SELECT count(*) n FROM cluster_replies WHERE instr(payload,'First corrected evidence')>0`
             )?.n,
             1n
           );
@@ -117,7 +118,7 @@ testStable(
           yield* sources.retireHistory({ ...scope, token: preview.token });
           assert.strictEqual(
             f.context.db.orm.get(
-              sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'First corrected evidence')>0`
+              sql`SELECT count(*) n FROM cluster_replies WHERE instr(payload,'First corrected evidence')>0`
             )?.n,
             0n
           );
@@ -149,9 +150,9 @@ testStable(
           );
           assert.strictEqual(
             f.context.db.orm.get(
-              sql`SELECT count(*) n FROM workflow_activities WHERE name='correct-source' AND instr(result,'Current corrected evidence')>0`
+              sql`SELECT count(*) n FROM cluster_replies WHERE instr(payload,'Current corrected evidence')>0`
             )?.n,
-            1n
+            0n
           );
 
           for (const snapshotId of [first.documentId, corrected[0]!.documentId])
@@ -168,7 +169,7 @@ testStable(
           expect(
             (yield* sources.exportRevision({ sourceId: source.id, revision: 1n })).bytes
           ).toStrictEqual(bytes);
-        }).pipe(Effect.provide(f.domain()))
+        }).pipe(Effect.provide(f.services()))
       );
       await f.reopen();
 
@@ -176,6 +177,28 @@ testStable(
         assert.ok(event.type === 'SourceCorrectionRequested');
 
         assert.ok(!(event.type !== 'SourceCorrectionRequested'), 'Unexpected fixture event');
+
+        const retired = f.context.db.orm.get(sql`
+          SELECT 1 FROM workflow_retired_correlations
+          WHERE correlation_id=${event.correlationId} AND event_type=${event.type}
+        `);
+
+        if (retired) {
+          expect(() =>
+            admitTestExecution(
+              f.context,
+              sourceCorrectionWorkflow,
+              `retired-replay/${event.eventId}`,
+              { event }
+            )
+          ).toThrowError(
+            expect.objectContaining({
+              kind: 'cancelled',
+              message: 'Workflow correlation has been retired'
+            })
+          );
+          continue;
+        }
 
         await expect(
           Effect.runPromise(
@@ -185,6 +208,13 @@ testStable(
 
                 yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
 
+                admitTestExecution(
+                  f.context,
+                  sourceCorrectionWorkflow,
+                  `retired-replay/${event.eventId}`,
+                  { event }
+                );
+
                 return yield* engine.execute(sourceCorrectionWorkflow, {
                   executionId: `retired-replay/${event.eventId}`,
                   payload: { event }
@@ -192,7 +222,7 @@ testStable(
               }).pipe(Effect.provide(f.services()))
             )
           )
-        ).rejects.toSatisfy(() => true);
+        ).rejects.toMatchObject({ kind: 'not_found' });
       }
 
       const pending = await processSource(f, true);
@@ -224,7 +254,7 @@ testStable(
             (yield* sources.currentExtraction({ id: source.id }))?.document.blocks[0]?.text ===
               'Pending correction completes'
           );
-        }).pipe(Effect.provide(f.domain()))
+        }).pipe(Effect.provide(f.services()))
       );
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
       assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM pages`)?.n, 0n);

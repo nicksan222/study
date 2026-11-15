@@ -310,20 +310,19 @@ testStable(
         ).id,
         saved.library.version.id
       );
-      assert.strictEqual(app.store.db.orm.select().from(s.workflow_activities).all().length, 0);
       assert.ok(
         app.store.db.orm
           .select()
           .from(s.workflowEvents)
           .all()
-          .every((e) => e.payload === '{}')
+          .every((e) => !e.payload.includes('PRIVATE_SESSION_BODY_BACKUP'))
       );
       assert.ok(
         app.store.db.orm
           .select()
           .from(s.workflow_executions)
           .all()
-          .every((e) => e.payload === '{}' && e.owner_token === null)
+          .every((e) => !e.payload.includes('PRIVATE_SESSION_BODY_BACKUP'))
       );
       await app.workers.start();
       await app.workers.stop();

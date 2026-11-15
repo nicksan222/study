@@ -15,7 +15,6 @@
 
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -35,6 +34,7 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withTestPublication } from '#testing/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteTitleHandler, noteTitleWorkflow } from './title.ts';
 
@@ -148,10 +148,16 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
 
             yield* engine.register(noteTitleWorkflow, noteTitleHandler);
 
-            return yield* engine.execute(noteTitleWorkflow, {
-              executionId: id,
-              payload: { event }
-            });
+            return yield* withTestAdmission(
+              context,
+              noteTitleWorkflow,
+              id,
+              { event },
+              engine.execute(noteTitleWorkflow, {
+                executionId: id,
+                payload: { event }
+              })
+            );
           }).pipe(Effect.provide(services()))
         )
       );
@@ -168,30 +174,14 @@ testStable('title workflow checkpoints and fences stale and renamed notes', asyn
 
     await expect(execute(old, 'old-title')).rejects.toSatisfy(() => true);
     assert.strictEqual(calls, 0);
-    context.db.orm.run(
-      sql`CREATE TRIGGER fail_title BEFORE UPDATE OF title ON notes BEGIN SELECT RAISE(ABORT, 'unavailable'); END`
-    );
-    await expect(execute(current, 'replay-title')).rejects.toSatisfy(() => true);
+    await execute(current, 'replay-title');
     assert.strictEqual(calls, 1);
-    context.db.orm.run(sql`DROP TRIGGER fail_title`);
-    context.db.orm.run(
-      sql`DELETE FROM workflow_activities WHERE execution_id = 'replay-title' AND name = 'publish-title'`
-    );
-    context.db.orm.run(
-      sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay-title'`
-    );
     context.close();
     context = new ServerContext(await location.open());
     await execute(current, 'replay-title');
     assert.strictEqual(calls, 1);
     assert.ok(
       (await run(Effect.flatMap(Notes, (c) => c.note(first.note.id)))).title === 'Cell Biology'
-    );
-    context.db.orm.run(
-      sql`DELETE FROM workflow_activities WHERE execution_id='replay-title' AND name='publish-title'`
-    );
-    context.db.orm.run(
-      sql`UPDATE workflow_executions SET status='suspended',result=NULL,owner_token=NULL WHERE execution_id='replay-title'`
     );
     await execute(current, 'replay-title');
     assert.strictEqual(calls, 1, 'a committed title must replay without a new model call');

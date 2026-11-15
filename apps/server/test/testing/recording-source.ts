@@ -25,6 +25,7 @@ import {
 } from '#server/features/recordings/workflows/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import type { pageTransformFixture } from '#testing/page-transform';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 type SourceFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
@@ -66,10 +67,16 @@ export async function recordingSource(f: SourceFixture) {
 
         yield* engine.register(recordingPostWorkflow, recordingPostHandler);
 
-        yield* engine.execute(recordingPostWorkflow, {
-          executionId: `recording-source-copy/${post.requestId}`,
-          payload: { event }
-        });
+        yield* withTestAdmission(
+          f.context,
+          recordingPostWorkflow,
+          `recording-source-copy/${post.requestId}`,
+          { event },
+          engine.execute(recordingPostWorkflow, {
+            executionId: `recording-source-copy/${post.requestId}`,
+            payload: { event }
+          })
+        );
       }).pipe(Effect.provide(f.services()))
     )
   );

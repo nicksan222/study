@@ -12,7 +12,7 @@
 
 import type { agentObservationSchema } from '@study/contracts/ai/progress';
 import type { StudyError } from '@study/contracts/errors';
-import { Effect, Semaphore } from 'effect';
+import { Deferred, Effect, Queue, Semaphore } from 'effect';
 
 type Event = (typeof agentObservationSchema.Type)['event'];
 
@@ -51,3 +51,37 @@ export function batchAgentProgress(write: (event: Event) => Effect.Effect<void, 
       )
   };
 }
+
+/** Persist observations in a sibling scope, outside the provider permit owner. */
+export const scopedAgentProgress = (write: (event: Event) => Effect.Effect<void, StudyError>) =>
+  Effect.gen(function* () {
+    type Request = {
+      operation: Effect.Effect<void, StudyError>;
+      accepted: Deferred.Deferred<void, StudyError>;
+    };
+
+    const queue = yield* Queue.bounded<Request>(1);
+
+    yield* Effect.addFinalizer(() => Queue.shutdown(queue));
+    yield* Effect.forever(
+      Effect.gen(function* () {
+        const request = yield* Queue.take(queue);
+        const result = yield* Effect.exit(request.operation);
+
+        yield* Deferred.done(request.accepted, result);
+      })
+    ).pipe(Effect.forkScoped);
+
+    const outsideProvider = (operation: Effect.Effect<void, StudyError>) =>
+      Effect.gen(function* () {
+        const accepted = yield* Deferred.make<void, StudyError>();
+
+        yield* Queue.offer(queue, { operation, accepted });
+        yield* Deferred.await(accepted);
+      });
+
+    return {
+      ...batchAgentProgress((event) => outsideProvider(write(event))),
+      preflight: outsideProvider
+    };
+  });

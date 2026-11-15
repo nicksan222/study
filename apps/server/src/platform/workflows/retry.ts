@@ -33,13 +33,10 @@ export function settleWorkflowFailure<E, R>(
   message: string,
   settle: (kind: ErrorKind) => Effect.Effect<unknown, E, R>
 ) {
+  if (Cause.hasInterrupts(cause)) return Effect.interrupt;
+
   const failure = Cause.squash(cause);
-  const kind =
-    failure instanceof StudyError
-      ? failure.kind
-      : Cause.hasInterrupts(cause)
-        ? 'cancelled'
-        : 'internal';
+  const kind = failure instanceof StudyError ? failure.kind : 'internal';
   const error = new StudyError(kind, message);
 
   return settle(kind).pipe(
@@ -72,8 +69,10 @@ export function retryResumableActivity<
   if (
     !Number.isSafeInteger(maxRetries) ||
     maxRetries < 0 ||
+    maxRetries > 10 ||
     !Number.isSafeInteger(delayMs) ||
-    delayMs < 1
+    delayMs < 1 ||
+    delayMs > 60_000
   )
     throw new RangeError('Invalid durable retry policy');
 
@@ -81,6 +80,7 @@ export function retryResumableActivity<
     const configuration = yield* WorkflowConfiguration;
     const { store: context } = yield* Database;
     let delayed = 0;
+    let failures = 0;
 
     for (let attempt = 1; ; attempt++) {
       const observed = yield* Activity.make({
@@ -94,6 +94,19 @@ export function retryResumableActivity<
       );
 
       if (Result.isSuccess(result)) return result.success;
+
+      // Local saturation has not attempted provider work. Persist a native wait without
+      // spending the bounded provider/configuration failure budget.
+      if (result.failure.resource === 'ai_capacity') {
+        yield* DurableClock.sleep({
+          name: `${activity.name}/capacity/${attempt}`,
+          duration: delayMs,
+          inMemoryThreshold: 0
+        });
+        continue;
+      }
+
+      if (failures++ >= maxRetries) return yield* Effect.fail(result.failure);
 
       const disposition = retryDisposition(result.failure);
 
@@ -124,7 +137,7 @@ export function retryResumableActivity<
           const registered = yield* Effect.try({
             try: () =>
               context.transaction(['workflows'], (context) => {
-                workflowStore(context).assertOwner(owner.executionId, owner.ownerToken);
+                workflowStore(context).capturePublication(owner.executionId);
 
                 return (
                   Number(

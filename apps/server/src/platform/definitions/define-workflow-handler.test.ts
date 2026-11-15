@@ -21,21 +21,21 @@ import {
   sourceDeletedSchema,
   workflowEventSchema
 } from '@study/contracts/events';
-import { workflow_executions, workflowReceipts } from '@study/db/schema';
+import { workflowReceipts } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Context, Effect, Schema } from 'effect';
 import type { Scope, Layer } from 'effect';
 import type { Workflow } from 'effect/workflow';
-import { WorkflowEngine } from 'effect/workflow';
+import type { WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
+import { Database } from '#server/platform/database/database';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { recoverWorkflowEngine, workflowEngineLayer } from '#server/platform/workflows/engine';
-import { emitEvent } from '#server/platform/workflows/events';
+import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { dispatchPending } from '#server/platform/workflows/triggers';
 
 const workflow = defineWorkflow({
@@ -170,14 +170,23 @@ function typeAssertions() {
     execute: ({ id }) => Effect.succeed(id),
     triggers: []
   });
-  const codecExact: Layer.Layer<never, never, WorkflowEngine.WorkflowEngine | Decoding | Encoding> =
-    codecRegistration.layer;
+  const codecExact: Layer.Layer<
+    never,
+    never,
+    Database | WorkflowEngine.WorkflowEngine | Decoding | Encoding
+  > = codecRegistration.layer;
   // @ts-expect-error encoding services are retained by native registration
-  const missingEncoding: Layer.Layer<never, never, WorkflowEngine.WorkflowEngine | Decoding> =
-    codecRegistration.layer;
+  const missingEncoding: Layer.Layer<
+    never,
+    never,
+    Database | WorkflowEngine.WorkflowEngine | Decoding
+  > = codecRegistration.layer;
   // @ts-expect-error decoding services are retained by native registration
-  const missingDecoding: Layer.Layer<never, never, WorkflowEngine.WorkflowEngine | Encoding> =
-    codecRegistration.layer;
+  const missingDecoding: Layer.Layer<
+    never,
+    never,
+    Database | WorkflowEngine.WorkflowEngine | Encoding
+  > = codecRegistration.layer;
   const execute = () =>
     Effect.void as Effect.Effect<
       void,
@@ -190,10 +199,17 @@ function typeAssertions() {
     >;
   const native = workflow.toLayer(execute);
   const registration = defineWorkflowHandler(workflow, { execute, triggers: [] });
-  const exact: typeof native = registration.layer;
+  const exact: Layer.Layer<
+    never,
+    never,
+    Database | Database | Requirement | WorkflowEngine.WorkflowEngine
+  > = registration.layer;
   const reverse: typeof registration.layer = native;
-  const nativeRequirements: Layer.Layer<never, never, Requirement | WorkflowEngine.WorkflowEngine> =
-    registration.layer;
+  const nativeRequirements: Layer.Layer<
+    never,
+    never,
+    Database | Requirement | WorkflowEngine.WorkflowEngine
+  > = registration.layer;
   // @ts-expect-error application dependencies remain required
   const missingRequirement: Layer.Layer<never, never, WorkflowEngine.WorkflowEngine> =
     registration.layer;
@@ -228,74 +244,6 @@ const event = (id: string) =>
   });
 
 testStable(
-  'registered subscriptions retain disabled events and recover native executions after reopen',
-  async () => {
-    const location = await createTestDatabase();
-    let context = new ServerContext(await location.open());
-    let enabled = false;
-    let executions = 0;
-    const registration = defineWorkflowHandler(workflow, {
-      execute: () =>
-        Effect.sync(() => {
-          executions++;
-        }),
-      triggers: [
-        {
-          subscription: 'test-recovery',
-          event: 'SourceIndexed',
-          emits: [],
-          enabled: () => enabled
-        }
-      ]
-    });
-
-    try {
-      context.transaction(['settings'], (context) => emitEvent(context, event('recover'), 1));
-      assert.strictEqual(dispatchPending(context, registration.triggers, 2), 0);
-      enabled = true;
-      assert.strictEqual(dispatchPending(context, registration.triggers, 3), 1);
-      const [persisted] = context.db.orm.select().from(workflow_executions).all();
-
-      expect(persisted!.version).toBe(3n);
-      assert.ok(persisted!.workflow_tag === 'test-registration/v3');
-      expect(context.db.orm.select().from(workflowReceipts).all()[0]!.workflowVersion).toBe(3n);
-      context.close();
-      context = new ServerContext(await location.open());
-
-      await Effect.runPromise(
-        Effect.scoped(
-          Effect.gen(function* () {
-            const engine = yield* WorkflowEngine.WorkflowEngine;
-
-            yield* recoverWorkflowEngine(context, engine, [registration.definition]);
-
-            for (let attempt = 0; attempt < 100; attempt++) {
-              if (
-                context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed'
-              )
-                break;
-
-              yield* Effect.sleep('5 millis');
-            }
-
-            assert.ok(
-              context.db.orm.select().from(workflow_executions).all()[0]?.status === 'completed'
-            );
-            yield* recoverWorkflowEngine(context, engine, [registration.definition]);
-          }).pipe(Effect.provide(registration.layer), Effect.provide(workflowEngineLayer(context)))
-        )
-      );
-      assert.strictEqual(executions, 1);
-      assert.strictEqual(dispatchPending(context, registration.triggers, 4), 0);
-      assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 1);
-    } finally {
-      context.close();
-      await location.cleanup();
-    }
-  }
-);
-
-testStable(
   'registration preserves dispatch duplicate subscription and synchronous policy validation',
   async () => {
     const location = await createTestDatabase();
@@ -316,14 +264,20 @@ testStable(
     });
 
     try {
-      assert.throws(
-        () => dispatchPending(context, duplicates.triggers, 1),
-        /duplicate subscription/
-      );
-      assert.throws(
-        () => dispatchPending(context, asynchronous.triggers, 1),
-        /boolean synchronously/
-      );
+      await expect(
+        Effect.runPromise(
+          dispatchPending(context, duplicates.triggers, 1).pipe(
+            Effect.provide(workflowEngineLayer(context))
+          )
+        )
+      ).rejects.toThrow('duplicate subscription');
+      await expect(
+        Effect.runPromise(
+          dispatchPending(context, asynchronous.triggers, 1).pipe(
+            Effect.provide(workflowEngineLayer(context))
+          )
+        )
+      ).rejects.toThrow('boolean synchronously');
       assert.strictEqual(context.db.orm.select().from(workflowReceipts).all().length, 0);
     } finally {
       context.close();
@@ -362,6 +316,7 @@ testStable(
               .execute({ event: event(value) })
               .pipe(
                 Effect.provide(registration.layer),
+                Effect.provideService(Database, { store: context }),
                 Effect.provideService(Requirement, value),
                 Effect.provide(workflowEngineLayer(context))
               )

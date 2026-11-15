@@ -19,6 +19,7 @@ import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
+import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
@@ -41,6 +42,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import { dispatchPending } from '#server/platform/workflows/triggers';
 import { createUnregisteredSource } from '#testing/source';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteDeletionWorkflow, noteDeletionHandler } from './deletion.ts';
 import {
@@ -145,7 +147,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             1
           );
           assert.strictEqual(
-            dispatchPending(context, noteReplyRegistration.triggers, Date.now()),
+            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now()),
             1
           );
           const receipt = context.db.orm
@@ -163,11 +165,17 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
           assertEventType(generation, 'NoteGenerationRequested', 'wrong event');
 
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: receipt.executionId,
-            payload: { event: generation },
-            discard: true
-          });
+          yield* withTestAdmission(
+            context,
+            noteReplyWorkflow,
+            receipt.executionId,
+            { event: generation },
+            engine.execute(noteReplyWorkflow, {
+              executionId: receipt.executionId,
+              payload: { event: generation },
+              discard: true
+            })
+          );
           let result = yield* engine.poll(noteReplyWorkflow, receipt.executionId);
 
           while (Option.isNone(result)) {
@@ -187,10 +195,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
           assertEventType(sourceEvent, 'SourceProcessingRequested', 'missing event');
 
-          yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'ingestion',
-            payload: { event: sourceEvent }
-          });
+          yield* withTestAdmission(
+            context,
+            sourceIngestionWorkflow,
+            'ingestion',
+            { event: sourceEvent },
+            engine.execute(sourceIngestionWorkflow, {
+              executionId: 'ingestion',
+              payload: { event: sourceEvent }
+            })
+          );
           const indexed = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -201,7 +215,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
           assertEventType(indexed, 'SourceIndexed', 'missing index event');
 
-          dispatchPending(
+          yield* dispatchPending(
             context,
             noteAttachmentWakeRegistration.triggers.filter(
               (trigger) => trigger.event === 'SourceIndexed'
@@ -214,14 +228,26 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .where(eq(tables.workflowReceipts.eventId, indexed.eventId))
             .get()!;
 
-          yield* engine.execute(noteAttachmentWakeWorkflow, {
-            executionId: wakeReceipt.executionId,
-            payload: { event: indexed }
-          });
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: receipt.executionId,
-            payload: { event: generation }
-          });
+          yield* withTestAdmission(
+            context,
+            noteAttachmentWakeWorkflow,
+            wakeReceipt.executionId,
+            { event: indexed },
+            engine.execute(noteAttachmentWakeWorkflow, {
+              executionId: wakeReceipt.executionId,
+              payload: { event: indexed }
+            })
+          );
+          yield* withTestAdmission(
+            context,
+            noteReplyWorkflow,
+            receipt.executionId,
+            { event: generation },
+            engine.execute(noteReplyWorkflow, {
+              executionId: receipt.executionId,
+              payload: { event: generation }
+            })
+          );
           assert.strictEqual(calls, 1);
           const row = context.db.orm
             .select()
@@ -277,10 +303,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
           assertEventType(earlyIngestion, 'SourceProcessingRequested', 'missing ingestion');
 
-          yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'early-ingestion',
-            payload: { event: earlyIngestion }
-          });
+          yield* withTestAdmission(
+            context,
+            sourceIngestionWorkflow,
+            'early-ingestion',
+            { event: earlyIngestion },
+            engine.execute(sourceIngestionWorkflow, {
+              executionId: 'early-ingestion',
+              payload: { event: earlyIngestion }
+            })
+          );
           const earlyIndex = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -291,11 +323,17 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
           assertEventType(earlyIndex, 'SourceIndexed', 'missing index');
 
-          yield* engine.execute(noteAttachmentWakeWorkflow, {
-            executionId: 'early-wake',
-            payload: { event: earlyIndex }
-          });
-          dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+          yield* withTestAdmission(
+            context,
+            noteAttachmentWakeWorkflow,
+            'early-wake',
+            { event: earlyIndex },
+            engine.execute(noteAttachmentWakeWorkflow, {
+              executionId: 'early-wake',
+              payload: { event: earlyIndex }
+            })
+          );
+          yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
           const earlyEventRow = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -311,10 +349,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .where(eq(tables.workflowReceipts.eventId, earlyEvent.eventId))
             .get()!;
 
-          yield* engine.execute(noteReplyWorkflow, {
-            executionId: earlyReceipt.executionId,
-            payload: { event: earlyEvent }
-          });
+          yield* withTestAdmission(
+            context,
+            noteReplyWorkflow,
+            earlyReceipt.executionId,
+            { event: earlyEvent },
+            engine.execute(noteReplyWorkflow, {
+              executionId: earlyReceipt.executionId,
+              payload: { event: earlyEvent }
+            })
+          );
           assert.strictEqual(calls, 2);
 
           const failedNote = yield* notes.createNote({
@@ -347,10 +391,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
           assertEventType(failedIngestion, 'SourceProcessingRequested', 'missing ingestion');
 
           yield* Effect.flip(
-            engine.execute(sourceIngestionWorkflow, {
-              executionId: 'early-failure-ingestion',
-              payload: { event: failedIngestion }
-            })
+            withTestAdmission(
+              context,
+              sourceIngestionWorkflow,
+              'early-failure-ingestion',
+              { event: failedIngestion },
+              engine.execute(sourceIngestionWorkflow, {
+                executionId: 'early-failure-ingestion',
+                payload: { event: failedIngestion }
+              })
+            )
           );
           const failureNotice = context.db.orm
             .select()
@@ -364,11 +414,17 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
           assertEventType(failureNotice, 'SourceProcessingFailed', 'missing failure notice');
 
-          yield* engine.execute(noteAttachmentWakeWorkflow, {
-            executionId: 'early-failure-wake',
-            payload: { event: failureNotice }
-          });
-          dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+          yield* withTestAdmission(
+            context,
+            noteAttachmentWakeWorkflow,
+            'early-failure-wake',
+            { event: failureNotice },
+            engine.execute(noteAttachmentWakeWorkflow, {
+              executionId: 'early-failure-wake',
+              payload: { event: failureNotice }
+            })
+          );
+          yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
           const failedRow = context.db.orm
             .select()
             .from(tables.workflowEvents)
@@ -384,10 +440,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             .where(eq(tables.workflowReceipts.eventId, failedEvent.eventId))
             .get()!;
           const earlyFailure = yield* Effect.flip(
-            engine.execute(noteReplyWorkflow, {
-              executionId: failedReceipt.executionId,
-              payload: { event: failedEvent }
-            })
+            withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              failedReceipt.executionId,
+              { event: failedEvent },
+              engine.execute(noteReplyWorkflow, {
+                executionId: failedReceipt.executionId,
+                payload: { event: failedEvent }
+              })
+            )
           );
 
           assert.ok(earlyFailure.kind === 'invalid_input');
@@ -446,10 +508,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
               assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
 
-              yield* engine.execute(sourceIngestionWorkflow, {
-                executionId: 'ready-reference-source',
-                payload: { event: ingestion }
-              });
+              yield* withTestAdmission(
+                context,
+                sourceIngestionWorkflow,
+                'ready-reference-source',
+                { event: ingestion },
+                engine.execute(sourceIngestionWorkflow, {
+                  executionId: 'ready-reference-source',
+                  payload: { event: ingestion }
+                })
+              );
             }
 
             yield* notes.postMessage({
@@ -466,7 +534,7 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
               requestId: nextRequest.requestId
             });
 
-            dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
             const eventRow = context.db.orm
               .select()
               .from(tables.workflowEvents)
@@ -482,11 +550,17 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
               .where(eq(tables.workflowReceipts.eventId, nextEvent.eventId))
               .get()!;
 
-            yield* engine.execute(noteReplyWorkflow, {
-              executionId: nextReceipt.executionId,
-              payload: { event: nextEvent },
-              discard: true
-            });
+            yield* withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              nextReceipt.executionId,
+              { event: nextEvent },
+              engine.execute(noteReplyWorkflow, {
+                executionId: nextReceipt.executionId,
+                payload: { event: nextEvent },
+                discard: true
+              })
+            );
             let nextResult = yield* engine.poll(noteReplyWorkflow, nextReceipt.executionId);
 
             while (Option.isNone(nextResult)) {
@@ -557,10 +631,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
                 assertEventType(ingestion, 'SourceProcessingRequested', 'missing ingestion');
 
                 yield* Effect.flip(
-                  engine.execute(sourceIngestionWorkflow, {
-                    executionId: `ingestion-${mode}`,
-                    payload: { event: ingestion }
-                  })
+                  withTestAdmission(
+                    context,
+                    sourceIngestionWorkflow,
+                    `ingestion-${mode}`,
+                    { event: ingestion },
+                    engine.execute(sourceIngestionWorkflow, {
+                      executionId: `ingestion-${mode}`,
+                      payload: { event: ingestion }
+                    })
+                  )
                 );
               }
             }
@@ -582,10 +662,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
 
             assertWakeEvent(wake);
 
-            yield* engine.execute(noteAttachmentWakeWorkflow, {
-              executionId: `wake-${mode}`,
-              payload: { event: wake }
-            });
+            yield* withTestAdmission(
+              context,
+              noteAttachmentWakeWorkflow,
+              `wake-${mode}`,
+              { event: wake },
+              engine.execute(noteAttachmentWakeWorkflow, {
+                executionId: `wake-${mode}`,
+                payload: { event: wake }
+              })
+            );
             yield* assertReplyCompleted();
 
             function* assertReplyCompleted() {
@@ -609,10 +695,16 @@ testStable('indexed source wakes the dispatched reply using its persisted receip
             }
 
             const error = yield* Effect.flip(
-              engine.execute(noteReplyWorkflow, {
-                executionId: nextReceipt.executionId,
-                payload: { event: nextEvent }
-              })
+              withTestAdmission(
+                context,
+                noteReplyWorkflow,
+                nextReceipt.executionId,
+                { event: nextEvent },
+                engine.execute(noteReplyWorkflow, {
+                  executionId: nextReceipt.executionId,
+                  payload: { event: nextEvent }
+                })
+              )
             );
 
             assert.ok(error.kind === 'invalid_input');
@@ -650,12 +742,15 @@ testStable(
       const engine = workflowEngineLayer(context);
       const control = Layer.effect(
         WorkflowControl,
-        Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
-          cancel: (input: Parameters<typeof cancelExecution>[2]) =>
-            cancelExecution(context, [noteReplyWorkflow], input).pipe(
-              Effect.provideService(WorkflowEngine.WorkflowEngine, engine)
-            )
-        }))
+        Effect.map(
+          Effect.context<
+            WorkflowEngine.WorkflowEngine | MessageStorage.MessageStorage | Sharding.Sharding
+          >(),
+          (services) => ({
+            cancel: (input: Parameters<typeof cancelExecution>[2]) =>
+              cancelExecution(context, [noteReplyWorkflow], input).pipe(Effect.provide(services))
+          })
+        )
       ).pipe(Layer.provideMerge(engine));
 
       return Layer.mergeAll(
@@ -702,7 +797,7 @@ testStable(
             });
             const request = yield* notes.requestReply({ noteId: note.id });
 
-            dispatchPending(context, noteReplyRegistration.triggers, Date.now());
+            yield* dispatchPending(context, noteReplyRegistration.triggers, Date.now());
             const receipt = context.db.orm
               .select()
               .from(tables.workflowReceipts)
@@ -718,11 +813,17 @@ testStable(
 
             assertEventType(event, 'NoteGenerationRequested', 'wrong event');
 
-            yield* engine.execute(noteReplyWorkflow, {
-              executionId: receipt.executionId,
-              payload: { event },
-              discard: true
-            });
+            yield* withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              receipt.executionId,
+              { event },
+              engine.execute(noteReplyWorkflow, {
+                executionId: receipt.executionId,
+                payload: { event },
+                discard: true
+              })
+            );
             let result = yield* engine.poll(noteReplyWorkflow, receipt.executionId);
 
             while (Option.isNone(result)) {
@@ -773,10 +874,16 @@ testStable(
               );
 
             assertEventType(cleanup, 'NoteDeletionRequested', 'missing cleanup event');
-            yield* engine.execute(noteDeletionWorkflow, {
-              executionId: 'reopen-cleanup',
-              payload: { event: cleanup }
-            });
+            yield* withTestAdmission(
+              context,
+              noteDeletionWorkflow,
+              'reopen-cleanup',
+              { event: cleanup },
+              engine.execute(noteDeletionWorkflow, {
+                executionId: 'reopen-cleanup',
+                payload: { event: cleanup }
+              })
+            );
             assert.ok(workflowStore(context).execution(saved.executionId)?.status === 'cancelled');
             assert.strictEqual(yield* sources.deleteSource({ id: saved.sourceId }), true);
             const deleted = context.db.orm
@@ -789,10 +896,16 @@ testStable(
 
             assertEventType(deleted, 'SourceDeleted', 'missing deletion');
 
-            yield* engine.execute(noteAttachmentWakeWorkflow, {
-              executionId: 'reopen-wake',
-              payload: { event: deleted }
-            });
+            yield* withTestAdmission(
+              context,
+              noteAttachmentWakeWorkflow,
+              'reopen-wake',
+              { event: deleted },
+              engine.execute(noteAttachmentWakeWorkflow, {
+                executionId: 'reopen-wake',
+                payload: { event: deleted }
+              })
+            );
             assert.strictEqual(
               context.db.orm
                 .select()

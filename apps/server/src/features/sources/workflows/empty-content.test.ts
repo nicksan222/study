@@ -36,6 +36,7 @@ import { transaction } from '#server/platform/definitions/define-store';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 import {
   sourceIngestionWorkflow,
@@ -111,6 +112,8 @@ for (const [name, text] of [
               depth: 0
             };
             let retainedDocumentId: ContentSnapshotId | null = null;
+
+            admitTestExecution(context, sourceIngestionWorkflow, 'empty', { event });
             let execution = engine.execute(sourceIngestionWorkflow, {
               executionId: 'empty',
               payload: { event }
@@ -155,6 +158,9 @@ for (const [name, text] of [
                 .find((item) => item.type === 'SourceCorrectionRequested');
 
               assert.ok(correction?.type === 'SourceCorrectionRequested');
+              admitTestExecution(context, sourceCorrectionWorkflow, 'empty-correction', {
+                event: correction
+              });
               execution = engine.execute(sourceCorrectionWorkflow, {
                 executionId: 'empty-correction',
                 payload: { event: correction }

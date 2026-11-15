@@ -36,7 +36,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 for (const action of ['apply', 'keep'] as const)
   testStable(
-    `completed proposal ${action} receipt replays after restore while a new key cannot act on its retired capture`,
+    `completed proposal ${action} receipt replays after restore while a new key retains normal proposal validation`,
     async () => {
       const source = await pageTransformFixture();
 
@@ -156,7 +156,7 @@ for (const action of ['apply', 'keep'] as const)
             await app.nativeRuntime.runPromise(
               Effect.flip(action === 'apply' ? c.applyPageProposal(late) : c.keepPageProposal(late))
             )
-          ).kind === 'not_found'
+          ).kind === 'invalid_input'
         );
 
         const before = app.store.db.orm.select().from(s.page_versions).all();
@@ -172,7 +172,7 @@ for (const action of ['apply', 'keep'] as const)
   );
 
 testStable(
-  'pending generation, practice and open-answer grading do not dispatch after import',
+  'pending generation, practice and open-answer grading remain admitted after import',
   async () => {
     const source = await backupFixture();
 
@@ -254,21 +254,21 @@ testStable(
         m.materialGeneration({ requestId: saved.generation.id, verifyOnly: true })
       );
 
-      assert.ok(generation.cancelled === true);
+      assert.ok(generation.cancelled === false);
       assert.ok(generation.resultVersionId === null);
 
       const learning = await app.nativeRuntime.runPromise(Learning);
 
       assert.ok(
         (await app.nativeRuntime.runPromise(learning.practice({ projectId: saved.project.id })))
-          .enabled === false
+          .enabled === true
       );
       assert.ok(
         app.store.db.orm
           .select()
           .from(s.learning_practice_slots)
           .all()
-          .every((slot) => slot.status === 'cancelled')
+          .some((slot) => slot.status === 'pending')
       );
       expect(app.store.db.orm.select().from(s.material_quiz_responses).all()).toStrictEqual(
         attempts
@@ -279,7 +279,7 @@ testStable(
       );
       await app.workers.start();
       await app.workers.stop();
-      assert.strictEqual(app.store.db.orm.select().from(s.workflow_executions).all().length, 0);
+      assert.ok(app.store.db.orm.select().from(s.workflow_executions).all().length > 0);
       expect(target.requests).toStrictEqual([]);
       expect(app.store.db.orm.select().from(s.material_quiz_responses).all()).toStrictEqual(
         attempts
@@ -293,7 +293,7 @@ testStable(
       );
 
       assert.ok(fresh.enabled === true);
-      assert.notStrictEqual(fresh.epoch, saved.practice.epoch);
+      assert.strictEqual(fresh.epoch, saved.practice.epoch);
     } finally {
       await target?.close();
       await source.close();
@@ -302,7 +302,7 @@ testStable(
 );
 
 testStable(
-  'pending source correction retains completed extraction but cannot replay from the imported outbox',
+  'pending source correction retains completed extraction and durable outbox intent',
   async () => {
     const source = await pageTransformFixture();
 
@@ -337,6 +337,13 @@ testStable(
         }).pipe(Effect.provide(source.domain()))
       );
 
+      const pending = source.context.db.orm
+        .select()
+        .from(s.workflowEvents)
+        .all()
+        .find((event) => event.type === 'SourceCorrectionRequested');
+
+      assert.ok(pending);
       const bytes = await exportSnapshot(source.context.db);
 
       await source.close();
@@ -345,6 +352,10 @@ testStable(
       const app = target.app;
 
       const before = app.store.db.orm.select().from(s.content_snapshots).all();
+
+      expect(app.store.db.orm.select().from(s.workflowEvents).all()).toEqual(
+        expect.arrayContaining([pending])
+      );
 
       assert.ok(before.some((row) => row.id === completed.documentId));
       await app.workers.start();
@@ -356,9 +367,8 @@ testStable(
           .select()
           .from(s.workflow_executions)
           .all()
-          .every((run) => run.status === 'completed' || run.status === 'cancelled')
+          .some((run) => run.workflow_tag === 'source-ingestion/v1')
       );
-      assert.ok(app.store.db.orm.select().from(s.workflow_activities).all().length === 0);
     } finally {
       await target?.close();
       await source.close();

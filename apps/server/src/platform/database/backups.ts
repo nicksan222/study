@@ -423,7 +423,7 @@ export class ManagedBackups {
 
         const manifest = Schema.decodeUnknownSync(backupManifestSchema)({
           format: 'study-managed-backup',
-          version: 1,
+          version: 2,
           id: crypto.randomUUID(),
           createdAtMs: this.clock.currentTimeMillisUnsafe(),
           schema,
@@ -431,7 +431,7 @@ export class ManagedBackups {
           bytes: bytes.length,
           scope,
           credentials: 'excluded',
-          nativeWork: 'retired',
+          nativeWork: 'preserved',
           compatibility: 'exact-schema'
         });
 
@@ -448,11 +448,17 @@ export class ManagedBackups {
 
       for (const name of await this.names()) {
         const id = Schema.decodeUnknownSync(backupIdSchema)(name.slice(0, -'.studybackup'.length));
-        const { manifest } = decode(await boundedRead(this.artifact(id), maxArtifact));
+        const bytes = await boundedRead(this.artifact(id), maxArtifact);
+        let manifest: BackupManifest;
 
-        if (manifest.id !== id) throw invalid();
+        try {
+          ({ manifest } = decode(bytes));
+        } catch {
+          // Preserve incompatible artifacts without hiding usable backups. File I/O still fails.
+          continue;
+        }
 
-        manifests.push(manifest);
+        if (manifest.id === id) manifests.push(manifest);
       }
 
       return manifests.sort((a, b) => b.createdAtMs - a.createdAtMs);

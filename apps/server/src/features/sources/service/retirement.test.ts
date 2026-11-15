@@ -26,6 +26,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { WorkflowControl } from '#server/platform/workflows/control';
+import { workflowStore } from '#server/platform/workflows/store';
 import { withTestPublication } from '#testing/publication';
 
 import { Sources } from './index.ts';
@@ -50,6 +51,8 @@ testStable(
                   )?.payload === '{}'
                 );
                 cancelled.push(id);
+                workflowStore(context).requestCancellation(id, 'unsafe');
+                workflowStore(context).completeCancellation(id);
               })
           })
         )
@@ -75,15 +78,12 @@ testStable(
           );
 
           context.db.orm
-            .run(sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at)
-        VALUES('source-run','SourceIngestionWorkflow',1,${JSON.stringify({ event })},'running','owner',1,1)`);
-          context.db.exec(
-            `INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('source-run','decode',0,'{"private":"Original private bytes"}')`
-          );
+            .run(sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at)
+        VALUES('source-run','SourceIngestionWorkflow',1,${JSON.stringify({ event })},'running',1,1)`);
           assert.strictEqual(yield* sources.deleteSource({ id: source.id }), true);
           expect(cancelled).toStrictEqual(['source-run']);
           assert.strictEqual(context.db.orm.get(sql`SELECT 1 FROM source_snapshots`), undefined);
-          assert.strictEqual(context.db.orm.get(sql`SELECT 1 FROM workflow_activities`), undefined);
+
           assert.ok(
             context.db.orm.get(
               sql`SELECT payload FROM workflow_events WHERE correlation_id=${request.requestId}`

@@ -32,6 +32,7 @@ import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { deletionDocument } from '#testing/material-deletion';
 import { createUnregisteredSource } from '#testing/source';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { Sources } from './index.ts';
 
@@ -328,10 +329,16 @@ testStable('publication requires a real active workflow grant', async () => {
       }
 
       yield* engine.register(workflow, runWorkflow);
-      yield* engine.execute(workflow, {
-        executionId: 'source-publication-test',
-        payload: { id: 'one' }
-      });
+      yield* withTestAdmission(
+        context,
+        workflow,
+        'source-publication-test',
+        { id: 'one' },
+        engine.execute(workflow, {
+          executionId: 'source-publication-test',
+          payload: { id: 'one' }
+        })
+      );
       assert.notStrictEqual((yield* sources.sourceProcessing(source.id)).documentId, null);
       const hits = context.db.orm.all(
         sql`SELECT c.text, c.anchor, c.first_block, c.last_block FROM chunks_fts JOIN chunks c ON c.id = chunks_fts.rowid WHERE chunks_fts MATCH 'hello'`
@@ -605,10 +612,16 @@ testStable('deleting a pending source fences publication and removes indexed con
       }
 
       yield* engine.register(workflow, runWorkflow);
-      yield* engine.execute(workflow, {
-        executionId: 'source-delete-test',
-        payload: { id: 'one' }
-      });
+      yield* withTestAdmission(
+        context,
+        workflow,
+        'source-delete-test',
+        { id: 'one' },
+        engine.execute(workflow, {
+          executionId: 'source-delete-test',
+          payload: { id: 'one' }
+        })
+      );
       assert.strictEqual(
         context.db.orm.all(sql`SELECT * FROM chunks_fts WHERE chunks_fts MATCH 'fencedword'`)
           .length,

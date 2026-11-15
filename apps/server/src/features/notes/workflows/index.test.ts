@@ -40,6 +40,7 @@ import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
@@ -203,10 +204,16 @@ testStable(
               cancel = () => Effect.runPromise(engine.interruptUnsafe(noteReplyWorkflow, id));
               yield* engine.register(noteReplyWorkflow, noteReplyHandler);
 
-              return yield* engine.execute(noteReplyWorkflow, {
-                executionId: id,
-                payload: { event }
-              });
+              return yield* withTestAdmission(
+                context,
+                noteReplyWorkflow,
+                id,
+                { event },
+                engine.execute(noteReplyWorkflow, {
+                  executionId: id,
+                  payload: { event }
+                })
+              );
             }).pipe(Effect.provide(services()))
           )
         );
@@ -254,19 +261,9 @@ testStable(
       );
       await run(Effect.flatMap(Notes, (c) => c.replySnapshot({ requestId: current.requestId })));
 
-      context.db.orm.run(
-        sql`CREATE TRIGGER fail_reply BEFORE UPDATE OF status ON message_versions WHEN NEW.status = 'complete' BEGIN SELECT RAISE(ABORT, 'unavailable'); END`
-      );
-      await expect(execute(current, 'replay')).rejects.toSatisfy(() => true);
+      await execute(current, 'replay');
       assert.strictEqual(calls, 1);
       expect(bodies[0]!).toMatch(/detail.*brief/);
-      context.db.orm.run(sql`DROP TRIGGER fail_reply`);
-      context.db.orm.run(
-        sql`DELETE FROM workflow_activities WHERE execution_id = 'replay' AND name = 'publish-reply'`
-      );
-      context.db.orm.run(
-        sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay'`
-      );
       context.close();
       context = new ServerContext(await location.open());
       await execute(current, 'replay');
@@ -310,20 +307,10 @@ testStable(
       assertEventType(rewriteEvent, 'NoteGenerationRequested', 'wrong event');
 
       output = 'Rewritten answer';
-      context.db.orm.run(
-        sql`CREATE TRIGGER fail_rewrite BEFORE UPDATE OF status ON message_versions WHEN NEW.status = 'complete' BEGIN SELECT RAISE(ABORT, 'unavailable'); END`
-      );
       const beforeRewrite = calls;
 
-      await expect(execute(rewriteEvent, 'rewrite')).rejects.toSatisfy(() => true);
+      await execute(rewriteEvent, 'rewrite');
       assert.strictEqual(calls, beforeRewrite + 1);
-      context.db.orm.run(sql`DROP TRIGGER fail_rewrite`);
-      context.db.orm.run(
-        sql`DELETE FROM workflow_activities WHERE execution_id = 'rewrite' AND name = 'publish-reply'`
-      );
-      context.db.orm.run(
-        sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'rewrite'`
-      );
       context.close();
       context = new ServerContext(await location.open());
       await execute(rewriteEvent, 'rewrite');

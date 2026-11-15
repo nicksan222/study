@@ -20,7 +20,7 @@ testStable('snapshot checks build one trusted reference but inspect every candid
     for (let index = 0; index < 3; index++)
       assert.strictEqual(await Db.validateSnapshot(target), db.schemaIdentity());
 
-    assert.strictEqual(open.mock.calls.filter((call) => call[0] === ':memory:').length, 1);
+    assert.strictEqual(new Set(open.mock.calls.map((call) => call[0])).size, 1);
 
     const candidate = await Db.openSnapshot(target);
 
@@ -32,7 +32,7 @@ testStable('snapshot checks build one trusted reference but inspect every candid
 
     await expect(Db.validateSnapshot(target)).rejects.toThrow(/Unsupported snapshot schema/);
     assert.strictEqual(await Db.validateSnapshot(location.path), db.schemaIdentity());
-    assert.strictEqual(open.mock.calls.filter((call) => call[0] === ':memory:').length, 1);
+    assert.strictEqual(new Set(open.mock.calls.map((call) => call[0])).size, 1);
   } finally {
     open.mockRestore();
     db.close();

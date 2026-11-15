@@ -13,10 +13,13 @@
 import { agentRunIdSchema } from '@study/contracts/ai/progress';
 import type { agentProgressPageSchema } from '@study/contracts/ai/progress';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Layer, Queue, Stream } from 'effect';
+import { Schema } from 'effect';
 import { TestClock } from 'effect/testing';
+import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { expect } from 'vite-plus/test';
 
 import { Workflows } from '#server/features/workflows/service/index';
@@ -24,18 +27,29 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { observeAgentProgress } from '#server/platform/workflows/agent-progress';
 import { WorkflowControl } from '#server/platform/workflows/control';
-import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
-import { workflowStore } from '#server/platform/workflows/store';
 
 testStable('coalesces commit bursts before rereading the latest preview', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   const executionId = executionIdSchema.make('burst');
-  const owner = { executionId, ownerToken: 'owner', activityName: 'generate', attempt: 0 };
-  const store = workflowStore(context);
+  const definition = Workflow.make('progress-burst', {
+    payload: { id: Schema.String },
+    idempotencyKey: ({ id }) => id
+  });
+  const instance = WorkflowEngine.WorkflowInstance.initial(definition, executionId);
 
-  store.start(executionId, 'reply', '{}', undefined);
-  store.claim(executionId, owner.ownerToken);
+  context.db.orm
+    .insert(workflow_executions)
+    .values({
+      execution_id: executionId,
+      workflow_tag: definition._tag,
+      version: 1,
+      payload: '{}',
+      status: 'running',
+      created_at: 0n,
+      updated_at: 0n
+    })
+    .run();
   const observe = observeAgentProgress(context);
   const emit = (event: Parameters<typeof observe>[0]['event']) =>
     observe({
@@ -43,7 +57,7 @@ testStable('coalesces commit bursts before rereading the latest preview', async 
       agentId: 'reply',
       mode: 'text',
       event
-    }).pipe(Effect.provideService(WorkflowActivityOwner, owner));
+    }).pipe(Effect.provideService(WorkflowEngine.WorkflowInstance, instance));
 
   try {
     await Effect.runPromise(

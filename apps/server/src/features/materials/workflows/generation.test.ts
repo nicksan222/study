@@ -16,11 +16,13 @@
 import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
+import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
+import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
@@ -36,8 +38,10 @@ import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
+import { cancelExecution } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
 
@@ -113,10 +117,16 @@ testStable('rejects mismatched generation event before reaching a provider', asy
 
             yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
-            return yield* engine.execute(materialGenerationWorkflow, {
-              executionId: 'mismatch',
-              payload: { event: { ...event, kind: 'quiz' } }
-            });
+            return yield* withTestAdmission(
+              context,
+              materialGenerationWorkflow,
+              'mismatch',
+              { event: { ...event, kind: 'quiz' } },
+              engine.execute(materialGenerationWorkflow, {
+                executionId: 'mismatch',
+                payload: { event: { ...event, kind: 'quiz' } }
+              })
+            );
           }).pipe(Effect.provide(services))
         )
       )
@@ -245,9 +255,11 @@ testStable(
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-          yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'import-evidence',
-            payload: {
+          yield* withTestAdmission(
+            context,
+            sourceIngestionWorkflow,
+            'import-evidence',
+            {
               event: {
                 type: 'SourceProcessingRequested',
                 eventId: 'import-evidence',
@@ -258,8 +270,23 @@ testStable(
                 sourceId: source.id,
                 requestId: state.requestId
               }
-            }
-          });
+            },
+            engine.execute(sourceIngestionWorkflow, {
+              executionId: 'import-evidence',
+              payload: {
+                event: {
+                  type: 'SourceProcessingRequested',
+                  eventId: 'import-evidence',
+                  causationId: null,
+                  correlationId: state.requestId,
+                  inputVersion: state.revision,
+                  depth: 0,
+                  sourceId: source.id,
+                  requestId: state.requestId
+                }
+              }
+            })
+          );
           const exact = yield* sources.currentExtraction({ id: source.id });
 
           assert.ok(exact);
@@ -310,10 +337,16 @@ testStable(
 
                 yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
-                return yield* engine.execute(materialGenerationWorkflow, {
-                  executionId: event.requestId,
-                  payload: { event }
-                });
+                return yield* withTestAdmission(
+                  context,
+                  materialGenerationWorkflow,
+                  event.requestId,
+                  { event },
+                  engine.execute(materialGenerationWorkflow, {
+                    executionId: event.requestId,
+                    payload: { event }
+                  })
+                );
               }).pipe(Effect.provide(services()))
             )
           );
@@ -363,28 +396,28 @@ testStable(
 
           if (failure === 'publication') context.db.orm.run(sql`DROP TRIGGER fail_generation`);
 
-          context.db.orm.run(
-            sql`DELETE FROM workflow_activities WHERE execution_id = ${event.requestId} AND name = 'publish-material'`
-          );
-          context.db.orm.run(
-            sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = ${event.requestId}`
-          );
           context.close();
           context = new ServerContext(await location.open());
-          const replayed = await execute();
-
+          expect(rejected).toMatchObject({ kind: 'internal' });
+          await expect(execute()).rejects.toMatchObject({
+            kind: 'internal',
+            message: 'Operation failed'
+          });
+          assert.strictEqual(calls, completedCalls, 'reopening must reuse the terminal failure');
           assert.strictEqual(
-            calls,
-            completedCalls,
-            'reopening must reuse the completed generation'
-          );
-          const version = await Effect.runPromise(
-            Effect.flatMap(Materials, (m) => m.materialVersion({ id: replayed })).pipe(
-              Effect.provide(domain())
-            )
+            context.db.orm
+              .select()
+              .from(s.workflowEvents)
+              .all()
+              .map((row) => decodeEvent(row.payload))
+              .filter(
+                (value) =>
+                  value.type === 'MaterialGenerationFailed' && value.requestId === event.requestId
+              ).length,
+            1
           );
 
-          return version;
+          return undefined;
         }
 
         const id = await execute();
@@ -409,6 +442,14 @@ testStable(
         kind: 'flashcards',
         cards: [{ front: 'What? [1]', back: 'alpha' }]
       });
+      await generate(
+        'flashcards',
+        {
+          kind: 'flashcards',
+          cards: [{ front: 'What? [1]', back: 'alpha' }]
+        },
+        'publication'
+      );
       const quiz = await generate('quiz', {
         kind: 'quiz',
         questions: [
@@ -484,6 +525,7 @@ testStable(
       expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
 
       function assertQuizQuestionShapes() {
+        assert.ok(quiz);
         assert.ok(quiz.content.kind === 'quiz');
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');
@@ -586,16 +628,29 @@ testStable(
             Effect.gen(function* () {
               const engine = yield* WorkflowEngine.WorkflowEngine;
 
+              const cancellationServices = yield* Effect.context<
+                WorkflowEngine.WorkflowEngine | Sharding.Sharding | MessageStorage.MessageStorage
+              >();
+
               cancel = () =>
                 Effect.runPromise(
-                  engine.interruptUnsafe(materialGenerationWorkflow, event.eventId)
+                  cancelExecution(context, [materialGenerationWorkflow], {
+                    id: executionIdSchema.make(event.eventId),
+                    mode: 'unsafe'
+                  }).pipe(Effect.provide(cancellationServices))
                 );
               yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
-              return yield* engine.execute(materialGenerationWorkflow, {
-                executionId: event.eventId,
-                payload: { event }
-              });
+              return yield* withTestAdmission(
+                context,
+                materialGenerationWorkflow,
+                event.eventId,
+                { event },
+                engine.execute(materialGenerationWorkflow, {
+                  executionId: event.eventId,
+                  payload: { event }
+                })
+              );
             }).pipe(Effect.provide(services()))
           )
         );

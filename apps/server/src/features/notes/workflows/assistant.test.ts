@@ -34,6 +34,7 @@ import { Database } from '#server/platform/database/database';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteReplyHandler, noteReplyWorkflow } from './index.ts';
 
@@ -183,10 +184,16 @@ testStable(
 
             yield* engine.register(noteReplyWorkflow, noteReplyHandler);
 
-            return yield* engine.execute(noteReplyWorkflow, {
-              executionId: key,
-              payload: { event }
-            });
+            return yield* withTestAdmission(
+              context,
+              noteReplyWorkflow,
+              key,
+              { event },
+              engine.execute(noteReplyWorkflow, {
+                executionId: key,
+                payload: { event }
+              })
+            );
           }).pipe(
             Effect.provide(
               Layer.mergeAll(

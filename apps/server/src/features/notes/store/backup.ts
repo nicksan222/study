@@ -24,10 +24,8 @@ import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
-import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
+import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 import type { StoreResources } from '#server/platform/definitions/define-store';
-
-import { makeDiscardPending } from './pending.ts';
 
 function makeCaptureValidation({ db }: StoreResources) {
   const context = Schema.decodeUnknownSync(
@@ -92,8 +90,6 @@ export const NoteBackupStore = defineStore({
   make: (resources) => {
     const { db } = resources;
 
-    const discardPending = makeDiscardPending(resources);
-
     const validateCapture = makeCaptureValidation(resources);
     const validateReply = makeReplyValidation(resources);
 
@@ -128,29 +124,7 @@ export const NoteBackupStore = defineStore({
           }
         })
       },
-      mutations: {
-        prepare: storeMutation({
-          changes: ['notes'],
-          input: Schema.Void,
-          output: Schema.Array(Schema.String),
-          run: () => {
-            const pending = db.orm
-              .select({ message: s.messages, version: s.message_versions })
-              .from(s.message_versions)
-              .innerJoin(s.messages, eq(s.messages.id, s.message_versions.message_id))
-              .where(sql`${s.message_versions.status} != 'complete'`)
-              .all();
-
-            for (const row of pending) discardPending(row.message, row.version);
-
-            return db.orm
-              .select({ id: s.note_run_contexts.request_id })
-              .from(s.note_run_contexts)
-              .all()
-              .map((row) => row.id);
-          }
-        })
-      }
+      mutations: {}
     };
   }
 });

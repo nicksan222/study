@@ -28,7 +28,10 @@ The native shell owns windows, devices, and the private server process. Native E
    decisions belong in `doc/adr`, following
    [Architecture decision records](doc/adr/architecture-decision-records.md).
    Do not add speculative design or plan docs.
-9. **Drizzle owns the schema.** Domain schema modules live in `packages/db/src/schema`.
+9. **Drizzle owns domain schema.** Domain schema modules live in `packages/db/src/schema`.
+   Official Effect SQL infrastructure owns its prefixed execution tables and migrations in
+   the same SQLite database. Neither migrator may duplicate or alter the other owner's schema;
+   startup and restore validate both before accepting work.
    Use Drizzle Kit for schema generation and the official Drizzle migrator for initialization.
    This server is a breaking reset: do not add legacy Rust database importers, compatibility
    paths, or duplicate handwritten schema definitions.

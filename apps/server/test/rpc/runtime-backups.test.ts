@@ -29,7 +29,6 @@ import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
-import { workflowStore } from '#server/platform/workflows/store';
 import { serve } from '#server/runtime/index';
 import {
   acceptance,
@@ -310,8 +309,8 @@ testStable(
         expected.attempts
       );
       expect(restored.select().from(s.document_assets).all()).toStrictEqual(expected.imageRoots);
-      assert.ok(restored.select().from(s.learning_practice_controls).get()!.enabled === false);
-      assert.ok(restored.select().from(s.learning_practice_slots).get()!.status === 'cancelled');
+      assert.ok(restored.select().from(s.learning_practice_controls).get()!.enabled === true);
+      assert.ok(restored.select().from(s.learning_practice_slots).get()!.status === 'pending');
       expect(restored.select().from(s.content_snapshots).all()).toStrictEqual(expected.documents);
       expect(restored.select().from(s.blocks).all()).toStrictEqual(expected.blocks);
       expect(restored.select().from(s.source_snapshots).all()).toStrictEqual(expected.assets);
@@ -360,7 +359,7 @@ testStable(
 
       const future = packet(Buffer.from(bytes, 'base64'));
 
-      Object.assign(future.manifest, { version: 2 });
+      Object.assign(future.manifest, { version: 999 });
 
       const variants = [
         repack(future.manifest, future.sqlite),
@@ -588,7 +587,7 @@ testStable(
 );
 
 testStable(
-  'crash after replacement reconciles to new state before workers start; captured native work never resumes',
+  'crash after replacement reconciles to new state before workers start; captured durable intent remains available',
   { timeout: 60000 },
   async (t) => {
     const f = await backupFixture(t);
@@ -611,13 +610,10 @@ testStable(
       const event = db.select().from(s.workflowEvents).get()!;
 
       db.run(
-        sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,owner_token,created_at,updated_at) VALUES('captured','study/test',1,${JSON.stringify({ event: JSON.parse(event.payload) })},'suspended','old-owner',1,1)`
+        sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at) VALUES('captured','study/test',1,${JSON.stringify({ event: JSON.parse(event.payload) })},'suspended',1,1)`
       );
       db.run(
         sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('captured','config','old-revision')`
-      );
-      db.run(
-        sql`INSERT INTO workflow_activities(execution_id,name,attempt,result) VALUES('captured','checkpoint',0,'{}')`
       );
 
       const api = await inTestPhase(t, 'system-service', () => f.api());
@@ -653,33 +649,21 @@ testStable(
       console.debug('study-test-phase:replacement-sync:complete');
       await inTestPhase(t, 'reopen-after-replacement', () => f.reopen());
 
-      console.debug('study-test-phase:retirement-assertions:start');
-
       const restored = f.app.store.db.orm;
 
-      assert.ok(restored.select().from(s.workflow_executions).get()!.status === 'cancelled');
-      assert.ok(restored.select().from(s.workflow_executions).get()!.owner_token === null);
-      assert.strictEqual(restored.select().from(s.workflow_activities).all().length, 0);
-      assert.strictEqual(restored.select().from(s.workflow_configuration_waits).all().length, 0);
-      assert.ok(
-        restored.select().from(s.workflow_retired_executions).get()!.execution_id === 'captured'
-      );
-
-      const nativeStore = workflowStore(f.app.store);
-
-      const terminal = nativeStore.execution('captured');
-
-      nativeStore.checkpoint('captured', 'old-owner', 'late result', 'completed');
-      assert.throws(() =>
-        nativeStore.saveActivity('captured', 'old-owner', 'late', 0, 'private checkpoint')
-      );
-      assert.ok(nativeStore.saveDeferred('captured', 'late', 'private completion') === false);
-      expect(nativeStore.execution('captured')).toStrictEqual(terminal);
-      console.debug('study-test-phase:retirement-assertions:complete');
+      assert.strictEqual(restored.select().from(s.workflow_executions).get()!.status, 'suspended');
+      assert.strictEqual(restored.select().from(s.workflow_configuration_waits).all().length, 1);
+      assert.strictEqual(restored.select().from(s.workflow_retired_executions).all().length, 0);
       await inTestPhase(t, 'workers-start', () => f.app.workers.start());
       await inTestPhase(t, 'workers-stop', () => f.app.workers.stop());
       expect(f.requests).toStrictEqual([]);
-      assert.strictEqual(restored.select().from(s.workflow_executions).all().length, 1);
+      assert.ok(
+        restored
+          .select()
+          .from(s.workflow_executions)
+          .where(eq(s.workflow_executions.execution_id, 'captured'))
+          .get()
+      );
       assert.ok(
         restored.select().from(s.sources).where(eq(s.sources.id, source.id)).get()!.name ===
           'work.txt'

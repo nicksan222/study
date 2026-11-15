@@ -30,6 +30,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 testStable('guarded generation publishes once and replays its receipt', async () => {
   const location = await createTestDatabase();
@@ -506,6 +507,9 @@ testStable('guarded generation publishes once and replays its receipt', async ()
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
+          admitTestExecution(context, workflow, 'generation-publication', {
+            id: 'generation-publication'
+          });
           yield* engine.register(workflow, () => activity);
           yield* engine.execute(workflow, {
             executionId: 'generation-publication',
@@ -607,6 +611,7 @@ testStable('receipt persists across reopen and a new workflow execution', async 
         Effect.gen(function* () {
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
+          admitTestExecution(context, workflow, executionId, { id: executionId });
           yield* engine.register(workflow, () => activity);
           yield* engine.execute(workflow, { executionId, payload: { id: executionId } });
         }).pipe(Effect.provide(workflowEngineLayer(context)))

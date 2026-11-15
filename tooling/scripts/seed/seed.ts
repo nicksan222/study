@@ -1,5 +1,6 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Db } from '@study/db';
+import { initializeDatabaseInfrastructure } from '@study/server/runtime/database';
 import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
 import { Effect, FileSystem, Path } from 'effect';
 
@@ -15,6 +16,7 @@ async function buildDatabase(path: string, projects: readonly ProjectDefinition[
   let summary: SeedSummary;
 
   try {
+    await initializeDatabaseInfrastructure(db);
     summary = seedScenario(db, projects);
     db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
   } finally {

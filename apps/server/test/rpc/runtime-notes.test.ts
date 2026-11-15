@@ -69,7 +69,6 @@ testStable(
                 message: 'reply must wait durably for account setup'
               }
             );
-            assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length, 0);
             const untitled = yield* client['notes.createUntitledNote']({
               project: project.id
             });

@@ -27,6 +27,7 @@ import {
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { PublicationGuard } from '#server/platform/workflows/publication';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 class Input extends Context.Service<Input, string>()('test/ActivityInput') {}
 
@@ -108,52 +109,57 @@ testStable(
   }
 );
 
-testStable('publication checkpoints capture the real activity lease inside execution', async () => {
-  const location = await createTestDatabase();
-  const context = new ServerContext(await location.open());
-  let writes = 0;
-  const workflow = Workflow.make('publication-harness', {
-    payload: {},
-    success: Schema.Number,
-    error: failureSchema,
-    idempotencyKey: () => 'one'
-  });
-  const activity = publicationActivity(context, {
-    name: 'publish',
-    success: Schema.Number,
-    execute: Effect.gen(function* () {
-      const guard = yield* PublicationGuard;
+testStable(
+  'publication activities capture real domain authorization inside execution',
+  async () => {
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
+    let writes = 0;
+    const workflow = Workflow.make('publication-harness', {
+      payload: {},
+      success: Schema.Number,
+      error: failureSchema,
+      idempotencyKey: () => 'one'
+    });
+    const activity = publicationActivity(context, {
+      name: 'publish',
+      success: Schema.Number,
+      execute: Effect.gen(function* () {
+        const guard = yield* PublicationGuard;
 
-      return context.transaction(['settings'], (context) => {
-        guard.assert(context);
+        return context.transaction(['settings'], (context) => {
+          guard.assert(context);
 
-        return ++writes;
-      });
-    })
-  });
+          return ++writes;
+        });
+      })
+    });
 
-  assert.strictEqual(writes, 0);
+    assert.strictEqual(writes, 0);
 
-  try {
-    const result = await Effect.runPromise(
-      Effect.scoped(
-        Effect.gen(function* () {
-          const engine = yield* WorkflowEngine.WorkflowEngine;
+    try {
+      const result = await Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const engine = yield* WorkflowEngine.WorkflowEngine;
 
-          yield* engine.register(workflow, () => activity);
+            yield* engine.register(workflow, () => activity);
 
-          return yield* engine.execute(workflow, { executionId: 'one', payload: {} });
-        }).pipe(Effect.provide(workflowEngineLayer(context)))
-      )
-    );
+            admitTestExecution(context, workflow, 'one', {});
 
-    assert.strictEqual(result, 1);
-    assert.strictEqual(writes, 1);
-  } finally {
-    context.close();
-    await location.cleanup();
+            return yield* engine.execute(workflow, { executionId: 'one', payload: {} });
+          }).pipe(Effect.provide(workflowEngineLayer(context)))
+        )
+      );
+
+      assert.strictEqual(result, 1);
+      assert.strictEqual(writes, 1);
+    } finally {
+      context.close();
+      await location.cleanup();
+    }
   }
-});
+);
 
 testStable(
   'resumable checkpoint keeps terminal failures and honors a zero retry budget',

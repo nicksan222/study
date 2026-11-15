@@ -31,7 +31,7 @@ export const materialHistoryWorkflow = defineWorkflow({
   idempotencyKey: ({ event }) => event.eventId
 });
 
-export const materialHistoryHandler = Effect.fnUntraced(function* ({
+const materialHistoryHandler = Effect.fnUntraced(function* ({
   event
 }: typeof materialHistoryWorkflow.payloadSchema.Type) {
   const materials = yield* Materials;

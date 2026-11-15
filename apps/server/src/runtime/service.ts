@@ -14,6 +14,7 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
+import { Db } from '@study/db';
 import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 
 import { Auth } from '#server/features/auth/index';
@@ -21,6 +22,7 @@ import { AuthManager } from '#server/platform/ai/auth/index';
 import { ManagedBackups } from '#server/platform/database/backups';
 import { ServerContext } from '#server/platform/database/context';
 import { acquireDatabaseOwnership } from '#server/platform/database/ownership';
+import { initializeWorkflowInfrastructure } from '#server/platform/workflows/engine';
 
 import { backupPolicy } from './backups.ts';
 import { createNativeRuntime, runNative } from './layers.ts';
@@ -127,15 +129,27 @@ export class App {
           Effect.tryPromise({
             try: async () => {
               report('database:start');
+              await Db.validateInfrastructure(options.path).catch((cause) => {
+                throw new StudyError(
+                  'unsupported',
+                  'Execution infrastructure schema is incompatible',
+                  { cause }
+                );
+              });
               const context = await ServerContext.open(options.path, clock, options.timestampClock);
 
               try {
                 if (restoredGeneration !== undefined)
                   context.rotateRevisionGeneration(restoredGeneration);
+
+                await runNative(initializeWorkflowInfrastructure(context.db.path));
+                await context.db.validateInitializedSchema();
               } catch (cause) {
                 context.close();
 
-                throw cause;
+                throw cause instanceof StudyError
+                  ? cause
+                  : new StudyError('internal', 'Database initialization failed', { cause });
               }
 
               report('database:complete');

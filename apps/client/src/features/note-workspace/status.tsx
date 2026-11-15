@@ -93,7 +93,11 @@ export function ExecutionStatus({ requestId }: { requestId: string }) {
               <Notebook.WorkCopy>
                 <span>{t(workflowLabel(item.workflow))}</span>
                 <span aria-hidden="true">·</span>
-                <span>{t(`workspace.state.${failure ? 'failure' : item.status}`)}</span>
+                <span>
+                  {t(
+                    `workspace.state.${item.status === 'blocked' ? 'blocked' : failure ? 'failure' : item.status}`
+                  )}
+                </span>
               </Notebook.WorkCopy>
               <DisclosureIcon aria-hidden="true" />
             </Notebook.WorkSummary>

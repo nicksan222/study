@@ -16,6 +16,7 @@
 
 import type { ProjectId, NoteId } from '@study/contracts/ids';
 import { sql } from '@study/db';
+import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Cause, Effect, Exit, Layer, Schema } from 'effect';
@@ -163,7 +164,7 @@ testStable(
                 );
                 context.db.orm.run(sql`DROP TRIGGER reject_recording_event`);
                 assert.strictEqual((yield* sources.importRecording(input)).id, first.id);
-                workflowStore(context).interrupt('recording-import-test', 'safe');
+                workflowStore(context).requestCancellation('recording-import-test', 'safe');
                 assert.ok(
                   (yield* Effect.flip(
                     sources.importRecording({ ...input, requestId: 'lost-lease' })
@@ -176,6 +177,18 @@ testStable(
           });
         }
 
+        context.db.orm
+          .insert(workflow_executions)
+          .values({
+            execution_id: 'recording-import-test',
+            workflow_tag: workflow._tag,
+            version: 1,
+            payload: '{}',
+            status: 'running',
+            created_at: 1n,
+            updated_at: 1n
+          })
+          .run();
         yield* engine.register(workflow, runWorkflow);
         const result = yield* Effect.exit(
           engine.execute(workflow, {

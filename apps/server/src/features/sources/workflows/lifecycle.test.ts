@@ -23,6 +23,7 @@ import { Projects } from '#server/features/projects/index';
 import { Sources } from '#server/features/sources/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { pageTransformFixture } from '#testing/page-transform';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 import {
   sourceIngestionWorkflow,
@@ -58,6 +59,15 @@ testStable(
 
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
             yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
+
+            admitTestExecution(
+              f.context,
+              request.type === 'SourceProcessingRequested'
+                ? sourceIngestionWorkflow
+                : sourceCorrectionWorkflow,
+              executionId,
+              { event: request }
+            );
 
             return request.type === 'SourceProcessingRequested'
               ? yield* engine.execute(sourceIngestionWorkflow, {
@@ -274,6 +284,7 @@ testStable(
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
             yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+            admitTestExecution(f.context, sourceIngestionWorkflow, 'unsupported', {});
             yield* Effect.flip(
               engine.execute(sourceIngestionWorkflow, {
                 executionId: 'unsupported',

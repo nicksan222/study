@@ -39,7 +39,7 @@ for (const apply of [false, true])
               inputs: [],
               citations: []
             })
-          ).pipe(Effect.provide(f.domain()))
+          ).pipe(Effect.provide(f.services()))
         );
 
         assert.ok(additional.version);
@@ -149,7 +149,7 @@ for (const apply of [false, true])
             });
 
             return { keepInput, applyInput, keep, applied, copy, independent: independent.version };
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
 
         await cleanup(f, saved.note.id);
@@ -190,7 +190,7 @@ for (const apply of [false, true])
               (yield* Effect.flip(chats.noteContext({ requestId: saved.capture.requestId })))
                 .kind === 'not_found'
             );
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
         assert.strictEqual(
           f.context.db.orm.select().from(s.page_proposals).get()?.proposed_version_id,

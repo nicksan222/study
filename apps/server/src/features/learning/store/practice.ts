@@ -490,25 +490,6 @@ export const PracticeStore = defineStore({
         })
       },
       mutations: {
-        prepareBackup: storeMutation({
-          changes: ['learning'],
-          input: Schema.Void,
-          output: Schema.Void,
-          run: () => {
-            db.orm.update(controls).set({ enabled: false }).where(eq(controls.enabled, true)).run();
-            db.orm
-              .update(slots)
-              .set({ status: 'cancelled' })
-              .where(eq(slots.status, 'pending'))
-              .run();
-
-            for (const input of db.orm.select().from(s.learning_practice_inputs).all())
-              db.orm
-                .delete(s.learning_practice_inputs)
-                .where(eq(s.learning_practice_inputs.slot_id, input.slot_id))
-                .run();
-          }
-        }),
         start: storeMutation({
           changes: ['learning'],
           input: startPracticeInputSchema,
@@ -734,9 +715,7 @@ export const PracticeBackupStore = defineStore({
 
           for (const row of db.orm.select().from(slots).all()) ids(row.inputs);
 
-          return !db.orm.get(
-            sql`SELECT 1 FROM learning_practice_controls WHERE enabled=1 UNION ALL SELECT 1 FROM learning_practice_slots WHERE status='pending' LIMIT 1`
-          );
+          return true;
         }
       })
     },

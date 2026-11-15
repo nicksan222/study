@@ -1,6 +1,6 @@
 import { defineTable, sql, check, index, integer, primaryKey, text } from '../schema-builder.ts';
 
-/** Durable execution identity and the current owner's fencing token. */
+/** Domain admission identity, publication generation, and authoritative outcome. */
 export const workflow_executions = defineTable({
   role: 'internal',
   reason: 'Durable execution and recovery state'
@@ -11,20 +11,29 @@ export const workflow_executions = defineTable({
     workflow_tag: text().notNull(),
     version: integer().notNull(),
     payload: text().notNull(),
-    status: text({ enum: ['running', 'suspended', 'completed', 'cancelled'] }).notNull(),
+    status: text({
+      enum: ['running', 'suspended', 'cancelling', 'blocked', 'completed', 'cancelled']
+    }).notNull(),
+    generation: integer().notNull().default(1),
+    cancellation_mode: text({ enum: ['safe', 'unsafe'] }),
+    blocked_reason: text({ enum: ['unsupported'] }),
     parent_execution_id: text(),
     result: text(),
-    owner_token: text(),
     created_at: integer().$type<bigint>().notNull(),
     updated_at: integer().$type<bigint>().notNull()
   },
   (t) => [
+    check('workflow_executions_generation_check', sql`${t.generation} > 0`),
+    check(
+      'workflow_executions_cancellation_check',
+      sql`${t.cancellation_mode} IS NULL OR ${t.cancellation_mode} IN ('safe', 'unsafe')`
+    ),
     check('workflow_executions_version_check', sql`${t.version} > 0`),
     check('workflow_executions_payload_check', sql`json_valid(${t.payload})`),
     check('workflow_executions_result_check', sql`${t.result} IS NULL OR json_valid(${t.result})`),
     check(
       'workflow_executions_status_check',
-      sql`${t.status} IN ('running', 'suspended', 'completed', 'cancelled')`
+      sql`${t.status} IN ('running', 'suspended', 'cancelling', 'blocked', 'completed', 'cancelled')`
     ),
     index('workflow_executions_parent_idx').on(t.parent_execution_id),
     index('workflow_executions_recovery_idx').on(t.status, t.workflow_tag, t.updated_at),
@@ -34,64 +43,6 @@ export const workflow_executions = defineTable({
       t.created_at,
       t.execution_id
     )
-  ]
-);
-
-/** Completed activity results keyed by the native activity name and attempt. */
-export const workflow_activities = defineTable({
-  role: 'internal',
-  reason: 'Durable execution and recovery state'
-})(
-  'workflow_activities',
-  {
-    execution_id: text()
-      .notNull()
-      .references(() => workflow_executions.execution_id, { onDelete: 'cascade' }),
-    name: text().notNull(),
-    attempt: integer().notNull(),
-    result: text().notNull()
-  },
-  (t) => [
-    primaryKey({ columns: [t.execution_id, t.name, t.attempt] }),
-    check('workflow_activities_attempt_check', sql`${t.attempt} >= 0`),
-    check('workflow_activities_result_check', sql`json_valid(${t.result})`)
-  ]
-);
-
-export const workflow_deferreds = defineTable({
-  role: 'internal',
-  reason: 'Durable execution and recovery state'
-})(
-  'workflow_deferreds',
-  {
-    execution_id: text()
-      .notNull()
-      .references(() => workflow_executions.execution_id, { onDelete: 'cascade' }),
-    name: text().notNull(),
-    result: text().notNull()
-  },
-  (t) => [
-    primaryKey({ columns: [t.execution_id, t.name] }),
-    check('workflow_deferreds_result_check', sql`json_valid(${t.result})`)
-  ]
-);
-
-export const workflow_clocks = defineTable({
-  role: 'internal',
-  reason: 'Durable execution and recovery state'
-})(
-  'workflow_clocks',
-  {
-    execution_id: text()
-      .notNull()
-      .references(() => workflow_executions.execution_id, { onDelete: 'cascade' }),
-    name: text().notNull(),
-    deferred_name: text().notNull(),
-    due_at: integer().$type<bigint>().notNull()
-  },
-  (t) => [
-    primaryKey({ columns: [t.execution_id, t.name] }),
-    index('workflow_clocks_due_idx').on(t.due_at)
   ]
 );
 

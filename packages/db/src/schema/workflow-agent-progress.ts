@@ -1,7 +1,7 @@
 import { sql, check, index, integer, defineTable, text } from '../schema-builder.ts';
 import { workflow_executions } from './workflows.ts';
 
-/** Reconnectable generation previews, fenced by the owning workflow activity lease. */
+/** Reconnectable generation previews, fenced by the domain work generation. */
 export const workflow_agent_progress = defineTable({
   role: 'internal',
   reason: 'Durable agent progress is scoped to workflow executions.'
@@ -12,7 +12,7 @@ export const workflow_agent_progress = defineTable({
     execution_id: text()
       .notNull()
       .references(() => workflow_executions.execution_id, { onDelete: 'cascade' }),
-    owner_token: text().notNull(),
+    generation: integer().notNull().default(1),
     activity_name: text().notNull(),
     attempt: integer().notNull(),
     agent_id: text().notNull(),

@@ -19,6 +19,7 @@ import { defaultAgentRules } from '@study/contracts/settings/types';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
+import type { MessageStorage, Sharding } from 'effect/cluster';
 import { WorkflowEngine } from 'effect/workflow';
 
 import { Learning } from '#server/features/learning/index';
@@ -52,6 +53,7 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { cancelExecution, WorkflowControl } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 type Reply =
   | { kind: 'sources'; query: string }
@@ -192,21 +194,26 @@ export async function pageTransformFixture() {
       const engine = workflowEngineLayer(context);
       const control = Layer.effect(
         WorkflowControl,
-        Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
-          cancel: (input: Parameters<typeof cancelExecution>[2]) =>
-            cancelExecution(
-              context,
-              [
-                materialGenerationWorkflow,
-                pageTransformWorkflow,
-                recordingPostWorkflow,
-                noteReplyWorkflow,
-                sourceIngestionWorkflow,
-                sourceCorrectionWorkflow
-              ],
-              input
-            ).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, engine))
-        }))
+        Effect.map(
+          Effect.context<
+            WorkflowEngine.WorkflowEngine | MessageStorage.MessageStorage | Sharding.Sharding
+          >(),
+          (services) => ({
+            cancel: (input: Parameters<typeof cancelExecution>[2]) =>
+              cancelExecution(
+                context,
+                [
+                  materialGenerationWorkflow,
+                  pageTransformWorkflow,
+                  recordingPostWorkflow,
+                  noteReplyWorkflow,
+                  sourceIngestionWorkflow,
+                  sourceCorrectionWorkflow
+                ],
+                input
+              ).pipe(Effect.provide(services))
+          })
+        )
       ).pipe(Layer.provideMerge(engine));
 
       return Layer.mergeAll(
@@ -281,10 +288,13 @@ export async function pageTransformFixture() {
 
               yield* engine.register(materialGenerationWorkflow, materialGenerationHandler);
 
-              return yield* engine.execute(materialGenerationWorkflow, {
+              return yield* withTestAdmission(
+                context,
+                materialGenerationWorkflow,
                 executionId,
-                payload: { event }
-              });
+                { event },
+                engine.execute(materialGenerationWorkflow, { executionId, payload: { event } })
+              );
             }).pipe(Effect.provide(services()))
           )
         );
@@ -297,10 +307,13 @@ export async function pageTransformFixture() {
 
               yield* engine.register(pageTransformWorkflow, pageTransformHandler);
 
-              return yield* engine.execute(pageTransformWorkflow, {
+              return yield* withTestAdmission(
+                context,
+                pageTransformWorkflow,
                 executionId,
-                payload: { event }
-              });
+                { event },
+                engine.execute(pageTransformWorkflow, { executionId, payload: { event } })
+              );
             }).pipe(Effect.provide(services()))
           )
         );

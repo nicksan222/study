@@ -17,7 +17,7 @@ import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
-import { WorkflowEngine } from 'effect/workflow';
+import { Activity, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
@@ -27,10 +27,12 @@ import {
   pageTransformWorkflow
 } from '#server/features/pages/workflows/transform';
 import { Sources } from '#server/features/sources/index';
+import { reconcileCancellation } from '#server/platform/workflows/cancellation';
 import { workflowStore } from '#server/platform/workflows/store';
 import { libraryState } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 const providerParagraph = (text: string) => ({
   type: 'paragraph' as const,
@@ -385,17 +387,6 @@ testStable(
         assert.ok(!body.includes('LATEST SECRET'));
       }
 
-      const attempts = fixture.context.db.orm
-        .select()
-        .from(s.workflow_activities)
-        .where(eq(s.workflow_activities.execution_id, 'transient-retry'))
-        .all();
-
-      expect(
-        attempts
-          .filter((row) => row.name === 'generate-authored-document')
-          .map((row) => Number(row.attempt))
-      ).toStrictEqual([1, 2]);
       await Effect.runPromise(
         Effect.gen(function* () {
           const materials = yield* Pages;
@@ -509,10 +500,16 @@ testStable(
             );
             yield* engine.register(pageTransformWorkflow, pageTransformHandler);
             const fiber = yield* Effect.forkChild(
-              engine.execute(pageTransformWorkflow, {
-                executionId: 'cancel-before-publication',
-                payload: { event }
-              })
+              withTestAdmission(
+                fixture.context,
+                pageTransformWorkflow,
+                'cancel-before-publication',
+                { event },
+                engine.execute(pageTransformWorkflow, {
+                  executionId: 'cancel-before-publication',
+                  payload: { event }
+                })
+              )
             );
 
             yield* Deferred.await(received);
@@ -525,6 +522,13 @@ testStable(
             const exit = yield* Fiber.await(fiber);
 
             assert.ok(Exit.isFailure(exit));
+            yield* reconcileCancellation(
+              fixture.context,
+              pageTransformWorkflow,
+              'cancel-before-publication',
+              'safe',
+              true
+            );
             assert.ok(
               workflowStore(fixture.context).execution('cancel-before-publication')?.status ===
                 'cancelled'
@@ -593,15 +597,25 @@ testStable(
             yield* Effect.addFinalizer(() => Deferred.succeed(finish, undefined));
             yield* engine.register(pageTransformWorkflow, holdAfterPublication(published, finish));
             const fiber = yield* Effect.forkChild(
-              engine.execute(pageTransformWorkflow, {
-                executionId: 'publication-wins',
-                payload: { event }
-              })
+              withTestAdmission(
+                fixture.context,
+                pageTransformWorkflow,
+                'publication-wins',
+                { event },
+                engine.execute(pageTransformWorkflow, {
+                  executionId: 'publication-wins',
+                  payload: { event }
+                })
+              )
             );
 
             yield* Deferred.await(published);
+            workflowStore(fixture.context).requestCancellation('publication-wins', 'safe');
             yield* engine.interrupt(pageTransformWorkflow, 'publication-wins');
-            assert.ok(workflowStore(fixture.context).interruptMode('publication-wins') === 'safe');
+            assert.ok(
+              workflowStore(fixture.context).execution('publication-wins')?.cancellation_mode ===
+                'safe'
+            );
             const materials = yield* Pages;
             const pending = yield* materials.transform({
               requestId: setup.request.id
@@ -609,10 +623,18 @@ testStable(
 
             assert.ok(pending.resultVersionId);
             assert.ok(pending.cancelled === false);
-            yield* engine.interruptUnsafe(pageTransformWorkflow, 'publication-wins');
+            const cancellation = yield* reconcileCancellation(
+              fixture.context,
+              pageTransformWorkflow,
+              'publication-wins',
+              'unsafe',
+              true
+            ).pipe(Effect.forkChild);
+
             yield* Fiber.await(fiber);
             // Unsafe interruption can resume receipt replay before its terminal checkpoint.
             yield* Deferred.succeed(finish, undefined);
+            yield* Fiber.join(cancellation);
 
             while (
               workflowStore(fixture.context).execution('publication-wins')?.status !== 'cancelled'
@@ -824,6 +846,8 @@ function holdAfterPublication(published: Deferred.Deferred<void>, finish: Deferr
   return (payload: typeof pageTransformWorkflow.payloadSchema.Type) =>
     pageTransformHandler(payload).pipe(
       Effect.tap(Deferred.succeed(published, undefined)),
-      Effect.tap(Deferred.await(finish))
+      Effect.tap(
+        Activity.make({ name: 'post-publication-cleanup', execute: Deferred.await(finish) })
+      )
     );
 }

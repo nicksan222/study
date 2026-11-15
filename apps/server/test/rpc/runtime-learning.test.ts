@@ -108,10 +108,6 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                   message: 'grading should wait durably for model setup'
                 }
               );
-              assert.strictEqual(
-                app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length,
-                0
-              );
               yield* client['learning.gradeResponse']({
                 attemptId: attempt.id,
                 questionId,

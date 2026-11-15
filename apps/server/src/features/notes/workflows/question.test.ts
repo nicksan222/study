@@ -33,6 +33,7 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowDefinitions, workflowTriggers } from '#server/runtime/workflows';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import { noteQuestionHandler, noteQuestionWorkflow } from './question.ts';
 
@@ -136,10 +137,16 @@ testStable(
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
             yield* engine.register(noteQuestionWorkflow, noteQuestionHandler);
-            yield* engine.execute(noteQuestionWorkflow, {
-              executionId: id,
-              payload: { event }
-            });
+            yield* withTestAdmission(
+              context,
+              noteQuestionWorkflow,
+              id,
+              { event },
+              engine.execute(noteQuestionWorkflow, {
+                executionId: id,
+                payload: { event }
+              })
+            );
           }).pipe(Effect.provide(services()))
         )
       );

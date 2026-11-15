@@ -34,6 +34,7 @@ import { transaction, useStore } from '#server/platform/definitions/define-store
 import { setup, deletionEvent, assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
+import { withTestAdmission, admitTestExecution } from '#testing/workflow-admission';
 
 testStable(
   'canonical status, ownership and correlation queries bind directly with typed aggregate results',
@@ -166,6 +167,9 @@ for (const state of ['running', 'suspended'] as const) {
 
               yield* engine.register(noteDeletionWorkflow, noteDeletionHandler);
               // A terminal run from another event in this operation does not prove dispatch of attempt 1.
+              admitTestExecution(fixture.context, probe, 'older-terminal', {
+                event: { ...event, eventId: `${accepted.operationId}/older` }
+              });
               yield* engine.execute(probe, {
                 executionId: 'older-terminal',
                 payload: { event: { ...event, eventId: `${accepted.operationId}/older` } }
@@ -173,22 +177,37 @@ for (const state of ['running', 'suspended'] as const) {
 
               expect(yield* chats.retryNoteDeletion(saved.note.id)).toStrictEqual(accepted);
 
+              admitTestExecution(fixture.context, probe, 'other-operation', {
+                event: { ...event, correlationId: 'other-operation' }
+              });
               yield* engine.execute(probe, {
                 executionId: 'other-operation',
                 payload: { event: { ...event, correlationId: 'other-operation' } }
               });
 
-              yield* engine.execute(probe, { executionId: 'current-terminal', payload: { event } });
+              yield* withTestAdmission(
+                fixture.context,
+                probe,
+                'current-terminal',
+                { event },
+                engine.execute(probe, { executionId: 'current-terminal', payload: { event } })
+              );
 
-              yield* engine.execute(probe, {
-                executionId: 'current-held',
-                payload: { event },
-                discard: true
-              });
+              yield* withTestAdmission(
+                fixture.context,
+                probe,
+                'current-held',
+                { event },
+                engine.execute(probe, {
+                  executionId: 'current-held',
+                  payload: { event },
+                  discard: true
+                })
+              );
 
               yield* Deferred.await(entered);
 
-              yield* awaitNativeStatus(fixture, 'current-held', state);
+              yield* awaitNativeStatus(fixture, 'current-held', state, probe);
 
               const runs = yield* transaction((tx) =>
                 Workflows.correlatedExecutions(tx, accepted.operationId, event.eventId)
@@ -219,7 +238,7 @@ for (const state of ['running', 'suspended'] as const) {
                   exit: Exit.void
                 });
 
-              yield* awaitNativeStatus(fixture, 'current-held', 'completed');
+              yield* awaitNativeStatus(fixture, 'current-held', 'completed', probe);
 
               const retry = yield* chats.retryNoteDeletion(saved.note.id);
 
@@ -255,17 +274,29 @@ for (const state of ['running', 'suspended'] as const) {
                 '{}'
               );
               // Replayed old handler cannot run its Activity against the newer attempt either.
-              yield* engine.execute(noteDeletionWorkflow, {
-                executionId: 'stale-handler',
-                payload: { event }
-              });
+              yield* withTestAdmission(
+                fixture.context,
+                noteDeletionWorkflow,
+                'stale-handler',
+                { event },
+                engine.execute(noteDeletionWorkflow, {
+                  executionId: 'stale-handler',
+                  payload: { event }
+                })
+              );
 
               expect(yield* chats.noteDeletion(saved.note.id)).toStrictEqual(retry);
 
-              yield* engine.execute(noteDeletionWorkflow, {
-                executionId: 'current-cleanup',
-                payload: { event: deletionEvent(fixture, saved.note.id) }
-              });
+              yield* withTestAdmission(
+                fixture.context,
+                noteDeletionWorkflow,
+                'current-cleanup',
+                { event: deletionEvent(fixture, saved.note.id) },
+                engine.execute(noteDeletionWorkflow, {
+                  executionId: 'current-cleanup',
+                  payload: { event: deletionEvent(fixture, saved.note.id) }
+                })
+              );
 
               const completed = yield* chats.noteDeletion(saved.note.id);
 

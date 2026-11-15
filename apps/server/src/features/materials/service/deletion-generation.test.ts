@@ -116,14 +116,6 @@ testStable(
       assert.ok(native?.status === 'completed');
       assert.ok(native.payload === '{}');
       assert.ok(native.result === null);
-      assert.ok(native.owner_token === null);
-      expect(
-        f.context.db.orm
-          .select()
-          .from(s.workflow_activities)
-          .where(eq(s.workflow_activities.execution_id, 'completed-generation'))
-          .all()
-      ).toStrictEqual([]);
       assert.ok(
         f.context.db.orm
           .select()

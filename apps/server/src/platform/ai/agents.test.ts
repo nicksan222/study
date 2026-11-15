@@ -1016,41 +1016,51 @@ testStable('never retries a failed response after publishing a delta', async () 
   );
 });
 
-testStable('cancelling before the first delta closes the request without retries', async () => {
-  let calls = 0;
-  let closed!: () => void;
-  const requestClosed = new Promise<void>((resolve) => {
-    closed = resolve;
-  });
+testStable(
+  'local interruption closes the request without retries or durable cancellation',
+  async () => {
+    let calls = 0;
+    const observed: string[] = [];
+    let closed!: () => void;
+    const requestClosed = new Promise<void>((resolve) => {
+      closed = resolve;
+    });
 
-  await peer(
-    (_req) => {
-      calls++;
-      _req.signal.addEventListener('abort', closed, { once: true });
-
-      return new Response(new ReadableStream({ start() {} }), {
-        headers: { 'content-type': 'text/event-stream' }
+    const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+      Effect.sync(() => {
+        observed.push(observation.event.type);
       });
-    },
-    async (base, auth) => {
-      const controller = new AbortController();
-      const running = Effect.runPromise(
-        streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
-          Stream.runDrain,
-          Effect.provide(service(base, auth))
-        ),
-        { signal: controller.signal }
-      );
 
-      while (calls === 0) await new Promise((resolve) => setTimeout(resolve, 5));
+    await peer(
+      (_req) => {
+        calls++;
+        _req.signal.addEventListener('abort', closed, { once: true });
 
-      controller.abort();
-      await expect(running).rejects.toThrow();
-      await requestClosed;
-      assert.strictEqual(calls, 1);
-    }
-  );
-});
+        return new Response(new ReadableStream({ start() {} }), {
+          headers: { 'content-type': 'text/event-stream' }
+        });
+      },
+      async (base, auth) => {
+        const controller = new AbortController();
+        const running = Effect.runPromise(
+          streamAgent(definition, 'x', { maxRetries: 3 }).pipe(
+            Stream.runDrain,
+            Effect.provide(service(base, auth, observe))
+          ),
+          { signal: controller.signal }
+        );
+
+        while (calls === 0) await new Promise((resolve) => setTimeout(resolve, 5));
+
+        controller.abort();
+        await expect(running).rejects.toThrow();
+        await requestClosed;
+        assert.strictEqual(calls, 1);
+        expect(observed).toStrictEqual(['start']);
+      }
+    );
+  }
+);
 
 testStable('decoder exceptions remain typed input failures before provider work', async () => {
   const guarded = defineAgent({

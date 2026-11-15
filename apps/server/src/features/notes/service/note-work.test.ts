@@ -126,7 +126,7 @@ testStable(
             assert.strictEqual(second.next, null);
             context.db.orm
               .update(workflow_executions)
-              .set({ result: '"__interrupt_safe__"' })
+              .set({ cancellation_mode: 'safe', status: 'cancelling' })
               .where(eq(workflow_executions.execution_id, 'reply-work'))
               .run();
             const cancelling = yield* chats.noteWork({ noteId: note.id, limit: 100 });

@@ -71,7 +71,7 @@ for (const mode of ['history', 'delete'] as const)
             });
 
             return { input: { ...input, version: input.version }, note, capture, request };
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
         const event = f.authoredEvent(saved.request.id);
 
@@ -80,31 +80,23 @@ for (const mode of ['history', 'delete'] as const)
           { kind: 'output', output: validPageTransformOutput('INTENTIONAL_AUTHORED_BODY [1]') }
         );
         const resultId = await f.executeAuthored(event, 'authored-generation');
-        // Exercise every private native storage location, including recovery registrations.
+        // The official execution already retains activity results and its final reply.
 
         f.context.db.orm.run(
-          sql`INSERT INTO workflow_deferreds(execution_id,name,result) VALUES('authored-generation','private-copy','"INTENTIONAL_AUTHORED_BODY"')`
-        );
-        f.context.db.orm.run(
           sql`INSERT INTO workflow_configuration_waits(execution_id,deferred_name,observed_revision) VALUES('authored-generation','INTENTIONAL_AUTHORED_BODY','INTENTIONAL_AUTHORED_BODY')`
-        );
-        f.context.db.orm.run(
-          sql`INSERT INTO workflow_clocks(execution_id,name,deferred_name,due_at) VALUES('authored-generation','INTENTIONAL_AUTHORED_BODY','private-copy',1)`
         );
         const independentPayload = JSON.stringify({
           event: {
             ...event,
             requestId: 'independent-request',
             correlationId: 'independent-request',
-            eventId: 'independent-event'
+            eventId: 'independent-event',
+            retained: 'Independent private content'
           }
         });
 
         f.context.db.orm.run(
           sql`INSERT INTO workflow_executions(execution_id,workflow_tag,version,payload,status,created_at,updated_at) VALUES('independent-native','document-transform/v1',1,${independentPayload},'suspended',1,1)`
-        );
-        f.context.db.orm.run(
-          sql`INSERT INTO workflow_deferreds(execution_id,name,result) VALUES('independent-native','independent-checkpoint','"Independent private content"')`
         );
         const retained = await Effect.runPromise(
           Effect.gen(function* () {
@@ -132,11 +124,12 @@ for (const mode of ['history', 'delete'] as const)
             const failedPreview = yield* docs.previewDeletion({ id: output.pageId });
 
             yield* Effect.flip(docs.delete({ pageId: output.pageId, token: failedPreview.token }));
-            assert.strictEqual(
-              f.context.db.orm.get(
-                sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'INTENTIONAL_AUTHORED_BODY')>0`
-              )?.n,
-              1n
+            assert.ok(
+              JSON.stringify(
+                f.context.db.orm.all(sql`SELECT * FROM cluster_replies`),
+                (_key, value) => (typeof value === 'bigint' ? String(value) : value)
+              ).includes('INTENTIONAL_AUTHORED_BODY'),
+              'rollback must retain private official workflow replies'
             );
             assert.strictEqual(
               f.context.db.orm.get(
@@ -171,12 +164,7 @@ for (const mode of ['history', 'delete'] as const)
 
             assert.ok((yield* Effect.flip(docs.version({ id: output.id }))).kind === 'not_found');
             // Retirement must scrub native output while the independent raw note still exists.
-            assert.strictEqual(
-              f.context.db.orm.get(
-                sql`SELECT count(*) n FROM workflow_activities WHERE instr(result,'INTENTIONAL_AUTHORED_BODY')>0`
-              )?.n,
-              0n
-            );
+            assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
             assert.ok(f.context.db.orm.get(sql`SELECT 1 FROM notes WHERE id=${saved.note.id}`));
             assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
             // Raw note pins and any current authored version keep original evidence alive.
@@ -187,7 +175,7 @@ for (const mode of ['history', 'delete'] as const)
             );
 
             return { copy: copy.version, outputId: output.pageId };
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
         // Reopen with the raw note retained: retiring its independent output is sufficient.
 
@@ -196,8 +184,8 @@ for (const mode of ['history', 'delete'] as const)
         assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false);
         assert.ok(
           f.context.db.orm.get(
-            sql`SELECT result FROM workflow_deferreds WHERE execution_id='independent-native'`
-          )?.result === '"Independent private content"'
+            sql`SELECT payload FROM workflow_executions WHERE execution_id='independent-native'`
+          )?.payload === independentPayload
         );
         const callsBeforeReplay = f.bodies.length;
 
@@ -228,7 +216,7 @@ for (const mode of ['history', 'delete'] as const)
 
             expect(released.blockedVersionIds).toStrictEqual([]);
             yield* docs.delete({ pageId: saved.input.id, token: released.token });
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
         await cleanup(f, saved.note.id);
         await f.reopen();
@@ -248,7 +236,7 @@ for (const mode of ['history', 'delete'] as const)
 
             assert.strictEqual(request.resultVersionId, resultId);
             assert.ok(request.instruction === 'Retained authored generation instruction');
-          }).pipe(Effect.provide(f.domain()))
+          }).pipe(Effect.provide(f.services()))
         );
         const receipt = f.context.db.orm.select().from(s.page_generation_requests).get();
 

@@ -34,6 +34,7 @@ import { processSource } from '#testing/material-history';
 import { assertScrubbed, awaitNativeStatus, deletionEvent } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 type Fixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
@@ -232,18 +233,26 @@ for (const kind of ['document', 'source'] as const)
                     const engine = yield* WorkflowEngine.WorkflowEngine;
 
                     yield* engine.register(noteReplyWorkflow, noteReplyHandler);
-                    yield* engine.execute(noteReplyWorkflow, {
-                      executionId: 'checkpoint-reply',
-                      payload: { event }
-                    });
+                    yield* withTestAdmission(
+                      f.context,
+                      noteReplyWorkflow,
+                      'checkpoint-reply',
+                      { event },
+                      engine.execute(noteReplyWorkflow, {
+                        executionId: 'checkpoint-reply',
+                        payload: { event }
+                      })
+                    );
                   })
                 ).pipe(Effect.provide(f.services()))
               )
             ).rejects.toSatisfy(() => true);
+            assert.strictEqual(f.replies.length, 0);
             assert.ok(
-              workflowStore(f.context)
-                .activity('checkpoint-reply', 'generate-reply', 1)
-                ?.includes('PRIVATE_REPLY_CHECKPOINT')
+              JSON.stringify(
+                f.context.db.orm.all(sql`SELECT * FROM cluster_replies`),
+                (_, value) => (typeof value === 'bigint' ? String(value) : value)
+              ).includes('PRIVATE_REPLY_CHECKPOINT')
             );
             f.context.db.exec('DROP TRIGGER reject_reply_publication');
           }
@@ -331,17 +340,29 @@ for (const kind of ['document', 'source'] as const)
                 yield* engine.register(noteDeletionWorkflow, noteDeletionHandler);
 
                 if (!checkpoint)
-                  yield* engine.execute(noteReplyWorkflow, {
-                    executionId: 'pending-reply',
-                    payload: { event },
-                    discard: true
-                  });
+                  yield* withTestAdmission(
+                    f.context,
+                    noteReplyWorkflow,
+                    'pending-reply',
+                    { event },
+                    engine.execute(noteReplyWorkflow, {
+                      executionId: 'pending-reply',
+                      payload: { event },
+                      discard: true
+                    })
+                  );
 
-                yield* engine.execute(noteReplyWorkflow, {
-                  executionId: 'independent-reply',
-                  payload: { event: otherEvent },
-                  discard: true
-                });
+                yield* withTestAdmission(
+                  f.context,
+                  noteReplyWorkflow,
+                  'independent-reply',
+                  { event: otherEvent },
+                  engine.execute(noteReplyWorkflow, {
+                    executionId: 'independent-reply',
+                    payload: { event: otherEvent },
+                    discard: true
+                  })
+                );
 
                 if (!checkpoint) yield* awaitNativeStatus(f, 'pending-reply', 'suspended');
 
@@ -354,10 +375,16 @@ for (const kind of ['document', 'source'] as const)
 
                 assert.ok(before.citations[0]?.evidence?.availability === 'available');
                 yield* chats.deleteNote(saved.note.id);
-                yield* engine.execute(noteDeletionWorkflow, {
-                  executionId: 'raw-input-cleanup',
-                  payload: { event: deletionEvent(f, saved.note.id) }
-                });
+                yield* withTestAdmission(
+                  f.context,
+                  noteDeletionWorkflow,
+                  'raw-input-cleanup',
+                  { event: deletionEvent(f, saved.note.id) },
+                  engine.execute(noteDeletionWorkflow, {
+                    executionId: 'raw-input-cleanup',
+                    payload: { event: deletionEvent(f, saved.note.id) }
+                  })
+                );
 
                 if (!checkpoint)
                   assert.ok(
@@ -432,10 +459,16 @@ for (const kind of ['document', 'source'] as const)
                   const engine = yield* WorkflowEngine.WorkflowEngine;
 
                   yield* engine.register(noteReplyWorkflow, noteReplyHandler);
-                  yield* engine.execute(noteReplyWorkflow, {
-                    executionId: 'late-private-reply',
-                    payload: { event }
-                  });
+                  yield* withTestAdmission(
+                    f.context,
+                    noteReplyWorkflow,
+                    'late-private-reply',
+                    { event },
+                    engine.execute(noteReplyWorkflow, {
+                      executionId: 'late-private-reply',
+                      payload: { event }
+                    })
+                  );
                 })
               ).pipe(Effect.provide(f.services()))
             )

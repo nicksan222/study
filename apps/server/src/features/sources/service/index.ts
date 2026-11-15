@@ -306,14 +306,15 @@ export const Sources = defineService(
               snapshotIds: preview.candidates.map((item) => item.snapshotId)
             });
 
-          Workflows.retireCorrelations(tx, ids, [
+          const executions = Workflows.retireCorrelations(tx, ids, [
             'SourceProcessingRequested',
             'SourceCorrectionRequested',
             'SourceIndexed',
             'SourceProcessingFailed'
           ]);
           // The retained output's content-free SourceIndexed event must remain dispatchable.
-          Workflows.retireCorrelations(tx, inputIds, ['SourceCorrectionRequested']);
+          const inputs = Workflows.retireCorrelations(tx, inputIds, ['SourceCorrectionRequested']);
+
           Workflows.scrubRetiredCorrelations(tx, ids);
           Workflows.scrubRetiredCorrectionInputs(tx, inputIds);
           const result = tx.store(SourceHistoryStore).retireSourceHistory(input);
@@ -333,8 +334,11 @@ export const Sources = defineService(
             });
           }
 
-          return result;
-        }),
+          return { result, executions: [...new Set([...executions, ...inputs])] };
+        }).pipe(
+          Effect.tap(({ executions }) => Workflows.interruptRetiredExecutions(executions)),
+          Effect.map(({ result }) => result)
+        ),
       previewDeletion: ({ id }: { id: SourceId }) =>
         transaction((tx) => tx.store(SourceDeletionPreviewStore).sourceDeletion(id)),
       deleteSource: (input: { id: SourceId }) =>

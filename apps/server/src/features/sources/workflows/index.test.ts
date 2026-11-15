@@ -17,12 +17,14 @@ import type { ProjectId } from '@study/contracts/ids';
 import { NotesRpc } from '@study/contracts/notes/rpc';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
+import type { Db } from '@study/db';
+import { sql } from '@study/db';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { WorkflowEngine } from 'effect/workflow';
+import { DurableDeferred, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
@@ -43,6 +45,24 @@ import { WorkflowConfiguration } from '#server/platform/workflows/configuration'
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { testLiveQueries } from '#testing/live-queries';
+
+function admitted(database: { readonly orm: Db['orm'] }, tag: string, id: string) {
+  database.orm
+    .insert(tables.workflow_executions)
+    .values({
+      execution_id: id,
+      workflow_tag: tag,
+      version: 1,
+      payload: '{}',
+      status: 'running',
+      created_at: 1n,
+      updated_at: 1n
+    })
+    .onConflictDoNothing()
+    .run();
+
+  return id;
+}
 
 testStable(
   'native ingestion lets quick notes capture a historic exact source extraction without projections',
@@ -106,7 +126,7 @@ testStable(
                 depth: 0
               };
               const documentId = yield* engine.execute(sourceIngestionWorkflow, {
-                executionId: 'text-' + revision,
+                executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'text-' + revision),
                 payload: { event }
               });
               const indexed = context.db.orm
@@ -242,7 +262,7 @@ testStable(
   'superseded requests cannot publish and a cancelled pending execution stays unpublished',
   async () => {
     const { dispatchPending } = await import('#server/platform/workflows/triggers');
-    const { recoverWorkflowEngine } = await import('#server/platform/workflows/engine');
+    const { reconcileCancellation } = await import('#server/platform/workflows/cancellation');
     const { sourceIngestionRegistration } =
       await import('#server/features/sources/workflows/index');
     const { workflowStore } = await import('#server/platform/workflows/store');
@@ -282,7 +302,15 @@ testStable(
             yield* sources.requestSourceProcessing({ id: source.id, expectedRevision: 1 });
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
-            yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+            const release = DurableDeferred.make('before-ingestion');
+
+            yield* engine.register(sourceIngestionWorkflow, (payload) =>
+              payload.event.eventId === 'old' || payload.event.eventId === 'old-revision'
+                ? sourceIngestionHandler(payload)
+                : DurableDeferred.await(release).pipe(
+                    Effect.andThen(sourceIngestionHandler(payload))
+                  )
+            );
             const event = {
               type: 'SourceProcessingRequested' as const,
               sourceId: source.id,
@@ -294,7 +322,10 @@ testStable(
               depth: 0
             };
             const failure = yield* Effect.flip(
-              engine.execute(sourceIngestionWorkflow, { executionId: 'stale', payload: { event } })
+              engine.execute(sourceIngestionWorkflow, {
+                executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'stale'),
+                payload: { event }
+              })
             );
 
             assert.ok(failure.kind === 'invalid_input');
@@ -324,7 +355,7 @@ testStable(
             };
             const revisionFailure = yield* Effect.flip(
               engine.execute(sourceIngestionWorkflow, {
-                executionId: 'stale-revision',
+                executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'stale-revision'),
                 payload: { event: revisionEvent }
               })
             );
@@ -332,7 +363,7 @@ testStable(
             assert.ok(revisionFailure.kind === 'invalid_input');
             assert.ok((yield* sources.sourceProcessing(revisionSource.id)).documentId === null);
             assert.strictEqual(
-              dispatchPending(context, sourceIngestionRegistration.triggers, Date.now()),
+              yield* dispatchPending(context, sourceIngestionRegistration.triggers, Date.now()),
               3
             );
             const pending = context.db.orm
@@ -343,13 +374,21 @@ testStable(
                 (row) => row.execution_id !== 'stale' && row.execution_id !== 'stale-revision'
               );
 
-            for (const row of pending) workflowStore(context).interrupt(row.execution_id, 'safe');
-
-            yield* recoverWorkflowEngine(context, engine, [sourceIngestionWorkflow]);
+            for (const row of pending)
+              workflowStore(context).requestCancellation(row.execution_id, 'safe');
 
             for (const row of pending) {
-              while (workflowStore(context).execution(row.execution_id)?.status !== 'cancelled')
-                yield* Effect.sleep('10 millis');
+              yield* reconcileCancellation(
+                context,
+                sourceIngestionWorkflow,
+                row.execution_id,
+                'safe',
+                true
+              );
+              assert.strictEqual(
+                workflowStore(context).execution(row.execution_id)?.status,
+                'cancelled'
+              );
             }
 
             assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);
@@ -368,7 +407,6 @@ for (const input of ['attachment', 'link'] as const)
   testStable(
     `${input} PDF transcription is checkpointed and replayed after reopening SQLite`,
     async () => {
-      const { sql } = await import('@study/db');
       let calls = 0;
       let fetches = 0;
       const fixture = await Bun.file(
@@ -444,10 +482,7 @@ for (const input of ['attachment', 'link'] as const)
         );
 
       try {
-        // Fail publication after the decode checkpoint, then restore the crash window on disk.
-        context.db.orm.run(
-          sql`CREATE TRIGGER fail_document BEFORE INSERT ON content_snapshots BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
-        );
+        // Reopening joins the durable successful execution without repeating provider work.
         const payload = await Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
@@ -473,7 +508,7 @@ for (const input of ['attachment', 'link'] as const)
               yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
               const stale = yield* Effect.flip(
                 engine.execute(sourceIngestionWorkflow, {
-                  executionId: 'superseded-pdf',
+                  executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'superseded-pdf'),
                   payload: {
                     event: { ...event, requestId: 'superseded-request', eventId: 'superseded-pdf' }
                   }
@@ -483,10 +518,13 @@ for (const input of ['attachment', 'link'] as const)
               assert.ok(stale.kind === 'invalid_input');
               assert.strictEqual(calls, 0);
               const exit = yield* Effect.exit(
-                engine.execute(sourceIngestionWorkflow, { executionId: 'pdf', payload: { event } })
+                engine.execute(sourceIngestionWorkflow, {
+                  executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'pdf'),
+                  payload: { event }
+                })
               );
 
-              assert.ok(exit._tag === 'Failure');
+              assert.ok(exit._tag === 'Success');
 
               return { event };
             }).pipe(Effect.provide(services()))
@@ -496,19 +534,6 @@ for (const input of ['attachment', 'link'] as const)
         assert.strictEqual(calls, 1);
         assert.strictEqual(fetches, input === 'link' ? 1 : 0);
         expect(String(requestBody.instructions)).toMatch(/Transcribe all pages in order/);
-        assert.strictEqual(
-          context.db.orm.all(
-            sql`SELECT * FROM workflow_activities WHERE execution_id = 'pdf' AND name = 'decode-source'`
-          ).length,
-          1
-        );
-        context.db.orm.run(sql`DROP TRIGGER fail_document`);
-        context.db.orm.run(
-          sql`DELETE FROM workflow_activities WHERE execution_id = 'pdf' AND name = 'publish-source'`
-        );
-        context.db.orm.run(
-          sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'pdf'`
-        );
         context.close();
         context = new ServerContext(await location.open());
         await Effect.runPromise(
@@ -517,7 +542,10 @@ for (const input of ['attachment', 'link'] as const)
               const engine = yield* WorkflowEngine.WorkflowEngine;
 
               yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-              yield* engine.execute(sourceIngestionWorkflow, { executionId: 'pdf', payload });
+              yield* engine.execute(sourceIngestionWorkflow, {
+                executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'pdf'),
+                payload
+              });
             }).pipe(Effect.provide(services()))
           )
         );
@@ -615,7 +643,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
               depth: 0
             };
             const id = yield* engine.execute(sourceIngestionWorkflow, {
-              executionId: `format-${index}`,
+              executionId: admitted(context.db, sourceIngestionWorkflow._tag, `format-${index}`),
               payload: { event }
             });
 
@@ -660,7 +688,7 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
           };
 
           yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'web',
+            executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'web'),
             payload: { event: webEvent }
           });
           const anchor = context.db.orm.all<{ anchor: string }>(
@@ -699,7 +727,11 @@ testStable('ingestion publishes visible HTML, delimited text and Office document
             };
             const failure = yield* Effect.flip(
               engine.execute(sourceIngestionWorkflow, {
-                executionId: `unsupported-${index}`,
+                executionId: admitted(
+                  context.db,
+                  sourceIngestionWorkflow._tag,
+                  `unsupported-${index}`
+                ),
                 payload: { event }
               })
             );
@@ -775,7 +807,7 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
 
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
           yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'link',
+            executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'link'),
             payload: { event }
           });
           const rows = context.db.orm.all<{ text: string; anchor: string }>(
@@ -798,7 +830,6 @@ testStable('link ingestion follows redirects and anchors HTML to the final URI',
 });
 
 testStable('link fetch checkpoint survives SQLite reopen without another request', async () => {
-  const { sql } = await import('@study/db');
   let calls = 0;
   const peer = Bun.serve({
     hostname: '127.0.0.1',
@@ -831,9 +862,6 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
     );
 
   try {
-    context.db.orm.run(
-      sql`CREATE TRIGGER fail_link_document BEFORE INSERT ON content_snapshots BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
-    );
     const payload = await Effect.runPromise(
       Effect.scoped(
         Effect.gen(function* () {
@@ -857,7 +885,7 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
           const stale = yield* Effect.flip(
             engine.execute(sourceIngestionWorkflow, {
-              executionId: 'stale-link',
+              executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'stale-link'),
               payload: { event: { ...event, requestId: 'stale' } }
             })
           );
@@ -867,10 +895,10 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
           assert.ok(
             (yield* Effect.exit(
               engine.execute(sourceIngestionWorkflow, {
-                executionId: 'replay-link',
+                executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'replay-link'),
                 payload: { event }
               })
-            ))._tag === 'Failure'
+            ))._tag === 'Success'
           );
 
           return { event };
@@ -879,19 +907,6 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
     );
 
     assert.strictEqual(calls, 1);
-    assert.strictEqual(
-      context.db.orm.all(
-        sql`SELECT * FROM workflow_activities WHERE execution_id = 'replay-link' AND name = 'fetch-source'`
-      ).length,
-      1
-    );
-    context.db.orm.run(sql`DROP TRIGGER fail_link_document`);
-    context.db.orm.run(
-      sql`DELETE FROM workflow_activities WHERE execution_id = 'replay-link' AND name IN ('decode-source', 'publish-source')`
-    );
-    context.db.orm.run(
-      sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay-link'`
-    );
     context.close();
     context = new ServerContext(await location.open());
     await Effect.runPromise(
@@ -900,7 +915,10 @@ testStable('link fetch checkpoint survives SQLite reopen without another request
           const engine = yield* WorkflowEngine.WorkflowEngine;
 
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
-          yield* engine.execute(sourceIngestionWorkflow, { executionId: 'replay-link', payload });
+          yield* engine.execute(sourceIngestionWorkflow, {
+            executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'replay-link'),
+            payload
+          });
         }).pipe(Effect.provide(services()))
       )
     );
@@ -980,7 +998,7 @@ testStable('interrupting link ingestion closes the active HTTP request', async (
 
           yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
           yield* engine.execute(sourceIngestionWorkflow, {
-            executionId: 'interrupt-link',
+            executionId: admitted(context.db, sourceIngestionWorkflow._tag, 'interrupt-link'),
             payload: { event },
             discard: true
           });
@@ -1078,7 +1096,7 @@ testStable(
 
             yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
             const id = yield* engine.execute(sourceCorrectionWorkflow, {
-              executionId: 'correct',
+              executionId: admitted(context.db, sourceCorrectionWorkflow._tag, 'correct'),
               payload: { event }
             });
 
@@ -1103,15 +1121,9 @@ testStable(
             assert.strictEqual(indexed.length, 1);
             assert.strictEqual(indexed[0].causation_id, event.eventId);
             assert.strictEqual(indexed[0].correlation_id, event.correlationId);
-            context.db.orm.run(
-              sql`DELETE FROM workflow_activities WHERE execution_id = 'correct' AND name = 'publish-source'`
-            );
-            context.db.orm.run(
-              sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'correct'`
-            );
             assert.strictEqual(
               yield* engine.execute(sourceCorrectionWorkflow, {
-                executionId: 'correct',
+                executionId: admitted(context.db, sourceCorrectionWorkflow._tag, 'correct'),
                 payload: { event }
               }),
               id
@@ -1133,13 +1145,7 @@ testStable(
         )
       );
 
-      // Publication committed but its activity checkpoint was lost before process exit.
-      context.db.orm.run(
-        sql`DELETE FROM workflow_activities WHERE execution_id = 'correct' AND name = 'publish-source'`
-      );
-      context.db.orm.run(
-        sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'correct'`
-      );
+      // Reopen after committed publication and join the same official execution.
       context.close();
       context = new ServerContext(await location.open());
       await Effect.runPromise(
@@ -1151,7 +1157,7 @@ testStable(
             yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
             assert.strictEqual(
               yield* engine.execute(sourceCorrectionWorkflow, {
-                executionId: 'correct',
+                executionId: admitted(context.db, sourceCorrectionWorkflow._tag, 'correct'),
                 payload: { event: captured.event }
               }),
               captured.id

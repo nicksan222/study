@@ -76,7 +76,7 @@ export const NoteWorkStore = defineStore({
             .from(workflow_executions)
             .where(
               and(
-                inArray(workflow_executions.status, ['running', 'suspended']),
+                inArray(workflow_executions.status, ['running', 'suspended', 'cancelling']),
                 or(transform, reply, attachment, sql`(${title})`),
                 input.before === undefined
                   ? undefined

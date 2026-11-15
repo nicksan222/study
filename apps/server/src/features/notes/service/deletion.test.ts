@@ -28,7 +28,7 @@ import {
 import { Pages } from '#server/features/pages/index';
 import { pageTransformWorkflow } from '#server/features/pages/workflows/transform';
 import { workflowStore } from '#server/platform/workflows/store';
-import { dispatchPending } from '#server/platform/workflows/triggers';
+import { admitPending } from '#server/platform/workflows/triggers';
 import { testLiveQueries } from '#testing/live-queries';
 import {
   setup,
@@ -41,6 +41,7 @@ import {
   validPageTransformOutput
 } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 testStable(
   'native deletion RPC commits an idempotent unavailable barrier and scrubs queued captures after reopen',
@@ -123,7 +124,7 @@ testStable(
       // The original generation event is still queued, but may never start after acceptance.
 
       assert.strictEqual(
-        dispatchPending(
+        admitPending(
           fixture.context,
           [
             {
@@ -179,7 +180,7 @@ testStable(
         )
       ).toStrictEqual(done);
       assert.strictEqual(
-        dispatchPending(
+        admitPending(
           fixture.context,
           [
             {
@@ -446,45 +447,22 @@ testStable(
 
       const native = workflowStore(fixture.context);
 
-      native.start(
-        'independent-library-consumer',
-        'library-consumer-test',
-        JSON.stringify({ documentVersionId: receipt.result_version_id }, (_, value) =>
-          typeof value === 'bigint' ? String(value) : value
-        ),
-        undefined
-      );
+      fixture.context.db.orm
+        .insert(s.workflow_executions)
+        .values({
+          execution_id: 'independent-library-consumer',
+          workflow_tag: 'library-consumer-test',
+          version: 1,
+          payload: JSON.stringify({ documentVersionId: receipt.result_version_id }, (_, value) =>
+            typeof value === 'bigint' ? String(value) : value
+          ),
+          status: 'running',
+          created_at: 0n,
+          updated_at: 0n
+        })
+        .run();
       assert.ok(native.execution('independent-library-consumer')?.status === 'running');
-
-      assert.ok(native.claim('completed-before-delete', 'stale-owner') === false);
-      native.checkpoint(
-        'completed-before-delete',
-        'stale-owner',
-        JSON.stringify({ marker }),
-        'completed'
-      );
-      assert.throws(() =>
-        native.saveActivity(
-          'completed-before-delete',
-          'stale-owner',
-          'late',
-          1,
-          JSON.stringify({ marker })
-        )
-      );
-      assert.ok(
-        native.saveDeferred('completed-before-delete', 'late', JSON.stringify({ marker })) === false
-      );
-      assert.throws(() =>
-        native.start(
-          'late-new-id',
-          pageTransformWorkflow._tag,
-          JSON.stringify({
-            event: { type: 'PageGenerationRequested', correlationId: saved.request.id, marker }
-          }),
-          undefined
-        )
-      );
+      assert.throws(() => native.assertPublication('completed-before-delete', 1));
       assertScrubbed(fixture, marker, true);
     } finally {
       await fixture.close();
@@ -534,12 +512,6 @@ testStable(
 
       assertScrubbed(fixture, 'Late unpublished response');
 
-      assert.ok(
-        !JSON.stringify(
-          fixture.context.db.orm.select().from(s.workflow_activities).all(),
-          (_, value) => (typeof value === 'bigint' ? String(value) : value)
-        ).includes('Late unpublished response')
-      );
       await fixture.reopen();
       assertScrubbed(fixture, marker, true);
     } finally {
@@ -587,16 +559,28 @@ testStable(
               DurableDeferred.await(independentGate).pipe(Effect.as('independent survived'))
             );
             yield* engine.register(noteDeletionWorkflow, noteDeletionHandler);
-            yield* engine.execute(pageTransformWorkflow, {
-              executionId: 'suspended-note-run',
-              payload: { event },
-              discard: true
-            });
-            yield* engine.execute(independent, {
-              executionId: 'independent-run',
-              payload: { id: 'independent' },
-              discard: true
-            });
+            yield* withTestAdmission(
+              fixture.context,
+              pageTransformWorkflow,
+              'suspended-note-run',
+              { event },
+              engine.execute(pageTransformWorkflow, {
+                executionId: 'suspended-note-run',
+                payload: { event },
+                discard: true
+              })
+            );
+            yield* withTestAdmission(
+              fixture.context,
+              independent,
+              'independent-run',
+              { id: 'independent' },
+              engine.execute(independent, {
+                executionId: 'independent-run',
+                payload: { id: 'independent' },
+                discard: true
+              })
+            );
 
             yield* awaitNativeStatus(fixture, 'suspended-note-run', 'suspended');
             yield* awaitNativeStatus(fixture, 'independent-run', 'suspended');
@@ -604,10 +588,16 @@ testStable(
             yield* chats.deleteNote(saved.note.id);
             const deletion = deletionEvent(fixture, saved.note.id);
 
-            yield* engine.execute(noteDeletionWorkflow, {
-              executionId: 'suspended-cleanup',
-              payload: { event: deletion }
-            });
+            yield* withTestAdmission(
+              fixture.context,
+              noteDeletionWorkflow,
+              'suspended-cleanup',
+              { event: deletion },
+              engine.execute(noteDeletionWorkflow, {
+                executionId: 'suspended-cleanup',
+                payload: { event: deletion }
+              })
+            );
             assert.ok((yield* chats.noteDeletion(saved.note.id)).status === 'completed');
             assert.ok(
               workflowStore(fixture.context).execution('suspended-note-run')?.status === 'cancelled'
@@ -621,10 +611,7 @@ testStable(
               deferredName: gate.name,
               exit: Exit.void
             });
-            assert.strictEqual(
-              workflowStore(fixture.context).deferred('suspended-note-run', gate.name),
-              undefined
-            );
+            assert.strictEqual(workflowStore(fixture.context).retired('suspended-note-run'), true);
             yield* engine.deferredDone(independentGate, {
               workflowName: independent._tag,
               executionId: 'independent-run',

@@ -191,6 +191,10 @@ export async function exportSnapshot(db: Db) {
 
   const { backupPolicy } = await import('#server/runtime/backups');
 
+  const { initializeWorkflowInfrastructure } = await import('#server/platform/workflows/engine');
+  const { runNative } = await import('#server/runtime/layers');
+
+  await runNative(initializeWorkflowInfrastructure(db.path));
   const owner = new ManagedBackups(db, backupPolicy);
 
   try {

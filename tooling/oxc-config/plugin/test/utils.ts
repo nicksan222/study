@@ -79,7 +79,8 @@ async function runLint(
   server: string,
   plugin: string,
   rule?: string,
-  workspace = false
+  workspace = false,
+  toolingFixtures: readonly string[] = []
 ): Promise<Diagnostic[]> {
   const config = join(directory, 'oxlintrc.json');
 
@@ -100,6 +101,10 @@ async function runLint(
 
     if (await Effect.runPromise(fs.exists(path))) paths.push(path);
   }
+
+  // Tooling also contains the copied lint implementation. Inspect only explicitly
+  // authored tooling fixtures, never infrastructure copied to run a rule.
+  for (const name of toolingFixtures) paths.push(join(directory, name));
 
   const result = Bun.spawnSync(
     [
@@ -139,7 +144,14 @@ export async function lintFiles(
     await writeSources(files, workspace ? directory : server);
     const plugin = await preparePlugin(directory, manifests);
 
-    return await runLint(directory, server, plugin, rule, workspace);
+    return await runLint(
+      directory,
+      server,
+      plugin,
+      rule,
+      workspace,
+      Object.keys(files).filter((name) => name.startsWith('tooling/'))
+    );
   } finally {
     await Effect.runPromise(fs.remove(directory, { recursive: true, force: true }));
   }

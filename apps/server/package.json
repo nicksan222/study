@@ -10,7 +10,8 @@
   "exports": {
     "./client": "./src/client/index.ts",
     "./runtime": "./src/runtime/index.ts",
-    "./runtime/ownership": "./src/runtime/ownership.ts"
+    "./runtime/ownership": "./src/runtime/ownership.ts",
+    "./runtime/database": "./src/runtime/database.ts"
   },
   "scripts": {
     "test": "bun --bun vp test run --config ../../vite.config.ts --project server apps/server",
@@ -25,6 +26,7 @@
     "@ai-sdk/openai-compatible": "2.0.87",
     "@ai-sdk/provider": "3.0.19",
     "@effect/platform-bun": "4.0.7",
+    "@effect/sql-sqlite-bun": "4.0.7",
     "@study/contracts": "*",
     "@study/db": "*",
     "@study/integrations": "*",

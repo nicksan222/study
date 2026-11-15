@@ -25,10 +25,7 @@ import type {
 } from '@study/contracts/materials/schemas';
 import { Effect } from 'effect';
 
-import {
-  MaterialBackupStore,
-  MaterialPendingBackupStore
-} from '#server/features/materials/store/backup';
+import { MaterialBackupStore } from '#server/features/materials/store/backup';
 import { MaterialExportCitationsStore } from '#server/features/materials/store/export';
 import {
   MaterialActiveGenerationsStore,
@@ -396,10 +393,6 @@ export const Materials = defineService('study/Materials', makeMaterials, {
   attachInTransaction: (tx: Transaction, value: typeof input.attachInputSchema.Type) =>
     tx.store(MaterialsStore).attach(value),
   validateContentInputsInTransaction: assertContentInputs,
-  prepareBackup: (tx: Transaction) => {
-    for (const requestId of tx.store(MaterialPendingBackupStore).pendingGenerations(undefined))
-      tx.store(MaterialGenerationStore).cancelGeneration({ requestId });
-  },
   validateBackup: (tx: Transaction) => {
     for (const version of tx.store(MaterialBackupStore).backupValidation(undefined)) {
       for (const input of version.inputs) readContentInput(tx, input, undefined, true);
