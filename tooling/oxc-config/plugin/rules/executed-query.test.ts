@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports executed-query', async () => {
+testStable('requires database query builders to be executed', async () => {
   const diagnostics = await lintRule('executed-query', {
     'src/bad.ts':
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.select().from(items); }"
@@ -12,12 +12,21 @@ testStable('reports executed-query', async () => {
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable('only reports obvious discarded builders on typed owners', async () => {
+testStable('flags discarded query builders on typed database owners', async () => {
   const diagnostics = await lintRule('executed-query', {
-    'src/bad.ts':
-      "import type { ServerContext as C } from '#server/runtime/context'; function f(ctx: C) { const db = ctx.db; db.orm.select().from(items); const query = db.orm.delete(items); query.where(pred); }",
-    'src/good.ts':
-      "import type { Db } from '@study/db'; function f(db: Db, other) { const q = db.orm.select(); db.orm.select().all(); other.orm.select(); db.orm.run(sql); return db.orm.select(); }"
+    'src/bad.ts': `import type { ServerContext as C } from '#server/runtime/context';
+function f(ctx: C) { const db = ctx.db;
+db.orm.select().from(items);
+const query = db.orm.delete(items);
+query.where(pred);
+}`,
+    'src/good.ts': `import type { Db } from '@study/db';
+function f(db: Db, other) { const q = db.orm.select();
+db.orm.select().all();
+other.orm.select();
+db.orm.run(sql);
+return db.orm.select();
+}`
   });
 
   assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));

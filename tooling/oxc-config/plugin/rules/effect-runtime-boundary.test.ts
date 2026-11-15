@@ -6,16 +6,22 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Run Effects and construct ManagedRuntime only at approved application runtime boundaries.';
 
-testStable('reports misuse and accepts scoped alternatives', async () => {
+testStable('limits runtime execution to the approved scoped adapters', async () => {
   assertDiagnostics(
     'effect-runtime-boundary',
     await lintRule('effect-runtime-boundary', {
-      'src/procedures/bad.ts':
-        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.runPromise(E.void);",
-      'src/procedures/good.ts':
-        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; export const task = E.succeed(1); function f(E: any) { E.runPromise(1); }",
-      'src/procedures/example.test.ts':
-        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.runPromise(E.void);"
+      'src/procedures/bad.ts': String.raw`import { Effect as E } from "effect";
+import { StudyError } from "@study/server/shared/errors";
+E.runPromise(E.void);`,
+      'src/procedures/good.ts': String.raw`import { Effect as E } from "effect";
+import { StudyError } from "@study/server/shared/errors";
+export const task = E.succeed(1);
+function f(E: any) {
+  E.runPromise(1);
+}`,
+      'src/procedures/example.test.ts': String.raw`import { Effect as E } from "effect";
+import { StudyError } from "@study/server/shared/errors";
+E.runPromise(E.void);`
     }),
     [['src/procedures/bad.ts', message]]
   );
@@ -24,8 +30,15 @@ testStable('resolves imported namespaces, named imports, const aliases and shado
   assertDiagnostics(
     'effect-runtime-boundary',
     await lintRule('effect-runtime-boundary', {
-      'src/procedures/aliases.ts':
-        "import * as E from 'effect/Effect'; import { runSync as operation } from 'effect/Effect'; const alias = E; alias.runSync(E.void); operation(E.void); function f(E: any, operation: any) { E.runSync(E.void); operation(E.void); }"
+      'src/procedures/aliases.ts': String.raw`import * as E from "effect/Effect";
+import { runSync as operation } from "effect/Effect";
+const alias = E;
+alias.runSync(E.void);
+operation(E.void);
+function f(E: any, operation: any) {
+  E.runSync(E.void);
+  operation(E.void);
+}`
     }),
     [
       ['src/procedures/aliases.ts', message],
@@ -58,8 +71,9 @@ testStable(
     assertDiagnostics(
       'effect-runtime-boundary',
       await lintRule('effect-runtime-boundary', {
-        'src/runtime/workers.ts':
-          "import {Effect, Fiber} from 'effect'; const fiber = Effect.runFork(task); await Effect.runPromise(Fiber.interrupt(fiber));"
+        'src/runtime/workers.ts': String.raw`import { Effect, Fiber } from "effect";
+const fiber = Effect.runFork(task);
+await Effect.runPromise(Fiber.interrupt(fiber));`
       }),
       [
         ['src/runtime/workers.ts', message],
@@ -95,10 +109,12 @@ testStable(
   'context-taking runners stay at the scoped callback or synchronous observation bridge',
   async () => {
     const diagnostics = await lintRule('effect-runtime-boundary', {
-      'src/domains/jobs/service.ts':
-        "import {Effect} from 'effect'; Effect.runSyncWith(context)(task); Effect.runPromiseWith(context)(task);",
-      'src/platform/observability/index.ts':
-        "import {Effect} from 'effect'; Effect.runSyncWith(context)(task); Effect.runPromise(task);",
+      'src/domains/jobs/service.ts': String.raw`import { Effect } from "effect";
+Effect.runSyncWith(context)(task);
+Effect.runPromiseWith(context)(task);`,
+      'src/platform/observability/index.ts': String.raw`import { Effect } from "effect";
+Effect.runSyncWith(context)(task);
+Effect.runPromise(task);`,
       'src/runtime/request.ts': "import {Effect} from 'effect'; Effect.runSyncWith(context)(task);"
     });
 
@@ -215,8 +231,10 @@ testStable('only named filesystem bridges may run their corresponding Effects', 
 
 testStable('filesystem sync acquisition remains private', async () => {
   const diagnostics = await lintRule('effect-runtime-boundary', {
-    'src/platform/filesystem/index.ts':
-      "import { Effect } from 'effect'; export function runFileSystemSync(task) { return Effect.runSync(task); }"
+    'src/platform/filesystem/index.ts': String.raw`import { Effect } from "effect";
+export function runFileSystemSync(task) {
+  return Effect.runSync(task);
+}`
   });
 
   assertDiagnostics('effect-runtime-boundary', diagnostics, [

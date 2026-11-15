@@ -22,8 +22,11 @@ testStable(
         'apps/server/src/root.ts': "import { StudyError } from '@study/contracts';\n",
         'apps/client/src/approved.ts':
           "import '@study/contracts/react'; import '@study/ui/theme.css'; import '@study/ui/styles.css';\n",
-        'apps/client/src/app-facets.ts':
-          "import '@study/server/runtime'; import '@study/server/runtime/database'; import '@study/client/feature-previews/catalog';\n",
+        'apps/client/src/app-facets.ts': `import '@study/server/runtime';
+ import '@study/server/runtime/database';
+ import '@study/client/feature-previews/catalog';
+
+`,
         'tooling/scripts/dev.ts': "import '@study/tooling/development/rpc-proxy';\n"
       },
       true

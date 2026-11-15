@@ -19,8 +19,10 @@ testStable(
       'apps/server/test/testing/custom.ts': "Bun.spawn(['bun']);",
       'apps/server/test/poll.test.ts': 'await Bun.sleep(50);',
       'apps/server/test/temp.test.ts': "import { $ } from 'bun'; await $`mktemp -d`;",
-      'apps/server/test/good.test.ts':
-        "import { spawnTestProcess } from '@study/testing/vitest'; import { waitFor } from '@study/testing/vitest'; spawnTestProcess(['bun', 'server.ts']); await waitFor(() => true);",
+      'apps/server/test/good.test.ts': `import { spawnTestProcess } from '@study/testing/vitest';
+import { waitFor } from '@study/testing/vitest';
+spawnTestProcess(['bun', 'server.ts']);
+await waitFor(() => true);`,
       'apps/server/test/shadow.test.ts': "function check(Bun: any) { Bun.spawn(['fixture']); }",
       'tooling/testing/runner.ts': "Bun.spawn(['bun', 'runner.ts']);"
     });
@@ -48,14 +50,20 @@ testStable(
         "import { createVitest } from 'vite-plus/test/node'; createVitest('test', {});",
       'apps/client/src/policy.test.ts':
         "import { vi as runner } from 'vite-plus/test'; runner.setConfig({retry: 3});",
-      'apps/client/src/registration.test.ts':
-        "import { testStable } from '@study/testing/vitest'; export function check(name: string, fn: any) { testStable(name, fn); }",
-      'apps/client/src/test/setup.ts':
-        "import * as testing from '@testing-library/react'; const setup = testing.configure; setup({asyncUtilTimeout: 1});",
-      'apps/client/src/arrow.ts':
-        "import { testStable } from '@study/testing/vitest'; export const check = (fn: any) => testStable('wrapped', fn);",
-      'apps/client/src/function.ts':
-        "import { testStable } from '@study/testing/vitest'; export const check = function(fn: any) { testStable('wrapped', fn); };",
+      'apps/client/src/registration.test.ts': `import { testStable } from '@study/testing/vitest';
+ export function check(name: string, fn: any) { testStable(name, fn);
+ }`,
+      'apps/client/src/test/setup.ts': `import * as testing from '@testing-library/react';
+ const setup = testing.configure;
+ setup({asyncUtilTimeout: 1});
+`,
+      'apps/client/src/arrow.ts': `import { testStable } from '@study/testing/vitest';
+ export const check = (fn: any) => testStable('wrapped', fn);
+`,
+      'apps/client/src/function.ts': `import { testStable } from '@study/testing/vitest';
+ export const check = function(fn: any) { testStable('wrapped', fn);
+ };
+`,
       'apps/client/src/good.test.ts':
         "import { testStable } from '@study/testing/vitest'; testStable('renders', () => {});",
       'packages/testing/src/react/setup.ts':

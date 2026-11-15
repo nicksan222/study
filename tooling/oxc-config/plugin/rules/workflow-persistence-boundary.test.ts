@@ -20,10 +20,19 @@ testStable(
   async () => {
     expect(
       await lint({
-        'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db'; db.insert(workflow_agent_progress); db.update(workflow_agent_progress);`,
-        'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress } from '@study/db'; db.delete(workflow_agent_progress);`,
-        'apps/server/src/features/notes/store/index.ts': `import { workflow_agent_progress } from '@study/db'; db.insert(workflow_agent_progress);`,
-        'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db'; db.update(workflow_agent_progress);`
+        'apps/server/src/platform/workflows/agent-progress.ts': `import { workflow_agent_progress } from '@study/db';
+ db.insert(workflow_agent_progress);
+ db.update(workflow_agent_progress);
+`,
+        'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress } from '@study/db';
+ db.delete(workflow_agent_progress);
+`,
+        'apps/server/src/features/notes/store/index.ts': `import { workflow_agent_progress } from '@study/db';
+ db.insert(workflow_agent_progress);
+`,
+        'apps/server/src/platform/ai/agents.ts': `import { workflow_agent_progress } from '@study/db';
+ db.update(workflow_agent_progress);
+`
       })
     ).toStrictEqual([
       'apps/server/src/features/notes/store/index.ts',
@@ -37,13 +46,29 @@ testStable(
   async () => {
     expect(
       await lint({
-        'apps/server/src/features/workflows/store.ts': `import { workflow_executions as executions, workflowEvents } from '@study/db'; db.select().from(executions); db.update(executions).set({}); db.insert(workflowEvents).values({});`,
-        'apps/server/src/platform/workflows/store.ts': `import { workflow_executions, workflow_agent_progress } from '@study/db'; db.insert(workflow_executions); db.delete(workflow_agent_progress);`,
-        'apps/server/src/platform/workflows/control.ts': `import { workflow_executions } from '@study/db'; db.delete(workflow_executions);`,
-        'apps/server/src/platform/workflows/triggers.ts': `import { workflow_executions, workflowReceipts } from '@study/db'; db.insert(workflow_executions); db.insert(workflowReceipts);`,
+        'apps/server/src/features/workflows/store.ts': `import { workflow_executions as executions, workflowEvents } from '@study/db';
+ db.select().from(executions);
+ db.update(executions).set({});
+ db.insert(workflowEvents).values({});
+`,
+        'apps/server/src/platform/workflows/store.ts': `import { workflow_executions, workflow_agent_progress } from '@study/db';
+ db.insert(workflow_executions);
+ db.delete(workflow_agent_progress);
+`,
+        'apps/server/src/platform/workflows/control.ts': `import { workflow_executions } from '@study/db';
+ db.delete(workflow_executions);
+`,
+        'apps/server/src/platform/workflows/triggers.ts': `import { workflow_executions, workflowReceipts } from '@study/db';
+ db.insert(workflow_executions);
+ db.insert(workflowReceipts);
+`,
         'apps/server/src/platform/workflows/events.ts': `import { workflowEvents } from '@study/db'; db.insert(workflowEvents);`,
-        'apps/server/src/platform/workflows/retry.ts': `import { workflow_configuration_waits } from '@study/db'; db.insert(workflow_configuration_waits);`,
-        'apps/server/src/platform/workflows/configuration.ts': `import { workflow_configuration_waits } from '@study/db'; db.delete(workflow_configuration_waits);`,
+        'apps/server/src/platform/workflows/retry.ts': `import { workflow_configuration_waits } from '@study/db';
+ db.insert(workflow_configuration_waits);
+`,
+        'apps/server/src/platform/workflows/configuration.ts': `import { workflow_configuration_waits } from '@study/db';
+ db.delete(workflow_configuration_waits);
+`,
         'apps/server/src/feature.test.ts': `import { workflow_executions } from '@study/db'; db.delete(workflow_executions);`
       })
     ).toStrictEqual([
@@ -98,8 +123,21 @@ testStable('recognizes raw SQL writes without treating reads or values as mutati
 testStable('each protected table is restricted to its mapped owners', async () => {
   expect(
     await lint({
-      'apps/server/src/platform/workflows/engine.ts': `import { workflow_agent_progress, workflow_configuration_waits, workflowReceipts } from '@study/db'; db.insert(workflow_agent_progress); db.update(workflow_configuration_waits); db.delete(workflowReceipts); db.insert(workflow_configuration_waits); db.insert(workflowReceipts);`,
-      'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress, workflow_executions } from '@study/db'; db.delete(workflow_agent_progress); db.update(workflow_executions);`,
+      'apps/server/src/platform/workflows/engine.ts': `import {
+  workflow_agent_progress,
+  workflow_configuration_waits,
+  workflowReceipts
+} from '@study/db';
+ db.insert(workflow_agent_progress);
+ db.update(workflow_configuration_waits);
+ db.delete(workflowReceipts);
+ db.insert(workflow_configuration_waits);
+ db.insert(workflowReceipts);
+`,
+      'apps/server/src/platform/workflows/store.ts': `import { workflow_agent_progress, workflow_executions } from '@study/db';
+ db.delete(workflow_agent_progress);
+ db.update(workflow_executions);
+`,
       'apps/server/src/platform/workflows/events.ts': `import { workflow_executions } from '@study/db'; db.insert(workflow_executions);`
     })
   ).toStrictEqual([
@@ -130,7 +168,9 @@ for (const identifier of ['constructor', '__proto__', 'ordinary']) {
   ]) {
     testStable(`detects protected SQL writes after ${statement}`, async () => {
       const diagnostics = await lintRule('workflow-persistence-boundary', {
-        'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute(${JSON.stringify(statement)});`
+        'apps/server/src/features/jobs/store.ts': `import type { Db } from '@study/db';
+declare const db: Db;
+db.execute(${JSON.stringify(statement)});`
       });
 
       expect(diagnostics.map(({ message }) => message)).toStrictEqual([
@@ -158,9 +198,14 @@ testStable(
       import { sql } from '@study/db';
       sql\`DELETE FROM workflow_retired_executions WHERE execution_id=\${id}\`;
     `,
-        'apps/server/src/platform/workflows/store.ts': `import * as s from '@study/db'; db.delete(s.workflow_agent_progress); db.update(s.workflow_executions);`,
+        'apps/server/src/platform/workflows/store.ts': `import * as s from '@study/db';
+ db.delete(s.workflow_agent_progress);
+ db.update(s.workflow_executions);
+`,
         'apps/server/src/platform/workflows/events.ts': `import * as s from '@study/db'; db.update(s.workflowEvents);`,
-        'apps/server/src/platform/workflows/configuration.ts': `import * as s from '@study/db'; db.delete(s.workflow_configuration_waits);`
+        'apps/server/src/platform/workflows/configuration.ts': `import * as s from '@study/db';
+ db.delete(s.workflow_configuration_waits);
+`
       })
     ).toStrictEqual([
       ...Array(2).fill('apps/server/src/features/notes/store/deletion.ts'),
@@ -252,12 +297,22 @@ testStable(
 testStable('official SQL infrastructure has no first-party schema or writer owner', async () => {
   expect(
     await lint({
-      'apps/server/src/platform/workflows/engine.ts': `import { sql } from '@study/db'; sql\`INSERT INTO cluster_messages VALUES (1)\`; sql.raw('UPDATE "cluster_replies" SET payload=1');`,
-      'packages/db/src/custom.ts': `db.exec('CREATE TABLE cluster_messages(id TEXT)'); db.exec('ALTER TABLE main.cluster_replies ADD payload TEXT'); db.exec('DROP TABLE IF EXISTS cluster_migrations');`,
-      'apps/server/src/features/jobs/store.ts': `db.exec('CREATE INDEX job_index ON cluster_messages(id)'); db.exec('CREATE TRIGGER private_write AFTER INSERT ON cluster_replies BEGIN SELECT 1; END');`,
-      'packages/db/src/schema/custom.ts': `sqliteTable('cluster_messages', {}); defineTable({ role: 'internal' })('cluster_replies', {});`,
+      'apps/server/src/platform/workflows/engine.ts': `import { sql } from '@study/db';
+ sql\`INSERT INTO cluster_messages VALUES (1)\`; sql.raw('UPDATE "cluster_replies" SET payload=1');`,
+      'packages/db/src/custom.ts': `db.exec('CREATE TABLE cluster_messages(id TEXT)');
+ db.exec('ALTER TABLE main.cluster_replies ADD payload TEXT');
+ db.exec('DROP TABLE IF EXISTS cluster_migrations');
+`,
+      'apps/server/src/features/jobs/store.ts': `db.exec('CREATE INDEX job_index ON cluster_messages(id)');
+ db.exec('CREATE TRIGGER private_write AFTER INSERT ON cluster_replies BEGIN SELECT 1; END');
+`,
+      'packages/db/src/schema/custom.ts': `sqliteTable('cluster_messages', {});
+ defineTable({ role: 'internal' })('cluster_replies', {});
+`,
       'tooling/scripts/jobs.ts': `db.exec('DELETE FROM cluster_messages');`,
-      'apps/server/src/platform/workflows/reader.ts': `db.exec('SELECT * FROM cluster_messages'); db.exec("SELECT 'DELETE FROM cluster_messages'");`
+      'apps/server/src/platform/workflows/reader.ts': `db.exec('SELECT * FROM cluster_messages');
+ db.exec("SELECT 'DELETE FROM cluster_messages'");
+`
     })
   ).toStrictEqual([
     'apps/server/src/features/jobs/store.ts',
@@ -279,7 +334,9 @@ testStable('checks trigger body writes and created schema object names', async (
       'apps/server/src/features/jobs/body.ts': `db.exec('CREATE TRIGGER audit AFTER INSERT ON notes BEGIN DELETE FROM cluster_messages; END;');`,
       'apps/server/src/features/jobs/index.ts': `db.exec('CREATE UNIQUE INDEX IF NOT EXISTS cluster_custom ON notes(updated_at)');`,
       'apps/server/src/features/jobs/trigger.ts': `db.exec('CREATE TEMP TRIGGER cluster_custom AFTER INSERT ON notes BEGIN SELECT 1; END;');`,
-      'apps/server/src/features/jobs/allowed.ts': `db.exec("CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT 'DELETE FROM cluster_messages'; END;"); db.exec('CREATE INDEX note_updated ON notes(updated_at)');`
+      'apps/server/src/features/jobs/allowed.ts': `db.exec("CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT 'DELETE FROM cluster_messages'; END;");
+ db.exec('CREATE INDEX note_updated ON notes(updated_at)');
+`
     })
   ).toStrictEqual([
     'apps/server/src/features/jobs/body.ts',

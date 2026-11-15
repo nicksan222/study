@@ -7,8 +7,12 @@ testStable('Drizzle imports and exports belong exclusively to the database packa
   const diagnostics = await lintRule(
     'drizzle-boundary',
     {
-      'apps/server/src/direct.ts':
-        "import { sql } from 'drizzle-orm'; import type { SQL } from 'drizzle-orm'; export * from 'drizzle-orm/sqlite-core'; export type { SQL } from 'drizzle-orm'; const migrate = import('drizzle-orm/node-sqlite/migrator'); type Query = import('drizzle-orm').SQL;",
+      'apps/server/src/direct.ts': `import { sql } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+export * from 'drizzle-orm/sqlite-core';
+export type { SQL } from 'drizzle-orm';
+const migrate = import('drizzle-orm/node-sqlite/migrator');
+type Query = import('drizzle-orm').SQL;`,
       'apps/client/src/direct.ts': "export { defineConfig } from 'drizzle-kit';",
       'apps/server/test/direct.test.ts': "import { eq } from 'drizzle-orm';",
       'apps/server/src/facade.ts':
@@ -32,12 +36,20 @@ testStable('Drizzle require calls respect lexical bindings and createRequire ali
   const diagnostics = await lintRule(
     'drizzle-boundary',
     {
-      'apps/server/src/bad.ts':
-        "import { createRequire as makeRequire } from 'node:module'; const load = makeRequire(import.meta.url); require('drizzle-orm'); load('drizzle-kit'); makeRequire(import.meta.url)('drizzle-orm/sql');",
-      'apps/server/src/good.ts':
-        "function f(require) { require('drizzle-orm'); } function g(makeRequire) { const load = makeRequire(url); load('drizzle-orm'); } const load = customLoader(); load('drizzle-kit');",
-      'packages/db/src/require.ts':
-        "import { createRequire } from 'node:module'; const load = createRequire(import.meta.url); load('drizzle-orm');"
+      'apps/server/src/bad.ts': `import { createRequire as makeRequire } from 'node:module';
+const load = makeRequire(import.meta.url);
+require('drizzle-orm');
+load('drizzle-kit');
+makeRequire(import.meta.url)('drizzle-orm/sql');`,
+      'apps/server/src/good.ts': `function f(require) { require('drizzle-orm');
+} function g(makeRequire) { const load = makeRequire(url);
+load('drizzle-orm');
+} const load = customLoader();
+load('drizzle-kit');`,
+      'packages/db/src/require.ts': `import { createRequire } from 'node:module';
+ const load = createRequire(import.meta.url);
+ load('drizzle-orm');
+`
     },
     true
   );
@@ -52,10 +64,18 @@ testStable(
     const diagnostics = await lintRule(
       'drizzle-boundary',
       {
-        'apps/desktop/src/bad.ts':
-          "import * as modules from 'node:module'; const make = modules.createRequire; const load = make(import.meta.url); load(`drizzle-orm`); globalThis.require('drizzle-kit'); module.require('drizzle-orm');",
-        'apps/desktop/src/good.ts':
-          "import * as modules from 'node:module'; function f(modules, globalThis, module) { const load = modules.createRequire(url); load('drizzle-orm'); globalThis.require('drizzle-orm'); module.require('drizzle-orm'); }"
+        'apps/desktop/src/bad.ts': `import * as modules from 'node:module';
+const make = modules.createRequire;
+const load = make(import.meta.url);
+load(\`drizzle-orm\`);
+globalThis.require('drizzle-kit');
+module.require('drizzle-orm');`,
+        'apps/desktop/src/good.ts': `import * as modules from 'node:module';
+function f(modules, globalThis, module) { const load = modules.createRequire(url);
+load('drizzle-orm');
+globalThis.require('drizzle-orm');
+module.require('drizzle-orm');
+}`
       },
       true
     );

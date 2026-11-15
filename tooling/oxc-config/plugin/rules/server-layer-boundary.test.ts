@@ -23,8 +23,12 @@ testStable(
 
 testStable('store network calls follow global fetch aliases without matching shadows', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
-    'src/features/jobs/jobs.store.ts':
-      "const request = globalThis.fetch; const run = request; run('https://example.com'); function f(fetch: () => void) { const request = fetch; request(); }"
+    'src/features/jobs/jobs.store.ts': `const request = globalThis.fetch;
+ const run = request;
+ run('https://example.com');
+ function f(fetch: () => void) { const request = fetch;
+ request();
+ }`
   });
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
@@ -46,8 +50,10 @@ testStable(
 
 testStable('feature roles enforce private stores and public cross-feature services', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
-    'src/features/source/source.service.ts':
-      "import '#server/features/project'; import '#server/features/project/project.service'; import './source.workflow';",
+    'src/features/source/source.service.ts': `import '#server/features/project';
+ import '#server/features/project/project.service';
+ import './source.workflow';
+`,
     'src/features/source/source.workflow.ts':
       "import './source.service'; import './source.store'; import '@study/db';",
     'src/features/source/source.rpc.ts':
@@ -64,8 +70,10 @@ testStable(
   'feature boundaries inspect aliases and loaders without confusing shadowed require',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
-      'src/features/source/source.workflow.ts':
-        "const load = require; load('#server/features/source/source.store'); function f(require: (x: string) => void) { require('#server/features/source/source.store'); } import('#server/features/source/source.store');"
+      'src/features/source/source.workflow.ts': `const load = require;
+load('#server/features/source/source.store');
+function f(require: (x: string) => void) { require('#server/features/source/source.store');
+} import('#server/features/source/source.store');`
     });
 
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
@@ -148,8 +156,10 @@ testStable('preferences are private to settings, auth, and themes stores', async
     'src/features/materials/materials.store.ts': "import { preferences } from '@study/db';",
     'src/features/notes/store/query.ts':
       "import * as schema from '@study/db'; schema.preferences; schema['preferences'];",
-    'src/features/sources/store.ts':
-      "import * as schema from '@study/db'; const tables = schema; const { ['preferences']: prefs } = tables;",
+    'src/features/sources/store.ts': `import * as schema from '@study/db';
+ const tables = schema;
+ const { ['preferences']: prefs } = tables;
+`,
     'src/features/settings/service.ts': "import { preferences } from '@study/db';",
     'src/features/learning/store.test.ts': "import { preferences } from '@study/db';"
   });
@@ -159,8 +169,14 @@ testStable('preferences are private to settings, auth, and themes stores', async
 
 testStable('preferences checks respect shadows, type imports, and unrelated tables', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
-    'src/features/learning/store.ts':
-      "import * as schema from '@study/db'; import type { preferences } from '@study/db'; schema.cards; const { cards } = schema; function f(schema: { preferences: string }) { const tables = schema; tables.preferences; const { preferences } = tables; }",
+    'src/features/learning/store.ts': `import * as schema from '@study/db';
+import type { preferences } from '@study/db';
+schema.cards;
+const { cards } = schema;
+function f(schema: { preferences: string }) { const tables = schema;
+tables.preferences;
+const { preferences } = tables;
+}`,
     'src/features/materials/store.ts':
       "import type * as schema from '@study/db'; type P = typeof schema.preferences;"
   });
@@ -367,12 +383,15 @@ testStable(
   'backup participants are injected by runtime and feature coordinators cannot acquire runtime or foreign stores',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
-      'src/runtime/backups.ts':
-        "import { Materials } from '#server/features/materials/index'; import { Notes } from '#server/features/notes/index';",
-      'src/features/system/service/backup.ts':
-        "import { backupPolicy } from '#server/runtime/backups'; import { SourceBackupStore } from '#server/features/sources/store/backup';",
-      'src/features/materials/service/backup.ts':
-        "import { Sources } from '#server/features/sources/index'; import { transaction } from '#server/platform/definitions/define-store'; transaction(tx => Sources.validateBackup(tx));"
+      'src/runtime/backups.ts': `import { Materials } from '#server/features/materials/index';
+ import { Notes } from '#server/features/notes/index';
+`,
+      'src/features/system/service/backup.ts': `import { backupPolicy } from '#server/runtime/backups';
+ import { SourceBackupStore } from '#server/features/sources/store/backup';
+`,
+      'src/features/materials/service/backup.ts': `import { Sources } from '#server/features/sources/index';
+import { transaction } from '#server/platform/definitions/define-store';
+transaction(tx => Sources.validateBackup(tx));`
     });
 
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));

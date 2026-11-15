@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports guarded-mutations', async () => {
+testStable('requires destructive database mutations to have a guard', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
     'src/bad.ts':
       "import type { Db } from '@study/db'; function f(db: Db) { db.orm.delete(items).run(); }"
@@ -14,10 +14,21 @@ testStable('reports guarded-mutations', async () => {
 
 testStable('guards executed mutations and top-level SQL predicates', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
-    'src/bad.ts':
-      "import type { Db } from '@study/db'; import { sql as q } from '@study/db'; function f(db: Db) { const b = db.orm.update(items).set({}); b.run(); db.orm.delete(items).where(undefined).run(); q`WITH c AS (SELECT * FROM x WHERE id = 1) DELETE FROM items`; q`UPDATE items SET x = 'WHERE' /* WHERE */`; }",
-    'src/good.ts':
-      "import type { Db } from '@study/db'; import * as d from '@study/db'; function f(db: Db, other) { db.orm.delete(items).where(eq(items.id, id)).run(); other.orm.delete(items).run(); d.sql`UPDATE items SET x = 1 WHERE id = 2`; function g(d) { d.sql`DELETE FROM x`; } }"
+    'src/bad.ts': `import type { Db } from '@study/db';
+import { sql as q } from '@study/db';
+function f(db: Db) { const b = db.orm.update(items).set({});
+b.run();
+db.orm.delete(items).where(undefined).run();
+q\`WITH c AS (SELECT * FROM x WHERE id = 1) DELETE FROM items\`;
+q\`UPDATE items SET x = 'WHERE' /* WHERE */\`;
+}`,
+    'src/good.ts': `import type { Db } from '@study/db';
+import * as d from '@study/db';
+function f(db: Db, other) { db.orm.delete(items).where(eq(items.id, id)).run();
+other.orm.delete(items).run();
+d.sql\`UPDATE items SET x = 1 WHERE id = 2\`;
+function g(d) { d.sql\`DELETE FROM x\`;
+} }`
   });
 
   assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
@@ -27,10 +38,15 @@ testStable(
   'upserts stay targeted while trivial predicates and later unguarded statements fail',
   async () => {
     const diagnostics = await lintRule('guarded-mutations', {
-      'src/domains/preferences/store.ts':
-        "import { sql } from '@study/db'; sql`INSERT INTO prefs VALUES (1) ON CONFLICT(id) DO UPDATE SET value=1`; sql`DELETE FROM prefs WHERE 1=1`; sql`UPDATE prefs SET value=1 WHERE id=1; DELETE FROM prefs`;",
-      'src/domains/projects/store.ts':
-        "import { sql } from '@study/db'; import type { ServerContext } from '#server/runtime/context'; function f(ctx: ServerContext) { ctx.db.orm.delete(table).where(sql`1 = 1`).run(); ctx.db.orm.delete(table).where(sql`id=1`).run(); }"
+      'src/domains/preferences/store.ts': `import { sql } from '@study/db';
+sql\`INSERT INTO prefs VALUES (1) ON CONFLICT(id) DO UPDATE SET value=1\`;
+sql\`DELETE FROM prefs WHERE 1=1\`;
+sql\`UPDATE prefs SET value=1 WHERE id=1; DELETE FROM prefs\`;`,
+      'src/domains/projects/store.ts': `import { sql } from '@study/db';
+import type { ServerContext } from '#server/runtime/context';
+function f(ctx: ServerContext) { ctx.db.orm.delete(table).where(sql\`1 = 1\`).run();
+ctx.db.orm.delete(table).where(sql\`id=1\`).run();
+}`
     });
 
     assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
@@ -41,8 +57,11 @@ testStable(
   'unconditional OR branches fail while a false conjunct does not become a tautology',
   async () => {
     const diagnostics = await lintRule('guarded-mutations', {
-      'src/domains/projects/store.ts':
-        "import {sql} from '@study/db'; sql`DELETE FROM projects WHERE 1=1 OR id=2`; sql`DELETE FROM projects WHERE id=2 OR (TRUE)`; sql`DELETE FROM projects WHERE (1=1 OR id=2) AND active=1`; sql`DELETE FROM projects WHERE (1=1) OR (id=2)`;"
+      'src/domains/projects/store.ts': `import {sql} from '@study/db';
+sql\`DELETE FROM projects WHERE 1=1 OR id=2\`;
+sql\`DELETE FROM projects WHERE id=2 OR (TRUE)\`;
+sql\`DELETE FROM projects WHERE (1=1 OR id=2) AND active=1\`;
+sql\`DELETE FROM projects WHERE (1=1) OR (id=2)\`;`
     });
 
     assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
@@ -78,7 +97,13 @@ testStable('recognizes a named make callback and resource object aliases', async
 
 testStable('tracks contextual resource objects and destructured aliases into helpers', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
-    'src/features/items/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store'; defineStore({make: resources => { const {db: database} = resources; const alias = database; function helper() { alias.orm.delete(items).run(); } return {queries: {}, mutations: {}}; }});`
+    'src/features/items/store/index.ts': `import { defineStore } from '#server/platform/definitions/define-store';
+ defineStore({make: resources => { const {db: database} = resources;
+ const alias = database;
+ function helper() { alias.orm.delete(items).run();
+ } return {queries: {}, mutations: {}};
+ }});
+`
   });
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
@@ -86,7 +111,11 @@ testStable('tracks contextual resource objects and destructured aliases into hel
 
 testStable('tracks aliased and namespace StoreResources helper parameters', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
-    'src/features/items/store/read.ts': `import type * as Store from '../../../platform/definitions/define-store'; type Resources = Store.StoreResources; function makeReads({db}: Resources) { db.orm.delete(items).run(); } function shadow(Store: {db: any}) { Store.db.orm.delete(items).run(); }`
+    'src/features/items/store/read.ts': `import type * as Store from '../../../platform/definitions/define-store';
+ type Resources = Store.StoreResources;
+ function makeReads({db}: Resources) { db.orm.delete(items).run();
+ } function shadow(Store: {db: any}) { Store.db.orm.delete(items).run();
+ }`
   });
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
@@ -94,7 +123,13 @@ testStable('tracks aliased and namespace StoreResources helper parameters', asyn
 
 testStable('tracks resources through an aliased store descriptor', async () => {
   const diagnostics = await lintRule('guarded-mutations', {
-    'src/features/items/store/index.ts': `import {defineStore} from '#server/platform/definitions/define-store'; const descriptor = {make: ({db}) => { db.orm.delete(items).run(); return {queries: {}, mutations: {}}; }}; const alias = descriptor; defineStore(alias);`
+    'src/features/items/store/index.ts': `import {defineStore} from '#server/platform/definitions/define-store';
+ const descriptor = {make: ({db}) => { db.orm.delete(items).run();
+ return {queries: {}, mutations: {}};
+ }};
+ const alias = descriptor;
+ defineStore(alias);
+`
   });
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));

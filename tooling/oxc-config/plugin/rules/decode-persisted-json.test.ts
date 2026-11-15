@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('decode-persisted-json guards production and accepts safe alternatives', async () => {
+testStable('requires persisted JSON to be schema-decoded before use', async () => {
   const diagnostics = await lintRule('decode-persisted-json', {
     'src/bad.ts': 'const body = JSON.parse(row.body) as ArtifactBody;',
     'src/good.ts':

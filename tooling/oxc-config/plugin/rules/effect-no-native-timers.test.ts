@@ -6,7 +6,7 @@ import { assertDiagnostics, lintRule } from '../test/utils.ts';
 const message =
   'Use Effect.sleep or a scoped Effect schedule instead of native timers in application operations.';
 
-testStable('reports unsafe server lifecycle syntax and permits bounded operations', async () => {
+testStable('uses Effect scheduling instead of native server timers', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
     'src/workers/unsafe.ts': 'setTimeout(work, 100);',
     'src/workers/safe.ts': 'function f(setTimeout) { setTimeout(work, 100); }',
@@ -19,8 +19,9 @@ testStable('reports unsafe server lifecycle syntax and permits bounded operation
 
 testStable('rejects imported timers and global aliases', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
-    'src/workers/example.ts':
-      "import { setTimeout as later } from 'node:timers'; const tick = globalThis.setInterval; tick(work, 10);"
+    'src/workers/example.ts': String.raw`import { setTimeout as later } from "node:timers";
+const tick = globalThis.setInterval;
+tick(work, 10);`
   });
 
   assertDiagnostics('effect-no-native-timers', diagnostics, [
@@ -39,8 +40,11 @@ testStable('permits the native callback transport adapter', async () => {
 
 testStable('ignores unrelated methods and shadowed globals', async () => {
   const diagnostics = await lintRule('effect-no-native-timers', {
-    'src/workers/example.ts':
-      'function f(globalThis) { globalThis.setTimeout(work, 1); } const other = { setTimeout() {} }; other.setTimeout();'
+    'src/workers/example.ts': String.raw`function f(globalThis) {
+  globalThis.setTimeout(work, 1);
+}
+const other = { setTimeout() {} };
+other.setTimeout();`
   });
 
   assertDiagnostics('effect-no-native-timers', diagnostics, []);
@@ -68,7 +72,7 @@ testStable('rejects native abort deadlines while preserving cancellation composi
   ]);
 });
 
-testStable('enforces the Effect contract in browser operations', async () => {
+testStable('uses Effect scheduling instead of native browser timers', async () => {
   const diagnostics = await lintRule(
     'effect-no-native-timers',
     {

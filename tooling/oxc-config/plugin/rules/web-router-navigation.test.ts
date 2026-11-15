@@ -7,7 +7,14 @@ testStable('rejects manual browser navigation and raw search decoding', async ()
   const diagnostics = await lintRule(
     'web-router-navigation',
     {
-      'apps/client/src/pages/home/use-page.ts': `window.history.pushState({}, '', '/home'); history.replaceState({}, '', '/'); window.location.hash = '/home'; location.assign('/home'); const search = new URLSearchParams(location.search); const path = location.pathname;`,
+      'apps/client/src/pages/home/use-page.ts': `
+        window.history.pushState({}, '', '/home');
+        history.replaceState({}, '', '/');
+        window.location.hash = '/home';
+        location.assign('/home');
+        const search = new URLSearchParams(location.search);
+        const path = location.pathname;
+      `,
       'apps/client/src/pages/home/page.view.tsx': `export const view = <><a href="/home">Home</a><a href="#/settings">Settings</a><a href="https://example.com">External</a></>;`
     },
     true
@@ -106,7 +113,16 @@ testStable(
       {
         'apps/client/src/pages/home/unsafe.tsx': `export const view = <a href="/projects?project=9007199254740993">Collections</a>;`,
         'apps/client/src/features/collections/unsafe.tsx': `window.location.assign('/library?project=9007199254740993');`,
-        'apps/client/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; export const view = <><Link to="/notes" search={{project: search.project}} /><Link to="/library" search={{project: search.project}} /><Link to="/projects" search={{project: search.project}} /></>;`
+        'apps/client/src/pages/home/page.view.tsx': `
+        import { Link } from '@tanstack/react-router';
+        export const view = (
+          <>
+            <Link to="/notes" search={{ project: search.project }} />
+            <Link to="/library" search={{ project: search.project }} />
+            <Link to="/projects" search={{ project: search.project }} />
+          </>
+        );
+      `
       },
       true
     );

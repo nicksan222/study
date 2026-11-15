@@ -10,8 +10,17 @@ testStable(
     assertDiagnostics(
       'native-clock',
       await lintRule('native-clock', {
-        'src/features/a/service.ts':
-          'const D = Date; const now = D.now; now(); new D(); performance.now(); new Date(0); function f(Date: any, performance: any) { Date.now(); new Date(); performance.now(); }',
+        'src/features/a/service.ts': String.raw`const D = Date;
+const now = D.now;
+now();
+new D();
+performance.now();
+new Date(0);
+function f(Date: any, performance: any) {
+  Date.now();
+  new Date();
+  performance.now();
+}`,
         'src/platform/time/index.ts': 'Date.now(); new Date(); performance.now();',
         'src/features/a/service.test.ts': 'Date.now();'
       }),
@@ -27,8 +36,15 @@ testStable('recognizes node clock imports and destructured clock methods', async
   assertDiagnostics(
     'native-clock',
     await lintRule('native-clock', {
-      'src/platform/worker.ts':
-        "import { performance as perf } from 'node:perf_hooks'; import * as process from 'node:process'; const { now } = Date; now(); perf.now(); process.hrtime.bigint(); function f(perf: any) { perf.now(); }"
+      'src/platform/worker.ts': String.raw`import { performance as perf } from "node:perf_hooks";
+import * as process from "node:process";
+const { now } = Date;
+now();
+perf.now();
+process.hrtime.bigint();
+function f(perf: any) {
+  perf.now();
+}`
     }),
     [
       ['src/platform/worker.ts', message],

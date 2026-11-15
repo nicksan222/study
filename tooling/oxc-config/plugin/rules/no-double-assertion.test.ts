@@ -3,7 +3,7 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('reports the prohibited pattern', async () => {
+testStable('rejects chained type assertions that bypass type checking', async () => {
   const diagnostics = await lintRule(
     'no-double-assertion',
     { 'src/domain.ts': 'const value = input as unknown as string;' },

@@ -107,8 +107,9 @@ testStable(
           "import { defineRule as rule } from 'vite-plus/lint/plugins'; export default rule({});",
         [`${directory}/namespace.ts`]:
           "import * as lint from 'vite-plus/lint/plugins'; export default lint.defineRule({});",
-        [`${directory}/shadowed.ts`]:
-          "import { defineRule } from 'vite-plus/lint/plugins'; function make(defineRule) { return defineRule({}); }"
+        [`${directory}/shadowed.ts`]: `import { defineRule } from 'vite-plus/lint/plugins';
+ function make(defineRule) { return defineRule({});
+ }`
       })
     ).toStrictEqual([`${directory}/alias.ts`, `${directory}/namespace.ts`]);
   }
