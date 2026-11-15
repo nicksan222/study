@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Protect server and web identifiers from numeric precision loss.                    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents built-in numeric parsing of identifiers and properties named id, *Id or *_id.   │
+ * │ This is a naming-based check; numeric counts and offsets remain allowed.                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   String(row.id); Number(row.duration);                                                  │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   Number(row.id);                                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { memberName as property, binding } from '../lexical-bindings.ts';

@@ -1,3 +1,26 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Preserve native workflow construction and capability ownership.                    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents browser workflow imports, production memory infrastructure, unsafe engine       │
+ * │ creation and forged activity or publication capabilities. Feature registrations use      │
+ * │ canonical wrappers; Activity construction is limited to workflow and platform owners.    │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/platform/definitions/define-activity.ts                             │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   import { Activity } from 'effect/workflow';                                            │
+ * │   Activity.make({ name: 'checkpoint', execute: Effect.void });                           │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/service/example.ts                                   │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   import { Activity } from 'effect/workflow';                                            │
+ * │   Activity.make({ name: 'checkpoint', execute: Effect.void });                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {

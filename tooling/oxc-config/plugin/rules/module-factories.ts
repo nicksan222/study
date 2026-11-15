@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep public feature entry exports on canonical construction boundaries.            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server feature service/store entries and RPC/workflow owners, prevents     │
+ * │ public helpers and objects bypassing definition factories. Allows service layers,        │
+ * │ canonical service reexports from feature indexes and execution functions registered with │
+ * │ defineWorkflowHandler; store entries must export a factory result.                       │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/notes/service/index.ts                                     │
+ * │   import { defineService } from '#server/platform/definitions/define-service';           │
+ * │   export const Notes = defineService('study/Notes', make);                               │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/service/index.ts                                     │
+ * │   export const Notes = {};                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { canonicalImport, featureRole, targetPath } from '../architecture-imports.ts';

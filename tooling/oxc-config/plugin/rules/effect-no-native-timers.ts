@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep application delays and deadlines in Effect's lifecycle.                       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents native timers, timer imports and        │
+ * │ AbortSignal.timeout from escaping scoped cancellation and test clocks. Runtime           │
+ * │ main/server/service modules are exempt, as are useEffect-owned setTimeout calls in       │
+ * │ client use-* hook files.                                                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   const delay = Effect.sleep('1 second');                                                │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   setTimeout(work, 1000);                                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';

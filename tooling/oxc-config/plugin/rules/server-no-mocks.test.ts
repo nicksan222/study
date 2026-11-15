@@ -1,13 +1,13 @@
 import { testStable } from '@study/testing/vitest';
+import { assert } from 'vite-plus/test';
 
-import { assertDiagnostics, lintRule } from '../test/utils.ts';
+import { assertDiagnostics, lintFiles, lintRule } from '../test/utils.ts';
 
 const message =
   'Server tests must use real dependencies, not mock APIs or fabricated database contexts.';
 
 testStable('server tests reject mock module access and fabricated database contexts', async () => {
   const diagnostics = await lintRule('server-no-mocks', {
-    'test/namespace.ts': "import * as vitest from 'vitest';\n",
     'test/node-dynamic.ts': "const runner = import('node:test');\n",
     'test/dynamic.ts': "const mock = import('jest-mock');\n",
     'test/cast.ts':
@@ -30,7 +30,6 @@ testStable('server tests reject mock module access and fabricated database conte
   });
 
   assertDiagnostics('server-no-mocks', diagnostics, [
-    ['test/namespace.ts', message],
     ['test/node-dynamic.ts', message],
     ['test/dynamic.ts', message],
     ['test/cast.ts', message],
@@ -40,3 +39,24 @@ testStable('server tests reject mock module access and fabricated database conte
     ['test/relative.ts', message]
   ]);
 });
+
+testStable(
+  'allows assertion exports while rejecting mock exports in production config',
+  async () => {
+    const diagnostics = await lintFiles({
+      'test/assertions.ts': "export { assert, expect } from 'vite-plus/test';",
+      'test/mock-export.ts': "export { vi as mocking } from 'vite-plus/test';",
+      'test/mock-namespace.ts': "import * as runner from 'vite-plus/test'; export { runner };"
+    });
+
+    assert.ok(!diagnostics.some(({ filename }) => filename.endsWith('/assertions.ts')));
+
+    for (const file of ['mock-export.ts', 'mock-namespace.ts'])
+      assert.ok(
+        diagnostics.some(
+          ({ filename, code }) =>
+            filename.endsWith('/' + file) && code.includes('no-restricted-imports')
+        )
+      );
+  }
+);

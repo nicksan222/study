@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require explicit recovery or propagation of Effect failures.                       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents ignore/ignoreCause and silent           │
+ * │ catch/catchCause callbacks returning void or undefined. Explicit recovery values and     │
+ * │ propagated failures are allowed.                                                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.catch(error => Effect.fail(error));                                             │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.catch(() => Effect.void);                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';
@@ -22,7 +41,11 @@ export default defineRule({
 
       if (bindings.resolve(node) === 'Effect.void') return true;
 
-      return node.type === 'CallExpression' && bindings.resolve(node.callee) === 'Effect.succeed';
+      return (
+        node.type === 'CallExpression' &&
+        bindings.resolve(node.callee) === 'Effect.succeed' &&
+        fallback(node.arguments[0])
+      );
     }
 
     function silent(value: any): boolean {

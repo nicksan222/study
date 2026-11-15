@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Restrict feature table writes to their declared owners.                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents server production features from mutating another feature's tables or shared     │
+ * │ revision metadata. Reads remain available; workflow writes have a separate rule.         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/projects/store/read.ts                                     │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   import { notes } from '@study/db/schema';                                              │
+ * │   function read(db: Db) { return db.orm.select().from(notes).all(); }                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/projects/store/write.ts                                    │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   import { notes } from '@study/db/schema';                                              │
+ * │   function write(db: Db) { db.orm.update(notes).set({ title: 'bypass' }); }              │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { persistenceWriters } from './persistence-writers.ts';

@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Confines raw SQLite connections, migrations and schema factories to their owners.  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Runtime node:sqlite/Drizzle driver access outside packages/db/src/db.ts and schema       │
+ * │ factories outside packages/db/src/schema/ or table.ts. Raw factory/driver reexports stay │
+ * │ forbidden even in owners; schema modules cannot use namespace/dynamic sqlite-core access │
+ * │ or migrators. Type-only imports and ordinary Drizzle column/query helpers remain legal,  │
+ * │ including in tests.                                                                      │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/example/store.ts                                           │
+ * │   import { Db } from '@study/db';                                                        │
+ * │   import { eq } from '@study/db';                                                        │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/example/store.ts                                           │
+ * │   import { sqliteTable } from 'drizzle-orm/sqlite-core';                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import type { ESTree } from 'vite-plus/lint/plugins';
 import { defineRule } from 'vite-plus/lint/plugins';
 

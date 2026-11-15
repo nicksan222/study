@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Propagate Effect cancellation signals to fetch calls inside native bridges.        │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents fetch work from surviving interruption  │
+ * │ of Effect.tryPromise or Effect.callback. Checks the nearest bridge and its actual signal │
+ * │ binding.                                                                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.tryPromise(signal => fetch(url, { signal }));                                   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.tryPromise(() => fetch(url));                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, propertyName } from '../effect-bindings.ts';

@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Prefer native service.use accessors over flatMap around service identities.        │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server modules, prevents two-argument Effect.flatMap acquisition of        │
+ * │ recognized feature/platform service keys or local Context.Service values. Ordinary       │
+ * │ Effects remain allowed.                                                                  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Settings } from '#server/features/settings/index';                            │
+ * │   Settings.use(read);                                                                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   import { Settings } from '#server/features/settings/index';                            │
+ * │   Effect.flatMap(Settings, read);                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { importedValue } from '../architecture-imports.ts';

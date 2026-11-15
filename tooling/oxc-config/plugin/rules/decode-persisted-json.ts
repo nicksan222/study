@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Requires schema decoding before parsed persisted JSON acquires a domain type.      │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production server code directly casting global JSON.parse results or assigning them to   │
+ * │ an explicit domain annotation. Tests and any/unknown annotations are exempt. This        │
+ * │ catches direct parse expressions, not arbitrary aliases or the provenance of the JSON    │
+ * │ string.                                                                                  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { decodeBlockContent } from '@study/contracts/sources/document';                │
+ * │   const body = decodeBlockContent(row.content);                                          │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import type { BlockContent } from '@study/contracts/sources/schemas';                  │
+ * │   const body = JSON.parse(row.content) as BlockContent;                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { memberName as property, binding } from '../lexical-bindings.ts';

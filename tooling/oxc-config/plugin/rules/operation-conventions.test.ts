@@ -7,7 +7,7 @@ async function lint(files: Record<string, string>) {
   return await lintRulePaths('operation-conventions', files);
 }
 
-testStable('checks literal store roles, collection input and service public reads', async () => {
+testStable('checks literal store roles and collection input', async () => {
   expect(
     await lint({
       'apps/server/src/features/a/store/index.ts': `import { Schema as S } from 'effect'; import { defineStore as create, storeQuery as query } from '#server/platform/definitions/define-store'; const f = create; export const A = f({ entity: { singular: 'item', plural: 'items' }, make: ({db}) => ({queries: { getItem: query({role:'required', input: S.String}), items: query({role:'collection', input: S.Struct({})}) }, mutations: {}}) });`,
@@ -19,7 +19,6 @@ testStable('checks literal store roles, collection input and service public read
     })
   ).toStrictEqual([
     'apps/server/src/features/a/store/index.ts',
-    'apps/server/src/features/c/service/index.ts',
     'apps/server/src/features/e/store/index.ts',
     'apps/server/src/features/f/store/index.ts'
   ]);
@@ -320,3 +319,12 @@ testStable(
       expect(await lintRulePaths(rule, { [path]: source })).toStrictEqual([path]);
   }
 );
+
+testStable('service reads allow conventional verb-based names', async () => {
+  expect(
+    await lint({
+      'apps/server/src/features/items/service/index.ts':
+        "import { defineService } from '#server/platform/definitions/define-service'; import { Effect } from 'effect'; defineService('Items', Effect.gen(function* () { return { getItem: () => 1, listItems: () => [], fetchItem: () => 1, allItems: () => [] }; }));"
+    })
+  ).toStrictEqual([]);
+});

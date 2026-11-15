@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps styled client markup and stylesheets in the shared UI package.               │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ apps/client/src source outside test/spec suffixes attaching className/style to native    │
+ * │ JSX, including literal inline spreads, or importing stylesheets outside main.tsx's two   │
+ * │ approved global imports. Unstyled HTML and semantic shared-component props are allowed;  │
+ * │ shared component overrides are checked separately by shared-ui-variants.                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Button } from '@study/ui/button';                                             │
+ * │   const view = <Button variant="secondary" />;                                           │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   const view = <div className="layout" />;                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { isPresentationAttribute, webPresentationSource } from '../presentation-attributes.ts';

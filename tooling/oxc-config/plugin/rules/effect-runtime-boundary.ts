@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Restrict Effect execution and ManagedRuntime construction to explicit runtime      │
+ * │ owners.                                                                                  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents feature-local runtimes and runners from │
+ * │ escaping application lifetime. Allows client lib/effect/runtime.ts, server               │
+ * │ runtime/main.ts, and narrowly named platform bridges; runtime/layers.ts may construct    │
+ * │ ManagedRuntime.                                                                          │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   export const task = Effect.succeed(1);                                                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   // apps/server/src/features/notes/service/index.ts                                     │
+ * │   Effect.runPromise(task);                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';

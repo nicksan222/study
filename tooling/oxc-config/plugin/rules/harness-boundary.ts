@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Separate production dependencies from owned server test resource acquisition.      │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents production server modules from importing the test harness, and server test/spec │
+ * │ files from opening imported Db or App directly. Shared test/testing harness modules may  │
+ * │ own acquisition.                                                                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/notes/service.test.ts                                      │
+ * │   import { createStudyTest } from '#testing/study-test';                                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/service.test.ts                                      │
+ * │   import { Db } from '@study/db';                                                        │
+ * │   Db.open(':memory:');                                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges, serverPath, targetPath } from '../architecture-imports.ts';

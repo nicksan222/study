@@ -1,3 +1,26 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Requires data preparation and validated-search dependencies on library/practice    │
+ * │ routes.                                                                                  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test apps/client/src/routes createFileRoute options with literal staticData.section  │
+ * │ of library or practice omitting loader or loaderDeps. Other routes are exempt; this      │
+ * │ checks property presence on inline options, not loader implementations or indirect       │
+ * │ metadata.                                                                                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { createFileRoute } from '@tanstack/react-router';                              │
+ * │   export const Route = createFileRoute('/library')({                                     │
+ * │     staticData: { section: 'library' }, loaderDeps: deps, loader: load });               │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { createFileRoute } from '@tanstack/react-router';                              │
+ * │   export const Route = createFileRoute('/library')({                                     │
+ * │     staticData: { section: 'library' } });                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { propertyName } from '../effect-bindings.ts';

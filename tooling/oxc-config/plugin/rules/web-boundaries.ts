@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Enforces client module ownership and the single browser transport boundary.        │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production apps/client/src modules importing upward, across private pages/features, from │
+ * │ tests or previews, or using raw RPC/fetch/query execution outside lib/effect/rpc.ts.     │
+ * │ Features expose index entrypoints; only app/router.ts imports routeTree.gen. Preview     │
+ * │ modules may compose feature internals, and source files must live in recognized layers.  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/pages/home/page.tsx                                                 │
+ * │   import { QuizMaterialPage } from '#client/features/practice/index.ts';                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/lib/example.ts                                                      │
+ * │   import '#client/pages/home/page.tsx';                                                  │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';

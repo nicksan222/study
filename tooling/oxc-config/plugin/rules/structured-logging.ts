@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Centralize server Effect logging and constrain log metadata.                       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents feature-level logging and unreviewed payload annotations. Observability owns    │
+ * │ logs; runtime request, main and workers may emit static messages. Other annotations need │
+ * │ safeMetadata or the allowlisted literal correlation fields.                              │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.annotateLogs({ requestId: 'request-1' });                                       │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.annotateLogs({ prompt: input });                                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { targetPath } from '../architecture-imports.ts';

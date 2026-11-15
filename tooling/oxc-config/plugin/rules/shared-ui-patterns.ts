@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Replaces repeated client UI scaffolding with its semantic shared component.        │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test client source rebuilding shared retry/pagination/icon/directional actions,      │
+ * │ selection parts, dialog headings/dismissal, labelled text/settings controls, disclosure  │
+ * │ and operation status. Imports are binding-aware; ordinary prose and custom controls stay │
+ * │ free.                                                                                    │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { RetryButton } from '@study/ui/action-button';                                 │
+ * │   const view = <RetryButton label={t('Retry')} onClick={retry} />;                       │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Button } from '@study/ui/button';                                             │
+ * │   const view = <Button onClick={retry}>{t('Retry')}</Button>;                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 import type { ESTree } from 'vite-plus/lint/plugins';
 

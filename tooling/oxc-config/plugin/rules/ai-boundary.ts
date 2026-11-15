@@ -1,3 +1,26 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Centralizes model execution and checkpoints feature generation inside workflow     │
+ * │ activities.                                                                              │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production server modules outside platform/ai importing AI SDKs (except definition-only  │
+ * │ SDK types), agents/tools importing stores or database access, and non-runtime AI modules │
+ * │ executing SDK generation. Feature generateAgent/streamAgent calls belong in workflow     │
+ * │ activity execute bodies with non-null preflight and maxRetries: 0; activities own        │
+ * │ retries.                                                                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/platform/ai/agents.ts                                               │
+ * │   import { generateText } from 'ai';                                                     │
+ * │   generateText(options);                                                                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/sources/service.ts                                         │
+ * │   import { generateText } from 'ai';                                                     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {

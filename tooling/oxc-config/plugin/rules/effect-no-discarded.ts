@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require known Effect computations to be consumed rather than discarded.            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents bare, voided or awaited known Effects   │
+ * │ from silently doing nothing. Resolves constructors, constants and simple Effect function │
+ * │ wrappers, without guessing arbitrary service return types.                               │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   const task = Effect.gen(function* () { yield* Effect.sleep('1 second'); });            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   void Effect.sleep('1 second');                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings, effectProduction } from '../effect-bindings.ts';
