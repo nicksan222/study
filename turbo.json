@@ -119,7 +119,8 @@
         "!$TURBO_ROOT$/packages/db/.turbo/**"
       ],
       "cache": true,
-      "envMode": "strict"
+      "envMode": "strict",
+      "outputs": ["test-results/vitest/**"]
     },
     "@study/localization#test": {
       "dependsOn": ["^typecheck"],
@@ -130,7 +131,8 @@
         "!$TURBO_ROOT$/packages/db/.turbo/**"
       ],
       "cache": true,
-      "envMode": "strict"
+      "envMode": "strict",
+      "outputs": ["test-results/vitest/**"]
     },
     "@study/theme#test": {
       "dependsOn": ["^typecheck"],
@@ -141,7 +143,8 @@
         "!$TURBO_ROOT$/packages/db/.turbo/**"
       ],
       "cache": true,
-      "envMode": "strict"
+      "envMode": "strict",
+      "outputs": ["test-results/vitest/**"]
     },
     "@study/ui#test": {
       "dependsOn": ["^typecheck"],
@@ -152,17 +155,20 @@
         "$TURBO_ROOT$/tooling/scripts/development/rpc-proxy.ts"
       ],
       "cache": true,
-      "envMode": "strict"
+      "envMode": "strict",
+      "outputs": ["test-results/vitest/**"]
     },
     "@study/testing#test": {
       "dependsOn": ["^typecheck"],
       "cache": true,
-      "envMode": "strict"
+      "envMode": "strict",
+      "outputs": ["test-results/vitest/**"]
     },
     "@study/client#test": {
       "dependsOn": ["^typecheck"],
       "cache": true,
-      "envMode": "strict"
+      "envMode": "strict",
+      "outputs": ["test-results/vitest/**"]
     },
     "@study/tooling#typecheck": {
       "dependsOn": ["^typecheck"],

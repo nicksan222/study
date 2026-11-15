@@ -80,6 +80,14 @@ jobs:
           path: apps/client/test-results/
           if-no-files-found: ignore
 
+      - name: Retain native Vitest reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-javascript-reports
+          path: '**/test-results/vitest/*.xml'
+          if-no-files-found: ignore
+
   server_tests:
     name: 🧪 Server tests
     runs-on: ubuntu-24.04
@@ -105,6 +113,14 @@ jobs:
         timeout-minutes: 10
         run: bun run ci:server
 
+      - name: Retain native Vitest reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-server-reports
+          path: '**/test-results/vitest/*.xml'
+          if-no-files-found: ignore
+
   integrations:
     name: 🔌 Real integration tests
     runs-on: ubuntu-24.04
@@ -126,6 +142,14 @@ jobs:
         env:
           DEBUG: testcontainers:build
         run: bun run integrations:e2e
+
+      - name: Retain native Vitest reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-integrations-reports
+          path: '**/test-results/vitest/*.xml'
+          if-no-files-found: ignore
 
   check:
     # Required by the main branch ruleset; keep this name.
