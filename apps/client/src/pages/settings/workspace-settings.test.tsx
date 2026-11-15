@@ -83,7 +83,7 @@ testStable(
       autosaveIntervalSeconds: 8
     });
     expect(input).toHaveValue(8);
-    expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled();
+    await waitFor(() => expect(within(form).getByRole('button', { name: 'Save' })).toBeDisabled());
   }
 );
 

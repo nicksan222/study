@@ -23,6 +23,7 @@ import { assert } from 'vite-plus/test';
 import { makeStudyClient } from '#server/client/index';
 import { Notes } from '#server/features/notes/index';
 import { serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 import { createStudyTest } from '#testing/server-test';
 
 testStable(
@@ -74,28 +75,21 @@ testStable(
       const request = yield* client['notes.requestReply']({ noteId: note.id });
 
       yield* client['system.startWorkers']({});
-      let waiting = false;
+      yield* pollUntil(
+        Effect.gen(function* () {
+          const executions = yield* client['workflows.executions']({
+            correlationId: request.requestId,
+            limit: 100
+          });
 
-      for (let i = 0; i < 100; i++) {
-        const executions = yield* client['workflows.executions']({
-          correlationId: request.requestId,
-          limit: 100
-        });
-
-        if (
-          executions.items.some(
+          return executions.items.some(
             (execution) =>
               execution.workflow === 'conversation-reply/v1' && execution.status === 'suspended'
-          )
-        ) {
-          waiting = true;
-          break;
-        }
-
-        yield* Effect.sleep('25 millis');
-      }
-
-      assert.ok(waiting === true);
+          );
+        }),
+        (value) => value,
+        { attempts: 100, interval: '25 millis', message: 'Expected durable workflow wait' }
+      );
       assert.strictEqual(
         fixture.store.db.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
@@ -110,24 +104,19 @@ testStable(
 
       assert.strictEqual(before.pendingAttachments?.length, 1);
       release();
-      let authentication = false;
-
-      for (let i = 0; i < 150; i++) {
-        if (
-          fixture.store.db.orm.all(
-            sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
-          ).length > 0
-        ) {
-          authentication = true;
-          break;
+      yield* pollUntil(
+        Effect.sync(
+          () =>
+            fixture.store.db.orm.all(
+              sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
+            ).length > 0
+        ),
+        (value) => value,
+        {
+          attempts: 150,
+          interval: '25 millis',
+          message: 'the registered wake subscription must resume the actual dispatched reply'
         }
-
-        yield* Effect.sleep('25 millis');
-      }
-
-      assert.ok(
-        authentication === true,
-        'the registered wake subscription must resume the actual dispatched reply'
       );
       const after = yield* Effect.promise(() =>
         fixture.run(

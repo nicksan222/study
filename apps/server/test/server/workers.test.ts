@@ -23,6 +23,7 @@ import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 
 testStable(
   'source workflow survives restart and makes its content discoverable',
@@ -61,27 +62,23 @@ testStable(
             yield* client['system.startWorkers']({});
             assert.ok((yield* client['system.health']({})).workersRunning === true);
 
-            for (let i = 0; i < 100; i++) {
-              const state = yield* client['sources.sourceProcessing']({ id: source.id });
+            yield* pollUntil(
+              client['sources.sourceProcessing']({ id: source.id }),
+              (value) => value.documentId !== null,
+              { attempts: 100, interval: '50 millis', message: 'source workflow did not recover' }
+            );
 
-              if (state.documentId !== null) {
-                const search = yield* client['system.search']({ query: 'gravity', limit: 10 });
+            const search = yield* client['system.search']({ query: 'gravity', limit: 10 });
 
-                assert.ok(
-                  search.hits.some(
-                    (hit) => hit.target.type === 'source' && hit.target.sourceId === source.id
-                  )
-                );
-                yield* client['system.stopWorkers']({});
-                assert.ok((yield* client['system.health']({})).workersRunning === false);
+            assert.ok(
+              search.hits.some(
+                (hit) => hit.target.type === 'source' && hit.target.sourceId === source.id
+              )
+            );
+            yield* client['system.stopWorkers']({});
+            assert.ok((yield* client['system.health']({})).workersRunning === false);
 
-                return;
-              }
-
-              yield* Effect.sleep('50 millis');
-            }
-
-            assert.fail('source workflow did not recover');
+            return;
           })
         )
       );
@@ -125,26 +122,29 @@ testStable(
 
             yield* client['system.startWorkers']({});
 
-            for (let i = 0; i < 100; i++) {
-              if (
-                app.store.db.orm.all(
-                  sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
-                ).length
-              ) {
-                const message = yield* client['notes.message']({ id: request.messageId });
-
-                assert.ok(
-                  message.versions.find((version) => version.id === request.versionId)?.status ===
-                    'pending'
-                );
-
-                return;
+            yield* pollUntil(
+              Effect.sync(
+                () =>
+                  app.store.db.orm.all(
+                    sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id = w.execution_id WHERE e.workflow_tag = 'conversation-reply/v1'`
+                  ).length
+              ),
+              (value) => value > 0,
+              {
+                attempts: 100,
+                interval: '50 millis',
+                message: 'reply workflow did not wait for sign-in'
               }
+            );
 
-              yield* Effect.sleep('50 millis');
-            }
+            const message = yield* client['notes.message']({ id: request.messageId });
 
-            assert.fail('reply workflow did not wait for sign-in');
+            assert.ok(
+              message.versions.find((version) => version.id === request.versionId)?.status ===
+                'pending'
+            );
+
+            return;
           })
         )
       );

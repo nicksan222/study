@@ -29,6 +29,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 
 for (const accountState of ['signed-out', 'not-shared'] as const)
   testStable(
@@ -94,20 +95,19 @@ for (const accountState of ['signed-out', 'not-shared'] as const)
                 questionId,
                 answer: { type: 'open', answer: 'Mitochondria' }
               });
-              let waiting = false;
-
-              for (let count = 0; count < 100; count++) {
-                if (
-                  app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length === 1
-                ) {
-                  waiting = true;
-                  break;
+              yield* pollUntil(
+                Effect.sync(
+                  () =>
+                    app.store.db.orm.all(sql`SELECT * FROM workflow_configuration_waits`).length ===
+                    1
+                ),
+                (value) => value,
+                {
+                  attempts: 100,
+                  interval: '50 millis',
+                  message: 'grading should wait durably for model setup'
                 }
-
-                yield* Effect.sleep('50 millis');
-              }
-
-              assert.ok(waiting, 'grading should wait durably for model setup');
+              );
               yield* client['learning.gradeResponse']({
                 attemptId: attempt.id,
                 questionId,

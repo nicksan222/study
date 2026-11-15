@@ -32,6 +32,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import { workflowDefinitions } from '#server/runtime/workflows';
 import type { pageTransformFixture } from '#testing/page-transform';
+import { pollUntil } from '#testing/poll';
 import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admission';
 
 type DeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
@@ -305,8 +306,8 @@ export function awaitNativeStatus(
     '_tag' | 'payloadSchema' | 'successSchema' | 'errorSchema'
   >
 ) {
-  return Effect.gen(function* () {
-    for (let attempt = 0; attempt < 100; attempt++) {
+  return pollUntil(
+    Effect.gen(function* () {
       const row = workflowStore(fixture.context).execution(id);
 
       if (row)
@@ -323,13 +324,11 @@ export function awaitNativeStatus(
           id
         );
 
-      if (workflowStore(fixture.context).execution(id)?.status === status) return;
-
-      yield* Effect.sleep('5 millis');
-    }
-
-    assert.strictEqual(workflowStore(fixture.context).execution(id)?.status, status);
-  });
+      return workflowStore(fixture.context).execution(id)?.status;
+    }),
+    (value) => value === status,
+    { attempts: 100, interval: '5 millis', message: `Workflow did not reach ${status}` }
+  ).pipe(Effect.asVoid);
 }
 
 export function validPageTransformOutput(text: string): typeof pageTransformOutputSchema.Type {
