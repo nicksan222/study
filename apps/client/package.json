@@ -15,7 +15,7 @@
     "build": "bun --bun vp build",
     "typecheck": "bun --bun vp run gen:routes && bun --bun tsc --noEmit",
     "gen:routes": "bun --bun tsr generate",
-    "test": "bun --bun vp test run --config ../../vite.config.ts --project @study/client --exclude \"../../packages/**\" --reporter=verbose",
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project @study/client --exclude \"../../packages/**\"",
     "e2e": "bun --bun playwright test --config playwright.config.ts"
   },
   "dependencies": {
