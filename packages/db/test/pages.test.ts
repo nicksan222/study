@@ -140,9 +140,12 @@ testStable(
     await Effect.runPromise(
       fs.copy(Bun.fileURLToPath(new URL('../drizzle', import.meta.url)), older)
     );
-    await Effect.runPromise(
-      fs.remove(older + '/20261115131448_page-deletion-owned-text', { recursive: true })
-    );
+
+    for (const entry of await Effect.runPromise(fs.readDirectory(older))) {
+      if (/^\d{14}_/.test(entry) && entry >= '20261115131448_page-deletion-owned-text')
+        await Effect.runPromise(fs.remove(older + '/' + entry, { recursive: true }));
+    }
+
     const location = await createTestDatabase(older);
     let db = await location.open();
 
