@@ -391,11 +391,12 @@ alongside the observed browser version and workflow identity.
 references for one workflow; append `/editing` to update only that screenshot.
 Updates are forbidden in CI. Inspect candidate PNGs before
 accepting them; generation does not approve a design. No Git hook updates or stages
-images. Pixelmatch uses a 0.2 perceptual color threshold, ignores detected anti-aliasing and
-allows zero differing pixels beyond that tolerance. Dimension changes always fail.
+images. Native Playwright screenshot assertions use a 0.2 perceptual color threshold and
+allow zero differing pixels beyond that tolerance. Dimension changes always fail.
 Missing references and changed pixels fail ordinary comparison without
-rewriting references. The screenshot comparison algorithm and readiness contract remain
-unchanged. Native runner outputs live under `apps/client/test-results/playwright`, and
+rewriting references (`updateSnapshots: none`). Playwright owns stabilization, comparison
+and expected/actual/diff attachments; Study retains application readiness, focus normalization
+and explicitly scoped updates. Native runner outputs live under `apps/client/test-results/playwright`, and
 its HTML report lives under `apps/client/test-results/report`. Playwright clears its previous
 run outputs at the start of the next run and retains test artifacts only for failures.
 Set `E2E_REVIEW=1` to retain successful traces and capture artifacts for the current run too.

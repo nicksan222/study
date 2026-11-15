@@ -1,6 +1,5 @@
-import pixelmatch from 'pixelmatch';
 import type { Locator, Page } from 'playwright';
-import { PNG } from 'pngjs';
+import { expect } from 'playwright/test';
 
 import { safeName } from './identity.ts';
 
@@ -12,54 +11,6 @@ export function updateAllowed(workflow: string, name: string, env = process.env)
 
 export function requireScreenshots(count: number): void {
   if (!count) throw new Error('Every E2E must complete at least one screenshot');
-}
-
-export function compareImages(expected: Uint8Array, actual: Uint8Array) {
-  const a = PNG.sync.read(Buffer.from(expected));
-  const b = PNG.sync.read(Buffer.from(actual));
-  const diff = new PNG({ width: Math.max(a.width, b.width), height: Math.max(a.height, b.height) });
-
-  if (a.width !== b.width || a.height !== b.height) {
-    diff.data.fill(255);
-
-    return { equal: false, diff: PNG.sync.write(diff), reason: 'Image dimensions changed' };
-  }
-
-  const changed = pixelmatch(a.data, b.data, diff.data, a.width, a.height, {
-    threshold: 0.2,
-    includeAA: false
-  });
-
-  return { equal: changed === 0, diff: PNG.sync.write(diff), reason: `${changed} changed pixels` };
-}
-
-export async function compareScreenshot(
-  expectedPath: string,
-  actual: Uint8Array,
-  artifact: string,
-  update: boolean
-) {
-  await Bun.write(`${artifact}-actual.png`, actual);
-
-  if (update) {
-    await Bun.write(expectedPath, actual);
-
-    return;
-  }
-
-  if (!(await Bun.file(expectedPath).exists()))
-    throw new Error(`Missing baseline: ${expectedPath}`);
-
-  const expected = new Uint8Array(await Bun.file(expectedPath).arrayBuffer());
-
-  const result = compareImages(expected, actual);
-
-  if (!result.equal) {
-    await Bun.write(`${artifact}-expected.png`, expected);
-    await Bun.write(`${artifact}-diff.png`, result.diff);
-
-    throw new Error(`${result.reason}: ${artifact}`);
-  }
 }
 
 export type ExpectScreenshot = (
@@ -74,7 +25,7 @@ export type ExpectScreenshot = (
   }
 ) => Promise<void>;
 
-/** One deadline covers application assertions, fonts, images and consecutive identical captures. */
+/** Study owns readiness and scoped updates; Playwright owns comparison and diagnostic images. */
 export function screenshotAssertions(
   page: Page,
   workflow: string,
@@ -113,7 +64,7 @@ export function screenshotAssertions(
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     try {
-      const actual = await Promise.race([
+      await Promise.race([
         (async () => {
           await ready();
           fence();
@@ -149,21 +100,32 @@ export function screenshotAssertions(
             );
           }
 
-          let previous = await capture();
+          if (updateAllowed(workflow, name)) {
+            // Native snapshot update mode is run-wide. Keep single-capture updates scoped explicitly.
+            let previous = await capture();
+            let actual = previous;
 
-          fence();
+            await expect
+              .poll(
+                async () => {
+                  actual = await capture();
+                  const stable = previous.equals(actual);
 
-          while (Date.now() < deadline) {
-            const next = await capture();
+                  previous = actual;
 
+                  return stable;
+                },
+                { timeout: remaining() }
+              )
+              .toBe(true);
             fence();
-
-            if (previous.equals(next)) return next;
-
-            previous = next;
+            await Bun.write(baselinePath(profile, workflow, name), actual);
+          } else {
+            await expect(target === 'viewport' ? page : target).toHaveScreenshot(
+              [profile, workflow, `${name}.png`],
+              { timeout: remaining(), threshold: 0.2, maxDiffPixels: 0 }
+            );
           }
-
-          throw new Error('Rendering did not stabilize');
         })(),
         new Promise<never>((_, reject) => {
           timer = setTimeout(() => {
@@ -172,15 +134,6 @@ export function screenshotAssertions(
           }, remaining());
         })
       ]);
-
-      await compareScreenshot(
-        Bun.fileURLToPath(
-          new URL(`../baselines/${profile}/${workflow}/${name}.png`, import.meta.url)
-        ),
-        actual,
-        `${directory}/${name}`,
-        updateAllowed(workflow, name)
-      );
 
       if (updateAllowed(workflow, name) && process.env.E2E_UPDATE_RUN) {
         const updateRun = safeName(process.env.E2E_UPDATE_RUN);
@@ -216,4 +169,10 @@ export function screenshotAssertions(
       return captureMs;
     }
   };
+}
+
+export function baselinePath(profile: string, workflow: string, name: string): string {
+  return Bun.fileURLToPath(
+    new URL(`../baselines/${profile}/${workflow}/${name}.png`, import.meta.url)
+  );
 }
