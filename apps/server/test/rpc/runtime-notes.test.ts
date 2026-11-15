@@ -25,6 +25,7 @@ import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 
 testStable(
   'a reply requested over RPC reaches the durable sign-in wait',
@@ -52,22 +53,22 @@ testStable(
               text: 'Explain ATP'
             });
             const request = yield* client['notes.requestReply']({ noteId: note.id });
-            let waiting = false;
 
-            for (let i = 0; i < 100; i++) {
-              const rows = app.store.db.orm.all(
-                sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
-              );
+            yield* pollUntil(
+              Effect.sync(() => {
+                const rows = app.store.db.orm.all(
+                  sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
+                );
 
-              if (rows.length === 1) {
-                waiting = true;
-                break;
+                return rows.length === 1;
+              }),
+              (value) => value,
+              {
+                attempts: 100,
+                interval: '50 millis',
+                message: 'reply must wait durably for account setup'
               }
-
-              yield* Effect.sleep('50 millis');
-            }
-
-            assert.ok(waiting, 'reply must wait durably for account setup');
+            );
             assert.strictEqual(app.store.db.orm.all(sql`SELECT * FROM workflow_clocks`).length, 0);
             const untitled = yield* client['notes.createUntitledNote']({
               project: project.id
@@ -78,22 +79,20 @@ testStable(
               text: 'Study photosynthesis'
             });
             yield* client['notes.requestTitle']({ noteId: untitled.id });
-            let titleWaiting = false;
-
-            for (let i = 0; i < 100; i++) {
-              if (
-                app.store.db.orm.all(
-                  sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-title/v1'`
-                ).length === 1
-              ) {
-                titleWaiting = true;
-                break;
+            yield* pollUntil(
+              Effect.sync(
+                () =>
+                  app.store.db.orm.all(
+                    sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-title/v1'`
+                  ).length === 1
+              ),
+              (value) => value,
+              {
+                attempts: 100,
+                interval: '50 millis',
+                message: 'title request must enter durable configuration wait'
               }
-
-              yield* Effect.sleep('50 millis');
-            }
-
-            assert.ok(titleWaiting, 'title request must enter durable configuration wait');
+            );
 
             const message = yield* client['notes.message']({ id: request.messageId });
 

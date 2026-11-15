@@ -22,6 +22,7 @@ import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 
 testStable(
   'HTTP recording capture hands durable WAV publication to the native worker',
@@ -59,39 +60,34 @@ testStable(
               name: 'Lecture.wav'
             });
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              const result = yield* client['recordings.recordingPost']({
-                requestId: post.requestId
-              });
+            const result = yield* pollUntil(
+              client['recordings.recordingPost']({ requestId: post.requestId }),
+              (value) => value.messageId !== null,
+              { attempts: 100, interval: '25 millis', message: 'Recording was not posted' }
+            );
 
-              if (result.messageId !== null) {
-                const message = yield* client['notes.message']({ id: result.messageId });
+            assert.ok(result.messageId !== null);
+            const message = yield* client['notes.message']({ id: result.messageId });
 
-                assert.strictEqual(message.recordedIn, result.sourceId);
-                assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
-                assert.strictEqual(
-                  (yield* client['recordings.recordings']({ limit: 10 })).items.length,
-                  0
-                );
-                const replayed = yield* client['recordings.postRecording']({
-                  note: note.id,
-                  recording: recording.id,
-                  name: 'Lecture.wav'
-                });
+            assert.strictEqual(message.recordedIn, result.sourceId);
+            assert.strictEqual(message.parts[0]?.sourceId, result.sourceId);
+            assert.strictEqual(
+              (yield* client['recordings.recordings']({ limit: 10 })).items.length,
+              0
+            );
+            const replayed = yield* client['recordings.postRecording']({
+              note: note.id,
+              recording: recording.id,
+              name: 'Lecture.wav'
+            });
 
-                expect(replayed).toStrictEqual(result);
-                assert.strictEqual(
-                  (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
-                  1
-                );
+            expect(replayed).toStrictEqual(result);
+            assert.strictEqual(
+              (yield* client['notes.thread']({ noteId: note.id, limit: 10 })).items.length,
+              1
+            );
 
-                return;
-              }
-
-              yield* Effect.sleep('25 millis');
-            }
-
-            assert.fail('Recording was not posted');
+            return;
           })
         )
       );

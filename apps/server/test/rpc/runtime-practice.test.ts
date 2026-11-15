@@ -29,7 +29,15 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
 import { serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 import { createStudyTest } from '#testing/server-test';
+
+const isReady = (slot: { status: string }) => slot.status === 'ready';
+
+const isSettled = (slot: { status: string }) => isReady(slot) || slot.status === 'failed';
+
+const isDrained = (execution: { status: string }) =>
+  ['completed', 'cancelled'].includes(execution.status);
 
 for (const mode of [
   'normal',
@@ -215,16 +223,15 @@ for (const mode of [
               yield* client['pages.archive']({ id: document.id, archived: true });
 
             yield* client['system.startWorkers']({});
-            let ready = initial;
-
-            for (let i = 0; i < (mode === 'transient-exhausted' ? 500 : 150); i++) {
-              ready = yield* client['learning.practice']({ projectId: project.id });
-
-              if (ready.slots.every((slot) => slot.status === 'ready' || slot.status === 'failed'))
-                break;
-
-              yield* Effect.sleep('25 millis');
-            }
+            let ready = yield* pollUntil(
+              client['learning.practice']({ projectId: project.id }),
+              (value) => value.slots.every(isSettled),
+              {
+                attempts: mode === 'transient-exhausted' ? 500 : 150,
+                interval: '25 millis',
+                message: 'Practice did not settle'
+              }
+            );
 
             if (mode === 'archived-before-request')
               yield* client['pages.archive']({ id: document.id, archived: false });
@@ -260,18 +267,20 @@ for (const mode of [
                   yield* client['learning.retryPracticeQuestion']({ slotId: slot.slotId });
                 }
 
-                for (let i = 0; i < 150; i++) {
-                  ready = yield* client['learning.practice']({ projectId: project.id });
-
-                  if (ready.slots.every((slot) => slot.status === 'ready')) break;
-
-                  yield* Effect.sleep('25 millis');
-                }
+                ready = yield* pollUntil(
+                  client['learning.practice']({ projectId: project.id }),
+                  (value) => value.slots.every(isReady),
+                  {
+                    attempts: 150,
+                    interval: '25 millis',
+                    message: 'Retried practice did not settle'
+                  }
+                );
               }
             }
 
             assert.ok(
-              ready.slots.every((slot) => slot.status === 'ready'),
+              ready.slots.every(isReady),
               JSON.stringify(
                 {
                   ready,
@@ -334,28 +343,12 @@ for (const mode of [
 
             function* assertRefillDrained() {
               const refillSlot = refill.slots.find((slot) => slot.kind === 'open')!;
-              let drained = false;
 
-              for (let i = 0; i < 100; i++) {
-                const executions = yield* client['workflows.executions']({
-                  limit: 100,
-                  correlationId: refillSlot.slotId
-                });
-
-                if (
-                  executions.items.length &&
-                  executions.items.every((execution) =>
-                    ['completed', 'cancelled'].includes(execution.status)
-                  )
-                ) {
-                  drained = true;
-                  break;
-                }
-
-                yield* Effect.sleep('25 millis');
-              }
-
-              assert.ok(drained === true);
+              yield* pollUntil(
+                client['workflows.executions']({ limit: 100, correlationId: refillSlot.slotId }),
+                (value) => value.items.length > 0 && value.items.every(isDrained),
+                { attempts: 100, interval: '25 millis', message: 'Practice refill did not drain' }
+              );
             }
 
             assert.strictEqual(generations, count);
