@@ -168,7 +168,7 @@ export default defineRule({
       return (
         ['platform/ai/document-processing/index', 'platform/ai/document-processing/agent'].includes(
           value?.target ?? ''
-        ) && value.name === 'generateDocumentAgent'
+        ) && value?.name === 'generateDocumentAgent'
       );
     }
 
