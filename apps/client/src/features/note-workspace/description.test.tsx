@@ -4,7 +4,6 @@ import { summarySchema as materialSummarySchema } from '@study/contracts/pages/s
 import { sourceKinds } from '@study/contracts/sources/sniff';
 import { mediaSize } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -15,6 +14,8 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { Description } from './description';
 import { History } from './history';
@@ -30,16 +31,6 @@ const rpc = vi.hoisted(() => ({
 
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
-}));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.updateMessageDescription': rpc.update,
-      'notes.thread': rpc.thread,
-      'notes.messageVersionCitations': rpc.citations,
-      'notes.noteSelection': rpc.selection,
-      'sources.source': rpc.source
-    })
 }));
 
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
@@ -71,16 +62,16 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   citations: []
 });
 
-const clients: QueryClient[] = [];
-
 function mount(children: ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = rpcHandlersTransport({
+    'notes.updateMessageDescription': rpc.update,
+    'notes.thread': rpc.thread,
+    'notes.messageVersionCitations': rpc.citations,
+    'notes.noteSelection': rpc.selection,
+    'sources.source': rpc.source
   });
 
-  clients.push(client);
-
-  return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
+  return render(children, { wrapper: fixture.wrapper });
 }
 
 async function openDescription() {
@@ -104,7 +95,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
 });
 
 testStable(
@@ -218,6 +208,14 @@ testStable(
     rpc.source.mockImplementation(async ({ id }: { id: bigint }) => ({
       id,
       name: `Source ${id}`,
+      kind: sourceKinds[Number(id - 100n)],
+      mime: 'application/octet-stream',
+      origin: 'attachment',
+      projectId: null,
+      projectName: null,
+      sha256: new Uint8Array(),
+      uri: null,
+      createdAt: 1n,
       sizeBytes: 2048n
     }));
     const root = createRootRoute({

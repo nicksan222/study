@@ -1,112 +1,68 @@
+import { RegistryContext, useAtom } from '@effect/atom-react';
 import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
 import type { sourceCopySchema } from '@study/contracts/pages/rpc';
 import type { Page } from '@study/contracts/pages/types';
-import type { executionCursorSchema } from '@study/contracts/workflows/schemas';
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
+import { Atom } from 'effect/reactivity';
+import { useContext } from 'react';
 
-import { invalidatePages } from '#client/lib/study-client/pages.queries.ts';
-import { request } from '#client/lib/study-client/request.ts';
-
-/** A current pending revision never borrows a previous revision's extraction. */
-
-export const sourceExtractionOptions = (
+/** Current and pinned extraction reads never borrow another revision's body. */
+export function useSourceExtraction(
   id: SourceId,
-  exact?: { revision: bigint; snapshotId: ContentSnapshotId }
-) =>
-  queryOptions({
-    queryKey: exact
-      ? ['sources', 'extraction', String(id), String(exact.revision), String(exact.snapshotId)]
-      : ['sources', 'current-extraction', String(id)],
-    queryFn: ({ signal }) =>
-      request(
-        (rpc) =>
-          exact
-            ? rpc['sources.extraction']({
-                sourceId: id,
-                revision: exact.revision,
-                snapshotId: exact.snapshotId
-              })
-            : rpc['sources.currentExtraction']({ id }),
-        signal
-      ),
-    refetchInterval: (query) => (query.state.data ? false : 3000)
+  exact?: { revision: bigint; snapshotId: ContentSnapshotId },
+  enabled = true
+) {
+  const current = rpc.sources.currentExtraction.useQuery({ id }, { enabled: enabled && !exact });
+  const pinned = rpc.sources.extraction.useQuery(exact ? { sourceId: id, ...exact } : undefined, {
+    enabled
   });
 
-/** Missing extraction is pending only while its own workflow has no reported outcome. */
-export const sourceProcessingExecutionOptions = (id: SourceId) =>
-  queryOptions({
-    queryKey: ['sources', 'processing-execution', String(id)],
-    queryFn: async ({ signal }) => {
-      const processing = await request((rpc) => rpc['sources.sourceProcessing']({ id }), signal);
+  return exact ? pinned : current;
+}
 
-      if (!processing.requestId) return null;
-
-      let before: typeof executionCursorSchema.Type | undefined;
-
-      do {
-        const executions = await request(
-          (rpc) =>
-            rpc['workflows.executions']({
-              correlationId: processing.requestId!,
-              limit: 100,
-              before
-            }),
-          signal
-        );
-
-        const extraction = executions.items.find(
-          (item) =>
-            item.workflow === 'source-ingestion/v1' || item.workflow === 'source-correction/v1'
-        );
-
-        if (extraction) return extraction;
-
-        before = executions.next ?? undefined;
-      } while (before);
-
-      return null;
+/** The bounded live workflow view follows the source's current request identity. */
+export function useSourceProcessingExecution(id: SourceId) {
+  const processing = rpc.sources.sourceProcessing.useQuery({ id });
+  const executions = rpc.workflows.executions.useQuery(
+    {
+      correlationId: processing.data?.requestId ?? undefined,
+      workflows: ['source-ingestion/v1', 'source-correction/v1'],
+      limit: 1
     },
-    refetchInterval: 3000
-  });
+    { enabled: !!processing.data?.requestId }
+  );
+  const state = processing.isError || processing.isPending ? processing : executions;
 
-export const sourceOptions = (id: SourceId | null) =>
-  queryOptions({
-    queryKey: ['sources', 'detail', String(id)],
-    enabled: id !== null,
-    queryFn: ({ signal }) => request((rpc) => rpc['sources.source']({ id: id! }), signal),
-    retry: false,
-    staleTime: 30_000
-  });
+  return {
+    ...state,
+    data: executions.data?.items.find(
+      (item) => item.workflow === 'source-ingestion/v1' || item.workflow === 'source-correction/v1'
+    )
+  };
+}
 
 type Input = typeof sourceCopySchema.Type;
 
 type CopyState = { pending: boolean; input?: Input; page?: Page; error?: unknown };
 
-/** The query cache retains an immutable copy request until its uncertain receipt is recovered. */
+const copies = Atom.family((_key: string) =>
+  Atom.make<CopyState>({ pending: false }).pipe(Atom.keepAlive)
+);
 
+/** An immutable draft request survives reconnects until its receipt is acknowledged. */
 export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
-  const cache = useQueryClient();
-
-  const key = ['source-copy', String(sourceId), noteId?.toString()];
-
-  const initial: CopyState = { pending: false };
-
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
+  const atom = copies(`${sourceId}:${noteId ?? ''}`);
+  const registry = useContext(RegistryContext);
+  const [state, setState] = useAtom(atom);
 
   async function copy(extraction: {
     revision: bigint;
     snapshotId: Input['snapshotId'];
     name: string;
   }) {
-    const current = cache.getQueryData<CopyState>(key) ?? initial;
+    const current = registry.get(atom);
 
-    if (current.pending) return undefined;
+    if (current.pending) return;
 
     if (current.page) return current.page;
 
@@ -119,27 +75,26 @@ export function useSourceCopy(sourceId: SourceId, noteId?: NoteId) {
       snapshotId: extraction.snapshotId
     };
 
-    cache.setQueryData<CopyState>(key, { pending: true, input });
+    setState({ pending: true, input });
 
     try {
-      const page = await request((rpc) => rpc['pages.copySource'](input));
+      const page = await rpc.pages.copySource.call(input);
 
-      cache.setQueryData<CopyState>(key, { pending: false, input, page });
-      void invalidatePages(cache);
+      setState({ pending: false, input, page });
 
       return page;
     } catch (error) {
-      cache.setQueryData<CopyState>(key, { pending: false, input, error });
+      setState({ pending: false, input, error });
 
-      return undefined;
+      return;
     }
   }
 
   function acknowledge() {
-    const current = cache.getQueryData<CopyState>(key);
+    const current = registry.get(atom);
 
-    if (current?.page && !current.pending) cache.setQueryData<CopyState>(key, initial);
+    if (current.page && !current.pending) setState({ pending: false });
   }
 
-  return { ...state.data, copy, acknowledge };
+  return { ...state, copy, acknowledge };
 }

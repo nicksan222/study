@@ -1,17 +1,15 @@
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
 import { ReplayOnboarding } from '#client/features/onboarding/index.tsx';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { OnboardingProvider } from './onboarding';
 
 const api = vi.hoisted(() => ({ read: vi.fn(), save: vi.fn(), signIn: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/preferences.ts', () => ({ loadAppSettings: api.read }));
-vi.mock('#client/lib/study-client/operations.ts', () => ({ updateAppSettings: api.save }));
 vi.mock('#client/pages/settings/general/index.tsx', () => ({
   GeneralSettings: () => <div>Language control</div>
 }));
@@ -25,29 +23,25 @@ vi.mock('#client/pages/settings/ai/index.tsx', () => ({
   AiAccountSettings: () => <button onClick={api.signIn}>ChatGPT sign in</button>
 }));
 
-const caches: QueryClient[] = [];
-
 afterEach(() => {
-  caches.splice(0).forEach((cache) => cache.clear());
   vi.resetAllMocks();
 });
 
 function mount(onboarded = false, loadError = false) {
   if (loadError) api.read.mockRejectedValue(new Error('offline'));
-  else api.read.mockResolvedValue({ onboarded });
+  else api.read.mockResolvedValue({ onboarded, language: 1, appearance: 3, zoomPercent: 100 });
 
   api.save.mockResolvedValue({});
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  const cache = rpcTestTransport(async (tag, input) =>
+    tag === 'settings.appSettings' ? api.read() : api.save(input)
+  );
 
-  caches.push(cache);
   render(
-    <QueryClientProvider client={cache}>
+    <cache.wrapper>
       <OnboardingProvider>
         <ReplayOnboarding />
       </OnboardingProvider>
-    </QueryClientProvider>
+    </cache.wrapper>
   );
 }
 
@@ -96,7 +90,9 @@ testStable('shows first run, supports back, and saves completion before closing'
   fireEvent.click(screen.getByRole('button', { name: 'ChatGPT sign in' }));
   expect(api.signIn).toHaveBeenCalledOnce();
   fireEvent.click(screen.getByRole('button', { name: /OnboardingFinish/ }));
-  await waitFor(() => expect(api.save).toHaveBeenCalledWith({ onboarded: true }));
+  await waitFor(() =>
+    expect(api.save).toHaveBeenCalledWith(expect.objectContaining({ onboarded: true }))
+  );
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
 testStable(

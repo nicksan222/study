@@ -1,21 +1,22 @@
+import { RegistryContext } from '@effect/atom-react';
 import { StudyError } from '@study/contracts/errors';
 import { annotationSchema } from '@study/contracts/pages/evidence';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
+import type { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 import { expect, vi, beforeEach } from 'vite-plus/test';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { AnnotationControls } from './annotation-controls';
+import { annotationDrafts } from './annotation-drafts';
 import type { AnnotationDraft } from './annotation-state';
 import { savedDraft } from './annotation-state';
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const rawTarget = {
   pageId: 41n,
@@ -48,19 +49,37 @@ beforeEach(() => {
   rpc['pages.version'].mockRejectedValue(new StudyError('not_found', 'Retired'));
   rpc['pages.annotation'].mockResolvedValue(annotation);
   rpc['pages.annotationHistory'].mockResolvedValue({ items: [annotation], nextCursor: null });
-  vi.mocked(request).mockImplementation((invoke) => invoke(rpc as never) as never);
 });
 
 function mount() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const harness = rpcHandlersTransport(rpc);
+  let registry: AtomRegistry.AtomRegistry | undefined;
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <harness.wrapper>
+      <RegistryContext.Consumer>
+        {(value) => {
+          registry = value;
+
+          return null;
+        }}
+      </RegistryContext.Consumer>
+      {children}
+    </harness.wrapper>
   );
 
   return {
     ...render(<AnnotationControls annotation={annotation} />, { wrapper }),
-    client,
-    wrapper
+    wrapper,
+    setTarget(target: AnnotationDraft['target']) {
+      if (!registry) throw new Error('Draft registry not mounted');
+
+      const atom = annotationDrafts(annotation.id);
+      const current = registry.get(atom);
+
+      if (!current) throw new Error('Annotation draft not initialized');
+
+      registry.set(atom, { ...current, target });
+    }
   };
 }
 
@@ -118,17 +137,17 @@ testStable(
 );
 
 testStable(
-  'retains per-client drafts across remount and isolates another query client',
+  'retains drafts across caller remount and isolates another connection registry',
   async () => {
     const user = userEvent.setup();
     const view = mount();
 
     await user.type(screen.getByLabelText('PageAnnotationNote'), ' retained');
-    view.unmount();
-    const again = render(<AnnotationControls annotation={annotation} />, { wrapper: view.wrapper });
+    view.rerender(<></>);
+    view.rerender(<AnnotationControls annotation={annotation} />);
 
     expect(screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original retained');
-    again.unmount();
+    view.unmount();
     mount();
     expect(screen.getByLabelText('PageAnnotationNote')).toHaveValue('Original');
   }
@@ -171,9 +190,11 @@ testStable(
     const deleted = { ...annotation, revision: 2n, deleted: true, operation: 'delete' };
 
     rpc['pages.reviseAnnotation'].mockResolvedValue({ outcome: 'saved', annotation: deleted });
-    rpc['pages.annotationHistory'].mockImplementation(({ cursor }) =>
+    rpc['pages.annotationHistory'].mockImplementation(({ limit }) =>
       Promise.resolve(
-        cursor ? { items: [annotation], nextCursor: null } : { items: [deleted], nextCursor: 2n }
+        limit > 30
+          ? { items: [deleted, annotation], nextCursor: null }
+          : { items: [deleted], nextCursor: 2n }
       )
     );
     const user = userEvent.setup();
@@ -203,8 +224,8 @@ testStable(
     await waitFor(() =>
       expect(rpc['pages.annotationHistory']).toHaveBeenCalledWith({
         id: annotation.id,
-        limit: 30,
-        cursor: 2n
+        limit: 60,
+        cursor: undefined
       })
     );
     expect(await screen.findByText(/AnnotationCreated/)).toBeInTheDocument();
@@ -224,12 +245,7 @@ testStable(
       annotation: { ...annotation, revision: 2n, operation: 'reanchor', target: next }
     });
     await user.type(screen.getByLabelText('PageAnnotationNote'), ' unsaved');
-    act(() =>
-      view.client.setQueryData(
-        ['annotationDraft', String(annotation.id)],
-        (old: AnnotationDraft) => ({ ...old, target: next })
-      )
-    );
+    act(() => view.setTarget(next));
     await user.click(screen.getByText('AnnotationReanchor'));
     await user.click(screen.getByText('AnnotationCommitTarget'));
     await waitFor(() =>

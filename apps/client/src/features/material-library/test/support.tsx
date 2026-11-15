@@ -4,21 +4,19 @@ import {
   materialSummarySchema,
   materialVersionDetailSchema
 } from '@study/contracts/materials/schemas';
+import { configureRpcTransport } from '@study/contracts/react';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { sourceSchema } from '@study/contracts/sources/schemas';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render, waitFor } from '@testing-library/react';
-import { Effect, Schema } from 'effect';
+import { Effect, Option, Schema } from 'effect';
 import { vi } from 'vite-plus/test';
 
 import { Providers } from '#client/app/providers.tsx';
 import { createAppRouter } from '#client/app/router.ts';
 import { authoredPage } from '#client/features/document-editing/test-support.ts';
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import { createStudyQueryClient } from '#client/lib/query-client.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 export function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -92,6 +90,8 @@ export function summary(id = 41n) {
 
 export function materialRpc() {
   return {
+    'pages.count': vi.fn<StudyClient['pages.count']>().mockReturnValue(Effect.succeed(0n)),
+    'materials.count': vi.fn<StudyClient['materials.count']>().mockReturnValue(Effect.succeed(1n)),
     'pages.create': vi.fn<StudyClient['pages.create']>(),
     'pages.pages': vi
       .fn<StudyClient['pages.pages']>()
@@ -200,6 +200,9 @@ export function materialRpc() {
       ),
     'sources.exportRevision': vi.fn<StudyClient['sources.exportRevision']>(),
     'sources.sourceExport': vi.fn<StudyClient['sources.sourceExport']>(),
+    'projects.findProject': vi
+      .fn<StudyClient['projects.findProject']>()
+      .mockReturnValue(Effect.succeed(Option.none())),
     'projects.projects': vi
       .fn<StudyClient['projects.projects']>()
       .mockReturnValue(Effect.succeed({ items: [], next: null })),
@@ -211,20 +214,18 @@ export function materialRpc() {
 }
 
 export function mountLibraryRoute(initial = '/pages', rpc = materialRpc()) {
-  // Substitute the RPC transport only: production options, query cache, routes and components run.
-  vi.mocked(request).mockImplementation((invoke, signal) =>
-    runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-  );
-  const queryClient = createStudyQueryClient();
+  const harness = rpcHandlersTransport(rpc);
+
+  configureRpcTransport(harness.transport);
   const history = createMemoryHistory({ initialEntries: [initial] });
-  const router = createAppRouter(history, queryClient);
+  const router = createAppRouter(history);
   const view = render(
-    <Providers queryClient={queryClient}>
+    <Providers transport={harness.transport}>
       <RouterProvider router={router} />
     </Providers>
   );
 
-  return { ...view, rpc, queryClient, history, router };
+  return { ...view, rpc, notify: harness.notify, history, router };
 }
 
 export async function locationIs(router: ReturnType<typeof createAppRouter>, pathname: string) {

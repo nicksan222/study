@@ -29,6 +29,7 @@ const probe = defineStore({
     queries: {},
     mutations: {
       save: storeMutation({
+        changes: ['settings'],
         input: Schema.Int,
         output: Schema.Void,
         run: (value) => {

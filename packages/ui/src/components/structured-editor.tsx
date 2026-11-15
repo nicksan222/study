@@ -413,14 +413,14 @@ function synchronizeBlockIdentities(editor: Editor, value: JSONContent): boolean
   const transaction = editor.state.tr;
 
   document.descendants((node, position) => {
-    if (!('blockId' in node.attrs)) return;
+    if (!('blockId' in node.attrs) && !('src' in node.attrs)) return;
 
     const current = transaction.doc.nodeAt(position);
 
     if (current?.attrs.blockId !== node.attrs.blockId || current?.attrs.src !== node.attrs.src)
       transaction.setNodeMarkup(position, undefined, {
         ...current?.attrs,
-        blockId: node.attrs.blockId,
+        ...('blockId' in node.attrs ? { blockId: node.attrs.blockId } : {}),
         ...('src' in node.attrs ? { src: node.attrs.src } : {})
       });
   });

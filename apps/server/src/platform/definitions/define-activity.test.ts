@@ -124,7 +124,7 @@ testStable('publication checkpoints capture the real activity lease inside execu
     execute: Effect.gen(function* () {
       const guard = yield* PublicationGuard;
 
-      return context.transaction((context) => {
+      return context.transaction(['settings'], (context) => {
         guard.assert(context);
 
         return ++writes;

@@ -45,6 +45,7 @@ export const AssistantToolStore = defineStore({
       queries: {},
       mutations: {
         intent: storeMutation({
+          changes: ['notes'],
           input: assistantToolIntentSchema,
           output: assistantToolReceiptSchema,
           run: (input) => {
@@ -69,6 +70,7 @@ export const AssistantToolStore = defineStore({
           }
         }),
         complete: storeMutation({
+          changes: ['notes'],
           input: assistantToolResultSchema,
           output: Schema.Json,
           run: (input) => {

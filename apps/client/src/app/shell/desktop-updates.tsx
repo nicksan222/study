@@ -1,18 +1,14 @@
 import { toastManager } from '@study/ui/toast';
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 
-import {
-  desktopUpdateQueryOptions,
-  installDesktopUpdateMutationOptions
-} from '#client/lib/desktop-updates.queries.ts';
+import { useDesktopUpdate, useDesktopInstallation } from '#client/lib/desktop-updates.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 /** Checks signed desktop builds quietly and downloads only after explicit consent. */
 export function DesktopUpdates() {
   const { t } = useI18n();
-  const client = useQueryClient();
-  const installing = useIsMutating({ mutationKey: ['desktop-update-install'] }) > 0;
+  const installation = useDesktopInstallation();
+  const installing = installation.isPending;
   const announced = useRef<string | null>(null);
   const progress = useRef<string | null>(null);
   const notice = useRef<string | null>(null);
@@ -22,39 +18,37 @@ export function DesktopUpdates() {
     toastManager.close(notice.current);
     notice.current = null;
   }, []);
-  const update = useQuery(desktopUpdateQueryOptions());
-  const install = useMutation({
-    ...installDesktopUpdateMutationOptions(),
-    onMutate: () => {
+  const update = useDesktopUpdate();
+  const runInstall = installation.mutateAsync;
+  const install = useCallback(
+    function install(version: string) {
+      if (installing) return;
+
       progress.current = toastManager.add({ title: t('DesktopUpdateInstalling'), timeout: 0 });
-    },
-    onSettled: () => {
-      if (progress.current) toastManager.close(progress.current);
-    },
-    onError: (_error, version) => {
-      if (announced.current !== version) return;
+      void runInstall(version)
+        .catch(() => {
+          if (announced.current !== version) return;
 
-      notice.current = toastManager.add({
-        title: t('DesktopUpdateFailed'),
-        description: t('DesktopUpdateRetryHelp'),
-        type: 'error',
-        timeout: 0,
-        actionProps: {
-          children: t('Retry'),
-          onClick: () => {
-            if (
-              announced.current !== version ||
-              client.isMutating({ mutationKey: ['desktop-update-install'] })
-            )
-              return;
-
-            closeNotice();
-            install.mutate(version);
-          }
-        }
-      });
-    }
-  });
+          notice.current = toastManager.add({
+            title: t('DesktopUpdateFailed'),
+            description: t('DesktopUpdateRetryHelp'),
+            type: 'error',
+            timeout: 0,
+            actionProps: {
+              children: t('Retry'),
+              onClick: () => {
+                closeNotice();
+                install(version);
+              }
+            }
+          });
+        })
+        .finally(() => {
+          if (progress.current) toastManager.close(progress.current);
+        });
+    },
+    [installing, runInstall, t, closeNotice]
+  );
 
   useEffect(() => {
     if (installing) closeNotice();
@@ -77,18 +71,14 @@ export function DesktopUpdates() {
       actionProps: {
         children: t('DesktopUpdateInstall'),
         onClick: () => {
-          if (
-            announced.current !== version ||
-            client.isMutating({ mutationKey: ['desktop-update-install'] })
-          )
-            return;
+          if (announced.current !== version || installing) return;
 
           closeNotice();
-          install.mutate(version);
+          install(version);
         }
       }
     });
-  }, [update.data, install, t, closeNotice, client]);
+  }, [update.data, install, t, closeNotice, installing]);
 
   return null;
 }

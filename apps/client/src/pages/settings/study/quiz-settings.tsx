@@ -1,25 +1,16 @@
+import { rpc } from '@study/contracts/react';
 import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
 import type { QuizSettings, SpecializedPracticeKind } from '@study/contracts/settings/types';
 import { RetryButton } from '@study/ui/action-button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Settings } from '@study/ui/settings';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import {
-  quizSettingsOptions,
-  quizSettingsMutationOptions
-} from '#client/lib/study-client/quiz-settings.queries.ts';
 
 function useQuizSettings(kind?: SpecializedPracticeKind) {
-  const client = useQueryClient();
-  const query = useQuery(quizSettingsOptions());
-  const mutation = useMutation({
-    ...quizSettingsMutationOptions(),
-    onSuccess: (_, configuration) =>
-      client.setQueryData(quizSettingsOptions().queryKey, configuration)
-  });
+  const query = rpc.settings.quizSettings.useQuery({});
+  const mutation = rpc.settings.saveQuizSettings.useMutation();
   const configuration = query.data ?? defaultQuizSettings;
 
   const specialized = kind ? practiceGenerationSettings(configuration, kind) : undefined;
@@ -31,14 +22,16 @@ function useQuizSettings(kind?: SpecializedPracticeKind) {
     pending: mutation.isPending,
     error: query.isError || mutation.isError,
     update: (patch: Partial<QuizSettings>) =>
-      mutation.mutate(
-        kind
-          ? {
-              ...configuration,
-              practice: { ...configuration.practice, [kind]: { ...specialized, ...patch } }
-            }
-          : { ...configuration, ...patch }
-      ),
+      void mutation
+        .mutateAsync(
+          kind
+            ? {
+                ...configuration,
+                practice: { ...configuration.practice, [kind]: { ...specialized, ...patch } }
+              }
+            : { ...configuration, ...patch }
+        )
+        .catch(() => {}),
     retry: () => {
       mutation.reset();
       void query.refetch();

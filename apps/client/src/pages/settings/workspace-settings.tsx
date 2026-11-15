@@ -120,9 +120,16 @@ function PreferenceNumber({
   const { t } = useI18n();
   const { query, mutation } = useControls();
   const [draft, setDraft] = useState<string>();
+  const [confirmed, setConfirmed] = useState<number>();
+
+  if (confirmed !== undefined && query.data?.[field] === confirmed) {
+    setConfirmed(undefined);
+    setDraft(undefined);
+  }
+
   const value = draft ?? String(query.data![field]);
   const number = Number(value);
-  const valid = value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
+  const valid = validPreferenceNumber(value, min, max);
 
   return (
     <Settings.NumberRow
@@ -137,7 +144,11 @@ function PreferenceNumber({
       error={valid ? undefined : t('WorkspaceNumberValidation')}
       submitLabel={t(mutation.isPending ? 'Saving' : 'Save')}
       onSubmit={() => {
-        if (valid) mutation.mutate({ [field]: number }, { onSuccess: () => setDraft(undefined) });
+        if (valid)
+          void mutation
+            .mutateAsync({ [field]: number })
+            .then(() => setConfirmed(number))
+            .catch(() => {});
       }}
     />
   );
@@ -338,12 +349,21 @@ function ConversionStrategySetting() {
         description={t('WorkspaceConversionStrategyHelp')}
         value={available ? selected : ''}
         disabled={mutation.isPending || (available && strategies.data.length === 1)}
-        options={strategies.data.map((strategy) => ({ value: strategy.id, label: strategy.name }))}
+        options={(strategies.data ?? []).map((strategy) => ({
+          value: strategy.id,
+          label: strategy.name
+        }))}
         onValueChange={(value) => {
-          if (strategies.data.some((strategy) => strategy.id === value))
+          if (strategies.data?.some((strategy) => strategy.id === value))
             mutation.mutate({ textConversionStrategy: value });
         }}
       />
     </>
   );
+}
+
+function validPreferenceNumber(value: string, min: number, max: number) {
+  const number = Number(value);
+
+  return value.trim() !== '' && Number.isInteger(number) && number >= min && number <= max;
 }

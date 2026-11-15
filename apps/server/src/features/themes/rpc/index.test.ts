@@ -23,13 +23,14 @@ import { assert } from 'vite-plus/test';
 import { Themes } from '#server/features/themes/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { ThemesRpcLive } from './index.ts';
 
 testStable('native themes RPC exposes the catalog and typed failures', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = ThemesRpcLive.pipe(
+  const handlers = ThemesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(Themes.layer),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );

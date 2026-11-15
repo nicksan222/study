@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import { recordingIdSchema, noteIdSchema } from '../ids.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { recordingViewSchema, recordingPostSchema } from './schemas.ts';
 
 export const recordingPageInputSchema = Schema.Struct({
@@ -28,40 +28,70 @@ export const postRecordingInputSchema = Schema.Struct({
   name: Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(255))
 });
 
-export const RecordingsRpc = RpcGroup.make(
-  Rpc.make('createRecording', {
-    payload: { id: noteIdSchema },
-    success: recordingViewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('appendRecording', {
-    payload: appendRecordingInputSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('recording', {
-    payload: { id: recordingIdSchema },
-    success: recordingViewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('recordings', {
-    payload: recordingPageInputSchema,
-    success: recordingPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('deleteRecording', {
-    payload: { id: recordingIdSchema },
-    success: Schema.Boolean,
-    error: failureSchema
-  }),
-  Rpc.make('recordingPost', {
-    payload: { requestId: Schema.String.check(Schema.isMinLength(1)) },
-    success: recordingPostSchema,
-    error: failureSchema
-  }),
-  Rpc.make('postRecording', {
-    payload: postRecordingInputSchema,
-    success: recordingPostSchema,
-    error: failureSchema
-  })
-).prefix('recordings.');
+export const recordingsEndpoints = {
+  create: mutation(
+    'recordings.createRecording',
+    {
+      payload: { id: noteIdSchema },
+      success: recordingViewSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.recordings] }
+  ),
+  append: mutation(
+    'recordings.appendRecording',
+    {
+      payload: appendRecordingInputSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.recordings] }
+  ),
+  get: liveQuery(
+    'recordings.recording',
+    {
+      payload: { id: recordingIdSchema },
+      success: recordingViewSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  list: liveQuery(
+    'recordings.recordings',
+    {
+      payload: recordingPageInputSchema,
+      success: recordingPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  delete: mutation(
+    'recordings.deleteRecording',
+    {
+      payload: { id: recordingIdSchema },
+      success: Schema.Boolean,
+      error: failureSchema
+    },
+    { changes: [dependency.recordings] }
+  ),
+  recordingPost: liveQuery(
+    'recordings.recordingPost',
+    {
+      payload: { requestId: Schema.String.check(Schema.isMinLength(1)) },
+      success: recordingPostSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  postRecording: mutation(
+    'recordings.postRecording',
+    {
+      payload: postRecordingInputSchema,
+      success: recordingPostSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.recordings] }
+  )
+};
+
+export const RecordingsRpc = endpointGroup(recordingsEndpoints);

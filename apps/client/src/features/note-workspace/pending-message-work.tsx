@@ -1,29 +1,31 @@
+import { rpc } from '@study/contracts/react';
 import { CancelIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { Thinking } from '@study/ui/loading';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AgentProgress } from '../agent-progress';
 import type { MessageWorkTarget } from './message-work-details';
-import { noteWorkKey, stopNoteWorkOptions } from './note-pending-work.queries';
-import { executionOptions, provenanceOptions, noteKey } from './note-workspace.queries';
+import { useStopNoteWork } from './note-pending-work.queries';
 import { NoteReadError } from './status';
 import { workActivityState } from './work-state';
 
 export function PendingMessageWork(target: MessageWorkTarget) {
   const { t } = useI18n();
-  const provenance = useQuery({
-    ...provenanceOptions(target.noteId, target.messageId, target.versionId),
-    select: (receipt) => (receipt.state === 'available' ? receipt.requestId : undefined)
+  const provenance = rpc.notes.replyVersion.useQuery({
+    noteId: target.noteId,
+    messageId: target.messageId,
+    versionId: target.versionId
   });
-  const requestId = provenance.isError ? undefined : provenance.data;
+  const requestId =
+    provenance.isError || provenance.data?.state !== 'available'
+      ? undefined
+      : provenance.data.requestId;
 
-  if (requestId)
-    return <PendingRequestWork key={requestId} requestId={requestId} target={target} />;
+  if (requestId) return <PendingRequestWork key={requestId} requestId={requestId} />;
 
   return (
     <>
@@ -35,15 +37,9 @@ export function PendingMessageWork(target: MessageWorkTarget) {
   );
 }
 
-function PendingRequestWork({
-  requestId,
-  target
-}: {
-  requestId: string;
-  target: MessageWorkTarget;
-}) {
+function PendingRequestWork({ requestId }: { requestId: string }) {
   const { t } = useI18n();
-  const model = usePendingRequestWork(requestId, target);
+  const model = usePendingRequestWork(requestId);
   const { work, cancel, execution, stopping } = model;
 
   return (
@@ -59,9 +55,11 @@ function PendingRequestWork({
               size="sm"
               variant="ghost-muted"
               onClick={async () => {
-                const result = await work.refetch();
-
-                if (!result.isError) cancel.reset();
+                try {
+                  await rpc.workflows.executions.read({ correlationId: requestId, limit: 30 });
+                  work.refetch();
+                  cancel.reset();
+                } catch {}
               }}
             >
               {t('LibraryRefresh')}
@@ -112,21 +110,10 @@ function PendingWorkStatus({
   );
 }
 
-function usePendingRequestWork(requestId: string, target: MessageWorkTarget) {
-  const cache = useQueryClient();
-  const work = useQuery(executionOptions(requestId));
+function usePendingRequestWork(requestId: string) {
+  const work = rpc.workflows.executions.useQuery({ correlationId: requestId, limit: 30 });
   const execution = work.isError ? undefined : work.data?.items[0];
-  const cancel = useMutation({
-    ...stopNoteWorkOptions(),
-    onSettled: async () => {
-      await Promise.all([
-        cache.invalidateQueries({ queryKey: noteKey(target.noteId) }),
-        cache.invalidateQueries({ queryKey: noteWorkKey(target.noteId) }),
-        cache.invalidateQueries({ queryKey: ['note-execution', requestId] }),
-        cache.invalidateQueries({ queryKey: ['notes', 'sidebar-progress'] })
-      ]);
-    }
-  });
+  const cancel = useStopNoteWork();
   const stopping = cancel.isPending || execution?.status === 'cancelling';
 
   const showCancel = execution?.canCancel || stopping || cancel.isError;

@@ -3,20 +3,15 @@ import { projectIdSchema } from '@study/contracts/ids';
 import { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { PracticeSidebarGenerations } from './sidebar-generations';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const en = catalogs.english;
 
@@ -50,20 +45,13 @@ function mount(fail = false) {
     'materials.cancelMaterialGeneration': stop
   };
 
-  vi.mocked(request).mockImplementation((invoke, signal) =>
-    runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-  );
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = rpcHandlersTransport(rpc);
+
+  render(<PracticeSidebarGenerations project={project} subjects={[]} query="" enabled />, {
+    wrapper: fixture.wrapper
   });
 
-  render(
-    <QueryClientProvider client={cache}>
-      <PracticeSidebarGenerations project={project} subjects={[]} query="" enabled />
-    </QueryClientProvider>
-  );
-
-  return { stop, list, cache };
+  return { stop, list, notify: fixture.notify };
 }
 
 testStable('recovers a running request and stops it from its sidebar card', async () => {

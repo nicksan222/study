@@ -1,3 +1,4 @@
+import { useAtom } from '@effect/atom-react';
 import type { MaterialId } from '@study/contracts/ids';
 import type {
   materialDeletionPreviewSchema,
@@ -8,13 +9,12 @@ import type {
   historyPruneSchema,
   requestHistoryPruneSchema
 } from '@study/contracts/materials/history';
+import { rpc } from '@study/contracts/react';
 import { toastManager } from '@study/ui/toast';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Atom } from 'effect/reactivity';
 import { useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import type { StudyClient } from '#client/lib/study-client/request.ts';
-import { request } from '#client/lib/study-client/request.ts';
 
 type DeletePreview = typeof materialDeletionPreviewSchema.Type;
 
@@ -25,33 +25,34 @@ type PrunePreview = typeof historyPreviewSchema.Type;
 type PruneOperation = typeof historyPruneSchema.Type;
 
 type Confirmation =
-  | { kind: 'delete'; input: Parameters<StudyClient['materials.requestDeletion']>[0] }
+  | { kind: 'delete'; input: Parameters<typeof rpc.materials.requestDeletion.call>[0] }
   | { kind: 'prune'; input: typeof requestHistoryPruneSchema.Type };
+
+const intents = Atom.family((_id: MaterialId) =>
+  Atom.make<{ operation?: PruneOperation; input?: typeof requestHistoryPruneSchema.Type }>({}).pipe(
+    Atom.keepAlive
+  )
+);
 
 /** Coordinates material cleanup previews, confirmed mutations and recovery against the selected material. */
 export function useMaterialLifecycle(id: MaterialId) {
   const { t } = useI18n();
   const [confirmation, setConfirmation] = useState<Confirmation>();
-  const client = useQueryClient();
   const [mode, setMode] = useState<'delete' | 'prune'>();
   const [deletion, setDeletion] = useState<DeletePreview>();
   const [prune, setPrune] = useState<PrunePreview>();
   const [deleteOperation, setDeleteOperation] = useState<DeleteOperation>();
 
-  client.setQueryDefaults(['material-prune-intent'], { gcTime: Infinity });
-  const pruneKey = ['material-prune-intent', String(id)];
-  const [pruneOperation, setPruneOperationState] = useState<PruneOperation | undefined>(() =>
-    client.getQueryData([...pruneKey, 'receipt'])
-  );
-  const [pruneInput, setPruneInput] = useState<typeof requestHistoryPruneSchema.Type | undefined>(
-    () => client.getQueryData([...pruneKey, 'input'])
-  );
+  const [intent, setIntent] = useAtom(intents(id));
+  const pruneOperation = intent.operation;
+  const pruneInput = intent.input;
 
-  function setPruneOperation(value: PruneOperation | undefined) {
-    setPruneOperationState(value);
+  function setPruneOperation(operation: PruneOperation | undefined) {
+    setIntent((value) => ({ ...value, operation }));
+  }
 
-    if (value) client.setQueryData([...pruneKey, 'receipt'], value);
-    else client.removeQueries({ queryKey: [...pruneKey, 'receipt'], exact: true });
+  function setPruneInput(input: typeof requestHistoryPruneSchema.Type | undefined) {
+    setIntent((value) => ({ ...value, input }));
   }
 
   const [keep, setKeep] = useState('10');
@@ -69,7 +70,6 @@ export function useMaterialLifecycle(id: MaterialId) {
 
     try {
       await action();
-      await client.invalidateQueries({ queryKey: ['materials'] });
     } catch {
       setFailed(true);
     } finally {
@@ -84,16 +84,14 @@ export function useMaterialLifecycle(id: MaterialId) {
       setPrune(undefined);
 
       if (mode === 'delete')
-        setDeletion(await request((rpc) => rpc['materials.previewDeletion']({ materialId: id })));
+        setDeletion(await rpc.materials.previewDeletion.read({ materialId: id }));
       else {
         operationId.current = crypto.randomUUID();
         setPrune(
-          await request((rpc) =>
-            rpc['materials.previewHistoryPrune']({
-              materialId: id,
-              policy: { keepLatest: Number(keep) }
-            })
-          )
+          await rpc.materials.previewHistoryPrune.read({
+            materialId: id,
+            policy: { keepLatest: Number(keep) }
+          })
         );
       }
     });
@@ -130,12 +128,11 @@ export function useMaterialLifecycle(id: MaterialId) {
       let result: DeleteOperation | PruneOperation;
 
       if (submitted.kind === 'delete') {
-        result = await request((rpc) => rpc['materials.requestDeletion'](submitted.input));
+        result = await rpc.materials.requestDeletion.call(submitted.input);
         setDeleteOperation(result);
       } else {
         setPruneInput(submitted.input);
-        client.setQueryData([...pruneKey, 'input'], submitted.input);
-        result = await request((rpc) => rpc['materials.requestHistoryPrune'](submitted.input));
+        result = await rpc.materials.requestHistoryPrune.call(submitted.input);
         setPruneOperation(result);
       }
 
@@ -157,19 +154,17 @@ export function useMaterialLifecycle(id: MaterialId) {
     if (!pruneInput) return;
 
     return run(async () => {
-      setPruneOperation(await request((rpc) => rpc['materials.requestHistoryPrune'](pruneInput)));
+      setPruneOperation(await rpc.materials.requestHistoryPrune.call(pruneInput));
     });
   }
 
   function refreshOperation() {
     return run(async () => {
       if (mode === 'delete')
-        setDeleteOperation(await request((rpc) => rpc['materials.deletion']({ materialId: id })));
+        setDeleteOperation(await rpc.materials.deletion.read({ materialId: id }));
       else if (pruneOperation)
         setPruneOperation(
-          await request((rpc) =>
-            rpc['materials.historyPrune']({ operationId: pruneOperation.operationId })
-          )
+          await rpc.materials.historyPrune.read({ operationId: pruneOperation.operationId })
         );
     });
   }
@@ -177,14 +172,10 @@ export function useMaterialLifecycle(id: MaterialId) {
   function retryOperation() {
     return run(async () => {
       if (mode === 'delete')
-        setDeleteOperation(
-          await request((rpc) => rpc['materials.retryDeletion']({ materialId: id }))
-        );
+        setDeleteOperation(await rpc.materials.retryDeletion.call({ materialId: id }));
       else if (pruneOperation)
         setPruneOperation(
-          await request((rpc) =>
-            rpc['materials.retryHistoryPrune']({ operationId: pruneOperation.operationId })
-          )
+          await rpc.materials.retryHistoryPrune.call({ operationId: pruneOperation.operationId })
         );
     });
   }
@@ -192,7 +183,6 @@ export function useMaterialLifecycle(id: MaterialId) {
   function nextPrune() {
     setPruneOperation(undefined);
     setPruneInput(undefined);
-    client.removeQueries({ queryKey: pruneKey });
     setPrune(undefined);
     operationId.current = crypto.randomUUID();
     setFailed(false);
@@ -227,13 +217,7 @@ export function useMaterialLifecycle(id: MaterialId) {
 }
 
 export function useDeletionRecovery(id: MaterialId) {
-  const client = useQueryClient();
-  const state = useQuery({
-    queryKey: ['material-deletion', String(id)],
-    queryFn: ({ signal }) =>
-      request((rpc) => rpc['materials.deletion']({ materialId: id }), signal),
-    retry: false
-  });
+  const state = rpc.materials.deletion.useQuery({ materialId: id });
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const lock = useRef(false);
@@ -246,9 +230,7 @@ export function useDeletionRecovery(id: MaterialId) {
     setFailed(false);
 
     try {
-      const result = await request((rpc) => rpc['materials.retryDeletion']({ materialId: id }));
-
-      client.setQueryData(['material-deletion', String(id)], result);
+      await rpc.materials.retryDeletion.call({ materialId: id });
     } catch {
       setFailed(true);
     } finally {

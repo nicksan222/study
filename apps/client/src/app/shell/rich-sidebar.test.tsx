@@ -1,7 +1,6 @@
 import { noteSchema } from '@study/contracts/notes/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
   createRouter,
@@ -13,6 +12,8 @@ import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
+import { rpcTestTransport } from '#client/test/rpc.tsx';
+
 import { RichSidebarNotes } from './rich-sidebar';
 
 const api = vi.hoisted(() => ({ settings: vi.fn(), summaries: vi.fn(), settle: vi.fn() }));
@@ -20,15 +21,22 @@ const api = vi.hoisted(() => ({ settings: vi.fn(), summaries: vi.fn(), settle: v
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english', date: String })
 }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'settings.sidebarSettings': api.settings,
-      'notes.noteSummaries': api.summaries,
-      'notes.setNoteSettled': api.settle,
-      'settings.workspacePreferences': async () => defaultWorkspacePreferences
-    })
-}));
+
+let preferences = defaultWorkspacePreferences;
+
+function fixture() {
+  return rpcTestTransport(async (tag, input) => {
+    if (tag === 'settings.sidebarSettings') return api.settings(input);
+
+    if (tag === 'notes.noteSummaries') return api.summaries(input);
+
+    if (tag === 'notes.setNoteSettled') return api.settle(input);
+
+    if (tag === 'settings.workspacePreferences') return preferences;
+
+    throw new Error(tag);
+  });
+}
 
 const notes = [1n, 2n, 3n].map((id) =>
   Schema.decodeUnknownSync(noteSchema)({
@@ -42,11 +50,9 @@ const notes = [1n, 2n, 3n].map((id) =>
   })
 );
 
-const caches: QueryClient[] = [];
-
 afterEach(() => {
   cleanup();
-  caches.splice(0).forEach((cache) => cache.clear());
+  preferences = defaultWorkspacePreferences;
 });
 
 testStable(
@@ -60,9 +66,8 @@ testStable(
         { id: 3n, generatedPageCount: 5n, running: true, activity: 'generating' }
       ]
     });
-    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cache = fixture();
 
-    caches.push(cache);
     const route = createRootRoute({
       component: () => (
         <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote="1" />
@@ -73,9 +78,9 @@ testStable(
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
     const view = render(
-      <QueryClientProvider client={cache}>
+      <cache.wrapper>
         <RouterProvider router={router} />
-      </QueryClientProvider>
+      </cache.wrapper>
     );
 
     await screen.findByText('SidebarGenerating');
@@ -110,10 +115,11 @@ testStable(
     ).toBeInTheDocument();
     expect(api.summaries).toHaveBeenCalledTimes(1);
     await act(async () => {
-      cache.setQueryData(['workspace-preferences'], {
+      preferences = {
         ...defaultWorkspacePreferences,
         sidebarDensity: 'compact'
-      });
+      };
+      await cache.notify();
     });
     const compact = screen.getByRole('link', { name: 'Note 1' });
 
@@ -128,11 +134,12 @@ testStable(
       within(screen.getByRole('link', { name: 'Note 3' })).getByText('SidebarGenerating')
     ).toBeInTheDocument();
     await act(async () => {
-      cache.setQueryData(['workspace-preferences'], {
+      preferences = {
         ...defaultWorkspacePreferences,
         sidebarDensity: 'compact',
         sidebarShowPageCounts: false
-      });
+      };
+      await cache.notify();
     });
     await waitFor(() =>
       expect(within(compact).queryByTitle('SidebarGeneratedPages')).not.toBeInTheDocument()
@@ -164,9 +171,8 @@ testStable(
 
       return Promise.resolve({});
     });
-    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cache = fixture();
 
-    caches.push(cache);
     const route = createRootRoute({
       component: () => (
         <RichSidebarNotes
@@ -182,9 +188,9 @@ testStable(
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
     const view = render(
-      <QueryClientProvider client={cache}>
+      <cache.wrapper>
         <RouterProvider router={router} />
-      </QueryClientProvider>
+      </cache.wrapper>
     );
     const settle = await screen.findByRole('button', { name: 'SidebarSettle' });
 
@@ -235,9 +241,8 @@ testStable(
         settledOverride: true
       }))
     });
-    const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const cache = fixture();
 
-    caches.push(cache);
     const route = createRootRoute({
       component: () => (
         <RichSidebarNotes notes={many} subjects={[]} project={undefined} selectedNote={null} />
@@ -248,9 +253,9 @@ testStable(
       history: createMemoryHistory({ initialEntries: ['/'] })
     });
     const view = render(
-      <QueryClientProvider client={cache}>
+      <cache.wrapper>
         <RouterProvider router={router} />
-      </QueryClientProvider>
+      </cache.wrapper>
     );
 
     const summary = await screen.findByText('SidebarSettled');
@@ -294,9 +299,8 @@ function mountSelectionSidebar() {
       activity: 'idle'
     }))
   });
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const cache = fixture();
 
-  caches.push(cache);
   const route = createRootRoute({
     component: () => (
       <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
@@ -308,9 +312,9 @@ function mountSelectionSidebar() {
   });
 
   render(
-    <QueryClientProvider client={cache}>
+    <cache.wrapper>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </cache.wrapper>
   );
 
   return router;
@@ -449,9 +453,7 @@ testStable('keeps loaded settled rows available regardless of the sidebar height
       disconnect() {}
     }
   );
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  caches.push(cache);
+  const cache = fixture();
 
   try {
     const route = createRootRoute({
@@ -467,9 +469,9 @@ testStable('keeps loaded settled rows available regardless of the sidebar height
     });
 
     render(
-      <QueryClientProvider client={cache}>
+      <cache.wrapper>
         <RouterProvider router={router} />
-      </QueryClientProvider>
+      </cache.wrapper>
     );
     fireEvent.click(await screen.findByText('SidebarSettled'));
     await waitFor(() =>
@@ -530,9 +532,8 @@ testStable('opens the conversion dialog from a row without navigating or settlin
 testStable('offers merge only after selecting at least two notes', async () => {
   api.settings.mockResolvedValue({ settledPageThreshold: 1 });
   api.summaries.mockResolvedValue({ items: [] });
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const cache = fixture();
 
-  caches.push(cache);
   const route = createRootRoute({
     component: () => (
       <RichSidebarNotes notes={notes} subjects={[]} project={undefined} selectedNote={null} />
@@ -544,9 +545,9 @@ testStable('offers merge only after selecting at least two notes', async () => {
   });
 
   render(
-    <QueryClientProvider client={cache}>
+    <cache.wrapper>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </cache.wrapper>
   );
   fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }));
   fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));

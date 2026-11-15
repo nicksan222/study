@@ -1,32 +1,36 @@
+import type { ProtocolTransport } from '@study/contracts/react';
+import { RpcProvider, configureRpcTransport, rpc } from '@study/contracts/react';
 import { Language } from '@study/contracts/settings/types';
 import { ToastProvider } from '@study/ui/toast';
 import { TooltipProvider } from '@study/ui/tooltip';
-import { QueryClientProvider, useQuery } from '@tanstack/react-query';
-import type { QueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
 
 import { AssistantProvider } from '#client/features/assistant/index.ts';
 
+import { createRpcTransport } from '../lib/effect/rpc';
 import type { Locale } from '../lib/i18n';
 import { LanguageProvider, useLanguage, useI18n } from '../lib/i18n';
-import { appSettingsQueryOptions } from '../lib/study-client/preferences.queries';
+
+const defaultTransport = createRpcTransport();
+
+configureRpcTransport(defaultTransport);
 import { BackupNotifications } from '../pages/settings/data/notifications';
 import { OnboardingProvider } from './onboarding';
 
 export function Providers({
   children,
-  queryClient,
+  transport = defaultTransport,
   locale = 'english',
   renderApp = (content) => content
 }: {
   children: ReactNode;
-  queryClient: QueryClient;
+  transport?: ProtocolTransport;
   locale?: Locale;
   renderApp?: (content: ReactNode) => ReactNode;
 }) {
   return (
-    <QueryClientProvider client={queryClient}>
+    <RpcProvider transport={transport}>
       <TooltipProvider>
         <LanguageProvider locale={locale}>
           {renderApp(
@@ -41,12 +45,12 @@ export function Providers({
           )}
         </LanguageProvider>
       </TooltipProvider>
-    </QueryClientProvider>
+    </RpcProvider>
   );
 }
 
 function SavedLanguage() {
-  const { data } = useQuery(appSettingsQueryOptions());
+  const { data } = rpc.settings.appSettings.useQuery({});
   const { setLocale } = useLanguage();
 
   useEffect(() => {

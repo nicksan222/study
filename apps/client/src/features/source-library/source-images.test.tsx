@@ -1,5 +1,6 @@
 import { StudyError } from '@study/contracts/errors';
 import { contentSnapshotIdSchema, noteIdSchema } from '@study/contracts/ids';
+import { configureRpcTransport } from '@study/contracts/react';
 import { createBlock } from '@study/contracts/sources/document';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
@@ -9,17 +10,11 @@ import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
 import { Providers } from '#client/app/providers.tsx';
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import { createStudyQueryClient } from '#client/lib/query-client.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource, materialRpc } from '../material-library/test/support';
 import { SourcePanel } from './source-panel';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 for (const context of ['current', 'historical', 'note'] as const)
   testStable(
@@ -70,12 +65,7 @@ for (const context of ['current', 'historical', 'note'] as const)
           bytes: new Uint8Array([Number(input.revision)])
         });
       });
-      vi.mocked(request).mockImplementation((invoke, signal) =>
-        runRequest(
-          invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)),
-          signal
-        )
-      );
+
       const revoke = vi.fn();
       let count = 0;
 
@@ -86,7 +76,9 @@ for (const context of ['current', 'historical', 'note'] as const)
           static revokeObjectURL = revoke;
         }
       );
-      const cache = createStudyQueryClient();
+      const harness = rpcHandlersTransport(rpc);
+
+      configureRpcTransport(harness.transport);
       const props = {
         sourceId,
         exact: context === 'historical' ? { revision: 1n, snapshotId: base.snapshotId } : undefined,
@@ -94,7 +86,7 @@ for (const context of ['current', 'historical', 'note'] as const)
         onOpenPage: vi.fn()
       };
       const view = render(
-        <Providers queryClient={cache}>
+        <Providers transport={harness.transport}>
           <SourcePanel {...props} />
         </Providers>
       );
@@ -137,21 +129,30 @@ for (const context of ['current', 'historical', 'note'] as const)
         };
 
         view.rerender(
-          <Providers queryClient={cache}>
+          <Providers transport={harness.transport}>
             <SourcePanel key="next" {...next} />
           </Providers>
         );
         await waitFor(() => expect(revoke).toHaveBeenCalledTimes(2));
         await screen.findByRole('img', { name: 'Exact original figure' });
         await waitFor(() => expect(rpc['sources.exportRevision']).toHaveBeenCalledTimes(5));
+        await waitFor(() => {
+          for (const name of ['Exact original figure', 'Replacement figure'])
+            expect(screen.getByRole('img', { name })).toHaveAttribute(
+              'src',
+              expect.stringMatching(/^blob:/)
+            );
+        });
         view.unmount();
-        expect(revoke).toHaveBeenCalledTimes(4);
+        expect(count).toBe(4);
+        expect(new Set(revoke.mock.calls.map(([url]) => url)).size).toBe(4);
+        expect(revoke).toHaveBeenCalledTimes(count);
         expect(rpc['sources.extraction']).toHaveBeenLastCalledWith(
           next.exact && { sourceId, ...next.exact }
         );
       } finally {
         view.unmount();
-        cache.clear();
+
         vi.unstubAllGlobals();
       }
     }

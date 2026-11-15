@@ -28,13 +28,14 @@ import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { LearningRpcLive } from './index.ts';
 
 testStable('native learning RPC maps missing attempts to typed failures', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = LearningRpcLive.pipe(
+  const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(
       Learning.layer.pipe(
         Layer.provideMerge(Settings.layer),
@@ -76,7 +77,9 @@ testStable('native practice RPC starts, reads, and stops project practice', asyn
     Layer.provideMerge(Pages.layer),
     Layer.provideMerge(db)
   );
-  const handlers = LearningRpcLive.pipe(Layer.provide(services));
+  const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+    Layer.provide(services)
+  );
 
   try {
     const project = context.db.orm
@@ -144,7 +147,9 @@ testStable(
       Layer.provideMerge(Pages.layer),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-    const handlers = LearningRpcLive.pipe(Layer.provideMerge(services));
+    const handlers = LearningRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
+      Layer.provideMerge(services)
+    );
 
     try {
       await Effect.runPromise(

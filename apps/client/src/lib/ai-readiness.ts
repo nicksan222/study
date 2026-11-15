@@ -1,10 +1,9 @@
 import type { ModelTier } from '@study/contracts/settings/schemas';
-import { useQuery } from '@tanstack/react-query';
 
-import { aiSettingsQueryOptions } from '#client/lib/study-client/ai-settings.queries.ts';
-import type { loadAiSettings } from '#client/lib/study-client/ai-settings.ts';
+import { useAiConfiguration } from '#client/lib/study-client/ai-settings.queries.ts';
+import type { AiConfiguration } from '#client/lib/study-client/ai-settings.ts';
 
-type AiSettings = Awaited<ReturnType<typeof loadAiSettings>>;
+type AiSettings = AiConfiguration;
 
 export function aiReadiness(data: AiSettings, tier: ModelTier): boolean {
   const setup = data.settings[tier];
@@ -17,11 +16,11 @@ export function aiReadiness(data: AiSettings, tier: ModelTier): boolean {
 export type AiReadiness = 'checking' | 'unavailable' | 'setup' | 'ready';
 
 export function useAiReadiness(tier: ModelTier): AiReadiness {
-  const query = useQuery(aiSettingsQueryOptions());
+  const query = useAiConfiguration();
 
   if (query.isPending) return 'checking' as const;
 
-  if (query.isError || !query.data) return 'unavailable' as const;
+  if (query.isError || query.stale || !query.data) return 'unavailable' as const;
 
   return aiReadiness(query.data, tier) ? ('ready' as const) : ('setup' as const);
 }

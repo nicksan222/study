@@ -30,6 +30,7 @@ import { SourcesRpcLive } from '#server/features/sources/rpc/index';
 import { exportBudget } from '#server/platform/content-export/budget';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { materialRpcHandlers } from '#testing/material-rpc';
 
@@ -57,9 +58,11 @@ testStable(
     const services = Layer.mergeAll(Materials.layer, Sources.layer, Pages.layer).pipe(
       Layer.provideMerge(Layer.succeed(Database, { store: context }))
     );
-    const handlers = Layer.mergeAll(materialRpcHandlers, SourcesRpcLive, PagesRpcLive).pipe(
-      Layer.provideMerge(services)
-    );
+    const handlers = Layer.mergeAll(
+      materialRpcHandlers,
+      SourcesRpcLive.pipe(Layer.provide(testLiveQueries)),
+      PagesRpcLive.pipe(Layer.provide(testLiveQueries))
+    ).pipe(Layer.provideMerge(services));
 
     try {
       await Effect.runPromise(

@@ -1,4 +1,6 @@
 import type { ErrorKind } from '@study/contracts/errors';
+import type { PageAnnotationId } from '@study/contracts/ids';
+import type { reviseAnnotationSchema } from '@study/contracts/pages/evidence';
 import type { annotationSchema, annotationOutcomeSchema } from '@study/contracts/pages/evidence';
 
 import type { Target } from './annotation-target';
@@ -48,4 +50,52 @@ export function retainAnnotations(
   }
 
   return [...known.values()];
+}
+
+export function annotationBlocked(draft: AnnotationDraft) {
+  return (
+    draft.pending ||
+    draft.uncertain ||
+    Boolean(draft.review) ||
+    draft.current.deleted ||
+    draft.result?.outcome === 'conflict'
+  );
+}
+
+/** Revision inputs deliberately preserve unrelated drafts when reanchoring or deleting. */
+export function annotationRevisionInput(
+  id: PageAnnotationId,
+  draft: AnnotationDraft,
+  action: 'update' | 'reanchor' | 'delete'
+): typeof reviseAnnotationSchema.Type | undefined {
+  if (annotationBlocked(draft)) return undefined;
+
+  const target = action === 'reanchor' ? draft.target : draft.current.target;
+
+  if (!target) return undefined;
+
+  return {
+    id,
+    expectedRevision: draft.current.revision,
+    target,
+    note: action === 'update' ? draft.note : draft.current.note,
+    kind: action === 'update' ? draft.kind : draft.current.kind,
+    deleted: action === 'delete'
+  };
+}
+
+export function acknowledgedAnnotationDraft(
+  draft: AnnotationDraft,
+  outcome: typeof annotationOutcomeSchema.Type,
+  submittedGeneration: number
+): AnnotationDraft {
+  if (outcome.outcome === 'saved')
+    return { ...savedDraft(draft, submittedGeneration, outcome.annotation), result: outcome };
+
+  return {
+    ...draft,
+    pending: false,
+    result: outcome,
+    review: outcome.outcome === 'conflict' ? outcome.annotation : undefined
+  };
 }

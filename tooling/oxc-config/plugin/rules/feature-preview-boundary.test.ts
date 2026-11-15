@@ -38,7 +38,7 @@ testStable(
       `import { useChat } from '../features/chat/hooks/use-chat';`,
       `export { client } from '../platform/rpc/client';`,
       `const load = import('@study/server/client');`,
-      `const load = import('@tanstack/react-query');`,
+      `const load = import('@study/contracts/react');`,
       `import { usePreferences } from '#client/lib/study-client/workspace-preferences.queries';`,
       `import { useQuiz } from '../features/practice/use-quiz';`
     ])

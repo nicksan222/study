@@ -106,6 +106,7 @@ export const SourceHistoryStore = defineStore({
       },
       mutations: {
         retireSourceHistory: storeMutation({
+          changes: ['sources'],
           input: sourceHistoryRetireSchema,
           output: sourceHistoryPreviewSchema,
           run: (input) => {

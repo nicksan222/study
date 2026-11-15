@@ -31,6 +31,7 @@ import {
   sourceCorrectionHandler
 } from '#server/features/sources/workflows/index';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { testLiveQueries } from '#testing/live-queries';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
 
 function historyEvent(f: MaterialDeletionFixture, operationId: string) {
@@ -88,7 +89,11 @@ export function acceptHistory(
           candidateIds: preview.candidateIds,
           token: preview.token
         });
-      }).pipe(Effect.provide(MaterialsRpcLive.pipe(Layer.provideMerge(f.domain()))))
+      }).pipe(
+        Effect.provide(
+          MaterialsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(f.domain()))
+        )
+      )
     )
   );
 }

@@ -1,4 +1,5 @@
-import type { comparisonSchema, restoreSchema } from '@study/contracts/pages/editing';
+import type { comparisonSchema } from '@study/contracts/pages/editing';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { Disclosure } from '@study/ui/disclosure';
 import { DocumentEditing } from '@study/ui/document-editing';
@@ -7,8 +8,6 @@ import { StatusMessage } from '@study/ui/status-message';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { invalidatePages } from '#client/lib/study-client/pages.queries.ts';
-import { request } from '#client/lib/study-client/request.ts';
 
 import { DocumentReader } from '../document-presentation';
 import { BlockEditor, authoredCopy } from './block-editor';
@@ -80,10 +79,8 @@ function PageEditEntry({ view }: { view: PageEditor }) {
 function PageDraft({ view }: { view: PageEditor }) {
   const {
     t,
-    client,
     document,
     version,
-    draftKey,
     draft,
     busy,
     outcome,
@@ -119,11 +116,9 @@ function PageDraft({ view }: { view: PageEditor }) {
                 };
 
                 setPendingSave(input);
-                client.setQueryData([...draftKey, 'pending-save'], input);
-                const result = await request((rpc) => rpc['pages.save'](input));
+                const result = await rpc.pages.save.call(input);
 
                 setOutcome(result);
-                await invalidatePages(client);
               })
             }
           >
@@ -141,13 +136,13 @@ function PageDraft({ view }: { view: PageEditor }) {
 function PageSavedActions({ view }: { view: PageEditor }) {
   const {
     t,
-    client,
     version,
-    draftKey,
     busy,
     outcome,
     setComparison,
     undoOutcome,
+    undoInput,
+    setUndoInput,
     setUndoOutcome,
     run
   } = view;
@@ -165,13 +160,11 @@ function PageSavedActions({ view }: { view: PageEditor }) {
           onClick={() =>
             void run(async () =>
               setComparison(
-                await request((rpc) =>
-                  rpc['pages.compare']({
-                    beforeVersionId: outcome.expectedVersionId,
-                    proposedVersionId: outcome.submittedVersionId,
-                    currentVersionId: outcome.currentVersionId
-                  })
-                )
+                await rpc.pages.compare.read({
+                  beforeVersionId: outcome.expectedVersionId,
+                  proposedVersionId: outcome.submittedVersionId,
+                  currentVersionId: outcome.currentVersionId
+                })
               )
             )
           }
@@ -184,22 +177,17 @@ function PageSavedActions({ view }: { view: PageEditor }) {
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              const input = client.getQueryData<typeof restoreSchema.Type>([
-                ...draftKey,
-                'undo-input'
-              ]) ?? {
+              const input = undoInput ?? {
                 pageId: version.pageId,
                 expectedVersionId: outcome.submittedVersionId,
                 restoreVersionId: version.id,
                 key: crypto.randomUUID()
               };
 
-              client.setQueryData([...draftKey, 'undo-input'], input);
-              const result = await request((rpc) => rpc['pages.restore'](input));
+              setUndoInput(input);
+              const result = await rpc.pages.restore.call(input);
 
-              client.setQueryData([...draftKey, 'undo-outcome'], result);
               setUndoOutcome(result);
-              await invalidatePages(client);
             })
           }
         >
@@ -228,18 +216,15 @@ function PageCopyStatus({ view }: { view: PageEditor }) {
           disabled={busy || error || !!savedCopy}
           onClick={() =>
             void run(async () => {
-              const copy = await request((rpc) =>
-                rpc['pages.create']({
-                  title: t('PageCopyTitle'),
-                  document: authoredCopy(draft),
-                  createKey: 'draft-copy:' + view.saveKey.current,
-                  inputs: view.version.inputs,
-                  citations: view.version.citations
-                })
-              );
+              const copy = await rpc.pages.create.call({
+                title: t('PageCopyTitle'),
+                document: authoredCopy(draft),
+                createKey: 'draft-copy:' + view.saveKey.current,
+                inputs: view.version.inputs,
+                citations: view.version.citations
+              });
 
               setSavedCopy(String(copy.id));
-              await invalidatePages(view.client);
             })
           }
         >

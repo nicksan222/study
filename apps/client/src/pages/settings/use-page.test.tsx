@@ -1,9 +1,10 @@
 import { projectIdSchema } from '@study/contracts/ids';
+import { defaultAppearancePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { useAppearance, usePage } from './use-page';
 
@@ -16,7 +17,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn(), select: vi.fn() }));
 
-vi.mock('#client/lib/study-client/operations.ts', () => ({
+vi.mock('#client/lib/study-client/types.ts', () => ({
   loadAppearance: api.load,
   updateAppSettings: api.save,
   saveAppearancePreferences: vi.fn(),
@@ -28,14 +29,23 @@ vi.mock('#client/lib/study-client/operations.ts', () => ({
 vi.mock('#client/lib/appearance.ts', () => ({ applyAppearance: vi.fn() }));
 
 function setup<T>(hook: () => T) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.appSettings') return (await api.load()).settings;
 
-  return renderHook(hook, { wrapper });
+    if (tag === 'settings.appearancePreferences') return defaultAppearancePreferences;
+
+    if (tag === 'themes.selectedTheme') return (await api.load()).selected;
+
+    if (tag === 'themes.themes') return { items: (await api.load()).themes, next: null };
+
+    if (tag === 'settings.saveAppSettings') return api.save(input);
+
+    if (tag === 'themes.selectTheme') return api.select(input);
+
+    throw new Error(tag);
+  });
+
+  return renderHook(hook, { wrapper: fixture.wrapper });
 }
 
 testStable(
@@ -48,16 +58,18 @@ testStable(
     const { result } = setup(useAppearance);
 
     await waitFor(() => expect(result.current.loading).toBe(false));
-    const calls = api.load.mock.calls.length;
 
     act(() => result.current.setAppearance('system'));
-    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ appearance: 3 }));
-    await waitFor(() => expect(api.load.mock.calls.length).toBeGreaterThan(calls));
+    await waitFor(() => expect(api.save).toHaveBeenCalledWith({ ...settings, appearance: 3 }));
   }
 );
 
 testStable('keeps the saved selection and exposes recovery when a mutation fails', async () => {
-  api.load.mockResolvedValue({ settings: { appearance: 2 }, selected: 'ocean', themes: [] });
+  api.load.mockResolvedValue({
+    settings: { appearance: 2, language: 2, zoomPercent: 100, onboarded: true },
+    selected: 'ocean',
+    themes: []
+  });
   api.select.mockRejectedValue(new Error('offline'));
   const { result } = setup(useAppearance);
 

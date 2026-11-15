@@ -1,21 +1,17 @@
 import { noteSelectionTargetSchema } from '@study/contracts/notes/context';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { SelectedTarget } from './selection';
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const original = authoredPage(31n, 'Keep selected outside', 41n);
 
@@ -26,32 +22,21 @@ const target = Schema.decodeUnknownSync(noteSelectionTargetSchema)({
   scope: { kind: 'ranges', ranges: [{ blockId: exact.document.blocks[0]!.id, start: 5, end: 13 }] }
 });
 
-const clients: QueryClient[] = [];
-
 function mount(owner = { ...original, title: 'Mechanics' }) {
   const rpc = {
     'pages.version': vi.fn<StudyClient['pages.version']>().mockReturnValue(Effect.succeed(exact)),
     'pages.page': vi.fn<StudyClient['pages.page']>().mockReturnValue(Effect.succeed(owner))
   };
 
-  vi.mocked(request).mockImplementation((invoke, signal) =>
-    runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-  );
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const fixture = rpcHandlersTransport(rpc);
 
-  clients.push(client);
-  render(
-    <QueryClientProvider client={client}>
-      <SelectedTarget target={target} />
-    </QueryClientProvider>
-  );
+  render(<SelectedTarget target={target} />, { wrapper: fixture.wrapper });
 
-  return { client, rpc };
+  return { notify: fixture.notify, rpc };
 }
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
   vi.resetAllMocks();
 });
 testStable(
@@ -76,7 +61,7 @@ testStable('does not display excerpts under a different authored owner identity'
 testStable(
   'updates the catalog title without replacing retained content with the current authored version',
   async () => {
-    const { client, rpc } = mount({ ...original, title: 'Old catalog title' });
+    const { notify, rpc } = mount({ ...original, title: 'Old catalog title' });
 
     expect(await screen.findByText('selected')).toBeVisible();
     expect(await screen.findByText('Old catalog title')).toBeVisible();
@@ -87,7 +72,7 @@ testStable(
       })
     );
     await act(async () => {
-      await client.invalidateQueries({ queryKey: ['pages'] });
+      await notify();
     });
     expect(await screen.findByText('Renamed catalog title')).toBeVisible();
     expect(screen.getByText('selected')).toBeVisible();

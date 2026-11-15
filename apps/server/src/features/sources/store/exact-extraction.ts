@@ -233,6 +233,7 @@ export const NoteSourcesStore = defineStore({
       },
       mutations: {
         archiveNote: storeMutation({
+          changes: ['sources'],
           input: Schema.Struct({
             ...c.sourceLinkSchema.fields,
             archivedAt: Schema.NullOr(Schema.BigInt)
@@ -252,6 +253,7 @@ export const NoteSourcesStore = defineStore({
           }
         }),
         attachSource: storeMutation({
+          changes: ['sources'],
           input: c.sourceLinkSchema,
           output: Schema.Void,
           run: (v) => {
@@ -275,6 +277,7 @@ export const NoteSourcesStore = defineStore({
           }
         }),
         detachSource: storeMutation({
+          changes: ['sources'],
           input: c.sourceLinkSchema,
           output: Schema.Void,
           run: (v) => {

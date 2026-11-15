@@ -2,7 +2,6 @@ import { noteIdSchema } from '@study/contracts/ids';
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { noteOptions } from '../features/note-workspace';
 import { sidebarOwner } from '../lib/study-client/sidebar-owner.queries';
 import { Page } from '../pages/notes/page';
 
@@ -12,7 +11,7 @@ export const Route = createFileRoute('/notes/$noteId')({
     section: 'notes',
     scope: 'project',
     sidebar: {
-      owner: sidebarOwner(noteIdSchema, ({ noteId }) => noteId, noteOptions)
+      owner: sidebarOwner(noteIdSchema, ({ noteId }) => noteId, 'note')
     }
   },
   params: {

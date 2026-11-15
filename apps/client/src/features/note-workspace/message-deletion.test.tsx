@@ -1,17 +1,14 @@
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { MessageDeletion } from './message-deletion';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const en = catalogs.english;
 
@@ -43,35 +40,27 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   citations: []
 });
 
-const clients: QueryClient[] = [];
+let fixture: ReturnType<typeof rpcHandlersTransport>;
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
   vi.clearAllMocks();
 });
 
 function mount() {
-  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-
-  clients.push(client);
-  render(
-    <QueryClientProvider client={client}>
-      <MessageDeletion message={message} versionId={message.versions[0]!.id} />
-    </QueryClientProvider>
-  );
+  render(<MessageDeletion message={message} versionId={message.versions[0]!.id} />, {
+    wrapper: fixture.wrapper
+  });
 }
 
 testStable('confirms only the displayed revision and keeps item deletion separate', async () => {
   const removeVersion = vi.fn().mockResolvedValue({ ...message, versions: [message.versions[1]!] });
   const removeItem = vi.fn().mockResolvedValue(true);
 
-  vi.mocked(request).mockImplementation(async (invoke) =>
-    invoke({
-      'notes.deleteMessageVersion': removeVersion,
-      'notes.deleteMessage': removeItem
-    } as never)
-  );
+  fixture = rpcHandlersTransport({
+    'notes.deleteMessageVersion': removeVersion,
+    'notes.deleteMessage': removeItem
+  });
   mount();
   const user = userEvent.setup();
 

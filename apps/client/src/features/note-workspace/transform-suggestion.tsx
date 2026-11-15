@@ -1,14 +1,12 @@
 import type { transformSuggestionInputSchema } from '@study/contracts/notes/rpc';
+import { rpc } from '@study/contracts/react';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/note-workspace';
-import { useMutation } from '@tanstack/react-query';
 
 import { AiActionButton as AiButton } from '#client/lib/ai-action-button.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
-import { transformSuggestionMutationOptions } from './note-workspace.queries';
 import type { TransformationModel } from './transformation';
-import type { TransformDraft } from './transformation.queries';
 
 const suggestionFields = {
   title: {
@@ -53,14 +51,7 @@ export function TransformSuggestion({
   const { id, t, locale, additionalNoteIds, cache, key, setDraft } = model;
   const { label, action, revisionKey, errorTitle } = suggestionFields[field];
   const exceedsNoteLimit = additionalNoteIds.length > 19;
-  const mutation = useMutation(
-    transformSuggestionMutationOptions({
-      noteId: id,
-      additionalNoteIds: additionalNoteIds.length ? additionalNoteIds : undefined,
-      field,
-      language: locale
-    })
-  );
+  const mutation = rpc.notes.suggestTransformField.useMutation();
 
   return (
     <>
@@ -90,22 +81,30 @@ export function TransformSuggestion({
               return;
 
             const context = model.suggestionContext();
-            const revision = cache.getQueryData<TransformDraft>(key)?.[revisionKey] ?? 0;
+            const revision = cache.get(key)?.[revisionKey] ?? 0;
 
-            mutation.mutate(undefined, {
-              // Per-call mutation callbacks stop observing when this opening/context unmounts.
-              onSuccess: (text) => {
-                const current = cache.getQueryData<TransformDraft>(key);
+            void mutation
+              .mutate({
+                noteId: id,
+                additionalNoteIds: additionalNoteIds.length ? additionalNoteIds : undefined,
+                field,
+                language: locale,
+                intentKey: crypto.randomUUID()
+              })
+              .then(
+                (text) => {
+                  const current = cache.get(key);
 
-                if (
-                  context === model.suggestionContext() &&
-                  !current?.attempt &&
-                  !current?.pending &&
-                  (current?.[revisionKey] ?? 0) === revision
-                )
-                  setDraft({ [field]: text });
-              }
-            });
+                  if (
+                    context === model.suggestionContext() &&
+                    !current.attempt &&
+                    !current.pending &&
+                    (current[revisionKey] ?? 0) === revision
+                  )
+                    setDraft({ [field]: text });
+                },
+                () => {}
+              );
           }}
         />
       </Notebook.FieldHeading>

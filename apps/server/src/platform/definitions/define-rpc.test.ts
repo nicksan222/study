@@ -15,6 +15,7 @@
  */
 
 import { StudyError, failureSchema } from '@study/contracts/errors';
+import { dependency, endpointGroup, liveQuery } from '@study/contracts/protocol';
 import { testStable } from '@study/testing/vitest';
 import {
   Cause,
@@ -32,6 +33,7 @@ import { Rpc, RpcGroup, RpcTest } from 'effect/rpc';
 import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
+import type { LiveQueries } from '#server/platform/database/live-queries';
 import { defineRpc } from '#server/platform/definitions/define-rpc';
 
 const Group = RpcGroup.make(
@@ -303,7 +305,36 @@ function typeAssertions() {
     Initialization
   > = stream;
 
-  return { exact, missingOperation, streamExact, missingStreamOperation };
+  const snapshots = endpointGroup({
+    read: liveQuery(
+      'test.snapshot',
+      { payload: {}, success: Schema.String, error: failureSchema },
+      { dependencies: [dependency.settings], refresh: 'database' }
+    )
+  });
+  const live = defineRpc(
+    snapshots,
+    Effect.succeed({ 'test.snapshot': () => Effect.succeed('snapshot') })
+  );
+  const liveExact: Layer.Layer<
+    Rpc.ToHandler<RpcGroup.Rpcs<typeof snapshots>>,
+    never,
+    LiveQueries
+  > = live;
+  // @ts-expect-error live query handlers require their scoped reactive service
+  const missingLiveService: Layer.Layer<
+    Rpc.ToHandler<RpcGroup.Rpcs<typeof snapshots>>,
+    never
+  > = live;
+
+  return {
+    exact,
+    missingOperation,
+    streamExact,
+    missingStreamOperation,
+    liveExact,
+    missingLiveService
+  };
 }
 
 void typeAssertions;

@@ -35,6 +35,11 @@ export const executionCursorSchema = Schema.Struct({
 });
 
 export const executionsInputSchema = Schema.Struct({
+  workflows: Schema.optional(
+    Schema.Array(Schema.String.check(Schema.isBetweenLength(1, 200))).check(
+      Schema.isBetweenLength(1, 10)
+    )
+  ),
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(executionCursorSchema),
   correlationId: Schema.optional(Schema.String.check(Schema.isBetweenLength(1, 256))),

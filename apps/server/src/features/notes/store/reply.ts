@@ -891,6 +891,7 @@ export const ReplyStore = defineStore({
       },
       mutations: {
         sealReplyAttachments: storeMutation({
+          changes: ['notes'],
           input: replySnapshotInputSchema,
           output: replySnapshotSchema,
           run: (input) => {
@@ -964,6 +965,7 @@ export const ReplyStore = defineStore({
           }
         }),
         failConversion: storeMutation({
+          changes: ['notes'],
           input: replyRequestSchema,
           output: Schema.Boolean,
           run: (input) => {
@@ -991,6 +993,7 @@ export const ReplyStore = defineStore({
           }
         }),
         abandonReply: storeMutation({
+          changes: ['notes'],
           input: replyRequestSchema,
           output: Schema.Boolean,
           run: (input) => {
@@ -1043,6 +1046,7 @@ export const ReplyStore = defineStore({
           }
         }),
         publishReply: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             ...publishReplyInputSchema.fields,
             language: runPreferencesSchema.fields.language
@@ -1365,11 +1369,13 @@ export const ReplyStore = defineStore({
           }
         }),
         prepareReply: storeMutation({
+          changes: ['notes'],
           input: replyRequestInputSchema,
           output: Schema.Void,
           run: prepareReply
         }),
         retireTargetPending: storeMutation({
+          changes: ['notes'],
           input: reanswerInputSchema,
           output: Schema.Void,
           run: ({ messageId }) => {
@@ -1381,6 +1387,7 @@ export const ReplyStore = defineStore({
           }
         }),
         requestConversion: storeMutation({
+          changes: ['notes'],
           input: convertMessageInputSchema,
           output: Schema.Struct({ ...replyRequestSchema.fields, created: Schema.Boolean }),
           run: (input) => {
@@ -1462,6 +1469,7 @@ export const ReplyStore = defineStore({
           }
         }),
         requestTarget: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             ...rewriteMessageInputSchema.fields,
             origin: Schema.Literals(['answer', 'improve', 'summarize', 'instruction']),
@@ -1496,6 +1504,7 @@ export const ReplyStore = defineStore({
           }
         }),
         requestQuestionReply: storeMutation({
+          changes: ['notes'],
           input: requestInput,
           output: replyRequestSchema,
           run: (input) => {
@@ -1513,6 +1522,7 @@ export const ReplyStore = defineStore({
           }
         }),
         requestReply: storeMutation({
+          changes: ['notes'],
           input: requestInput,
           output: replyRequestSchema,
           run: (input) => {

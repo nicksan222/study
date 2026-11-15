@@ -50,7 +50,7 @@ export default defineConfig({
       {
         test: {
           name: 'tooling',
-          exclude: ['**/*.browser.test.ts'],
+          exclude: ['**/*.browser.test.ts', '**/test-results/**'],
           environment: 'node',
           include: [
             'tooling/**/*.test.ts',

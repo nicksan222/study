@@ -127,11 +127,13 @@ export const MaterialGenerationCleanupStore = defineStore({
       queries: {},
       mutations: {
         prepare: storeMutation({
+          changes: ['materials'],
           input: prepareSchema,
           output: Schema.Array(Schema.String),
           run: prepare
         }),
         scrub: storeMutation({
+          changes: ['materials'],
           input: scopeSchema,
           output: Schema.Void,
           run: retirement.scrubOwnedRequests

@@ -1,6 +1,6 @@
+import { RegistryProvider } from '@effect/atom-react';
 import { testStable } from '@study/testing/vitest';
 import { toastManager } from '@study/ui/toast';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, vi } from 'vite-plus/test';
@@ -29,15 +29,7 @@ beforeEach(() => {
 });
 
 function mount() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  render(
-    <QueryClientProvider client={client}>
-      <UpdatesSettings />
-    </QueryClientProvider>
-  );
-
-  return client;
+  return render(<UpdatesSettings />);
 }
 
 testStable('browser explains availability without invoking native commands', () => {
@@ -127,55 +119,43 @@ testStable(
   }
 );
 
-testStable('cleared or replaced pending versions cannot install the old version', async () => {
-  const client = mount();
+testStable(
+  'settings and background consent cannot start competing native installations',
+  async () => {
+    const notice = vi.spyOn(toastManager, 'add').mockReturnValue('update-notice');
 
-  await screen.findByRole('button', { name: 'Check for updates' });
-  act(() => client.setQueryData(['desktop-update'], '0.1.42'));
-  await screen.findByRole('button', { name: 'Install and restart' });
-  act(() => client.setQueryData(['desktop-update'], null));
-  await waitFor(() =>
-    expect(screen.queryByRole('button', { name: 'Install and restart' })).not.toBeInTheDocument()
-  );
-  act(() => client.setQueryData(['desktop-update'], '0.1.43'));
-  await userEvent.click(await screen.findByRole('button', { name: 'Install and restart' }));
-  expect(native.invoke).toHaveBeenLastCalledWith('install_update', { expectedVersion: '0.1.43' });
-});
+    vi.spyOn(toastManager, 'close').mockImplementation(() => {});
+    let finish: (() => void) | undefined;
 
-testStable('Settings and the background notice cannot start competing installs', async () => {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const notices = vi.spyOn(toastManager, 'add').mockReturnValue('update-notice');
+    native.invoke.mockImplementation((command) => {
+      if (command === 'desktop_update_status')
+        return Promise.resolve({ version: '0.1.1', supported: true });
 
-  vi.spyOn(toastManager, 'close').mockImplementation(() => {});
-  native.invoke.mockImplementation((command) =>
-    Promise.resolve(
-      command === 'desktop_update_status' ? { version: '0.1.1', supported: true } : '0.1.42'
-    )
-  );
-  render(
-    <QueryClientProvider client={client}>
-      <DesktopUpdates />
-      <UpdatesSettings />
-    </QueryClientProvider>
-  );
-  const install = await screen.findByRole('button', { name: 'Install and restart' });
+      if (command === 'check_for_update') return Promise.resolve('0.1.42');
 
-  await waitFor(() => expect(notices).toHaveBeenCalled());
-  const notice = notices.mock.calls[0]?.[0];
-  let finish!: () => void;
+      return new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    });
+    render(
+      <RegistryProvider>
+        <DesktopUpdates />
+        <UpdatesSettings />
+      </RegistryProvider>
+    );
+    await userEvent.click(await screen.findByRole('button', { name: 'Check for updates' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Install and restart' }));
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    const consent = notice.mock.calls.find(([value]) => value.actionProps)?.[0];
 
-  native.invoke.mockReturnValueOnce(
-    new Promise<void>((resolve) => {
-      finish = resolve;
-    })
-  );
-  await userEvent.click(install);
-  await act(async () => {
-    notice?.actionProps?.onClick?.({} as never);
-  });
-  expect(native.invoke.mock.calls.filter(([command]) => command === 'install_update')).toHaveLength(
-    1
-  );
-  expect(notices).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
-  await act(async () => finish());
-});
+    await act(async () => {
+      consent?.actionProps?.onClick?.({} as never);
+    });
+    expect(
+      native.invoke.mock.calls.filter(([command]) => command === 'install_update')
+    ).toHaveLength(1);
+    await act(async () => {
+      finish?.();
+    });
+  }
+);

@@ -77,7 +77,7 @@ export function notifyConfigurationChanged(
 
       yield* Effect.try({
         try: () =>
-          context.transaction((context) =>
+          context.transaction(['workflows'], (context) =>
             context.db.orm
               .delete(workflow_configuration_waits)
               .where(

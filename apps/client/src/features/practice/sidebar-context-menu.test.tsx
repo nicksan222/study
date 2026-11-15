@@ -1,22 +1,18 @@
 import { materialSummarySchema } from '@study/contracts/materials/schemas';
+import { RpcProvider } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
 import { summary } from '#client/features/material-library/test/support.tsx';
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
 import { renderInRouter } from '#client/test/render-in-router.tsx';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { LibraryListView } from '../library/library-list.view';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 for (const kind of ['quiz', 'flashcards'] as const) {
   testStable(
@@ -31,16 +27,10 @@ for (const kind of ['quiz', 'flashcards'] as const) {
       const archive = vi.fn<StudyClient['materials.archive']>().mockReturnValue(Effect.never);
       const rpc = { 'materials.archive': archive };
 
-      vi.mocked(request).mockImplementation((invoke, signal) =>
-        runRequest(
-          invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)),
-          signal
-        )
-      );
-      const cache = new QueryClient();
+      const fixture = rpcHandlersTransport(rpc);
 
       renderInRouter(
-        <QueryClientProvider client={cache}>
+        <RpcProvider transport={fixture.transport}>
           <LibraryListView
             state={{ status: 'success', data: [{ type: 'material', value: material }] }}
             subjects={[]}
@@ -49,7 +39,7 @@ for (const kind of ['quiz', 'flashcards'] as const) {
             search={{ project: '1' }}
             reload={() => {}}
           />
-        </QueryClientProvider>
+        </RpcProvider>
       );
       await user.pointer({
         target: await screen.findByRole('link', { name: material.title }),

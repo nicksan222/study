@@ -6,7 +6,7 @@ import {
   observeSystemAppearance
 } from '@study/ui/theme';
 
-import { loadAppearance } from './study-client/operations';
+import { loadAppearance } from './study-client/appearance';
 
 let store = createThemeStore({ appearance: 'dark' });
 

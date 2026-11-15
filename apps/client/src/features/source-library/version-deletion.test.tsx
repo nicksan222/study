@@ -1,11 +1,10 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { authoredPage } from '../document-editing/test-support';
 import { importedSource } from '../material-library/test/support';
@@ -13,15 +12,11 @@ import { ItemContextMenu } from '../note-workspace/item-context-menu';
 import { ItemDeletionMenu } from '../note-workspace/item-deletion-menu';
 import { SourceVersionDeletion } from './version-deletion';
 
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
-
 const en = catalogs.english;
-
-const clients: QueryClient[] = [];
 
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
+
   vi.clearAllMocks();
 });
 
@@ -36,7 +31,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     token: 'b'.repeat(64),
     candidates: [candidate],
     blockedSnapshotIds: [],
-    semantics: 'retire_extractions_keep_original_revisions'
+    semantics: 'retire_extractions_keep_original_revisions' as const
   };
   const preview = vi.fn().mockResolvedValue(impact);
   const remove = vi.fn().mockResolvedValue(impact);
@@ -56,14 +51,12 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
     'sources.retireHistory': remove
   };
 
-  vi.mocked(request).mockImplementation(async (invoke) => invoke(rpc as never));
-  const client = new QueryClient();
+  const harness = rpcHandlersTransport(rpc);
 
-  clients.push(client);
   const removed = vi.fn();
 
   render(
-    <QueryClientProvider client={client}>
+    <harness.wrapper>
       <SourceVersionDeletion
         source={importedSource}
         onDeleted={removed}
@@ -84,7 +77,7 @@ testStable('reviews and deletes only the chosen attachment version', async () =>
           </ItemContextMenu>
         )}
       />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
   const user = userEvent.setup();
 

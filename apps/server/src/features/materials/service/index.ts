@@ -296,6 +296,7 @@ function* makeMaterials() {
     material: materials.material,
     findMaterial: materials.findMaterial,
     materials: materials.materials,
+    count: materials.count,
     materialVersion: versions.materialVersion,
     findMaterialVersion: versions.findMaterialVersion,
     materialVersions: versions.materialVersions,

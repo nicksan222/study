@@ -1,11 +1,10 @@
+import { rpc } from '@study/contracts/react';
 import { Shell as PageShell } from '@study/ui/shell';
 import { Sidebar as SidebarUI } from '@study/ui/sidebar';
-import { useQuery } from '@tanstack/react-query';
 import { Outlet, useMatches, useSearch, useParams } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { projectsQueryOptions } from '#client/lib/study-client/study.queries.ts';
 
 import { DefaultContextMenu } from './default-context-menu';
 import { DesktopUpdates } from './desktop-updates';
@@ -180,11 +179,11 @@ function useContextMenuScope(
   scope: 'global' | 'project' | undefined,
   context: ReturnType<typeof useSidebarContext>
 ) {
-  const subjects = useQuery(projectsQueryOptions());
+  const subjects = rpc.projects.list.useQuery({ limit: 100 });
   const project =
     scope === 'global'
       ? undefined
-      : subjects.data?.find((subject) => String(subject.id) === context.requestedProject)?.id;
+      : subjects.data?.items.find((subject) => String(subject.id) === context.requestedProject)?.id;
   const shortcutsDisabled =
     !context.ready ||
     (scope !== 'global' &&

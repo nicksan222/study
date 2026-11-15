@@ -105,3 +105,25 @@ testStable('retired transport dependencies are rejected in every manifest sectio
 
   assert.strictEqual(issues.length, 3, issues.join('\n'));
 });
+
+testStable(
+  'optional contract React bindings use official Effect state without alternative query dependencies',
+  () => {
+    expect(
+      workspaceArchitecture({
+        ...valid,
+        'packages/contracts': {
+          ...valid['packages/contracts'],
+          dependencies: { effect: '4.0.7', '@effect/atom-react': '4.0.7' },
+          peerDependencies: { react: '^19.3.1' }
+        }
+      })
+    ).toEqual([]);
+    expect(
+      workspaceArchitecture({
+        ...valid,
+        'apps/client': { dependencies: { '@tanstack/react-query': '5' } }
+      })
+    ).toHaveLength(1);
+  }
+);

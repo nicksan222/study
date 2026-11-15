@@ -1,5 +1,6 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type { NoteId } from '@study/contracts/ids';
-import type { noteDeletionSchema } from '@study/contracts/notes/deletion';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { ErrorState } from '@study/ui/error-state';
@@ -8,81 +9,97 @@ import { Notebook } from '@study/ui/note-workspace';
 import { StatusMessage } from '@study/ui/status-message';
 import { toastManager } from '@study/ui/toast';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Atom } from 'effect/reactivity';
+import { useContext, useCallback, useEffect, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
-import {
-  deleteNoteMutationOptions,
-  deletionOptions,
-  deletionAttemptOptions,
-  retryNoteDeletionMutationOptions,
-  noteKey
-} from './note-workspace.queries';
 import type { SelectedNote } from './page-creation-dialog';
 import { NoteError, NoteReadError } from './status';
 
-/** Shares deletion receipts through the query cache while keeping success announcements owned by the initiating observer. */
+type DeletionAttempt = { started: boolean; pending: boolean; announced?: string };
 
+export const deletionAttempt = Atom.family((_id: NoteId) =>
+  Atom.make<DeletionAttempt>({ started: false, pending: false }).pipe(Atom.keepAlive)
+);
+
+export function useDeletionReceipt(id: NoteId, enabled = true) {
+  const query = rpc.notes.noteDeletion.useQuery({ id }, { enabled });
+  const absent = query.error !== undefined && toStudyError(query.error).kind === 'not_found';
+
+  return {
+    ...query,
+    data: absent ? null : query.data,
+    error: absent ? undefined : query.error,
+    isSuccess: absent || query.isSuccess,
+    isError: !absent && query.isError
+  };
+}
+
+/** Local attempt ownership survives navigation; authoritative receipts come from the server. */
 function useNoteDeletion(id: NoteId, enabled = true) {
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const attempt = useQuery(deletionAttemptOptions(id));
-  const started = attempt.data;
-  const setStarted = (value: boolean) =>
-    cache.setQueryData(deletionAttemptOptions(id).queryKey, value);
-  const state = useQuery(deletionOptions(id, enabled));
-  const mutationKey = [...noteKey(id), 'delete'];
-  const pending = useIsMutating({ mutationKey, exact: true }) > 0;
+  const registry = useContext(RegistryContext);
+  const atom = deletionAttempt(id);
+  const attempt = useAtomValue(atom);
+  const state = useDeletionReceipt(id, enabled);
   const notificationOwner = useRef(false);
-  const ownAttempt = () => {
+  const remove = rpc.notes.delete.useMutation();
+  const retryOperation = rpc.notes.retryNoteDeletion.useMutation();
+
+  async function submit(retry: boolean) {
+    if (registry.get(atom).pending) return;
+
     notificationOwner.current = true;
-    setStarted(true);
-  };
-  const commitReceipt = (value: typeof noteDeletionSchema.Type) => {
-    cache.setQueryData(deletionOptions(id, true).queryKey, value);
-    void cache.invalidateQueries({ queryKey: ['notes'] });
-  };
-  const mutation = useMutation({
-    mutationKey,
-    ...deleteNoteMutationOptions(id),
-    onMutate: ownAttempt,
-    onSuccess: commitReceipt,
-    onError: (error) => {
-      if (toStudyError(error).kind === 'invalid_input') {
-        setStarted(false);
-      }
+    registry.update(atom, (previous) => ({ ...previous, started: true, pending: true }));
 
-      void cache.invalidateQueries({ queryKey: deletionOptions(id, true).queryKey });
+    try {
+      await (retry ? retryOperation.mutate({ id }) : remove.mutate({ id }));
+    } catch (error) {
+      if (toStudyError(error).kind === 'invalid_input')
+        registry.update(atom, (previous) => ({ ...previous, started: false }));
+    } finally {
+      registry.update(atom, (previous) => ({ ...previous, pending: false }));
     }
-  });
-  const retry = useMutation({
-    mutationKey,
-    ...retryNoteDeletionMutationOptions(id),
-    onMutate: ownAttempt,
-    onSuccess: commitReceipt
-  });
-  const announcementKey = useMemo(() => [...noteKey(id), 'deletion-announced'], [id]);
+  }
 
-  cache.setQueryDefaults(announcementKey, { gcTime: Infinity });
+  const mutation = {
+    ...remove,
+    mutate: () => {
+      void submit(false);
+    }
+  };
+  const retry = {
+    ...retryOperation,
+    mutate: () => {
+      void submit(true);
+    }
+  };
+
   useEffect(() => {
     const receipt = state.data;
 
     if (
       !notificationOwner.current ||
       receipt?.status !== 'completed' ||
-      cache.getQueryData(announcementKey) === receipt.operationId
+      registry.get(atom).announced === receipt.operationId
     )
       return;
 
-    cache.setQueryData(announcementKey, receipt.operationId);
+    registry.update(atom, (previous) => ({ ...previous, announced: receipt.operationId }));
     toastManager.add({ title: t('NoteDeleted'), type: 'success' });
-  }, [state.data, started, t, cache, announcementKey]);
-  const available = state.isSuccess && state.data === null;
+  }, [state.data, attempt.started, t, registry, atom]);
 
-  return { state, mutation, retry, started, pending, available, owned: notificationOwner.current };
+  return {
+    state,
+    mutation,
+    retry,
+    started: attempt.started,
+    pending: attempt.pending,
+    available: state.isSuccess && state.data === null,
+    owned: notificationOwner.current
+  };
 }
 
 type DeletionFlow = ReturnType<typeof useNoteDeletion>;

@@ -1,6 +1,7 @@
 import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
+import { rpc } from '@study/contracts/react';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { DangerDialog } from '@study/ui/danger-dialog';
@@ -12,14 +13,16 @@ import { PreviousButton } from '@study/ui/navigation-button';
 import { Settings } from '@study/ui/settings';
 import { SubjectSettings } from '@study/ui/subject-settings';
 import { toastManager } from '@study/ui/toast';
-import { useIsMutating, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import {
+  useCursorRecovery,
+  useCursorWindow,
+  CursorWindowActions
+} from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { request } from '#client/lib/study-client/request.ts';
-import { projectsQueryOptions } from '#client/lib/study-client/study.queries.ts';
 
-import { SubjectIconEditor, SubjectIdentity } from '../subjects';
+import { SubjectIconEditor, SubjectIdentity, useSubjectIconPending } from '../subjects';
 import { useCollectionState, validCollectionName } from './collection-state.queries';
 
 type Editor = ReturnType<typeof useCollectionState>;
@@ -33,13 +36,19 @@ export function ProjectSettings({
   onDeleted?: (id: ProjectId) => void;
 }) {
   const { t } = useI18n();
-  const projects = useQuery(projectsQueryOptions());
+  const window = useCursorWindow<ProjectId>('project-settings');
+  const projects = rpc.projects.list.useQuery({ limit: window.limit, before: window.cursor });
+
+  useCursorRecovery(window, projects.error);
   const [selected, setSelected] = useState(initialProject);
   const editor = useCollectionState();
-  const iconPending = useIsMutating({ mutationKey: ['subject-icon'] }) > 0;
+  const iconPending = useSubjectIconPending(selected);
   const busy = editor.state.pending || iconPending;
-  const items = projects.data ?? [];
-  const project = items.find((item) => item.id === selected);
+  const items = projects.data?.items ?? [];
+  const selectedProject = rpc.projects.get.useQuery(
+    selected === undefined ? undefined : { id: selected }
+  );
+  const project = selectedProject.data ?? items.find((item) => item.id === selected);
 
   if (project) {
     return (
@@ -69,6 +78,21 @@ export function ProjectSettings({
     );
   }
 
+  return <ProjectIndex projects={projects} navigation={window} select={setSelected} />;
+}
+
+function ProjectIndex({
+  projects,
+  navigation,
+  select
+}: {
+  projects: ReturnType<typeof rpc.projects.list.useQuery>;
+  navigation: ReturnType<typeof useCursorWindow<ProjectId>>;
+  select: (id: ProjectId) => void;
+}) {
+  const { t } = useI18n();
+  const items = projects.data?.items ?? [];
+
   return (
     <Settings.Section title={t('ProjectSettingsTitle')}>
       {projects.isPending && <Loading label={t('LoadingSubjects')} />}
@@ -85,6 +109,12 @@ export function ProjectSettings({
           }
         />
       )}
+      <CursorWindowActions
+        {...navigation}
+        hasMore={!!projects.data?.next}
+        pending={projects.isFetching}
+        more={() => navigation.more(projects.data?.next)}
+      />
       {projects.isSuccess && !items.length && <Settings.Empty>{t('NoProjectsYet')}</Settings.Empty>}
       {!!items.length && (
         <>
@@ -97,7 +127,7 @@ export function ProjectSettings({
                 key={String(item.id)}
                 label={item.name}
                 icon={<SubjectIdentity name={item.name} icon={item.icon} />}
-                onClick={() => setSelected(item.id)}
+                onClick={() => select(item.id)}
               />
             ))}
           </Settings.Group>
@@ -115,7 +145,7 @@ export function SubjectManagement({
   onDeleted: () => void;
 }) {
   const editor = useCollectionState();
-  const iconPending = useIsMutating({ mutationKey: ['subject-icon'] }) > 0;
+  const iconPending = useSubjectIconPending(project.id);
 
   return (
     <ProjectDetails
@@ -148,9 +178,7 @@ function ProjectDetails({
     if (busy || !validCollectionName(name)) return;
 
     await mutate(async () => {
-      const changed = await request((client) =>
-        client['projects.renameProject']({ id: project.id, name: name.trim() })
-      );
+      const changed = await rpc.projects.rename.call({ id: project.id, name: name.trim() });
 
       if (!changed) throw new StudyError('not_found', 'Subject no longer exists');
 
@@ -251,9 +279,7 @@ function ProjectRemoval({
           if (busy) return;
 
           return editor.mutate(async () => {
-            const deleted = await request((client) =>
-              client['projects.deleteProject']({ id: project.id })
-            );
+            const deleted = await rpc.projects.delete.call({ id: project.id });
 
             if (!deleted) throw new StudyError('not_found', 'Subject no longer exists');
 

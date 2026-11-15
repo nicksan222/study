@@ -4,18 +4,16 @@ import type {
   MaterialDetailDto,
   MaterialVersionDetailDto
 } from '@study/contracts/materials/schemas';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Practice } from '@study/ui/practice';
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
-import { materialId, materialOptions } from '#client/features/material-library/index.ts';
+import { materialId } from '#client/features/material-library/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { versionOptions } from '#client/lib/study-client/materials.queries.ts';
-import { projectsQueryOptions } from '#client/lib/study-client/study.queries.ts';
 
 import { MaterialActions } from './context-actions';
 import { FlashcardReview } from './flashcard-review';
@@ -27,15 +25,23 @@ type Kind = 'quiz' | 'flashcards';
 function MaterialPage({ kind }: { kind: Kind }) {
   const params = useParams({ strict: false });
   const id = materialId(params.materialId!);
-  const state = useSuspenseQuery(materialOptions(id));
+  const state = rpc.materials.get.useQuery({ id });
   const { t } = useI18n();
-  const subjects = useQuery(projectsQueryOptions());
+  const subjects = rpc.projects.list.useQuery({ limit: 100 });
   const search = useSearch({ from: '__root__' });
+
+  if (!state.data)
+    return state.isError ? (
+      <Unavailable retry={state.retry} />
+    ) : (
+      <Loading label={t('LoadingPractice')} />
+    );
+
   const project =
     state.data.projectIds.find((value) => String(value) === search.project) ??
     state.data.projectIds[0];
 
-  const owner = subjects.data?.find((subject) => subject.id === project);
+  const owner = subjects.data?.items.find((subject) => subject.id === project);
 
   return (
     <PracticeWorkspace
@@ -70,10 +76,10 @@ function MaterialContent({
   const historicalId = Schema.decodeUnknownSync(materialVersionIdSchema)(
     BigInt(search.version ?? '1')
   );
-  const historical = useQuery({
-    ...versionOptions(historicalId),
-    enabled: search.version !== undefined
-  });
+  const historical = rpc.materials.version.useQuery(
+    { id: historicalId },
+    { enabled: search.version !== undefined }
+  );
   const version = search.version ? historical.data : material.latestPublishedVersion;
 
   if (search.version && historical.isPending) return <Loading label={t('LoadingPractice')} />;

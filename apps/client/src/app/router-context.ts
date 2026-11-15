@@ -1,5 +1,2 @@
-import type { QueryClient } from '@tanstack/react-query';
-
-export type AppRouterContext = {
-  queryClient: QueryClient;
-};
+/** Router context carries no server-state cache; loaders use canonical scoped reads. */
+export type AppRouterContext = Record<string, never>;

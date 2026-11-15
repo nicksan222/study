@@ -82,6 +82,7 @@ export const NoteAssistantStore = defineStore({
     },
     mutations: {
       bind: storeMutation({
+        changes: ['notes'],
         input: Schema.Struct({ chatId: noteIdSchema, noteId: noteIdSchema }),
         output: Schema.Void,
         run: ({ chatId, noteId }) => {

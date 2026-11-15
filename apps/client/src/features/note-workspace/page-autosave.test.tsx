@@ -1,13 +1,16 @@
 import { StudyError } from '@study/contracts/errors';
 import { noteIdSchema } from '@study/contracts/ids';
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, cleanup } from '@testing-library/react';
 import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { usePageAutosave } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
@@ -19,15 +22,6 @@ vi.mock('#client/lib/study-client/workspace-preferences.queries.ts', () => ({
 }));
 
 const api = vi.hoisted(() => ({ post: vi.fn(), edit: vi.fn(), message: vi.fn() }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.postMessage': api.post,
-      'notes.editMessage': api.edit,
-      'notes.message': api.message
-    })
-}));
 
 const id = noteIdSchema.make(1n);
 
@@ -63,18 +57,28 @@ function message(text: string, versionId = 10n, basedOn: bigint | null = null) {
   });
 }
 
-const caches: QueryClient[] = [];
+const registries: AtomRegistry.AtomRegistry[] = [];
 
-function mount(
-  page: PageTarget = target,
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-) {
-  caches.push(client);
+function mount(page: PageTarget = target, registry = AtomRegistry.make()) {
+  registries.push(registry);
+  const fixture = rpcTestTransport(async (tag, input) => {
+    if (tag === 'notes.postMessage') return api.post(input);
+
+    if (tag === 'notes.editMessage') return api.edit(input);
+
+    if (tag === 'notes.message') return api.message(input);
+
+    throw new Error(`Unexpected ${tag}`);
+  });
+
+  configureRpcTransport(fixture.transport);
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <RpcProvider transport={fixture.transport} registry={registry}>
+      {children}
+    </RpcProvider>
   );
 
-  return { client, ...renderHook(() => usePageAutosave(id, page), { wrapper }) };
+  return { registry, ...renderHook(() => usePageAutosave(id, page), { wrapper }) };
 }
 
 beforeEach(() => {
@@ -83,7 +87,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  caches.splice(0).forEach((cache) => cache.clear());
+  registries.splice(0).forEach((registry) => registry.dispose());
   vi.useRealTimers();
 });
 
@@ -144,7 +148,7 @@ testStable(
       await vi.advanceTimersByTimeAsync(3000);
     });
     first.unmount();
-    const next = mount(target, first.client);
+    const next = mount(target, first.registry);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(9000);

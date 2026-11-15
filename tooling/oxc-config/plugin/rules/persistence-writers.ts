@@ -11,6 +11,8 @@ import { resolveValue } from './module-factories.ts';
 import { typedOwner } from './synchronous-transactions.ts';
 
 const names: Record<string, string> = {
+  reactiveGeneration: 'reactive_generation',
+  reactiveRevisions: 'reactive_revisions',
   workflowEvents: 'workflow_events',
   workflowReceipts: 'workflow_receipts'
 };

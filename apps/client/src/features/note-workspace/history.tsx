@@ -12,7 +12,6 @@ import { Notebook } from '@study/ui/note-workspace';
 import { StatusMessage } from '@study/ui/status-message';
 import { WorkspaceSurface } from '@study/ui/workspace';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -28,7 +27,7 @@ import type { MessageCitation } from './message-citations';
 import { MessageDeletion } from './message-deletion';
 import { NoteSummary } from './note-editor';
 import { NotePageCard } from './note-page-card';
-import { threadOptions } from './note-workspace.queries';
+import { useThreadPage } from './note-reads';
 import { notebookMessages, notebookTargetId, notebookTimeline } from './notebook-index';
 import { NotebookNavigation } from './notebook-navigation';
 import { PendingMessageWork } from './pending-message-work';
@@ -59,8 +58,8 @@ export function History({
   activeAuthoredPage?: string;
 }) {
   const { t } = useI18n();
-  const state = useInfiniteQuery(threadOptions(id));
-  const messages = notebookMessages(id, state.data?.pages.flatMap((page) => page.items) ?? []);
+  const state = useThreadPage(id);
+  const messages = notebookMessages(id, state.data?.items ?? []);
   const entries = notebookTimeline(messages, pages);
 
   return (
@@ -92,23 +91,11 @@ export function History({
             </Button>
           )}
         </Notebook.NotesHeading>
-        {state.isPending && <Loading label={t('LoadingStudy')} />}
-        {state.error && <NoteReadError error={state.error} retry={() => void state.refetch()} />}
-        {state.hasNextPage && (
-          <Button
-            variant="ghost"
-            disabled={state.isFetchingNextPage}
-            onClick={() => void state.fetchNextPage()}
-          >
-            {t('NoteEarlier')}
-          </Button>
-        )}
-        {state.isSuccess && messages.length === 0 && pages.length === 0 && (
-          <WorkspaceSurface.Heading>
-            <h3>{t('NoteNotesEmpty')}</h3>
-            <p>{t('NoteStartHelp')}</p>
-          </WorkspaceSurface.Heading>
-        )}
+        <NotebookHistoryFeedback
+          state={state}
+          messageCount={messages.length}
+          pageCount={pages.length}
+        />
         {entries.map((entry) => (
           <Notebook.IndexTarget
             key={timelineKey(entry)}
@@ -363,5 +350,45 @@ export function PageDetails({ message }: { message: Message }) {
         </DialogFooter>
       </DialogPopup>
     </Dialog>
+  );
+}
+
+function NotebookHistoryFeedback({
+  state,
+  messageCount,
+  pageCount
+}: {
+  state: ReturnType<typeof useThreadPage>;
+  messageCount: number;
+  pageCount: number;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {' '}
+      {state.isPending && <Loading label={t('LoadingStudy')} />}
+      {state.error && <NoteReadError error={state.error} retry={() => void state.refetch()} />}
+      {state.pagination.hasPrevious && (
+        <Button variant="ghost" disabled={state.isFetching} onClick={state.pagination.previous}>
+          {t('LibraryPrevious')}
+        </Button>
+      )}
+      {state.hasNextPage && (
+        <Button
+          variant="ghost"
+          disabled={state.isFetchingNextPage}
+          onClick={() => void state.fetchNextPage()}
+        >
+          {t('NoteEarlier')}
+        </Button>
+      )}
+      {state.isSuccess && messageCount === 0 && pageCount === 0 && (
+        <WorkspaceSurface.Heading>
+          <h3>{t('NoteNotesEmpty')}</h3>
+          <p>{t('NoteStartHelp')}</p>
+        </WorkspaceSurface.Heading>
+      )}
+    </>
   );
 }

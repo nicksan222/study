@@ -1,17 +1,18 @@
+import { RegistryContext, useAtomInitialValues, useAtomValue } from '@effect/atom-react';
 import { StudyError } from '@study/contracts/errors';
 import type { PageId, PageVersionId, ProjectId, NoteId } from '@study/contracts/ids';
 import type { createSchema, saveSchema } from '@study/contracts/pages/editing';
-import type { Page, PageSummary } from '@study/contracts/pages/types';
+import type { Page } from '@study/contracts/pages/types';
+import { rpc } from '@study/contracts/react';
 import { plainBlock } from '@study/contracts/sources/document';
 import { documentSchema } from '@study/contracts/sources/schemas';
-import { queryOptions, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { QueryClient } from '@tanstack/react-query';
 import { Schema } from 'effect';
-import { useEffect } from 'react';
+import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
+import { useContext, useEffect, useMemo } from 'react';
 
-import { invalidatePages } from '#client/lib/study-client/pages.queries.ts';
+import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';
 import { repeatRequest } from '#client/lib/study-client/repeat-request.ts';
-import { request } from '#client/lib/study-client/request.ts';
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
 import { blankDocument } from '../document-editing';
@@ -24,34 +25,25 @@ type SaveInput = typeof saveSchema.Type;
 
 const equalDocument = Schema.toEquivalence(documentSchema);
 
-export const linkedPagesOptions = (noteId: NoteId) =>
-  queryOptions({
-    queryKey: ['pages', 'note', String(noteId), 'pages'],
-    queryFn: async ({ signal }) => {
-      const items: PageSummary[] = [];
-      let cursor: PageId | undefined;
-
-      do {
-        const page = await request(
-          (rpc) => rpc['pages.pages']({ noteId, limit: 100, cursor, archived: false }),
-          signal
-        );
-
-        items.push(...page.items);
-        cursor = page.nextCursor ?? undefined;
-      } while (cursor !== undefined);
-
-      return { items, nextCursor: null };
-    }
+export function useLinkedPages(noteId: NoteId) {
+  const pagination = useCursorWindow<PageId>(String(noteId));
+  const query = rpc.pages.list.useQuery({
+    noteId,
+    cursor: pagination.cursor,
+    limit: pagination.limit,
+    archived: false
   });
 
-export const notePageOptions = (id: PageId) =>
-  queryOptions({
-    queryKey: ['pages', 'detail', String(id)],
-    queryFn: ({ signal }) => request((rpc) => rpc['pages.page']({ id }), signal)
-  });
+  useCursorRecovery(pagination, query.error);
+
+  return { ...query, pagination };
+}
 
 type Creation = { pending: boolean; input?: CreationInput; error?: unknown };
+
+const initialCreation: Creation = { pending: false };
+
+const creations = Atom.family((_owner: string) => Atom.make(initialCreation).pipe(Atom.keepAlive));
 
 /** An uncertain creation retains its exact key and payload until the receipt is recovered. */
 type PageOwner = { kind: 'note'; noteId: NoteId } | { kind: 'project'; projectId?: ProjectId };
@@ -61,58 +53,37 @@ export function useNotePageCreation(noteId: NoteId) {
 }
 
 export function useBlankPageCreation(owner: PageOwner) {
-  const cache = useQueryClient();
-  const key =
-    owner.kind === 'note'
-      ? ['note-drafts', String(owner.noteId), 'page-creation']
-      : ['page-drafts', owner.projectId?.toString() ?? 'global', 'creation'];
-  const initial: Creation = { pending: false };
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
+  const registry = useContext(RegistryContext);
+  const atom = creations(
+    owner.kind === 'note' ? `note:${owner.noteId}` : `project:${owner.projectId ?? 'global'}`
+  );
+  const creation = useAtomValue(atom);
 
   async function submit(input: CreationInput) {
-    const current = cache.getQueryData<Creation>(key);
+    const current = registry.get(atom);
 
     if (current?.pending) return undefined;
 
-    cache.setQueryData<Creation>(key, { pending: true, input });
+    registry.set(atom, { pending: true, input });
 
     try {
-      const createdPage = await request((rpc) => rpc['pages.create'](input));
+      const createdPage = await rpc.pages.create.call(input);
 
-      cache.setQueryData(key, initial);
-
-      if (owner.kind === 'note') {
-        const listKey = linkedPagesOptions(owner.noteId).queryKey;
-
-        await cache.cancelQueries({ queryKey: listKey, exact: true });
-        cache.setQueryData<{ items: PageSummary[]; nextCursor: null }>(listKey, (page) => ({
-          items: [createdPage, ...(page?.items ?? []).filter((item) => item.id !== createdPage.id)],
-          nextCursor: null
-        }));
-      }
-
-      cache.setQueryData(notePageOptions(createdPage.id).queryKey, createdPage);
-      void invalidatePages(cache);
+      registry.set(atom, initialCreation);
 
       return createdPage;
     } catch (error) {
-      cache.setQueryData<Creation>(key, { pending: false, input, error });
+      registry.set(atom, { pending: false, input, error });
 
       return undefined;
     }
   }
 
   return {
-    pending: state.data.pending,
-    error: state.data.error,
+    pending: creation.pending,
+    error: creation.error,
     create: (title: string) => {
-      const pending = cache.getQueryData<Creation>(key);
+      const pending = registry.get(atom);
 
       return submit(
         pending?.input ?? {
@@ -129,7 +100,7 @@ export function useBlankPageCreation(owner: PageOwner) {
       );
     },
     retry: () => {
-      const input = cache.getQueryData<Creation>(key)?.input;
+      const input = registry.get(atom)?.input;
 
       return input ? submit(input) : Promise.resolve(undefined);
     }
@@ -146,7 +117,9 @@ type Draft = {
   conflict?: Page;
 };
 
-const draftKey = (id: PageId) => ['note-page-drafts', String(id)] as const;
+const drafts = Atom.family((_id: PageId) =>
+  Atom.make<Draft | undefined>(undefined).pipe(Atom.keepAlive)
+);
 
 function initialDraft(page: Page): Draft {
   if (!page.version)
@@ -160,42 +133,41 @@ function initialDraft(page: Page): Draft {
   };
 }
 
-/** Pages owns versioned content; the cache holds only unsaved edits and retry receipts. */
+/** Pages owns versioned content; local atoms hold unsaved edits and retry receipts. */
 export function useNotePageAutosave(page: Page) {
   const { autosaveIntervalSeconds } = useWorkspacePreferences();
-  const cache = useQueryClient();
-  const initial = initialDraft(page);
-  const key = draftKey(page.id);
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const draft = state.data;
+  const registry = useContext(RegistryContext);
+  const initial = useMemo(() => initialDraft(page), [page]);
+  const atom = drafts(page.id);
+
+  useAtomInitialValues([[atom, registry.get(atom) ?? initial]]);
+  const stored = useAtomValue(atom);
+  const draft = stored ?? initial;
+
   const id = page.id;
 
   useEffect(() => {
-    const stop = repeatRequest(() => persistPage(cache, id), autosaveIntervalSeconds * 1000);
+    const stop = repeatRequest(() => persistPage(registry, id), autosaveIntervalSeconds * 1000);
 
     return () => {
       stop();
-      void persistPage(cache, id);
+      void persistPage(registry, id);
     };
-  }, [cache, id, autosaveIntervalSeconds]);
+  }, [registry, id, autosaveIntervalSeconds]);
   useEffect(() => {
-    cache.setQueryData<Draft>(draftKey(page.id), (current) =>
-      current &&
-      !current.pending &&
-      !current.attempt &&
-      equalDocument(current.document, current.saved) &&
-      page.version !== null &&
-      page.version.id > current.versionId
-        ? initialDraft(page)
-        : current
+    registry.set(
+      atom,
+      ((current) =>
+        current &&
+        !current.pending &&
+        !current.attempt &&
+        equalDocument(current.document, current.saved) &&
+        page.version !== null &&
+        page.version.id > current.versionId
+          ? initialDraft(page)
+          : current)(registry.get(atom))
     );
-  }, [cache, page]);
+  }, [registry, atom, page]);
 
   return {
     document: draft.document,
@@ -204,10 +176,10 @@ export function useNotePageAutosave(page: Page) {
     error: draft.error,
     conflict: draft.conflict,
     change: (document: Document) =>
-      cache.setQueryData<Draft>(key, (current) => ({ ...(current ?? initial), document })),
-    save: () => persistPage(cache, id, true),
+      registry.set(atom, { ...(registry.get(atom) ?? initial), document }),
+    save: () => persistPage(registry, id, true),
     acceptSavedVersion: () => {
-      if (draft.conflict) cache.setQueryData(key, initialDraft(draft.conflict));
+      if (draft.conflict) registry.set(atom, initialDraft(draft.conflict));
     }
   };
 }
@@ -216,9 +188,13 @@ function saveBlocked(draft: Draft, manual: boolean) {
   return draft.pending || (!manual && draft.error !== undefined) || draft.conflict !== undefined;
 }
 
-async function persistPage(cache: QueryClient, id: PageId, manual = false): Promise<void> {
-  const key = draftKey(id);
-  const draft = cache.getQueryData<Draft>(key);
+async function persistPage(
+  registry: AtomRegistry.AtomRegistry,
+  id: PageId,
+  manual = false
+): Promise<void> {
+  const atom = drafts(id);
+  const draft = registry.get(atom);
 
   if (!draft || saveBlocked(draft, manual)) return;
 
@@ -231,15 +207,15 @@ async function persistPage(cache: QueryClient, id: PageId, manual = false): Prom
     document: draft.document
   };
   const patch = (update: (current: Draft) => Draft) =>
-    cache.setQueryData<Draft>(key, (current) => update(current ?? draft));
+    registry.set(atom, update(registry.get(atom) ?? draft));
 
   patch((current) => ({ ...current, pending: true, attempt: input, error: undefined }));
 
   try {
-    const outcome = await request((rpc) => rpc['pages.save'](input));
+    const outcome = await rpc.pages.save.call(input);
 
     if (outcome.outcome === 'conflict') {
-      const conflict = await request((rpc) => rpc['pages.page']({ id }));
+      const conflict = await rpc.pages.get.read({ id });
 
       patch((current) => ({
         ...current,
@@ -259,8 +235,7 @@ async function persistPage(cache: QueryClient, id: PageId, manual = false): Prom
       attempt: undefined,
       error: undefined
     }));
-    void invalidatePages(cache);
-    await persistPage(cache, id);
+    await persistPage(registry, id);
   } catch (error) {
     patch((current) => ({ ...current, pending: false, error }));
   }

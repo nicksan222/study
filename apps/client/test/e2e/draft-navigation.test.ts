@@ -136,6 +136,8 @@ testE2e(
 
       if (index === 0) {
         await composer.press('ControlOrMeta+Home');
+        await composer.press('PageUp');
+        await expect(composer).toHaveJSProperty('scrollTop', 0);
         await expectScreenshot('draft-with-files', {
           target: 'viewport',
           ready: async () => {

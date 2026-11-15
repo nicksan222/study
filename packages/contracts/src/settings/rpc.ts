@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
   agentRulesSchema,
   quizSettingsSchema,
@@ -18,78 +18,164 @@ import { usageQuerySchema, usageReportSchema } from './usage.ts';
 
 const saved = Schema.Struct({});
 
-export const SettingsRpc = RpcGroup.make(
-  Rpc.make('usage', {
-    payload: usageQuerySchema,
-    success: usageReportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('agentRules', { payload: {}, success: agentRulesSchema, error: failureSchema }),
-  Rpc.make('saveAgentRules', { payload: agentRulesSchema, success: saved, error: failureSchema }),
-  Rpc.make('quizSettings', { payload: {}, success: quizSettingsSchema, error: failureSchema }),
-  Rpc.make('saveQuizSettings', {
-    payload: quizSettingsSchema,
-    success: saved,
-    error: failureSchema
-  }),
-  Rpc.make('workspacePreferences', {
-    payload: {},
-    success: workspacePreferencesSchema,
-    error: failureSchema
-  }),
-  Rpc.make('saveWorkspacePreferences', {
-    payload: workspacePreferencesSchema,
-    success: saved,
-    error: failureSchema
-  }),
-  Rpc.make('sidebarSettings', {
-    payload: {},
-    success: sidebarSettingsSchema,
-    error: failureSchema
-  }),
-  Rpc.make('saveSidebarSettings', {
-    payload: sidebarSettingsSchema,
-    success: saved,
-    error: failureSchema
-  }),
-  Rpc.make('concurrencySettings', {
-    payload: {},
-    success: concurrencySettingsSchema,
-    error: failureSchema
-  }),
-  Rpc.make('saveConcurrencySettings', {
-    payload: concurrencySettingsSchema,
-    success: saved,
-    error: failureSchema
-  }),
-  Rpc.make('appearancePreferences', {
-    payload: {},
-    success: appearancePreferencesSchema,
-    error: failureSchema
-  }),
-  Rpc.make('saveAppearancePreferences', {
-    payload: appearancePreferencesSchema,
-    success: saved,
-    error: failureSchema
-  }),
-  Rpc.make('appSettings', { payload: {}, success: appSettingsSchema, error: failureSchema }),
-  Rpc.make('llmSettings', { payload: {}, success: llmSettingsSchema, error: failureSchema }),
-  Rpc.make('materialSettings', {
-    payload: {},
-    success: materialSettingsSchema,
-    error: failureSchema
-  }),
-  Rpc.make('reviewSettings', { payload: {}, success: reviewSettingsSchema, error: failureSchema }),
-  Rpc.make('saveAppSettings', { payload: appSettingsSchema, success: saved, error: failureSchema }),
-  Rpc.make('saveLlmSettings', { payload: llmSettingsSchema, success: saved, error: failureSchema }),
-  Rpc.make('saveMaterialSettings', {
-    payload: materialSettingsSchema,
-    success: saved,
-    error: failureSchema
-  }),
-  Rpc.make('saveReviewSettings', {
-    payload: reviewSettingsSchema,
-    success: saved,
-    error: failureSchema
-  })
-).prefix('settings.');
+export const settingsEndpoints = {
+  usage: liveQuery(
+    'settings.usage',
+    {
+      payload: usageQuerySchema,
+      success: usageReportSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  agentRules: liveQuery(
+    'settings.agentRules',
+    { payload: {}, success: agentRulesSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveAgentRules: mutation(
+    'settings.saveAgentRules',
+    { payload: agentRulesSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
+  quizSettings: liveQuery(
+    'settings.quizSettings',
+    { payload: {}, success: quizSettingsSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveQuizSettings: mutation(
+    'settings.saveQuizSettings',
+    {
+      payload: quizSettingsSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  workspacePreferences: liveQuery(
+    'settings.workspacePreferences',
+    {
+      payload: {},
+      success: workspacePreferencesSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveWorkspacePreferences: mutation(
+    'settings.saveWorkspacePreferences',
+    {
+      payload: workspacePreferencesSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  sidebarSettings: liveQuery(
+    'settings.sidebarSettings',
+    {
+      payload: {},
+      success: sidebarSettingsSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveSidebarSettings: mutation(
+    'settings.saveSidebarSettings',
+    {
+      payload: sidebarSettingsSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  concurrencySettings: liveQuery(
+    'settings.concurrencySettings',
+    {
+      payload: {},
+      success: concurrencySettingsSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveConcurrencySettings: mutation(
+    'settings.saveConcurrencySettings',
+    {
+      payload: concurrencySettingsSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  appearancePreferences: liveQuery(
+    'settings.appearancePreferences',
+    {
+      payload: {},
+      success: appearancePreferencesSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveAppearancePreferences: mutation(
+    'settings.saveAppearancePreferences',
+    {
+      payload: appearancePreferencesSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  appSettings: liveQuery(
+    'settings.appSettings',
+    { payload: {}, success: appSettingsSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  llmSettings: liveQuery(
+    'settings.llmSettings',
+    { payload: {}, success: llmSettingsSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  materialSettings: liveQuery(
+    'settings.materialSettings',
+    {
+      payload: {},
+      success: materialSettingsSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  reviewSettings: liveQuery(
+    'settings.reviewSettings',
+    { payload: {}, success: reviewSettingsSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  saveAppSettings: mutation(
+    'settings.saveAppSettings',
+    { payload: appSettingsSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
+  saveLlmSettings: mutation(
+    'settings.saveLlmSettings',
+    { payload: llmSettingsSchema, success: saved, error: failureSchema },
+    { changes: [dependency.settings] }
+  ),
+  saveMaterialSettings: mutation(
+    'settings.saveMaterialSettings',
+    {
+      payload: materialSettingsSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  ),
+  saveReviewSettings: mutation(
+    'settings.saveReviewSettings',
+    {
+      payload: reviewSettingsSchema,
+      success: saved,
+      error: failureSchema
+    },
+    { changes: [dependency.settings] }
+  )
+};
+
+export const SettingsRpc = endpointGroup(settingsEndpoints);

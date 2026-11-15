@@ -32,3 +32,8 @@ export async function runRequest<A>(
 
   return exit.value.value;
 }
+
+/** Native-host asynchronous state enters Effect execution at the application boundary. */
+export function runNativeExit<A, E>(operation: Effect.Effect<A, E>, signal?: AbortSignal) {
+  return Effect.runPromiseExit(operation, { signal });
+}

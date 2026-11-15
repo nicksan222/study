@@ -1,15 +1,14 @@
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';
 
 import { LanguageProvider } from '#client/lib/i18n.tsx';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
+
+const request = vi.fn();
 
 import { UsageSettings } from './index';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const totals = {
   input: 100,
@@ -33,14 +32,14 @@ testStable(
       agents: [{ key: 'reply', provider: 'chatgpt', ...totals }],
       days: []
     });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = settingsTransport((tag, input) => request(tag, input));
     const user = userEvent.setup();
     const { unmount } = render(
-      <QueryClientProvider client={client}>
+      <client.wrapper>
         <LanguageProvider locale="english">
           <UsageSettings />
         </LanguageProvider>
-      </QueryClientProvider>
+      </client.wrapper>
     );
 
     try {
@@ -49,14 +48,13 @@ testStable(
       await user.click(screen.getByRole('button', { name: 'Agent / task' }));
       expect(screen.getByText('reply')).toBeInTheDocument();
       await user.click(screen.getByRole('button', { name: '7 days' }));
-      await waitFor(() => expect(client.getQueryData(['ai-usage', 7, ''])).toBeDefined());
+      await waitFor(() => expect(call).toHaveBeenCalledWith('settings.usage', { days: 7 }));
       const before = call.mock.calls.length;
 
       await user.click(screen.getByRole('button', { name: 'Refresh usage' }));
       await waitFor(() => expect(call.mock.calls.length).toBeGreaterThan(before));
     } finally {
       unmount();
-      client.clear();
     }
   }
 );
@@ -70,13 +68,13 @@ testStable('explains empty history in Italian without presenting invented usage'
     agents: [],
     days: []
   });
-  const client = new QueryClient();
+  const client = settingsTransport((tag, input) => request(tag, input));
   const { unmount } = render(
-    <QueryClientProvider client={client}>
+    <client.wrapper>
       <LanguageProvider locale="italian">
         <UsageSettings />
       </LanguageProvider>
-    </QueryClientProvider>
+    </client.wrapper>
   );
 
   try {
@@ -84,6 +82,5 @@ testStable('explains empty history in Italian without presenting invented usage'
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   } finally {
     unmount();
-    client.clear();
   }
 });

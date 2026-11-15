@@ -10,7 +10,7 @@ import { Link } from '@tanstack/react-router';
 import { PracticeSidebarContextMenu } from '#client/features/practice/index.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 import type { AppSearch } from '#client/lib/navigation/route-contract.ts';
-import type { Subjects } from '#client/lib/study-client/operations.ts';
+import type { Subjects } from '#client/lib/study-client/types.ts';
 
 import { itemLocation } from './library.locations';
 import type { LibraryItem } from './library.logic';

@@ -1,19 +1,10 @@
 import type { SourceId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { useAttachmentPreviewUrl } from '@study/ui/attachment-preview';
-import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
-import { request } from '#client/lib/study-client/request.ts';
-
 export function useAttachmentMedia(id: SourceId | null, enabled: boolean) {
-  const state = useQuery({
-    queryKey: ['sources', 'preview-bytes', String(id)],
-    enabled: enabled && id !== null,
-    queryFn: ({ signal }) => request((rpc) => rpc['sources.sourceExport']({ id: id! }), signal),
-    retry: false,
-    staleTime: Infinity,
-    gcTime: 0
-  });
+  const state = rpc.sources.sourceExport.useQuery(enabled && id !== null ? { id } : undefined);
   const blob = useMemo(
     () =>
       state.data && !state.isError && enabled

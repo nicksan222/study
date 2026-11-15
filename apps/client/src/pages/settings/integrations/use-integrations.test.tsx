@@ -1,11 +1,12 @@
 import { integrationImportIdSchema } from '@study/contracts/integrations/schemas';
 import type { integrationImportSchema } from '@study/contracts/integrations/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { IntegrationsSettings } from './index';
 import { useIntegrations } from './use-integrations';
@@ -19,17 +20,23 @@ const api = vi.hoisted(() => ({
   preview: vi.fn()
 }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: Record<string, unknown>) => unknown) =>
-    invoke({
-      'integrations.imports': api.imports,
-      'integrations.providers': api.providers,
-      'projects.projects': api.projects,
-      'integrations.startImport': api.start,
-      'integrations.cancelImport': api.cancel,
-      'integrations.previewImport': api.preview
-    })
-}));
+function fixture() {
+  return settingsTransport(async (tag, input) => {
+    if (tag === 'integrations.imports') return api.imports();
+
+    if (tag === 'integrations.providers') return api.providers();
+
+    if (tag === 'projects.projects') return api.projects();
+
+    if (tag === 'integrations.startImport') return api.start(input);
+
+    if (tag === 'integrations.cancelImport') return api.cancel(input);
+
+    if (tag === 'integrations.previewImport') return api.preview(input);
+
+    throw new Error(tag);
+  });
+}
 
 function previewState(): typeof integrationImportSchema.Type {
   return {
@@ -55,14 +62,12 @@ testStable(
 
     api.imports.mockResolvedValue([state]);
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
-    api.projects.mockReturnValueOnce({ items: [], next: null });
+    api.projects.mockResolvedValue({ items: [], next: null });
     api.start.mockRejectedValue(new Error('Response lost'));
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-    });
+    const client = fixture();
     const { result, unmount } = renderHook(useIntegrations, {
       wrapper: ({ children }: { children: ReactNode }) => (
-        <QueryClientProvider client={client}>{children}</QueryClientProvider>
+        <client.wrapper>{children}</client.wrapper>
       )
     });
 
@@ -84,7 +89,6 @@ testStable(
       expect(api.preview).not.toHaveBeenCalled();
     } finally {
       unmount();
-      client.clear();
     }
   }
 );
@@ -100,11 +104,11 @@ testStable.each([
     api.imports.mockResolvedValue([state]);
     api.providers.mockResolvedValue([{ id: 'obsidian', capabilities: ['import'] }]);
     api.projects.mockResolvedValue({ items: [], next: null });
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const client = fixture();
     const view = render(
-      <QueryClientProvider client={client}>
+      <client.wrapper>
         <IntegrationsSettings />
-      </QueryClientProvider>
+      </client.wrapper>
     );
 
     try {
@@ -118,7 +122,6 @@ testStable.each([
       ).toBe(resumable);
     } finally {
       view.unmount();
-      client.clear();
     }
   }
 );

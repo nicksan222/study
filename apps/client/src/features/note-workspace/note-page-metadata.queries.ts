@@ -1,31 +1,31 @@
 import type { Page } from '@study/contracts/pages/types';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 import { useState } from 'react';
 
-import { invalidatePages } from '#client/lib/study-client/pages.queries.ts';
-import { request } from '#client/lib/study-client/request.ts';
-
 export function usePageMetadata(page: Page) {
-  const cache = useQueryClient();
   const [title, setTitle] = useState(page.title);
   const [description, setDescription] = useState(page.description ?? '');
   const [expectedDescription] = useState(page.description ?? null);
-  const mutation = useMutation({
-    mutationFn: async () => {
-      return request((rpc) =>
-        rpc['pages.updateMetadata']({
-          id: page.id,
-          title: title.trim(),
-          description: description.trim() || null,
-          expectedTitle: page.title,
-          expectedDescription
-        })
-      );
-    },
-    onSettled: () => {
-      void invalidatePages(cache);
-    }
-  });
+  const operation = rpc.pages.updateMetadata.useMutation();
+  const mutation = {
+    ...operation,
+    mutate: () =>
+      operation.mutate({
+        id: page.id,
+        title: title.trim(),
+        description: description.trim() || null,
+        expectedTitle: page.title,
+        expectedDescription
+      }),
+    mutateAsync: () =>
+      operation.mutateAsync({
+        id: page.id,
+        title: title.trim(),
+        description: description.trim() || null,
+        expectedTitle: page.title,
+        expectedDescription
+      })
+  };
 
   return { title, setTitle, description, setDescription, mutation };
 }

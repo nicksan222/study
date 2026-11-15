@@ -1,9 +1,9 @@
 import type { MaterialId } from '@study/contracts/ids';
 import type { quizAttemptSchema } from '@study/contracts/learning/schemas';
+import type { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
-import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
@@ -15,7 +15,7 @@ export function AttemptState({
   material,
   children
 }: {
-  state: UseQueryResult<Attempt>;
+  state: ReturnType<typeof rpc.learning.attempt.useQuery>;
   material: MaterialId;
   children: (attempt: Attempt) => ReactNode;
 }) {
@@ -23,7 +23,7 @@ export function AttemptState({
 
   if (state.isPending) return <Loading label={t('LoadingPractice')} />;
 
-  if (state.isError || state.data.materialId !== material)
+  if (state.isError || !state.data || state.data.materialId !== material)
     return (
       <ErrorState
         title={t('ReaderUnavailable')}

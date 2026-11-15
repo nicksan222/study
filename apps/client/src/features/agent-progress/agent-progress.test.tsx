@@ -1,40 +1,21 @@
 import { agentRunIdSchema } from '@study/contracts/ai/progress';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
+import { rpcTestTransport } from '#client/test/rpc.tsx';
+
 import { AgentProgress } from './index';
 
-const api = vi.hoisted(() => ({ subscribe: vi.fn() }));
-
-vi.mock('#client/lib/study-client/subscriptions.ts', () => ({ subscribe: api.subscribe }));
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 afterEach(() => {
   cleanup();
-  vi.resetAllMocks();
 });
 
 testStable(
   'renders intermediate text and tool activity, replaces reconnect snapshots, and releases the viewer',
   async () => {
-    let receive!: (value: unknown) => void;
-    let signal!: AbortSignal;
-
-    api.subscribe.mockImplementation((_invoke, onValue, abort) => {
-      receive = onValue;
-      signal = abort;
-
-      return new Promise(() => {});
-    });
-    const cache = new QueryClient();
-    const invalidate = vi.spyOn(cache, 'invalidateQueries');
-    const mounted = render(
-      <QueryClientProvider client={cache}>
-        <AgentProgress executionId={executionIdSchema.make('run')} />
-      </QueryClientProvider>
-    );
     const run = {
       runId: agentRunIdSchema.make('agent'),
       executionId: executionIdSchema.make('run'),
@@ -52,7 +33,17 @@ testStable(
       ]
     };
 
-    await act(() => receive([run]));
+    let snapshots: unknown = [run];
+    const fixture = rpcTestTransport(async () => snapshots);
+    const mounted = render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
+      wrapper: fixture.wrapper
+    });
+    const receive = async (value: unknown) => {
+      snapshots = value;
+      await fixture.notify();
+    };
+
+    await screen.findByText('First');
     expect(screen.getByText('First')).toBeInTheDocument();
     expect(screen.getByText('AssistantToolWorking')).toBeInTheDocument();
     expect(
@@ -75,42 +66,31 @@ testStable(
         }
       ])
     );
-    await waitFor(() => expect(invalidate).toHaveBeenCalled());
     expect(screen.getByRole('region', { name: 'workspace.state.completed' })).toBeInTheDocument();
     expect(screen.queryByText('AgentStreamingPreview')).not.toBeInTheDocument();
     mounted.unmount();
-    expect(signal.aborted).toBe(true);
-    cache.clear();
   }
 );
 
 testStable('does not expose raw structured output as a finished document', async () => {
-  api.subscribe.mockImplementation((_invoke, onValue) => {
-    onValue([
-      {
-        runId: 'structured',
-        executionId: 'run',
-        executionStatus: 'running',
-        agentId: 'quiz',
-        mode: 'object',
-        text: '{"unfinished":',
-        status: 'running',
-        failureKind: null,
-        revision: 1n,
-        updatedAtMs: 1n,
-        tools: []
-      }
-    ]);
+  const fixture = rpcTestTransport(async () => [
+    {
+      runId: agentRunIdSchema.make('structured'),
+      executionId: executionIdSchema.make('run'),
+      executionStatus: 'running',
+      agentId: 'quiz',
+      mode: 'object',
+      text: '{"unfinished":',
+      status: 'running',
+      failureKind: null,
+      revision: 1n,
+      updatedAtMs: 1n,
+      tools: []
+    }
+  ]);
 
-    return new Promise(() => {});
+  render(<AgentProgress executionId={executionIdSchema.make('run')} />, {
+    wrapper: fixture.wrapper
   });
-  const cache = new QueryClient();
-
-  render(
-    <QueryClientProvider client={cache}>
-      <AgentProgress executionId={executionIdSchema.make('run')} />
-    </QueryClientProvider>
-  );
-  expect(screen.queryByText('{"unfinished":')).not.toBeInTheDocument();
-  cache.clear();
+  await waitFor(() => expect(screen.queryByText('{"unfinished":')).not.toBeInTheDocument());
 });

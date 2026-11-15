@@ -224,6 +224,7 @@ export const MaterialHistoryStore = defineStore({
       },
       mutations: {
         accept: storeMutation({
+          changes: ['materials'],
           input: h.requestHistoryPruneSchema,
           output: h.historyPruneSchema,
           run: (input) => {
@@ -270,6 +271,7 @@ export const MaterialHistoryStore = defineStore({
           }
         }),
         retain: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             ...h.historyOperationKeySchema.fields,
             requestIds: Schema.Array(Schema.String),
@@ -303,11 +305,13 @@ export const MaterialHistoryStore = defineStore({
           }
         }),
         scrub: storeMutation({
+          changes: ['materials'],
           input: h.historyOperationKeySchema,
           output: Schema.Void,
           run: ({ operationId }) => scrub(operationId)
         }),
         retry: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             ...h.historyOperationKeySchema.fields,
             pendingTerminal: Schema.Boolean
@@ -327,6 +331,7 @@ export const MaterialHistoryStore = defineStore({
           }
         }),
         settle: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             ...h.historyOperationKeySchema.fields,
             attempt: Schema.Int,

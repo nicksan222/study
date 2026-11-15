@@ -114,6 +114,7 @@ export const IntegrationContentStore = defineStore({
     },
     mutations: {
       retainSource: storeMutation({
+        changes: ['integrations'],
         input: Schema.Struct({
           id: integrationImportIdSchema,
           path: Schema.String,

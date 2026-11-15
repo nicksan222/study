@@ -80,8 +80,8 @@ testStable('permits Query while keeping raw RPC in the transport adapter', async
     await lintRule(
       'web-boundaries',
       {
-        'apps/client/src/app/providers.tsx': `import { QueryClientProvider } from '@tanstack/react-query';`,
-        'apps/client/src/features/library/library.queries.ts': `import { queryOptions } from '@tanstack/react-query';`
+        'apps/client/src/app/providers.tsx': `import { RpcProvider } from '@study/contracts/react';`,
+        'apps/client/src/features/library/library.queries.ts': `import { rpc } from '@study/contracts/react';`
       },
       true
     )
@@ -157,3 +157,17 @@ testStable(
     ).toStrictEqual(['leak.ts']);
   }
 );
+
+testStable('raw RPC execution is limited to the single runtime transport adapter', async () => {
+  const diagnostics = await lintRule(
+    'web-boundaries',
+    {
+      'apps/client/src/lib/effect/rpc.ts': `import { makeStudyClient } from '@study/server/client'; import { RpcGroup } from 'effect/rpc';`,
+      'apps/client/src/lib/study-client/bypass.ts': `import { makeStudyClient } from '@study/server/client';`,
+      'apps/client/src/test/native.ts': `import type { RpcClient } from 'effect/rpc';`
+    },
+    true
+  );
+
+  expect(diagnostics).toHaveLength(1);
+});

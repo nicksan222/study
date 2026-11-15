@@ -6,32 +6,18 @@ import {
 } from '@study/contracts/materials/schemas';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
-import { afterEach, expect, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { learningVersion, materialRpc } from '#client/features/material-library/test/support.tsx';
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import { createStudyQueryClient } from '#client/lib/query-client.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { ArchivedPracticeAction } from './archive-dialog';
 
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
-
 const en = catalogs.english;
-
-const caches: ReturnType<typeof createStudyQueryClient>[] = [];
-
-afterEach(() => {
-  for (const cache of caches) cache.clear();
-
-  caches.length = 0;
-});
 
 function fixture(kind: 'quiz' | 'flashcards', id: bigint) {
   const content =
@@ -88,16 +74,16 @@ function mount(project = true, paginated = false, empty = false) {
     ...base,
     'materials.materials': vi
       .fn<StudyClient['materials.materials']>()
-      .mockImplementation(({ cursor }) =>
+      .mockImplementation(({ cursor, limit }) =>
         Effect.succeed({
           items: empty
             ? []
-            : paginated && !cursor
+            : paginated && !cursor && limit <= 30
               ? [extra.summary]
               : restored
                 ? [cards.summary]
                 : [quiz.summary, cards.summary],
-          nextCursor: paginated && !cursor ? extra.summary.id : null
+          nextCursor: paginated && !cursor && limit <= 30 ? extra.summary.id : null
         })
       ),
     'materials.material': vi
@@ -118,27 +104,19 @@ function mount(project = true, paginated = false, empty = false) {
     )
   };
 
-  vi.mocked(request).mockImplementation((invoke, signal) =>
-    runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-  );
-  const cache = createStudyQueryClient();
+  const transport = rpcHandlersTransport(rpc);
 
-  caches.push(cache);
-  render(
-    <QueryClientProvider client={cache}>
-      <ArchivedPracticeAction
-        projectId={project ? Schema.decodeUnknownSync(projectIdSchema)(1n) : undefined}
-      />
-    </QueryClientProvider>
-  );
+  render(<ArchivedPracticeAction projectId={project ? projectIdSchema.make(1n) : undefined} />, {
+    wrapper: transport.wrapper
+  });
 
-  return { rpc, cache };
+  return { rpc, notify: transport.notify };
 }
 
 testStable(
   'opens the sidebar archive, previews saved content, and restores through the real mutation',
   async () => {
-    const { rpc, cache } = mount();
+    const { rpc } = mount();
     const user = userEvent.setup();
     const trigger = screen.getByRole('button', { name: en.PracticeArchived });
 
@@ -166,7 +144,7 @@ testStable(
       cursor: undefined,
       limit: 30
     });
-    expect(cache.getQueryData(['materials', 'detail', '41'])).toMatchObject({ archived_at: null });
+    expect(rpc['materials.unarchive']).toHaveBeenCalledWith({ id: 41n });
     await user.click(within(dialog).getByRole('button', { name: en.Close }));
     await waitFor(() => expect(trigger).toHaveFocus());
   }
@@ -186,8 +164,8 @@ testStable('pages through the global archive, and searches quizzes and flashcard
   expect(rpc['materials.materials']).toHaveBeenLastCalledWith({
     projectId: undefined,
     archived: true,
-    cursor: 43n,
-    limit: 30
+    cursor: undefined,
+    limit: 60
   });
   await user.type(
     within(dialog).getByRole('searchbox', { name: en.PracticeSearchArchived }),
@@ -206,7 +184,7 @@ testStable('pages through the global archive, and searches quizzes and flashcard
 testStable(
   'uses the shared empty presentation and automatically previews available archived items',
   async () => {
-    const { rpc, cache } = mount(true, false, true);
+    const { rpc, notify } = mount(true, false, true);
     const user = userEvent.setup();
 
     await user.click(screen.getByRole('button', { name: en.PracticeArchived }));
@@ -221,7 +199,7 @@ testStable(
     rpc['materials.materials'].mockReturnValue(
       Effect.succeed({ items: [fixture('flashcards', 42n).summary], nextCursor: null })
     );
-    await cache.invalidateQueries({ queryKey: ['materials', 'archived'] });
+    await notify();
     expect(
       await within(dialog).findByRole('heading', { name: 'Smallest prime?' })
     ).toBeInTheDocument();

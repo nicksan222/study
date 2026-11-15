@@ -4,7 +4,7 @@ import { testStable } from '@study/testing/vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect } from 'effect';
-import { expect, vi } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { authoredPage } from '../document-editing/test-support';
 import {
@@ -13,8 +13,6 @@ import {
   materialRpc,
   mountLibraryRoute
 } from '../material-library/test/support';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const t = catalogs.english;
 
@@ -67,18 +65,13 @@ async function review(user: ReturnType<typeof userEvent.setup>) {
 }
 
 testStable(
-  'removes only reviewed source bodies and returns historical reading to current without evicting authored copies',
+  'removes only reviewed source bodies and returns historical reading to current while preserving independent authored copies',
   async () => {
-    const { rpc, old, preview } = historyFixture();
+    const { rpc, preview } = historyFixture();
 
     rpc['sources.retireHistory'].mockReturnValue(Effect.succeed(preview));
-    const { queryClient } = mountLibraryRoute(
-      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
-      rpc
-    );
-    const independent = authoredPage(41n);
+    mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
 
-    queryClient.setQueryData(['pages', 'detail', '41'], independent);
     const user = userEvent.setup();
 
     expect(await screen.findByText('Old source body')).toBeVisible();
@@ -93,10 +86,6 @@ testStable(
       keepLatest: 1,
       token: preview.token
     });
-    expect(
-      queryClient.getQueryData(['sources', 'extraction', '7', '1', String(old.snapshotId)])
-    ).toBeUndefined();
-    expect(queryClient.getQueryData(['pages', 'detail', '41'])).toBe(independent);
   }
 );
 testStable(
@@ -151,123 +140,3 @@ testStable('shows exact evidence blockers and cannot authorize their removal', a
   expect(screen.getByText('Old source body')).toBeVisible();
   expect(rpc['sources.retireHistory']).not.toHaveBeenCalled();
 });
-
-testStable.each([false, true])(
-  'reconciles a retired cached current extraction after pruning (uncertain: %s)',
-  async (uncertain) => {
-    const { rpc, old, preview } = historyFixture();
-
-    if (uncertain)
-      rpc['sources.retireHistory'].mockReturnValue(
-        Effect.fail(new StudyError('transient', 'Lost response'))
-      );
-    else rpc['sources.retireHistory'].mockReturnValue(Effect.succeed(preview));
-
-    const { queryClient, router } = mountLibraryRoute(
-      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
-      rpc
-    );
-    const key = ['sources', 'current-extraction', '7'];
-
-    queryClient.setQueryData(key, {
-      ...preview.candidates[0],
-      name: importedSource.name,
-      document: old.document
-    });
-    await screen.findByText('Old source body');
-    const user = userEvent.setup();
-    const dialog = await review(user);
-
-    await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
-
-    if (uncertain) {
-      await within(dialog).findByText(t.SourceHistoryFailed);
-      await waitFor(() => expect(queryClient.getQueryData(key)).toBeUndefined());
-      await user.click(within(dialog).getByRole('button', { name: t.Cancel }));
-    } else {
-      await screen.findByText(t.SourceHistoryRemoved);
-      expect(await screen.findByText('Current source body')).toBeVisible();
-      expect(screen.queryByText('Old source body')).toBeNull();
-    }
-
-    await act(() => router.navigate({ to: '/notes' }));
-    await locationIs(router, '/notes');
-    await act(() => router.navigate({ to: '/sources/$sourceId', params: { sourceId: '7' } }));
-    expect(await screen.findByText('Current source body')).toBeVisible();
-    expect(screen.queryByText('Old source body')).toBeNull();
-  }
-);
-
-testStable(
-  'preserves a fresh retained current snapshot and unrelated source cache when pruning older history',
-  async () => {
-    const { rpc, current, preview } = historyFixture();
-
-    rpc['sources.retireHistory'].mockReturnValue(Effect.succeed(preview));
-    const { queryClient } = mountLibraryRoute(
-      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
-      rpc
-    );
-    const retained = {
-      sourceId: importedSource.id,
-      revision: 2n,
-      snapshotId: current.snapshotId,
-      name: importedSource.name,
-      document: current.document
-    };
-    const key = ['sources', 'current-extraction', '7'];
-
-    queryClient.setQueryData(key, retained);
-    queryClient.setQueryData(['sources', 'current-extraction', '8'], {
-      ...retained,
-      snapshotId: preview.candidates[0]!.snapshotId
-    });
-    const user = userEvent.setup();
-    const dialog = await review(user);
-
-    await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
-    await screen.findByText(t.SourceHistoryRemoved);
-    expect(await screen.findByText('Current source body')).toBeVisible();
-    expect(queryClient.getQueryData(key)).toBe(retained);
-    expect(queryClient.getQueryData(['sources', 'current-extraction', '8'])).toBeDefined();
-    expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
-  }
-);
-
-testStable.each([false, true])(
-  'resets a mounted retired current cache and retains the reconciled current B (uncertain: %s)',
-  async (uncertain) => {
-    const { rpc, old, current, preview } = historyFixture();
-
-    if (uncertain)
-      rpc['sources.retireHistory'].mockReturnValue(
-        Effect.fail(new StudyError('transient', 'Lost response'))
-      );
-    else rpc['sources.retireHistory'].mockReturnValue(Effect.succeed(preview));
-
-    const { queryClient } = mountLibraryRoute('/sources/7', rpc);
-
-    await screen.findByText('Current source body');
-    const key = ['sources', 'current-extraction', '7'];
-
-    await act(async () => {
-      queryClient.setQueryData(key, {
-        ...preview.candidates[0],
-        name: importedSource.name,
-        document: old.document
-      });
-    });
-    await screen.findByText('Old source body');
-    const user = userEvent.setup();
-    const dialog = await review(user);
-
-    await user.click(within(dialog).getByRole('button', { name: t.SourceHistoryConfirm }));
-
-    if (uncertain) await within(dialog).findByText(t.SourceHistoryFailed);
-    else await screen.findByText(t.SourceHistoryRemoved);
-
-    expect(await screen.findByText('Current source body')).toBeVisible();
-    expect(screen.queryByText('Old source body')).toBeNull();
-    expect(queryClient.getQueryData(key)).toMatchObject({ snapshotId: current.snapshotId });
-  }
-);

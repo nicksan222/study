@@ -2,15 +2,13 @@ import type { ProjectId } from '@study/contracts/ids';
 import { projectIdSchema } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
 import { OpenIcon, PageIcon, RefreshIcon } from '@study/icons';
-import { LoadMoreButton } from '@study/ui/action-button';
 import { IconButton } from '@study/ui/icon-button';
 import { PageOverview } from '@study/ui/page-overview';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pagesOptions } from '#client/lib/study-client/pages.queries.ts';
 
 import { ContentReadError } from '../document-presentation';
 import { PagesArchive } from './archive';
@@ -18,6 +16,7 @@ import { NewBlankPage } from './creation-actions';
 import { PagesFromNotes } from './from-notes';
 import { PageMerges } from './merge';
 import { PageContextMenu } from './page-context-menu';
+import { usePageBrowse } from './use-page-browse';
 
 /** A dedicated destination for completed pages, independent from sources and materials. */
 export function PagesPage() {
@@ -32,18 +31,11 @@ export function PagesPage() {
 function PagesOverviewPage({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
   const archived = false;
-  const state = useInfiniteQuery({
-    ...pagesOptions(project, archived),
-    select: (data) => ({
-      ...data,
-      pages: data.pages.map((page) => ({
-        ...page,
-        items: page.items.filter((item) => item.headVersionId !== null)
-      }))
-    })
-  });
+  const { query: state, navigation: window } = usePageBrowse(project, archived);
 
-  const items = displayedPages(state.isError, state.data?.pages);
+  const items = displayedPages(state.isError, state.data ? [state.data] : undefined).filter(
+    (item) => item.headVersionId !== null
+  );
 
   return (
     <PageOverview.Root>
@@ -71,16 +63,13 @@ function PagesOverviewPage({ project }: { project?: ProjectId }) {
       <PageMerges project={project} />
       {state.error && <ContentReadError error={state.error} retry={() => void state.refetch()} />}
       <SavedPages items={items} project={project} archived={archived} />
-      {state.hasNextPage && (
-        <PageOverview.Footer>
-          <LoadMoreButton
-            variant="ghost"
-            disabled={state.isFetchingNextPage}
-            onClick={() => void state.fetchNextPage()}
-            label={t('LibraryMore')}
-          />
-        </PageOverview.Footer>
-      )}
+
+      <CursorWindowActions
+        {...window}
+        hasMore={!!state.data?.nextCursor}
+        pending={state.isFetching}
+        more={() => window.more(state.data?.nextCursor)}
+      />
       <PagesEmpty ready={state.isSuccess} empty={!items.length} archived={archived} />
     </PageOverview.Root>
   );
@@ -126,7 +115,7 @@ function PageRow({ item, project }: { item: PageSummary; project?: ProjectId }) 
   );
 }
 
-function displayedPages(failed: boolean, pages?: { items: PageSummary[] }[]) {
+function displayedPages(failed: boolean, pages?: readonly { items: readonly PageSummary[] }[]) {
   return failed ? [] : (pages?.flatMap((page) => page.items) ?? []);
 }
 

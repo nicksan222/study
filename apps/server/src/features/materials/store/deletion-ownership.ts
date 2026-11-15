@@ -65,6 +65,7 @@ export const MaterialDeletionOwnershipStore = defineStore({
     },
     mutations: {
       retain: storeMutation({
+        changes: ['materials'],
         input: Schema.Struct({
           deletionId: materialIdSchema,
           requestIds: Schema.Array(Schema.String),

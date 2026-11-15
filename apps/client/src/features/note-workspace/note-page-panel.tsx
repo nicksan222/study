@@ -1,17 +1,16 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import type { Page, PageVersion } from '@study/contracts/pages/types';
+import { rpc } from '@study/contracts/react';
 import { SavedIcon, UnsavedIcon, SaveErrorIcon } from '@study/icons';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
-import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pageVersionOptions } from '#client/lib/study-client/pages.queries.ts';
 
 import { CanonicalDocumentEditor } from './canonical-document-editor';
 import { PageMetadata } from './note-page-metadata';
-import { notePageOptions, useNotePageAutosave } from './note-page.queries';
+import { useNotePageAutosave } from './note-page.queries';
 import { SaveRecoveryNotice } from './save-recovery';
 import { NoteReadError } from './status';
 
@@ -22,7 +21,7 @@ type EditorActions = {
 
 export function NotePagePanel({ pageId, actions, versionId }: { pageId: PageId } & EditorActions) {
   const { t } = useI18n();
-  const state = useQuery(notePageOptions(pageId));
+  const state = rpc.pages.get.useQuery({ id: pageId });
 
   if (state.isPending) return <Loading label={t('LoadingStudy')} />;
 
@@ -71,7 +70,7 @@ function PageEditor({ page, actions, versionId }: { page: Page } & EditorActions
 
 function useViewedPage(page: Page, versionId?: PageVersionId) {
   const historical = versionId !== undefined && versionId !== page.headVersionId;
-  const exact = useQuery({ ...pageVersionOptions(versionId!), enabled: historical });
+  const exact = rpc.pages.version.useQuery(historical && versionId ? { id: versionId } : undefined);
   const candidate = historical ? exact.data : page.version;
   const version = candidate?.pageId === page.id ? candidate : undefined;
 

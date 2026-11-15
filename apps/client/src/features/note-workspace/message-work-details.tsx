@@ -1,17 +1,16 @@
 import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { Dialog, DialogPopup } from '@study/ui/dialog';
 import { DialogHeading } from '@study/ui/dialog-heading';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/note-workspace';
 import { WorkspaceSurface } from '@study/ui/workspace';
-import { useQuery } from '@tanstack/react-query';
 import type { RefObject } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AgentProgress } from '../agent-progress';
 import { CapturedContext } from './captured-context';
-import { provenanceOptions } from './note-workspace.queries';
 import { ExecutionStatus, NoteReadError } from './status';
 
 export type MessageWorkTarget = {
@@ -50,7 +49,11 @@ export function MessageWorkDetails({
 
 function WorkContent({ target }: { target: MessageWorkTarget }) {
   const { t } = useI18n();
-  const provenance = useQuery(provenanceOptions(target.noteId, target.messageId, target.versionId));
+  const provenance = rpc.notes.replyVersion.useQuery({
+    noteId: target.noteId,
+    messageId: target.messageId,
+    versionId: target.versionId
+  });
   const receipt = provenance.isError ? undefined : provenance.data;
   const requestId = receipt?.state === 'available' ? receipt.requestId : undefined;
 

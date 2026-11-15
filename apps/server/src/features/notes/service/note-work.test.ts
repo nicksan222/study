@@ -27,6 +27,7 @@ import { Settings } from '#server/features/settings/index';
 import { Sources } from '#server/features/sources/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 testStable(
   'note work RPC scopes active executions, paginates, and preserves canonical cancellation state',
@@ -157,7 +158,10 @@ testStable(
 
             assert.strictEqual(error.kind, 'not_found');
           })
-        ).pipe(Effect.provide(NotesRpcLive), Effect.provide(layer))
+        ).pipe(
+          Effect.provide(NotesRpcLive.pipe(Layer.provide(testLiveQueries))),
+          Effect.provide(layer)
+        )
       );
     } finally {
       context.close();

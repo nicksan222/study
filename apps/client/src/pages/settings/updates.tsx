@@ -1,21 +1,17 @@
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Settings } from '@study/ui/settings';
-import { useIsMutating, useMutation, useQuery } from '@tanstack/react-query';
 
-import {
-  desktopUpdateQueryOptions,
-  desktopUpdateStatusQueryOptions,
-  installDesktopUpdateMutationOptions
-} from '#client/lib/desktop-updates.queries.ts';
-import { hostCapabilities } from '#client/lib/host.ts';
+import { useDesktopInstallation } from '#client/lib/desktop-updates.ts';
+import { useNativeAsync } from '#client/lib/effect/native.ts';
+import { hostCapabilities, desktopUpdateStatus, checkDesktopUpdate } from '#client/lib/host.ts';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 function useUpdates() {
-  const status = useQuery(desktopUpdateStatusQueryOptions());
-  const update = useQuery({ ...desktopUpdateQueryOptions(), enabled: false });
-  const install = useMutation(installDesktopUpdateMutationOptions());
-  const installing = useIsMutating({ mutationKey: ['desktop-update-install'] }) > 0;
+  const status = useNativeAsync(desktopUpdateStatus, hostCapabilities().updates);
+  const update = useNativeAsync(checkDesktopUpdate, false);
+  const install = useDesktopInstallation();
+  const installing = install.isPending;
   const busy = update.isFetching || installing;
   const failed = status.isError || update.isError || install.isError;
 

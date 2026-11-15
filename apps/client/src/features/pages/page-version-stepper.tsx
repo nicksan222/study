@@ -1,13 +1,17 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import type { PageVersion } from '@study/contracts/pages/types';
+import { rpc } from '@study/contracts/react';
 import { PreviousVersionIcon, NextVersionIcon } from '@study/icons';
 import { IconButton } from '@study/ui/icon-button';
 import { Notebook } from '@study/ui/note-workspace';
-import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
+import {
+  useCursorRecovery,
+  useCursorWindow,
+  CursorWindowActions
+} from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pageHistoryOptions } from '#client/lib/study-client/pages.queries.ts';
 
 import { ContentReadError } from '../document-presentation';
 
@@ -55,6 +59,12 @@ export function PageVersionStepper({
           <NextVersionIcon size={14} aria-hidden="true" />
         </IconButton>
       </Notebook.VersionStepper>
+      <CursorWindowActions
+        {...history.window}
+        hasMore={!!history.query.data?.nextCursor}
+        pending={history.busy}
+        more={() => history.window.more(history.query.data?.nextCursor)}
+      />
       {history.query.error && (
         <ContentReadError error={history.query.error} retry={() => void history.query.refetch()} />
       )}
@@ -67,16 +77,22 @@ function usePageVersionNavigation(
   version: PageVersion | undefined,
   onChange: (id: PageVersionId) => void
 ) {
-  const query = useInfiniteQuery(pageHistoryOptions(pageId));
-  const versions = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const window = useCursorWindow<PageVersionId>(String(pageId));
+  const limit = window.limit;
+  const query = rpc.pages.versions.useQuery({ pageId, limit, cursor: window.cursor });
+
+  useCursorRecovery(window, query.error);
+  const versions = query.data?.items ?? [];
   const index = versions.findIndex((item) => item.id === version?.id);
   const previous = index >= 0 ? versions[index + 1] : undefined;
   const next = index > 0 ? versions[index - 1] : undefined;
-  const { hasNextPage, isFetching, isError, fetchNextPage } = query;
+  const hasMore = !!query.data?.nextCursor;
+  const { isFetching, isError } = query;
 
   useEffect(() => {
-    if (version && index < 0 && hasNextPage && !isFetching && !isError) void fetchNextPage();
-  }, [version, index, hasNextPage, isFetching, isError, fetchNextPage]);
+    if (version && index < 0 && hasMore && limit < 100 && !isFetching && !isError)
+      window.more(query.data?.nextCursor);
+  }, [version, index, hasMore, isFetching, isError, limit, window, query.data?.nextCursor]);
 
   async function older() {
     if (previous) {
@@ -85,18 +101,23 @@ function usePageVersionNavigation(
       return;
     }
 
-    const result = await fetchNextPage();
-    const items = result.data?.pages.flatMap((page) => page.items) ?? [];
-    const position = items.findIndex((item) => item.id === version?.id);
-    const older = position >= 0 ? items[position + 1] : undefined;
+    if (!hasMore) return;
+
+    const result = await rpc.pages.versions.read(
+      olderWindowInput(pageId, window, query.data?.nextCursor)
+    );
+
+    window.more(query.data?.nextCursor);
+    const older = followingVersion(result.items, version?.id, limit >= 100);
 
     if (older) onChange(older.id);
   }
 
   return {
     query,
+    window,
     busy: isFetching,
-    previous: index >= 0 && (!!previous || hasNextPage),
+    previous: index >= 0 && (!!previous || hasMore),
     next,
     older
   };
@@ -122,4 +143,30 @@ function PageVersionLabel({
       {latest ? t('NoteVersionLatest') : number}
     </Notebook.VersionLabel>
   );
+}
+
+function olderWindowInput(
+  pageId: PageId,
+  window: ReturnType<typeof useCursorWindow<PageVersionId>>,
+  next: PageVersionId | null | undefined
+) {
+  const extending = window.limit < 100;
+
+  return {
+    pageId,
+    limit: extending ? Math.min(100, window.limit + 30) : 30,
+    cursor: extending ? window.cursor : (next ?? undefined)
+  };
+}
+
+function followingVersion<A extends { id: PageVersionId }>(
+  items: readonly A[],
+  selected: PageVersionId | undefined,
+  continued: boolean
+) {
+  const index = items.findIndex((item) => item.id === selected);
+
+  if (index >= 0) return items[index + 1];
+
+  return continued ? items[0] : undefined;
 }

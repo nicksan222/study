@@ -39,6 +39,7 @@ export function CanonicalDocumentEditor({
 
   return (
     <>
+      {images.subscriptions}
       {images.error && <ContentReadError error={images.error} retry={images.retry} />}
       <StructuredEditor
         value={value}

@@ -1,15 +1,13 @@
-import { StudyError } from '@study/contracts/errors';
 import type { ChatMessage } from '@study/contracts/notes/messages';
-import type { assistantAskInputSchema } from '@study/contracts/notes/rpc';
+import { assistantAskInputSchema } from '@study/contracts/notes/rpc';
 import { chatMessageSchema, askResultSchema, noteSchema } from '@study/contracts/notes/schemas';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
-import { Effect, Schema } from 'effect';
-import { afterEach, beforeEach, vi } from 'vite-plus/test';
+import { Schema } from 'effect';
+import { beforeEach, vi } from 'vite-plus/test';
 
 import { AssistantProvider } from '#client/features/assistant/note.tsx';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
 import { Page } from '#client/pages/assistant/page.tsx';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 const api = vi.hoisted(() => ({
   note: vi.fn(),
@@ -23,48 +21,9 @@ const api = vi.hoisted(() => ({
   provenance: vi.fn(),
   progress: vi.fn(),
   executions: vi.fn(),
-  subscribe: vi.fn(),
   reanswer: vi.fn(),
   cancel: vi.fn()
 }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: object) => Effect.Effect<unknown, unknown>) => {
-    const rpc = {
-      'notes.assistantNote': api.note,
-      'notes.assistantChats': api.chats,
-      'notes.assistantContext': api.context,
-      'notes.newAssistantNote': api.newChat,
-      'notes.thread': api.thread,
-      'notes.assistantAsk': api.ask,
-      'notes.replyVersion': api.provenance,
-      'workflows.agentProgress': api.progress,
-      'notes.reanswer': api.reanswer,
-      'workflows.executions': api.executions,
-      'workflows.cancelExecution': api.cancel,
-      'projects.projects': async () => ({ items: [], next: null }),
-      'notes.notes': async () => ({ items: [], next: null })
-    } satisfies Partial<Record<keyof StudyClient, unknown>>;
-
-    return Effect.runPromise(
-      invoke(
-        new Proxy(rpc, {
-          get:
-            (target, key) =>
-            (...args: unknown[]) =>
-              Effect.tryPromise(() => {
-                const method = Reflect.get(target, key);
-
-                return method
-                  ? method(...args)
-                  : Promise.reject(new StudyError('unsupported', 'Unused test request'));
-              })
-        })
-      )
-    );
-  }
-}));
-vi.mock('#client/lib/study-client/subscriptions.ts', () => ({ subscribe: api.subscribe }));
 
 export function message(
   role: 'user' | 'assistant',
@@ -99,8 +58,6 @@ export function message(
     citations: []
   });
 }
-
-const clients: QueryClient[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -139,7 +96,6 @@ beforeEach(() => {
   api.progress.mockResolvedValue([]);
   api.provenance.mockResolvedValue({ state: 'available', requestId: 'reply' });
   api.executions.mockResolvedValue({ items: [], next: null });
-  api.subscribe.mockImplementation(() => new Promise(() => {}));
   api.ask.mockImplementation(async (input) => {
     messages = [message('user', input.text, 1n), message('assistant', '', 2n, true)];
 
@@ -153,28 +109,41 @@ beforeEach(() => {
     });
   });
 });
-afterEach(() => {
-  for (const client of clients) client.clear();
-
-  clients.length = 0;
-});
 
 export function mountAssistant() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  const handlers: Record<string, (input: unknown) => Promise<unknown>> = {
+    'notes.assistantNote': api.note,
+    'notes.assistantChats': api.chats,
+    'notes.assistantContext': api.context,
+    'notes.newAssistantNote': api.newChat,
+    'notes.thread': api.thread,
+    'notes.assistantAsk': (input) =>
+      api.ask(Schema.decodeUnknownSync(assistantAskInputSchema)(input)),
+    'notes.replyVersion': api.provenance,
+    'workflows.agentProgress': api.progress,
+    'notes.reanswer': api.reanswer,
+    'workflows.executions': api.executions,
+    'workflows.cancelExecution': api.cancel,
+    'auth.status': async () => ({ signedIn: false, email: null, sharing: false }),
+    'projects.projects': async () => ({ items: [], next: null }),
+    'notes.notes': async () => ({ items: [], next: null })
+  };
+  const fixture = rpcTestTransport(async (tag, input) => {
+    const handler = handlers[tag];
 
-  clients.push(client);
+    if (!handler) throw new Error(`Unexpected endpoint ${tag}`);
+
+    return handler(input);
+  });
 
   return {
     ...render(
-      <QueryClientProvider client={client}>
-        <AssistantProvider>
-          <Page />
-        </AssistantProvider>
-      </QueryClientProvider>
+      <AssistantProvider>
+        <Page />
+      </AssistantProvider>,
+      { wrapper: fixture.wrapper }
     ),
-    client
+    notify: fixture.notify
   };
 }
 

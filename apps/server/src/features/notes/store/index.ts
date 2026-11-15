@@ -16,6 +16,7 @@ import { StudyError } from '@study/contracts/errors';
 import type { ProjectId } from '@study/contracts/ids';
 import { noteIdSchema } from '@study/contracts/ids';
 import {
+  countNotesInputSchema,
   createNoteInputSchema,
   renameNoteInputSchema,
   notePageInputSchema
@@ -34,6 +35,7 @@ import {
 } from '@study/db/schema';
 import { Option, Schema } from 'effect';
 
+import { requireRow } from '#server/platform/database/rows';
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
 import { unixSeconds } from '#server/platform/time/index';
 
@@ -76,6 +78,19 @@ export const NoteStore = defineStore({
 
     return {
       queries: {
+        count: storeQuery({
+          role: 'required',
+          input: countNotesInputSchema,
+          output: Schema.BigInt,
+          run: (input) =>
+            requireRow(
+              db.orm
+                .select({ count: sql<bigint>`count(*)` })
+                .from(notes)
+                .where(and(eq(notes.mode, NoteMode.Notebook), projectMembership(input.project)))
+                .get()
+            ).count
+        }),
         note: storeQuery({
           role: 'required',
           input: noteIdSchema,
@@ -148,6 +163,7 @@ export const NoteStore = defineStore({
       },
       mutations: {
         createNote: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             ...createNoteInputSchema.fields,
             titleSource: Schema.Literals(['user', 'provisional']),
@@ -236,6 +252,7 @@ export const NoteStore = defineStore({
           }
         }),
         renameNote: storeMutation({
+          changes: ['notes'],
           input: renameNoteInputSchema,
           output: noteSchema,
           run: (input) => {

@@ -1,5 +1,4 @@
 import { Effect, Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import {
@@ -9,6 +8,7 @@ import {
   projectIdSchema,
   noteIdSchema
 } from '../ids.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { blockIdSchema } from '../sources/schemas.ts';
 import {
   materialDeletionKeySchema,
@@ -155,157 +155,298 @@ const retryGenerationSchema = Schema.Struct({
   retryId: Schema.String.check(Schema.isMinLength(1))
 });
 
-export const MaterialsRpc = RpcGroup.make(
-  Rpc.make('exportMaterialVersion', {
-    payload: exportMaterialVersionInputSchema,
-    success: materialVersionFileSchema,
-    error: failureSchema
-  }),
-  Rpc.make('previewHistoryPrune', {
-    payload: history.historyScopeSchema,
-    success: history.historyPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('requestHistoryPrune', {
-    payload: history.requestHistoryPruneSchema,
-    success: history.historyPruneSchema,
-    error: failureSchema
-  }),
-  Rpc.make('historyPrune', {
-    payload: history.historyOperationKeySchema,
-    success: history.historyPruneSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retryHistoryPrune', {
-    payload: history.historyOperationKeySchema,
-    success: history.historyPruneSchema,
-    error: failureSchema
-  }),
-  Rpc.make('previewDeletion', {
-    payload: materialDeletionKeySchema,
-    success: materialDeletionPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('requestDeletion', {
-    payload: requestMaterialDeletionSchema,
-    success: materialDeletionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('deletion', {
-    payload: materialDeletionKeySchema,
-    success: materialDeletionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retryDeletion', {
-    payload: materialDeletionKeySchema,
-    success: materialDeletionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('activeMaterialGenerations', {
-    payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
-    success: Schema.Array(materialGenerationSnapshotSchema),
-    error: failureSchema
-  }),
-  Rpc.make('materialGeneration', {
-    payload: generationKeySchema,
-    success: materialGenerationSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('cancelMaterialGeneration', {
-    payload: generationKeySchema,
-    success: materialGenerationSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retryMaterialGeneration', {
-    payload: retryGenerationSchema,
-    success: materialGenerationSnapshotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('requestMaterialGeneration', {
-    payload: requestMaterialGenerationInputSchema,
-    success: materialGenerationSchema,
-    error: failureSchema
-  }),
-  Rpc.make('archive', {
-    payload: archiveInputSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('unarchive', {
-    payload: unarchiveInputSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('create', {
-    payload: createInputSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('createVersion', {
-    payload: createVersionInputSchema,
-    success: materialVersionDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('material', {
-    payload: materialInputSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('materialVersion', {
-    payload: materialVersionInputSchema,
-    success: materialVersionDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('materials', {
-    payload: materialsInputSchema,
-    success: materialPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('materialVersions', {
-    payload: materialVersionsInputSchema,
-    success: versionPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('citations', {
-    payload: citationsInputSchema,
-    success: citationPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('attach', { payload: attachInputSchema, success: linked, error: failureSchema }),
-  Rpc.make('detach', { payload: detachInputSchema, success: linked, error: failureSchema }),
-  Rpc.make('updateDescription', {
-    payload: updateDescriptionInputSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('rename', {
-    payload: renameInputSchema,
-    success: materialDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('reorder', {
-    payload: reorderInputSchema,
-    success: Schema.Struct({ materialIds: Schema.Array(materialIdSchema) }),
-    error: failureSchema
-  }),
-  Rpc.make('replaceDraft', {
-    payload: replaceDraftInputSchema,
-    success: materialVersionDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('deleteDraft', {
-    payload: deleteDraftInputSchema,
-    success: versionKey,
-    error: failureSchema
-  }),
-  Rpc.make('publishVersion', {
-    payload: publishVersionInputSchema,
-    success: materialVersionDetailSchema,
-    error: failureSchema
-  }),
-  Rpc.make('setCitations', {
-    payload: setCitationsInputSchema,
-    success: Schema.Array(materialCitationSchema),
-    error: failureSchema
-  })
-).prefix('materials.');
+export const countInputSchema = Schema.Struct({
+  projectId: materialsInputSchema.fields.projectId,
+  noteId: materialsInputSchema.fields.noteId,
+  archived: materialsInputSchema.fields.archived
+});
+
+export const materialsEndpoints = {
+  count: liveQuery(
+    'materials.count',
+    { payload: countInputSchema, success: Schema.BigInt, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  exportMaterialVersion: liveQuery(
+    'materials.exportMaterialVersion',
+    {
+      payload: exportMaterialVersionInputSchema,
+      success: materialVersionFileSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  previewHistoryPrune: liveQuery(
+    'materials.previewHistoryPrune',
+    {
+      payload: history.historyScopeSchema,
+      success: history.historyPreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  requestHistoryPrune: mutation(
+    'materials.requestHistoryPrune',
+    {
+      payload: history.requestHistoryPruneSchema,
+      success: history.historyPruneSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  historyPrune: liveQuery(
+    'materials.historyPrune',
+    {
+      payload: history.historyOperationKeySchema,
+      success: history.historyPruneSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  retryHistoryPrune: mutation(
+    'materials.retryHistoryPrune',
+    {
+      payload: history.historyOperationKeySchema,
+      success: history.historyPruneSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  previewDeletion: liveQuery(
+    'materials.previewDeletion',
+    {
+      payload: materialDeletionKeySchema,
+      success: materialDeletionPreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  requestDeletion: mutation(
+    'materials.requestDeletion',
+    {
+      payload: requestMaterialDeletionSchema,
+      success: materialDeletionSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  deletion: liveQuery(
+    'materials.deletion',
+    {
+      payload: materialDeletionKeySchema,
+      success: materialDeletionSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  retryDeletion: mutation(
+    'materials.retryDeletion',
+    {
+      payload: materialDeletionKeySchema,
+      success: materialDeletionSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  activeMaterialGenerations: liveQuery(
+    'materials.activeMaterialGenerations',
+    {
+      payload: Schema.Struct({ projectId: Schema.optional(projectIdSchema) }),
+      success: Schema.Array(materialGenerationSnapshotSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  materialGeneration: liveQuery(
+    'materials.materialGeneration',
+    {
+      payload: generationKeySchema,
+      success: materialGenerationSnapshotSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  cancelMaterialGeneration: mutation(
+    'materials.cancelMaterialGeneration',
+    {
+      payload: generationKeySchema,
+      success: materialGenerationSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  retryMaterialGeneration: mutation(
+    'materials.retryMaterialGeneration',
+    {
+      payload: retryGenerationSchema,
+      success: materialGenerationSnapshotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  requestMaterialGeneration: mutation(
+    'materials.requestMaterialGeneration',
+    {
+      payload: requestMaterialGenerationInputSchema,
+      success: materialGenerationSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  archive: mutation(
+    'materials.archive',
+    {
+      payload: archiveInputSchema,
+      success: materialDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  unarchive: mutation(
+    'materials.unarchive',
+    {
+      payload: unarchiveInputSchema,
+      success: materialDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  create: mutation(
+    'materials.create',
+    {
+      payload: createInputSchema,
+      success: materialDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  createVersion: mutation(
+    'materials.createVersion',
+    {
+      payload: createVersionInputSchema,
+      success: materialVersionDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  get: liveQuery(
+    'materials.material',
+    {
+      payload: materialInputSchema,
+      success: materialDetailSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  version: liveQuery(
+    'materials.materialVersion',
+    {
+      payload: materialVersionInputSchema,
+      success: materialVersionDetailSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  list: liveQuery(
+    'materials.materials',
+    {
+      payload: materialsInputSchema,
+      success: materialPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  versions: liveQuery(
+    'materials.materialVersions',
+    {
+      payload: materialVersionsInputSchema,
+      success: versionPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  citations: liveQuery(
+    'materials.citations',
+    {
+      payload: citationsInputSchema,
+      success: citationPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  attach: mutation(
+    'materials.attach',
+    { payload: attachInputSchema, success: linked, error: failureSchema },
+    { changes: [dependency.materials] }
+  ),
+  detach: mutation(
+    'materials.detach',
+    { payload: detachInputSchema, success: linked, error: failureSchema },
+    { changes: [dependency.materials] }
+  ),
+  updateDescription: mutation(
+    'materials.updateDescription',
+    {
+      payload: updateDescriptionInputSchema,
+      success: materialDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  rename: mutation(
+    'materials.rename',
+    {
+      payload: renameInputSchema,
+      success: materialDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  reorder: mutation(
+    'materials.reorder',
+    {
+      payload: reorderInputSchema,
+      success: Schema.Struct({ materialIds: Schema.Array(materialIdSchema) }),
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  replaceDraft: mutation(
+    'materials.replaceDraft',
+    {
+      payload: replaceDraftInputSchema,
+      success: materialVersionDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  deleteDraft: mutation(
+    'materials.deleteDraft',
+    {
+      payload: deleteDraftInputSchema,
+      success: versionKey,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  publishVersion: mutation(
+    'materials.publishVersion',
+    {
+      payload: publishVersionInputSchema,
+      success: materialVersionDetailSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  ),
+  setCitations: mutation(
+    'materials.setCitations',
+    {
+      payload: setCitationsInputSchema,
+      success: Schema.Array(materialCitationSchema),
+      error: failureSchema
+    },
+    { changes: [dependency.materials] }
+  )
+};
+
+export const MaterialsRpc = endpointGroup(materialsEndpoints);

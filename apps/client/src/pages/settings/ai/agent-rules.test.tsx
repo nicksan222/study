@@ -1,10 +1,13 @@
+import { agentRulesSchema } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import type { AgentRules } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+import { Schema } from 'effect';
+import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { AgentRulesSettings } from './agent-rules';
 
@@ -14,41 +17,34 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (
-    invoke: (rpc: {
-      'settings.agentRules': typeof api.read;
-      'settings.saveAgentRules': typeof api.save;
-    }) => unknown
-  ) => invoke({ 'settings.agentRules': api.read, 'settings.saveAgentRules': api.save })
-}));
-
-const clients: QueryClient[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
   api.read.mockResolvedValue(defaultAgentRules);
   api.save.mockResolvedValue({});
 });
-afterEach(() => {
-  for (const client of clients) client.clear();
-
-  clients.length = 0;
-});
 
 function mount() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.agentRules') return api.read();
+
+    if (tag === 'settings.saveAgentRules') {
+      const value = Schema.decodeUnknownSync(agentRulesSchema)(input);
+
+      await api.save(value);
+
+      api.read.mockResolvedValue(value);
+      await fixture.notify();
+
+      return {};
+    }
+
+    throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  clients.push(client);
-  render(
-    <QueryClientProvider client={client}>
-      <AgentRulesSettings />
-    </QueryClientProvider>
-  );
+  render(<AgentRulesSettings />, { wrapper: fixture.wrapper });
 
-  return client;
+  return fixture;
 }
 
 testStable('keeps drafts when switching tasks and saves all categories explicitly', async () => {

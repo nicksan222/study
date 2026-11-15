@@ -1,3 +1,10 @@
+import { configureRpcTransport } from '@study/contracts/react';
+import { beforeEach } from 'vite-plus/test';
+
+import { pageTestTransport } from '#client/test/render-page.tsx';
+beforeEach(() => {
+  configureRpcTransport(pageTestTransport().transport);
+});
 import { testStable } from '@study/testing/vitest';
 import { createMemoryHistory, redirect } from '@tanstack/react-router';
 import { afterEach, expect, vi } from 'vite-plus/test';
@@ -47,7 +54,7 @@ testStable.each([
       expect(router.state.status).toBe('idle');
       expect(router.state.matches.every((match) => match.status === 'success')).toBe(true);
     } finally {
-      router.options.context.queryClient.clear();
+      router.history.destroy();
     }
   }
 );
@@ -93,7 +100,7 @@ testStable('preserves project identity, navigation history, and external URL saf
     });
   } finally {
     unsubscribe();
-    router.options.context.queryClient.clear();
+    router.history.destroy();
   }
 });
 
@@ -133,7 +140,7 @@ testStable.each([
     } finally {
       document.startViewTransition = previousTransition;
       document.documentElement.style.zoom = originalZoom;
-      router.options.context.queryClient.clear();
+      router.history.destroy();
     }
   }
 );

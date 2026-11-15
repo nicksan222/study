@@ -30,6 +30,7 @@ export const UsageStore = defineStore({
   make: ({ db, clock }) => ({
     mutations: {
       record: storeMutation({
+        changes: ['settings'],
         input: usageRecordSchema,
         output: Schema.Void,
         run: (record) => {

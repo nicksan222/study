@@ -1,11 +1,16 @@
 import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema, projectIdSchema, pageVersionIdSchema } from '@study/contracts/ids';
+import { noteIdSchema, projectIdSchema } from '@study/contracts/ids';
+import { editOutcomeSchema } from '@study/contracts/pages/editing';
+import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
 import { plainBlock } from '@study/contracts/sources/document';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, cleanup } from '@testing-library/react';
+import { Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { blankDocument } from '../document-editing';
 import { authoredPage } from '../document-editing/test-support';
@@ -13,7 +18,7 @@ import {
   useNotePageCreation,
   useBlankPageCreation,
   useNotePageAutosave,
-  linkedPagesOptions
+  useLinkedPages
 } from './note-page.queries';
 
 const api = vi.hoisted(() => ({
@@ -23,15 +28,14 @@ const api = vi.hoisted(() => ({
   list: vi.fn()
 }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'pages.create': api.create,
-      'pages.save': api.save,
-      'pages.page': api.material,
-      'pages.pages': api.list
-    })
-}));
+const saveReceipt = (outcome: 'saved' | 'conflict', submitted: bigint, expected = 10n) =>
+  Schema.decodeUnknownSync(editOutcomeSchema)({
+    outcome,
+    replayed: false,
+    expectedVersionId: expected,
+    submittedVersionId: submitted,
+    currentVersionId: outcome === 'conflict' ? 11n : submitted
+  });
 
 const id = noteIdSchema.make(1n);
 
@@ -42,18 +46,30 @@ const document = (text: string) => ({
 
 const material = (text = '', versionId = 10n) => authoredPage(2n, text, versionId);
 
-const caches: QueryClient[] = [];
+const registries: AtomRegistry.AtomRegistry[] = [];
 
-function mount<T>(
-  hook: () => T,
-  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-) {
-  caches.push(client);
+function mount<T>(hook: () => T, registry = AtomRegistry.make()) {
+  registries.push(registry);
+  const fixture = rpcTestTransport(async (tag, input) => {
+    if (tag === 'pages.create') return api.create(input);
+
+    if (tag === 'pages.save') return api.save(input);
+
+    if (tag === 'pages.page') return api.material(input);
+
+    if (tag === 'pages.pages') return api.list(input);
+
+    throw new Error(`Unexpected ${tag}`);
+  });
+
+  configureRpcTransport(fixture.transport);
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <RpcProvider transport={fixture.transport} registry={registry}>
+      {children}
+    </RpcProvider>
   );
 
-  return { client, ...renderHook(hook, { wrapper }) };
+  return { registry, ...renderHook(hook, { wrapper }) };
 }
 
 beforeEach(() => {
@@ -62,7 +78,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  caches.splice(0).forEach((cache) => cache.clear());
+  registries.splice(0).forEach((registry) => registry.dispose());
   vi.useRealTimers();
 });
 
@@ -103,10 +119,7 @@ testStable(
 );
 
 testStable('autosaves typed pages and flushes trailing edits after the tab closes', async () => {
-  let finish!: (value: {
-    outcome: 'saved';
-    submittedVersionId: ReturnType<typeof pageVersionIdSchema.make>;
-  }) => void;
+  let finish!: (value: typeof editOutcomeSchema.Type) => void;
 
   api.save
     .mockReturnValueOnce(
@@ -114,10 +127,7 @@ testStable('autosaves typed pages and flushes trailing edits after the tab close
         finish = resolve;
       })
     )
-    .mockResolvedValue({
-      outcome: 'saved',
-      submittedVersionId: pageVersionIdSchema.make(12n)
-    });
+    .mockResolvedValue(saveReceipt('saved', 12n, 11n));
   const initial = material();
   const view = mount(() => useNotePageAutosave(initial));
   const first = document('First');
@@ -135,7 +145,7 @@ testStable('autosaves typed pages and flushes trailing edits after the tab close
   act(() => view.result.current.change(last));
   view.unmount();
   await act(async () => {
-    finish({ outcome: 'saved', submittedVersionId: pageVersionIdSchema.make(11n) });
+    finish(saveReceipt('saved', 11n, 10n));
   });
   expect(api.save).toHaveBeenCalledTimes(2);
   expect(api.save.mock.calls[1]![0]).toMatchObject({ document: last, expectedVersionId: 11n });
@@ -146,10 +156,7 @@ testStable(
   async () => {
     api.save
       .mockRejectedValueOnce(new StudyError('transient', 'lost receipt'))
-      .mockResolvedValueOnce({
-        outcome: 'saved',
-        submittedVersionId: pageVersionIdSchema.make(11n)
-      });
+      .mockResolvedValueOnce(saveReceipt('saved', 11n, 10n));
     const initial = material();
     const view = mount(() => useNotePageAutosave(initial));
 
@@ -168,10 +175,7 @@ testStable(
 );
 
 testStable('retains local edits on conflict until the user selects the saved version', async () => {
-  api.save.mockResolvedValue({
-    outcome: 'conflict',
-    submittedVersionId: pageVersionIdSchema.make(12n)
-  });
+  api.save.mockResolvedValue(saveReceipt('conflict', 12n, 10n));
   const incoming = material('Another editor', 11n);
 
   api.material.mockResolvedValue(incoming);
@@ -191,20 +195,23 @@ testStable('retains local edits on conflict until the user selects the saved ver
 });
 
 testStable(
-  'loads every attachment page rather than hiding pages beyond the first hundred',
+  'linked attachment pages remain bounded and request continuation only explicitly',
   async () => {
     const item = material();
 
-    api.list
-      .mockResolvedValueOnce({ items: [item], nextCursor: item.id })
-      .mockResolvedValueOnce({ items: [item], nextCursor: null });
-    const client = new QueryClient();
+    api.list.mockImplementation(async ({ limit }) => ({
+      items: [item],
+      nextCursor: limit < 60 ? item.id : null
+    }));
+    const view = mount(() => useLinkedPages(id));
 
-    caches.push(client);
-    const result = await client.fetchQuery(linkedPagesOptions(id));
-
-    expect(result.items).toHaveLength(2);
-    expect(api.list.mock.calls[1]![0]).toMatchObject({ cursor: item.id });
+    await settle();
+    expect(view.result.current.data?.items).toHaveLength(1);
+    expect(api.list).toHaveBeenCalledTimes(1);
+    expect(api.list.mock.calls[0]![0]).toMatchObject({ noteId: id, limit: 30 });
+    await act(async () => view.result.current.pagination.more(item.id));
+    await settle();
+    expect(api.list.mock.calls.at(-1)![0]).toMatchObject({ noteId: id, limit: 60 });
   }
 );
 

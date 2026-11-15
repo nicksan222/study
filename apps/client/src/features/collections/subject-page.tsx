@@ -1,5 +1,7 @@
+import type { PageId, MaterialId, SourceId, NoteId } from '@study/contracts/ids';
 import type { ProjectId } from '@study/contracts/ids';
 import type { Project } from '@study/contracts/projects/schemas';
+import { rpc } from '@study/contracts/react';
 import {
   OpenIcon,
   PageIcon,
@@ -15,24 +17,45 @@ import { ErrorState } from '@study/ui/error-state';
 import { List } from '@study/ui/list';
 import { Loading } from '@study/ui/loading';
 import { SubjectWorkspace } from '@study/ui/subject-workspace';
-import { useInfiniteQuery, useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
+import {
+  useCursorRecovery,
+  useCursorWindow,
+  CursorWindowActions
+} from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pagesOptions } from '#client/lib/study-client/pages.queries.ts';
 
-import { materialsOptions } from '../material-library';
-import { paginatedNotesOptions } from '../note-workspace';
-import { subjectSourcesOptions } from '../source-library';
+import { usePageBrowse } from '../pages';
 import { SubjectIdentity } from '../subjects';
-import { subjectProjectOptions } from './collections.queries';
 import { SubjectManagement } from './project-settings';
 
 /** Reads only the explicitly selected subject; a failed identity never exposes global content. */
 export function SubjectPage({ project }: { project: ProjectId }) {
-  const state = useSuspenseQuery(subjectProjectOptions(project));
+  return <SubjectSelection project={project} />;
+}
+
+/** The selected live identity owns pending and failed snapshots within the page. */
+function SubjectSelection({ project }: { project: ProjectId }) {
+  const state = rpc.projects.get.useQuery({ id: project });
+  const { t } = useI18n();
+
+  if (state.isPending)
+    return (
+      <SubjectWorkspace.Root>
+        <Loading label={t('LoadingSubjects')} />
+      </SubjectWorkspace.Root>
+    );
+
+  if (!state.data || state.isError)
+    return (
+      <ErrorState
+        title={t('SubjectsLoadError')}
+        action={<RetryButton onClick={state.retry} label={t('Retry')} />}
+      />
+    );
 
   return <SubjectContents project={state.data} />;
 }
@@ -82,21 +105,24 @@ type ReadState = {
   isPending: boolean;
   isError: boolean;
   isFetching: boolean;
-  hasNextPage?: boolean;
+
   refetch: () => unknown;
-  fetchNextPage?: () => unknown;
 };
 
-function ContentSection({
+function ContentSection<Cursor>({
   title,
   state,
   empty,
-  children
+  children,
+  navigation,
+  next
 }: {
   title: string;
   state: ReadState;
   empty: boolean;
   children: ReactNode;
+  navigation: ReturnType<typeof useCursorWindow<Cursor>>;
+  next: Cursor | null | undefined;
 }) {
   const { t } = useI18n();
 
@@ -116,144 +142,196 @@ function ContentSection({
       ) : (
         <List bleed={false}>{children}</List>
       )}
-      {state.hasNextPage && (
-        <Button
-          variant="ghost"
-          disabled={state.isFetching}
-          onClick={() => void state.fetchNextPage?.()}
-        >
-          {t('collections.more')}
-        </Button>
-      )}
+      <CursorWindowActions
+        {...navigation}
+        hasMore={next !== null && next !== undefined}
+        pending={state.isFetching}
+        more={() => navigation.more(next)}
+      />
     </SubjectWorkspace.Section>
   );
 }
 
-function ContentRow({
-  title,
-  icon,
-  render,
-  updated
-}: {
+type SubjectRow = {
   title: string;
+  updatedAt: bigint;
+  location:
+    | { kind: 'note'; id: NoteId }
+    | { kind: 'page'; id: PageId }
+    | { kind: 'source'; id: SourceId }
+    | { kind: 'material'; id: MaterialId };
+};
+
+function subjectItemLink(location: SubjectRow['location'], project: ProjectId) {
+  const search = { project: String(project) };
+
+  switch (location.kind) {
+    case 'note':
+      return <Link to="/notes/$noteId" params={{ noteId: location.id }} search={search} />;
+    case 'page':
+      return <Link to="/pages/$pageId" params={{ pageId: String(location.id) }} search={search} />;
+    case 'source':
+      return (
+        <Link to="/sources/$sourceId" params={{ sourceId: String(location.id) }} search={search} />
+      );
+    case 'material':
+      return (
+        <Link
+          to="/materials/$materialId"
+          params={{ materialId: String(location.id) }}
+          search={search}
+        />
+      );
+  }
+}
+
+function SubjectRows({
+  rows,
+  icon,
+  project
+}: {
+  rows: readonly SubjectRow[];
   icon: ReactNode;
-  render: ComponentProps<typeof List.Row>['render'];
-  updated?: string;
+  project: ProjectId;
 }) {
-  return (
-    <List.Row render={render}>
+  const { date } = useI18n();
+
+  return rows.map((row) => (
+    <List.Row
+      key={`${row.location.kind}:${row.location.id}`}
+      render={subjectItemLink(row.location, project)}
+    >
       <List.Icon>{icon}</List.Icon>
       <List.Main>
-        <List.Title>{title}</List.Title>
-        {updated && <List.Description>{updated}</List.Description>}
+        <List.Title>{row.title}</List.Title>
+        <List.Description>{date(row.updatedAt, { dateStyle: 'medium' })}</List.Description>
       </List.Main>
       <List.Meta>
         <OpenIcon size={16} aria-hidden="true" />
       </List.Meta>
     </List.Row>
-  );
+  ));
 }
 
 function SubjectNotes({ project }: { project: ProjectId }) {
-  const { t, date } = useI18n();
-  const state = useInfiniteQuery(paginatedNotesOptions(project));
-  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+  const { t } = useI18n();
+  const window = useCursorWindow<NonNullable<Parameters<typeof rpc.notes.list.read>[0]['before']>>(
+    String(project)
+  );
+  const limit = window.limit;
+  const state = rpc.notes.list.useQuery({ project, limit, before: window.cursor });
+
+  useCursorRecovery(window, state.error);
+  const items = state.data?.items ?? [];
 
   return (
-    <ContentSection title={t('Notes')} state={state} empty={!items.length}>
-      {items.map((item) => (
-        <ContentRow
-          key={String(item.id)}
-          title={item.title}
-          icon={<NoteIcon aria-hidden="true" />}
-          updated={date(item.updatedAt, { dateStyle: 'medium' })}
-          render={
-            <Link
-              to="/notes/$noteId"
-              params={{ noteId: item.id }}
-              search={{ project: String(project) }}
-            />
-          }
-        />
-      ))}
+    <ContentSection
+      title={t('Notes')}
+      state={state}
+      navigation={window}
+      next={state.data?.next}
+      empty={!items.length}
+    >
+      <SubjectRows
+        project={project}
+        icon={<NoteIcon aria-hidden="true" />}
+        rows={items.map((item): SubjectRow => ({
+          title: item.title,
+          updatedAt: item.updatedAt,
+          location: { kind: 'note', id: item.id }
+        }))}
+      />
     </ContentSection>
   );
 }
 
 function SubjectPages({ project }: { project: ProjectId }) {
-  const { t, date } = useI18n();
-  const state = useInfiniteQuery(pagesOptions(project));
-  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+  const { t } = useI18n();
+  const { query: state, navigation: window } = usePageBrowse(project);
+  const items = state.data?.items ?? [];
 
   return (
-    <ContentSection title={t('SourcePage')} state={state} empty={!items.length}>
-      {items.map((item) => (
-        <ContentRow
-          key={String(item.id)}
-          title={item.title}
-          icon={<PageIcon aria-hidden="true" />}
-          updated={date(item.updatedAt, { dateStyle: 'medium' })}
-          render={
-            <Link
-              to="/pages/$pageId"
-              params={{ pageId: String(item.id) }}
-              search={{ project: String(project) }}
-            />
-          }
-        />
-      ))}
+    <ContentSection
+      title={t('SourcePage')}
+      state={state}
+      navigation={window}
+      next={state.data?.nextCursor}
+      empty={!items.length}
+    >
+      <SubjectRows
+        project={project}
+        icon={<PageIcon aria-hidden="true" />}
+        rows={items.map((item): SubjectRow => ({
+          title: item.title,
+          updatedAt: item.updatedAt,
+          location: { kind: 'page', id: item.id }
+        }))}
+      />
     </ContentSection>
   );
 }
 
 function SubjectSources({ project }: { project: ProjectId }) {
-  const { t, date } = useI18n();
-  const state = useQuery(subjectSourcesOptions(project));
-  const items = state.data ?? [];
+  const { t } = useI18n();
+  const window = useCursorWindow<SourceId>(String(project));
+  const limit = window.limit;
+  const state = rpc.sources.list.useQuery({ projectId: project, limit, before: window.cursor });
+
+  useCursorRecovery(window, state.error);
+  const items = state.data?.items ?? [];
 
   return (
-    <ContentSection title={t('MediaList')} state={state} empty={!items.length}>
-      {items.map((item) => (
-        <ContentRow
-          key={String(item.id)}
-          title={item.name}
-          icon={<SourcesIcon aria-hidden="true" />}
-          updated={date(item.createdAt, { dateStyle: 'medium' })}
-          render={
-            <Link
-              to="/sources/$sourceId"
-              params={{ sourceId: String(item.id) }}
-              search={{ project: String(project) }}
-            />
-          }
-        />
-      ))}
+    <ContentSection
+      title={t('MediaList')}
+      state={state}
+      navigation={window}
+      next={state.data?.next}
+      empty={!items.length}
+    >
+      <SubjectRows
+        project={project}
+        icon={<SourcesIcon aria-hidden="true" />}
+        rows={items.map((item): SubjectRow => ({
+          title: item.name,
+          updatedAt: item.createdAt,
+          location: { kind: 'source', id: item.id }
+        }))}
+      />
     </ContentSection>
   );
 }
 
 function SubjectMaterials({ project }: { project: ProjectId }) {
-  const { t, date } = useI18n();
-  const state = useInfiniteQuery(materialsOptions(project));
-  const items = state.data?.pages.flatMap((page) => page.items) ?? [];
+  const { t } = useI18n();
+  const window = useCursorWindow<MaterialId>(String(project));
+  const limit = window.limit;
+  const state = rpc.materials.list.useQuery({
+    projectId: project,
+    archived: false,
+    limit,
+    cursor: window.cursor
+  });
+
+  useCursorRecovery(window, state.error);
+  const items = state.data?.items ?? [];
 
   return (
-    <ContentSection title={t('SubjectWorkspaceMaterial')} state={state} empty={!items.length}>
-      {items.map((item) => (
-        <ContentRow
-          key={String(item.id)}
-          title={item.title}
-          icon={<GenerateIcon aria-hidden="true" />}
-          updated={date(item.updated_at, { dateStyle: 'medium' })}
-          render={
-            <Link
-              to="/materials/$materialId"
-              params={{ materialId: String(item.id) }}
-              search={{ project: String(project) }}
-            />
-          }
-        />
-      ))}
+    <ContentSection
+      title={t('SubjectWorkspaceMaterial')}
+      state={state}
+      navigation={window}
+      next={state.data?.nextCursor}
+      empty={!items.length}
+    >
+      <SubjectRows
+        project={project}
+        icon={<GenerateIcon aria-hidden="true" />}
+        rows={items.map((item): SubjectRow => ({
+          title: item.title,
+          updatedAt: item.updated_at,
+          location: { kind: 'material', id: item.id }
+        }))}
+      />
     </ContentSection>
   );
 }

@@ -250,7 +250,7 @@ testStable(
     });
 
     try {
-      context.transaction((context) => emitEvent(context, event('recover'), 1));
+      context.transaction(['settings'], (context) => emitEvent(context, event('recover'), 1));
       assert.strictEqual(dispatchPending(context, registration.triggers, 2), 0);
       enabled = true;
       assert.strictEqual(dispatchPending(context, registration.triggers, 3), 1);

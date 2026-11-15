@@ -1,9 +1,8 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { useQuery } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { sidebarContent } from '#client/lib/navigation/sidebar-config.ts';
-import { searchQueryOptions } from '#client/lib/study-client/study.queries.ts';
 
 export function useSidebarSearch({
   query,
@@ -30,16 +29,14 @@ export function useSidebarSearch({
     query.trim() === debouncedQuery &&
     canSearch &&
     content === 'workspace';
-  const searchResult = useQuery(
-    searchQueryOptions(
-      {
-        query: query.trim(),
-        project: global ? undefined : project,
-        limit: 30,
-        ...(global ? {} : { kinds: ['note', 'message'] })
-      },
-      searchEnabled
-    )
+  const searchResult = rpc.system.search.useQuery(
+    {
+      query: query.trim(),
+      project: global ? undefined : project,
+      limit: 30,
+      ...(global ? {} : { kinds: ['note', 'message'] })
+    },
+    { enabled: searchEnabled }
   );
   const result = searchResultState(searchEnabled, searchResult);
   const hits = result?.result?.hits ?? [];

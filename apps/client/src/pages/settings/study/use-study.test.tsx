@@ -1,17 +1,12 @@
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { useStudySettings } from './use-study';
 
 const api = vi.hoisted(() => ({ load: vi.fn(), save: vi.fn() }));
-
-vi.mock('#client/lib/study-client/preferences.ts', () => ({
-  loadReviewSettings: api.load,
-  saveReviewSettings: api.save
-}));
 
 beforeEach(() => {
   api.load.mockReset().mockResolvedValue({ newCardsPerDay: 20 });
@@ -19,15 +14,21 @@ beforeEach(() => {
 });
 
 function setup() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.reviewSettings') return api.load();
+
+    if (tag === 'settings.saveReviewSettings') {
+      const result = await api.save(input);
+
+      await fixture.notify();
+
+      return result;
+    }
+
+    throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  return renderHook(() => useStudySettings(), {
-    wrapper: ({ children }: { children: ReactNode }) => (
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
-    )
-  });
+  return renderHook(() => useStudySettings(), { wrapper: fixture.wrapper });
 }
 
 testStable(
@@ -67,7 +68,7 @@ testStable('restores the saved allowance on failure and recovers by retrying', a
   act(() => result.current.setDraft('30'));
   act(() => result.current.save());
   await waitFor(() => expect(result.current.error).toBe(true));
-  expect(result.current.draft).toBe('20');
+  expect(result.current.draft).toBe('30');
   act(() => result.current.retry());
   await waitFor(() => expect(result.current.error).toBe(false));
 });

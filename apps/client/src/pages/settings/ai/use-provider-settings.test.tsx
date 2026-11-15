@@ -1,14 +1,14 @@
+import { llmSettingsSchema, apiKeyInputSchema } from '@study/contracts/settings/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
 
-import * as operations from '#client/lib/study-client/ai-settings.ts';
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { useProviderSettings } from './use-provider-settings';
 
-vi.mock('#client/lib/study-client/ai-settings.ts', () => ({
+const operations = vi.hoisted(() => ({
   saveAiSettings: vi.fn().mockResolvedValue({}),
   saveProviderApiKey: vi.fn().mockResolvedValue(undefined)
 }));
@@ -32,13 +32,17 @@ const data = {
 };
 
 function mount() {
-  const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-  const refresh = vi.fn().mockResolvedValue(undefined);
-  const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
-  );
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.saveLlmSettings')
+      return operations.saveAiSettings(Schema.decodeUnknownSync(llmSettingsSchema)(input));
 
-  return { client, refresh, ...renderHook(() => useProviderSettings(data, refresh), { wrapper }) };
+    if (tag === 'auth.saveApiKey')
+      return operations.saveProviderApiKey(Schema.decodeUnknownSync(apiKeyInputSchema)(input));
+
+    throw new Error(tag);
+  });
+
+  return renderHook(() => useProviderSettings(data), { wrapper: fixture.wrapper });
 }
 
 testStable(
@@ -64,16 +68,16 @@ testStable(
   }
 );
 
-testStable('credential mutation variables are discarded after saving and refresh', async () => {
-  const { result, client, refresh } = mount();
+testStable('submits write-only credentials once and clears mutation presentation', async () => {
+  const { result } = mount();
 
   await act(async () => {
     await result.current.saveApiKey('anthropic', 'temporary-secret');
   });
-  expect(vi.mocked(operations.saveProviderApiKey).mock.calls[0]?.[0]).toStrictEqual({
+  expect(operations.saveProviderApiKey).toHaveBeenCalledWith({
     provider: 'anthropic',
     apiKey: 'temporary-secret'
   });
-  expect(refresh).toHaveBeenCalledOnce();
-  await waitFor(() => expect(client.getMutationCache().getAll()).toHaveLength(0));
+  expect(result.current.pending).toBe(false);
+  expect(result.current.error).toBe(false);
 });

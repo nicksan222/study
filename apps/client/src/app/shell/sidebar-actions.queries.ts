@@ -1,10 +1,9 @@
 import type { ProjectId } from '@study/contracts/ids';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import type { sidebarSubjectDestination } from '#client/lib/navigation/sidebar-config.ts';
-import { createProjectMutationOptions } from '#client/lib/study-client/study.queries.ts';
 
 export function useSidebarActions(
   project: ProjectId | undefined,
@@ -12,12 +11,11 @@ export function useSidebarActions(
   clearSearch: () => void
 ) {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [newSubjectOpen, setNewSubjectOpen] = useState(false);
   const [name, setName] = useState('');
   const [actionError, setActionError] = useState(false);
-  const subjectMutation = useMutation(createProjectMutationOptions(queryClient));
+  const subjectMutation = rpc.projects.create.useMutation();
   const creating = subjectMutation.isPending;
   const selectSubject = (id: ProjectId) => {
     setPickerOpen(false);
@@ -44,14 +42,14 @@ export function useSidebarActions(
     if (!name.trim() || creating) return;
 
     setActionError(false);
-    subjectMutation.mutate(name.trim(), {
-      onError: () => setActionError(true),
-      onSuccess: (created) => {
+    void subjectMutation
+      .mutate({ name: name.trim() })
+      .then((created) => {
         setNewSubjectOpen(false);
         setName('');
         selectSubject(created.id);
-      }
-    });
+      })
+      .catch(() => setActionError(true));
   };
 
   return {

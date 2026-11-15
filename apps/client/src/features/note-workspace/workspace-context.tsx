@@ -4,16 +4,16 @@ import { AttachmentIcon } from '@study/icons';
 import { Button } from '@study/ui/button';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceAttachments, WorkspaceCard } from '@study/ui/workspace';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
+import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AttachmentCards } from './attachment-cards';
 import { NotePageCard } from './note-page-card';
-import { linkedPagesOptions } from './note-page.queries';
+import { useLinkedPages } from './note-page.queries';
 import { NotePendingWork } from './note-pending-work';
-import { threadOptions } from './note-workspace.queries';
+import { useThreadPage } from './note-reads';
 import { notebookMessages } from './notebook-index';
 import { NoteReadError } from './status';
 
@@ -71,9 +71,9 @@ function NoteFiles({
   onOpenSource?: (source: { id: SourceId; name: string }) => void;
 }) {
   const { t } = useI18n();
-  const thread = useInfiniteQuery(threadOptions(id));
-  const pages = useQuery(linkedPagesOptions(id));
-  const messages = notebookMessages(id, thread.data?.pages.flatMap((page) => page.items) ?? []);
+  const thread = useThreadPage(id);
+  const pages = useLinkedPages(id);
+  const messages = notebookMessages(id, thread.data?.items ?? []);
   const parts = messages
     .filter((message) => message.format !== 'document')
     .flatMap((message) => message.parts);
@@ -83,15 +83,12 @@ function NoteFiles({
 
   return (
     <WorkspaceAttachments.List aria-label={t('NoteAttachments')}>
-      {thread.isPending || pages.isPending ? <Loading label={t('LoadingStudy')} /> : null}
-      {thread.error && <NoteReadError error={thread.error} retry={() => void thread.refetch()} />}
-      {pages.error && <NoteReadError error={pages.error} retry={() => void pages.refetch()} />}
-      {hasNoNoteFiles(
-        thread.isSuccess && pages.isSuccess,
-        parts.length,
-        attached.length,
-        !!thread.hasNextPage
-      ) && <WorkspaceAttachments.Empty>{t('NoteAttachmentsEmpty')}</WorkspaceAttachments.Empty>}
+      <NoteFilesFeedback
+        thread={thread}
+        pages={pages}
+        fileCount={parts.length}
+        pageCount={attached.length}
+      />
       <AttachmentCards noteId={id} parts={parts} compact onOpenSource={onOpenSource} />
       {attached.map((material) => (
         <NotePageCard
@@ -103,6 +100,18 @@ function NoteFiles({
           onOpen={(page) => onOpenPage?.(page)}
         />
       ))}
+      <CursorWindowActions
+        hasPrevious={pages.pagination.hasPrevious}
+        previous={pages.pagination.previous}
+        hasMore={pages.data?.nextCursor != null}
+        more={() => pages.pagination.more(pages.data?.nextCursor)}
+        pending={pages.isFetching}
+      />
+      {thread.pagination.hasPrevious && (
+        <Button variant="ghost" disabled={thread.isFetching} onClick={thread.pagination.previous}>
+          {t('LibraryPrevious')}
+        </Button>
+      )}
       {thread.hasNextPage && (
         <Button
           size="sm"
@@ -119,4 +128,33 @@ function NoteFiles({
 
 function hasNoNoteFiles(ready: boolean, files: number, pages: number, more: boolean) {
   return ready && files === 0 && pages === 0 && !more;
+}
+
+function NoteFilesFeedback({
+  thread,
+  pages,
+  fileCount,
+  pageCount
+}: {
+  thread: ReturnType<typeof useThreadPage>;
+  pages: ReturnType<typeof useLinkedPages>;
+  fileCount: number;
+  pageCount: number;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {' '}
+      {thread.isPending || pages.isPending ? <Loading label={t('LoadingStudy')} /> : null}
+      {thread.error && <NoteReadError error={thread.error} retry={() => void thread.refetch()} />}
+      {pages.error && <NoteReadError error={pages.error} retry={() => void pages.refetch()} />}
+      {hasNoNoteFiles(
+        thread.isSuccess && pages.isSuccess,
+        fileCount,
+        pageCount,
+        !!thread.hasNextPage
+      ) && <WorkspaceAttachments.Empty>{t('NoteAttachmentsEmpty')}</WorkspaceAttachments.Empty>}
+    </>
+  );
 }

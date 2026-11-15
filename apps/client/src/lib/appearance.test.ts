@@ -1,25 +1,31 @@
+import { configureRpcTransport } from '@study/contracts/react';
+import { defaultAppearancePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { waitFor } from '@testing-library/react';
+import { beforeEach } from 'vite-plus/test';
 import { afterEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { initializeAppearance } from './appearance';
 
 const api = vi.hoisted(() => ({ settings: vi.fn(), selected: vi.fn(), themes: vi.fn() }));
 
-vi.mock('./study-client/client', async () => {
-  const { Effect } = await import('effect');
-  const call = (fn: typeof api.settings) => (input: unknown) => Effect.tryPromise(() => fn(input));
-  const client = {
-    'settings.appSettings': call(api.settings),
-    'settings.appearancePreferences': () =>
-      Effect.succeed({ contrast: 100, glassOpacity: 80, animationDurationMs: 150 }),
-    'themes.selectedTheme': call(api.selected),
-    'themes.themes': call(api.themes)
-  };
+beforeEach(() => {
+  const fixture = rpcTestTransport(async (tag, input) => {
+    if (tag === 'settings.appSettings')
+      return { language: 1, zoomPercent: 100, onboarded: true, ...(await api.settings(input)) };
 
-  return {
-    studyClient: Effect.succeed(client)
-  };
+    if (tag === 'settings.appearancePreferences') return defaultAppearancePreferences;
+
+    if (tag === 'themes.selectedTheme') return api.selected(input);
+
+    if (tag === 'themes.themes') return api.themes(input);
+
+    throw new Error(tag);
+  });
+
+  configureRpcTransport(fixture.transport);
 });
 
 let restore: (() => void) | undefined;
@@ -30,7 +36,16 @@ testStable('applies the saved theme and appearance to the document', async () =>
   api.settings.mockResolvedValue({ appearance: 1 });
   api.selected.mockResolvedValue('ocean');
   api.themes.mockResolvedValue({
-    items: [{ id: 'ocean', light: { sidebar: '#eef5ff' }, dark: { sidebar: '#101828' } }],
+    items: [
+      {
+        version: 1,
+        builtin: false,
+        id: 'ocean',
+        name: 'Ocean',
+        light: { sidebar: '#eef5ff' },
+        dark: { sidebar: '#101828' }
+      }
+    ],
     next: null
   });
   restore = initializeAppearance(document);

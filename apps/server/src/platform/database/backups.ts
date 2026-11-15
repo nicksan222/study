@@ -655,6 +655,15 @@ export class ManagedBackups {
     return 'pending';
   }
 
+  /** The durable applied token fences revisions even after a crash before runtime acquisition. */
+  static async appliedRevisionGeneration(path: string): Promise<string | undefined> {
+    if (path === ':memory:') return undefined;
+
+    const journal = await readJournal(path + '.backups');
+
+    return journal?.state === 'applied' ? journal.token : undefined;
+  }
+
   /** Runs before any App connection/auth/worker is acquired. Never replaces an open connection. */
   static async activate(path: string, policy: SnapshotPolicy): Promise<void> {
     if (path === ':memory:' || !(await exists(path + '.backups'))) return;

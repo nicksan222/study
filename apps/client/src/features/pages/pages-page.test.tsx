@@ -1,10 +1,11 @@
 import { pageIdSchema, pageVersionIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { PagesPage } from './pages-page';
 
@@ -16,14 +17,6 @@ vi.mock('#client/lib/i18n.tsx', () => ({
 vi.mock('@tanstack/react-router', () => ({
   useSearch: () => ({}),
   Link: ({ children }: { children: ReactNode }) => <a href="/pages/1">{children}</a>
-}));
-vi.mock('#client/lib/study-client/pages.queries.ts', () => ({
-  pagesOptions: (_project: unknown, archived: boolean) => ({
-    queryKey: ['pages', archived],
-    initialPageParam: undefined,
-    queryFn: () => api.pages(archived),
-    getNextPageParam: () => undefined
-  })
 }));
 vi.mock('./creation-actions', () => ({ NewBlankPage: () => null }));
 vi.mock('./from-notes', () => ({ PagesFromNotes: () => null }));
@@ -56,32 +49,44 @@ testStable('pages open directly without a selection button', async () => {
   api.pages.mockImplementation((archived: boolean) =>
     Promise.resolve({ items: archived ? [] : pages, nextCursor: null })
   );
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const harness = rpcTestTransport(async (tag, input) => {
+    if (tag === 'pages.pages')
+      return api.pages(
+        typeof input === 'object' && input !== null && 'archived' in input ? input.archived : false
+      );
+
+    throw new Error(tag);
+  });
 
   render(
-    <QueryClientProvider client={cache}>
+    <harness.wrapper>
       <PagesPage />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
   await screen.findByText('First');
   expect(screen.queryByRole('button', { name: 'PagesSelect' })).not.toBeInTheDocument();
   expect(screen.getByRole('link', { name: /First/ })).toBeVisible();
-  cache.clear();
 });
 
 testStable('archived pages can be browsed without selecting them for another merge', async () => {
   api.pages.mockResolvedValue({ items: [], nextCursor: null });
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const harness = rpcTestTransport(async (tag, input) => {
+    if (tag === 'pages.pages')
+      return api.pages(
+        typeof input === 'object' && input !== null && 'archived' in input ? input.archived : false
+      );
+
+    throw new Error(tag);
+  });
   const user = userEvent.setup();
 
   render(
-    <QueryClientProvider client={cache}>
+    <harness.wrapper>
       <PagesPage />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
   await user.click(screen.getByRole('button', { name: 'PagesArchived' }));
   await screen.findByText('PagesArchivedEmpty');
   expect(api.pages).toHaveBeenCalledWith(true);
   expect(screen.queryByRole('button', { name: 'PagesSelect' })).not.toBeInTheDocument();
-  cache.clear();
 });

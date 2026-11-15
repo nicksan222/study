@@ -1,23 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
+import type { ConcurrencySettings } from '@study/contracts/settings/types';
 import { useState } from 'react';
 
-import { concurrencyQueryOptions, concurrencyMutationOptions } from './performance.queries';
-import type { ConcurrencyField } from './performance.queries';
+type ConcurrencyField = keyof ConcurrencySettings;
 
 const bounds = { maxConcurrentAi: { min: 1, max: 8 }, maxQueuedAi: { min: 0, max: 64 } } as const;
 
 export function usePerformanceSettings() {
-  const client = useQueryClient();
-  const query = useQuery(concurrencyQueryOptions());
+  const query = rpc.settings.concurrencySettings.useQuery({});
   const [drafts, setDrafts] = useState<Partial<Record<ConcurrencyField, string>>>({});
-  const mutation = useMutation({
-    ...concurrencyMutationOptions(),
-    onSuccess: async (_, change) => {
-      await client.invalidateQueries({ queryKey: concurrencyQueryOptions().queryKey });
-      setDrafts((current) => ({ ...current, [change.field]: undefined }));
-    },
-    onError: (_, change) => setDrafts((current) => ({ ...current, [change.field]: undefined }))
-  });
+  const mutation = rpc.settings.saveConcurrencySettings.useMutation();
 
   function control(field: ConcurrencyField) {
     const { min, max } = bounds[field];
@@ -35,7 +27,10 @@ export function usePerformanceSettings() {
       setValue: (next: string) => setDrafts((current) => ({ ...current, [field]: next })),
       save: () => {
         if (query.data && valid && changed && !mutation.isPending) {
-          mutation.mutate({ field, value: number, settings: query.data });
+          void mutation
+            .mutateAsync({ ...query.data, [field]: number })
+            .then(() => setDrafts((current) => ({ ...current, [field]: undefined })))
+            .catch(() => {});
         }
       }
     };

@@ -31,13 +31,14 @@ import { Settings } from '#server/features/settings/index';
 import { admissionLayer, makeAdmission } from '#server/platform/ai/admission';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { SettingsRpcLive } from './index.ts';
 
 testStable('settings RPC exposes typed settings and maps service failures', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = SettingsRpcLive.pipe(
+  const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(Settings.layer),
     Layer.provide(admissionLayer(makeAdmission())),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -108,7 +109,9 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
             (yield* Effect.flip(client('settings.saveReviewSettings', { newCardsPerDay: 44 }))).kind
           );
           assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
-          expect([...SettingsRpc.requests.keys()].sort()).toStrictEqual(
+          expect(
+            [...SettingsRpc.requests.keys()].filter((tag) => !tag.endsWith('.live')).sort()
+          ).toStrictEqual(
             [
               'settings.usage',
               'settings.agentRules',
@@ -148,7 +151,7 @@ testStable(
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
     const owner = makeAdmission({ concurrency: 2, maxWaiting: 2 });
-    const handlers = SettingsRpcLive.pipe(
+    const handlers = SettingsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
       Layer.provide(Settings.layer),
       Layer.provide(admissionLayer(owner)),
       Layer.provideMerge(Layer.succeed(Database, { store: context }))

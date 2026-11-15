@@ -214,3 +214,22 @@ testStable(
     assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
   }
 );
+
+testStable(
+  'optional React implementations may describe generic bindings while wire declarations remain schema checked',
+  async () => {
+    const diagnostics = await lintRule(
+      'contract-schema',
+      {
+        'packages/contracts/src/react.ts': `import { Schema } from 'effect'; export interface ProtocolTransport { execute<A>(input: A): A }; const erased = Schema.Unknown;`,
+        'packages/contracts/src/react-state.ts': `import { Rpc } from 'effect/rpc'; export interface LivePolicy<E> { retryable: (error: E) => boolean }; export const invalidWire = Rpc.make('missing');`,
+        'packages/contracts/src/react-domain.ts': `export interface Bypass { id: string }`,
+        'packages/contracts/src/react-wire.ts': `import { Rpc } from 'effect/rpc'; export const invalid = Rpc.make('missing');`,
+        'packages/contracts/src/react.tsx': `export interface Bypass { id: string }`
+      },
+      true
+    );
+
+    assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
+  }
+);

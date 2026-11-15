@@ -231,7 +231,7 @@ testStable(
       store.interrupt(executionId, 'safe');
       await expect(emit({ type: 'complete' })).rejects.toMatchObject({ kind: 'cancelled' });
       expect(agentProgressSnapshot(context, { executionId })).toEqual([]);
-      context.transaction((tx) => {
+      context.transaction(['workflows'], (tx) => {
         tx.db.orm
           .insert(workflow_retired_executions)
           .values({ execution_id: executionId, correlation_id: 'retired' })

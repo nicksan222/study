@@ -1,5 +1,4 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { errorKindSchema, failureSchema } from '../errors.ts';
 import {
@@ -11,6 +10,7 @@ import {
   quizQuestionIdSchema
 } from '../ids.ts';
 import { contentInputSchema } from '../inputs.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { quizSettingsSchema } from '../settings/schemas.ts';
 import {
   cardReviewSchema,
@@ -173,86 +173,156 @@ export const publishPracticeSlotInputSchema = Schema.Struct({
   versionId: materialVersionIdSchema
 });
 
-export const LearningRpc = RpcGroup.make(
-  Rpc.make('practice', {
-    payload: practiceInputSchema,
-    success: practiceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('startPractice', {
-    payload: startPracticeInputSchema,
-    success: practiceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('stopPractice', {
-    payload: practiceInputSchema,
-    success: practiceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('answerPracticeQuestion', {
-    payload: answerPracticeQuestionInputSchema,
-    success: quizAttemptSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retryPracticeQuestion', {
-    payload: retryPracticeQuestionInputSchema,
-    success: practiceSlotSchema,
-    error: failureSchema
-  }),
-  Rpc.make('attempt', {
-    payload: attemptInputSchema,
-    success: quizAttemptSchema,
-    error: failureSchema
-  }),
-  Rpc.make('findAttempt', {
-    payload: attemptInputSchema,
-    success: Schema.Option(quizAttemptSchema),
-    error: failureSchema
-  }),
-  Rpc.make('card', { payload: cardInputSchema, success: cardSchema, error: failureSchema }),
-  Rpc.make('findCard', {
-    payload: cardInputSchema,
-    success: Schema.Option(cardSchema),
-    error: failureSchema
-  }),
-  Rpc.make('answerQuestion', {
-    payload: answerQuestionInputSchema,
-    success: quizAttemptInProgressSchema,
-    error: failureSchema
-  }),
-  Rpc.make('finishQuiz', {
-    payload: attemptInputSchema,
-    success: quizAttemptCompletedSchema,
-    error: failureSchema
-  }),
-  Rpc.make('gradeResponse', {
-    payload: gradeResponseInputSchema,
-    success: quizAttemptInProgressSchema,
-    error: failureSchema
-  }),
-  Rpc.make('startQuiz', {
-    payload: startQuizInputSchema,
-    success: quizAttemptInProgressSchema,
-    error: failureSchema
-  }),
-  Rpc.make('reviewCard', {
-    payload: reviewCardInputSchema,
-    success: reviewedCardSchema,
-    error: failureSchema
-  }),
-  Rpc.make('dueCards', {
-    payload: dueCardsInputSchema,
-    success: dueCardsPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('attempts', {
-    payload: attemptsInputSchema,
-    success: attemptsPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('reviewHistory', {
-    payload: reviewHistoryInputSchema,
-    success: reviewHistoryPageSchema,
-    error: failureSchema
-  })
-).prefix('learning.');
+export const learningEndpoints = {
+  practice: liveQuery(
+    'learning.practice',
+    {
+      payload: practiceInputSchema,
+      success: practiceSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  startPractice: mutation(
+    'learning.startPractice',
+    {
+      payload: startPracticeInputSchema,
+      success: practiceSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  stopPractice: mutation(
+    'learning.stopPractice',
+    {
+      payload: practiceInputSchema,
+      success: practiceSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  answerPracticeQuestion: mutation(
+    'learning.answerPracticeQuestion',
+    {
+      payload: answerPracticeQuestionInputSchema,
+      success: quizAttemptSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  retryPracticeQuestion: mutation(
+    'learning.retryPracticeQuestion',
+    {
+      payload: retryPracticeQuestionInputSchema,
+      success: practiceSlotSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  attempt: liveQuery(
+    'learning.attempt',
+    {
+      payload: attemptInputSchema,
+      success: quizAttemptSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  findAttempt: liveQuery(
+    'learning.findAttempt',
+    {
+      payload: attemptInputSchema,
+      success: Schema.Option(quizAttemptSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  card: liveQuery(
+    'learning.card',
+    { payload: cardInputSchema, success: cardSchema, error: failureSchema },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  findCard: liveQuery(
+    'learning.findCard',
+    {
+      payload: cardInputSchema,
+      success: Schema.Option(cardSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  answerQuestion: mutation(
+    'learning.answerQuestion',
+    {
+      payload: answerQuestionInputSchema,
+      success: quizAttemptInProgressSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  finishQuiz: mutation(
+    'learning.finishQuiz',
+    {
+      payload: attemptInputSchema,
+      success: quizAttemptCompletedSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  gradeResponse: mutation(
+    'learning.gradeResponse',
+    {
+      payload: gradeResponseInputSchema,
+      success: quizAttemptInProgressSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  startQuiz: mutation(
+    'learning.startQuiz',
+    {
+      payload: startQuizInputSchema,
+      success: quizAttemptInProgressSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  reviewCard: mutation(
+    'learning.reviewCard',
+    {
+      payload: reviewCardInputSchema,
+      success: reviewedCardSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.learning] }
+  ),
+  dueCards: liveQuery(
+    'learning.dueCards',
+    {
+      payload: dueCardsInputSchema,
+      success: dueCardsPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  attempts: liveQuery(
+    'learning.attempts',
+    {
+      payload: attemptsInputSchema,
+      success: attemptsPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  reviewHistory: liveQuery(
+    'learning.reviewHistory',
+    {
+      payload: reviewHistoryInputSchema,
+      success: reviewHistoryPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  )
+};
+
+export const LearningRpc = endpointGroup(learningEndpoints);

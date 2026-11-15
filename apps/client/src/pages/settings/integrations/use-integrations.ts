@@ -1,61 +1,47 @@
+import { projectIdSchema } from '@study/contracts/ids';
 import type {
   integrationImportIdSchema,
   integrationImportSchema
 } from '@study/contracts/integrations/schemas';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { rpc } from '@study/contracts/react';
+import { Schema } from 'effect';
+import { useState } from 'react';
 
-import {
-  integrationsOptions,
-  integrationProvidersOptions
-} from '#client/lib/study-client/integrations.queries.ts';
-import { projectsQueryOptions } from '#client/lib/study-client/study.queries.ts';
+import { useNativeAction } from '#client/lib/effect/native.ts';
 
-import { previewVaultOptions, importActionOptions } from './import.queries';
+import { vaultFiles } from './files';
 
 type ImportId = typeof integrationImportIdSchema.Type;
 
 export function useIntegrations() {
-  const cache = useQueryClient();
-  const imports = useQuery(integrationsOptions());
-  const providers = useQuery(integrationProvidersOptions());
-  const projects = useQuery(projectsQueryOptions());
+  const imports = rpc.integrations.imports.useQuery({ limit: 100 });
+  const providers = rpc.integrations.providers.useQuery({});
+  const projectPage = rpc.projects.list.useQuery({ limit: 100 });
+  const projects = { ...projectPage, data: projectPage.data?.items };
   const [providerId, setProviderId] = useState('obsidian');
   const [selected, setSelected] = useState<ImportId>();
   const [project, setProject] = useState('none');
   const [excluded, setExcluded] = useState<readonly string[]>([]);
   const [sourceKey, setSourceKey] = useState('');
-  const revision = imports.data
-    ?.map(
-      (run) =>
-        `${run.id}:${run.status}:${run.items.filter((item) => item.status === 'imported').length}`
-    )
-    .join(',');
-
-  useEffect(() => {
-    for (const key of ['notes', 'pages', 'sources', 'search'])
-      void cache.invalidateQueries({ queryKey: [key] });
-  }, [cache, revision]);
-
-  const refresh = async (state: typeof integrationImportSchema.Type) => {
-    setSelected(state.id);
-    cache.setQueryData(integrationsOptions().queryKey, (previous) => [
-      state,
-      ...(previous ?? []).filter((item) => item.id !== state.id)
-    ]);
-    await cache.invalidateQueries({ queryKey: integrationsOptions().queryKey });
+  const previewRequest = rpc.integrations.previewImport.useMutation();
+  const start = rpc.integrations.startImport.useMutation();
+  const cancel = rpc.integrations.cancelImport.useMutation();
+  const retry = rpc.integrations.retryImport.useMutation();
+  const files = useNativeAction(vaultFiles);
+  const preview = {
+    ...previewRequest,
+    isPending: previewRequest.isPending || files.isPending,
+    isError: previewRequest.isError || files.isError
   };
-  const preview = useMutation({
-    ...previewVaultOptions(),
-    onSuccess: async (state) => {
-      setExcluded([]);
-      await refresh(state);
+  const action = {
+    isPending: start.isPending || cancel.isPending || retry.isPending,
+    isError: start.isError || cancel.isError || retry.isError,
+    reset: () => {
+      start.reset();
+      cancel.reset();
+      retry.reset();
     }
-  });
-  const action = useMutation({
-    ...importActionOptions(),
-    onSuccess: refresh
-  });
+  };
   const current = imports.data?.find((item) => item.id === selected);
 
   return {
@@ -80,9 +66,39 @@ export function useIntegrations() {
     setSelected,
     preview,
     action,
-    previewFiles: (files: readonly File[]) => preview.mutate({ files, sourceKey, providerId }),
-    act: (state: typeof integrationImportSchema.Type, operation: 'start' | 'cancel' | 'retry') =>
-      action.mutate({ state, operation, excluded, project }),
+    previewFiles: (input: readonly File[]) => {
+      void files
+        .mutateAsync(input)
+        .then((vault) =>
+          previewRequest.mutateAsync({
+            ...vault,
+            sourceKey: sourceKey.trim() || vault.sourceKey,
+            providerId
+          })
+        )
+        .then((state) => {
+          setExcluded([]);
+          setSelected(state.id);
+        })
+        .catch(() => {});
+    },
+    act: (state: typeof integrationImportSchema.Type, operation: 'start' | 'cancel' | 'retry') => {
+      const run =
+        operation === 'cancel'
+          ? cancel.mutateAsync({ id: state.id })
+          : operation === 'retry'
+            ? retry.mutateAsync({ id: state.id })
+            : start.mutateAsync({
+                id: state.id,
+                excludedKeys: excluded,
+                projectId:
+                  project === 'none'
+                    ? undefined
+                    : Schema.decodeUnknownSync(projectIdSchema)(BigInt(project))
+              });
+
+      void run.then((value) => setSelected(value.id)).catch(() => {});
+    },
     busy: preview.isPending || action.isPending
   };
 }

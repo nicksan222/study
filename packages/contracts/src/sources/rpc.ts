@@ -1,8 +1,8 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
 import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema, noteIdSchema } from '../ids.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import { importCapabilityInputSchema, importCapabilitySchema } from './capabilities.ts';
 import { conversionStrategySchema } from './conversion.ts';
 import { documentSchema, sourceSchema } from './schemas.ts';
@@ -42,6 +42,7 @@ export const correctBlockInputSchema = Schema.Struct({
 });
 
 export const sourcePageInputSchema = Schema.Struct({
+  projectId: Schema.optional(projectIdSchema),
   limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 })),
   before: Schema.optional(sourceIdSchema)
 });
@@ -139,138 +140,236 @@ export const sourceHistoryRetireSchema = Schema.Struct({
   token: sourceHistoryPreviewSchema.fields.token
 });
 
-export const SourcesRpc = RpcGroup.make(
-  Rpc.make('conversionStrategies', {
-    payload: Schema.Struct({}),
-    success: Schema.Array(conversionStrategySchema),
-    error: failureSchema
-  }),
-  Rpc.make('previewHistory', {
-    payload: sourceHistoryInputSchema,
-    success: sourceHistoryPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retireHistory', {
-    payload: sourceHistoryRetireSchema,
-    success: sourceHistoryPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('extractions', {
-    payload: extractionHistoryInputSchema,
-    success: extractionPageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('exportRevision', {
-    payload: revisionExportInputSchema,
-    success: revisionExportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('currentExtraction', {
-    payload: currentExtractionInputSchema,
-    success: Schema.NullOr(exactExtractionSchema),
-    error: failureSchema
-  }),
-  Rpc.make('extraction', {
-    payload: exactExtractionInputSchema,
-    success: exactExtractionSchema,
-    error: failureSchema
-  }),
-  Rpc.make('noteSources', {
-    payload: noteSourcesInputSchema,
-    success: Schema.Array(noteSourceSchema),
-    error: failureSchema
-  }),
-  Rpc.make('attachSource', {
-    payload: sourceLinkSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('detachSource', {
-    payload: sourceLinkSchema,
-    success: Schema.Void,
-    error: failureSchema
-  }),
-  Rpc.make('importCapability', {
-    payload: importCapabilityInputSchema,
-    success: importCapabilitySchema,
-    error: failureSchema
-  }),
-  Rpc.make('source', {
-    payload: { id: sourceIdSchema },
-    success: sourceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('sourceExport', {
-    payload: { id: sourceIdSchema },
-    success: sourceExportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('findSource', {
-    payload: { id: sourceIdSchema },
-    success: Schema.Option(sourceSchema),
-    error: failureSchema
-  }),
-  Rpc.make('sources', {
-    payload: sourcePageInputSchema,
-    success: sourcePageSchema,
-    error: failureSchema
-  }),
-  Rpc.make('sourceProcessing', {
-    payload: { id: sourceIdSchema },
-    success: sourceProcessingSchema,
-    error: failureSchema
-  }),
-  Rpc.make('addLink', {
-    payload: {
-      url: Schema.String,
-      projectId: Schema.NullOr(projectIdSchema),
-      name: Schema.optional(Schema.String)
+export const sourcesEndpoints = {
+  conversionStrategies: liveQuery(
+    'sources.conversionStrategies',
+    {
+      payload: Schema.Struct({}),
+      success: Schema.Array(conversionStrategySchema),
+      error: failureSchema
     },
-    success: sourceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('createSource', {
-    payload: {
-      name: Schema.String.check(Schema.isMinLength(1)),
-      bytes: Schema.Uint8Array,
-      projectId: Schema.NullOr(projectIdSchema)
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  previewHistory: liveQuery(
+    'sources.previewHistory',
+    {
+      payload: sourceHistoryInputSchema,
+      success: sourceHistoryPreviewSchema,
+      error: failureSchema
     },
-    success: sourceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('replaceSource', {
-    payload: {
-      id: sourceIdSchema,
-      expectedRevision: sourceRevisionSchema,
-      name: Schema.String,
-      bytes: Schema.Uint8Array
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  retireHistory: mutation(
+    'sources.retireHistory',
+    {
+      payload: sourceHistoryRetireSchema,
+      success: sourceHistoryPreviewSchema,
+      error: failureSchema
     },
-    success: sourceProcessingSchema,
-    error: failureSchema
-  }),
-  Rpc.make('setSourceProject', {
-    payload: setSourceProjectInputSchema,
-    success: sourceSchema,
-    error: failureSchema
-  }),
-  Rpc.make('correctBlock', {
-    payload: correctBlockInputSchema,
-    success: sourceProcessingSchema,
-    error: failureSchema
-  }),
-  Rpc.make('previewDeletion', {
-    payload: { id: sourceIdSchema },
-    success: sourceDeletionPreviewSchema,
-    error: failureSchema
-  }),
-  Rpc.make('deleteSource', {
-    payload: { id: sourceIdSchema },
-    success: Schema.Boolean,
-    error: failureSchema
-  }),
-  Rpc.make('requestSourceProcessing', {
-    payload: { id: sourceIdSchema, expectedRevision: sourceRevisionSchema },
-    success: sourceProcessingSchema,
-    error: failureSchema
-  })
-).prefix('sources.');
+    { changes: [dependency.sources] }
+  ),
+  extractions: liveQuery(
+    'sources.extractions',
+    {
+      payload: extractionHistoryInputSchema,
+      success: extractionPageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  exportRevision: liveQuery(
+    'sources.exportRevision',
+    {
+      payload: revisionExportInputSchema,
+      success: revisionExportSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  currentExtraction: liveQuery(
+    'sources.currentExtraction',
+    {
+      payload: currentExtractionInputSchema,
+      success: Schema.NullOr(exactExtractionSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  extraction: liveQuery(
+    'sources.extraction',
+    {
+      payload: exactExtractionInputSchema,
+      success: exactExtractionSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  noteSources: liveQuery(
+    'sources.noteSources',
+    {
+      payload: noteSourcesInputSchema,
+      success: Schema.Array(noteSourceSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  attachSource: mutation(
+    'sources.attachSource',
+    {
+      payload: sourceLinkSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  detachSource: mutation(
+    'sources.detachSource',
+    {
+      payload: sourceLinkSchema,
+      success: Schema.Void,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  importCapability: liveQuery(
+    'sources.importCapability',
+    {
+      payload: importCapabilityInputSchema,
+      success: importCapabilitySchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  get: liveQuery(
+    'sources.source',
+    {
+      payload: { id: sourceIdSchema },
+      success: sourceSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  sourceExport: liveQuery(
+    'sources.sourceExport',
+    {
+      payload: { id: sourceIdSchema },
+      success: sourceExportSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  find: liveQuery(
+    'sources.findSource',
+    {
+      payload: { id: sourceIdSchema },
+      success: Schema.Option(sourceSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  list: liveQuery(
+    'sources.sources',
+    {
+      payload: sourcePageInputSchema,
+      success: sourcePageSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  sourceProcessing: liveQuery(
+    'sources.sourceProcessing',
+    {
+      payload: { id: sourceIdSchema },
+      success: sourceProcessingSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  addLink: mutation(
+    'sources.addLink',
+    {
+      payload: {
+        url: Schema.String,
+        projectId: Schema.NullOr(projectIdSchema),
+        name: Schema.optional(Schema.String)
+      },
+      success: sourceSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  create: mutation(
+    'sources.createSource',
+    {
+      payload: {
+        name: Schema.String.check(Schema.isMinLength(1)),
+        bytes: Schema.Uint8Array,
+        projectId: Schema.NullOr(projectIdSchema)
+      },
+      success: sourceSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  replaceSource: mutation(
+    'sources.replaceSource',
+    {
+      payload: {
+        id: sourceIdSchema,
+        expectedRevision: sourceRevisionSchema,
+        name: Schema.String,
+        bytes: Schema.Uint8Array
+      },
+      success: sourceProcessingSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  setProject: mutation(
+    'sources.setSourceProject',
+    {
+      payload: setSourceProjectInputSchema,
+      success: sourceSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  correctBlock: mutation(
+    'sources.correctBlock',
+    {
+      payload: correctBlockInputSchema,
+      success: sourceProcessingSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  previewDeletion: liveQuery(
+    'sources.previewDeletion',
+    {
+      payload: { id: sourceIdSchema },
+      success: sourceDeletionPreviewSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'database' }
+  ),
+  delete: mutation(
+    'sources.deleteSource',
+    {
+      payload: { id: sourceIdSchema },
+      success: Schema.Boolean,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  ),
+  requestProcessing: mutation(
+    'sources.requestSourceProcessing',
+    {
+      payload: { id: sourceIdSchema, expectedRevision: sourceRevisionSchema },
+      success: sourceProcessingSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.sources] }
+  )
+};
+
+export const SourcesRpc = endpointGroup(sourcesEndpoints);

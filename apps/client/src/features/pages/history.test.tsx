@@ -4,12 +4,10 @@ import { testStable } from '@study/testing/vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect } from 'effect';
-import { expect, vi } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
 import { authoredPage } from '../document-editing/test-support';
 import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 const t = catalogs.english;
 
@@ -134,9 +132,7 @@ testStable(
             : Effect.fail(new StudyError('not_found', 'Retired'))
     );
     const view = mountLibraryRoute('/pages/41?pageVersion=91', rpc);
-    const draftKey = ['document-editor', '20', '201'];
 
-    view.queryClient.setQueryData(draftKey, { text: 'Unrelated unsaved draft' });
     await screen.findByText('URL exact A');
     const go = async (pageVersion?: string) =>
       act(async () => {
@@ -165,6 +161,5 @@ testStable(
     expect(await screen.findByText(t.NoteReadUnavailable)).toBeVisible();
     expect(screen.queryByText('URL current body')).toBeNull();
     expect(screen.queryByText('URL exact A')).toBeNull();
-    expect(view.queryClient.getQueryData(draftKey)).toEqual({ text: 'Unrelated unsaved draft' });
   }
 );

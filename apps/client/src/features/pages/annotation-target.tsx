@@ -1,7 +1,7 @@
 import type { PageId, PageVersionId } from '@study/contracts/ids';
 import type { annotationTargetSchema } from '@study/contracts/pages/evidence';
+import { rpc } from '@study/contracts/react';
 import { validBlockTextRange } from '@study/contracts/sources/document';
-import { LoadMoreButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
 import { Disclosure } from '@study/ui/disclosure';
 import { ErrorState } from '@study/ui/error-state';
@@ -10,16 +10,16 @@ import { Field } from '@study/ui/field';
 import { Loading } from '@study/ui/loading';
 import { SelectControl } from '@study/ui/select-control';
 import { Textarea } from '@study/ui/textarea';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import {
+  useCursorRecovery,
+  useCursorWindow,
+  CursorWindowActions
+} from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import {
-  annotationVersionsOptions,
-  annotationPageOptions,
-  retainedRangeOptions
-} from './annotation-target.queries';
+import { useAnnotationPage, useRetainedRange } from './annotation-target.queries';
 
 export type Target = typeof annotationTargetSchema.Type;
 
@@ -34,7 +34,11 @@ export function TargetPicker({
 }) {
   const { t } = useI18n();
   const [version, setVersion] = useState(initialVersion);
-  const versions = useInfiniteQuery(annotationVersionsOptions(pageId));
+  const window = useCursorWindow<PageVersionId>(String(pageId));
+  const limit = window.limit;
+  const versions = rpc.pages.versions.useQuery({ pageId, limit, cursor: window.cursor });
+
+  useCursorRecovery(window, versions.error);
 
   return (
     <div>
@@ -43,8 +47,7 @@ export function TargetPicker({
         value={String(version)}
         options={[
           { value: String(initialVersion), label: String(initialVersion) },
-          ...(versions.data?.pages
-            .flatMap((page) => page.items)
+          ...(versions.data?.items
             .filter((item) => item.id !== initialVersion && item.status === 'published')
             .map((item) => ({
               value: String(item.id),
@@ -52,9 +55,9 @@ export function TargetPicker({
             })) ?? [])
         ]}
         onValueChange={(selected) => {
-          const item = versions.data?.pages
-            .flatMap((page) => page.items)
-            .find((item) => String(item.id) === selected && item.status === 'published');
+          const item = versions.data?.items.find(
+            (item) => String(item.id) === selected && item.status === 'published'
+          );
 
           if (selected === String(initialVersion) || item) {
             setVersion(item?.id ?? initialVersion);
@@ -69,13 +72,13 @@ export function TargetPicker({
           action={<Button onClick={() => void versions.refetch()}>{t('LibraryRefresh')}</Button>}
         />
       )}
-      {versions.hasNextPage && (
-        <LoadMoreButton
-          disabled={versions.isFetchingNextPage}
-          onClick={() => void versions.fetchNextPage()}
-          label={t('LibraryMore')}
-        />
-      )}
+
+      <CursorWindowActions
+        {...window}
+        hasMore={!!versions.data?.nextCursor}
+        pending={versions.isFetching}
+        more={() => window.more(versions.data?.nextCursor)}
+      />
       <BlockPicker key={String(version)} pageId={pageId} version={version} onPick={onPick} />
     </div>
   );
@@ -93,7 +96,7 @@ function BlockPicker({
   const { t } = useI18n();
   const [blockId, setBlockId] = useState('');
   const [preview, setPreview] = useState('');
-  const state = useQuery(annotationPageOptions(pageId, version));
+  const state = useAnnotationPage(pageId, version);
   const value = state.isSuccess ? state.data : undefined;
   const block = value?.document.blocks.find((item) => item.id === blockId);
 
@@ -175,7 +178,7 @@ export function EvidenceTarget({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(preview);
-  const state = useQuery(retainedRangeOptions(reference.target, open));
+  const state = useRetainedRange(reference.target, open);
   const range = reference.target.range;
 
   return (

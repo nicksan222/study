@@ -93,7 +93,7 @@ testStable('open tool details stay open when streaming settles into the saved re
     next: null
   });
   api.progress.mockResolvedValue(progress('running'));
-  const { client } = mountAssistant();
+  const { notify } = mountAssistant();
 
   await expandSavedActivity();
   const label = await screen.findByText('Read settings');
@@ -105,7 +105,7 @@ testStable('open tool details stay open when streaming settles into the saved re
   api.progress.mockResolvedValue(progress());
   api.thread.mockResolvedValue(savedThread());
   await act(async () => {
-    await client.invalidateQueries({ queryKey: ['assistant'] });
+    await notify();
   });
   expect(await screen.findByText('Saved.')).toBeInTheDocument();
   await expandSavedActivity();
@@ -182,15 +182,20 @@ testStable(
   }
 );
 
-testStable('polls again when the first pending snapshot has no calls yet', async () => {
+testStable('receives later tool activity after an initially empty live snapshot', async () => {
   api.thread.mockResolvedValue({
     items: [message('user', 'Check settings.', 1n), message('assistant', '', 2n, true)],
     next: null
   });
-  api.progress.mockResolvedValueOnce([]).mockResolvedValue(progress('running'));
-  mountAssistant();
-  expect(await screen.findByText('Read settings', {}, { timeout: 2500 })).toBeInTheDocument();
-  expect(api.progress.mock.calls.length).toBeGreaterThanOrEqual(2);
+  api.progress.mockResolvedValue([]);
+  const { notify } = mountAssistant();
+
+  await waitFor(() => expect(api.progress).toHaveBeenCalled());
+  api.progress.mockResolvedValue(progress('running'));
+  await act(async () => {
+    await notify();
+  });
+  expect(await screen.findByText('Read settings')).toBeInTheDocument();
 });
 
 testStable('legacy calls without stored details remain inspectable', async () => {

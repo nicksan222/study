@@ -58,6 +58,7 @@ export const PagesRpcLive = defineRpc(
     'pages.create': pages.create,
     'pages.page': pages.page,
     'pages.pages': pages.pages,
+    'pages.count': pages.count,
     'pages.version': pages.version,
     'pages.versions': pages.versions,
     'pages.save': pages.save,

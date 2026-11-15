@@ -63,6 +63,7 @@ export const NotesRpcLive = defineRpc(NotesRpc, { notes: Notes }, ({ notes }) =>
   'notes.noteWork': notes.noteWork,
   'notes.noteSummaries': notes.noteSummaries,
   'notes.notes': notes.notes,
+  'notes.count': notes.count,
   'notes.createNote': notes.createNote,
   'notes.noteDeletion': ({ id }) => notes.noteDeletion(id),
   'notes.retryNoteDeletion': ({ id }) => notes.retryNoteDeletion(id),

@@ -60,6 +60,7 @@ import { adaptCredentialReader } from '#server/platform/ai/tool-adapter';
 import { BackupStorage, ManagedBackups } from '#server/platform/database/backups';
 import type { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { liveQueriesLayer } from '#server/platform/database/live-queries';
 import { transaction } from '#server/platform/definitions/define-store';
 import { recordAiTokens, recordUsageFailure } from '#server/platform/observability/index';
 import { UsageStore } from '#server/platform/observability/usage-store';
@@ -201,7 +202,7 @@ export function nativeLayers(
     AuthRpcLive,
     ThemesRpcLive,
     SystemRpcLive
-  );
+  ).pipe(Layer.provide(liveQueriesLayer().pipe(Layer.provide(database))));
 
   const workflows = workflowHandlers.pipe(Layer.provideMerge(workflowEngineLayer(store)));
 

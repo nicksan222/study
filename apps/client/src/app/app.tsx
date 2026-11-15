@@ -1,3 +1,4 @@
+import type { ProtocolTransport } from '@study/contracts/react';
 import { RouterProvider } from '@tanstack/react-router';
 import { useState } from 'react';
 
@@ -5,12 +6,12 @@ import { Providers } from './providers';
 import { createAppRouter } from './router';
 import { ServerConnection } from './server-connection';
 
-export function App() {
+export function App({ transport }: { transport?: ProtocolTransport } = {}) {
   const [router] = useState(createAppRouter);
 
   return (
     <Providers
-      queryClient={router.options.context.queryClient}
+      transport={transport}
       renderApp={(children) => (
         <ServerConnection
           onReconnect={() => {

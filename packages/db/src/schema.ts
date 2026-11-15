@@ -37,3 +37,4 @@ export * from './schema/assistant.ts';
 
 export * from './schema/ai-usage.ts';
 export * from './schema/integrations.ts';
+export * from './schema/reactive-revisions.ts';

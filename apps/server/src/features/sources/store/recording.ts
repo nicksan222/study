@@ -72,6 +72,7 @@ export const RecordingImportStore = defineStore({
     },
     mutations: {
       validateRecordingImport: storeMutation({
+        changes: ['sources'],
         input: inputSchema,
         output: Schema.Uint8Array,
         run: (input) => {
@@ -89,6 +90,7 @@ export const RecordingImportStore = defineStore({
         }
       }),
       saveRecordingImport: storeMutation({
+        changes: ['sources'],
         input: Schema.Struct({
           ...inputSchema.fields,
           sourceId: sourceIdSchema,

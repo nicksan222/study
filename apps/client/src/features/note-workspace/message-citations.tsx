@@ -1,10 +1,10 @@
 import type { VersionId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { rpc } from '@study/contracts/react';
 import { anchorLabel, text } from '@study/localization';
 import type { Locale } from '@study/localization';
 import { ChatMessageText, ChatQuestionAnswer } from '@study/ui/chat';
 import { Citation, CitationEvidence, CitationSources } from '@study/ui/citation';
-import { useQuery } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { ReactNode } from 'react';
 
@@ -12,17 +12,15 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 import { CapturedInputLink } from '../source-library';
 import { NoteContent } from './note-editor';
-import { citationsOptions } from './note-workspace.queries';
 
 export type MessageCitation = ChatMessage['citations'][number];
 
 const emptyCitations: readonly MessageCitation[] = [];
 
 export function useMessageCitations(message: ChatMessage, versionId?: VersionId) {
-  const state = useQuery({
-    ...citationsOptions(message.noteId, message.id, versionId),
-    enabled: !!versionId
-  });
+  const state = rpc.notes.messageVersionCitations.useQuery(
+    versionId ? { noteId: message.noteId, messageId: message.id, versionId } : undefined
+  );
 
   return { ...state, items: state.data?.citations ?? emptyCitations };
 }

@@ -1,15 +1,12 @@
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { createElement } from 'react';
-import type { ReactNode } from 'react';
 import { describe, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { aiReadiness, useAiReadiness } from './ai-readiness';
 
 const settings = vi.hoisted(() => ({ load: vi.fn() }));
-
-vi.mock('./study-client/ai-settings', () => ({ loadAiSettings: settings.load }));
 
 const data = {
   status: { signedIn: false, email: null, sharing: false },
@@ -56,10 +53,18 @@ testStable(
         finish = resolve;
       })
     );
-    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const wrapper = ({ children }: { children: ReactNode }) =>
-      createElement(QueryClientProvider, { client }, children);
-    const hook = renderHook(() => useAiReadiness('tiny'), { wrapper });
+    const client = rpcTestTransport(async (tag) => {
+      const snapshot = await settings.load();
+
+      if (tag === 'auth.status') return snapshot.status;
+
+      if (tag === 'auth.providers') return snapshot.providers;
+
+      if (tag === 'settings.llmSettings') return snapshot.settings;
+
+      throw new Error(tag);
+    });
+    const hook = renderHook(() => useAiReadiness('tiny'), { wrapper: client.wrapper });
 
     try {
       expect(hook.result.current).toBe('checking');
@@ -72,17 +77,16 @@ testStable(
         status: { ...data.status, signedIn: true, sharing: true }
       });
       await act(async () => {
-        await client.invalidateQueries({ queryKey: ['ai-settings'] });
+        await client.notify();
       });
       await waitFor(() => expect(hook.result.current).toBe('ready'));
       settings.load.mockRejectedValue(new Error('Unavailable'));
       await act(async () => {
-        await client.invalidateQueries({ queryKey: ['ai-settings'] });
+        await client.notify();
       });
       await waitFor(() => expect(hook.result.current).toBe('unavailable'));
     } finally {
       hook.unmount();
-      client.clear();
     }
   }
 );

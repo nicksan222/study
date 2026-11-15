@@ -1,58 +1,91 @@
+import { configureRpcTransport } from '@study/contracts/react';
+import {
+  defaultAppearancePreferences,
+  defaultWorkspacePreferences
+} from '@study/contracts/settings/types';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render } from '@testing-library/react';
-import { vi } from 'vite-plus/test';
 
 import { Providers } from '../app/providers';
 import { createAppRouter } from '../app/router';
 import type { Locale } from '../lib/i18n';
-import type { StudyClient } from '../lib/study-client/client';
+import { rpcTestTransport } from './rpc';
 
-vi.mock('../lib/study-client/client', async () => {
-  const { Effect } = await import('effect');
-  const page = () => Effect.succeed({ items: [], next: null, nextCursor: null });
+/** Empty, bounded product snapshots for route presentation tests. Individual journeys supply their own fixtures. */
+export function pageTestTransport(
+  locale: Locale = 'english',
+  overrides: Record<string, unknown> = {}
+) {
+  const snapshots: Record<string, unknown> = {
+    'system.health': { protocolVersion: 1, workersRunning: true, testMode: false },
 
-  const workflows = {
-    'workflows.executions': vi
-      .fn<StudyClient['workflows.executions']>()
-      .mockReturnValue(Effect.succeed({ items: [], next: null })),
-    'workflows.execution': vi.fn<StudyClient['workflows.execution']>().mockReturnValue(
-      Effect.fail({
-        kind: 'not_found' as const,
-        message: 'No execution selected',
-        retryAfterMs: null
-      })
-    ),
-    'workflows.cancelExecution': vi.fn<StudyClient['workflows.cancelExecution']>().mockReturnValue(
-      Effect.fail({
-        kind: 'not_found' as const,
-        message: 'No execution selected',
-        retryAfterMs: null
-      })
-    )
+    'settings.appSettings': {
+      language: locale === 'italian' ? 2 : 1,
+      appearance: 3,
+      zoomPercent: 100,
+      onboarded: true
+    },
+
+    'settings.workspacePreferences': defaultWorkspacePreferences,
+
+    'settings.appearancePreferences': defaultAppearancePreferences,
+
+    'settings.sidebarSettings': { settledPageThreshold: 1 },
+
+    'notes.noteSummaries': { items: [] },
+
+    'themes.selectedTheme': null,
+
+    'auth.status': { signedIn: false, email: null, sharing: false },
+
+    'auth.providers': [],
+
+    'settings.llmSettings': {
+      tiny: { provider: 1, model: 1 },
+      medium: { provider: 1, model: 2 },
+      smart: { provider: 1, model: 3 }
+    },
+
+    'notes.assistantNote': {
+      id: 91n,
+      projectIds: [],
+      title: 'Assistant',
+      titleSource: 'user',
+      archivedAt: null,
+      createdAt: 1n,
+      updatedAt: 1n
+    },
+
+    'notes.assistantContext': {
+      estimatedTokens: 0,
+      maxTokens: 50000,
+      autoCompact: true,
+      lastCompactedAtMs: null
+    }
   };
 
-  return {
-    studyClient: Effect.succeed({
-      'projects.projects': page,
-      'notes.notes': page,
-      'sources.sources': page,
-      'materials.materials': page,
-      'pages.pages': page,
-      ...workflows
-    })
-  };
-});
+  const values = { ...snapshots, ...overrides };
 
-export function renderPage(path: string, locale: Locale = 'english') {
-  const history = createMemoryHistory({ initialEntries: [path] });
-  const router = createAppRouter(history);
+  return rpcTestTransport(async (tag) =>
+    Object.hasOwn(values, tag) ? values[tag] : { items: [], next: null, nextCursor: null }
+  );
+}
+
+export function renderPage(
+  path: string,
+  locale: Locale = 'english',
+  fixture = pageTestTransport(locale)
+) {
+  configureRpcTransport(fixture.transport);
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
 
   return {
     ...render(
-      <Providers locale={locale} queryClient={router.options.context.queryClient}>
+      <Providers locale={locale} transport={fixture.transport}>
         <RouterProvider router={router} />
       </Providers>
     ),
-    router
+    router,
+    notify: fixture.notify
   };
 }

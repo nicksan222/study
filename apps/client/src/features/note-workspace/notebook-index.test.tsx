@@ -1,43 +1,25 @@
 import { noteIdSchema } from '@study/contracts/ids';
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { rpc as protocol } from '@study/contracts/react';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+
 import { authoredPage as summary } from '../document-editing/test-support';
 import { History } from './history';
-import { linkedPagesOptions } from './note-page.queries';
-import type * as WorkspaceQueries from './note-workspace.queries';
 import { WorkspaceContext } from './workspace-context';
 
 const rpc = vi.hoisted(() => ({ thread: vi.fn(), materials: vi.fn(), generations: vi.fn() }));
 
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (client: Record<string, unknown>) => unknown) =>
-    invoke({
-      'pages.pages': rpc.materials,
-      'sources.source': async () => ({ sizeBytes: 1n }),
-      'notes.messageVersionCitations': async () => ({ citations: [] }),
-      'notes.noteGenerations': rpc.generations
-    })
-}));
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String })
 }));
 vi.mock('./message-actions', () => ({
   MessageActions: ({ children }: { children: React.ReactNode }) => children
-}));
-vi.mock('./note-workspace.queries', async (load) => ({
-  ...(await load<typeof WorkspaceQueries>()),
-  threadOptions: (id: bigint) => ({
-    queryKey: ['index-thread', String(id)],
-    initialPageParam: undefined,
-    queryFn: ({ pageParam }: { pageParam: unknown }) => rpc.thread(id, pageParam),
-    getNextPageParam: (page: { next: bigint | null }) => page.next ?? undefined
-  })
 }));
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(51n);
@@ -91,10 +73,20 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-const clients: QueryClient[] = [];
+function Provider({ children }: { children: React.ReactNode }) {
+  const fixture = rpcHandlersTransport({
+    'pages.pages': rpc.materials,
+    'notes.thread': ({ noteId, before, limit }) => rpc.thread(noteId, before, limit),
+    'notes.messageVersionCitations': async (input) => ({ ...input, citations: [] }),
+    'notes.noteWork': async () => ({ items: [], next: null }),
+    'notes.noteGenerations': rpc.generations
+  });
+
+  return <fixture.wrapper>{children}</fixture.wrapper>;
+}
 
 function Notebook() {
-  const pages = useQuery(linkedPagesOptions(id));
+  const pages = protocol.pages.list.useQuery({ noteId: id, limit: 100, archived: false });
 
   return (
     <History
@@ -108,15 +100,11 @@ function Notebook() {
 }
 
 function mount(noteId?: typeof id, board = false) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  clients.push(client);
-
   return render(
-    <QueryClientProvider client={client}>
+    <Provider>
       {board && <Notebook />}
       <WorkspaceContext id={noteId} onOpenSource={() => undefined} />
-    </QueryClientProvider>
+    </Provider>
   );
 }
 
@@ -129,7 +117,6 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
-  clients.splice(0).forEach((client) => client.clear());
   vi.restoreAllMocks();
 });
 
@@ -191,10 +178,10 @@ testStable(
   }
 );
 testStable(
-  'loads earlier notes into both the index and the rendered notebook through the shared page cache',
+  'loads earlier notes into both the index and the rendered notebook through authoritative bounded pages',
   async () => {
-    rpc.thread.mockImplementation((_id, before) =>
-      Promise.resolve({ items: before ? [message] : [], next: before ? null : 71n })
+    rpc.thread.mockImplementation((_id, _before, limit) =>
+      Promise.resolve({ items: limit > 30 ? [message] : [], next: limit > 30 ? null : 71n })
     );
     mount(id, true);
     const index = await screen.findByRole('navigation', { name: 'NotePageIndex' });
@@ -203,7 +190,7 @@ testStable(
     const link = await within(index).findByRole('button', { name: 'Current note' });
 
     expect(document.getElementById(link.getAttribute('data-target')!)).not.toBeNull();
-    expect(rpc.thread).toHaveBeenCalledWith(id, 71n);
+    expect(rpc.thread).toHaveBeenCalledWith(id, undefined, 60);
   }
 );
 testStable('respects reduced motion when jumping to a notebook entry', async () => {
@@ -277,13 +264,10 @@ testStable('retains rich document headings and lists in the unboxed notebook', a
     ],
     next: null
   });
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-
-  clients.push(client);
   render(
-    <QueryClientProvider client={client}>
+    <Provider>
       <History id={id} />
-    </QueryClientProvider>
+    </Provider>
   );
   const board = await screen.findByRole('log', { name: 'NoteNotebook' });
 

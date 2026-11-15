@@ -2,34 +2,18 @@ import { StudyError } from '@study/contracts/errors';
 import type { NoteId } from '@study/contracts/ids';
 import { noteIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+
 import { NoteBatchDeleteDialog } from './deletion';
-import type * as Queries from './note-workspace.queries';
 
 const rpc = vi.hoisted(() => ({ remove: vi.fn(), retry: vi.fn(), read: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, locale: 'english' })
-}));
-vi.mock('./note-workspace.queries', async (load) => ({
-  ...(await load<typeof Queries>()),
-  deletionOptions: (id: NoteId, enabled: boolean) => ({
-    queryKey: ['batch-delete-test', String(id)],
-    queryFn: () => rpc.read(id),
-    enabled
-  }),
-  deleteNoteMutationOptions: (id: NoteId) => ({
-    mutationFn: () => rpc.remove(id),
-    retry: false
-  }),
-  retryNoteDeletionMutationOptions: (id: NoteId) => ({
-    mutationFn: () => rpc.retry(id),
-    retry: false
-  })
 }));
 
 const first = Schema.decodeUnknownSync(noteIdSchema)(1n);
@@ -43,30 +27,47 @@ const notes = [
   { id: second, title: 'Second note' }
 ];
 
-const clients: QueryClient[] = [];
-
 afterEach(() => {
   cleanup();
-
-  for (const client of clients.splice(0)) client.clear();
-
   vi.resetAllMocks();
 });
 
 function mount(onDeleted = vi.fn()) {
   if (!rpc.read.getMockImplementation()) rpc.read.mockResolvedValue(null);
 
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const receipts = new Map<NoteId, unknown>();
+  const fixture = rpcHandlersTransport({
+    'notes.noteDeletion': async ({ id }) => {
+      const value = receipts.get(id) ?? (await rpc.read(id));
 
-  clients.push(client);
+      if (value == null) throw new StudyError('not_found', 'No deletion');
+
+      return value;
+    },
+    'notes.deleteNote': async ({ id }) => {
+      const value = await rpc.remove(id);
+
+      receipts.set(id, value);
+
+      return value;
+    },
+    'notes.retryNoteDeletion': async ({ id }) => {
+      const value = await rpc.retry(id);
+
+      receipts.set(id, value);
+
+      return value;
+    }
+  });
+  const Provider = fixture.wrapper;
   const close = vi.fn();
   const node = (selected = notes) => (
-    <QueryClientProvider client={client}>
+    <Provider>
       <NoteBatchDeleteDialog notes={selected} open onOpenChange={close} onDeleted={onDeleted} />
-    </QueryClientProvider>
+    </Provider>
   );
 
-  return { ...render(node()), node, client, close, onDeleted };
+  return { ...render(node()), node, close, onDeleted };
 }
 
 testStable('does not delete anything when batch confirmation is cancelled', async () => {

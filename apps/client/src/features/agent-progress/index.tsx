@@ -1,8 +1,6 @@
 import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
 import { GenerationPreview } from '@study/ui/generation-preview';
 import { Trace } from '@study/ui/trace';
-import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
@@ -19,7 +17,7 @@ const progressLabels = {
 
 /**
  * Render read-only text and tool previews with terminal-state labels.
- * Refresh the authoritative feature queries when an observed workflow finishes or retires;
+ * Authoritative feature snapshots follow committed workflow writes;
  * raw structured output stays hidden until its owning feature publishes validated results.
  */
 export function AgentProgress({
@@ -27,34 +25,7 @@ export function AgentProgress({
   ...input
 }: typeof agentProgressInputSchema.Type & { variant?: 'inline' | 'compact' }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
   const { runs } = useAgentProgress(input);
-  const previous = useRef('');
-  const settled = runs.map((run) => `${run.runId}:${run.executionStatus}`).join('|');
-
-  useEffect(() => {
-    const changed = previous.current !== settled;
-    const hadRuns = previous.current.length > 0;
-
-    previous.current = settled;
-
-    if (
-      !changed ||
-      !(runs.some((run) => run.executionStatus === 'completed') || (hadRuns && !runs.length))
-    )
-      return;
-
-    for (const queryKey of [
-      ['note-workspace'],
-      ['note-generation'],
-      ['note-execution'],
-      ['note-work'],
-      ['materials'],
-      ['library'],
-      ['notes']
-    ])
-      void cache.invalidateQueries({ queryKey });
-  }, [cache, runs, settled]);
 
   return (
     <>

@@ -1,21 +1,21 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
 import type { PageSummary } from '@study/contracts/pages/types';
+import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { AiActivity } from '@study/ui/ai-button';
 import { Button } from '@study/ui/button';
 import { DialogFooter } from '@study/ui/dialog';
 import { Input } from '@study/ui/input';
 import { PageOverview } from '@study/ui/page-overview';
 import { StatusMessage } from '@study/ui/status-message';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { Effect } from 'effect';
+import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-import { pageVersionOptions, invalidatePages } from '#client/lib/study-client/pages.queries.ts';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { ContentReadError } from '../document-presentation';
-import { pageMergesOptions, mergePagesOptions, mergeActionOptions } from './merge.queries';
 import { PageActionDialog } from './page-action-dialog';
 
 export function MergePagesDialog({
@@ -28,17 +28,10 @@ export function MergePagesDialog({
   onClose: () => void;
 }) {
   const { t, locale } = useI18n();
-  const cache = useQueryClient();
   const [title, setTitle] = useState('');
   const [instruction, setInstruction] = useState('');
   const [key, setKey] = useState(() => crypto.randomUUID());
-  const mutation = useMutation({
-    ...mergePagesOptions(),
-    onSuccess: async () => {
-      await invalidatePages(cache);
-      onClose();
-    }
-  });
+  const mutation = rpc.pages.merge.useMutation();
 
   return (
     <PageActionDialog
@@ -84,14 +77,18 @@ export function MergePagesDialog({
         <Button
           disabled={!title.trim() || mutation.isPending}
           onClick={() =>
-            mutation.mutate({
-              key,
-              title: title.trim(),
-              instruction,
-              versions: pages.map((doc) => doc.headVersionId!),
-              projectId: project,
-              language: locale
-            })
+            void mutation
+              .mutate({
+                key,
+                title: title.trim(),
+                instruction,
+                versions: pages.flatMap((doc) =>
+                  doc.headVersionId === null ? [] : [doc.headVersionId]
+                ),
+                projectId: project,
+                language: locale
+              })
+              .then(onClose)
           }
         >
           {t('PagesMerge')}
@@ -103,20 +100,7 @@ export function MergePagesDialog({
 
 export function PageMerges({ project }: { project?: ProjectId }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const state = useQuery(pageMergesOptions(project));
-  const completed = useRef(new Set<string>());
-
-  useEffect(() => {
-    const fresh =
-      state.data?.filter(
-        (item) => item.resultVersionId !== null && !completed.current.has(item.id)
-      ) ?? [];
-
-    for (const item of fresh) completed.current.add(item.id);
-
-    if (fresh.length) void invalidatePages(cache);
-  }, [state.data, cache]);
+  const state = rpc.pages.merges.useQuery({ projectId: project });
   const items = state.data?.filter((item) => !item.cancelled) ?? [];
 
   if (!items.length && !state.error) return null;
@@ -141,20 +125,48 @@ function MergeProgress({
   item: typeof transformSnapshotSchema.Type;
   project?: ProjectId;
 }) {
-  const { t } = useI18n();
-  const cache = useQueryClient();
-  const mutation = useMutation({
-    ...mergeActionOptions(item.id),
-    onSuccess: () => invalidatePages(cache)
-  });
-  const result = useQuery({
-    ...pageVersionOptions(item.resultVersionId!),
-    enabled: item.resultVersionId !== null
-  });
+  const mutation = useIndependentMutation((action: 'cancel' | 'retry') =>
+    Effect.tryPromise({
+      try: () =>
+        action === 'cancel'
+          ? rpc.pages.cancelTransform.call({ requestId: item.id })
+          : rpc.pages.retryTransform.call({ requestId: item.id, retryId: crypto.randomUUID() }),
+      catch: toStudyError
+    })
+  );
+  const result = rpc.pages.version.useQuery(
+    item.resultVersionId === null ? undefined : { id: item.resultVersionId }
+  );
 
   return (
     <div>
       <PageOverview.Name>{item.title}</PageOverview.Name>
+      <MergeProgressOutcome {...{ item, result, project }} />
+      <MergeProgressActions
+        item={item}
+        busy={mutation.isPending}
+        run={(action) => void mutation.mutate(action)}
+      />
+      {mutation.error && <ContentReadError error={mutation.error} />}
+      {result.error && <ContentReadError error={result.error} />}
+    </div>
+  );
+}
+
+function MergeProgressOutcome({
+  item,
+  result,
+  project
+}: {
+  item: typeof transformSnapshotSchema.Type;
+  result: ReturnType<typeof rpc.pages.version.useQuery>;
+  project?: ProjectId;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {' '}
       {item.resultVersionId === null && !item.errorKind && <AiActivity label={t('PagesMerging')} />}
       {item.errorKind && <StatusMessage>{t(mergeErrorMessage(item.errorKind))}</StatusMessage>}
       {result.data && (
@@ -166,29 +178,37 @@ function MergeProgress({
           {t('PagesMergeDone')}
         </Link>
       )}
+    </>
+  );
+}
+
+function MergeProgressActions({
+  item,
+  busy,
+  run
+}: {
+  item: typeof transformSnapshotSchema.Type;
+  busy: boolean;
+  run: (action: 'cancel' | 'retry') => void;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {' '}
       {item.resultVersionId === null && (
         <>
           {item.errorKind && (
-            <Button
-              variant="outline"
-              disabled={mutation.isPending}
-              onClick={() => mutation.mutate('retry')}
-            >
+            <Button variant="outline" disabled={busy} onClick={() => run('retry')}>
               {t('PagesMergeRetry')}
             </Button>
           )}
-          <Button
-            variant="ghost"
-            disabled={mutation.isPending}
-            onClick={() => mutation.mutate('cancel')}
-          >
+          <Button variant="ghost" disabled={busy} onClick={() => run('cancel')}>
             {t('PagesMergeCancel')}
           </Button>
         </>
       )}
-      {mutation.error && <ContentReadError error={mutation.error} />}
-      {result.error && <ContentReadError error={result.error} />}
-    </div>
+    </>
   );
 }
 

@@ -25,13 +25,14 @@ import { assert } from 'vite-plus/test';
 import { Sources } from '#server/features/sources/service/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { SourcesRpcLive } from './index.ts';
 
 testStable('RPC handlers use the source service and return canonical failures', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = SourcesRpcLive.pipe(
+  const handlers = SourcesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(Sources.layer),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );

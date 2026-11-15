@@ -1,19 +1,33 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type {
   comparisonSchema,
   editOutcomeSchema,
-  saveSchema
+  saveSchema,
+  restoreSchema
 } from '@study/contracts/pages/editing';
 import type { PageVersion } from '@study/contracts/pages/types';
 import type { documentSchema } from '@study/contracts/sources/schemas';
-import { useQueryClient } from '@tanstack/react-query';
-import { useState, useRef } from 'react';
+import { Atom } from 'effect/reactivity';
+import { useContext, useRef, useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-type Comparison = typeof comparisonSchema.Type;
-
 type Outcome = typeof editOutcomeSchema.Type;
 
+type Draft = {
+  document?: typeof documentSchema.Type;
+  outcome?: Outcome;
+  saveKey: string;
+  pendingSave?: typeof saveSchema.Type;
+  undoInput?: typeof restoreSchema.Type;
+  undoOutcome?: Outcome;
+};
+
+const drafts = Atom.family((_identity: string) =>
+  Atom.make<Draft>({ saveKey: crypto.randomUUID() }).pipe(Atom.keepAlive)
+);
+
+/** Authored drafts and exact uncertain receipts are local state, independent of transport recovery. */
 export function usePageEditor({
   version,
   current
@@ -22,50 +36,21 @@ export function usePageEditor({
   current: PageVersion['id'];
 }) {
   const { t } = useI18n();
-  const client = useQueryClient();
-  const content = version.document;
-  const document = content;
-
-  // User-authored drafts and exact retry receipts live until explicit discard.
-  client.setQueryDefaults(['document-editor'], { gcTime: Infinity });
-  const draftKey = ['document-editor', String(version.pageId), String(version.id)];
-  const [draft, setDraft] = useState<typeof documentSchema.Type | undefined>(() =>
-    client.getQueryData(draftKey)
-  );
+  const registry = useContext(RegistryContext);
+  const atom = drafts(`${version.pageId}:${version.id}`);
+  const state = useAtomValue(atom);
+  const update = (patch: Partial<Draft>) => registry.set(atom, { ...registry.get(atom), ...patch });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
-  const [outcome, setOutcomeState] = useState<Outcome | undefined>(() =>
-    client.getQueryData([...draftKey, 'outcome'])
-  );
-
-  function setOutcome(value: Outcome | undefined) {
-    setOutcomeState(value);
-    client.setQueryData([...draftKey, 'outcome'], value);
-
-    if (!value) client.removeQueries({ queryKey: [...draftKey, 'outcome'], exact: true });
-  }
-
-  const [comparison, setComparison] = useState<Comparison>();
+  const [comparison, setComparison] = useState<typeof comparisonSchema.Type>();
   const [savedCopy, setSavedCopy] = useState<string>();
-  const saveKey = useRef(
-    client.getQueryData<string>([...draftKey, 'save-key']) ?? crypto.randomUUID()
-  );
+  const saveKey = useRef(state.saveKey);
 
-  client.setQueryData([...draftKey, 'save-key'], saveKey.current);
-  const [pendingSave, setPendingSave] = useState<typeof saveSchema.Type | undefined>(() =>
-    client.getQueryData([...draftKey, 'pending-save'])
-  );
-  const [undoOutcome, setUndoOutcome] = useState<Outcome | undefined>(() =>
-    client.getQueryData([...draftKey, 'undo-outcome'])
-  );
+  saveKey.current = state.saveKey;
   const lock = useRef(false);
 
-  function change(value: typeof documentSchema.Type) {
-    setDraft(value);
-    client.setQueryData(draftKey, value);
-    saveKey.current = crypto.randomUUID();
-    client.setQueryData([...draftKey, 'save-key'], saveKey.current);
-    setOutcome(undefined);
+  function change(document: typeof documentSchema.Type) {
+    update({ document, saveKey: crypto.randomUUID(), outcome: undefined });
     setComparison(undefined);
   }
 
@@ -87,39 +72,34 @@ export function usePageEditor({
   }
 
   function discard() {
-    setDraft(undefined);
-    client.removeQueries({ queryKey: draftKey });
-    setOutcome(undefined);
-    setPendingSave(undefined);
-    setUndoOutcome(undefined);
-    saveKey.current = crypto.randomUUID();
+    registry.set(atom, { saveKey: crypto.randomUUID() });
+    setComparison(undefined);
   }
 
   return {
-    discard,
     t,
-    client,
-    content,
-    document,
     version,
     current,
-    draftKey,
-    draft,
-    setDraft,
+    content: version.document,
+    document: version.document,
+    draft: state.document,
     busy,
     error,
-    outcome,
-    setOutcome,
+    outcome: state.outcome,
+    setOutcome: (outcome: Outcome | undefined) => update({ outcome }),
     comparison,
     setComparison,
     savedCopy,
     setSavedCopy,
     saveKey,
-    pendingSave,
-    setPendingSave,
-    undoOutcome,
-    setUndoOutcome,
+    pendingSave: state.pendingSave,
+    setPendingSave: (pendingSave: typeof saveSchema.Type | undefined) => update({ pendingSave }),
+    undoOutcome: state.undoOutcome,
+    setUndoOutcome: (undoOutcome: Outcome | undefined) => update({ undoOutcome }),
+    undoInput: state.undoInput,
+    setUndoInput: (undoInput: typeof restoreSchema.Type) => update({ undoInput }),
     change,
-    run
+    run,
+    discard
   };
 }

@@ -491,6 +491,7 @@ export const PracticeStore = defineStore({
       },
       mutations: {
         prepareBackup: storeMutation({
+          changes: ['learning'],
           input: Schema.Void,
           output: Schema.Void,
           run: () => {
@@ -509,21 +510,25 @@ export const PracticeStore = defineStore({
           }
         }),
         start: storeMutation({
+          changes: ['learning'],
           input: startPracticeInputSchema,
           output: Schema.Array(Schema.String),
           run: (input) => start(input.projectId, input.inputs)
         }),
         stop: storeMutation({
+          changes: ['learning'],
           input: Schema.Struct({ ...practiceInputSchema.fields, epoch: Schema.String }),
           output: Schema.Void,
           run: (input) => stop(input.projectId, input.epoch)
         }),
         publish: storeMutation({
+          changes: ['learning'],
           input: publishPracticeSlotInputSchema,
           output: Schema.NullOr(quizAttemptSchema),
           run: (input) => publish(input.slotId, input.versionId)
         }),
         answer: storeMutation({
+          changes: ['learning'],
           input: answerPracticeQuestionInputSchema,
           output: Schema.Struct({
             attempt: quizAttemptSchema,
@@ -576,6 +581,7 @@ export const PracticeStore = defineStore({
           }
         }),
         retry: storeMutation({
+          changes: ['learning'],
           input: retryPracticeQuestionInputSchema,
           output: Schema.Struct({ slot: practiceSlotSchema, requested: Schema.Boolean }),
           run: (input) => {
@@ -616,6 +622,7 @@ export const PracticeStore = defineStore({
           }
         }),
         fail: storeMutation({
+          changes: ['learning'],
           input: Schema.Struct({
             slotId: Schema.String,
             projectId: projectIdSchema,

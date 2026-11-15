@@ -159,6 +159,7 @@ export const MaterialDeletionStore = defineStore({
       },
       mutations: {
         accept: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             ...requestMaterialDeletionSchema.fields,
             operationId: Schema.String
@@ -224,6 +225,7 @@ export const MaterialDeletionStore = defineStore({
           }
         }),
         retry: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({ materialId: materialIdSchema, pendingTerminal: Schema.Boolean }),
           output: materialDeletionSchema,
           run: (input) => {
@@ -243,6 +245,7 @@ export const MaterialDeletionStore = defineStore({
           }
         }),
         settle: storeMutation({
+          changes: ['materials'],
           input: Schema.Struct({
             materialId: materialIdSchema,
             attempt: Schema.Int,
@@ -270,6 +273,7 @@ export const MaterialDeletionStore = defineStore({
           }
         }),
         scrub: storeMutation({
+          changes: ['materials'],
           input: materialIdSchema,
           output: Schema.Void,
           run: (id) => {

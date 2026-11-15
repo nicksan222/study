@@ -68,6 +68,7 @@ export const NoteDeletionStore = defineStore({
       },
       mutations: {
         retainCorrelations: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             noteId: noteIdSchema,
             correlations: Schema.Array(Schema.String)
@@ -83,6 +84,7 @@ export const NoteDeletionStore = defineStore({
           }
         }),
         accept: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({ noteId: noteIdSchema, operationId: Schema.String }),
           output: noteDeletionSchema,
           run: ({ noteId, operationId }) => {
@@ -103,6 +105,7 @@ export const NoteDeletionStore = defineStore({
           }
         }),
         retireCaptures: storeMutation({
+          changes: ['notes'],
           input: Schema.Array(Schema.String),
           output: Schema.Void,
           run: (ids) => {
@@ -130,6 +133,7 @@ export const NoteDeletionStore = defineStore({
           }
         }),
         removeNote: storeMutation({
+          changes: ['notes'],
           input: noteIdSchema,
           output: Schema.Void,
           run: (id) => {
@@ -137,6 +141,7 @@ export const NoteDeletionStore = defineStore({
           }
         }),
         retry: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({ noteId: noteIdSchema, pendingTerminal: Schema.Boolean }),
           output: noteDeletionSchema,
           run: ({ noteId: id, pendingTerminal }) => {
@@ -155,6 +160,7 @@ export const NoteDeletionStore = defineStore({
           }
         }),
         settle: storeMutation({
+          changes: ['notes'],
           input: Schema.Struct({
             noteId: noteIdSchema,
             errorKind: Schema.NullOr(errorKindSchema),

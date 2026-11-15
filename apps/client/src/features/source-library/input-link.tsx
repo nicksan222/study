@@ -1,11 +1,9 @@
 import type { PageVersionId } from '@study/contracts/ids';
 import type { selectionReferenceSchema } from '@study/contracts/notes/context';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
-
-import { pageVersionOptions } from '#client/lib/study-client/pages.queries.ts';
 
 /** Opens precisely the cited retained version or source extraction, never a current head. */
 
@@ -49,7 +47,7 @@ function AuthoredInputLink({
   name: string;
   action: boolean;
 }) {
-  const state = useQuery(pageVersionOptions(versionId));
+  const state = rpc.pages.version.useQuery({ id: versionId });
 
   return state.data && !state.error ? (
     <InputLinkPresentation

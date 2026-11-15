@@ -15,7 +15,8 @@ import { Layer } from 'effect';
 import { Learning } from '#server/features/learning/index';
 import { Materials } from '#server/features/materials/index';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
+import { testLiveQueries } from '#testing/live-queries';
 
-export const materialRpcHandlers = MaterialsRpcLive.pipe(
+export const materialRpcHandlers = MaterialsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
   Layer.provide(Materials.deletionParticipantsLayer({ Learning }))
 );

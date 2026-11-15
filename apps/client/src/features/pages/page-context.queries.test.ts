@@ -1,19 +1,13 @@
 import { noteIdSchema, pageIdSchema, pageVersionIdSchema } from '@study/contracts/ids';
+import { configureRpcTransport } from '@study/contracts/react';
 import { testStable } from '@study/testing/vitest';
 import { expect, beforeEach, vi } from 'vite-plus/test';
 
-import { pageNoteOptions } from './page-context.queries';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+
+import { attachPageToNote } from './page-context.queries';
 
 const api = vi.hoisted(() => ({ attach: vi.fn(), selection: vi.fn(), update: vi.fn() }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'pages.attach': api.attach,
-      'notes.noteSelection': api.selection,
-      'notes.updateNoteSelection': api.update
-    })
-}));
 
 const input = {
   pageId: pageIdSchema.make(4n),
@@ -29,7 +23,14 @@ const target = {
 beforeEach(() => {
   vi.resetAllMocks();
   api.attach.mockResolvedValue(undefined);
-  api.update.mockResolvedValue(undefined);
+  api.update.mockResolvedValue({ revision: 13n, targets: [] });
+  const harness = rpcHandlersTransport({
+    'pages.attach': api.attach,
+    'notes.noteSelection': api.selection,
+    'notes.updateNoteSelection': api.update
+  });
+
+  configureRpcTransport(harness.transport);
 });
 
 testStable(
@@ -41,9 +42,7 @@ testStable(
     };
 
     api.selection.mockResolvedValue({ revision: 12n, targets: [existing] });
-    const options = pageNoteOptions();
-
-    await options.mutationFn!(input, undefined as never);
+    await attachPageToNote(input);
     expect(api.attach).toHaveBeenCalledExactlyOnceWith({
       pageId: input.pageId,
       noteId: input.noteId
@@ -58,15 +57,13 @@ testStable(
 
 testStable('does not duplicate already selected document context when retried', async () => {
   api.selection.mockResolvedValue({ revision: 13n, targets: [target] });
-  await pageNoteOptions().mutationFn!(input, undefined as never);
+  await attachPageToNote(input);
   expect(api.update).not.toHaveBeenCalled();
 });
 
 testStable('does not continue after attachment fails', async () => {
   api.attach.mockRejectedValue(new Error('Unavailable'));
-  await expect(pageNoteOptions().mutationFn!(input, undefined as never)).rejects.toThrow(
-    'Unavailable'
-  );
+  await expect(attachPageToNote(input)).rejects.toMatchObject({ message: 'Unavailable' });
   expect(api.selection).not.toHaveBeenCalled();
   expect(api.update).not.toHaveBeenCalled();
 });

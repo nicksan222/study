@@ -51,6 +51,7 @@ const items = defineStore({
     },
     mutations: {
       insert: storeMutation({
+        changes: ['settings'],
         input: Schema.String,
         output: Schema.String,
         run: (value) => value
@@ -89,6 +90,7 @@ testStable(
           },
           mutations: {
             save: storeMutation({
+              changes: ['settings'],
               input: Schema.String,
               output: Schema.Void,
               run: (value) => {
@@ -182,6 +184,7 @@ testStable('transaction rolls back a write when a later step throws', async () =
       queries: {},
       mutations: {
         insert: storeMutation({
+          changes: ['settings'],
           input: Schema.String,
           output: Schema.String,
           run: (key) => {
@@ -322,6 +325,7 @@ testStable('rejects invalid roles and duplicate operation names', async () => {
               queries: { item: op },
               mutations: {
                 item: storeMutation({
+                  changes: ['settings'],
                   input: Schema.Number,
                   output: Schema.Number,
                   run: (id) => id
@@ -351,6 +355,7 @@ testStable(
         queries: {},
         mutations: {
           insert: storeMutation({
+            changes: ['settings'],
             input: Schema.String,
             output: Schema.Unknown,
             run: (value) => {
@@ -617,6 +622,7 @@ testStable('a reusable read and write effect select each provided SQLite databas
       },
       mutations: {
         save: storeMutation({
+          changes: ['settings'],
           input: Schema.String,
           output: Schema.Void,
           run: (value) => {
@@ -734,6 +740,7 @@ testStable(
         queries: {},
         mutations: {
           save: storeMutation({
+            changes: ['settings'],
             input: Schema.String,
             output: Schema.Void,
             run: (key) => {
@@ -817,7 +824,12 @@ function canonicalStoreTypeAssertions() {
     make: () => ({
       queries: {
         // @ts-expect-error Mutations cannot be used as queries.
-        item: storeMutation({ input: Schema.Number, output: Schema.Number, run: (n) => n })
+        item: storeMutation({
+          changes: ['settings'],
+          input: Schema.Number,
+          output: Schema.Number,
+          run: (n) => n
+        })
       },
       mutations: {}
     })
@@ -851,7 +863,12 @@ testStable('unbranded and role-swapped operation descriptors fail at binding', a
     output: Schema.Number,
     run: (n) => n
   });
-  const mutation = storeMutation({ input: Schema.Number, output: Schema.Number, run: (n) => n });
+  const mutation = storeMutation({
+    changes: ['settings'],
+    input: Schema.Number,
+    output: Schema.Number,
+    run: (n) => n
+  });
 
   try {
     for (const definitions of [
@@ -980,7 +997,7 @@ testStable('transaction ownership does not expose the root database after expiry
   let escaped: ServerTransactionContext | undefined;
 
   try {
-    context.transaction((scope) => {
+    context.transaction(['settings'], (scope) => {
       escaped = scope;
     });
     assert.strictEqual(typeof escaped!.transactionOwner, 'symbol');
@@ -991,3 +1008,17 @@ testStable('transaction ownership does not expose the root database after expiry
     await location.cleanup();
   }
 });
+
+/** Compile-time boundaries prevent a store writer from omitting or inventing dependency changes. */
+function invalidChangeDeclarations() {
+  const base = { input: Schema.Void, output: Schema.Void, run: () => undefined };
+
+  // @ts-expect-error every store mutation declares its committed dependency scopes
+  storeMutation(base);
+  // @ts-expect-error store writes cannot declare an empty change set
+  storeMutation({ ...base, changes: [] });
+  // @ts-expect-error scopes come from the canonical dependency contract
+  storeMutation({ ...base, changes: ['not-a-scope'] });
+}
+
+void invalidChangeDeclarations;

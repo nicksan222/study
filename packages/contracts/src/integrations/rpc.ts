@@ -1,7 +1,7 @@
 import { Schema } from 'effect';
-import { Rpc, RpcGroup } from 'effect/rpc';
 
 import { failureSchema } from '../errors.ts';
+import { allDependencies, dependency, endpointGroup, liveQuery, mutation } from '../protocol.ts';
 import {
   integrationImportKeySchema,
   integrationImportSchema,
@@ -10,42 +10,72 @@ import {
   startIntegrationImportSchema
 } from './schemas.ts';
 
-export const IntegrationsRpc = RpcGroup.make(
-  Rpc.make('providers', {
-    payload: Schema.Struct({}),
-    success: Schema.Array(integrationProviderSchema),
-    error: failureSchema
-  }),
-  Rpc.make('previewImport', {
-    payload: previewIntegrationInputSchema,
-    success: integrationImportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('startImport', {
-    payload: startIntegrationImportSchema,
-    success: integrationImportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('import', {
-    payload: integrationImportKeySchema,
-    success: integrationImportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('imports', {
-    payload: Schema.Struct({
-      limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
-    }),
-    success: Schema.Array(integrationImportSchema),
-    error: failureSchema
-  }),
-  Rpc.make('cancelImport', {
-    payload: integrationImportKeySchema,
-    success: integrationImportSchema,
-    error: failureSchema
-  }),
-  Rpc.make('retryImport', {
-    payload: integrationImportKeySchema,
-    success: integrationImportSchema,
-    error: failureSchema
-  })
-).prefix('integrations.');
+export const integrationsEndpoints = {
+  providers: liveQuery(
+    'integrations.providers',
+    {
+      payload: Schema.Struct({}),
+      success: Schema.Array(integrationProviderSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  previewImport: mutation(
+    'integrations.previewImport',
+    {
+      payload: previewIntegrationInputSchema,
+      success: integrationImportSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.integrations] }
+  ),
+  startImport: mutation(
+    'integrations.startImport',
+    {
+      payload: startIntegrationImportSchema,
+      success: integrationImportSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.integrations] }
+  ),
+  import: liveQuery(
+    'integrations.import',
+    {
+      payload: integrationImportKeySchema,
+      success: integrationImportSchema,
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  imports: liveQuery(
+    'integrations.imports',
+    {
+      payload: Schema.Struct({
+        limit: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))
+      }),
+      success: Schema.Array(integrationImportSchema),
+      error: failureSchema
+    },
+    { dependencies: allDependencies, refresh: 'external' }
+  ),
+  cancelImport: mutation(
+    'integrations.cancelImport',
+    {
+      payload: integrationImportKeySchema,
+      success: integrationImportSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.integrations] }
+  ),
+  retryImport: mutation(
+    'integrations.retryImport',
+    {
+      payload: integrationImportKeySchema,
+      success: integrationImportSchema,
+      error: failureSchema
+    },
+    { changes: [dependency.integrations] }
+  )
+};
+
+export const IntegrationsRpc = endpointGroup(integrationsEndpoints);

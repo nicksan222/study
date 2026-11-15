@@ -1,4 +1,6 @@
 import type { NoteId } from '@study/contracts/ids';
+import type { noteWorkPageSchema } from '@study/contracts/notes/work';
+import { rpc } from '@study/contracts/react';
 import { WorkActivityIcon, CancelIcon } from '@study/icons';
 import { LoadMoreButton } from '@study/ui/action-button';
 import { AiActivity } from '@study/ui/ai-button';
@@ -8,13 +10,13 @@ import { ErrorState } from '@study/ui/error-state';
 import { IconButton } from '@study/ui/icon-button';
 import { Loading } from '@study/ui/loading';
 import { WorkspaceWork } from '@study/ui/workspace';
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AgentProgress } from '../agent-progress';
 import { ConfigurationWait } from './configuration-wait';
-import { noteWorkKey, noteWorkOptions, stopNoteWorkOptions } from './note-pending-work.queries';
+import { useStopNoteWork } from './note-pending-work.queries';
 import type { NoteWorkItem } from './note-pending-work.queries';
 import { NoteReadError } from './status';
 import { workActivityState } from './work-state';
@@ -29,13 +31,25 @@ const kinds = {
 /** Shows committed work for this notebook independently of the selected dialog. */
 export function NotePendingWork({ id }: { id: NoteId }) {
   const { t } = useI18n();
-  const state = useInfiniteQuery(noteWorkOptions(id));
-  const items = [
-    ...new Map(
-      state.data?.pages.flatMap((page) => page.items).map((item) => [item.execution.id, item])
-    ).values()
-  ];
-  const refresh = async () => !(await state.refetch()).isError;
+  const [before, setBefore] = useState<typeof noteWorkPageSchema.Type.next>();
+  const query = rpc.notes.noteWork.useQuery({ noteId: id, limit: 20, before: before ?? undefined });
+  const state = {
+    ...query,
+    hasNextPage: !!query.data?.next,
+    isFetchingNextPage: query.isFetching,
+    fetchNextPage: () => setBefore(query.data?.next ?? undefined)
+  };
+  const items = [...new Map(state.data?.items.map((item) => [item.execution.id, item])).values()];
+  const refresh = async () => {
+    try {
+      await rpc.notes.noteWork.read({ noteId: id, limit: 20 });
+      state.refetch();
+
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   return (
     <WorkspaceWork.Root aria-label={t('NoteWorkHeading')}>
@@ -50,7 +64,7 @@ export function NotePendingWork({ id }: { id: NoteId }) {
       )}
       <WorkspaceWork.List>
         {items.map((item) => (
-          <WorkRow key={item.execution.id} id={id} item={item} refresh={refresh} />
+          <WorkRow key={item.execution.id} item={item} refresh={refresh} />
         ))}
       </WorkspaceWork.List>
       {state.hasNextPage && (
@@ -66,29 +80,9 @@ export function NotePendingWork({ id }: { id: NoteId }) {
   );
 }
 
-function WorkRow({
-  id,
-  item,
-  refresh
-}: {
-  id: NoteId;
-  item: NoteWorkItem;
-  refresh: () => Promise<boolean>;
-}) {
+function WorkRow({ item, refresh }: { item: NoteWorkItem; refresh: () => Promise<boolean> }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
-  const cancel = useMutation({
-    ...stopNoteWorkOptions(),
-    onSettled: async () => {
-      await Promise.all([
-        cache.invalidateQueries({ queryKey: noteWorkKey(id) }),
-        cache.invalidateQueries({ queryKey: ['note-workspace', String(id), 'generations'] }),
-        cache.invalidateQueries({ queryKey: ['note-generation', item.requestId] }),
-        cache.invalidateQueries({ queryKey: ['note-execution', item.requestId] }),
-        cache.invalidateQueries({ queryKey: ['notes', 'sidebar-progress'] })
-      ]);
-    }
-  });
+  const cancel = useStopNoteWork();
   const status = item.execution.status;
   const stopping = cancel.isPending || status === 'cancelling';
   const stateLabel = workStateLabel(item, stopping);
@@ -109,7 +103,9 @@ function WorkRow({
 
         disabled={stopping || !item.execution.canCancel || cancel.isError}
         aria-busy={stopping}
-        onClick={() => cancel.mutate(item)}
+        onClick={() => {
+          void cancel.mutate(item).catch(() => {});
+        }}
       >
         <CancelIcon size={14} aria-hidden="true" />
       </IconButton>

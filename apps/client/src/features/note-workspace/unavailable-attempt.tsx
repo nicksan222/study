@@ -1,14 +1,12 @@
 import type { NoteId } from '@study/contracts/ids';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { ErrorState } from '@study/ui/error-state';
 import { Notebook } from '@study/ui/note-workspace';
 import { StatusMessage } from '@study/ui/status-message';
-import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
-
-import { selectionOptions, noteGenerationsOptions, threadOptions } from './note-workspace.queries';
 
 /** Retiring an attempt never changes or replays its captured payload. */
 export function UnavailableAttempt({
@@ -21,7 +19,6 @@ export function UnavailableAttempt({
   onAbandon: () => void;
 }) {
   const { t } = useI18n();
-  const client = useQueryClient();
   const [review, setReview] = useState<'idle' | 'pending' | 'ready' | 'failed'>('idle');
 
   return (
@@ -36,9 +33,9 @@ export function UnavailableAttempt({
 
           try {
             await Promise.all([
-              client.fetchQuery({ ...selectionOptions(id), staleTime: 0 }),
-              client.fetchInfiniteQuery({ ...threadOptions(id), staleTime: 0 }),
-              client.fetchInfiniteQuery({ ...noteGenerationsOptions(id), staleTime: 0 })
+              rpc.notes.noteSelection.read({ noteId: id }),
+              rpc.notes.thread.read({ noteId: id, limit: 30 }),
+              rpc.notes.noteGenerations.read({ noteId: id, limit: 30 })
             ]);
             setReview('ready');
           } catch {

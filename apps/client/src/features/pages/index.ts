@@ -6,3 +6,5 @@ export { PagesPage } from './pages-page';
 export { pagesRouteDeps, pagesRouteLoader } from './pages-route.queries';
 
 export { NewBlankPage, useNewBlankPage } from './creation-actions';
+
+export { usePageBrowse } from './use-page-browse';

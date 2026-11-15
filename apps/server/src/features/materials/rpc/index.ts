@@ -40,6 +40,7 @@ export const MaterialsRpcLive = defineRpc(
     'materials.exportMaterialVersion': materials.exportMaterialVersion,
     'materials.material': materials.material,
     'materials.materials': materials.materials,
+    'materials.count': materials.count,
     'materials.materialVersion': materials.materialVersion,
     'materials.materialVersions': materials.materialVersions,
     'materials.citations': materials.citations,

@@ -885,6 +885,7 @@ export const Notes = defineService(
       noteSummaries: summaries.noteSummary,
       setNoteSettled: (input: typeof setNoteSettledInputSchema.Type) =>
         transaction((tx) => tx.store(NoteSummaryStore).setNoteSettled(input)),
+      count: store.count,
       note: store.note,
       findNote: store.findNote,
       notes: Effect.fnUntraced(function* (input: typeof notePageInputSchema.Type) {

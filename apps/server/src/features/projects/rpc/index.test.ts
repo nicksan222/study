@@ -25,13 +25,14 @@ import { assert } from 'vite-plus/test';
 import { Projects } from '#server/features/projects/service/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 import { ProjectsRpcLive } from './index.ts';
 
 testStable('native RPC handlers return projects and typed failures', async () => {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
-  const handlers = ProjectsRpcLive.pipe(
+  const handlers = ProjectsRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(
     Layer.provide(Projects.layer),
     Layer.provideMerge(Layer.succeed(Database, { store: context }))
   );

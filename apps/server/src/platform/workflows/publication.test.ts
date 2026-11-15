@@ -86,6 +86,7 @@ testStable(
           queries: {},
           mutations: {
             insert: storeMutation({
+              changes: ['workflows'],
               input: Schema.String,
               output: Schema.Void,
               run: (key) => {
@@ -116,7 +117,7 @@ testStable(
       try {
         assert.throws(
           () =>
-            context.transaction((context) => {
+            context.transaction(['workflows'], (context) => {
               context.db.orm.run(sql`INSERT INTO publication_probe VALUES (99)`);
               const rejected = Effect.runSync(
                 mismatched.pipe(
@@ -159,12 +160,15 @@ testStable(
       }
 
       assert.throws(() => guard.assert(context), StudyError);
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         guard.assert(context);
         context.db.orm.run(sql`INSERT INTO publication_probe VALUES (1)`);
       });
       store.interrupt('publication', 'safe');
-      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
+      assert.throws(
+        () => context.transaction(['workflows'], (context) => guard.assert(context)),
+        StudyError
+      );
       context.db.orm
         .update(workflow_executions)
         .set({ result: null })
@@ -175,7 +179,10 @@ testStable(
         .set({ status: 'suspended' })
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
-      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
+      assert.throws(
+        () => context.transaction(['workflows'], (context) => guard.assert(context)),
+        StudyError
+      );
       context.db.orm
         .update(workflow_executions)
         .set({ status: 'running' })
@@ -186,12 +193,18 @@ testStable(
         .set({ updated_at: 0n })
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
-      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
+      assert.throws(
+        () => context.transaction(['workflows'], (context) => guard.assert(context)),
+        StudyError
+      );
       assert.ok(store.claim('publication', 'replacement') === true);
-      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
+      assert.throws(
+        () => context.transaction(['workflows'], (context) => guard.assert(context)),
+        StudyError
+      );
       assert.throws(
         () =>
-          context.transaction((context) => {
+          context.transaction(['workflows'], (context) => {
             context.db.orm.run(sql`INSERT INTO publication_probe VALUES (2)`);
             guard.assert(context);
           }),
@@ -202,7 +215,10 @@ testStable(
         .delete(workflow_executions)
         .where(eq(workflow_executions.execution_id, 'publication'))
         .run();
-      assert.throws(() => context.transaction((context) => guard.assert(context)), StudyError);
+      assert.throws(
+        () => context.transaction(['workflows'], (context) => guard.assert(context)),
+        StudyError
+      );
       assertionsCompleted = true;
     }
 

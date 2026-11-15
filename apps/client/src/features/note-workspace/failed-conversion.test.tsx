@@ -1,6 +1,5 @@
 import { chatMessageSchema } from '@study/contracts/notes/schemas';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type * as Router from '@tanstack/react-router';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';
@@ -8,6 +7,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
 
 import { FailedMessageConversion } from './failed-conversion';
 
@@ -20,14 +20,6 @@ vi.mock('@tanstack/react-router', async (load) => ({
 const api = vi.hoisted(() => ({ snapshot: vi.fn(), convert: vi.fn(), discard: vi.fn() }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'notes.replySnapshot': api.snapshot,
-      'notes.convertMessage': api.convert,
-      'notes.deleteMessageVersion': api.discard
-    })
-}));
 
 const message = Schema.decodeUnknownSync(chatMessageSchema)({
   id: 2n,
@@ -67,32 +59,52 @@ const message = Schema.decodeUnknownSync(chatMessageSchema)({
   ]
 });
 
-let cache: QueryClient;
+let fixture: ReturnType<typeof rpcHandlersTransport>;
+
+function Provider({ children }: { children: ReactNode }) {
+  return <fixture.wrapper>{children}</fixture.wrapper>;
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(useAiReadiness).mockReturnValue('ready');
-  cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  fixture = rpcHandlersTransport({
+    'notes.replySnapshot': api.snapshot,
+    'notes.convertMessage': api.convert,
+    'notes.deleteMessageVersion': api.discard
   });
   api.snapshot.mockResolvedValue({
-    generation: { conversion: { strategyId: 'saved-strategy', baseVersionId: 3n } }
+    requestId: 'saved-conversion',
+    noteId: 1n,
+    messageId: 2n,
+    versionId: 4n,
+    contextRevision: 1n,
+    messages: [{ messageId: 2n, versionId: 3n, role: 'user', text: 'Original', attachments: [] }],
+    generation: {
+      origin: 'convert',
+      instruction: null,
+      conversion: { strategyId: 'saved-strategy', baseVersionId: 3n }
+    }
   });
-  api.convert.mockResolvedValue({});
-  api.discard.mockResolvedValue({});
+  api.convert.mockResolvedValue({
+    requestId: 'new-conversion',
+    noteId: 1n,
+    messageId: 2n,
+    versionId: 5n
+  });
+  api.discard.mockResolvedValue(message);
 });
 afterEach(() => {
   cleanup();
-  cache.clear();
 });
 
 testStable.each(['retry', 'discard'] as const)(
   'exposes %s for a failed conversion without changing its original input',
   async (action) => {
     render(
-      <QueryClientProvider client={cache}>
+      <Provider>
         <FailedMessageConversion message={message} version={message.versions[1]} />
-      </QueryClientProvider>
+      </Provider>
     );
     expect(screen.getByText('NoteConversionFailed')).toBeVisible();
     const retry = screen.getByRole('button', { name: 'Retry' });
@@ -132,9 +144,9 @@ testStable('keeps recovery retries blocked while another version has active work
   });
 
   render(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <FailedMessageConversion message={busy} version={busy.versions[1]} />
-    </QueryClientProvider>
+    </Provider>
   );
   await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
   expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
@@ -144,9 +156,9 @@ testStable('keeps recovery retries blocked while another version has active work
 testStable('blocks AI conversion recovery without setup while preserving discard', async () => {
   vi.mocked(useAiReadiness).mockReturnValue('setup');
   render(
-    <QueryClientProvider client={cache}>
+    <Provider>
       <FailedMessageConversion message={message} version={message.versions[1]} />
-    </QueryClientProvider>
+    </Provider>
   );
   await waitFor(() => expect(api.snapshot).toHaveBeenCalled());
   expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();

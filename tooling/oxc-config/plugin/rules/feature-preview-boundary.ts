@@ -70,7 +70,7 @@ export default defineRule({
       if (!source || typeOnly) return;
 
       if (
-        /^@study\/server(?:\/|$)|^@tanstack\/react-query(?:\/|$)/.test(source) ||
+        /^@study\/server(?:\/|$)|^@study\/contracts\/react(?:\/|$)/.test(source) ||
         /(?:^|\/)(?:hooks|platform|runtime|study-client)(?:\/|$)/.test(source) ||
         /(?:^|\/)use-[^/]+$|\.queries(?:\.[cm]?[jt]sx?)?$/.test(source)
       )

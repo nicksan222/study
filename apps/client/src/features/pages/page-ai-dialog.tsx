@@ -1,19 +1,20 @@
 import type { ProjectId } from '@study/contracts/ids';
 import type { Page } from '@study/contracts/pages/types';
+import { useIndependentMutation } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import { DialogFooter } from '@study/ui/dialog';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
+import { Effect } from 'effect';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
+import { toStudyError } from '#client/lib/study-client/errors.ts';
 
 import { ContentReadError } from '../document-presentation';
-import { noteKey } from '../note-workspace';
 import type { SelectedNote } from '../note-workspace';
 import { NotePicker } from './note-picker';
 import { PageActionDialog } from './page-action-dialog';
-import { pageNoteOptions } from './page-context.queries';
+import { attachPageToNote } from './page-context.queries';
 
 export function PageAiDialog({
   page,
@@ -25,24 +26,22 @@ export function PageAiDialog({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const cache = useQueryClient();
   const navigate = useNavigate();
   const [selected, setSelected] = useState<SelectedNote[]>([]);
-  const mutation = useMutation({
-    ...pageNoteOptions(),
-    onSuccess: async (_, input) => {
-      await Promise.all([
-        cache.invalidateQueries({ queryKey: noteKey(input.noteId) }),
-        cache.invalidateQueries({ queryKey: ['pages'] })
-      ]);
-      await navigate({
-        to: '/notes/$noteId',
-        params: { noteId: input.noteId },
-        search: project ? { project: String(project) } : {}
-      });
-      onClose();
-    }
-  });
+  const mutation = useIndependentMutation((input: Parameters<typeof attachPageToNote>[0]) =>
+    Effect.tryPromise({
+      try: async () => {
+        await attachPageToNote(input);
+        await navigate({
+          to: '/notes/$noteId',
+          params: { noteId: input.noteId },
+          search: project ? { project: String(project) } : {}
+        });
+        onClose();
+      },
+      catch: toStudyError
+    })
+  );
 
   return (
     <PageActionDialog
@@ -62,7 +61,7 @@ export function PageAiDialog({
           disabled={!selected[0] || !page.headVersionId || mutation.isPending}
           onClick={() => {
             if (selected[0] && page.headVersionId)
-              mutation.mutate({
+              void mutation.mutate({
                 pageId: page.id,
                 versionId: page.headVersionId,
                 noteId: selected[0].id

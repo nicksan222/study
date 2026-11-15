@@ -1,11 +1,7 @@
+import { rpc } from '@study/contracts/react';
 import { createFileRoute } from '@tanstack/react-router';
 
-import {
-  ReaderPage,
-  MaterialRouteError,
-  materialOptions,
-  materialId
-} from '../features/material-library';
+import { ReaderPage, MaterialRouteError, materialId } from '../features/material-library';
 
 export const Route = createFileRoute('/materials/$materialId')({
   staticData: { title: 'Practice', section: 'practice', scope: 'global' },
@@ -13,8 +9,8 @@ export const Route = createFileRoute('/materials/$materialId')({
     materialId(params.materialId);
   },
   loaderDeps: ({ search }) => ({ project: search.project }),
-  loader: ({ context, params }) =>
-    context.queryClient.prefetchQuery(materialOptions(materialId(params.materialId))),
+  loader: ({ params }) =>
+    rpc.materials.get.read({ id: materialId(params.materialId) }).catch(() => undefined),
   errorComponent: MaterialRouteError,
   component: ReaderPage
 });

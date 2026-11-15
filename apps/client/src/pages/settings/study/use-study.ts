@@ -1,21 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 import { useState } from 'react';
 
-import { reviewSettingsMutationOptions, reviewSettingsQueryOptions } from './study.queries';
-
 export function useStudySettings() {
-  const client = useQueryClient();
-  const query = useQuery(reviewSettingsQueryOptions());
+  const query = rpc.settings.reviewSettings.useQuery({});
   const [draftOverride, setDraft] = useState<string>();
   const draft = draftOverride ?? String(query.data?.newCardsPerDay ?? '');
-  const mutation = useMutation({
-    ...reviewSettingsMutationOptions(),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: reviewSettingsQueryOptions().queryKey });
-      setDraft(undefined);
-    },
-    onError: () => setDraft(undefined)
-  });
+  const mutation = rpc.settings.saveReviewSettings.useMutation();
 
   const number = Number(draft);
   const valid = draft.trim() !== '' && Number.isInteger(number) && number >= 0 && number <= 10000;
@@ -35,7 +25,11 @@ export function useStudySettings() {
       void query.refetch();
     },
     save: () => {
-      if (valid && !mutation.isPending) mutation.mutate({ newCardsPerDay: number });
+      if (valid && !mutation.isPending)
+        void mutation
+          .mutateAsync({ newCardsPerDay: number })
+          .then(() => setDraft(undefined))
+          .catch(() => {});
     }
   };
 }

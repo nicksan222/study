@@ -1,6 +1,8 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type { SourceId, NoteId } from '@study/contracts/ids';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import type { QueryClient } from '@tanstack/react-query';
+import { Atom } from 'effect/reactivity';
+import type { AtomRegistry } from 'effect/reactivity';
+import { useContext } from 'react';
 
 import { toStudyError } from '#client/lib/study-client/errors.ts';
 
@@ -14,12 +16,14 @@ export type Attachment = {
   error?: unknown;
 };
 
-export const attachmentKey = (id: NoteId) => ['note-drafts', String(id), 'attachments'];
+export const attachmentState = Atom.family((_id: NoteId) =>
+  Atom.make<Attachment[]>([]).pipe(Atom.keepAlive)
+);
 
 /** Claims a draft upload before awaiting transport and records rejection separately from an uncertain result. */
-async function uploadAttachment(cache: QueryClient, id: NoteId, entry: Attachment) {
+async function uploadAttachment(cache: AtomRegistry.AtomRegistry, id: NoteId, entry: Attachment) {
   const update = (f: (items: Attachment[]) => Attachment[]) =>
-    cache.setQueryData<Attachment[]>(attachmentKey(id), (items) => f(items ?? []));
+    cache.update(attachmentState(id), (items) => f(items ?? []));
 
   // Mark ownership before the first asynchronous boundary; another observer cannot replay it.
   update((items) =>
@@ -36,7 +40,6 @@ async function uploadAttachment(cache: QueryClient, id: NoteId, entry: Attachmen
         item.key === entry.key ? { ...item, state: 'ready', sourceId: source.id } : item
       )
     );
-    void cache.invalidateQueries({ queryKey: ['materials'] });
   } catch (error) {
     update((items) =>
       items.map((item) =>
@@ -53,38 +56,32 @@ async function uploadAttachment(cache: QueryClient, id: NoteId, entry: Attachmen
 }
 
 /** Adds note-owned draft entries before starting their independent uploads. */
-function addAttachments(cache: QueryClient, id: NoteId, files: File[]) {
+function addAttachments(cache: AtomRegistry.AtomRegistry, id: NoteId, files: File[]) {
   const entries: Attachment[] = files.map((file) => ({
     key: crypto.randomUUID(),
     file,
     state: 'uploading'
   }));
 
-  cache.setQueryData<Attachment[]>(attachmentKey(id), (items) => [...(items ?? []), ...entries]);
+  cache.update(attachmentState(id), (items) => [...(items ?? []), ...entries]);
 
   for (const entry of entries) void uploadAttachment(cache, id, entry);
 }
 
 export function useAttachments(id: NoteId) {
-  const cache = useQueryClient();
-  const key = attachmentKey(id);
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => [] as Attachment[],
-    initialData: [] as Attachment[],
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
+  const cache = useContext(RegistryContext);
+  const atom = attachmentState(id);
+  const items = useAtomValue(atom);
   const update = (f: (items: Attachment[]) => Attachment[]) =>
-    cache.setQueryData<Attachment[]>(key, (items) => f(items ?? []));
+    cache.update(atom, (items) => f(items ?? []));
 
   return {
-    items: state.data,
+    items,
     add(files: File[]) {
       addAttachments(cache, id, files);
     },
     retry(entry: Attachment) {
-      const current = cache.getQueryData<Attachment[]>(key)?.find((item) => item.key === entry.key);
+      const current = cache.get(atom)?.find((item) => item.key === entry.key);
 
       if (current?.state === 'rejected') void uploadAttachment(cache, id, current);
     },

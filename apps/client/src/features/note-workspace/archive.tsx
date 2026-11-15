@@ -1,5 +1,6 @@
 import type { MessageId, NoteId, SourceId, PageId } from '@study/contracts/ids';
 import type { ArchivedNoteItem, NoteArchiveTarget } from '@study/contracts/notes/archive';
+import { rpc } from '@study/contracts/react';
 import { PageIcon, ConvertedMessageIcon, RestoreIcon } from '@study/icons';
 import { RetryButton } from '@study/ui/action-button';
 import { Button } from '@study/ui/button';
@@ -8,7 +9,6 @@ import { ErrorState } from '@study/ui/error-state';
 import { Loading } from '@study/ui/loading';
 import { Notebook } from '@study/ui/note-workspace';
 import { SelectionSurface as Surface } from '@study/ui/selection';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -16,18 +16,17 @@ import { useI18n } from '#client/lib/i18n.tsx';
 
 import { PageNotebookDeletion } from '../document-editing';
 import { DocumentReader } from '../document-presentation';
-import { SourceDeletion, sourceOptions, sourceExtractionOptions } from '../source-library';
-import { archivedItemsOptions, archivedMessageOptions, useItemArchive } from './archive.queries';
+import { SourceDeletion } from '../source-library';
+import { useItemArchive } from './archive.queries';
 import { MessageDeletion } from './message-deletion';
 import { NoteContent } from './note-editor';
-import { notePageOptions } from './note-page.queries';
 import { NoteError, NoteReadError } from './status';
 
 const itemKey = (target: NoteArchiveTarget) => target.kind + ':' + String(target.id);
 
 export function ArchivePanel({ id }: { id: NoteId }) {
   const { t } = useI18n();
-  const items = useQuery(archivedItemsOptions(id));
+  const items = rpc.notes.archivedItems.useQuery({ noteId: id });
   const [selected, setSelected] = useState<string>();
   const [search, setSearch] = useState('');
   const available = items.isError ? [] : (items.data ?? []);
@@ -155,10 +154,7 @@ function ArchiveNavigation({
 }
 
 function ArchivedPreview({ noteId, item }: { noteId: NoteId; item: ArchivedNoteItem }) {
-  const cache = useQueryClient();
-  const onDeleted = () => {
-    void cache.invalidateQueries(archivedItemsOptions(noteId));
-  };
+  const onDeleted = () => {};
   const props = { noteId, onDeleted };
 
   if (item.target.kind === 'message') return <ArchivedMessage {...props} id={item.target.id} />;
@@ -207,7 +203,7 @@ function ArchiveActions({
 
 function ArchivedMessage({ id, noteId, onDeleted }: PreviewProps & { id: MessageId }) {
   const { t } = useI18n();
-  const message = useQuery(archivedMessageOptions(id));
+  const message = rpc.notes.message.useQuery({ id: id });
 
   if (message.error)
     return <NoteReadError error={message.error} retry={() => void message.refetch()} />;
@@ -263,7 +259,7 @@ function ArchivedMessage({ id, noteId, onDeleted }: PreviewProps & { id: Message
 
 function ArchivedPage({ id, noteId, onDeleted }: PreviewProps & { id: PageId }) {
   const { t } = useI18n();
-  const page = useQuery(notePageOptions(id));
+  const page = rpc.pages.get.useQuery({ id: id });
 
   if (page.error) return <NoteReadError error={page.error} retry={() => void page.refetch()} />;
 
@@ -306,8 +302,8 @@ function ArchivedPage({ id, noteId, onDeleted }: PreviewProps & { id: PageId }) 
 
 function ArchivedSource({ id, noteId, onDeleted }: PreviewProps & { id: SourceId }) {
   const { t } = useI18n();
-  const source = useQuery(sourceOptions(id));
-  const extraction = useQuery(sourceExtractionOptions(id));
+  const source = rpc.sources.get.useQuery({ id: id });
+  const extraction = rpc.sources.currentExtraction.useQuery({ id: id });
 
   if (source.error)
     return <NoteReadError error={source.error} retry={() => void source.refetch()} />;

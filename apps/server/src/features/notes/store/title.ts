@@ -139,6 +139,7 @@ export const TitleStore = defineStore({
       },
       mutations: {
         captureAutomaticTitle: storeMutation({
+          changes: ['notes'],
           input: requestInput,
           output: Schema.Option(titleSnapshotSchema),
           run: (input) => {
@@ -174,6 +175,7 @@ export const TitleStore = defineStore({
           }
         }),
         captureTitle: storeMutation({
+          changes: ['notes'],
           input: requestInput,
           output: titleSnapshotSchema,
           run: (input) => {
@@ -189,6 +191,7 @@ export const TitleStore = defineStore({
           }
         }),
         publishTitle: storeMutation({
+          changes: ['notes'],
           input: publishTitleInputSchema,
           output: titleRequestSchema,
           run: (input) => {

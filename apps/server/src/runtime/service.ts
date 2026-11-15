@@ -82,6 +82,7 @@ export class App {
     options = { ...options, path: ownership.path };
 
     const issuer = options.issuer ?? 'https://auth.openai.com';
+    let restoredGeneration: string | undefined;
 
     function* openScope(
       restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>
@@ -127,6 +128,15 @@ export class App {
             try: async () => {
               report('database:start');
               const context = await ServerContext.open(options.path, clock, options.timestampClock);
+
+              try {
+                if (restoredGeneration !== undefined)
+                  context.rotateRevisionGeneration(restoredGeneration);
+              } catch (cause) {
+                context.close();
+
+                throw cause;
+              }
 
               report('database:complete');
 
@@ -245,6 +255,7 @@ export class App {
     try {
       report('restore:start');
       await ManagedBackups.activate(options.path, backupPolicy);
+      restoredGeneration = await ManagedBackups.appliedRevisionGeneration(options.path);
       report('restore:complete');
 
       return await runNative(

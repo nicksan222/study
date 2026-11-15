@@ -178,6 +178,7 @@ export const NoteArchiveStore = defineStore({
       },
       mutations: {
         setItemArchived: storeMutation({
+          changes: ['notes'],
           input: setNoteItemArchivedSchema,
           output: Schema.NullOr(Schema.BigInt),
           run: setArchived

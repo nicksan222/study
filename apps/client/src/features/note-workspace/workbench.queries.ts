@@ -1,9 +1,11 @@
+import { RegistryContext, useAtomValue } from '@effect/atom-react';
 import type { NoteId, PageId, SourceId } from '@study/contracts/ids';
-import { useQuery, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
+import { Atom } from 'effect/reactivity';
+import { useContext } from 'react';
 
 import { useWorkspacePreferences } from '#client/lib/study-client/workspace-preferences.queries.ts';
 
-import { threadOptions } from './note-workspace.queries';
+import { useThreadPage } from './note-reads';
 import { pageIdentity } from './page-autosave.queries';
 import type { PageTarget } from './page-autosave.queries';
 
@@ -32,25 +34,20 @@ type Workbench = {
   cardHidden?: boolean;
 };
 
+const workbenchState = Atom.family((_id: NoteId) =>
+  Atom.make<Workbench>({ tabs: [], visible: false }).pipe(Atom.keepAlive)
+);
+
 /** Retains page tabs and unsent pages across note navigation without mixing them with chat drafts. */
 
 export function useWorkbench(id: NoteId) {
-  const cache = useQueryClient();
+  const cache = useContext(RegistryContext);
   const preferences = useWorkspacePreferences();
-  const key = ['note-drafts', String(id), 'workbench'];
-  const initial: Workbench = { tabs: [], visible: false };
-  const state = useQuery({
-    queryKey: key,
-    queryFn: () => initial,
-    initialData: initial,
-    staleTime: Infinity,
-    gcTime: Infinity
-  });
-  const thread = useInfiniteQuery(threadOptions(id));
-  const messages = thread.data?.pages.flatMap((page) => page.items) ?? [];
-  const model = state.data;
-  const update = (change: (value: Workbench) => Workbench) =>
-    cache.setQueryData<Workbench>(key, (value) => change(value ?? initial));
+  const atom = workbenchState(id);
+  const model = useAtomValue(atom);
+  const thread = useThreadPage(id);
+  const messages = thread.data?.items ?? [];
+  const update = (change: (value: Workbench) => Workbench) => cache.update(atom, change);
 
   function open(target: WorkbenchTarget) {
     const identity = workbenchIdentity(target);

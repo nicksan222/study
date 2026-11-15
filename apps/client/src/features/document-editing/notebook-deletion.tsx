@@ -1,23 +1,23 @@
 import type { PageVersionId } from '@study/contracts/ids';
 import type { PageSummary } from '@study/contracts/pages/types';
-import { LoadMoreButton } from '@study/ui/action-button';
+import { rpc } from '@study/contracts/react';
 import { Button } from '@study/ui/button';
 import type { ItemDeletionActions } from '@study/ui/context-menu';
 import { DangerDialog } from '@study/ui/danger-dialog';
 import { Loading } from '@study/ui/loading';
 import { VersionDeletionList } from '@study/ui/version-deletion-list';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
-import { useI18n } from '#client/lib/i18n.tsx';
-import { pageHistoryOptions, invalidatePages } from '#client/lib/study-client/pages.queries.ts';
-
-import { ContentReadError, releaseBodyPreviews } from '../document-presentation';
 import {
-  notebookDeletionOptions,
-  notebookDeletionPreviewOptions
-} from './notebook-deletion.queries';
+  CursorWindowActions,
+  useCursorRecovery,
+  useCursorWindow
+} from '#client/lib/cursor-window.tsx';
+import { useNativeAction } from '#client/lib/effect/native.ts';
+import { useI18n } from '#client/lib/i18n.tsx';
+
+import { ContentReadError } from '../document-presentation';
 
 /** Notebook actions keep whole-page deletion separate from one exact historical body. */
 export function PageNotebookDeletion({
@@ -110,51 +110,52 @@ function usePageDeletionCopy(model: Model) {
 }
 
 function usePageNotebookDeletion(page: PageSummary, onDeleted?: () => void) {
-  const cache = useQueryClient();
   const [mode, setMode] = useState<'item' | 'version'>();
   const [versionId, setVersionId] = useState<PageVersionId>();
-  const history = useInfiniteQuery({
-    ...pageHistoryOptions(page.id),
-    enabled: mode === 'version'
+  const pagination = useCursorWindow<PageVersionId>(String(page.id));
+  const historyQuery = rpc.pages.versions.useQuery(
+    { pageId: page.id, limit: pagination.limit, cursor: pagination.cursor },
+    { enabled: mode === 'version' }
+  );
+  const history = {
+    ...historyQuery,
+    hasNextPage: !!historyQuery.data?.nextCursor,
+    pagination,
+    isFetchingNextPage: historyQuery.isFetching,
+    fetchNextPage: () => pagination.more(historyQuery.data?.nextCursor)
+  };
+
+  useCursorRecovery(pagination, historyQuery.error);
+  const whole = rpc.pages.previewDeletion.useQuery({ id: page.id }, { enabled: mode === 'item' });
+  const exact = rpc.pages.previewHistory.useQuery(
+    { pageId: page.id, keepLatest: 1, versionId },
+    { enabled: mode === 'version' && versionId !== undefined }
+  );
+  const preview = mode === 'item' ? whole : exact;
+  const removeAction = useNativeAction(async () => {
+    const token = preview.data?.token;
+
+    if (!token) return;
+
+    if (mode === 'item') await rpc.pages.delete.call({ pageId: page.id, token });
+    else await rpc.pages.retireHistory.call({ pageId: page.id, keepLatest: 1, versionId, token });
+
+    setMode(undefined);
+
+    if (mode === 'item') onDeleted?.();
   });
-  const preview = useQuery(notebookDeletionPreviewOptions({ pageId: page.id, mode, versionId }));
-  const remove = useMutation({
-    ...notebookDeletionOptions({
-      pageId: page.id,
-      mode,
-      versionId,
-      token: preview.data?.token
-    }),
-    onSuccess: async () => {
-      if (!preview.data) return;
-
-      await releaseBodyPreviews(cache, {
-        kind: 'page',
-        pageId: String(page.id),
-        versionIds: preview.data.versionIds.map(String)
-      });
-      await invalidatePages(cache);
-      setMode(undefined);
-
-      if (mode === 'item') onDeleted?.();
-    },
-    onError: async () => {
-      if (preview.data)
-        await releaseBodyPreviews(cache, {
-          kind: 'page',
-          pageId: String(page.id),
-          versionIds: preview.data.versionIds.map(String)
-        });
+  const remove = {
+    ...removeAction,
+    mutate: () => {
+      void removeAction.mutateAsync(undefined).catch(() => {});
     }
-  });
+  };
   const blocked =
     !preview.data ||
     !!preview.data.blockedVersionIds.length ||
     (mode === 'version' && !preview.data.versionIds.length);
   const confirming = preview.isSuccess && !preview.isFetching && !blocked && !remove.isError;
-  const selectedVersion = history.data?.pages
-    .flatMap((page) => page.items)
-    .find((version) => version.id === versionId);
+  const selectedVersion = history.data?.items.find((version) => version.id === versionId);
 
   function open(next: 'item' | 'version') {
     remove.reset();
@@ -183,7 +184,7 @@ type Model = ReturnType<typeof usePageNotebookDeletion>;
 function PageVersionChoices({ model }: { model: Model }) {
   const { t, date } = useI18n();
   const { page, versionId, setVersionId, history, preview } = model;
-  const versions = history.data?.pages.flatMap((page) => page.items) ?? [];
+  const versions = history.data?.items ?? [];
 
   return (
     <>
@@ -201,14 +202,22 @@ function PageVersionChoices({ model }: { model: Model }) {
         pendingLabel={t('LoadingStudy')}
         onSelect={setVersionId}
       />
-      {versions.length === 1 && !history.hasNextPage && <p>{t('NoteDeleteNoOlderVersions')}</p>}
-      {history.hasNextPage && (
-        <LoadMoreButton
-          disabled={history.isFetchingNextPage || preview.isFetching}
-          onClick={() => void history.fetchNextPage()}
-          label={t('LibraryMore')}
-        />
+      {versions.length === 1 && !history.hasNextPage && !history.pagination.hasPrevious && (
+        <p>{t('NoteDeleteNoOlderVersions')}</p>
       )}
+      <CursorWindowActions
+        {...history.pagination}
+        hasMore={history.hasNextPage}
+        pending={history.isFetching || preview.isFetching}
+        previous={() => {
+          setVersionId(undefined);
+          history.pagination.previous();
+        }}
+        more={() => {
+          setVersionId(undefined);
+          history.fetchNextPage();
+        }}
+      />
     </>
   );
 }

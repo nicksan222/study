@@ -1,4 +1,4 @@
-import type { SearchResults } from '../study-client/operations';
+import type { SearchResults } from '../study-client/types';
 
 type Hit = SearchResults['hits'][number];
 

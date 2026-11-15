@@ -1,38 +1,33 @@
+import { rpc } from '@study/contracts/react';
 import { Language } from '@study/contracts/settings/types';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useLanguage } from '#client/lib/i18n.tsx';
-import { appSettingsQueryOptions } from '#client/lib/study-client/preferences.queries.ts';
 
-import { languageMutationOptions } from './general.queries';
+import { useAppSettingsPatch } from './app-settings';
 
 export function useGeneralSettings() {
-  const client = useQueryClient();
   const { setLocale } = useLanguage();
-  const query = useQuery(appSettingsQueryOptions());
-  const mutation = useMutation({
-    ...languageMutationOptions(),
-    onSuccess: async (settings) => {
-      await client.cancelQueries({ queryKey: appSettingsQueryOptions().queryKey });
-      client.setQueryData(appSettingsQueryOptions().queryKey, settings);
-      setLocale(settings.language === Language.ITALIAN ? 'italian' : 'english');
-      await client.invalidateQueries({ queryKey: ['appearance'] });
-    }
-  });
+  const query = rpc.settings.appSettings.useQuery({});
+  const mutation = useAppSettingsPatch();
 
   return {
     data: query.data,
     loading: query.isPending,
     pending: mutation.isPending,
-    error: query.isError || mutation.isError,
+    error: query.isError || mutation.isError || query.stale,
     retry: () => {
       mutation.reset();
       void query.refetch();
     },
     setLanguage: (value: string) => {
-      if (value === 'english' || value === 'italian') {
-        mutation.mutate(value === 'italian' ? Language.ITALIAN : Language.ENGLISH);
-      }
+      if (!query.data || (value !== 'english' && value !== 'italian')) return;
+
+      const language = value === 'italian' ? Language.ITALIAN : Language.ENGLISH;
+
+      void mutation
+        .mutateAsync({ language })
+        .then(() => setLocale(value))
+        .catch(() => {});
     }
   };
 }

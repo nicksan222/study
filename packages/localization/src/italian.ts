@@ -1370,6 +1370,8 @@ export const italian = Object.freeze({
   LibraryProcessingFailed: 'Lettura non riuscita; l’originale è conservato',
   LibraryReady: 'Pronto',
   LibraryMore: 'Carica altri',
+  LibraryLimitReached:
+    'Sono mostrati i primi 100 elementi. Restringi la selezione per trovarne altri.',
   LibraryFile: 'Scegli un file',
   LibraryLink: 'Oppure inserisci un link web',
   LibraryClearFile: 'Rimuovi il file scelto',

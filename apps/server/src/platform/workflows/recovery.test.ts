@@ -34,7 +34,7 @@ testStable(
     const now = BigInt(Date.now());
 
     try {
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         for (let i = 0; i < 1002; i++) {
           for (const [prefix, tag, owner, updated] of [
             ['unknown', 'retired', null, 0n],
@@ -130,7 +130,7 @@ testStable(
     const store = workflowStore(context);
 
     try {
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         const scopedStore = workflowStore(context);
 
         for (let i = 0; i < 1001; i++) {
@@ -167,7 +167,7 @@ testStable(
     const store = workflowStore(context);
 
     try {
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         for (const [id, status, owner, result, due] of [
           ['safe', 'running', 'expired', '"__interrupt_safe__"', 0n],
           ['unsafe', 'running', null, '"__interrupt_unsafe__"', 0n],
@@ -236,7 +236,7 @@ testStable('native recovery delivers due clocks across batches and retains futur
     const store = workflowStore(context);
 
     try {
-      context.transaction((context) => {
+      context.transaction(['workflows'], (context) => {
         for (let i = 0; i < 1002; i++) {
           const id = String(i);
 

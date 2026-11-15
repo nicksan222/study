@@ -168,26 +168,31 @@ export const ProjectsStore = defineStore({
       },
       mutations: {
         addMaterial: storeMutation({
+          changes: ['projects'],
           input: projectMaterialInputSchema,
           output: Schema.Void,
           run: (input) => materialMembership(input, true)
         }),
         removeMaterial: storeMutation({
+          changes: ['projects'],
           input: projectMaterialInputSchema,
           output: Schema.Void,
           run: (input) => materialMembership(input, false)
         }),
         addNote: storeMutation({
+          changes: ['projects'],
           input: projectNoteInputSchema,
           output: Schema.Void,
           run: (input) => noteMembership(input, true)
         }),
         removeNote: storeMutation({
+          changes: ['projects'],
           input: projectNoteInputSchema,
           output: Schema.Void,
           run: (input) => noteMembership(input, false)
         }),
         ensureProject: storeMutation({
+          changes: ['projects'],
           input: createInput,
           output: projectSchema,
           run: (input) => {
@@ -203,8 +208,14 @@ export const ProjectsStore = defineStore({
             return create(input);
           }
         }),
-        createProject: storeMutation({ input: createInput, output: projectSchema, run: create }),
+        createProject: storeMutation({
+          changes: ['projects'],
+          input: createInput,
+          output: projectSchema,
+          run: create
+        }),
         renameProject: storeMutation({
+          changes: ['projects'],
           input: renameInput,
           output: Schema.Boolean,
           run: (input) =>
@@ -215,12 +226,14 @@ export const ProjectsStore = defineStore({
               .run().changes !== 0
         }),
         deleteProject: storeMutation({
+          changes: ['projects'],
           input: deleteInput,
           output: Schema.Boolean,
           run: (input) =>
             db.orm.delete(projects).where(eq(projects.id, input.id)).run().changes !== 0
         }),
         setIcon: storeMutation({
+          changes: ['projects'],
           input: setProjectIconInputSchema,
           output: projectSchema,
           run: (input) => {
@@ -241,6 +254,7 @@ export const ProjectsStore = defineStore({
           }
         }),
         setExam: storeMutation({
+          changes: ['projects'],
           input: examInput,
           output: Schema.Boolean,
           run: (input) =>

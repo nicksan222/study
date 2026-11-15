@@ -1,10 +1,13 @@
+import { workspacePreferencesSchema } from '@study/contracts/settings/schemas';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import type { WorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, assert, beforeEach, expect, vi } from 'vite-plus/test';
+import { Schema } from 'effect';
+import { assert, beforeEach, expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport as settingsTransport } from '#client/test/rpc.tsx';
 
 import { AiWritingSettings, WritingSettings } from './workspace-settings';
 
@@ -15,22 +18,6 @@ const api = vi.hoisted(() => ({
 }));
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (
-    invoke: (rpc: {
-      'sources.conversionStrategies': typeof api.strategies;
-      'settings.workspacePreferences': typeof api.read;
-      'settings.saveWorkspacePreferences': typeof api.save;
-    }) => unknown
-  ) =>
-    invoke({
-      'sources.conversionStrategies': api.strategies,
-      'settings.workspacePreferences': api.read,
-      'settings.saveWorkspacePreferences': api.save
-    })
-}));
-
-const caches: QueryClient[] = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -39,23 +26,30 @@ beforeEach(() => {
     { id: 'chatgpt', name: 'ChatGPT', supportedInputs: ['text', 'pdf'] }
   ]);
 });
-afterEach(() => {
-  for (const cache of caches) cache.clear();
-
-  caches.length = 0;
-});
 
 function mount(ai = false) {
-  const cache = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+  const fixture = settingsTransport(async (tag, input) => {
+    if (tag === 'settings.workspacePreferences') return api.read();
+
+    if (tag === 'sources.conversionStrategies') return api.strategies();
+
+    if (tag === 'settings.saveWorkspacePreferences') {
+      const value = Schema.decodeUnknownSync(workspacePreferencesSchema)(input);
+
+      await api.save(value);
+
+      api.read.mockResolvedValue(value);
+      await fixture.notify();
+
+      return {};
+    }
+
+    throw new Error(`Unexpected endpoint ${tag}`);
   });
 
-  caches.push(cache);
-  render(
-    <QueryClientProvider client={cache}>
-      {ai ? <AiWritingSettings /> : <WritingSettings />}
-    </QueryClientProvider>
-  );
+  render(ai ? <AiWritingSettings /> : <WritingSettings />, { wrapper: fixture.wrapper });
+
+  return fixture;
 }
 
 testStable(

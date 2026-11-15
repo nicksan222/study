@@ -1,28 +1,21 @@
+import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { afterEach, expect, vi } from 'vite-plus/test';
+import { expect, vi } from 'vite-plus/test';
 
 import { renderInRouter } from '#client/test/render-in-router.tsx';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 import { sidebarModel } from '#client/test/sidebar-model.ts';
 
 import { SidebarView } from './sidebar.view';
 
-const caches: QueryClient[] = [];
-
-afterEach(() => {
-  caches.splice(0).forEach((cache) => cache.clear());
-});
-
 function renderSidebar(children: ReactNode) {
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const fixture = rpcTestTransport(async () => defaultWorkspacePreferences);
 
-  caches.push(cache);
-
-  return renderInRouter(<QueryClientProvider client={cache}>{children}</QueryClientProvider>);
+  return renderInRouter(<fixture.wrapper>{children}</fixture.wrapper>);
 }
 
 vi.mock('./rich-sidebar.queries', () => ({

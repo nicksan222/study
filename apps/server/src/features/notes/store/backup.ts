@@ -130,6 +130,7 @@ export const NoteBackupStore = defineStore({
       },
       mutations: {
         prepare: storeMutation({
+          changes: ['notes'],
           input: Schema.Void,
           output: Schema.Array(Schema.String),
           run: () => {

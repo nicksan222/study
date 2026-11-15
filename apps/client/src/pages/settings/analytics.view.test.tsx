@@ -1,7 +1,6 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { downloadFile } from '@study/ui/download';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';
@@ -18,18 +17,14 @@ const snapshot =
   '2026-01-01T00:00:00Z ERROR panic\n  stack: Needle\n2026-01-01T00:00:01Z INFO ready\n';
 
 function setup(locale: 'english' | 'italian' = 'english') {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(
-    <QueryClientProvider client={client}>
-      <LanguageProvider locale={locale}>
-        <AnalyticsSettings />
-      </LanguageProvider>
-    </QueryClientProvider>
+    <LanguageProvider locale={locale}>
+      <AnalyticsSettings />
+    </LanguageProvider>
   );
 
   return () => {
     view.unmount();
-    client.clear();
   };
 }
 
@@ -92,6 +87,7 @@ testStable('shows loading, error and recovers to empty on refresh', async () => 
   try {
     expect(screen.getByText('Loading logs…')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+    await waitFor(() => expect(diagnosticLog).toHaveBeenCalled());
     reject(new Error('unavailable'));
     expect(await screen.findByText('Could not load logs. Try refreshing.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));

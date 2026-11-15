@@ -71,6 +71,7 @@ export const ThemeStore = defineStore({
       },
       mutations: {
         saveTheme: storeMutation({
+          changes: ['themes'],
           input: Schema.Struct({ theme: themeFileSchema, replace: Schema.Boolean }),
           output: themeFileSchema,
           run: ({ theme, replace }) => {
@@ -93,6 +94,7 @@ export const ThemeStore = defineStore({
           }
         }),
         deleteTheme: storeMutation({
+          changes: ['themes'],
           input: Schema.String,
           output: Schema.Void,
           run: (id) => {
@@ -136,6 +138,7 @@ export const ThemeSelectionStore = defineStore({
     },
     mutations: {
       setSelection: storeMutation({
+        changes: ['themes'],
         input: Schema.NullOr(Schema.String),
         output: Schema.Void,
         run: (value) => {

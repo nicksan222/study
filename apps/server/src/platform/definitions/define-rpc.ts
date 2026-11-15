@@ -16,10 +16,16 @@
 
 import { StudyError } from '@study/contracts/errors';
 import type { Failure } from '@study/contracts/errors';
-import { Effect, Stream, Queue } from 'effect';
+import { EndpointPolicy } from '@study/contracts/protocol';
+import { Context, Effect, Stream, Queue } from 'effect';
 import type { Layer, Scope } from 'effect';
 import type { RpcGroup } from 'effect/rpc';
 import { Rpc, RpcSchema } from 'effect/rpc';
+
+import { LiveQueries } from '#server/platform/database/live-queries';
+
+type LiveServices<R extends Rpc.Any> =
+  Extract<R['_tag'], `${string}.live`> extends never ? never : LiveQueries;
 
 type DomainError<E> = E | (Failure extends E ? StudyError : never);
 
@@ -39,7 +45,7 @@ type DomainResult<A> =
         : never;
 
 type Handlers<R extends Rpc.Any> = {
-  readonly [Current in R as Current['_tag']]: (
+  readonly [Current in R as Current['_tag'] extends `${string}.live` ? never : Current['_tag']]: (
     ...args: Parameters<Rpc.ToHandlerFn<Current>>
   ) => DomainResult<ReturnType<Rpc.ToHandlerFn<Current>>>;
 };
@@ -118,7 +124,7 @@ function rpcLayer<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
 ): Layer.Layer<
   Rpc.ToHandler<R>,
   E,
-  Exclude<Init, Scope.Scope> | RpcGroup.HandlersServices<R, NativeHandlers<H>>
+  Exclude<Init, Scope.Scope> | RpcGroup.HandlersServices<R, NativeHandlers<H>> | LiveServices<R>
 > {
   const handlers = Effect.map(makeHandlers, (input) => {
     const mapped = Object.fromEntries(
@@ -141,6 +147,37 @@ function rpcLayer<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
       })
     );
 
+    for (const [tag, request] of group.requests) {
+      if (!tag.endsWith('.live')) continue;
+
+      const policy = Context.getOrUndefined(request.annotations, EndpointPolicy);
+
+      if (policy?.kind !== 'query') continue;
+
+      const unaryTag = tag.slice(0, -5);
+      const invoke = mapped[unaryTag];
+
+      if (!invoke) throw new TypeError(`Missing snapshot handler: ${unaryTag}`);
+
+      mapped[tag] = (...args: readonly unknown[]) =>
+        Stream.unwrap(
+          Effect.map(LiveQueries, (live) =>
+            live.watch(
+              policy.dependencies,
+              Effect.suspend(() => {
+                const result = invoke(...args);
+
+                if (!Effect.isEffect(result))
+                  throw new TypeError(`Live snapshot must return an Effect: ${unaryTag}`);
+
+                return result;
+              }),
+              policy.refresh === 'external'
+            )
+          )
+        );
+    }
+
     // Object.entries loses the association between the tag and its checked handler.
     return mapped as RpcGroup.HandlersFrom<R>;
   });
@@ -148,6 +185,6 @@ function rpcLayer<R extends Rpc.Any, H extends Handlers<R>, E, Init>(
   return group.toLayer(handlers) as Layer.Layer<
     Rpc.ToHandler<R>,
     E,
-    Exclude<Init, Scope.Scope> | RpcGroup.HandlersServices<R, NativeHandlers<H>>
+    Exclude<Init, Scope.Scope> | RpcGroup.HandlersServices<R, NativeHandlers<H>> | LiveServices<R>
   >;
 }

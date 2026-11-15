@@ -1,170 +1,137 @@
 import { StudyError } from '@study/contracts/errors';
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import { editOutcomeSchema } from '@study/contracts/pages/editing';
+import { editOutcomeSchema, saveSchema, restoreSchema } from '@study/contracts/pages/editing';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Effect, Schema } from 'effect';
+import { Schema } from 'effect';
+import { useState } from 'react';
 import { expect, vi } from 'vite-plus/test';
 
-import { runRequest } from '#client/lib/effect/runtime.ts';
-import { createStudyQueryClient } from '#client/lib/query-client.ts';
-import type { StudyClient } from '#client/lib/study-client/client.ts';
-import { toStudyError } from '#client/lib/study-client/errors.ts';
-import { request } from '#client/lib/study-client/request.ts';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
+import { PageActions } from './page-actions';
 import { authoredPage } from './test-support';
 
-const material = (id = 41n) => ({
-  ...authoredPage(id, 'Historical extraction', 101n),
-  title: `Material ${id}`
-});
+const copy = catalogs.english;
 
-const versionId = (id: string) => pageVersionIdSchema.make(BigInt(id));
+const page = () => authoredPage(41n, 'Historical extraction', 101n);
 
-import { materialRpc } from '../material-library/test/support';
-import { PageActions } from './page-actions';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
-
-function editorRpc() {
-  const version = material().version!;
-
-  const rpc = {
-    ...materialRpc(),
-    'pages.save': vi.fn<StudyClient['pages.save']>(),
-    'pages.restore': vi.fn<StudyClient['pages.restore']>()
-  };
-
-  rpc['pages.page'].mockReturnValue(Effect.succeed({ ...material(), version }));
-  rpc['pages.version'].mockReturnValue(Effect.succeed(version));
-
-  return rpc;
-}
-
-const receipt = (submitted = 103n, expected = 101n, outcome = 'saved') =>
+const receipt = (expected = 101n, submitted = 103n) =>
   Schema.decodeUnknownSync(editOutcomeSchema)({
-    outcome,
+    outcome: 'saved',
     replayed: false,
     expectedVersionId: expected,
     currentVersionId: submitted,
     submittedVersionId: submitted
   });
 
-async function startDraft(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: catalogs.english.PageEdit }));
-  const text = screen.getByRole('textbox', { name: `${catalogs.english.PageText} 1` });
+async function edit(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: copy.PageEdit }));
+  const textbox = screen.getByRole('textbox', { name: `${copy.PageText} 1` });
 
-  await user.clear(text);
-  await user.type(text, 'My unsaved correction');
+  await user.clear(textbox);
+  await user.type(textbox, 'My unsaved correction');
 }
 
 testStable(
-  'retains an unsaved draft through a route absence longer than default query GC, then explicitly discards it',
+  'authored draft survives route absence and is removed only by explicit discard',
   async () => {
-    const version = material().version!;
+    const fixture = rpcTestTransport(async (tag) => {
+      throw new Error(`Unexpected ${tag}`);
+    });
 
-    const client = createStudyQueryClient();
-    const mount = () =>
-      render(
-        <QueryClientProvider client={client}>
-          <PageActions version={version} current={version.id} />
-        </QueryClientProvider>
+    function Route() {
+      const [visible, setVisible] = useState(true);
+      const version = page().version!;
+
+      return (
+        <>
+          <button onClick={() => setVisible((value) => !value)}>Route</button>
+          {visible && <PageActions version={version} current={version.id} />}
+        </>
       );
-    const view = mount();
-    const timedUser = userEvent.setup();
-
-    try {
-      await startDraft(timedUser);
-      vi.useFakeTimers();
-      view.unmount();
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(6 * 60_000);
-      });
-    } finally {
-      vi.useRealTimers();
     }
 
+    render(<Route />, { wrapper: fixture.wrapper });
     const user = userEvent.setup();
-    const reopened = mount();
 
-    try {
-      expect(
-        await screen.findByRole('textbox', { name: `${catalogs.english.PageText} 1` })
-      ).toHaveValue('My unsaved correction');
-      await user.click(screen.getByRole('button', { name: catalogs.english.PageCloseDraft }));
-      await user.click(screen.getByRole('button', { name: catalogs.english.PageEdit }));
-      expect(screen.getByRole('textbox', { name: `${catalogs.english.PageText} 1` })).toHaveValue(
-        'Historical extraction'
-      );
-    } finally {
-      reopened.unmount();
-      client.clear();
-    }
+    await edit(user);
+    await user.click(screen.getByRole('button', { name: 'Route' }));
+    await user.click(screen.getByRole('button', { name: 'Route' }));
+    expect(screen.getByRole('textbox', { name: `${copy.PageText} 1` })).toHaveValue(
+      'My unsaved correction'
+    );
+    await user.click(screen.getByRole('button', { name: copy.PageCloseDraft }));
+    await user.click(screen.getByRole('button', { name: copy.PageEdit }));
+    expect(screen.getByRole('textbox', { name: `${copy.PageText} 1` })).toHaveValue(
+      'Historical extraction'
+    );
   }
 );
 
 testStable(
-  'replays the immutable save and undo after lost responses and remount, and removes acknowledged undo',
+  'explicit save and undo retries retain exact payload identities after lost responses',
   async () => {
-    const rpc = editorRpc();
+    const saves: (typeof saveSchema.Type)[] = [];
+    const restores: (typeof restoreSchema.Type)[] = [];
+    const fixture = rpcTestTransport(async (tag, input) => {
+      if (tag === 'pages.save') {
+        saves.push(Schema.decodeUnknownSync(saveSchema)(input));
 
-    rpc['pages.save']
-      .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
-      .mockReturnValueOnce(Effect.succeed({ ...receipt(), replayed: true }));
-    rpc['pages.restore']
-      .mockReturnValueOnce(Effect.fail(new StudyError('internal', 'Response lost')))
-      .mockReturnValueOnce(Effect.succeed({ ...receipt(104n, 103n), replayed: true }));
-    vi.mocked(request).mockImplementation((invoke, signal) =>
-      runRequest(invoke(rpc as unknown as StudyClient).pipe(Effect.mapError(toStudyError)), signal)
-    );
-    const client = createStudyQueryClient();
-    const mount = () =>
-      render(
-        <QueryClientProvider client={client}>
-          <PageActions version={material().version!} current={versionId('101')} />
-        </QueryClientProvider>
-      );
-    let view = mount();
+        if (saves.length === 1) throw new StudyError('transient', 'Receipt lost');
+
+        return receipt();
+      }
+
+      if (tag === 'pages.restore') {
+        restores.push(Schema.decodeUnknownSync(restoreSchema)(input));
+
+        if (restores.length === 1) throw new StudyError('transient', 'Receipt lost');
+
+        return receipt(103n, 104n);
+      }
+
+      throw new Error(`Unexpected ${tag}`);
+    });
+    const version = page().version!;
+
+    render(<PageActions version={version} current={version.id} />, { wrapper: fixture.wrapper });
     const user = userEvent.setup();
 
-    async function remount() {
-      view.unmount();
-      view = mount();
-    }
-
-    await startDraft(user);
-    await user.click(screen.getByRole('button', { name: catalogs.english.PageSave }));
-    await screen.findByText(catalogs.english.PageActionFailed);
-    const save = rpc['pages.save'].mock.calls[0]![0];
-
-    await remount();
-    expect(
-      await screen.findByRole('textbox', { name: `${catalogs.english.PageText} 1` })
-    ).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: catalogs.english.PageSave }));
-    await screen.findByText(catalogs.english.PageSaved);
-    expect(rpc['pages.save'].mock.calls[1]![0]).toEqual(save);
-    expect(save.expectedVersionId).toBe(versionId('101'));
-    expect(save.document.blocks[0]!.text).toBe('My unsaved correction');
-    await user.click(screen.getByRole('button', { name: catalogs.english.PageUndo }));
-    await screen.findByText(catalogs.english.PageActionFailed);
-    const undo = rpc['pages.restore'].mock.calls[0]![0];
-
-    expect(undo).toMatchObject({
-      expectedVersionId: versionId('103'),
-      restoreVersionId: versionId('101')
-    });
-    await remount();
-    await user.click(await screen.findByRole('button', { name: catalogs.english.PageUndo }));
-    await screen.findByText(catalogs.english.PageUndone);
-    expect(rpc['pages.restore'].mock.calls[1]![0]).toEqual(undo);
-    expect(screen.queryByRole('button', { name: catalogs.english.PageUndo })).toBeNull();
-    await remount();
-    await screen.findByText(catalogs.english.PageUndone);
-    expect(screen.queryByRole('button', { name: catalogs.english.PageUndo })).toBeNull();
-    expect(rpc['pages.restore']).toHaveBeenCalledTimes(2);
+    await edit(user);
+    await user.click(screen.getByRole('button', { name: copy.PageSave }));
+    await screen.findByText(copy.PageActionFailed);
+    await user.click(screen.getByRole('button', { name: copy.PageSave }));
+    await screen.findByText(copy.PageSaved);
+    expect(saves).toHaveLength(2);
+    expect(saves[1]).toEqual(saves[0]);
+    await user.click(screen.getByRole('button', { name: copy.PageUndo }));
+    await waitFor(() => expect(restores).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: copy.PageUndo }));
+    await screen.findByText(copy.PageUndone);
+    expect(restores[1]).toEqual(restores[0]);
   }
 );
+
+testStable('rapid repeated save activation cannot start a concurrent write', async () => {
+  let complete!: (value: unknown) => void;
+  const save = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        complete = resolve;
+      })
+  );
+  const fixture = rpcTestTransport(async (tag) => (tag === 'pages.save' ? save() : undefined));
+  const version = page().version!;
+
+  render(<PageActions version={version} current={version.id} />, { wrapper: fixture.wrapper });
+  await edit(userEvent.setup());
+  const button = screen.getByRole('button', { name: copy.PageSave });
+
+  fireEvent.click(button);
+  fireEvent.click(button);
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  complete(receipt());
+  await screen.findByText(copy.PageSaved);
+});

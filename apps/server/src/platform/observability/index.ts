@@ -243,3 +243,9 @@ export const recordUsageFailure = () =>
   Effect.logWarning('usage.record.failure').pipe(
     Effect.provideService(References.CurrentLogAnnotations, {})
   );
+
+/** A failed reconciliation tick remains retryable without logging database or request data. */
+export const recordReactiveReconciliationFailure = () =>
+  Effect.logWarning('rpc.reconciliation.failure').pipe(
+    Effect.provideService(References.CurrentLogAnnotations, {})
+  );

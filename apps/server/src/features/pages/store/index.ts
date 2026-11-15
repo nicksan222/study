@@ -32,6 +32,12 @@ export const PagesStore = defineStore({
 
     return {
       queries: {
+        count: storeQuery({
+          role: 'required',
+          input: r.countInputSchema,
+          output: Schema.BigInt,
+          run: d.count
+        }),
         page: storeQuery({
           role: 'required',
           input: r.pageKeySchema,
@@ -65,6 +71,7 @@ export const PagesStore = defineStore({
       },
       mutations: {
         archiveNote: storeMutation({
+          changes: ['pages'],
           input: Schema.Struct({
             ...r.linkSchema.fields,
             archivedAt: Schema.NullOr(Schema.BigInt)
@@ -88,45 +95,73 @@ export const PagesStore = defineStore({
           }
         }),
         updateMetadata: storeMutation({
+          changes: ['pages'],
           input: r.metadataSchema,
           output: c.detailSchema,
           run: d.updateMetadata
         }),
         create: storeMutation({
+          changes: ['pages'],
           input: e.createSchema,
           output: Schema.Struct({ page: c.detailSchema, replayed: Schema.Boolean }),
           run: d.createResult
         }),
-        save: storeMutation({ input: e.saveSchema, output: e.editOutcomeSchema, run: d.save }),
+        save: storeMutation({
+          changes: ['pages'],
+          input: e.saveSchema,
+          output: e.editOutcomeSchema,
+          run: d.save
+        }),
         restore: storeMutation({
+          changes: ['pages'],
           input: e.restoreSchema,
           output: e.editOutcomeSchema,
           run: d.restore
         }),
         copySource: storeMutation({
+          changes: ['pages'],
           input: r.sourceCopySchema,
           output: Schema.Struct({ page: c.detailSchema, replayed: Schema.Boolean }),
           run: d.copySource
         }),
-        archive: storeMutation({ input: r.archiveSchema, output: c.detailSchema, run: d.archive }),
+        archive: storeMutation({
+          changes: ['pages'],
+          input: r.archiveSchema,
+          output: c.detailSchema,
+          run: d.archive
+        }),
         attachProject: storeMutation({
+          changes: ['pages'],
           input: r.projectLinkSchema,
           output: Schema.Void,
           run: d.attachProject
         }),
         detachProject: storeMutation({
+          changes: ['pages'],
           input: r.projectLinkSchema,
           output: Schema.Void,
           run: d.detachProject
         }),
-        attach: storeMutation({ input: r.linkSchema, output: Schema.Void, run: d.attach }),
-        detach: storeMutation({ input: r.linkSchema, output: Schema.Void, run: d.detach }),
+        attach: storeMutation({
+          changes: ['pages'],
+          input: r.linkSchema,
+          output: Schema.Void,
+          run: d.attach
+        }),
+        detach: storeMutation({
+          changes: ['pages'],
+          input: r.linkSchema,
+          output: Schema.Void,
+          run: d.detach
+        }),
         retireHistory: storeMutation({
+          changes: ['pages'],
           input: r.retireSchema,
           output: r.retirementPreviewSchema,
           run: (v) => d.retire(v.pageId, v.keepLatest, v.token, false, v.versionId)
         }),
         delete: storeMutation({
+          changes: ['pages'],
           input: r.deleteSchema,
           output: Schema.Void,
           run: (v) => {
@@ -134,11 +169,13 @@ export const PagesStore = defineStore({
           }
         }),
         createGenerated: storeMutation({
+          changes: ['pages'],
           input: e.createGeneratedSchema,
           output: e.createGeneratedOutcomeSchema,
           run: d.createGenerated
         }),
         publishGenerated: storeMutation({
+          changes: ['pages'],
           input: e.publishSchema,
           output: e.editOutcomeSchema,
           run: d.publishGenerated
@@ -255,11 +292,13 @@ export const PageProposalsStore = defineStore({
       },
       mutations: {
         proposeGenerated: storeMutation({
+          changes: ['pages'],
           input: e.publishSchema,
           output: e.proposalSchema,
           run: d.proposeGenerated
         }),
         applyProposal: storeMutation({
+          changes: ['pages'],
           input: Schema.Struct({
             ...e.applyProposalSchema.fields,
             relevantValid: Schema.optional(Schema.Boolean)
@@ -268,6 +307,7 @@ export const PageProposalsStore = defineStore({
           run: d.applyProposal
         }),
         keepProposal: storeMutation({
+          changes: ['pages'],
           input: e.keepProposalSchema,
           output: e.proposalOutcomeSchema,
           run: d.keepProposal

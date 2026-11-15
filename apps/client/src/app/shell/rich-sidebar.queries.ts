@@ -1,30 +1,16 @@
 import type { NoteId } from '@study/contracts/ids';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { rpc } from '@study/contracts/react';
 
-import { request } from '#client/lib/study-client/request.ts';
-import { sidebarSettingsOptions } from '#client/lib/study-client/sidebar.queries.ts';
-
-/** Loads the threshold and periodically refreshes persisted note summaries. */
+/** Live settings and persisted note summaries update through committed revisions. */
 export function useSidebarProgress() {
-  const settings = useQuery(sidebarSettingsOptions());
-  const progress = useQuery({
-    queryKey: ['notes', 'sidebar-progress'],
-    queryFn: ({ signal }) => request((rpc) => rpc['notes.noteSummaries']({}), signal),
-    refetchInterval: 3000
-  });
+  const settings = rpc.settings.sidebarSettings.useQuery({});
+  const progress = rpc.notes.noteSummaries.useQuery({});
 
   return { settings, progress };
 }
 
-/** Saves a settlement override and refreshes the grouped note summaries. */
 export function useNoteSettlement(id: NoteId) {
-  const cache = useQueryClient();
+  const mutation = rpc.notes.setNoteSettled.useMutation();
 
-  return useMutation({
-    mutationFn: (settled: boolean) =>
-      request((rpc) => rpc['notes.setNoteSettled']({ id, settled })),
-    onSuccess: async () => {
-      await cache.invalidateQueries({ queryKey: ['notes', 'sidebar-progress'] });
-    }
-  });
+  return { ...mutation, mutate: (settled: boolean) => mutation.mutate({ id, settled }) };
 }

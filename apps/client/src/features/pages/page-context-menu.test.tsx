@@ -1,6 +1,5 @@
 import { projectIdSchema } from '@study/contracts/ids';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
   createRoute,
@@ -13,6 +12,8 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, vi } from 'vite-plus/test';
 
+import { rpcTestTransport } from '#client/test/rpc.tsx';
+
 import { authoredPage } from '../document-editing/test-support';
 import { PageContextMenu } from './page-context-menu';
 
@@ -21,13 +22,6 @@ const api = vi.hoisted(() => ({ remove: vi.fn() }));
 const document = authoredPage(5n, 'Text', 8n);
 
 vi.mock('#client/lib/i18n.tsx', () => ({ useI18n: () => ({ t: (key: string) => key }) }));
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'pages.page': async () => document,
-      'pages.delete': api.remove
-    })
-}));
 
 afterEach(() => {
   cleanup();
@@ -35,7 +29,13 @@ afterEach(() => {
 });
 
 function mount() {
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const harness = rpcTestTransport(async (tag, input) => {
+    if (tag === 'pages.page') return document;
+
+    if (tag === 'pages.delete') return api.remove(input);
+
+    throw new Error(tag);
+  });
   const root = createRootRoute({ component: Outlet });
   const home = createRoute({
     getParentRoute: () => root,
@@ -57,18 +57,18 @@ function mount() {
   });
 
   render(
-    <QueryClientProvider client={cache}>
+    <harness.wrapper>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
 
-  return cache;
+  return harness;
 }
 
 testStable(
   'provides shared page actions and requires the existing delete confirmation before any removal',
   async () => {
-    const cache = mount();
+    mount();
 
     fireEvent.contextMenu(await screen.findByRole('link', { name: 'Example document' }));
     expect(await screen.findByRole('menuitem', { name: 'PageAskAI' })).toBeEnabled();
@@ -82,6 +82,5 @@ testStable(
     expect(api.remove).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(api.remove).not.toHaveBeenCalled();
-    cache.clear();
   }
 );

@@ -4,17 +4,14 @@ import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Option } from 'effect';
-import { expect, vi } from 'vite-plus/test';
+import { expect } from 'vite-plus/test';
 
-import { authoredPage } from '../document-editing/test-support';
 import {
   importedSource,
   locationIs,
   materialRpc,
   mountLibraryRoute
 } from '../material-library/test/support';
-
-vi.mock('#client/lib/study-client/request.ts', () => ({ request: vi.fn() }));
 
 async function openDeletion(user: ReturnType<typeof userEvent.setup>) {
   await user.click(await screen.findByRole('button', { name: catalogs.english.SourceDeleteTitle }));
@@ -23,7 +20,7 @@ async function openDeletion(user: ReturnType<typeof userEvent.setup>) {
 }
 
 testStable(
-  'previews source revisions and requires its exact name before deleting, releasing only source caches',
+  'previews source revisions and requires its exact name before deleting while preserving unrelated authored content',
   async () => {
     const rpc = materialRpc();
 
@@ -34,13 +31,8 @@ testStable(
         return true;
       })
     );
-    const { router, queryClient } = mountLibraryRoute(
-      '/sources/7?sourceRevision=1&sourceSnapshot=1101',
-      rpc
-    );
-    const independent = authoredPage(41n);
+    const { router } = mountLibraryRoute('/sources/7?sourceRevision=1&sourceSnapshot=1101', rpc);
 
-    queryClient.setQueryData(['pages', 'detail', '41'], independent);
     const user = userEvent.setup();
     const dialog = await openDeletion(user);
 
@@ -61,8 +53,6 @@ testStable(
     await locationIs(router, '/notes');
     expect(rpc['sources.deleteSource']).toHaveBeenCalledExactlyOnceWith({ id: importedSource.id });
     expect(rpc['sources.findSource']).not.toHaveBeenCalled();
-    expect(queryClient.getQueryData(['pages', 'detail', '41'])).toBe(independent);
-    expect(queryClient.getQueryData(['sources', 'extraction', '7', '1', '1101'])).toBeUndefined();
   }
 );
 

@@ -198,3 +198,23 @@ testStable('blocks new sends while setup is needed and keeps the draft editable'
     readiness.state = 'ready';
   }
 });
+
+testStable(
+  'server snapshots refresh committed content while the local question draft survives',
+  async () => {
+    const { notify } = mountAssistant();
+    const input = await screen.findByRole('textbox', { name: 'Message' });
+
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.change(input, { target: { value: 'Keep this question' } });
+    api.thread.mockResolvedValue({
+      items: [message('assistant', 'Updated from another window.', 2n)],
+      next: null
+    });
+    await act(async () => {
+      await notify();
+    });
+    expect(await screen.findByText('Updated from another window.')).toBeInTheDocument();
+    expect(input).toHaveValue('Keep this question');
+  }
+);

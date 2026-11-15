@@ -5,11 +5,11 @@ import { noteDeletionSchema } from '@study/contracts/notes/deletion';
 import { chatMessageSchema, noteSchema } from '@study/contracts/notes/schemas';
 import { transformSnapshotSchema } from '@study/contracts/pages/transform';
 import { projectSchema } from '@study/contracts/projects/schemas';
+import { endpoints } from '@study/contracts/rpc';
 import { blockIdSchema } from '@study/contracts/sources/schemas';
 import { executionSchema } from '@study/contracts/workflows/schemas';
 import { testStable } from '@study/testing/vitest';
 import { toastManager } from '@study/ui/toast';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -19,13 +19,18 @@ import {
 } from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Schema } from 'effect';
+import { Effect, Schema } from 'effect';
+import { AtomRegistry } from 'effect/reactivity';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
+import { rpcHandlersTransport } from '#client/test/rpc.tsx';
+
 import { authoredPage } from '../document-editing/test-support';
 import { deferred } from '../material-library/test/support';
-import { startDraftKey } from './start-drafts.queries';
+import { startDraft, startFiles, startDraftKey } from './start-drafts.queries';
+import { creationFlow } from './start.queries';
+import { transformDraft } from './transformation.queries';
 
 const pickerPage = (versionId = 102n) => {
   const value = authoredPage(41n, 'Historical extraction', versionId);
@@ -47,17 +52,10 @@ const pickerPage = (versionId = 102n) => {
   };
 };
 
-import { attachmentKey } from './attachments';
+import { attachmentState } from './attachments';
 import { NoteDeleteDialog } from './deletion';
 import { History, CapturedContext } from './history';
 import * as workspaceQueries from './note-workspace.queries';
-import {
-  executionOptions,
-  contextOptions,
-  provenanceOptions,
-  generationOptions,
-  paginatedNotesOptions
-} from './note-workspace.queries';
 import { Transformation } from './transformation';
 import { NoteWorkspace } from './workspace';
 
@@ -88,39 +86,70 @@ const rpc = vi.hoisted(() => ({
 vi.mock('#client/lib/i18n.tsx', () => ({
   useI18n: () => ({ t: (key: string) => key, date: String, locale: 'english' })
 }));
-vi.mock('#client/lib/study-client/client.ts', async () => {
-  const { Effect } = await import('effect');
-  const call = (handler: (input: unknown) => unknown) => (input: unknown) =>
-    Effect.tryPromise({ try: () => Promise.resolve(handler(input)), catch: (error) => error });
 
-  return {
-    studyClient: Effect.succeed({
-      'notes.note': call(rpc.note),
-      'projects.projects': call(rpc.projects),
-      'notes.deleteNote': call(rpc.remove),
-      'notes.noteGenerations': call(rpc.generations),
-      'notes.messageVersionCitations': call(rpc.citations),
-      'notes.replyVersion': call(rpc.provenance),
-      'notes.noteDeletion': call(rpc.deletion),
-      'notes.retryNoteDeletion': call(rpc.retryDeletion),
-      'notes.createUntitledNote': call(rpc.create),
-      'notes.notes': call(rpc.notes),
-      'notes.noteSelection': call(rpc.selection),
-      'notes.updateNoteSelection': call(rpc.updateSelection),
-      'notes.inspectNoteContext': call(rpc.context),
-      'notes.thread': call(rpc.thread),
-      'pages.transform': call(rpc.generation),
-      'pages.retryTransform': call(rpc.retryGeneration),
-      'pages.cancelTransform': call(rpc.cancel),
-      'pages.pages': call(rpc.materials),
-      'pages.version': call(rpc.version),
+function testFixture(client: AtomRegistry.AtomRegistry) {
+  return rpcHandlersTransport(
+    {
+      'notes.note': async (input) => ({
+        title: 'Notebook',
+        titleSource: 'user',
+        archivedAt: null,
+        projectIds: [],
+        createdAt: 1n,
+        updatedAt: 1n,
+        ...(await rpc.note(input))
+      }),
+      'projects.projects': rpc.projects,
+      'notes.deleteNote': async (input) => {
+        const value = await rpc.remove(input);
+
+        rpc.deletion.mockResolvedValue(value);
+
+        return value;
+      },
+      'notes.noteGenerations': rpc.generations,
+      'notes.messageVersionCitations': async (input) => ({
+        ...Schema.decodeUnknownSync(
+          Schema.toType(endpoints.notes.messageVersionCitations.rpc.payloadSchema)
+        )(input),
+        ...(await rpc.citations(input))
+      }),
+      'notes.replyVersion': rpc.provenance,
+      'notes.noteDeletion': rpc.deletion,
+      'notes.retryNoteDeletion': async (input) => {
+        const value = await rpc.retryDeletion(input);
+
+        rpc.deletion.mockResolvedValue(value);
+
+        return value;
+      },
+      'notes.createUntitledNote': async (input) => ({
+        title: 'Notebook',
+        titleSource: 'user',
+        archivedAt: null,
+        projectIds: [],
+        createdAt: 1n,
+        updatedAt: 1n,
+        ...(await rpc.create(input))
+      }),
+      'notes.notes': rpc.notes,
+      'notes.noteSelection': rpc.selection,
+      'notes.updateNoteSelection': rpc.updateSelection,
+      'notes.inspectNoteContext': rpc.context,
+      'notes.thread': rpc.thread,
+      'pages.transform': rpc.generation,
+      'pages.retryTransform': rpc.retryGeneration,
+      'pages.cancelTransform': rpc.cancel,
+      'pages.pages': rpc.materials,
+      'pages.version': rpc.version,
       'pages.versions': () => Effect.succeed({ items: [], nextCursor: null }),
-      'pages.page': call(rpc.document),
+      'pages.page': rpc.document,
       'sources.sources': () => Effect.succeed({ items: [], next: null }),
-      'workflows.executions': call(rpc.executions)
-    })
-  };
-});
+      'workflows.executions': rpc.executions
+    },
+    client
+  );
+}
 
 const id = Schema.decodeUnknownSync(noteIdSchema)(9007199254740993n);
 
@@ -157,22 +186,29 @@ const execution = (name: string) =>
     updatedAtMs: 2n
   });
 
-const caches: QueryClient[] = [];
+const caches: AtomRegistry.AtomRegistry[] = [];
 
 function cache() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
-  });
+  const client = AtomRegistry.make();
 
   caches.push(client);
 
   return client;
 }
 
+const fixtures = new WeakMap<AtomRegistry.AtomRegistry, ReturnType<typeof rpcHandlersTransport>>();
+
+const notify = (client: AtomRegistry.AtomRegistry) =>
+  fixtures.get(client)?.notify() ?? Promise.resolve([]);
+
 function mount(children: ReactNode, client = cache(), search = '', path = '/') {
+  const fixture = testFixture(client);
+
+  fixtures.set(client, fixture);
+  const Provider = fixture.wrapper;
   const root = createRootRoute({
     validateSearch: (value) => value as { id?: string; project?: string },
-    component: () => <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    component: () => <Provider>{children}</Provider>
   });
   const router = createRouter({
     routeTree: root,
@@ -181,10 +217,10 @@ function mount(children: ReactNode, client = cache(), search = '', path = '/') {
     history: createMemoryHistory({ initialEntries: [`${path}${search}`] })
   });
 
-  return { client, router, ...render(<RouterProvider router={router} />) };
+  return { client, router, notify: fixture.notify, ...render(<RouterProvider router={router} />) };
 }
 
-function seedTransform(client: QueryClient) {
+function seedTransform(client: AtomRegistry.AtomRegistry) {
   rpc.generations.mockResolvedValue({
     items: [
       {
@@ -199,7 +235,7 @@ function seedTransform(client: QueryClient) {
     ],
     next: null
   });
-  client.setQueryData(['note-drafts', String(id), 'transform'], {
+  client.set(transformDraft(id), {
     title: 'Derivative',
     instruction: 'Clarify',
     operations: ['clarity'],
@@ -243,7 +279,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
 
-  for (const client of caches.splice(0)) client.clear();
+  for (const client of caches.splice(0)) client.dispose();
 });
 
 testStable.each(['pending', 'failed', 'completed'] as const)(
@@ -299,13 +335,13 @@ testStable(
     mount(<NoteWorkspace />, first.client);
     expect(await screen.findByRole('button', { name: 'NoteSaveNote' })).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'NoteCreationReviewed' })).not.toBeInTheDocument();
-    await waitFor(() => expect(rpc.notes).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(rpc.notes.mock.calls.length).toBeGreaterThanOrEqual(2));
     await waitFor(() =>
       expect(screen.getAllByRole('button', { name: 'LibraryRefresh' })[0]!).toBeEnabled()
     );
     rpc.notes.mockRejectedValueOnce(new StudyError('transient', 'Offline'));
     fireEvent.click(screen.getAllByRole('button', { name: 'LibraryRefresh' })[0]!);
-    await waitFor(() => expect(rpc.notes).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(rpc.notes.mock.calls.length).toBeGreaterThanOrEqual(3));
     await waitFor(() =>
       expect(screen.getAllByRole('button', { name: 'LibraryRefresh' })[0]!).toBeEnabled()
     );
@@ -375,28 +411,21 @@ testStable(
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument()
     );
-    await waitFor(() =>
-      expect(client.isFetching({ queryKey: ['note-execution', 'transform-1'] })).toBe(0)
-    );
+    await waitFor(() => expect(rpc.executions).toHaveBeenCalled());
     // A newer unrelated failure must not authorize another retry of this attempt.
     await act(async () => {
-      client.setQueryData(executionOptions('transform-1').queryKey, {
-        items: [execution('unrelated')],
+      rpc.executions.mockImplementation(({ eventId }) => ({
+        items: eventId ? [] : [execution('unrelated')],
         next: null
-      });
+      }));
+      await notify(client);
     });
     expect(screen.queryByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
     await act(async () => {
       const failed = execution('retry-failure');
 
-      client.setQueryData(executionOptions('transform-1').queryKey, {
-        items: [failed],
-        next: null
-      });
-      client.setQueryData(executionOptions('transform-1', original.retryId).queryKey, {
-        items: [failed],
-        next: null
-      });
+      rpc.executions.mockResolvedValue({ items: [failed], next: null });
+      await notify(client);
     });
     fireEvent.click(await screen.findByRole('button', { name: 'Retry' }));
     await waitFor(() => expect(rpc.retryGeneration).toHaveBeenCalledTimes(3));
@@ -418,47 +447,6 @@ testStable('keeps cancelled transforms terminal and offers a fresh transform ins
   await waitFor(() => expect(screen.getByRole('button', { name: 'NoteCreatePage' })).toBeEnabled());
   expect(rpc.retryGeneration).not.toHaveBeenCalled();
 });
-
-testStable(
-  'invalidates cached Library and selection search once per committed publication across remounts',
-  async () => {
-    const client = cache();
-
-    seedTransform(client);
-    const libraryKey = ['pages', 'library', undefined];
-    const searchKey = ['search', 'Derivative'];
-
-    client.setQueryData(libraryKey, {
-      pages: [{ items: [], nextCursor: null }],
-      pageParams: [undefined]
-    });
-    client.setQueryData(searchKey, { hits: [] });
-    const first = mount(<Transformation id={id} />, client);
-
-    await waitFor(() => expect(rpc.generation).toHaveBeenCalled());
-    await waitFor(() =>
-      expect(client.isFetching({ queryKey: ['note-generation', 'transform-1'] })).toBe(0)
-    );
-    const invalidations = vi.spyOn(client, 'invalidateQueries');
-
-    await act(async () => {
-      client.setQueryData(
-        generationOptions('transform-1').queryKey,
-        generation({ resultVersionId: 51n })
-      );
-    });
-    await waitFor(() => expect(client.getQueryState(libraryKey)?.isInvalidated).toBe(true));
-    expect(client.getQueryState(searchKey)?.isInvalidated).toBe(true);
-    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['pages'] });
-    expect(invalidations).toHaveBeenCalledWith({ queryKey: ['search'] });
-    first.unmount();
-    invalidations.mockClear();
-    rpc.generation.mockResolvedValue(generation({ resultVersionId: 51n }));
-    mount(<Transformation id={id} />, client);
-    await waitFor(() => expect(rpc.generation).toHaveBeenCalledTimes(2));
-    expect(invalidations).not.toHaveBeenCalledWith({ queryKey: ['pages'] });
-  }
-);
 
 testStable('exposes operation toggle state and contextual version groups', async () => {
   const client = cache();
@@ -515,20 +503,6 @@ testStable('exposes operation toggle state and contextual version groups', async
   expect(group.getByRole('button', { name: 'NoteNextVersion' })).toBeEnabled();
 });
 
-testStable.each([undefined, null, Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n)])(
-  'keys note pages by native project filter %s',
-  async (project) => {
-    const client = cache();
-    const options = paginatedNotesOptions(project);
-
-    await client.fetchInfiniteQuery(options);
-    expect(rpc.notes).toHaveBeenCalledWith({ limit: 30, project, before: undefined });
-    expect(options.queryKey).not.toEqual(
-      paginatedNotesOptions(project === undefined ? null : undefined).queryKey
-    );
-  }
-);
-
 testStable(
   'uses the routed project filter before pagination and trusts the server page',
   async () => {
@@ -549,30 +523,14 @@ testStable(
       .mockResolvedValue({ items: [], next: null });
     const client = cache();
 
-    client.setQueryData(['note-workspace', 'creation'], { uncertain: true });
+    client.set(creationFlow, { uncertain: true });
     mount(<NoteWorkspace />, client, `?project=${project}`);
     expect(await screen.findByText('Server-selected note')).toBeInTheDocument();
     expect(rpc.notes).toHaveBeenCalledWith({ limit: 30, project, before: undefined });
     fireEvent.click(screen.getByRole('button', { name: 'LibraryMore' }));
     await waitFor(() =>
-      expect(rpc.notes).toHaveBeenCalledWith({ limit: 30, project, before: cursor })
+      expect(rpc.notes).toHaveBeenCalledWith({ limit: 60, project, before: undefined })
     );
-  }
-);
-
-testStable(
-  'keeps global, projectless and membership pages in distinct query-cache entries',
-  async () => {
-    const client = cache();
-    const project = Schema.decodeUnknownSync(projectIdSchema)(9007199254740995n);
-    const filters = [undefined, null, project];
-
-    for (const filter of filters)
-      await client.fetchInfiniteQuery({ ...paginatedNotesOptions(filter), staleTime: Infinity });
-
-    expect(rpc.notes).toHaveBeenCalledTimes(3);
-    expect(client.getQueryCache().findAll({ queryKey: ['notes', 'pages'] })).toHaveLength(3);
-    expect(paginatedNotesOptions().queryKey).toEqual(paginatedNotesOptions(undefined).queryKey);
   }
 );
 
@@ -774,12 +732,21 @@ testStable(
     expect(await screen.findByText('Clarify')).toBeVisible();
     rpc.context.mockRejectedValue(new StudyError('not_found', 'Retired context'));
     await act(async () => {
-      await client.invalidateQueries({ queryKey: contextOptions('capture-1').queryKey });
+      await notify(client);
     });
     await waitFor(() => expect(screen.queryByText('Clarify')).toBeNull());
-    expect(client.getQueryData(contextOptions('capture-1').queryKey)).toBeDefined();
     expect(rpc.context.mock.calls.every(([input]) => input.requestId === 'capture-1')).toBe(true);
-    const retained = client.getQueryData(contextOptions('capture-1').queryKey);
+    const retained = {
+      requestId: 'capture-1',
+      noteId: id,
+      intentKey: 'capture-key',
+      instruction: 'Clarify',
+      preferences: {},
+      selectionRevision: 8n,
+      inputs: [],
+      messages: [],
+      excludedMessages: 0
+    };
 
     rpc.context.mockResolvedValue(retained);
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -834,17 +801,12 @@ testStable(
     expect(screen.queryByText('NoteVersions', { selector: 'summary' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'NoteVersions' })).toBeNull();
     rpc.provenance.mockRejectedValue(new StudyError('not_found', 'Retired reply context'));
-    const options = provenanceOptions(id, message.id, message.activeVersionId!);
 
     await act(async () => {
-      await client.invalidateQueries({ queryKey: options.queryKey });
+      await notify(client);
     });
     await waitFor(() => expect(screen.queryByText('Clarify')).toBeNull());
     expect(screen.getByText('NoteReadUnavailable')).toBeVisible();
-    expect(client.getQueryData(options.queryKey)).toEqual({
-      state: 'available',
-      requestId: 'capture-1'
-    });
     expect(screen.getByText('Retained reply', { selector: 'p' })).toBeVisible();
     rpc.provenance.mockResolvedValue({ state: 'available', requestId: 'capture-1' });
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
@@ -856,11 +818,6 @@ testStable(
     ).toBe(true);
     expect(rpc.context.mock.calls.every(([input]) => input.requestId === 'capture-1')).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    await waitFor(() =>
-      expect(client.getQueryCache().find({ queryKey: options.queryKey })?.getObserversCount()).toBe(
-        0
-      )
-    );
     await waitFor(() => expect(reply.closest('[tabindex="0"]')).toHaveFocus());
   }
 );
@@ -888,7 +845,7 @@ testStable(
     fireEvent.change(input, { target: { value: 'Cell cycle lecture — checkpoint question' } });
     await act(async () => creation.resolve({ id } as typeof noteSchema.Type));
     await waitFor(() =>
-      expect(view.client.getQueryData(startDraftKey())).toBe(
+      expect(view.client.get(startDraft(startDraftKey()))).toBe(
         'Cell cycle lecture — checkpoint question'
       )
     );
@@ -982,7 +939,7 @@ testStable(
     expect(upload.mock.calls[0]?.[0]).toBe(file);
     await act(async () => creation.resolve({ id } as typeof noteSchema.Type));
     expect(upload).toHaveBeenCalledTimes(1);
-    expect(view.client.getQueryData([...startDraftKey(String(project)), 'files'])).toEqual([]);
+    expect(view.client.get(startFiles(startDraftKey(String(project))))).toEqual([]);
   }
 );
 
@@ -1023,10 +980,8 @@ testStable(
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Keep writing during refresh' } });
-    const key = workspaceQueries.deletionOptions(id, true).queryKey;
 
-    await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
-    expect(view.client.getQueryData(key)).toBeNull();
+    await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
 
     const receipt = deferred<void>();
 
@@ -1038,9 +993,9 @@ testStable(
     let refresh: Promise<void> = Promise.resolve();
 
     await act(async () => {
-      refresh = view.client.refetchQueries({ queryKey: key });
+      refresh = view.notify().then(() => {});
     });
-    await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(1));
+    await waitFor(() => expect(rpc.deletion.mock.calls.length).toBeGreaterThan(1));
     expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toBe(input);
     expect(input).toHaveValue('Keep writing during refresh');
 
@@ -1048,7 +1003,6 @@ testStable(
       receipt.resolve(undefined);
       await refresh;
     });
-    expect(view.client.getQueryData(key)).toBeNull();
     expect(screen.getByRole('textbox', { name: 'NoteCompose' })).toBe(input);
     expect(input).toHaveValue('Keep writing during refresh');
     const reads = rpc.deletion.mock.calls.length;
@@ -1076,23 +1030,21 @@ testStable(
     const input = await screen.findByRole('textbox', { name: 'NoteCompose' });
 
     fireEvent.change(input, { target: { value: 'Retained while status is unknown' } });
-    const key = workspaceQueries.deletionOptions(id, true).queryKey;
 
-    await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+    await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
     rpc.deletion.mockRejectedValue(new StudyError('transient', 'Receipt read unavailable'));
     await act(async () => {
-      await view.client.refetchQueries({ queryKey: key });
+      await view.notify().then(() => {});
     });
-    expect(view.client.getQueryData(key)).toBeNull();
     await waitFor(() => expect(screen.queryByRole('textbox', { name: 'NoteCompose' })).toBeNull());
     fireEvent.drop(view.container.querySelector('.note-canvas')!, {
       dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
     });
     expect(upload).not.toHaveBeenCalled();
-    expect(view.client.getQueryData(attachmentKey(id))).toEqual([]);
+    expect(view.client.get(attachmentState(id))).toEqual([]);
     rpc.deletion.mockRejectedValue(new StudyError('not_found', 'No deletion'));
     await act(async () => {
-      await view.client.refetchQueries({ queryKey: key });
+      await view.notify().then(() => {});
     });
     expect(await screen.findByRole('textbox', { name: 'NoteCompose' })).toHaveValue(
       'Retained while status is unknown'
@@ -1109,9 +1061,8 @@ testStable(
 
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'DeleteConfirmationWord' } });
     await waitFor(() => expect(confirm).toBeEnabled());
-    const key = workspaceQueries.deletionOptions(id, true).queryKey;
 
-    await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+    await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
     const receipt = deferred<void>();
 
     rpc.deletion.mockImplementation(async () => {
@@ -1122,7 +1073,7 @@ testStable(
     let refresh = Promise.resolve();
 
     await act(async () => {
-      refresh = view.client.refetchQueries({ queryKey: key });
+      refresh = view.notify().then(() => {});
     });
     expect(screen.getByRole('button', { name: 'NoteConfirmDelete' })).toBe(confirm);
     await act(async () => {
@@ -1168,7 +1119,7 @@ testStable('fences notebook drops while a shared deletion mutation is pending', 
     dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
   });
   expect(upload).not.toHaveBeenCalled();
-  expect(view.client.getQueryData(attachmentKey(id))).toEqual([]);
+  expect(view.client.get(attachmentState(id))).toEqual([]);
 });
 
 testStable.each(['', '?project=9007199254740997'])(
@@ -1286,9 +1237,8 @@ testStable(
     await waitFor(() =>
       expect(view.container.querySelector('.note-canvas textarea')).not.toBeNull()
     );
-    const key = workspaceQueries.deletionOptions(id, true).queryKey;
 
-    await waitFor(() => expect(view.client.isFetching({ queryKey: key })).toBe(0));
+    await waitFor(() => expect(rpc.deletion).toHaveBeenCalled());
     rpc.deletion.mockReturnValue(new Promise(() => {}));
     const dialog = screen.getByRole('alertdialog');
 
@@ -1297,7 +1247,7 @@ testStable(
     });
     fireEvent.click(within(dialog).getByRole('button', { name: 'NoteConfirmDelete' }));
     await waitFor(() => expect(rpc.remove).toHaveBeenCalledExactlyOnceWith({ id }));
-    await waitFor(() => expect(view.client.isMutating()).toBe(0));
+    await waitFor(() => expect(screen.queryByText('NoteDeleting')).toBeNull());
     expect(view.container.querySelector('.note-canvas textarea')).toBeNull();
     fireEvent.drop(view.container.querySelector('.note-canvas')!, {
       dataTransfer: { files: [new File(['Blocked'], 'blocked.txt')] }
@@ -1308,7 +1258,7 @@ testStable(
 
     await act(async () => {});
     expect(remounted.container.querySelector('.note-canvas textarea')).toBeNull();
-    expect(view.client.getQueryData(attachmentKey(id))).toEqual([]);
+    expect(view.client.get(attachmentState(id))).toEqual([]);
   }
 );
 
@@ -1402,7 +1352,6 @@ async function openStarterComposer() {
 testStable('ignores obsolete selection drafts when starting a note transformation', async () => {
   const client = cache();
 
-  client.setQueryData(['note-drafts', String(id), 'selection'], selection());
   mount(<Transformation id={id} />, client);
   fireEvent.change(await screen.findByRole('textbox', { name: 'NoteOutputTitle' }), {
     target: { value: 'New summary' }

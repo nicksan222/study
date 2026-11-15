@@ -120,7 +120,7 @@ export function observeAgentProgress(context: ServerContext) {
 
           yield* Effect.try({
             try: () =>
-              context.transaction((context) => {
+              context.transaction(['workflows'], (context) => {
                 guard.assert(context);
                 const value = Schema.decodeUnknownSync(agentObservationSchema)(observation);
                 const event = value.event;

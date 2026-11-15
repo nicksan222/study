@@ -23,6 +23,7 @@ import { assert } from 'vite-plus/test';
 import { Notes } from '#server/features/notes/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { Projects } from '#server/features/projects/index';
+import { testLiveQueries } from '#testing/live-queries';
 import { deletionDocument } from '#testing/material-deletion';
 import { cleanup } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
@@ -84,7 +85,11 @@ testStable(
 
             return { noteId: note.id, document, version: document.version };
           })
-        ).pipe(Effect.provide(PagesRpcLive.pipe(Layer.provideMerge(f.domain()))))
+        ).pipe(
+          Effect.provide(
+            PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(f.domain()))
+          )
+        )
       );
 
       await cleanup(f, saved.noteId);
@@ -107,7 +112,11 @@ testStable(
             );
             assert.strictEqual(f.context.db.orm.get(sql`SELECT count(*) n FROM materials`)?.n, 0n);
           })
-        ).pipe(Effect.provide(PagesRpcLive.pipe(Layer.provideMerge(f.domain()))))
+        ).pipe(
+          Effect.provide(
+            PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(f.domain()))
+          )
+        )
       );
       expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {

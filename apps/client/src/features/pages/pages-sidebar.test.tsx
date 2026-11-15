@@ -1,9 +1,10 @@
+import { StudyError } from '@study/contracts/errors';
 import { projectIdSchema } from '@study/contracts/ids';
 import { summarySchema } from '@study/contracts/pages/schemas';
+import { rpc } from '@study/contracts/react';
 import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   stringifySearchWith,
   createRootRoute,
@@ -19,25 +20,17 @@ import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';
 import { afterEach, beforeEach, expect, vi } from 'vite-plus/test';
 
-import { pagesOptions } from '#client/lib/study-client/pages.queries.ts';
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { PagesSidebar } from './pages-sidebar';
 
-const api = vi.hoisted(() => ({ pages: vi.fn() }));
-
-vi.mock('#client/lib/study-client/request.ts', () => ({
-  request: (invoke: (rpc: Record<string, unknown>) => unknown) =>
-    invoke({
-      'pages.pages': api.pages,
-      'settings.workspacePreferences': async () => defaultWorkspacePreferences
-    })
-}));
+const api = vi.hoisted(() => ({ pages: vi.fn(), remove: vi.fn() }));
 
 const en = catalogs.english;
 
 const project = Schema.decodeUnknownSync(projectIdSchema)(1n);
 
-const caches: QueryClient[] = [];
+let preferences = defaultWorkspacePreferences;
 
 const document = (id: bigint, overrides: Record<string, unknown> = {}) =>
   Schema.decodeUnknownSync(summarySchema)({
@@ -53,17 +46,24 @@ const document = (id: bigint, overrides: Record<string, unknown> = {}) =>
   });
 
 beforeEach(() => {
+  preferences = defaultWorkspacePreferences;
   api.pages.mockReset().mockResolvedValue({ items: [], nextCursor: null });
 });
 afterEach(() => {
   cleanup();
-  caches.splice(0).forEach((cache) => cache.clear());
 });
 
 function show() {
-  const cache = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const harness = rpcTestTransport(async (tag, input) => {
+    if (tag === 'pages.pages') return api.pages(input);
 
-  caches.push(cache);
+    if (tag === 'pages.delete') return api.remove(input);
+
+    if (tag === 'settings.workspacePreferences') return preferences;
+
+    throw new Error(tag);
+  });
+
   const root = createRootRoute({
     component: () => (
       <>
@@ -85,12 +85,12 @@ function show() {
   });
 
   render(
-    <QueryClientProvider client={cache}>
+    <harness.wrapper>
       <RouterProvider router={router} />
-    </QueryClientProvider>
+    </harness.wrapper>
   );
 
-  return { cache, router };
+  return { notify: harness.notify, router };
 }
 
 testStable(
@@ -107,7 +107,7 @@ testStable(
       nextCursor: null
     });
     const user = userEvent.setup();
-    const { router, cache } = show();
+    const { router, notify } = show();
     const newest = await screen.findByRole('link', { name: 'Document 2' });
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
@@ -131,10 +131,8 @@ testStable(
     );
     expect(screen.getByRole('navigation', { name: en.SourcePage })).toBeVisible();
     await act(async () => {
-      cache.setQueryData(['workspace-preferences'], {
-        ...defaultWorkspacePreferences,
-        sidebarDensity: 'compact'
-      });
+      preferences = { ...defaultWorkspacePreferences, sidebarDensity: 'compact' };
+      await notify();
     });
     await waitFor(() =>
       expect(screen.getByRole('link', { name: 'Document 2' })).toHaveAttribute(
@@ -146,14 +144,14 @@ testStable(
 );
 
 testStable(
-  'shows an empty document list and picks up a newly published document on cache refresh',
+  'shows an empty document list and picks up a newly published document after a server change hint',
   async () => {
-    const { cache } = show();
+    const { notify } = show();
 
     expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
     api.pages.mockResolvedValue({ items: [document(7n)], nextCursor: null });
     await act(async () => {
-      await cache.invalidateQueries({ queryKey: pagesOptions(project).queryKey });
+      await notify();
     });
     expect(await screen.findByRole('link', { name: 'Document 7' })).toBeInTheDocument();
     expect(screen.queryByText(en.PagesEmpty)).not.toBeInTheDocument();
@@ -161,10 +159,10 @@ testStable(
 );
 
 testStable('loads additional document pages without dropping the current rows', async () => {
-  api.pages.mockImplementation(({ cursor }) =>
+  api.pages.mockImplementation(({ limit }) =>
     Promise.resolve(
-      cursor
-        ? { items: [document(1n)], nextCursor: null }
+      limit > 30
+        ? { items: [document(2n), document(1n)], nextCursor: null }
         : { items: [document(2n)], nextCursor: 2n }
     )
   );
@@ -188,3 +186,102 @@ testStable('keeps failed reads recoverable through retry', async () => {
   expect(await screen.findByText(en.PagesEmpty)).toBeInTheDocument();
   expect(screen.queryByText(en.PagesLoadError)).not.toBeInTheDocument();
 });
+
+testStable(
+  'browses beyond one hundred rows in bounded live windows and returns to the newest window',
+  async () => {
+    const items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
+
+    api.pages.mockImplementation(({ limit, cursor }: { limit: number; cursor?: bigint }) => {
+      const start = cursor === undefined ? 0 : items.findIndex((item) => item.id === cursor) + 1;
+      const page = items.slice(start, start + limit);
+
+      return Promise.resolve({
+        items: page,
+        nextCursor: start + limit < items.length ? (page.at(-1)?.id ?? null) : null
+      });
+    });
+    const user = userEvent.setup();
+
+    show();
+    await screen.findByRole('link', { name: 'Document 151' });
+
+    for (const limit of [60, 90, 100]) {
+      await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+      await waitFor(() =>
+        expect(api.pages).toHaveBeenCalledWith(expect.objectContaining({ limit }))
+      );
+      await screen.findByRole('link', { name: `Document ${152 - limit}` });
+    }
+
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    await screen.findByRole('link', { name: 'Document 51' });
+    expect(screen.queryByRole('link', { name: 'Document 151' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: en.LibraryPrevious }));
+    await screen.findByRole('link', { name: 'Document 151' });
+    expect(screen.queryByRole('link', { name: 'Document 51' })).toBeNull();
+  }
+);
+
+testStable(
+  'a committed list replacement updates membership and ordering without duplicate rows',
+  async () => {
+    api.pages.mockResolvedValue({ items: [document(2n), document(1n)], nextCursor: null });
+    const view = show();
+
+    await screen.findByRole('link', { name: 'Document 1' });
+    api.pages.mockResolvedValue({
+      items: [document(3n), document(2n, { title: 'Renamed page' })],
+      nextCursor: null
+    });
+    await act(() => view.notify());
+    await screen.findByRole('link', { name: 'Renamed page' });
+    expect(screen.queryByRole('link', { name: 'Document 1' })).toBeNull();
+    expect(screen.getAllByRole('link').map((link) => link.getAttribute('aria-label'))).toEqual([
+      'Document 3',
+      'Renamed page'
+    ]);
+  }
+);
+
+testStable(
+  'a committed cursor-anchor deletion resets the mounted window to a fresh authoritative first page',
+  async () => {
+    let items = Array.from({ length: 151 }, (_, index) => document(BigInt(151 - index)));
+    const removed = new Set<bigint>();
+
+    api.pages.mockImplementation(({ limit, cursor }: { limit: number; cursor?: bigint }) => {
+      if (cursor !== undefined && removed.has(cursor))
+        return Promise.reject(new StudyError('not_found', 'Cursor unavailable'));
+
+      const start = cursor === undefined ? 0 : items.findIndex((item) => item.id === cursor) + 1;
+      const page = items.slice(start, start + limit);
+
+      return Promise.resolve({
+        items: page,
+        nextCursor: start + limit < items.length ? (page.at(-1)?.id ?? null) : null
+      });
+    });
+    api.remove.mockImplementation(async ({ pageId }: { pageId: bigint }) => {
+      removed.add(pageId);
+      items = items.filter((item) => item.id !== pageId);
+    });
+    const user = userEvent.setup();
+
+    show();
+    await screen.findByRole('link', { name: 'Document 151' });
+
+    for (const limit of [60, 90, 100]) {
+      await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+      await screen.findByRole('link', { name: `Document ${152 - limit}` });
+    }
+
+    await user.click(screen.getByRole('button', { name: en.LibraryMore }));
+    await screen.findByRole('link', { name: 'Document 51' });
+    await act(() => rpc.pages.delete.call({ pageId: document(52n).id, token: 'reviewed-anchor' }));
+    await screen.findByRole('link', { name: 'Document 151' });
+    expect(screen.queryByRole('link', { name: 'Document 51' })).toBeNull();
+    expect(screen.queryByRole('button', { name: en.LibraryPrevious })).toBeNull();
+    expect(api.remove).toHaveBeenCalledOnce();
+  }
+);

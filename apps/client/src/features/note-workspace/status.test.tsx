@@ -1,8 +1,9 @@
 import { catalogs, createLocalization } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, within } from '@testing-library/react';
 import { expect, vi } from 'vite-plus/test';
+
+import { rpcTestTransport } from '#client/test/rpc.tsx';
 
 import { ExecutionStatus } from './status';
 
@@ -18,18 +19,24 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   )
 }));
-vi.mock('./note-workspace.queries', () => ({
-  executionOptions: (id: string) => ({ queryKey: ['work-log', id], queryFn: api.executions })
-}));
 
 function mount() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const fixture = rpcTestTransport(async () => {
+    const page = await api.executions();
 
-  return render(
-    <QueryClientProvider client={client}>
-      <ExecutionStatus requestId="prompt" />
-    </QueryClientProvider>
-  );
+    return {
+      ...page,
+      items: page.items.map((item: object) => ({
+        correlationId: 'prompt',
+        failureKind: null,
+        configurationWaitReason: null,
+        canCancel: false,
+        ...item
+      }))
+    };
+  });
+
+  return render(<ExecutionStatus requestId="prompt" />, { wrapper: fixture.wrapper });
 }
 
 testStable('shows real request work in chronological muted rows', async () => {

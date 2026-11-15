@@ -1,76 +1,50 @@
 import type { NoteId } from '@study/contracts/ids';
 import type { ChatMessage } from '@study/contracts/notes/messages';
+import { rpc } from '@study/contracts/react';
 import type { executionSchema } from '@study/contracts/workflows/schemas';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import type { AiReadiness } from '#client/lib/ai-readiness.ts';
 
-import {
-  assistantAskOptions,
-  assistantChatsOptions,
-  assistantContextOptions,
-  newAssistantChatOptions,
-  assistantExecutionOptions,
-  assistantKey,
-  assistantReplyOptions,
-  assistantNoteOptions,
-  assistantThreadOptions
-} from './assistant.queries';
+import { useAssistantChats, useAssistantReply, useAssistantThread } from './assistant.queries';
 import { useAssistantDraft, useAssistantSelection } from './note';
 
 /** Reads committed history and keeps idempotent sends recoverable after transport failures. */
 export function useAssistant(scope?: NoteId) {
-  const cache = useQueryClient();
   const readiness = useAiReadiness('smart');
   const { selectedId, select, takeNewChatKey, clearNewChatKey, clearSentDraft } =
     useAssistantSelection();
-  const note = useQuery(assistantNoteOptions(selectedId, scope));
+  const globalNote = rpc.notes.assistantNote.useQuery(
+    scope === undefined ? { id: selectedId } : undefined
+  );
+  const scopedNote = rpc.notes.noteAssistant.useQuery(
+    scope === undefined ? undefined : { noteId: scope }
+  );
+  const note = scope === undefined ? globalNote : scopedNote;
   const { draft, setDraft } = useAssistantDraft(note.data?.id);
 
   useEffect(() => {
     if (scope !== undefined || selectedId !== undefined || !note.data) return;
 
-    cache.setQueryData(assistantNoteOptions(note.data.id).queryKey, note.data);
     select(note.data.id);
-  }, [cache, select, selectedId, note.data, scope]);
-  const chats = useInfiniteQuery({ ...assistantChatsOptions(), enabled: scope === undefined });
-  const createChat = useMutation({
-    ...newAssistantChatOptions(),
-    onSuccess: (created) => {
-      clearNewChatKey();
-      mutation.reset();
-      select(created.id);
-
-      return cache.invalidateQueries({ queryKey: assistantKey });
-    }
-  });
-  const history = useInfiniteQuery(assistantThreadOptions(note.data?.id));
-  const messages = [
-    ...new Map(
-      (history.data?.pages.flatMap((page) => page.items) ?? []).map((message) => [
-        message.id,
-        message
-      ])
-    ).values()
-  ].toSorted((a, b) => (a.id < b.id ? -1 : 1));
-  const pending = messages.findLast(pendingReply);
-  const provenance = useQuery(assistantReplyOptions(pending));
-  const requestId = provenance.data?.state === 'available' ? provenance.data.requestId : undefined;
-  const work = useQuery(assistantExecutionOptions(requestId));
+  }, [select, selectedId, note.data, scope]);
+  const chats = useAssistantChats(scope === undefined);
+  const createChat = rpc.notes.newAssistantNote.useMutation();
+  const history = useAssistantThread(note.data?.id);
+  const latest = rpc.notes.thread.useQuery(
+    note.data ? { noteId: note.data.id, limit: 30 } : undefined
+  );
+  const messages = orderedMessages(history.data?.pages.flatMap((page) => page.items));
+  const pending = latest.data?.items.findLast(pendingReply);
+  const provenance = useAssistantReply(pending);
+  const { requestId, work } = useReplyExecution(provenance.data);
   const execution = work.data?.items[0];
   const busy = replyBusy(pending, execution);
-  const context = useQuery(assistantContextOptions(note.data?.id, busy));
-  const mutation = useMutation({
-    ...assistantAskOptions(),
-    onSuccess: (_result, input) => {
-      if (input.noteId !== undefined) clearSentDraft(input.noteId, input.text);
-
-      return cache.invalidateQueries({ queryKey: assistantKey });
-    },
-    onError: () => cache.invalidateQueries({ queryKey: assistantKey })
-  });
+  const context = rpc.notes.assistantContext.useQuery(
+    note.data ? { noteId: note.data.id } : undefined
+  );
+  const mutation = rpc.notes.assistantAsk.useMutation();
   const blocked = sendBlocked(readiness, busy, mutation.isPending, history.isSuccess);
 
   return {
@@ -84,7 +58,14 @@ export function useAssistant(scope?: NoteId) {
     newChat: () => {
       if (createChat.isPending) return;
 
-      createChat.mutate(takeNewChatKey());
+      void createChat
+        .mutateAsync({ key: takeNewChatKey() })
+        .then((created) => {
+          clearNewChatKey();
+          mutation.reset();
+          select(created.id);
+        })
+        .catch(() => {});
     },
     messages,
     pending,
@@ -100,7 +81,7 @@ export function useAssistant(scope?: NoteId) {
     retry: () => {
       if (mutation.isError) mutation.reset();
 
-      void cache.invalidateQueries({ queryKey: assistantKey });
+      [note, history, latest, provenance, work, chats, context].forEach((query) => query.refetch());
     },
     setDraft: (text: string) => {
       if (!mutation.isPending) mutation.reset();
@@ -115,7 +96,14 @@ export function useAssistant(scope?: NoteId) {
       const intentKey = draft.intent?.text === text ? draft.intent.key : crypto.randomUUID();
 
       setDraft({ ...draft, intent: { text, key: intentKey } });
-      mutation.mutate({ text, intentKey, noteId: note.data?.id });
+      const noteId = note.data?.id;
+
+      void mutation
+        .mutateAsync({ text, intentKey, noteId })
+        .then(() => {
+          if (noteId !== undefined) clearSentDraft(noteId, text);
+        })
+        .catch(() => {});
 
       return true;
     }
@@ -146,4 +134,19 @@ function replyBusy(
   return (
     !!message && (!execution || ['running', 'suspended', 'cancelling'].includes(execution.status))
   );
+}
+
+function orderedMessages(messages: readonly ChatMessage[] = []) {
+  return [...new Map(messages.map((message) => [message.id, message])).values()].toSorted((a, b) =>
+    a.id < b.id ? -1 : 1
+  );
+}
+
+function useReplyExecution(provenance: ReturnType<typeof useAssistantReply>['data']) {
+  const requestId = provenance?.state === 'available' ? provenance.requestId : undefined;
+  const work = rpc.workflows.executions.useQuery(
+    requestId ? { correlationId: requestId, limit: 1 } : undefined
+  );
+
+  return { requestId, work };
 }

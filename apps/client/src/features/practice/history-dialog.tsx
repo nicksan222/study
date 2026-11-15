@@ -3,6 +3,7 @@ import type {
   quizAttemptSchema,
   quizAttemptInProgressSchema
 } from '@study/contracts/learning/schemas';
+import { rpc } from '@study/contracts/react';
 import { OpenIcon, HistoryIcon } from '@study/icons';
 import { questionNumber, reviewProgress } from '@study/localization';
 import { Dialog, DialogTrigger } from '@study/ui/dialog';
@@ -11,14 +12,13 @@ import { Practice } from '@study/ui/practice';
 import { SelectionSurface as Surface } from '@study/ui/selection';
 import { Textarea } from '@study/ui/textarea';
 import { WorkspaceCard } from '@study/ui/workspace';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
 import { AttemptState } from './attempt-state';
-import { attemptOptions, attemptsOptions } from './practice.queries';
+import { useAttempts } from './practice.queries';
 import { PracticeQueryState } from './query-state';
 import { QuizResults } from './quiz-results';
 
@@ -84,10 +84,10 @@ function AttemptsPopup({
 
 function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; close: () => void }) {
   const { t, date } = useI18n();
-  const history = useInfiniteQuery({ ...attemptsOptions(id), enabled: open });
+  const history = useAttempts(id, open);
   const [selected, select] = useState<QuizAttemptId>();
   const [search, setSearch] = useState('');
-  const items = history.data?.pages.flatMap((page) => page.items) ?? [];
+  const items = history.data?.items ?? [];
   const visible = items.filter(({ attempt }) =>
     (date(attempt.started_at) + ' ' + t(attemptStatus(attempt.status)))
       .toLocaleLowerCase()
@@ -113,6 +113,13 @@ function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; clo
             description={t(attemptStatus(attempt.status))}
           />
         ))}
+        {history.pagination.hasPrevious && (
+          <Surface.More
+            pending={history.isFetching}
+            onLoad={history.pagination.previous}
+            label={t('LibraryPrevious')}
+          />
+        )}
         {history.hasNextPage && (
           <Surface.More
             pending={history.isFetchingNextPage}
@@ -122,30 +129,14 @@ function AttemptsPanel({ id, open, close }: { id: MaterialId; open: boolean; clo
         )}
       </Surface.Navigation>
       <Surface.Main>
-        {!active && <Surface.DetailHeader title={<>{t('PracticeAttempts')}</>} />}
-        {active && !history.isError ? (
-          <AttemptPreview
-            key={String(active.attempt.id)}
-            id={active.attempt.id}
-            material={id}
-            open={open}
-            close={close}
-          />
-        ) : (
-          <Surface.Scroll>
-            <Surface.Body>
-              <PracticeQueryState state={history}>
-                <Surface.EmptyState
-                  icon={<HistoryIcon aria-hidden="true" />}
-                  title={<>{t(search ? 'SearchNoResults' : 'PracticeNoAttempts')}</>}
-                  description={
-                    <>{t(search ? 'PracticeAttemptSearchHelp' : 'PracticeQuizSaveHint')}</>
-                  }
-                />
-              </PracticeQueryState>
-            </Surface.Body>
-          </Surface.Scroll>
-        )}
+        <AttemptsDetail
+          active={active}
+          history={history}
+          material={id}
+          open={open}
+          close={close}
+          search={search}
+        />
       </Surface.Main>
     </Surface.Root>
   );
@@ -166,7 +157,7 @@ function AttemptPreview({
   open: boolean;
   close: () => void;
 }) {
-  const state = useQuery({ ...attemptOptions(id), enabled: open });
+  const state = rpc.learning.attempt.useQuery({ attemptId: id }, { enabled: open });
 
   return (
     <AttemptState state={state} material={material}>
@@ -302,5 +293,52 @@ function ResumeAttempt({ attempt, close }: { attempt: InProgress; close: () => v
       onClick={close}
       label={t('PracticeResume')}
     ></NextButton>
+  );
+}
+
+function AttemptsDetail({
+  active,
+  history,
+  material,
+  open,
+  close,
+  search
+}: {
+  active: NonNullable<ReturnType<typeof useAttempts>['data']>['items'][number] | undefined;
+  history: ReturnType<typeof useAttempts>;
+  material: MaterialId;
+  open: boolean;
+  close: () => void;
+  search: string;
+}) {
+  const { t } = useI18n();
+
+  return (
+    <>
+      {!active && <Surface.DetailHeader title={<>{t('PracticeAttempts')}</>} />}
+      {active && !history.isError ? (
+        <AttemptPreview
+          key={String(active.attempt.id)}
+          id={active.attempt.id}
+          material={material}
+          open={open}
+          close={close}
+        />
+      ) : (
+        <Surface.Scroll>
+          <Surface.Body>
+            <PracticeQueryState state={history}>
+              <Surface.EmptyState
+                icon={<HistoryIcon aria-hidden="true" />}
+                title={<>{t(search ? 'SearchNoResults' : 'PracticeNoAttempts')}</>}
+                description={
+                  <>{t(search ? 'PracticeAttemptSearchHelp' : 'PracticeQuizSaveHint')}</>
+                }
+              />
+            </PracticeQueryState>
+          </Surface.Body>
+        </Surface.Scroll>
+      )}
+    </>
   );
 }

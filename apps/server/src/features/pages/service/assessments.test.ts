@@ -24,6 +24,7 @@ import { Pages } from '#server/features/pages/index';
 import { PagesRpcLive } from '#server/features/pages/rpc/index';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { testLiveQueries } from '#testing/live-queries';
 
 const body = (text: string) => ({
   blocks: [plainBlock('paragraph', text, { type: 'authored' })],
@@ -150,7 +151,12 @@ testStable(
             (yield* rpc['pages.version']({ id: exact.id })).document.blocks[0]!.text ===
               'Evidence 😀'
           );
-        }).pipe(Effect.scoped, Effect.provide(PagesRpcLive.pipe(Layer.provideMerge(services))))
+        }).pipe(
+          Effect.scoped,
+          Effect.provide(
+            PagesRpcLive.pipe(Layer.provide(testLiveQueries)).pipe(Layer.provideMerge(services))
+          )
+        )
       );
     } finally {
       context.close();

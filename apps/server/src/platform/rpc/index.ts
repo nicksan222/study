@@ -33,7 +33,10 @@ export type RpcServerOptions<R extends Rpc.Any, E> = {
 };
 
 export function rpcRoutes<R extends Rpc.Any, E>(options: RpcServerOptions<R, E>) {
-  return RpcServer.layerHttp({ group: options.group, path: '/rpc', protocol: 'http' }).pipe(
+  return Layer.merge(
+    RpcServer.layerHttp({ group: options.group, path: '/rpc', protocol: 'http' }),
+    RpcServer.layerHttp({ group: options.group, path: '/rpc/live', protocol: 'websocket' })
+  ).pipe(
     Layer.provide(options.handlers),
     Layer.provide(RpcSerialization.layerNdjson),
     Layer.merge(HttpRouter.cors({ allowedOrigins: options.allowedOrigins ?? desktopOrigins }))
