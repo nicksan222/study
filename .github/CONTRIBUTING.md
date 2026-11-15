@@ -12,19 +12,18 @@ Thank you for helping with Study.
   [Architecture decision records](../doc/adr/architecture-decision-records.md).
 - Dependabot pull requests targeting `main` use squash auto-merge after the required
   `Test and build` check passes on the current base.
-- **Run `bun run check` before you push.** It is what CI runs: formatting, Clippy with warnings
-  denied, Rust tests/doctests/docs, repository-wide Vite+ format/lint, Fallow dead-code, complexity and duplication gates, frontend type/tests/build and browser E2E, generated database drift,
-  tooling tests, server package checks, and the website's Bun type check. CI uses explicit
-  sequential steps for Oxlint/formatting/Fallow, web checks and tooling tests in one
-  JavaScript job. Server tests, real integrations and native/package checks have separate
-  jobs. Browser CI uses the same devcontainer; other JavaScript and server checks run on the runner. The required
-  `Test and build` check requires every job. Package gates continue after earlier
-  failures, and native/package run summaries list their outcomes. The web build reuses
-  its earlier type check.
-- CI also requires real integrations (`bun run integrations:e2e`, with Docker) and the
-  packaged-runtime smoke test (`bun run desktop:runtime`, then
-  `python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime`). These are additional
-  gates beyond `bun run check`.
+- **Run `bun run check` before you push.** Turbo owns the verification graph for local
+  checks and CI: Rust formatting/Clippy/dependencies/tests/doctests/docs, repository-wide
+  Vite+ format/lint, Fallow, TypeScript checks, package tests, web build and browser E2E,
+  generated database drift, real integrations, the packaged-runtime smoke test, and landing
+  checks/build. Docker is required for real integrations. CI selects `ci:native`,
+  `ci:javascript`, `ci:server`, `web:e2e`, and `integrations:e2e` from the same graph rather
+  than maintaining another gate list. Native gates include repository-wide static checks
+  and landing verification; JavaScript gates own TypeScript checks and client/tooling tests;
+  server gates own server/database and shared server-package tests. Browser CI uses the same
+  devcontainer; other checks run on the runner. The required `Test and build` check requires
+  every job. Independent gates continue after failures; dependent tasks run only when their
+  prerequisites pass. The web build reuses its prerequisite type check.
 - **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
   Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
@@ -401,7 +400,7 @@ are preserved because their liveness cannot be checked safely. Contract fixtures
 by test finalizers, and their disposable Vitest runners disable persistent module caching. Set `E2E_REVIEW=1` to retain successful
 traces too and bypass attempt retirement; open a trace with `bun x --bun playwright show-trace PATH`.
 
-After building, `bun run web:e2e:capacity 3 2` measures three complete comparison
+`bun run web:e2e:capacity 3 2` builds as needed, then measures three complete comparison
 runs with two workers and writes timings under `test-results/`. Counts represent
 repeated pilot invocations, not additional workflow coverage. Increase the first
 argument up to 100 for longer measurements; supported worker counts are 1, 2 and 4.
@@ -420,6 +419,15 @@ Turbo handles selection, dependency ordering, and local caching. Shared source-o
 packages participate in the graph without redundant builds or separate typecheck projects.
 The existing server, client and tooling TypeScript projects remain the checking boundaries.
 
+CI group membership is defined in `turbo.json`: `check:native`, `check:javascript`, and
+`check:server` are aggregate tasks without shell commands. The `ci:*` scripts select those
+groups. Native and repository-wide static gates are sibling tasks, so a lint or formatting
+failure does not suppress other independent checks. Browser and integration commands select the client `e2e` and server `integrations`
+tasks, respectively. `web:e2e:compare` uses the same browser task and forwards runner options
+such as `--maxWorkers`; it keeps the build prerequisite. The full check also stages the
+private server before running its packaged-runtime smoke test. Regression tests compare
+runnable tasks across local and CI plans to detect missing gates.
+
 Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
 Root task commands evict entries older than seven days and then the oldest entries above
 512 MiB after Turbo exits. Persistent Vitest transforms are bounded separately to 128 MiB
@@ -428,6 +436,8 @@ misses simply rerun the task. Architecture checks reject bypassed root entry poi
 divergent native output paths and broadened image contexts. Oxlint rejects persistent
 module caching in disposable runners and contract fixtures allocated under `test-results/`. Direct `bun --bun turbo` calls bypass this maintenance.
 Server/database, real integration, browser-journey, tooling and native tests stay uncached.
+Repository-wide static gates also run fresh. Their inputs select shared policy changes for
+affected checks; selected package checks still require the complete static gates.
 Build output and generated routes are restored on cache hits. Shared configuration and
 explicit cross-package inputs invalidate affected task results; task-input-aware selection
 is enabled and covered by regression tests. Tasks run one at a time to avoid contention
