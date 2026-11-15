@@ -1,3 +1,29 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Requires canonical declarations and contract-derived schemas for feature agents.   │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production server feature agent modules exporting raw agent objects or configuring       │
+ * │ canonical defineAgent calls without filename-matching id, contract-derived input/output, │
+ * │ tiny/medium/smart model, instructions and prompt. Spreads and per-agent limits are       │
+ * │ rejected; runtime owns limits, while helper functions and literal exports remain         │
+ * │ allowed.                                                                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/pages/agents/page-transform.ts                             │
+ * │   import { defineAgent } from '#server/platform/definitions/define-agent';               │
+ * │   import { promptInputSchema } from '@study/contracts/ai/shared';                        │
+ * │   import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';        │
+ * │   export const agent = defineAgent({ id: 'page-transform', input: promptInputSchema,     │
+ * │     output: pageTransformOutputSchema, model: 'medium',                                  │
+ * │     instructions: 'Transform captured notes.', prompt: ({ prompt }) => prompt });        │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/pages/agents/page-transform.ts                             │
+ * │   export const agent = { generate: async () => 'text' };                                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { featureRole, serverPath, targetPath } from '../architecture-imports.ts';

@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require targeted predicates for server updates and deletes.                        │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents accidental whole-table mutations in executed Drizzle chains and tagged SQL.     │
+ * │ Missing predicates and recognized tautologies fail; targeted upserts are allowed.        │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { sql } from '@study/db';                                                       │
+ * │   sql`DELETE FROM notes WHERE id = ${id}`;                                               │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { sql } from '@study/db';                                                       │
+ * │   sql`DELETE FROM notes WHERE 1 = 1`;                                                    │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {

@@ -33,6 +33,7 @@ import featurePreviewBoundary from './rules/feature-preview-boundary.ts';
 import harnessBoundary from './rules/harness-boundary.ts';
 import iconAliases from './rules/icon-aliases.ts';
 import integrationTestEnvironment from './rules/integration-test-environment.ts';
+import lintRuleDescription from './rules/lint-rule-description.ts';
 import metricCardinality from './rules/metric-cardinality.ts';
 import nativeClock from './rules/native-clock.ts';
 import noDeepRelativeImports from './rules/no-deep-relative-imports.ts';
@@ -118,6 +119,7 @@ export default definePlugin({
     'preserve-error-cause': preserveErrorCause,
 
     'server-file-description': serverFileDescription,
+    'lint-rule-description': lintRuleDescription,
     'server-no-mocks': serverNoMocks,
     'database-ownership': databaseOwnership,
     'browser-boundary': browserBoundary,

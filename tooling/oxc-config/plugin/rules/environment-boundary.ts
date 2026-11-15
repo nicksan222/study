@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Confine server environment reads to startup configuration.                         │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents server production modules from acquiring hidden process configuration. Only     │
+ * │ runtime/config.ts and runtime/main.ts may read process.env, including aliases.           │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/runtime/config.ts                                                   │
+ * │   const port = process.env.PORT;                                                         │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/settings/service/config.ts                                 │
+ * │   const port = process.env.PORT;                                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { serverProduction, propertyName } from '../effect-bindings.ts';

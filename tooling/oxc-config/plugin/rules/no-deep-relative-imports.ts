@@ -1,3 +1,19 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Replace imports climbing multiple parent levels with aliases.                      │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents module edges from depending on distant directory structure. Counts normalized   │
+ * │ parent traversal across imports, exports and recognized loaders.                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import './reads.ts';                                                                   │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import '../../platform/database/context.ts';                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';

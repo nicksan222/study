@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require bound SQL values in server database operations.                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents dynamic sql.raw input and connection-level exec from bypassing parameter        │
+ * │ binding. Only literal strings or interpolation-free templates are accepted by raw.       │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { sql } from '@study/db';                                                       │
+ * │   sql`SELECT * FROM notes WHERE id = ${id}`;                                             │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { sql } from '@study/db';                                                       │
+ * │   sql.raw(`SELECT * FROM notes WHERE id = ${id}`);                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { memberName as property, imported } from '../lexical-bindings.ts';

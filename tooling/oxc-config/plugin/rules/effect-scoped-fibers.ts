@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require background Effect fibers to retain an owning scope.                        │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source outside runtime/main.ts, prevents forkDetach and  │
+ * │ forkIn with an inline Scope.makeUnsafe(). Named scope ownership is not proven by this    │
+ * │ rule.                                                                                    │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.forkScoped(work);                                                               │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.forkDetach(work);                                                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';

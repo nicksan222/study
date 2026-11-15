@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep provider integrations in one shared disposable image.                         │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents provider-specific Docker runtimes and incomplete installation fixtures.         │
+ * │ Validates shared fixtures at the integrations entrypoint; only environment.ts launches   │
+ * │ Docker.                                                                                  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // tooling/testing/integrations/environment.ts                                         │
+ * │   Bun.spawn(['docker', 'build', '--file',                                                │
+ * │     'tooling/testing/integrations/Dockerfile', '.']);                                    │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // tooling/testing/integrations/providers/obsidian/import.integration.test.ts          │
+ * │   Bun.spawn(['docker', 'run', 'private-image']);                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Effect, FileSystem, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';

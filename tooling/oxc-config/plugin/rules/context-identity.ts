@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Preserve native Context.Service identity keys.                                     │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents assignment to a resolved Context.Service key, including Object.assign through   │
+ * │ constant aliases; attaching other properties is allowed. This rule has no path           │
+ * │ restriction.                                                                             │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Context } from 'effect';                                                      │
+ * │   const tag = Context.Service('study/X');                                                │
+ * │   Object.assign(tag, { layer });                                                         │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Context } from 'effect';                                                      │
+ * │   const tag = Context.Service('study/X');                                                │
+ * │   tag.key = other;                                                                       │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';

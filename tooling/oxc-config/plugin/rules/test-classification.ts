@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep test classification visible at every registration.                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents raw, aliased, hidden or conditionally disabled test registrations outside the   │
+ * │ canonical adapters. Classified factories require valid literal catalog metadata and      │
+ * │ temporary coverage needs a meaningful removal condition.                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { testStable } from '@study/testing/vitest';                                    │
+ * │   testStable('reads a note', () => {});                                                  │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { test } from 'vite-plus/test';                                                 │
+ * │   test('reads a note', () => {});                                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunPath } from '@effect/platform-bun';
 import { classificationLabel } from '@study/testing/classification';
 import { Effect, Path } from 'effect';

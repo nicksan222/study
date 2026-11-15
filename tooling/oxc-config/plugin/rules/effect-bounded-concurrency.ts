@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require explicit concurrency limits on variable Effect batches to be finite        │
+ * │ positive integers.                                                                       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server and client source, prevents unbounded or opaque explicit            │
+ * │ concurrency on Effect.all/forEach. Omitted concurrency and fixed array/object batches    │
+ * │ remain allowed.                                                                          │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.forEach(items, work, { concurrency: 4 });                                       │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Effect } from 'effect';                                                       │
+ * │   Effect.forEach(items, work, { concurrency: 'unbounded' });                             │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { effectBindings } from '../effect-bindings.ts';

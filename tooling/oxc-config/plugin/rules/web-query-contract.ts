@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps reactive endpoint consumption separate from transport execution and protocol │
+ * │ schemas.                                                                                 │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production client modules importing raw RPC/runtime operations outside lib/effect and    │
+ * │ explicit composition exceptions. Consumers use @study/contracts/react; protocol          │
+ * │ contracts stay React-free except react.ts/react-state.ts. Only value module edges are    │
+ * │ checked; endpoint constructors own the reactive contract's type enforcement.             │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/features/library/library.queries.ts                                 │
+ * │   import { rpc } from '@study/contracts/react';                                          │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/features/library/library.queries.ts                                 │
+ * │   import { makeStudyClient } from '@study/server/client';                                │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { moduleEdges } from '../architecture-imports.ts';

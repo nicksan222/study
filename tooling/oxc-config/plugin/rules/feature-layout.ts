@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep server features in role folders with bound store resources.                   │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents ambiguous feature layout, leaked entrypoint exports and per-operation resource  │
+ * │ plumbing. Store factories bind resources once and return both groups.                    │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/notes/index.ts                                             │
+ * │   export { Notes } from './service/index.ts';                                            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/index.ts                                             │
+ * │   export { NotesStore } from './store/index.ts';                                         │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { serverPath } from '../architecture-imports.ts';

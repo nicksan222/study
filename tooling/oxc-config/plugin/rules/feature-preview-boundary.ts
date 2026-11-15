@@ -1,3 +1,24 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Makes fixture previews render real feature presentation without production I/O.    │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test apps/client/src/feature-previews modules importing production hooks/transport,  │
+ * │ accessing native network globals, or building duplicate native/shared controls. The      │
+ * │ public index.tsx must render an imported feature component; landing art is outside this  │
+ * │ scope.                                                                                   │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/client/src/feature-previews/index.tsx                                          │
+ * │   import { QuizQuestion } from '../features/practice/quiz-question';                     │
+ * │   export const Preview = () => <QuizQuestion {...fixture} />;                            │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/client/src/feature-previews/example.tsx                                        │
+ * │   const data = fetch('/api');                                                            │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunPath } from '@effect/platform-bun';
 import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';

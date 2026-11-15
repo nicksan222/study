@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Routes client error feedback through canonical shared error presentation.          │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test client source rendering custom alerts or prose/recovery buttons in recognized   │
+ * │ error branches and named error presenters. Imported ErrorState and Sidebar.Message,      │
+ * │ linked field validation, and branches returning null remain allowed. This is a syntactic │
+ * │ check of recognized flags/statuses, not exhaustive error-flow analysis.                  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { ErrorState } from '@study/ui/error-state';                                    │
+ * │   const view = error && <ErrorState title={t('Failure')} />;                             │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   const view = error && <p>{t('Failure')}</p>;                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 import type { ESTree } from 'vite-plus/lint/plugins';
 

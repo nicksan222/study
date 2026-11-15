@@ -1,3 +1,20 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep direct Drizzle access behind the database facades.                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents bypassing database ownership and mandatory table metadata through imports,      │
+ * │ exports or loaders. Only the named database infrastructure files and db tests are        │
+ * │ exempt.                                                                                  │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { sql } from '@study/db';                                                       │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { sql } from 'drizzle-orm';                                                     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { requireBindings } from '../require-bindings.ts';

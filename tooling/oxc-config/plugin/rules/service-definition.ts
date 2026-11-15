@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require one exported feature service with its feature-owned identity.              │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production server feature service entries and feature indexes, prevents missing or    │
+ * │ multiple exported defineService constructions and keys other than                        │
+ * │ study/<PascalCaseFeature>. A feature index may instead reexport its canonical service    │
+ * │ entry.                                                                                   │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/notes/service/index.ts                                     │
+ * │   import { defineService } from '#server/platform/definitions/define-service';           │
+ * │   export const Notes = defineService('study/Notes', make);                               │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/service/index.ts                                     │
+ * │   import { defineService } from '#server/platform/definitions/define-service';           │
+ * │   export const Notes = defineService('study/Wrong', make);                               │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { entry, entryReexport, factoryCall } from './module-factories.ts';

@@ -1,3 +1,22 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Routes application transactions through ServerContext instead of the raw database. │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production server code calling transaction on recognized @study/db Db values, their orm, │
+ * │ or typed context database aliases. platform/database/context.ts implements the boundary  │
+ * │ and is exempt, as are tests. Unrelated methods named transaction are not rejected.       │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import type { ServerContext } from '#server/platform/database/context';                │
+ * │   function save(ctx: ServerContext) { ctx.transaction(() => update()); }                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   function save(db: Db) { db.orm.transaction(() => update()); }                          │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import {

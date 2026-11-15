@@ -1,3 +1,26 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Reserve workflow state and Effect execution storage for their owners.              │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents server production writes to workflow tables outside mapped platform owners.     │
+ * │ Reads remain allowed. Across non-test files, cluster_* schema and mutation SQL stay      │
+ * │ owned by official Effect infrastructure, including literal SQL and table declarations.   │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/src/features/notes/store/read.ts                                        │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   import { workflow_executions } from '@study/db/schema';                                │
+ * │   function read(db: Db) { return db.orm.select().from(workflow_executions).all(); }      │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/src/features/notes/store/write.ts                                       │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   import { workflow_executions } from '@study/db/schema';                                │
+ * │   function write(db: Db) { db.orm.update(workflow_executions).set({}); }                 │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { persistenceWriters, sqlMutationTargets } from './persistence-writers.ts';

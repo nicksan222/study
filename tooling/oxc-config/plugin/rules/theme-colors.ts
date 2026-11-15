@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Requires semantic theme colors in client and shared UI source.                     │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Non-test apps/client/src and packages/ui/src strings/templates containing literal colors │
+ * │ or raw palette utilities, plus named colors in color-bearing properties and SVG          │
+ * │ attributes. Semantic variables, currentColor, transparent and ordinary prose remain      │
+ * │ legal; landing art is outside this rule's scope.                                         │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   const view = <div className="bg-background text-foreground" />;                        │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   const view = <div className="bg-red-500" />;                                           │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 import type { ESTree } from 'vite-plus/lint/plugins';
 

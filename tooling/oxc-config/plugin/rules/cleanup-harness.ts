@@ -1,3 +1,28 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep unsafe workflow retirement inside cleanupActivity.                            │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ In production features/<feature>/workflows modules, prevents direct unsafe               │
+ * │ WorkflowControl cancellation from bypassing guarded cleanup and failure settlement; safe │
+ * │ cancellation is allowed.                                                                 │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { WorkflowControl } from '#server/platform/workflows/control';                  │
+ * │   function* retire() {                                                                   │
+ * │     const control = yield* WorkflowControl;                                              │
+ * │     yield* control.cancel({ id, mode: 'safe' });                                         │
+ * │   }                                                                                      │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { WorkflowControl } from '#server/platform/workflows/control';                  │
+ * │   function* retire() {                                                                   │
+ * │     const control = yield* WorkflowControl;                                              │
+ * │     yield* control.cancel({ id, mode: 'unsafe' });                                       │
+ * │   }                                                                                      │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { serverProduction } from '../effect-bindings.ts';

@@ -1,3 +1,25 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep durable library identities independent of project ownership.                  │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents project columns or references on materials, material_versions and notes in db   │
+ * │ schema sqliteTable declarations. Membership and request tables remain separate.          │
+ * │ Detection follows raw drizzle-orm/sqlite-core constructors, not defineTable facades.     │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // packages/db/src/schema/example.ts                                                   │
+ * │   import { defineTable, integer } from '../schema-builder.ts';                           │
+ * │   defineTable({ role: 'internal', reason: 'Project membership' })(                       │
+ * │     'project_materials', { project_id: integer() });                                     │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // packages/db/src/schema/example.ts                                                   │
+ * │   import { sqliteTable, integer } from 'drizzle-orm/sqlite-core';                        │
+ * │   sqliteTable('materials', { project_id: integer() });                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { propertyName } from '../effect-bindings.ts';

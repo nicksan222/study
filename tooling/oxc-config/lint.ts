@@ -52,14 +52,16 @@ export const lint = {
     'target/**'
   ],
   rules: {
+    // Readability and rendering safety beyond the correctness category.
     'eslint/max-depth': ['error', 3],
     'eslint/max-nested-callbacks': ['error', 3],
+    'react/rules-of-hooks': 'error',
     'react/no-array-index-key': 'error',
     'react/no-unstable-nested-components': 'error',
     'oxc/no-accumulating-spread': 'error',
-    'eslint/no-unsafe-optional-chaining': 'error',
-    'eslint/no-empty-pattern': 'error',
     'unicorn/no-useless-spread': 'error',
+
+    // Server construction, feature architecture and test harnesses.
     'study/effect-function-harness': 'error',
     'study/service-access': 'error',
     'study/validated-mutation': 'error',
@@ -98,6 +100,7 @@ export const lint = {
     'study/executed-query': 'error',
     'study/sql-null-comparison': 'error',
 
+    // Effect lifecycles, persistence integrity and typed failure handling.
     'study/drizzle-boundary': 'error',
     'study/effect-scoped-fibers': 'error',
     'study/effect-no-native-timers': 'error',
@@ -120,7 +123,9 @@ export const lint = {
     'study/no-error-message-matching': 'error',
     'study/preserve-error-cause': 'error',
 
+    // Module ownership and shared browser presentation.
     'study/server-file-description': 'error',
+    'study/lint-rule-description': 'error',
     'study/server-no-mocks': 'error',
     'study/effect-native-combinators': 'error',
     'study/database-ownership': 'error',
@@ -143,6 +148,19 @@ export const lint = {
     'study/web-query-contract': 'error',
     'study/web-router-loaders': 'error',
     'study/web-router-navigation': 'error',
+
+    // Bindings, import conventions and statement layout.
+    'eslint/no-unused-vars': [
+      'error',
+      { args: 'all', argsIgnorePattern: '^_', caughtErrors: 'none', varsIgnorePattern: '^_' }
+    ],
+    'typescript/consistent-type-exports': 'error',
+    'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
+    'typescript/no-import-type-side-effects': 'error',
+    'typescript/consistent-type-imports': [
+      'error',
+      { prefer: 'type-imports', fixStyle: 'separate-type-imports' }
+    ],
     'vite-plus/prefer-vite-plus-imports': 'error',
     '@stylistic/padding-line-between-statements': [
       'error',
@@ -174,6 +192,8 @@ export const lint = {
         ]
       }
     ],
+
+    // Test registration and assertion safety.
     'vitest/padding-around-test-blocks': 'error',
     'vitest/no-standalone-expect': [
       'error',
@@ -190,30 +210,21 @@ export const lint = {
         ]
       }
     ],
-    // Keep the same explicit exceptions as Groam's shared Oxlint policy.
-    'vitest/require-mock-type-parameters': 'off',
-    'typescript/no-misused-spread': 'off',
-    'typescript/unbound-method': 'off',
-    'jsx-a11y/prefer-tag-over-role': 'off',
-    'vitest/require-to-throw-message': 'off',
     'vitest/valid-expect': ['error', { maxArgs: 2 }],
-    'react/refs': 'off',
-    'vitest/no-conditional-expect': 'off',
-    'typescript/restrict-template-expressions': 'off',
-    'eslint/no-unused-vars': [
-      'error',
-      { args: 'all', argsIgnorePattern: '^_', caughtErrors: 'none', varsIgnorePattern: '^_' }
-    ],
-    'react/rules-of-hooks': 'error',
-    'typescript/consistent-type-exports': 'error',
-    'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
-    'typescript/no-import-type-side-effects': 'error',
-    'typescript/consistent-type-imports': [
-      'error',
-      { prefer: 'type-imports', fixStyle: 'separate-type-imports' }
-    ],
     'vitest/no-focused-tests': 'error',
-    'vitest/no-disabled-tests': 'error'
+    'vitest/no-disabled-tests': 'error',
+
+    // Explicit exceptions to the correctness category.
+    // Mock signatures are irrelevant to server tests, which forbid mock APIs.
+    'vitest/require-mock-type-parameters': 'off',
+    // Shared widgets use ARIA roles where native tags do not match their interactions.
+    'jsx-a11y/prefer-tag-over-role': 'off',
+    // Error tests may assert typed failures without coupling to message wording.
+    'vitest/require-to-throw-message': 'off',
+    // Ref-backed shared controls need a separate React Compiler compatibility audit.
+    'react/refs': 'off',
+    // Oxlint does not recognize classified registrations such as testStable for this rule.
+    'vitest/no-conditional-expect': 'off'
   },
   overrides: [
     {
@@ -221,10 +232,6 @@ export const lint = {
       rules: {
         'react/rules-of-hooks': 'off',
         'typescript/array-type': ['error', { default: 'array' }],
-        'typescript/switch-exhaustiveness-check': [
-          'error',
-          { considerDefaultExhaustiveForUnions: false }
-        ],
         'eslint/no-restricted-properties': ['error', { property: 'mock', message: noServerMocks }],
         'eslint/no-restricted-imports': [
           'error',

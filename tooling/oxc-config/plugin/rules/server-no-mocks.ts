@@ -1,3 +1,23 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keep server tests on real database and runtime dependencies.                       │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents dynamic mock-runner imports and object literals asserted into imported Db, App  │
+ * │ or ServerContext types. Static mock API restrictions live in lint config.                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   // apps/server/test/example.test.ts                                                    │
+ * │   import { createTestDatabase } from '@study/db/testing';                                │
+ * │   const database = await createTestDatabase();                                           │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   // apps/server/test/example.test.ts                                                    │
+ * │   import type { Db } from '@study/db';                                                   │
+ * │   const db = {} as Db;                                                                   │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { BunPath } from '@effect/platform-bun';
 import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
@@ -70,29 +90,6 @@ export default defineRule({
             if (types.includes(imported)) namedTypes.set(specifier.local.name, specifier);
           }
         }
-
-        if (!mockModules.has(node.source.value) || node.importKind === 'type') return;
-
-        if (
-          node.source.value === 'jest-mock' ||
-          node.specifiers.some(
-            (s) =>
-              s.type !== 'ImportSpecifier' ||
-              (s.importKind !== 'type' &&
-                ['vi', 'vitest', 'jest'].includes(
-                  s.imported.type === 'Identifier' ? s.imported.name : s.imported.value
-                ))
-          )
-        )
-          context.report({ node, message });
-      },
-      ExportNamedDeclaration(node) {
-        if (node.source && mockModules.has(node.source.value) && node.exportKind !== 'type')
-          context.report({ node, message });
-      },
-      ExportAllDeclaration(node) {
-        if (mockModules.has(node.source.value) && node.exportKind !== 'type')
-          context.report({ node, message });
       },
       ImportExpression(node) {
         if (

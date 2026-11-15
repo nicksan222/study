@@ -9,7 +9,7 @@ import { lintFiles as lintSources, root } from './utils.ts';
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-// These fixtures exercise other policies; keep their module guides valid.
+// These fixtures exercise other policies; keep their module purposes documented.
 const lintFiles: typeof lintSources = async (files, ...options) =>
   await lintSources(
     Object.fromEntries(

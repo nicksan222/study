@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Keeps client AI actions behind the provider-readiness wrapper.                     │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Production apps/client/src code bypassing readiness and guarded clicks by importing,     │
+ * │ reexporting or dynamically loading AiButton. The wrapper, .test files and activity-only  │
+ * │ AiIcon/AiActivity imports are exempt; this rule does not validate tier props.            │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { AiActionButton } from '#client/lib/ai-action-button.tsx';                     │
+ * │   const action = <AiActionButton tier="medium" label={t('Generate')} />;                 │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { AiButton } from '@study/ui/ai-button';                                        │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 /** Keep the presentation-only AI action behind the app's provider readiness guard. */

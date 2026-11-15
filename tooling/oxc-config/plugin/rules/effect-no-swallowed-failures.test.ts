@@ -11,11 +11,11 @@ testStable('reports misuse and accepts scoped alternatives', async () => {
     'effect-no-swallowed-failures',
     await lintRule('effect-no-swallowed-failures', {
       'src/procedures/bad.ts':
-        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.ignore(E.fail('bad')); E.catch(() => E.void); E.catchCause(() => E.succeed(null));",
+        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.ignore(E.fail('bad')); E.catch(() => E.void); E.catchCause(() => E.succeed(undefined));",
       'src/procedures/good.ts':
         "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.catchTag('Missing', () => E.succeed(null)); E.catch(error => E.fail(error));",
       'src/procedures/example.test.ts':
-        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.ignore(E.fail('bad')); E.catch(() => E.void); E.catchCause(() => E.succeed(null));"
+        "import { Effect as E } from 'effect'; import { StudyError } from '@study/server/shared/errors'; E.ignore(E.fail('bad')); E.catch(() => E.void); E.catchCause(() => E.succeed(undefined));"
     }),
     [
       ['src/procedures/bad.ts', message],
@@ -77,7 +77,7 @@ testStable(
       'effect-no-swallowed-failures',
       await lintRule('effect-no-swallowed-failures', {
         'src/bad.ts':
-          "import {Effect as E} from 'effect'; const ignore = () => E.void; const alias = ignore; E.catch(alias); function fallback() { return E.succeed(null); } E.catchCause(task, fallback);",
+          "import {Effect as E} from 'effect'; const ignore = () => E.void; const alias = ignore; E.catch(alias); function fallback() { return E.succeed(undefined); } E.catchCause(task, fallback);",
         'src/good.ts':
           "import {Effect as E} from 'effect'; const propagate = error => E.fail(error); E.catch(propagate); let mutable = () => E.void; E.catch(mutable); const ignore = () => E.void; function f(ignore: any) { E.catch(ignore); } function same(same: any) { E.catch(same); }"
       }),
@@ -88,3 +88,17 @@ testStable(
     );
   }
 );
+
+testStable('accepts explicit recovery values while rejecting discarded failures', async () => {
+  assertDiagnostics(
+    'effect-no-swallowed-failures',
+    await lintRule('effect-no-swallowed-failures', {
+      'src/recovery.ts':
+        "import { Effect as E } from 'effect'; E.catch(error => E.succeed(error)); E.catch(() => E.succeed(null)); E.catch(() => E.succeed([])); E.catch(() => E.succeed({ available: false })); E.catch(() => E.succeed(undefined)); E.catch(() => E.succeed(void 0));"
+    }),
+    [
+      ['src/recovery.ts', message],
+      ['src/recovery.ts', message]
+    ]
+  );
+});

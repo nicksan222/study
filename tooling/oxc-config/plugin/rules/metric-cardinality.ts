@@ -1,3 +1,21 @@
+/**
+ * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
+ * │ @file Require bounded attributes on server Effect metrics.                               │
+ * │                                                                                          │
+ * │ Prevents:                                                                                │
+ * │ Prevents dynamic or identity-bearing metric labels from creating unbounded series.       │
+ * │ Accepts literal or enum labels and the canonical safeMetricLabels helper.                │
+ * │                                                                                          │
+ * │ Allowed:                                                                                 │
+ * │   import { Metric } from 'effect';                                                       │
+ * │   Metric.withAttributes({ status: 'ok' });                                               │
+ * │                                                                                          │
+ * │ Rejected:                                                                                │
+ * │   import { Metric } from 'effect';                                                       │
+ * │   Metric.withAttributes({ requestId: 'request-1' });                                     │
+ * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
+ */
+
 import { defineRule } from 'vite-plus/lint/plugins';
 
 import { targetPath } from '../architecture-imports.ts';
