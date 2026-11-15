@@ -270,8 +270,9 @@
       "name": "study-oxlint",
       "enablers": ["vite-plus"],
       "toolingDependencies": ["@stylistic/eslint-plugin"],
-      // Vitest consumes these default exports as a fixture config and globalSetup hook.
+      // Test runners consume these default exports as fixture configuration and global setup.
       "configPatterns": [
+        "apps/client/playwright.config.ts",
         "apps/server/test/testing/automatic-fixture.config.ts",
         "apps/client/test/e2e/harness/preflight.ts"
       ]

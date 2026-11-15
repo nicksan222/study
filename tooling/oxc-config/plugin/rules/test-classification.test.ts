@@ -9,6 +9,8 @@ testStable(
     for (const source of [
       "import { test } from 'node:test'; test('raw', () => {});",
       "import { it as check } from 'vite-plus/test'; check('raw', () => {});",
+      "import {test as check} from 'playwright/test'; check('raw', () => {});",
+      "import {test} from '@playwright/test'; test('raw', () => {});",
       "import raw from 'node:test'; raw('raw', () => {});",
       "import * as runner from 'node:test'; runner.test('raw', () => {});",
       "export { test as testStable } from 'node:test';",

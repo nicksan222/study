@@ -15,24 +15,6 @@ export default defineConfig({
       'apps/client',
       {
         test: {
-          name: 'web-e2e',
-          // Persisted transforms executed stale selectors in the bind-mounted E2E run.
-          fsModuleCache: false,
-          globalSetup: ['./apps/client/test/e2e/harness/preflight.ts'],
-          environment: 'node',
-          include: [
-            'apps/client/test/e2e/*.test.ts',
-            'apps/client/test/e2e/harness/*.browser.test.ts'
-          ],
-          isolate: false,
-          sequence: { concurrent: false },
-          pool: 'forks',
-          testTimeout: 120000,
-          hookTimeout: 30000
-        }
-      },
-      {
-        test: {
           name: 'server',
           environment: 'node',
           include: [

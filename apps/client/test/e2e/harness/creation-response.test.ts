@@ -10,7 +10,6 @@ import { createServer } from 'vite-plus';
 import { assert, expect, onTestFinished } from 'vite-plus/test';
 
 import { CreationFrames, creationResponse } from './creation-response.ts';
-import { owned } from './lifecycle.ts';
 
 const bytes = (value: unknown) => Buffer.from(JSON.stringify(value) + '\n');
 
@@ -163,164 +162,146 @@ testStable('owner teardown terminates a creation response that arrives later', a
 for (const cleanup of [
   'explicit drop',
   'journey failure',
-  'runner cancellation',
+  'owner disposal',
   'failed Exit'
 ] as const) {
   testStable(
     `real committed creation loses only its receipt and drains on ${cleanup}`,
     async () => {
-      let finalize: (() => Promise<void>) | undefined;
       let pending: Promise<Exit.Exit<unknown, unknown>> | undefined;
       let failed = false;
-      const run = owned(
-        async (own) => {
-          const database = await createTestDatabase();
+      const run = (async () => {
+        await using resources = new AsyncDisposableStack();
 
-          own(() => database.cleanup());
-          const app = await App.open({ path: await database.prepare() });
+        onTestFinished(() => resources.disposeAsync());
+        const database = await createTestDatabase();
 
-          own(() => app.close());
-          const server = await serve(app);
+        resources.defer(() => database.cleanup());
+        const app = await App.open({ path: await database.prepare() });
 
-          own(() => server.close());
-          const fault = creationResponse();
-          const proxy = studyRpcProxy(server.url);
+        resources.defer(() => app.close());
+        const server = await serve(app);
 
-          proxy['/rpc'] = fault.proxy(proxy['/rpc']!);
-          const web = await createServer({
-            configFile: false,
-            server: { host: '127.0.0.1', port: 0, hmr: false, proxy },
-            optimizeDeps: { noDiscovery: true }
-          });
+        resources.defer(() => server.close());
+        const fault = creationResponse();
+        const proxy = studyRpcProxy(server.url);
 
-          own(() => web.close());
-          own(async () => {
-            await pending;
-          });
-          own(() => fault.close());
-          await web.listen();
-          const address = web.httpServer?.address();
-
-          assert.ok(address && typeof address !== 'string');
-          const baseUrl = `http://127.0.0.1:${address.port}`;
-          const loss = fault.arm();
-          const load = (url: string) =>
-            Effect.runPromise(
-              Effect.scoped(
-                Effect.gen(function* () {
-                  const client = yield* makeStudyClient(StudyRpc, { baseUrl: url });
-
-                  return yield* client['notes.notes']({ limit: 100 });
-                })
-              )
-            );
-          const before = await load(baseUrl);
-
-          assert.strictEqual(before.items.length, 0);
-          pending = Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const client = yield* makeStudyClient(StudyRpc, { baseUrl });
-
-                return yield* Effect.exit(
-                  client['notes.createUntitledNote']({
-                    initialMessage: { text: 'Exact committed draft', sourceIds: [] },
-                    ...(cleanup === 'failed Exit'
-                      ? { project: Schema.decodeUnknownSync(projectIdSchema)(999999n) }
-                      : {})
-                  })
-                );
-              })
-            )
-          );
-          void pending.then(() => {
-            failed = true;
-          });
-
-          if (cleanup === 'failed Exit') {
-            assert.ok(Exit.isFailure(await pending));
-            await expect(loss.held).rejects.toBeDefined();
-            assert.strictEqual((await load(baseUrl)).items.length, 0);
-
-            return;
-          }
-
-          const receipt = await loss.held;
-
-          assert.strictEqual(failed, false, 'receipt must still be withheld');
-          const committed = await load(server.url);
-
-          assert.strictEqual(committed.items.length, 1);
-          assert.strictEqual(committed.items[0]?.id, receipt.note.id);
-          const thread = await Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
-
-                return yield* client['notes.thread']({ noteId: receipt.note.id, limit: 100 });
-              })
-            )
-          );
-
-          assert.strictEqual(thread.items.length, 1);
-          const message = thread.items[0]!;
-
-          assert.strictEqual(
-            message.versions.find((v) => v.id === message.activeVersionId)?.text,
-            'Exact committed draft'
-          );
-          assert.deepStrictEqual(
-            await load(baseUrl),
-            committed,
-            'unrelated responses forward faithfully while held'
-          );
-
-          if (cleanup === 'runner cancellation') {
-            await finalize!();
-
-            return;
-          }
-
-          if (cleanup === 'journey failure') throw new Error('Deliberate journey failure');
-
-          await loss.drop();
-          assert.ok(Exit.isFailure(await pending!));
-          // The one-shot fault is consumed: a later real creation must reply normally.
-          await Effect.runPromise(
-            Effect.scoped(
-              Effect.gen(function* () {
-                const client = yield* makeStudyClient(StudyRpc, { baseUrl });
-                const second = yield* client['notes.createUntitledNote']({});
-
-                assert.notStrictEqual(second.id, receipt.note.id);
-              })
-            )
-          );
-          assert.strictEqual((await load(baseUrl)).items.length, 2);
-        },
-        (close) => {
-          finalize = close;
-          onTestFinished(close);
-        }
-      );
-
-      if (cleanup === 'explicit drop' || cleanup === 'failed Exit') await run;
-      else {
-        const failure: unknown = await run.catch((error: unknown) => error);
-
-        assert.ok(failure instanceof AggregateError);
-        const messages = failure.errors.map((error: unknown) => {
-          assert.ok(error instanceof Error);
-
-          return error.message;
+        proxy['/rpc'] = fault.proxy(proxy['/rpc']!);
+        const web = await createServer({
+          configFile: false,
+          server: { host: '127.0.0.1', port: 0, hmr: false, proxy },
+          optimizeDeps: { noDiscovery: true }
         });
 
-        assert.deepStrictEqual(messages, [
-          cleanup === 'journey failure'
-            ? 'Deliberate journey failure'
-            : 'E2E cancelled before cleanup completed'
-        ]);
-      }
+        resources.defer(() => web.close());
+        resources.defer(async () => {
+          await pending;
+        });
+        resources.defer(() => fault.close());
+        await web.listen();
+        const address = web.httpServer?.address();
+
+        assert.ok(address && typeof address !== 'string');
+        const baseUrl = `http://127.0.0.1:${address.port}`;
+        const loss = fault.arm();
+        const load = (url: string) =>
+          Effect.runPromise(
+            Effect.scoped(
+              Effect.gen(function* () {
+                const client = yield* makeStudyClient(StudyRpc, { baseUrl: url });
+
+                return yield* client['notes.notes']({ limit: 100 });
+              })
+            )
+          );
+        const before = await load(baseUrl);
+
+        assert.strictEqual(before.items.length, 0);
+        pending = Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const client = yield* makeStudyClient(StudyRpc, { baseUrl });
+
+              return yield* Effect.exit(
+                client['notes.createUntitledNote']({
+                  initialMessage: { text: 'Exact committed draft', sourceIds: [] },
+                  ...(cleanup === 'failed Exit'
+                    ? { project: Schema.decodeUnknownSync(projectIdSchema)(999999n) }
+                    : {})
+                })
+              );
+            })
+          )
+        );
+        void pending.then(() => {
+          failed = true;
+        });
+
+        if (cleanup === 'failed Exit') {
+          assert.ok(Exit.isFailure(await pending));
+          await expect(loss.held).rejects.toBeDefined();
+          assert.strictEqual((await load(baseUrl)).items.length, 0);
+
+          return;
+        }
+
+        const receipt = await loss.held;
+
+        assert.strictEqual(failed, false, 'receipt must still be withheld');
+        const committed = await load(server.url);
+
+        assert.strictEqual(committed.items.length, 1);
+        assert.strictEqual(committed.items[0]?.id, receipt.note.id);
+        const thread = await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
+
+              return yield* client['notes.thread']({ noteId: receipt.note.id, limit: 100 });
+            })
+          )
+        );
+
+        assert.strictEqual(thread.items.length, 1);
+        const message = thread.items[0]!;
+
+        assert.strictEqual(
+          message.versions.find((v) => v.id === message.activeVersionId)?.text,
+          'Exact committed draft'
+        );
+        assert.deepStrictEqual(
+          await load(baseUrl),
+          committed,
+          'unrelated responses forward faithfully while held'
+        );
+
+        if (cleanup === 'owner disposal') {
+          await resources.disposeAsync();
+
+          return;
+        }
+
+        if (cleanup === 'journey failure') throw new Error('Deliberate journey failure');
+
+        await loss.drop();
+        assert.ok(Exit.isFailure(await pending!));
+        // The one-shot fault is consumed: a later real creation must reply normally.
+        await Effect.runPromise(
+          Effect.scoped(
+            Effect.gen(function* () {
+              const client = yield* makeStudyClient(StudyRpc, { baseUrl });
+              const second = yield* client['notes.createUntitledNote']({});
+
+              assert.notStrictEqual(second.id, receipt.note.id);
+            })
+          )
+        );
+        assert.strictEqual((await load(baseUrl)).items.length, 2);
+      })();
+
+      if (cleanup === 'journey failure')
+        await expect(run).rejects.toThrow('Deliberate journey failure');
+      else await run;
 
       assert.strictEqual(failed, true, 'cleanup must await termination of the held exchange');
     }

@@ -16,7 +16,7 @@ const results: { wallMs: number; exitCode: number }[] = [];
 
 for (let index = 0; index < repetitions; index++) {
   const start = performance.now();
-  const child = Bun.spawn(['bun', 'run', 'web:e2e:compare', '--maxWorkers', String(workers)], {
+  const child = Bun.spawn(['bun', 'run', 'web:e2e:compare', '--workers', String(workers)], {
     stdout: 'inherit',
     stderr: 'inherit'
   });

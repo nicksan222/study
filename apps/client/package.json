@@ -16,7 +16,7 @@
     "typecheck": "bun --bun vp run gen:routes && bun --bun tsc --noEmit",
     "gen:routes": "bun --bun tsr generate",
     "test": "bun --bun vp test run --config ../../vite.config.ts --project @study/client --exclude \"../../packages/**\" --reporter=verbose",
-    "e2e": "bun --bun vp test run --config ../../vite.config.ts --project web-e2e"
+    "e2e": "bun --bun playwright test --config playwright.config.ts"
   },
   "dependencies": {
     "@effect/atom-react": "4.0.7",

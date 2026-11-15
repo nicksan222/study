@@ -1,58 +1,84 @@
-import type { TestProject } from 'vite-plus/test/node';
+import type { FullConfig } from 'playwright/test';
+import type { JSONReport, JSONReportSuite } from 'playwright/types/testReporter';
 
-import { workflowName } from './identity.ts';
+import { safeName, workflowName } from './identity.ts';
 
-// Native static collection retains literal escapes; only punctuation escapes preserve identity.
-function decodeTitle(title: string, moduleId: string): string {
-  return title.replace(/\\(.)/gs, (_, character: string) => {
-    if (!['"', "'", '\\'].includes(character))
-      throw new Error(`Unsupported escape in E2E title: ${moduleId}: ${title}`);
+type Journey = { title: string; parts: string[] };
 
-    return character;
-  });
-}
-
-function escapePattern(title: string): string {
-  return title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-/** Native collection runs before workers, even when execution is filtered to one title. */
-export default async function setup(project: TestProject): Promise<void> {
-  const specifications = (await project.vitest.globTestSpecifications()).filter(
-    (specification) =>
-      specification.project === project && !specification.moduleId.includes('/harness/')
+async function collect(configFile: string): Promise<Map<string, Journey>> {
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      '--bun',
+      Bun.fileURLToPath(new URL('../../../../../node_modules/playwright/cli.js', import.meta.url)),
+      'test',
+      '--config',
+      configFile,
+      '--list',
+      '--reporter=json'
+    ],
+    {
+      env: { ...process.env, E2E_UPDATE: undefined },
+      stdout: 'pipe',
+      stderr: 'pipe'
+    }
   );
-  const modules = await project.vitest.parseSpecifications(specifications);
-  const identities = new Map<string, string>();
-  const titles = new Map<string, { title: string; prefix: string }>();
+  const [stdout, stderr, code] = await Promise.all([
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited
+  ]);
 
-  for (const module of modules) {
-    if (!module.ok()) throw new Error(`Cannot collect E2E identities: ${module.moduleId}`);
+  if (code) throw new Error(`Cannot collect browser journeys: ${stderr || stdout}`);
 
-    for (const test of module.children.allTests()) {
-      const title = decodeTitle(test.name, module.moduleId);
-      const prefix = decodeTitle(test.fullName.slice(0, -test.name.length), module.moduleId);
-      const identity = workflowName(title);
-      const location = `${module.moduleId}: ${test.name}`;
+  const report: JSONReport = JSON.parse(stdout);
+  const identities = new Map<string, Journey>();
+
+  function visit(suite: JSONReportSuite, parents: string[]) {
+    const titles = [...parents, suite.title];
+
+    for (const spec of suite.specs) {
+      if (/(?:^|\/)harness\//.test(spec.file)) continue;
+
+      const identity = workflowName(spec.title);
+      const parts = [...titles, spec.title];
+      const title = parts.join(' ');
       const previous = identities.get(identity);
 
       if (previous)
-        throw new Error(`Baseline identity collision "${identity}": ${previous} and ${location}`);
+        throw new Error(
+          `Baseline identity collision "${identity}": ${previous.title} and ${title}`
+        );
 
-      identities.set(identity, location);
-      titles.set(identity, { title, prefix });
+      identities.set(identity, { title, parts });
     }
+
+    for (const child of suite.suites ?? []) visit(child, titles);
   }
 
-  if (process.env.E2E_UPDATE) {
-    const workflow = process.env.E2E_UPDATE.split('/')[0]!;
-    const selection = titles.get(workflow);
+  for (const suite of report.suites) visit(suite, []);
 
-    if (!selection) throw new Error(`Unknown E2E workflow: ${workflow}`);
+  return identities;
+}
 
-    const prefix = escapePattern(selection.prefix);
-    const title = escapePattern(selection.title);
+/** Validate the complete native catalog before any worker can write a baseline, even with --grep. */
+export default async function setup(config: FullConfig): Promise<void> {
+  await collect(config.configFile!);
+}
 
-    project.config.testNamePattern = new RegExp(`^${prefix}(?:\\[stable\\] )?${title}$`);
-  }
+/** Resolve the exact authored title using native collection rather than parsing source text. */
+export async function workflowSelection(configFile: string, scope: string | undefined) {
+  if (!scope) return undefined;
+
+  const identities = await collect(configFile);
+  const workflow = safeName(scope.split('/')[0]!);
+  const journey = identities.get(workflow);
+
+  if (!journey) throw new Error(`Unknown E2E workflow: ${workflow}`);
+
+  const pattern = journey.parts
+    .map((title) => title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('(?: @\\S+)* ');
+
+  return new RegExp(`(?:^| )${pattern}(?: @\\S+)*$`);
 }

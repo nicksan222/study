@@ -11,7 +11,8 @@
     "../scripts/development/*.ts",
     "../scripts/release/*.ts",
     "../../packages/testing/**/*.ts",
-    "../scripts/seed/**/*.ts"
+    "../scripts/seed/**/*.ts",
+    "../../apps/client/playwright.config.ts"
   ],
   "exclude": ["../scripts/seed/fixtures/files/**"]
 }

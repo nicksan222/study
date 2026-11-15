@@ -189,10 +189,10 @@ testStable(
 
     pkg.scripts.e2e = 'bun -e "console.log(JSON.stringify(Bun.argv))" --';
     await Bun.write(file, JSON.stringify(pkg));
-    const result = await repo.script('web:e2e:compare', '--maxWorkers', '2');
+    const result = await repo.script('web:e2e:compare', '--workers', '2');
 
     assert.equal(result.code, 0, result.stderr);
-    assert.include(result.stdout, '"--maxWorkers","2"');
+    assert.include(result.stdout, '"--workers","2"');
     assert.equal(await Bun.file(`${repo.path}/apps/client/dist/result.txt`).text(), 'built');
   }
 );

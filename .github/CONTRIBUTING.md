@@ -106,7 +106,8 @@ configs live in `apps/client`; shared TypeScript settings live in `tooling/types
 Rust lint and dependency policy live in `tooling/rust`; `.cargo/config.toml` points Clippy
 there for both recipes and direct Cargo invocations. Root package scripts select the shared client
 workspace and server TypeScript config. Vite+ (`vp`) owns web development, builds,
-Vitest for every TypeScript and JavaScript test suite, formatting (Oxfmt), and linting (Oxlint). Root `vite.config.ts` imports the
+Vitest for unit, server and tooling tests, formatting (Oxfmt), and linting (Oxlint).
+Playwright Test runs browser journeys under Bun. Root `vite.config.ts` imports the
 shared policies from `tooling/oxc-config`; these apply to server, frontend, tests and tooling.
 Run `bun run format` to format, `bun run format:check` to check formatting, and `bun run lint`
 for the combined format/lint gate with warnings denied.
@@ -329,10 +330,13 @@ The server suite runs a Bun-hosted server against a disposable database, kills i
 
 ### Browser journeys and visual references
 
-`bun run web:e2e` builds the real frontend once, then runs all browser journeys with
-Vite+/Playwright and fresh real SQLite/RPC state. `bun run web:e2e:compare` reuses a
-build made in the same run (CI and `bun run frontend-check` use this after their build).
-Use native runner filters, for example `bun run web:e2e:compare --testNamePattern "Notes preserve multiple edits after reopening"`.
+`bun run web:e2e` builds the real frontend once, then runs Playwright Test under Bun
+with fresh real SQLite/RPC state. `bun run web:e2e:compare` uses the same Turbo task
+and reuses a matching build from its cache. Use native runner filters, for example
+`bun run web:e2e:compare --grep "Notes preserve multiple edits after reopening"`.
+Playwright owns browsers, isolated contexts, worker scheduling, test timeouts, traces,
+failure screenshots and the HTML report. Application fixtures own the real database,
+RPC server and Vite preview through standard asynchronous disposal.
 
 Journeys import `testE2e` and Playwright `expect` from the shared harness. Define a
 journey directly: `testE2e('Notes preserve edits after reopening', async ({ page,
@@ -380,9 +384,8 @@ Contexts use a standard QHD 2560×1440 CSS-pixel viewport at 100% browser zoom a
 `deviceScaleFactor: 1`. Study's saved `zoomPercent: 125` is applied through the
 normal appearance path as root CSS zoom. Every app screenshot waits for that 125%
 zoom before checking journey readiness. Element screenshots retain their
-natural bounds within that viewport. Profile metadata records the environment path,
-observed browser version and executable, viewport, DPR, app zoom percent and
-browser zoom scale separately.
+natural bounds within that viewport. The native report attaches capture profile metadata
+alongside the observed browser version and workflow identity.
 
 `bun run web:e2e:update notes-preserve-multiple-edits-after-reopening` explicitly generates candidate
 references for one workflow; append `/editing` to update only that screenshot.
@@ -391,14 +394,14 @@ accepting them; generation does not approve a design. No Git hook updates or sta
 images. Pixelmatch uses a 0.2 perceptual color threshold, ignores detected anti-aliasing and
 allows zero differing pixels beyond that tolerance. Dimension changes always fail.
 Missing references and changed pixels fail ordinary comparison without
-rewriting references. Actual/expected/diff PNGs, profile metadata and failure traces
-are retained under ignored `test-results/`. Each workflow retains its three newest completed
-attempts regardless of owner scope. For unfinished attempts without `timing.json`, live
-process owners are excluded from retirement, and abandoned owners become retirement
-candidates within the same boot/PID namespace. Unfinished owners from another namespace
-are preserved because their liveness cannot be checked safely. Contract fixtures use temporary directories removed
-by test finalizers, and their disposable Vitest runners disable persistent module caching. Set `E2E_REVIEW=1` to retain successful
-traces too and bypass attempt retirement; open a trace with `bun x --bun playwright show-trace PATH`.
+rewriting references. The screenshot comparison algorithm and readiness contract remain
+unchanged. Native runner outputs live under `apps/client/test-results/playwright`, and
+its HTML report lives under `apps/client/test-results/report`. Playwright clears its previous
+run outputs at the start of the next run and retains test artifacts only for failures.
+Set `E2E_REVIEW=1` to retain successful traces and capture artifacts for the current run too.
+Open the report with `bun --bun playwright show-report apps/client/test-results/report`,
+or a trace with `bun --bun playwright show-trace PATH`. Unit-level contract fixtures use
+temporary directories removed by their test finalizers.
 
 `bun run web:e2e:capacity 3 2` builds as needed, then measures three complete comparison
 runs with two workers and writes timings under `test-results/`. Counts represent
@@ -424,7 +427,7 @@ CI group membership is defined in `turbo.json`: `check:native`, `check:javascrip
 groups. Native and repository-wide static gates are sibling tasks, so a lint or formatting
 failure does not suppress other independent checks. Browser and integration commands select the client `e2e` and server `integrations`
 tasks, respectively. `web:e2e:compare` uses the same browser task and forwards runner options
-such as `--maxWorkers`; it keeps the build prerequisite. The full check also stages the
+such as `--workers`; it keeps the build prerequisite. The full check also stages the
 private server before running its packaged-runtime smoke test. Regression tests compare
 runnable tasks across local and CI plans to detect missing gates.
 
