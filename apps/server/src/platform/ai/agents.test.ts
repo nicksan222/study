@@ -114,6 +114,15 @@ function service(
   });
 }
 
+function mockService(mock: ReturnType<typeof createAiMock>) {
+  return layer({
+    model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
+    language: 'en',
+    rules: Effect.succeed(defaultAgentRules),
+    searchSources: () => Effect.succeed([])
+  });
+}
+
 testStable('generates validated output through the Responses provider', async () => {
   await peer(
     (_req) => send('Biology'),
@@ -306,6 +315,7 @@ testStable(
 
 for (const intercepted of [false, true])
   testStable(`executes a validated source tool with runtime adapter ${intercepted}`, async () => {
+    using mock = createAiMock();
     const bodies: string[] = [];
 
     await peer(
@@ -363,14 +373,16 @@ for (const intercepted of [false, true])
             })
           }
         });
-        const executeTool: AgentsConfig['executeTool'] = intercepted
-          ? (call, _execute) =>
-              Effect.sync(() => {
-                expect(call.definition).toBe(withTool.tools.sources);
-                expect(call.input).toStrictEqual({ query: 'cell' });
 
-                return [{ id: '1', name: 'notes', text: 'Cells use energy' }];
-              })
+        if (intercepted)
+          mock.next(withTool.tools.sources, {
+            input: { query: 'cell' },
+            output: [{ id: '1', name: 'notes', text: 'Cells use energy' }]
+          });
+
+        const executeTool: AgentsConfig['executeTool'] = intercepted
+          ? (call, execute) =>
+              mock.runtime.executeTool(call, execute).pipe(Effect.mapError(normalizeError))
           : undefined;
         const output = await Effect.runPromise(
           generateAgent(withTool, 'x').pipe(
@@ -606,29 +618,21 @@ testStable('cancellation after a delta never publishes completion', async () => 
 });
 
 testStable('rejects empty model output without publishing completion', async () => {
-  await peer(
-    (_req) => send(''),
-    async (base, auth) => {
-      const seen: unknown[] = [];
+  using mock = createAiMock();
 
-      await expect(
-        Effect.runPromise(
-          streamAgent(definition, 'x').pipe(
-            Stream.tap((event) => {
-              function recordEvent() {
-                seen.push(event);
-              }
+  mock.next(definition, { input: 'x', output: '' });
+  const seen: AgentProgress<string>[] = [];
 
-              return Effect.sync(recordEvent);
-            }),
-            Stream.runDrain,
-            Effect.provide(service(base, auth))
-          )
-        )
-      ).rejects.toThrow();
-      assert.ok(seen.some((event) => (event as { type: string }).type === 'complete') === false);
-    }
-  );
+  await expect(
+    Effect.runPromise(
+      streamAgent(definition, 'x').pipe(
+        Stream.tap((event) => Effect.sync(() => seen.push(event))),
+        Stream.runDrain,
+        Effect.provide(mockService(mock))
+      )
+    )
+  ).rejects.toThrow();
+  expect(seen.some((event) => event.type === 'complete')).toBe(false);
 });
 
 testStable('preserves note history in the native reply request', async () => {
@@ -801,33 +805,20 @@ testStable('transcribes image and PDF bytes through the native vision API', asyn
 });
 
 testStable('rejects invalid request limits before making a provider request', async () => {
-  let calls = 0;
+  using mock = createAiMock();
 
-  await peer(
-    (_req) => {
-      calls++;
+  for (const options of [
+    { maxSteps: 0 },
+    { maxSteps: 21 },
+    { maxRetries: -1 },
+    { maxRetries: 6 }
+  ]) {
+    const error = await Effect.runPromise(
+      Effect.flip(generateAgent(definition, 'x', options)).pipe(Effect.provide(mockService(mock)))
+    );
 
-      return send('ok');
-    },
-    async (base, auth) => {
-      for (const options of [
-        { maxSteps: 0 },
-        { maxSteps: 21 },
-        { maxRetries: -1 },
-        { maxRetries: 6 }
-      ]) {
-        const error = await Effect.runPromise(
-          Effect.flip(generateAgent(definition, 'x', options)).pipe(
-            Effect.provide(service(base, auth))
-          )
-        );
-
-        assert.ok(error.kind === 'invalid_input');
-      }
-
-      assert.strictEqual(calls, 0);
-    }
-  );
+    expect(error.kind).toBe('invalid_input');
+  }
 });
 
 testStable('preserves the typed provider error after retries are exhausted', async () => {
@@ -1076,6 +1067,8 @@ testStable(
 );
 
 testStable('decoder exceptions remain typed input failures before provider work', async () => {
+  using mock = createAiMock();
+
   const guarded = defineAgent({
     ...definition,
     input: Schema.Struct({ prompt: Schema.String }),
@@ -1087,16 +1080,7 @@ testStable('decoder exceptions remain typed input failures before provider work'
     }
   };
   const failure = await Effect.runPromise(
-    Effect.flip(generateAgent(guarded, input)).pipe(
-      Effect.provide(
-        layer({
-          model: () => Effect.die(new Error('unexpected provider work')),
-          language: 'en',
-          rules: Effect.succeed(defaultAgentRules),
-          searchSources: () => Effect.succeed([])
-        })
-      )
-    )
+    Effect.flip(generateAgent(guarded, input)).pipe(Effect.provide(mockService(mock)))
   );
 
   assert.ok(failure.kind === 'invalid_input');
@@ -1273,32 +1257,29 @@ testStable(
 );
 
 testStable('model adapters receive the actual agent contract and validated input', async () => {
-  await peer(
-    () => send('Biology'),
-    async (base, auth) => {
-      const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
-      const output = await Effect.runPromise(
-        generateAgent(definition, 'cells').pipe(
-          Effect.provide(
-            layer({
-              model: (_tier, call) =>
-                Effect.sync(() => {
-                  expect(call.definition).toBe(definition);
-                  expect(call.input).toBe('cells');
+  using mock = createAiMock();
 
-                  return model;
-                }),
-              language: 'en',
-              rules: Effect.succeed(defaultAgentRules),
-              searchSources: () => Effect.succeed([])
-            })
-          )
-        )
-      );
+  const expected = mock.next(definition, { input: 'cells', output: 'Biology' });
+  const output = await Effect.runPromise(
+    generateAgent(definition, 'cells').pipe(
+      Effect.provide(
+        layer({
+          model: (tier, call) => {
+            expect(call.definition).toBe(definition);
+            expect(call.input).toBe('cells');
 
-      expect(output).toBe('Biology');
-    }
+            return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
+          },
+          language: 'en',
+          rules: Effect.succeed(defaultAgentRules),
+          searchSources: () => Effect.succeed([])
+        })
+      )
+    )
   );
+
+  expect((await expected.called).input).toBe('cells');
+  expect(output).toBe('Biology');
 });
 
 testStable(

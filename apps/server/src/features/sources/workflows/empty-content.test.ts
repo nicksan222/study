@@ -18,6 +18,7 @@ import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import * as tables from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing/ai-mock';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
@@ -28,11 +29,10 @@ import { Materials } from '#server/features/materials/index';
 import { Sources } from '#server/features/sources/index';
 import { SourceStore } from '#server/features/sources/store/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { transaction } from '#server/platform/definitions/define-store';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -60,15 +60,15 @@ for (const [name, text] of [
     async () => {
       const location = await createTestDatabase();
       const context = new ServerContext(await location.open());
-      const auth = new AuthManager({ issuer: 'http://127.0.0.1', saveRefresh: async () => {} });
-      const model = createChatGptModel({ auth, modelId: 'test', baseUrl: 'http://127.0.0.1' });
+      using mock = createAiMock();
       const services = Layer.mergeAll(
         Layer.mergeAll(Sources.layer, Materials.layer).pipe(
           Layer.provideMerge(Layer.succeed(Database, { store: context }))
         ),
         Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
         agentsLayer({
-          model: () => Effect.succeed(model),
+          model: (tier, call) =>
+            mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
           language: 'en',
           rules: Effect.succeed(defaultAgentRules),
           searchSources: () => Effect.succeed([])
@@ -214,7 +214,6 @@ for (const [name, text] of [
           }).pipe(Effect.scoped, Effect.provide(services))
         );
       } finally {
-        await auth.dispose();
         context.close();
         await location.cleanup();
       }
