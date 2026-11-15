@@ -17,7 +17,8 @@ import { expect } from 'vite-plus/test';
 import { runIntegrationTests } from './environment.ts';
 
 async function fixture(mode = 'success') {
-  const directory = (await $`mktemp -d`.quiet().text()).trim();
+  // Command fixtures need an executable filesystem; CI's SQLite TMPDIR is mounted noexec.
+  const directory = (await $`mktemp -d /tmp/study-integration-runner.XXXXXX`.quiet().text()).trim();
   const root = `${directory}/workspace`;
 
   for (const file of [

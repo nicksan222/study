@@ -5,7 +5,7 @@ import { lintFiles } from '../test/utils.ts';
 
 const directory = 'apps/server/test/integrations';
 
-function fixture(overrides: Record<string, string> = {}) {
+function fixture(overrides: Record<string, string> = {}): Record<string, string> {
   return {
     'packages/integrations/src/index.ts': 'export const providers = [];',
     'packages/integrations/src/providers/obsidian/index.ts': 'export const provider = {};',
