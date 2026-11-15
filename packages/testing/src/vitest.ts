@@ -39,34 +39,36 @@ function callable(value: unknown): value is Callable {
 
 /** Preserve native parameter inference while classifying every expanded test name. */
 function registration<T extends Callable>(runner: T, category: string): T & Registration {
-  return new Proxy(runner, {
-    apply(target, receiver, args) {
-      assertTestDefinition(args[0], args[1]);
+  const classified = function (this: unknown, ...args: unknown[]) {
+    assertTestDefinition(args[0], args[1]);
 
-      return Reflect.apply(target, receiver, [`[${category}] ${args[0]}`, ...args.slice(1)]);
-    },
-    get(target, property, receiver) {
-      if (['only', 'skip', 'todo', 'fails', 'skipIf', 'runIf'].includes(String(property)))
+    return Reflect.apply(runner, this, [`[${category}] ${args[0]}`, ...args.slice(1)]);
+  };
+
+  for (const modifier of ['only', 'skip', 'todo', 'fails', 'skipIf', 'runIf'])
+    Object.defineProperty(classified, modifier, {
+      get() {
         throw new TypeError('Classified tests cannot be focused, skipped or inverted');
-
-      const value: any = Reflect.get(target, property, receiver);
-
-      if (['each', 'for', 'extend', 'override'].includes(String(property))) {
-        return (...args: unknown[]) => {
-          const expanded: unknown = Reflect.apply(value, target, args);
-
-          if (!callable(expanded))
-            throw new TypeError(
-              'Fixture and parameterized APIs must return a registration function'
-            );
-
-          return registration(expanded, category);
-        };
       }
+    });
 
-      return callable(value) ? registration(value, category) : value;
-    }
-  }) as T & Registration;
+  for (const method of ['each', 'for', 'extend', 'override'])
+    Object.defineProperty(classified, method, {
+      value: (...args: unknown[]) => {
+        const expanded: unknown = Reflect.apply(Reflect.get(runner, method), runner, args);
+
+        if (!callable(expanded))
+          throw new TypeError('Fixture and parameterized APIs must return a registration function');
+
+        return registration(expanded, category);
+      }
+    });
+
+  Object.defineProperty(classified, 'concurrent', {
+    get: () => registration(Reflect.get(runner, 'concurrent'), category)
+  });
+
+  return classified as T & Registration;
 }
 
 export const testStable: Registration = registration(test, 'stable');

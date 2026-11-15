@@ -93,3 +93,31 @@ testStable.extend('answer', { scope: 'worker' }, () => 42).override('answer', ()
     );
   }
 );
+
+testStable.for([{ value: 42 }])(
+  'native for preserves values and classification',
+  (item, context) => {
+    expect(item.value).toBe(42);
+    expect(context.task.name).toBe('[stable] native for preserves values and classification');
+  }
+);
+
+testStable.concurrent('native concurrent retains classification', (context) => {
+  assert.strictEqual(context.task.name, '[stable] native concurrent retains classification');
+});
+
+fixtureStable.for([{ value: 2 }])(
+  'extended native for retains fixtures',
+  (item, { answer, task }) => {
+    assert.strictEqual(item.value + answer, 44);
+    assert.strictEqual(task.name, '[stable] extended native for retains fixtures');
+  }
+);
+
+testStable('classified adapters expose only supported registration methods', () => {
+  expect(Reflect.get(fixtureStable, 'beforeEach')).toBeUndefined();
+  expect(Reflect.get(fixtureStable, 'futureNativeMethod')).toBeUndefined();
+
+  for (const modifier of ['skip', 'only', 'todo', 'fails', 'skipIf', 'runIf'])
+    expect(() => Reflect.get(fixtureStable.concurrent, modifier)).toThrow('Classified tests');
+});
