@@ -63,7 +63,15 @@ async function collect(configFile: string): Promise<Map<string, Journey>> {
 
 /** Validate the complete native catalog before any worker can write a baseline, even with --grep. */
 export default async function setup(config: FullConfig): Promise<void> {
-  await collect(config.configFile!);
+  if (
+    config.updateSnapshots !== 'none' ||
+    config.projects.some((project) => project.ignoreSnapshots)
+  )
+    throw new Error(
+      'Use web:e2e:update for scoped baseline updates; native snapshot overrides are forbidden'
+    );
+
+  if (!process.env.E2E_UPDATE) await collect(config.configFile!);
 }
 
 /** Resolve the exact authored title using native collection rather than parsing source text. */

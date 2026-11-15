@@ -8,7 +8,7 @@ assertCapturePlatform();
 export default defineConfig({
   testDir: './test/e2e',
   testMatch: [/\/e2e\/[^/]+\.test\.ts$/, /\.browser\.test\.ts$/],
-  globalSetup: process.env.E2E_UPDATE ? undefined : './test/e2e/harness/preflight.ts',
+  globalSetup: './test/e2e/harness/preflight.ts',
   forbidOnly: true,
   updateSnapshots: 'none',
   snapshotPathTemplate: '{testDir}/baselines/{arg}{ext}',

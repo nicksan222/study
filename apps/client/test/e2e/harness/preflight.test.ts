@@ -15,7 +15,7 @@ async function fixture(titles: string[], suite = '') {
     import { workflowSelection } from ${JSON.stringify(preflight)};
     export default { testDir: ${JSON.stringify(directory)}, testMatch: '*.spec.ts',
       globalSetup: ${JSON.stringify(preflight)}, outputDir: ${JSON.stringify(`${directory}/output`)},
-      tag: '@stable', grep: await workflowSelection(import.meta.filename, process.env.E2E_UPDATE), workers: 1, reporter: 'list' };
+      updateSnapshots: 'none', tag: '@stable', grep: await workflowSelection(import.meta.filename, process.env.E2E_UPDATE), workers: 1, reporter: 'list' };
   `
   );
 
@@ -33,12 +33,15 @@ async function fixture(titles: string[], suite = '') {
 
   return {
     directory,
-    async run(scope?: string) {
-      const child = Bun.spawn(['bun', '--bun', 'playwright', 'test', '--config', config], {
-        env: { ...process.env, E2E_UPDATE: scope },
-        stdout: 'pipe',
-        stderr: 'pipe'
-      });
+    async run(scope?: string, flags: string[] = []) {
+      const child = Bun.spawn(
+        ['bun', '--bun', 'playwright', 'test', '--config', config, ...flags],
+        {
+          env: { ...process.env, E2E_UPDATE: scope },
+          stdout: 'pipe',
+          stderr: 'pipe'
+        }
+      );
       const [stdout, stderr, code] = await Promise.all([
         new Response(child.stdout).text(),
         new Response(child.stderr).text(),
@@ -82,5 +85,17 @@ testStable.each(['', 'Editor "quoted" \\ path > [draft]?'])(
     expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(true);
     expect(await Bun.file(`${directory}/1.txt`).exists()).toBe(false);
     expect(await Bun.file(`${directory}/2.txt`).exists()).toBe(false);
+  }
+);
+
+testStable.each(['--update-snapshots', '--ignore-snapshots'])(
+  'native snapshot overrides fail before running a journey: %s',
+  async (flag) => {
+    const { directory, run } = await fixture(['One scoped journey']);
+    const result = await run(undefined, [flag]);
+
+    expect(result.code).not.toBe(0);
+    expect(result.output).toContain('native snapshot overrides are forbidden');
+    expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(false);
   }
 );
