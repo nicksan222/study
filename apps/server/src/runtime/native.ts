@@ -86,7 +86,7 @@ export function nativeLayers(
 
   const database = Layer.succeed(Database, { store });
 
-  const backupOwner = new ManagedBackups(store.db, backupPolicy, store.clock);
+  const backupOwner = new ManagedBackups(store.db, backupPolicy, store.timestampClock);
 
   const backups = Layer.succeed(BackupStorage, { owner: backupOwner });
 
