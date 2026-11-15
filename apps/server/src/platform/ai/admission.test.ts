@@ -313,3 +313,23 @@ testStable(
     );
   }
 );
+
+testStable('interrupting admitted bulk work releases its capacity', async () => {
+  await Effect.runPromise(
+    Effect.gen(function* () {
+      const gate = makeAdmission({ concurrency: 1, maxWaiting: 0 });
+      const entered = yield* Deferred.make<void>();
+      const bulk = yield* Effect.forkChild(
+        gate
+          .run(Deferred.succeed(entered, undefined).pipe(Effect.andThen(Effect.never)))
+          .pipe(Effect.provideService(AiWorkload, 'bulk'))
+      );
+
+      yield* Deferred.await(entered);
+      yield* Fiber.interrupt(bulk);
+      expect(
+        yield* gate.run(Effect.succeed('released')).pipe(Effect.provideService(AiWorkload, 'bulk'))
+      ).toBe('released');
+    })
+  );
+});

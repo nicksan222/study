@@ -248,6 +248,12 @@ for (const kind of ['document', 'source'] as const)
               )
             ).rejects.toSatisfy(() => true);
             assert.strictEqual(f.replies.length, 0);
+            assert.ok(
+              JSON.stringify(
+                f.context.db.orm.all(sql`SELECT * FROM cluster_replies`),
+                (_, value) => (typeof value === 'bigint' ? String(value) : value)
+              ).includes('PRIVATE_REPLY_CHECKPOINT')
+            );
             f.context.db.exec('DROP TRIGGER reject_reply_publication');
           }
 

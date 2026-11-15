@@ -73,7 +73,12 @@ testStable(
     const { Sources } = await import('#server/features/sources/index');
     const { workflow_executions } = await import('@study/db/schema');
     const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
-    const { Schedule } = await import('effect');
+    const { Layer } = await import('effect');
+    const { WorkflowEngine } = await import('effect/workflow');
+    let reached!: () => void;
+    const waiting = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
     let entered!: () => void;
     const requested = new Promise<void>((resolve) => {
       entered = resolve;
@@ -96,6 +101,17 @@ testStable(
     t.onTestFinished(() => peer.stop(true));
     const { app } = await createServerTest(t);
 
+    app.native.workflows = Layer.effect(
+      WorkflowEngine.WorkflowEngine,
+      Effect.map(WorkflowEngine.WorkflowEngine, (engine) => ({
+        ...engine,
+        interrupt: (...args: Parameters<typeof engine.interrupt>) =>
+          Effect.sync(reached).pipe(
+            Effect.andThen(engine.interrupt(...args)),
+            Effect.andThen(Effect.never)
+          )
+      }))
+    ).pipe(Layer.provideMerge(app.native.workflows));
     await app.workers.start();
     const sources = await app.nativeRuntime.runPromise(Sources);
 
@@ -108,25 +124,24 @@ testStable(
       .find((row) => row.workflow_tag === 'source-ingestion/v1');
 
     assert.ok(execution);
+    let settled = false;
     const cancelling = app.workers
       .cancelExecution({ id: executionIdSchema.make(execution.execution_id), mode: 'safe' })
       .then(
-        () => undefined,
-        () => undefined
+        () => {
+          settled = true;
+
+          return undefined;
+        },
+        (error: unknown) => {
+          settled = true;
+
+          return error;
+        }
       );
 
-    await Effect.runPromise(
-      Effect.sync(() =>
-        app.store.db.orm
-          .select()
-          .from(workflow_executions)
-          .all()
-          .some((row) => row.cancellation_mode === 'safe')
-      ).pipe(
-        Effect.repeat({ while: (persisted) => !persisted, schedule: Schedule.spaced('1 millis') }),
-        Effect.timeout('2 seconds')
-      )
-    );
+    await waiting;
+    expect(settled).toBe(false);
     await Effect.runPromise(
       Effect.promise(() => app.close()).pipe(
         Effect.timeout('5 seconds'),
@@ -135,7 +150,7 @@ testStable(
         )
       )
     );
-    await cancelling;
+    expect(await cancelling).toBeInstanceOf(Error);
   }
 );
 

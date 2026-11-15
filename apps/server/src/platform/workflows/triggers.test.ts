@@ -20,7 +20,7 @@ import { workflow_executions, workflowReceipts } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, ManagedRuntime, Layer, Schema } from 'effect';
-import { Workflow } from 'effect/workflow';
+import { Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { ServerContext } from '#server/platform/database/context';
@@ -35,7 +35,11 @@ const openContext = async (
 
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { emitEvent } from '#server/platform/workflows/events';
-import { dispatchPending, validateTriggerGraph } from '#server/platform/workflows/triggers';
+import {
+  dispatchPending,
+  validateTriggerGraph,
+  triggeredExecutionId
+} from '#server/platform/workflows/triggers';
 import type { Trigger } from '#server/platform/workflows/triggers';
 
 const event = (id: string) =>
@@ -81,10 +85,10 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     const context = await openContext(location);
-    let calls = 0;
-    const record = () =>
+    const calls: string[] = [];
+    const record = ({ event }: typeof testWorkflow.payloadSchema.Type) =>
       Effect.sync(() => {
-        calls++;
+        calls.push(event.eventId);
       });
     const layer = testWorkflow
       .toLayer(record)
@@ -97,6 +101,18 @@ testStable(
       });
       assert.equal(await first.runPromise(dispatchPending(context, [trigger], 10, 2)), 2);
       assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 2);
+      await first.runPromise(
+        WorkflowEngine.WorkflowEngine.use((engine) =>
+          Effect.all(
+            ['0', '1'].map((id) =>
+              engine.execute(testWorkflow, {
+                executionId: triggeredExecutionId(event(id), trigger),
+                payload: { event: event(id) }
+              })
+            )
+          )
+        )
+      );
       await first.dispose();
       const second = ManagedRuntime.make(layer);
 
@@ -105,7 +121,15 @@ testStable(
         assert.equal(await second.runPromise(dispatchPending(context, [trigger], 12, 2)), 0);
         assert.equal(context.db.orm.select().from(workflowReceipts).all().length, 3);
         assert.equal(context.db.orm.select().from(workflow_executions).all().length, 3);
-        assert.isAtMost(calls, 3);
+        await second.runPromise(
+          WorkflowEngine.WorkflowEngine.use((engine) =>
+            engine.execute(testWorkflow, {
+              executionId: triggeredExecutionId(event('2'), trigger),
+              payload: { event: event('2') }
+            })
+          )
+        );
+        assert.deepEqual(calls.sort(), ['0', '1', '2']);
       } finally {
         await second.dispose();
       }
