@@ -398,20 +398,26 @@ testStable(
 
           context.close();
           context = new ServerContext(await location.open());
-          const replayed = await execute();
-
+          expect(rejected).toMatchObject({ kind: 'internal' });
+          await expect(execute()).rejects.toMatchObject({
+            kind: 'internal',
+            message: 'Operation failed'
+          });
+          assert.strictEqual(calls, completedCalls, 'reopening must reuse the terminal failure');
           assert.strictEqual(
-            calls,
-            completedCalls,
-            'reopening must reuse the completed generation'
-          );
-          const version = await Effect.runPromise(
-            Effect.flatMap(Materials, (m) => m.materialVersion({ id: replayed })).pipe(
-              Effect.provide(domain())
-            )
+            context.db.orm
+              .select()
+              .from(s.workflowEvents)
+              .all()
+              .map((row) => decodeEvent(row.payload))
+              .filter(
+                (value) =>
+                  value.type === 'MaterialGenerationFailed' && value.requestId === event.requestId
+              ).length,
+            1
           );
 
-          return version;
+          return undefined;
         }
 
         const id = await execute();
@@ -436,6 +442,14 @@ testStable(
         kind: 'flashcards',
         cards: [{ front: 'What? [1]', back: 'alpha' }]
       });
+      await generate(
+        'flashcards',
+        {
+          kind: 'flashcards',
+          cards: [{ front: 'What? [1]', back: 'alpha' }]
+        },
+        'publication'
+      );
       const quiz = await generate('quiz', {
         kind: 'quiz',
         questions: [
@@ -511,6 +525,7 @@ testStable(
       expect(bodies.at(-1)).toMatch(/Question kind: [^.]*\bordering\b[^.]*questions\./);
 
       function assertQuizQuestionShapes() {
+        assert.ok(quiz);
         assert.ok(quiz.content.kind === 'quiz');
 
         if (quiz.content.kind !== 'quiz') throw Error('wrong content');

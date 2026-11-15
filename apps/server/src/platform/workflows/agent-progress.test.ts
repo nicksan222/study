@@ -79,6 +79,10 @@ testStable(
         .where(eq(workflow_executions.execution_id, executionId))
         .run();
       expect(read()).toEqual([]);
+      await emit({ type: 'start' });
+      await emit({ type: 'text-delta', text: 'Current' });
+      expect(read()[0]?.text).toBe('Current');
+      expect(read()[0]?.status).toBe('running');
       context.db.orm
         .update(workflow_executions)
         .set({ cancellation_mode: 'unsafe', status: 'cancelling' })

@@ -15,8 +15,8 @@
  */
 
 import { StudyError } from '@study/contracts/errors';
-import type { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
-import { Cause, Effect, Fiber, Queue, Semaphore } from 'effect';
+import { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
+import { Cause, Effect, Fiber, Queue, Semaphore, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
@@ -27,6 +27,7 @@ import {
   notifyConfigurationChanged
 } from '#server/platform/workflows/configuration';
 import { cancelExecution } from '#server/platform/workflows/control';
+import { workflowStore } from '#server/platform/workflows/store';
 import { dispatchPending, refreshExecutionSnapshots } from '#server/platform/workflows/triggers';
 
 import { createWorkflowRuntime } from './layers.ts';
@@ -158,20 +159,39 @@ export class Workers {
 
   async cancelExecution(input: typeof cancelExecutionInputSchema.Type): Promise<void> {
     const operation = await this.transition(
-      Effect.sync(() => {
-        if (this.state.tag === 'closing' || this.state.tag === 'closed')
-          throw new StudyError('cancelled', 'Workflow worker is closing');
+      Effect.try({
+        try: () => {
+          if (this.state.tag === 'closing' || this.state.tag === 'closed')
+            throw new StudyError('cancelled', 'Workflow worker is closing');
 
-        const operation = {
-          controller: new AbortController(),
-          runtime: this.sharedWorkflowRuntime()
-        };
+          if (this.state.tag === 'stopped') {
+            const value = Schema.decodeUnknownSync(cancelExecutionInputSchema)(input);
 
-        this.cancellations.add(operation);
+            if (!workflowStore(this.store).execution(value.id))
+              throw new StudyError('not_found', 'Workflow execution missing');
 
-        return operation;
+            workflowStore(this.store).requestCancellation(value.id, value.mode);
+
+            return undefined;
+          }
+
+          const operation = {
+            controller: new AbortController(),
+            runtime: this.sharedWorkflowRuntime()
+          };
+
+          this.cancellations.add(operation);
+
+          return operation;
+        },
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('invalid_input', 'Invalid workflow cancellation', { cause })
       })
     );
+
+    if (!operation) return;
 
     try {
       await operation.runtime.runPromise(cancelExecution(this.store, workflowDefinitions, input), {

@@ -272,3 +272,18 @@ testStable('official SQL infrastructure has no first-party schema or writer owne
     'tooling/scripts/jobs.ts'
   ]);
 });
+
+testStable('checks trigger body writes and created schema object names', async () => {
+  expect(
+    await lint({
+      'apps/server/src/features/jobs/body.ts': `db.exec('CREATE TRIGGER audit AFTER INSERT ON notes BEGIN DELETE FROM cluster_messages; END;');`,
+      'apps/server/src/features/jobs/index.ts': `db.exec('CREATE UNIQUE INDEX IF NOT EXISTS cluster_custom ON notes(updated_at)');`,
+      'apps/server/src/features/jobs/trigger.ts': `db.exec('CREATE TEMP TRIGGER cluster_custom AFTER INSERT ON notes BEGIN SELECT 1; END;');`,
+      'apps/server/src/features/jobs/allowed.ts': `db.exec("CREATE TRIGGER audit AFTER INSERT ON notes BEGIN SELECT 'DELETE FROM cluster_messages'; END;"); db.exec('CREATE INDEX note_updated ON notes(updated_at)');`
+    })
+  ).toStrictEqual([
+    'apps/server/src/features/jobs/body.ts',
+    'apps/server/src/features/jobs/index.ts',
+    'apps/server/src/features/jobs/trigger.ts'
+  ]);
+});

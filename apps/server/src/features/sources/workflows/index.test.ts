@@ -24,7 +24,7 @@ import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
-import { WorkflowEngine } from 'effect/workflow';
+import { DurableDeferred, WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { Notes } from '#server/features/notes/index';
@@ -262,7 +262,7 @@ testStable(
   'superseded requests cannot publish and a cancelled pending execution stays unpublished',
   async () => {
     const { dispatchPending } = await import('#server/platform/workflows/triggers');
-    const { refreshExecutionSnapshots } = await import('#server/platform/workflows/triggers');
+    const { reconcileCancellation } = await import('#server/platform/workflows/cancellation');
     const { sourceIngestionRegistration } =
       await import('#server/features/sources/workflows/index');
     const { workflowStore } = await import('#server/platform/workflows/store');
@@ -302,7 +302,15 @@ testStable(
             yield* sources.requestSourceProcessing({ id: source.id, expectedRevision: 1 });
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
-            yield* engine.register(sourceIngestionWorkflow, sourceIngestionHandler);
+            const release = DurableDeferred.make('before-ingestion');
+
+            yield* engine.register(sourceIngestionWorkflow, (payload) =>
+              payload.event.eventId === 'old' || payload.event.eventId === 'old-revision'
+                ? sourceIngestionHandler(payload)
+                : DurableDeferred.await(release).pipe(
+                    Effect.andThen(sourceIngestionHandler(payload))
+                  )
+            );
             const event = {
               type: 'SourceProcessingRequested' as const,
               sourceId: source.id,
@@ -369,13 +377,18 @@ testStable(
             for (const row of pending)
               workflowStore(context).requestCancellation(row.execution_id, 'safe');
 
-            yield* refreshExecutionSnapshots(context, sourceIngestionRegistration.triggers);
-
             for (const row of pending) {
-              while (workflowStore(context).execution(row.execution_id)?.status !== 'cancelled') {
-                yield* refreshExecutionSnapshots(context, sourceIngestionRegistration.triggers);
-                yield* Effect.sleep('10 millis');
-              }
+              yield* reconcileCancellation(
+                context,
+                sourceIngestionWorkflow,
+                row.execution_id,
+                'safe',
+                true
+              );
+              assert.strictEqual(
+                workflowStore(context).execution(row.execution_id)?.status,
+                'cancelled'
+              );
             }
 
             assert.ok((yield* sources.sourceProcessing(source.id)).documentId === null);

@@ -178,6 +178,28 @@ testStable(
 
         assert.ok(!(event.type !== 'SourceCorrectionRequested'), 'Unexpected fixture event');
 
+        const retired = f.context.db.orm.get(sql`
+          SELECT 1 FROM workflow_retired_correlations
+          WHERE correlation_id=${event.correlationId} AND event_type=${event.type}
+        `);
+
+        if (retired) {
+          expect(() =>
+            admitTestExecution(
+              f.context,
+              sourceCorrectionWorkflow,
+              `retired-replay/${event.eventId}`,
+              { event }
+            )
+          ).toThrowError(
+            expect.objectContaining({
+              kind: 'cancelled',
+              message: 'Workflow correlation has been retired'
+            })
+          );
+          continue;
+        }
+
         await expect(
           Effect.runPromise(
             Effect.scoped(
@@ -200,7 +222,7 @@ testStable(
               }).pipe(Effect.provide(f.services()))
             )
           )
-        ).rejects.toSatisfy(() => true);
+        ).rejects.toMatchObject({ kind: 'not_found' });
       }
 
       const pending = await processSource(f, true);

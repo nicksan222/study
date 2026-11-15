@@ -24,6 +24,7 @@ export function classifyError(error: unknown): Failure {
   if (error instanceof StudyError)
     return {
       kind: error.kind,
+      ...(error.resource ? { resource: error.resource } : {}),
       message: error.message,
       retryAfterMs: error.retryAfterMs
     };

@@ -124,7 +124,13 @@ for (const mode of ['history', 'delete'] as const)
             const failedPreview = yield* docs.previewDeletion({ id: output.pageId });
 
             yield* Effect.flip(docs.delete({ pageId: output.pageId, token: failedPreview.token }));
-            expect(() => assertScrubbed(f, 'INTENTIONAL_AUTHORED_BODY', false)).toThrow();
+            assert.ok(
+              JSON.stringify(
+                f.context.db.orm.all(sql`SELECT * FROM cluster_replies`),
+                (_key, value) => (typeof value === 'bigint' ? String(value) : value)
+              ).includes('INTENTIONAL_AUTHORED_BODY'),
+              'rollback must retain private official workflow replies'
+            );
             assert.strictEqual(
               f.context.db.orm.get(
                 sql`SELECT count(*) n FROM workflow_retired_correlations WHERE correlation_id=${saved.request.id}`

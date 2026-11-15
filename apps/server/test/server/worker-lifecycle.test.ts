@@ -168,3 +168,43 @@ testStable('stopped concurrent cancellations and start share one embedded runtim
   expect(acquisitions).toBe(2);
   await app.workers.stop();
 });
+
+testStable(
+  'stopped cancellation persists intent without acquiring the embedded runner',
+  async (t) => {
+    const { Layer } = await import('effect');
+    const { workflow_executions } = await import('@study/db/schema');
+    const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+    const { app } = await createServerTest(t);
+    let acquisitions = 0;
+
+    app.native.workflows = app.native.workflows.pipe(
+      Layer.tap(() =>
+        Effect.sync(() => {
+          acquisitions++;
+        })
+      )
+    );
+    app.store.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: 'stopped-cancel',
+        workflow_tag: 'source-ingestion/v1',
+        version: 1,
+        payload: '{}',
+        status: 'running',
+        created_at: 1n,
+        updated_at: 1n
+      })
+      .run();
+    await app.workers.cancelExecution({
+      id: executionIdSchema.make('stopped-cancel'),
+      mode: 'unsafe'
+    });
+    expect(acquisitions).toBe(0);
+    expect(app.workers.started).toBe(false);
+    expect(app.store.db.orm.select().from(workflow_executions).get()?.cancellation_mode).toBe(
+      'unsafe'
+    );
+  }
+);

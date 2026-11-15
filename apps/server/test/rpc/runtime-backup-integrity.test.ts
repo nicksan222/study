@@ -13,7 +13,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { createBlock } from '@study/contracts/sources/document';
 import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
-import type { BackupManifest } from '@study/contracts/system/backups';
+import type { BackupManifest, BackupId } from '@study/contracts/system/backups';
 import { sql } from '@study/db';
 import type { Db } from '@study/db';
 import { testStable } from '@study/testing/vitest';
@@ -229,3 +229,38 @@ testStable(
     }
   }
 );
+
+testStable('listing preserves incompatible artifacts while returning usable backups', async () => {
+  const f = await backupFixture();
+
+  try {
+    const api = await f.api();
+    const backup = await f.app.nativeRuntime.runPromise(api.createBackup());
+    const exported = Buffer.from(
+      await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id })),
+      'base64'
+    );
+    const parsed = packet(exported);
+    const { repack } = await import('#testing/managed-backups');
+    const id = crypto.randomUUID();
+    const incompatible = Buffer.from(
+      repack({ ...parsed.manifest, id, version: 999 } as unknown as BackupManifest, parsed.sqlite),
+      'base64'
+    );
+    const path = f.location.path + '.backups/' + id + '.studybackup';
+
+    await Bun.write(path, incompatible);
+    expect(
+      (await f.app.nativeRuntime.runPromise(api.backups())).map((entry) => entry.id)
+    ).toStrictEqual([backup.id]);
+    expect(Buffer.from(await Bun.file(path).arrayBuffer())).toStrictEqual(incompatible);
+    await expect(
+      f.app.nativeRuntime.runPromise(api.readBackup({ id: id as BackupId }))
+    ).rejects.toMatchObject({ kind: 'invalid_input' });
+    expect(await f.app.nativeRuntime.runPromise(api.readBackup({ id: backup.id }))).toBe(
+      exported.toString('base64')
+    );
+  } finally {
+    await f.close();
+  }
+});

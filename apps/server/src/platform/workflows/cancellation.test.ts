@@ -36,7 +36,7 @@ const workflow = Workflow.make('cancel-recovery-test', {
   idempotencyKey: ({ id }) => id
 });
 
-for (const accepted of [false, true])
+for (const accepted of [false, true, 'completed'] as const)
   testStable(
     `cancel intent survives restart with accepted=${accepted} and retirement clears official messages`,
     async () => {
@@ -55,11 +55,20 @@ for (const accepted of [false, true])
               const engine = yield* WorkflowEngine.WorkflowEngine;
 
               yield* engine.register(workflow, () =>
-                DurableDeferred.await(DurableDeferred.make('waiting'))
+                accepted === 'completed'
+                  ? Effect.void
+                  : DurableDeferred.await(DurableDeferred.make('waiting'))
               );
-              yield* engine.execute(workflow, { executionId: id, payload: { id }, discard: true });
+              yield* engine.execute(workflow, {
+                executionId: id,
+                payload: { id },
+                discard: accepted !== 'completed'
+              });
             }).pipe(Effect.provideService(Scope.Scope, scope))
           );
+
+        if (accepted === 'completed')
+          context.db.orm.update(workflow_executions).set({ status: 'completed' }).run();
 
         workflowStore(context).requestCancellation(id, 'unsafe');
         context.db.orm
@@ -77,7 +86,13 @@ for (const accepted of [false, true])
             yield* engine.register(workflow, () =>
               DurableDeferred.await(DurableDeferred.make('waiting'))
             );
-            yield* reconcileCancellation(context, workflow, id, 'unsafe', true);
+            yield* Effect.all(
+              [
+                reconcileCancellation(context, workflow, id, 'unsafe', true),
+                reconcileCancellation(context, workflow, id, 'unsafe', true)
+              ],
+              { concurrency: 'unbounded' }
+            );
             const sharding = yield* Sharding.Sharding;
             const storage = yield* MessageStorage.MessageStorage;
             const entityId = EntityId.make(id);
@@ -95,10 +110,14 @@ for (const accepted of [false, true])
             ).toBe(true);
           }).pipe(Effect.timeout('5 seconds'), Effect.provideService(Scope.Scope, scope))
         );
-        expect(context.db.orm.select().from(workflow_executions).get()?.status).toBe('cancelled');
+        expect(context.db.orm.select().from(workflow_executions).get()?.status).toBe(
+          accepted === 'completed' ? 'completed' : 'cancelled'
+        );
         scrubRetiredExecution(context.db, id);
         scrubRetiredExecution(context.db, id);
-        expect(workflowStore(context).execution(id)?.status).toBe('cancelled');
+        expect(workflowStore(context).execution(id)?.status).toBe(
+          accepted === 'completed' ? 'completed' : 'cancelled'
+        );
       } finally {
         await Effect.runPromise(Scope.close(scope, Exit.void));
         await runtime.dispose();

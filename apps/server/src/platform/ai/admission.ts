@@ -94,7 +94,12 @@ export function makeAdmission(
           .pipe(
             Effect.flatMap(
               Option.match({
-                onNone: () => Effect.fail(new StudyError('rate_limited', 'AI capacity is full')),
+                onNone: () =>
+                  Effect.fail(
+                    new StudyError('rate_limited', 'AI capacity is full', {
+                      resource: 'ai_capacity'
+                    })
+                  ),
                 onSome: Effect.succeed
               })
             )
@@ -108,7 +113,11 @@ export function makeAdmission(
             Effect.flatMap(
               Option.match({
                 onNone: () =>
-                  Effect.fail(new StudyError('rate_limited', 'Bulk AI capacity is full')),
+                  Effect.fail(
+                    new StudyError('rate_limited', 'Bulk AI capacity is full', {
+                      resource: 'ai_capacity'
+                    })
+                  ),
                 onSome: Effect.succeed
               })
             )

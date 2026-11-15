@@ -594,3 +594,59 @@ testStable('configuration revision changes exhaust the bounded total attempt bud
     await location.cleanup();
   }
 });
+
+testStable(
+  'local AI saturation uses durable waits without exhausting provider retry budget',
+  async () => {
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
+    let attempts = 0;
+    const workflow = Workflow.make('capacity-wait-test', {
+      payload: { id: Schema.String },
+      success: Schema.Number,
+      error: failureSchema,
+      idempotencyKey: ({ id }) => id
+    });
+    const activity = Activity.make({
+      name: 'capacity-operation',
+      success: Schema.Number,
+      error: failureSchema,
+      execute: Effect.suspend(() =>
+        ++attempts <= 5
+          ? Effect.fail(
+              new StudyError('rate_limited', 'Capacity full', { resource: 'ai_capacity' })
+            )
+          : Effect.succeed(attempts)
+      )
+    });
+    const runtime = (await import('effect')).ManagedRuntime.make(
+      workflow
+        .toLayer(() => retryResumableActivity(activity, { maxRetries: 0, delayMs: 1 }))
+        .pipe(
+          Layer.provideMerge(
+            Layer.mergeAll(
+              workflowEngineLayer(context),
+              Layer.succeed(Database, { store: context }),
+              Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('capacity') })
+            )
+          )
+        )
+    );
+
+    try {
+      admit(context, workflow._tag, 'capacity');
+      const result = await runtime.runPromise(
+        WorkflowEngine.WorkflowEngine.use((engine) =>
+          engine.execute(workflow, { executionId: 'capacity', payload: { id: 'capacity' } })
+        )
+      );
+
+      assert.strictEqual(result, 6);
+      assert.strictEqual(attempts, 6);
+    } finally {
+      await runtime.dispose();
+      context.close();
+      await location.cleanup();
+    }
+  }
+);

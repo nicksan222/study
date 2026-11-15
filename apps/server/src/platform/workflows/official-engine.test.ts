@@ -20,7 +20,7 @@ import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Layer, ManagedRuntime, Option, Schedule, Schema } from 'effect';
 import { ClusterWorkflowEngine, SingleRunner } from 'effect/cluster';
 import { SqlClient } from 'effect/sql';
-import { Activity, DurableClock, Workflow } from 'effect/workflow';
+import { Activity, DurableClock, DurableDeferred, Workflow } from 'effect/workflow';
 import { assert } from 'vite-plus/test';
 
 import { crashLayer, crashWorkflow } from '#testing/official-crash-runner';
@@ -52,6 +52,7 @@ testStable(
       Layer.provide(SqliteClient.layer({ filename: location.path })),
       Layer.provide(BunCrypto.layer)
     );
+    const gate = DurableDeferred.make('wait');
     const layer = workflow
       .toLayer(() =>
         Effect.gen(function* () {
@@ -61,7 +62,7 @@ testStable(
             execute: Effect.sync(count)
           });
 
-          yield* DurableClock.sleep({ name: 'wait', duration: '300 millis', inMemoryThreshold: 0 });
+          yield* DurableDeferred.await(gate);
 
           return result;
         })
@@ -86,6 +87,12 @@ testStable(
       const second = ManagedRuntime.make(layer);
 
       try {
+        await second.runPromise(
+          DurableDeferred.succeed(gate, {
+            token: DurableDeferred.tokenFromExecutionId(gate, { workflow, executionId: id }),
+            value: undefined
+          })
+        );
         assert.equal(await second.runPromise(workflow.execute({ id: 'accepted' })), 1);
         assert.equal(calls, 1);
       } finally {

@@ -240,20 +240,28 @@ export function sqlMutationTargets(text: string): string[] {
 function* statementOperations(tokens: string[]) {
   let depth = 0;
   let consumed = false;
+  let triggerHeader = false;
 
   for (let i = 0; i < tokens.length; i++) {
     const word = tokens[i];
 
     depth += bracketDepth(word);
 
+    if (word === 'begin' && triggerHeader && depth === 0) {
+      consumed = false;
+      triggerHeader = false;
+    }
+
     if (word === ';' && depth === 0) {
       consumed = false;
+      triggerHeader = false;
       continue;
     }
 
     if (depth || consumed || !operationStart(tokens, i)) continue;
 
     consumed = true;
+    triggerHeader = word === 'create' && tokens.slice(i + 1, i + 3).includes('trigger');
     yield i;
   }
 }
@@ -267,33 +275,35 @@ function* sqlTargetTokens(text: string, schema: boolean) {
 
   for (const i of statementOperations(tokens)) {
     const word = tokens[i];
-    const target =
+    const targets =
       schema && ['create', 'alter', 'drop'].includes(word)
-        ? schemaMutationTarget(tokens, i, word)
-        : mutationTarget(tokens, i, word);
+        ? schemaMutationTargets(tokens, i, word)
+        : [mutationTarget(tokens, i, word)];
 
-    if (target !== null && tokens[target]) yield tokens[target];
+    for (const target of targets) if (target !== null && tokens[target]) yield tokens[target];
   }
 }
 
-function schemaMutationTarget(tokens: string[], i: number, word: string): number | null {
+function schemaMutationTargets(tokens: string[], i: number, word: string): number[] {
   let at = i + 1;
 
   if (['unique', 'temp', 'temporary', 'virtual'].includes(tokens[at])) at++;
 
   const kind = tokens[at++];
 
-  if (!['table', 'index', 'trigger', 'view'].includes(kind)) return null;
+  if (!['table', 'index', 'trigger', 'view'].includes(kind)) return [];
 
   if (tokens[at] === 'if') at += tokens[at + 1] === 'not' ? 3 : 2;
 
+  const targets = [tokens[at + 1] === '.' ? at + 2 : at];
+
   if (word === 'create' && ['index', 'trigger'].includes(kind)) {
+    const end = tokens.indexOf(';', at);
     const on = tokens.indexOf('on', at);
 
-    if (on === -1) return null;
-
-    at = on + 1;
+    if (on !== -1 && (end === -1 || on < end))
+      targets.push(tokens[on + 2] === '.' ? on + 3 : on + 1);
   }
 
-  return tokens[at + 1] === '.' ? at + 2 : at;
+  return targets;
 }

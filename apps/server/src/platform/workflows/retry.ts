@@ -80,6 +80,7 @@ export function retryResumableActivity<
     const configuration = yield* WorkflowConfiguration;
     const { store: context } = yield* Database;
     let delayed = 0;
+    let failures = 0;
 
     for (let attempt = 1; ; attempt++) {
       const observed = yield* Activity.make({
@@ -94,7 +95,18 @@ export function retryResumableActivity<
 
       if (Result.isSuccess(result)) return result.success;
 
-      if (attempt > maxRetries) return yield* Effect.fail(result.failure);
+      // Local saturation has not attempted provider work. Persist a native wait without
+      // spending the bounded provider/configuration failure budget.
+      if (result.failure.resource === 'ai_capacity') {
+        yield* DurableClock.sleep({
+          name: `${activity.name}/capacity/${attempt}`,
+          duration: delayMs,
+          inMemoryThreshold: 0
+        });
+        continue;
+      }
+
+      if (failures++ >= maxRetries) return yield* Effect.fail(result.failure);
 
       const disposition = retryDisposition(result.failure);
 

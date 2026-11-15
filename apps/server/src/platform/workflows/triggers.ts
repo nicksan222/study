@@ -33,6 +33,7 @@ import { decodeEvent } from '#server/platform/workflows/events';
 
 import { withDispatchPermit } from './admission.ts';
 import { reconcileCancellation } from './cancellation.ts';
+import { workflowStore } from './store.ts';
 
 export type EventType = WorkflowEvent['type'];
 
@@ -205,6 +206,7 @@ export function dispatchPending(
               and(
                 eq(workflowEvents.type, trigger.event),
                 eligibleEvent(trigger),
+                lt(workflowEvents.depth, 8),
                 sql`NOT EXISTS (SELECT 1 FROM ${workflowReceipts} WHERE ${workflowReceipts.eventId} = ${workflowEvents.eventId} AND ${workflowReceipts.subscription} = ${trigger.subscription} AND ${workflowReceipts.workflowVersion} = ${trigger.workflowVersion})`
               )
             )
@@ -346,7 +348,12 @@ export function refreshExecutionSnapshots(context: ServerContext, triggers: read
             .where(eq(workflow_executions.execution_id, row.execution_id))
             .get();
 
-          if (!current || current.generation !== row.generation) return;
+          if (
+            !current ||
+            current.generation !== row.generation ||
+            workflowStore(tx).retired(row.execution_id)
+          )
+            return;
 
           if (Option.isNone(reply)) return;
 

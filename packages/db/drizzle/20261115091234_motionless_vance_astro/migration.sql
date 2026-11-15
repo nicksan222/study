@@ -17,6 +17,9 @@ DELETE FROM workflow_retired_executions;--> statement-breakpoint
 DELETE FROM workflow_retired_correlations;--> statement-breakpoint
 DELETE FROM workflow_executions;--> statement-breakpoint
 -- Cancel domain shells whose execution protocol was reset; completed content is retained.
+UPDATE note_deletions SET status='failed',error_kind='cancelled' WHERE status='pending';--> statement-breakpoint
+UPDATE material_deletions SET status='failed',error_kind='cancelled' WHERE status='pending';--> statement-breakpoint
+UPDATE material_history_prunes SET status='failed',error_kind='cancelled' WHERE status='pending';--> statement-breakpoint
 UPDATE material_generation_requests SET cancelled=1 WHERE result_version_id IS NULL;--> statement-breakpoint
 UPDATE page_transform_requests SET cancelled=1,error_kind='cancelled' WHERE result_version_id IS NULL;--> statement-breakpoint
 UPDATE learning_practice_controls SET enabled=0;--> statement-breakpoint

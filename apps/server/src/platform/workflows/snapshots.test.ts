@@ -235,3 +235,65 @@ testStable('restart retires official replies for already completed domain work',
     await location.cleanup();
   }
 });
+
+testStable(
+  'retirement between polling and snapshot commit cannot restore private output',
+  async () => {
+    const location = await createTestDatabase();
+    const context = new ServerContext(await location.open());
+    const workflow = Workflow.make('poll-retirement/v1', {
+      payload: { id: Schema.String },
+      success: Schema.String,
+      idempotencyKey: ({ id }) => id
+    });
+    const runtime = ManagedRuntime.make(
+      workflow
+        .toLayer(() => Effect.succeed('private reply'))
+        .pipe(Layer.provideMerge(workflowEngineLayer(context)))
+    );
+    const id = 'poll-retirement';
+
+    const retireAfterPoll = Effect.sync(() => {
+      context.db.orm
+        .insert(workflow_retired_executions)
+        .values({ execution_id: id, correlation_id: id })
+        .run();
+      scrubRetiredExecution(context.db, id);
+    });
+
+    try {
+      admitTestExecution(context, workflow, id, { id });
+      await runtime.runPromise(
+        Effect.gen(function* () {
+          const engine = yield* WorkflowEngine.WorkflowEngine;
+
+          yield* engine.execute(workflow, { executionId: id, payload: { id } });
+          const polling = {
+            ...engine,
+            poll: (...args: Parameters<typeof engine.poll>) =>
+              engine.poll(...args).pipe(Effect.tap(() => retireAfterPoll))
+          };
+
+          yield* refreshExecutionSnapshots(context, [
+            {
+              subscription: id,
+              event: 'SourceIndexed',
+              workflowVersion: 1,
+              workflow,
+              emits: [],
+              enabled: () => true
+            }
+          ]).pipe(Effect.provideService(WorkflowEngine.WorkflowEngine, polling));
+        })
+      );
+      const row = context.db.orm.select().from(workflow_executions).get();
+
+      expect(row?.result).toBeNull();
+      expect(row?.payload).toBe('{}');
+    } finally {
+      await runtime.dispose();
+      context.close();
+      await location.cleanup();
+    }
+  }
+);

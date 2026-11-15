@@ -29,7 +29,7 @@ export function withTestPublication(
 ) {
   const execute = Effect.gen(function* () {
     const id = crypto.randomUUID();
-    const workflow = Workflow.make('service-test-publication', {
+    const workflow = Workflow.make(`service-test-publication/${id}`, {
       payload: { id: Schema.String },
       error: failureSchema,
       idempotencyKey: ({ id }) => id
