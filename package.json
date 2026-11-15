@@ -86,6 +86,7 @@
     "runtime:smoke": "python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@study/testing": "*",
     "@study/tooling": "*",
     "@stylistic/eslint-plugin": "5.10.0",

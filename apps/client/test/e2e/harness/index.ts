@@ -1,8 +1,9 @@
+import AxeBuilder from '@axe-core/playwright';
 import type { Page } from 'playwright';
 import { test } from 'playwright/test';
 
 import { assertCapturePlatform } from './environment.ts';
-import { workflowName } from './identity.ts';
+import { safeName, workflowName } from './identity.ts';
 import { captureProfile } from './profile.ts';
 import { screenshotAssertions, updateAllowed } from './screenshots.ts';
 import type { ExpectScreenshot } from './screenshots.ts';
@@ -80,10 +81,24 @@ export { expect } from './visible-text.ts';
 /** Direct native registration preserves authored source locations, file filtering and worker scheduling. */
 export const testE2e = testHarness.extend<{
   expectScreenshot: ExpectScreenshot;
+  expectAccessibility: (name: string) => Promise<void>;
   loseCreationResponse: Journey['loseCreationResponse'];
   requireJourney: void;
 }>({
   expectScreenshot: async ({ journey }, provide) => provide(journey.expectScreenshot),
+  expectAccessibility: async ({ page }, provide, info) => {
+    await provide(async (name) => {
+      const result = await new AxeBuilder({ page })
+        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+        .analyze();
+
+      await info.attach(`accessibility-${safeName(name)}`, {
+        body: JSON.stringify(result, null, 2),
+        contentType: 'application/json'
+      });
+      expect(result.violations).toEqual([]);
+    });
+  },
   loseCreationResponse: async ({ journey }, provide) => provide(journey.loseCreationResponse),
   requireJourney: [
     async ({ journey }, provide) => {
