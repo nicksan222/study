@@ -1,8 +1,11 @@
+import { BunFileSystem } from '@effect/platform-bun';
 import { testStable } from '@study/testing/vitest';
 import { sql } from 'drizzle-orm';
+import { Effect, FileSystem } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 import type { TestContext } from 'vite-plus/test';
 
+import { Db } from '../src/db.ts';
 import { createTestDatabase } from '../src/testing.ts';
 
 async function fixture(t: TestContext) {
@@ -85,6 +88,104 @@ testStable(
     (version_id,parent_version_id,page_id) VALUES (1,2,1)`)
     );
     expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+  }
+);
+
+testStable(
+  'deleted Pages permit only metadata removal and cannot regain annotation content',
+  async (t) => {
+    const db = await fixture(t);
+
+    db.exec(`UPDATE page_versions SET instruction='PRIVATE_INSTRUCTION',language='english' WHERE id=1;
+    UPDATE page_versions SET status='published',published_at=2 WHERE id=1;
+    INSERT INTO page_annotations(id,page_id,revision) VALUES(1,1,1);
+    INSERT INTO page_annotation_revisions(annotation_id,revision,page_id,version_id,snapshot_id,payload)
+    VALUES(1,1,1,1,1,'{"id":"1","revision":"1","target":{"pageId":"1","range":{"versionId":"1","snapshotId":"1","blockId":"block-1","start":0,"end":1}},"kind":"note","note":"PRIVATE_ANNOTATION","deleted":false,"operation":"create"}');`);
+    const annotation = db.orm.get<{ payload: string }>(
+      sql`SELECT payload FROM page_annotation_revisions`
+    )!;
+
+    assert.throws(() => db.exec('DELETE FROM page_annotation_revisions'));
+    assert.throws(() =>
+      db.exec('UPDATE page_versions SET instruction=NULL,language=NULL WHERE id=1')
+    );
+    db.exec("INSERT INTO page_retirements(version_id,reason,created_at) VALUES(1,'history',3)");
+    assert.throws(() => db.exec('DELETE FROM page_annotation_revisions'));
+    db.exec(`INSERT INTO page_deletions(page_id,created_at) VALUES(1,4);
+    UPDATE page_versions SET instruction=NULL,language=NULL WHERE id=1;
+    DELETE FROM page_annotation_revisions;`);
+    assert.strictEqual(
+      db.orm.get(sql`SELECT instruction FROM page_versions WHERE id=1`)?.instruction,
+      null
+    );
+    assert.throws(() => db.exec("UPDATE page_versions SET instruction='RESURRECTED' WHERE id=1"));
+    assert.throws(() => db.exec("UPDATE page_versions SET creator='agent' WHERE id=1"));
+    assert.throws(() =>
+      db.orm.run(
+        sql`INSERT INTO page_annotation_revisions(annotation_id,revision,page_id,version_id,snapshot_id,payload) VALUES(1,1,1,1,1,${annotation.payload})`
+      )
+    );
+    assert.throws(() => db.exec('DELETE FROM page_annotations'));
+    expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+  }
+);
+
+testStable(
+  'upgrading existing deleted Pages removes owned text without changing retained identities',
+  async () => {
+    const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+    const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-page-upgrade-' }));
+    const older = folder + '/drizzle';
+
+    await Effect.runPromise(
+      fs.copy(Bun.fileURLToPath(new URL('../drizzle', import.meta.url)), older)
+    );
+
+    for (const entry of await Effect.runPromise(fs.readDirectory(older))) {
+      if (/^\d{14}_/.test(entry) && entry >= '20261115131448_page-deletion-owned-text')
+        await Effect.runPromise(fs.remove(older + '/' + entry, { recursive: true }));
+    }
+
+    const location = await createTestDatabase(older);
+    let db = await location.open();
+
+    try {
+      db.exec(`INSERT INTO pages(id,title,description,created_at,updated_at)
+      VALUES(1,'PRIVATE_TITLE','PRIVATE_DESCRIPTION',1,1),(2,'Independent',NULL,1,1);
+      INSERT INTO content_snapshots(id,extractor_version,meta,created_at) VALUES(1,0,'{}',1);
+      INSERT INTO blocks(document_id,ordinal,kind,editing_id,content,text,anchor)
+      VALUES(1,0,'paragraph','b','{"type":"paragraph","inlines":[{"type":"text","text":"Body","marks":[]}]}','Body','{"type":"authored"}');
+      INSERT INTO page_versions(id,page_id,number,content_snapshot_id,instruction,created_at)
+      VALUES(1,1,1,1,'PRIVATE_INSTRUCTION',1);
+      UPDATE page_versions SET status='published',published_at=2 WHERE id=1;
+      INSERT INTO page_annotations(id,page_id,revision) VALUES(1,1,1);
+      INSERT INTO page_annotation_revisions(annotation_id,revision,page_id,version_id,snapshot_id,payload)
+      VALUES(1,1,1,1,1,'{"id":"1","revision":"1","target":{"pageId":"1","range":{"versionId":"1","snapshotId":"1"}},"note":"PRIVATE_ANNOTATION"}');
+      INSERT INTO page_retirements(version_id,reason,created_at) VALUES(1,'deletion',3);
+      DELETE FROM blocks;
+      INSERT INTO page_deletions(page_id,created_at) VALUES(1,3);`);
+      const path = db.path;
+
+      db.close();
+      db = await Db.open(path);
+      assert.strictEqual(db.orm.get(sql`SELECT title FROM pages WHERE id=1`)?.title, '-');
+      assert.strictEqual(
+        db.orm.get(sql`SELECT description FROM pages WHERE id=1`)?.description,
+        null
+      );
+      assert.strictEqual(
+        db.orm.get(sql`SELECT instruction FROM page_versions WHERE id=1`)?.instruction,
+        null
+      );
+      assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM page_annotation_revisions`)?.n, 0n);
+      assert.ok(db.orm.get(sql`SELECT id FROM page_annotations WHERE id=1`));
+      assert.strictEqual(db.orm.get(sql`SELECT title FROM pages WHERE id=2`)?.title, 'Independent');
+      expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    } finally {
+      db.close();
+      await location.cleanup();
+      await Effect.runPromise(fs.remove(folder, { recursive: true }));
+    }
   }
 );
 

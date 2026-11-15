@@ -156,6 +156,28 @@ testStable(
       );
       expect(await fixture.executeAuthored(event, 'merge-restored-replay')).toEqual(versionId);
       expect(fixture.bodies).toHaveLength(2);
+      await Effect.runPromise(
+        Effect.gen(function* () {
+          const service = yield* Pages;
+          const result = yield* service.version({ id: versionId });
+          const preview = yield* service.previewDeletion({ id: result.pageId });
+
+          yield* service.delete({ pageId: result.pageId, token: preview.token });
+          const retained = yield* service.transform({ requestId: request.id });
+
+          expect(retained.resultVersionId).toEqual(versionId);
+          expect(retained.title).toBe('-');
+          expect(retained.merge?.title).toBe('-');
+          expect(retained.merge?.instruction).toBe('');
+          expect(retained.merge?.versions).toEqual(input.versions);
+          expect(retained.report).toBeNull();
+
+          for (const doc of docs)
+            expect((yield* service.version({ id: doc.version!.id })).document).toEqual(
+              doc.version!.document
+            );
+        }).pipe(Effect.provide(fixture.services()))
+      );
     } finally {
       await fixture.close();
     }

@@ -12,7 +12,7 @@
  */
 
 import type { PageId, PageVersionId } from '@study/contracts/ids';
-import { desc, eq, sql } from '@study/db';
+import { desc, eq, inArray, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { CryptoHasher } from 'bun';
 
@@ -185,6 +185,41 @@ export function makePageHistory(resources: StoreResources) {
       orm.delete(s.note_pages).where(eq(s.note_pages.page_id, pageId)).run();
       orm.delete(s.project_pages).where(eq(s.project_pages.page_id, pageId)).run();
       orm.insert(s.page_deletions).values({ page_id: pageId, created_at: now() }).run();
+      orm
+        .update(s.pages)
+        .set({ title: '-', description: null })
+        .where(eq(s.pages.id, pageId))
+        .run();
+      orm
+        .update(s.page_versions)
+        .set({ instruction: null, language: null })
+        .where(eq(s.page_versions.page_id, pageId))
+        .run();
+      orm
+        .delete(s.page_annotation_revisions)
+        .where(eq(s.page_annotation_revisions.page_id, pageId))
+        .run();
+      const requests = s.page_transform_requests;
+
+      orm
+        .update(requests)
+        .set({
+          instruction: '',
+          report: null,
+          request: sql`CASE WHEN json_type(${requests.request},'$.merge')='object'
+            THEN json_set(${requests.request},'$.title','-','$.merge.title','-','$.merge.instruction','')
+            ELSE json_set(${requests.request},'$.title','-') END`
+        })
+        .where(
+          inArray(
+            requests.result_version_id,
+            orm
+              .select({ id: s.page_versions.id })
+              .from(s.page_versions)
+              .where(eq(s.page_versions.page_id, pageId))
+          )
+        )
+        .run();
     }
 
     return result;
