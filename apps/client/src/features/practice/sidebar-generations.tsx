@@ -1,21 +1,23 @@
-import type { ProjectId, materialGenerationSnapshotSchema } from '@study/contracts';
-import { rpc } from '@study/contracts';
-import { QuizIcon, FlashcardsIcon, StopIcon } from '@study/icons';
+import type { ProjectId } from '@study/contracts';
+import type { materialGenerationSnapshotSchema } from '@study/contracts';
+import { rpc } from '@study/contracts/react';
+import { QuizIcon, FlashcardsIcon, StopIcon, WorkActivityIcon, CancelIcon } from '@study/icons';
 import { RetryButton } from '@study/ui';
 import {
-  AiActivity,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem
 } from '@study/ui';
 import { ErrorState } from '@study/ui';
+import { IconButton } from '@study/ui';
 import { Sidebar } from '@study/ui';
+import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import type { Subjects } from '#client/lib/study-client/types.ts';
 
-import { AgentActivity } from '../agent-progress';
+import { AgentActivity, AgentActivityDetails } from '../agent-progress';
 import { useGenerationRetry } from './sidebar-generations.queries';
 
 type Generation = typeof materialGenerationSnapshotSchema.Type;
@@ -61,6 +63,7 @@ export function PracticeSidebarGenerations({
 
 function GenerationCard({ generation, subjects }: { generation: Generation; subjects: Subjects }) {
   const { t } = useI18n();
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const stop = rpc.materials.cancelMaterialGeneration.useMutation();
   const retry = useGenerationRetry(generation.id);
   const failed = generation.errorKind !== null && !retry.isPending;
@@ -73,22 +76,70 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
     retrying: retry.isPending
   });
   const status = t(activity.label);
+  const controls = (
+    <Sidebar.NoteRowActions placement="inline">
+      {failed && <RetryButton label={t('Retry')} disabled={stop.isPending} onClick={retry.retry} />}
+      <Sidebar.SettleAction
+        aria-label={stopLabel}
+        title={stopLabel}
+        disabled={stop.isPending}
+        onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
+      >
+        <StopIcon aria-hidden="true" />
+        {t('StopJob')}
+      </Sidebar.SettleAction>
+    </Sidebar.NoteRowActions>
+  );
 
   return (
     <Sidebar.NoteEntry>
       <ContextMenu>
-        <ContextMenuTrigger
-          render={
-            <Sidebar.Item
-              label={generation.title}
-              context={owner?.name ?? t(label)}
-              icon={<Icon aria-hidden="true" />}
-              title={generation.title}
-              render={<div />}
-            />
-          }
-        />
+        <ContextMenuTrigger render={<div />}>
+          <Sidebar.Item
+            label={generation.title}
+            context={owner?.name ?? t(label)}
+            icon={<Icon aria-hidden="true" />}
+            title={generation.title}
+            render={<div />}
+          />
+          <Sidebar.WorkProgress>
+            {failed ? (
+              <ErrorState
+                layout="sidebar"
+                title={t('PracticeGenerationFailed')}
+                action={controls}
+              />
+            ) : (
+              <AgentActivity
+                correlationId={generation.id}
+                label={status}
+                status={activity.status}
+                action={
+                  <IconButton
+                    label={stopLabel}
+                    variant="ghost-muted"
+                    disabled={stop.isPending}
+                    onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
+                  >
+                    <CancelIcon aria-hidden="true" />
+                  </IconButton>
+                }
+              />
+            )}
+            {retry.isError && (
+              <ErrorState
+                layout="sidebar"
+                title={t('PracticeGenerationRetryError')}
+                description={t('PracticeGenerationRetryErrorDescription')}
+              />
+            )}
+          </Sidebar.WorkProgress>
+        </ContextMenuTrigger>
         <ContextMenuPopup>
+          <ContextMenuItem onClick={() => setDetailsOpen(true)}>
+            <WorkActivityIcon aria-hidden="true" />
+            {t('AgentActivityDetails')}
+          </ContextMenuItem>
           <ContextMenuItem
             disabled={stop.isPending}
             onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
@@ -98,42 +149,20 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
-      <Sidebar.WorkProgress>
-        <AgentActivity correlationId={generation.id} label={status} status={activity.status} />
+      <AgentActivityDetails
+        correlationId={generation.id}
+        title={generation.title}
+        status={activity.status}
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+      >
         {failed && (
           <ErrorState
-            layout="sidebar"
             title={t('PracticeGenerationFailed')}
             description={t('PracticeGenerationFailedDescription')}
-            action={
-              <RetryButton
-                label={t('Retry')}
-                disabled={retry.isPending || stop.isPending}
-                onClick={retry.retry}
-              />
-            }
           />
         )}
-        {retry.isPending && <RetryButton label={t('Retry')} disabled />}
-        {retry.isError && (
-          <ErrorState
-            layout="sidebar"
-            title={t('PracticeGenerationRetryError')}
-            description={t('PracticeGenerationRetryErrorDescription')}
-          />
-        )}
-      </Sidebar.WorkProgress>
-      <Sidebar.NoteRowActions placement="top">
-        <Sidebar.SettleAction
-          aria-label={stopLabel}
-          title={stopLabel}
-          disabled={stop.isPending}
-          onClick={() => void stop.mutate({ requestId: generation.id }).catch(() => {})}
-        >
-          <StopIcon aria-hidden="true" />
-          {t('StopJob')}
-        </Sidebar.SettleAction>
-      </Sidebar.NoteRowActions>
+      </AgentActivityDetails>
       {stop.isError && (
         <Sidebar.Message role="alert">{t('PracticeGenerationStopError')}</Sidebar.Message>
       )}
@@ -152,7 +181,7 @@ function generationActivity({
 }) {
   if (stopping) return { label: 'PracticeGenerationStopping', status: 'stopping' } as const;
 
-  if (failed) return { label: 'PracticeGenerationAttention', status: 'failed' } as const;
+  if (failed) return { label: 'AgentActivityDetails', status: 'failed' } as const;
 
   if (retrying) return { label: 'PracticeGenerationRetrying', status: 'waiting' } as const;
 

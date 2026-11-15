@@ -1,118 +1,50 @@
 import type { agentProgressInputSchema, agentProgressSchema } from '@study/contracts/ai/progress';
-import { agentProgressLimit } from '@study/contracts/ai/progress';
-import {
-  CompletedIcon,
-  ErrorIcon,
-  CancelledIcon,
-  ThinkingIcon,
-  DisclosureIcon
-} from '@study/icons';
 import { AiActivity } from '@study/ui/ai-button';
-import { Disclosure } from '@study/ui/disclosure';
-import { GenerationPreview } from '@study/ui/generation-preview';
-import { Trace, TraceLine, TraceIcon, TraceTitle, TraceDescription } from '@study/ui/trace';
+import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-import { AgentToolCall } from './tool-call';
-import { settledAgentTool } from './tool-state';
 import { useAgentProgress } from './use-agent-progress';
 
-type Run = typeof agentProgressSchema.Type;
+export type AgentActivityStatus =
+  | (typeof agentProgressSchema.Type)['status']
+  | 'waiting'
+  | 'stopping';
 
-type Status = Run['status'] | 'waiting' | 'stopping';
-
-const labels = {
-  running: 'workspace.state.running',
-  completed: 'workspace.state.completed',
-  failed: 'workspace.state.failure',
-  cancelled: 'workspace.state.cancelled'
-} as const;
-
-const icons = {
-  running: ThinkingIcon,
-  completed: CompletedIcon,
-  failed: ErrorIcon,
-  cancelled: CancelledIcon
-};
-
-/** Compact persisted steps; feature-owned terminal state takes precedence over stale previews. */
+/** Sidebar work names only its current phase; history belongs in the details dialog. */
 export function AgentActivity({
   label,
   status,
+  action,
   ...input
-}: typeof agentProgressInputSchema.Type & { label: string; status: Status }) {
+}: typeof agentProgressInputSchema.Type & {
+  label: string;
+  status: AgentActivityStatus;
+  action?: ReactNode;
+}) {
   const { t } = useI18n();
-  const progress = useAgentProgress(input);
-  const runs = progress.runs.map((run) => settleRun(run, status));
-  const completed = runs.filter((run) => run.status === 'completed').length;
+  const { runs } = useAgentProgress(input);
+  const live = status === 'running' || status === 'waiting';
+  const current = live
+    ? runs.findLast((run) => run.status === 'running' && run.executionStatus === 'running')
+    : undefined;
+  const phaseLabel =
+    current?.phase === 'preparing'
+      ? t('AgentActivityPreparing')
+      : current?.phase === 'compacting'
+        ? t('AgentActivityCompacting')
+        : label;
 
   return (
-    <Disclosure
-      variant="activity"
-      summary={
-        <>
-          <AiActivity label={label} state={activityState(status)} />
-          {completed > 0 && (
-            <span>
-              {completed === 1
-                ? t('AgentActivityStepCompleted')
-                : t('AgentActivityStepsCompleted', { count: completed })}
-            </span>
-          )}
-          <DisclosureIcon aria-hidden="true" />
-        </>
-      }
-    >
-      <Trace density="compact" aria-label={t('AgentActivitySteps')}>
-        {runs.length === agentProgressLimit && (
-          <TraceDescription>{t('AgentActivityRecentSteps')}</TraceDescription>
-        )}
-        {progress.isError && <TraceDescription>{t('AgentActivityUnavailable')}</TraceDescription>}
-        {!progress.isError && !runs.length && (
-          <TraceDescription>{t('AgentActivityWaiting')}</TraceDescription>
-        )}
-        {runs.map((run, index) => {
-          const Icon = icons[run.status];
-          const text = run.mode === 'text' ? run.text : undefined;
-
-          return (
-            <div key={run.runId}>
-              <TraceLine
-                status={
-                  run.status === 'running'
-                    ? 'running'
-                    : run.status === 'failed'
-                      ? 'error'
-                      : undefined
-                }
-              >
-                <TraceIcon>
-                  <Icon />
-                </TraceIcon>
-                <TraceTitle>{t('AgentActivityStep', { number: index + 1 })}</TraceTitle>
-                <TraceDescription>{t(labels[run.status])}</TraceDescription>
-              </TraceLine>
-              {run.tools.map((tool) => (
-                <AgentToolCall key={tool.toolCallId} tool={settledAgentTool(tool, run)} />
-              ))}
-              {text && (
-                <GenerationPreview
-                  label={t(labels[run.status])}
-                  text={text}
-                  variant="compact"
-                  streaming={run.status === 'running'}
-                />
-              )}
-            </div>
-          );
-        })}
-      </Trace>
-    </Disclosure>
+    <AiActivity
+      action={action}
+      label={phaseLabel}
+      state={current ? 'running' : activityState(status)}
+    />
   );
 }
 
-function activityState(status: Status) {
+function activityState(status: AgentActivityStatus) {
   switch (status) {
     case 'running':
       return 'running';
@@ -123,17 +55,4 @@ function activityState(status: Status) {
     default:
       return 'waiting';
   }
-}
-
-function settleRun(run: Run, owner: Status): Run {
-  if (run.status !== 'running') return run;
-
-  if (owner === 'failed' || owner === 'cancelled' || owner === 'completed')
-    return { ...run, status: owner };
-
-  if (run.executionStatus === 'cancelled') return { ...run, status: 'cancelled' };
-
-  if (run.executionStatus === 'completed') return { ...run, status: 'failed' };
-
-  return run;
 }

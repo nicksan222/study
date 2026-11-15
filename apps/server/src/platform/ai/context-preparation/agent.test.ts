@@ -11,6 +11,7 @@
  */
 
 import type { LanguageModelV3 } from '@ai-sdk/provider';
+import type { agentObservationSchema } from '@study/contracts/ai/progress';
 import { promptInputSchema } from '@study/contracts/ai/shared';
 import { failureSchema, StudyError } from '@study/contracts/errors';
 import { AgentRule } from '@study/contracts/settings/schemas';
@@ -256,7 +257,8 @@ async function run<A, E>(
     Effect.Services<ReturnType<typeof processSourcePassages<string, string, never>>> | Agents
   >,
   schema: Schema.Codec<A, unknown>,
-  prompts: string[]
+  prompts: string[],
+  observations: (typeof agentObservationSchema.Type)[] = []
 ) {
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
@@ -291,6 +293,10 @@ async function run<A, E>(
           Effect.provide(
             agentsLayer({
               model: () => Effect.succeed(model),
+              observe: (observation) =>
+                Effect.sync(() => {
+                  observations.push(observation);
+                }),
               language: 'en',
               rules: Effect.succeed(defaultAgentRules),
               searchSources: () => Effect.die('Global evidence must remain isolated')
@@ -534,6 +540,7 @@ testStable(
 
 testStable('preparation agents search only their piece or reduction originals', async () => {
   const prompts: string[] = [];
+  const observations: (typeof agentObservationSchema.Type)[] = [];
   const searchingNotes = { ...notesAgent, tools: { sources: sourcesTool } };
   const execute = generateAgent(
     {
@@ -573,7 +580,19 @@ testStable('preparation agents search only their piece or reduction originals', 
     }
   ).pipe(Effect.map(({ output }) => output));
 
-  assert.equal(await run(execute, Schema.String, prompts), 'Final [1]');
+  assert.equal(await run(execute, Schema.String, prompts, observations), 'Final [1]');
+  assert.deepEqual(
+    observations.filter(({ event }) => event.type === 'start').map(({ phase }) => phase),
+    ['preparing', 'preparing', 'compacting', 'generating']
+  );
+
+  for (const observation of observations) {
+    assert.equal(
+      observation.phase,
+      observations.find(({ runId }) => runId === observation.runId)!.phase
+    );
+  }
+
   const maps = prompts.filter(
     (prompt) => prompt.includes('Map task:') && prompt.includes('tool-result')
   );

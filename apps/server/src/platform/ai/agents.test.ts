@@ -126,12 +126,17 @@ function mockService(mock: ReturnType<typeof createAiMock>) {
 }
 
 testStable('generates validated output through the Responses provider', async () => {
+  const observe: NonNullable<AgentsConfig['observe']> = (observation) =>
+    Effect.sync(() => {
+      expect(observation.phase).toBe('generating');
+    });
+
   await peer(
     (_req) => send('Biology'),
     async (base, auth) => {
       assert.ok(
         (await Effect.runPromise(
-          generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth)))
+          generateAgent(definition, 'cells').pipe(Effect.provide(service(base, auth, observe)))
         )) === 'Biology'
       );
     }

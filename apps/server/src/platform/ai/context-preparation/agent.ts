@@ -20,6 +20,7 @@ import { Effect, Schema } from 'effect';
 
 import { Agents, generateAgent } from '#server/platform/ai/agents';
 import { createPassageEvidenceCatalog } from '#server/platform/ai/evidence';
+import { AiPhase } from '#server/platform/ai/phase';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 
 import { defaultSourcePlanLimits, planSourcePassages } from './planner.ts';
@@ -354,6 +355,7 @@ function prepareContext<Ref, Value, R, RP>(
         const allowed = new Set(piece.passages.map((passage) => passage.marker));
         const catalog = yield* attempt(() => originalEvidence(plan, allowed));
         const value = yield* generateAgent(policy.map.agent, { prompt }, agentOptions).pipe(
+          Effect.provideService(AiPhase, 'preparing'),
           Effect.provideService(Agents, scoped(catalog))
         );
 
@@ -369,6 +371,7 @@ function prepareContext<Ref, Value, R, RP>(
         );
         const catalog = yield* attempt(() => originalEvidence(plan, allowed));
         const value = yield* generateAgent(policy.reduce.agent, { prompt }, agentOptions).pipe(
+          Effect.provideService(AiPhase, 'compacting'),
           Effect.provideService(Agents, scoped(catalog))
         );
 

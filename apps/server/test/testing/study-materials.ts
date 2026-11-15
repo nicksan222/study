@@ -15,8 +15,7 @@ import type { MaterialVersionId } from '@study/contracts/ids';
 import type { ProjectId } from '@study/contracts/ids';
 import { contentInputKey, contentInputSchema } from '@study/contracts/inputs';
 import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
-import type { quizSettingsSchema } from '@study/contracts/settings/schemas';
-import type { Language } from '@study/contracts/settings/types';
+import type { appSettingsSchema, quizSettingsSchema } from '@study/contracts/settings/schemas';
 import { plainBlock } from '@study/contracts/sources/document';
 import { preferences } from '@study/db/schema';
 import type { createAiMock } from '@study/testing/ai-mock';
@@ -151,13 +150,13 @@ export function createStudyMaterials(app: App, ai: ReturnType<typeof createAiMoc
       ),
     lecture,
     contextInputs,
-    language: (language: Language) =>
+    settings: (patch: Partial<typeof appSettingsSchema.Type>) =>
       app.nativeRuntime.runPromise(
         Effect.gen(function* () {
           const settings = yield* Settings;
           const current = yield* settings.appSettings();
 
-          yield* settings.saveAppSettings({ ...current, language });
+          yield* settings.saveAppSettings({ ...current, ...patch });
         })
       ),
     seed: (text?: string) => studyMaterialFixture(app, ai, text),

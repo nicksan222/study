@@ -452,7 +452,7 @@ function NoteRowActions({
   className,
   placement = 'bottom',
   ...props
-}: ComponentProps<'div'> & { placement?: 'top' | 'bottom' }) {
+}: ComponentProps<'div'> & { placement?: 'top' | 'bottom' | 'inline' }) {
   return (
     <div
       {...props}

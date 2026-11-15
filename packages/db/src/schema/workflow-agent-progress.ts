@@ -1,3 +1,5 @@
+import type { agentPhaseSchema } from '@study/contracts/ai/progress';
+
 import { sql, check, index, integer, defineTable, text } from '../schema-builder.ts';
 import { workflow_executions } from './workflows.ts';
 
@@ -16,6 +18,7 @@ export const workflow_agent_progress = defineTable({
     activity_name: text().notNull(),
     attempt: integer().notNull(),
     agent_id: text().notNull(),
+    phase: text().$type<typeof agentPhaseSchema.Type>().notNull().default('generating'),
     mode: text({ enum: ['text', 'object'] }).notNull(),
     status: text({ enum: ['running', 'completed', 'failed', 'cancelled'] }).notNull(),
     failure_kind: text(),
@@ -25,6 +28,10 @@ export const workflow_agent_progress = defineTable({
     updated_at: integer().$type<bigint>().notNull()
   },
   (t) => [
+    check(
+      'workflow_agent_progress_phase_check',
+      sql`${t.phase} IN ('generating', 'preparing', 'compacting')`
+    ),
     check('workflow_agent_progress_tools_check', sql`json_valid(${t.tools})`),
     check('workflow_agent_progress_mode_check', sql`${t.mode} IN ('text', 'object')`),
     check(

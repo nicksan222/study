@@ -164,6 +164,13 @@ function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
+/** Scrollable dialog content keeps shared padding and leaves its heading visible. */
+function DialogBody({ className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div {...props} className={cn('min-h-0 space-y-3 overflow-y-auto px-6 pb-6', className)} />
+  );
+}
+
 function DialogFooter({
   className,
   variant = 'default',
@@ -210,6 +217,7 @@ export {
   DialogPopup,
   DialogHeader,
   DialogFooter,
+  DialogBody,
   DialogTitle,
   DialogDescription,
   DialogClose,

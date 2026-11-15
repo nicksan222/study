@@ -46,6 +46,7 @@ import type {
   ContextAgentResult,
   ContextServices
 } from '#server/platform/ai/context-preparation/agent';
+import { AiPhase } from '#server/platform/ai/phase';
 import { scopedAgentProgress } from '#server/platform/ai/progress';
 import { withRequestCheck } from '#server/platform/ai/providers/request-check';
 import { adaptProviderTool } from '#server/platform/ai/providers/tools';
@@ -305,6 +306,7 @@ export function streamAgent<
     const run = {
       runId: agentRunIdSchema.make(crypto.randomUUID()),
       agentId: definition.id,
+      phase: yield* AiPhase,
       mode: definition.mode ?? ('text' as const)
     };
     const progress = yield* scopedAgentProgress(

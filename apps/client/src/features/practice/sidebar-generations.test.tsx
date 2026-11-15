@@ -5,7 +5,7 @@ import { executionIdSchema } from '@study/contracts';
 import type { executionSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Effect, Schema } from 'effect';
 import { expect, vi } from 'vite-plus/test';
@@ -109,21 +109,24 @@ testStable(
   }
 );
 
-testStable('retains failed work with recovery actions and collapsed shared activity', async () => {
-  mount(false, true);
-  expect(await screen.findByText(generation.title)).toBeVisible();
-  expect(screen.getByRole('status', { name: 'Generation needs attention' })).toHaveAttribute(
-    'data-state',
-    'attention'
-  );
-  expect(screen.getByRole('button', { name: en.Retry })).toBeEnabled();
-  expect(screen.getByText('Generation needs attention').closest('details')).not.toHaveAttribute(
-    'open'
-  );
-  expect(
-    screen.queryByRole('status', { name: en.PracticeGenerationRunning })
-  ).not.toBeInTheDocument();
-});
+testStable(
+  'retains failed work with recovery actions and keeps history out of the sidebar',
+  async () => {
+    mount(false, true);
+    expect(await screen.findByText(generation.title)).toBeVisible();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    const recovery = screen.getByRole('alert', { name: en.PracticeGenerationFailed });
+
+    expect(within(recovery).getByRole('button', { name: en.Retry })).toBeEnabled();
+    expect(
+      within(recovery).getByRole('button', { name: 'Stop generating Cell division quiz' })
+    ).toBeEnabled();
+    expect(screen.queryByLabelText(en.AgentActivitySteps)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('status', { name: en.PracticeGenerationRunning })
+    ).not.toBeInTheDocument();
+  }
+);
 
 testStable(
   'reuses an uncertain retry identity and waits for that exact admitted attempt',
@@ -148,7 +151,7 @@ testStable(
     await user.click(screen.getByRole('button', { name: en.Retry }));
     await waitFor(() => expect(fixture.retry).toHaveBeenCalledTimes(2));
     expect(fixture.retry.mock.calls[1]![0]).toEqual(first);
-    expect(screen.getByRole('button', { name: en.Retry })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: en.Retry })).not.toBeInTheDocument();
     fixture.setExecutions([
       {
         id: executionIdSchema.make('retry-run'),
@@ -203,7 +206,8 @@ testStable(
       <PracticeSidebarGenerations project={project} subjects={[]} query="" enabled />
     );
     await fixture.notify();
-    await waitFor(() => expect(screen.getByRole('button', { name: en.Retry })).toBeDisabled());
+    await screen.findByRole('status', { name: en.PracticeGenerationRetrying });
+    expect(screen.queryByRole('button', { name: en.Retry })).not.toBeInTheDocument();
     expect(fixture.runs).toHaveBeenCalledWith({
       correlationId: generation.id,
       eventId: first.retryId,
@@ -212,3 +216,20 @@ testStable(
     expect(fixture.retry).toHaveBeenCalledTimes(1);
   }
 );
+
+testStable('opens work details on demand from the current status context menu', async () => {
+  const user = userEvent.setup();
+
+  mount();
+  const status = await screen.findByRole('status', { name: en.PracticeGenerationRunning });
+
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  await user.pointer({ target: status, keys: '[MouseRight]' });
+  await user.click(await screen.findByRole('menuitem', { name: en.AgentActivityDetails }));
+  const dialog = await screen.findByRole('dialog', { name: en.AgentActivityDetails });
+
+  expect(within(dialog).getByText(en.AgentActivityWaiting)).toBeVisible();
+  await user.click(within(dialog).getByRole('button', { name: en.Close }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(screen.getByRole('status', { name: en.PracticeGenerationRunning })).toBeVisible();
+});

@@ -61,3 +61,5 @@ export { AgentToolCall, AgentToolOutcome } from './tool-call';
 export { settledAgentTool } from './tool-state';
 
 export { AgentActivity } from './activity';
+
+export { AgentActivityDetails } from './activity-details';
