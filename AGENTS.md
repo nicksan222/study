@@ -90,6 +90,81 @@ Drizzle primitives and schema; synchronous transactions commit typed outbox even
 Native Workflow owns durable execution and scoped Activity ownership fences publication.
 Bilingual copy lives in `packages/localization`.
 
+## Deliver complete changes
+
+- Before editing, identify the intended user outcome, the existing owner of the behavior,
+  and what evidence would demonstrate success. Keep the implementation proportional to the
+  request; include every necessary consumer, but leave unrelated cleanup out.
+- Check all applicable entry points: navigation, settings, menus, shortcuts and programmatic
+  callers. Shared browser behavior and Tauri capabilities need separate consideration;
+  browser verification does not establish native behavior.
+- Follow the lifecycle through creation, use, cancellation or reversal, failure and recovery.
+  Check reopening and restart persistence when state is durable. Make unsupported paths
+  explicit rather than leaving a control that appears to work.
+- Check English and Italian, keyboard and focus behavior, relevant viewport sizes, and
+  loading, empty and error states for interface changes. Reuse `@study/ui` primitives;
+  shared visual treatments belong in their variants or composition, not call-site overrides.
+- Put application behavior in the feature service that owns it. Transport handlers decode,
+  call the service and translate errors; retries, persistence and rollback belong below
+  that boundary. A move updates all consumers and removes obsolete code.
+
+## Evidence and verification
+
+- Choose evidence for the claim. New features need an observed end-to-end outcome;
+  refactors need evidence that behavior is preserved; bug fixes need evidence of the
+  original failure and the corrected behavior. Formatting-only changes need formatting
+  verification. Do not claim more than the check exercised.
+- For logic, data, state or protocol bugs, reproduce the failure with a focused regression
+  test before fixing it. Extend an existing case or table where it fits, at the lowest
+  useful layer. Avoid duplicate coverage, mock-call mirrors and assertions on behavior
+  already guaranteed by types.
+- For purely visual changes, capture the relevant before and after states. Use a short
+  recording when interaction or motion is the evidence; do not add a test just to assert
+  spacing or copy. Behavior that depends on browser focus, scrolling or input belongs in
+  browser verification. Run one integrated pass after assembling a user-visible change.
+- Use real application services and isolated data for integrated checks. A failed setup,
+  missing sign-in or unreachable control is a verification limitation, not a reproduced
+  product failure or a passing check. Never reset existing user data to prepare a test.
+- Synchronize asynchronous tests on observable state, events or completion signals; use
+  Effect's test clock for time-dependent behavior. Do not hide races with fixed sleeps,
+  polling loops, retries or larger timeouts. Use the browser runner's assertion waiting
+  for browser state.
+- Performance claims name the workload, baseline, measurement and limits. Measure the
+  affected production path with representative data; smaller payloads alone do not prove
+  lower memory use or faster rendering. Keep repeatable budgets in existing focused tests
+  where practical.
+- Changes to prompts, model tools or generated learning material need representative
+  examples and explicit quality criteria in addition to typechecks. Include ordinary
+  cases that catch overcorrection, compare on the same model and settings, and report
+  variability and usage. Follow the ChatGPT-plan rule; do not add a separate paid API
+  dependency or treat recorded output as proof of live model quality.
+- During iteration use focused checks or `bun run check:changed`; the full `bun run check`
+  remains required before completion. Report the commands, observed outcomes, evidence
+  paths and anything unverified. A green check supports only its covered behavior.
+
+## Review and handoff
+
+- Review changed behavior and affected consumers against the requirements and architecture.
+  Findings identify a concrete failure or violated rule, the relevant code and a specific
+  correction. Separate demonstrated defects from suggestions; avoid unrelated cleanup and
+  aesthetic preferences presented as blockers.
+- Call out changed product defaults, migrations and any new or broadened diagnostic
+  suppression. Fix the underlying issue where possible; any necessary exception needs a
+  narrow scope and a reason. Passing checks after weakening them is not equivalent evidence.
+- Final handoffs report the outcome, verification, evidence links and material limitations.
+  Pull request descriptions explain intent, resulting behavior, implementation, consequential
+  decisions and their rationale, trade-offs and lifecycle implications so a reviewer can
+  assess the proposal without first reading the diff. Scale detail to the change and follow
+  the PR template; CI reports check status, so omit passing-test lists and compliance
+  checklists from the description. Keep temporary screenshots, recordings and working notes
+  outside tracked source; committed visual test references and product assets are separate
+  from review-only evidence.
+- Update existing guidance when a change makes it inaccurate. Do not narrate code, retain
+  a second implementation checklist, or add a rule already enforced by a type or lint
+  without explaining a constraint the code cannot show. Keep `AGENTS.md` broadly applicable;
+  specialized operating procedures belong in the existing repository skills, and accepted
+  architectural reasoning belongs in `doc/adr`.
+
 ## Commands
 
 - `bun run check`: shell checks, Rust fmt/Clippy/dependency checks/tests/docs, TypeScript server
