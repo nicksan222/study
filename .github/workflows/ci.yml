@@ -34,91 +34,10 @@ jobs:
           tools: cargo-deny@0.20.2
           target-dir: target/devcontainer
 
-      # Keep the gates equivalent to `bun run check`. Run every gate after setup,
-      # even if an earlier gate fails, so one run reports all package failures.
-      - name: 🐚 Check shell scripts
-        id: shell
+      # Turbo owns the gate list and prerequisites shared with `bun run check`.
+      - name: 🦀 Run native and repository gates
         if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run check-shell
-
-      - name: 🎨 Check formatting
-        id: format
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run native:fmt
-
-      - name: 🔎 Lint Rust
-        id: lint
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run native:lint
-
-      - name: 🛡️ Audit Rust dependencies
-        id: dependencies
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run deny
-
-      - name: 🧩 Type-check server packages
-        id: server_types
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run server:typecheck
-
-      - name: 🦀 Test native shell and Rust doctests
-        id: native_tests
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run native:test
-
-      - name: 🗃️ Check generated database schema
-        id: generated
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run gen-check
-
-      - name: 📚 Build Rust documentation
-        id: docs
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run docs
-
-      - name: 🥟 Smoke-test the packaged Bun server
-        id: runtime
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: |
-          bun run desktop:runtime
-          python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime
-
-      - name: 🌍 Check landing page
-        id: landing
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run landing-check
-
-      - name: 📋 Summarize results
-        if: ${{ always() }}
-        env:
-          STEPS: ${{ toJSON(steps) }}
-        run: |
-          python3 - <<'PYTHON'
-          import json
-          import os
-
-          steps = json.loads(os.environ['STEPS'])
-          labels = {
-            'setup': '🧰 Setup',
-            'shell': '🐚 Check shell scripts',
-            'format': '🎨 Check formatting',
-            'lint': '🔎 Lint Rust',
-            'dependencies': '🛡️ Audit Rust dependencies',
-            'server_types': '🧩 Type-check server packages',
-            'native_tests': '🦀 Test native shell and Rust doctests',
-            'generated': '🗃️ Check generated database schema',
-            'docs': '📚 Build Rust documentation',
-            'runtime': '🥟 Smoke-test the packaged Bun server',
-            'landing': '🌍 Check landing page',
-          }
-          icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
-          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
-              summary.write('## ✨ Study CI\n\n')
-              summary.write('| Check | Result |\n| :--- | :--- |\n')
-              for key, label in labels.items():
-                  outcome = steps.get(key, {}).get('outcome', 'skipped')
-                  summary.write(f'| {label} | {icons.get(outcome, "❔")} {outcome} |\n')
-          PYTHON
+        run: bun run ci:native
 
   javascript:
     name: 🔎 JavaScript checks
@@ -138,25 +57,12 @@ jobs:
         env:
           ONNXRUNTIME_NODE_INSTALL: skip
         run: bun install --frozen-lockfile
-      - name: 🌍 Install landing dependencies for Fallow
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        working-directory: apps/landing
-        run: bun install --frozen-lockfile
       - name: 🔏 Install release test dependency
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
-      - name: 🔎 Check lint and formatting
+      - name: 🧪 Run JavaScript package gates
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run lint
-      - name: 🔎 Check Fallow
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run fallow:check
-      - name: 🧩 Type-check client packages
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run typecheck
-      - name: 🧪 Test client packages
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run test:web
+        run: bun run ci:javascript
       - name: 🌐 Test browser flows in the canonical devcontainer
         if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         uses: devcontainers/ci@v0.3
@@ -173,9 +79,6 @@ jobs:
           name: web-e2e-diagnostics
           path: apps/client/test-results/
           if-no-files-found: ignore
-      - name: 🛠️ Test tooling
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        run: bun run tooling-test
 
   server_tests:
     name: 🧪 Server tests
@@ -200,7 +103,7 @@ jobs:
         run: bun install --frozen-lockfile
       - name: 🧪 Test server, AI, database and localization
         timeout-minutes: 10
-        run: bun run server:test
+        run: bun run ci:server
 
   integrations:
     name: 🔌 Real integration tests

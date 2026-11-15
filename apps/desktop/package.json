@@ -6,7 +6,6 @@
   "scripts": {
     "tauri": "bunx --bun --no-install tauri",
     "test": "CARGO_TARGET_DIR=../../target/devcontainer cargo test --locked --workspace --all-targets && CARGO_TARGET_DIR=../../target/devcontainer cargo test --locked --workspace --doc",
-    "check": "bun run fmt:check && bun run lint && bun run deny && bun run test && bun run docs",
     "fmt:check": "cargo fmt --all -- --check",
     "lint": "CARGO_TARGET_DIR=../../target/devcontainer cargo clippy --locked --workspace --all-targets -- -D warnings",
     "deny": "cargo deny --manifest-path src-tauri/Cargo.toml --locked --config ../../tooling/rust/deny.toml check",

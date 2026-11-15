@@ -22,9 +22,9 @@
       "cache": false
     },
     "//#check:global": {
+      "dependsOn": ["//#check-shell", "//#lint:repo", "//#fallow:repo", "//#gen:theme:check"],
       "cache": false,
-      "inputs": ["package.json", "tooling/oxc-config/**", "tooling/fallow.jsonc"],
-      "envMode": "loose"
+      "inputs": ["package.json", "tooling/oxc-config/**", "tooling/fallow.jsonc"]
     },
     "//#check:landing": {
       "cache": false,
@@ -53,7 +53,16 @@
       "cache": false
     },
     "@study/desktop#check": {
-      "dependsOn": ["//#check:global", "//#check:landing"],
+      "dependsOn": [
+        "//#check:global",
+        "//#check:landing",
+        "//#runtime:smoke",
+        "fmt:check",
+        "lint",
+        "deny",
+        "test",
+        "docs"
+      ],
       "cache": false,
       "envMode": "loose"
     },
@@ -192,13 +201,75 @@
       "envMode": "loose"
     },
     "//#lint:repo": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/client/src/routeTree.gen.ts"]
+      "inputs": ["package.json", "vite.config.ts", "tooling/oxc-config/**", "tooling/fallow.jsonc"],
+      "cache": false
     },
     "//#fallow:repo": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/client/src/routeTree.gen.ts"]
+      "inputs": ["package.json", "vite.config.ts", "tooling/oxc-config/**", "tooling/fallow.jsonc"],
+      "cache": false
     },
     "//#check-shell": {
-      "inputs": ["$TURBO_DEFAULT$", "!apps/client/src/routeTree.gen.ts"]
+      "inputs": ["tooling/scripts/**/*.sh"],
+      "cache": false
+    },
+    "//#check:native": {
+      "dependsOn": ["@study/desktop#check", "@study/db#gen:check"],
+      "cache": false
+    },
+    "//#check:javascript": {
+      "dependsOn": [
+        "@study/client#typecheck",
+        "@study/tooling#typecheck",
+        "@study/client#test",
+        "@study/ui#test",
+        "@study/tooling#test",
+        "@study/testing#test"
+      ],
+      "cache": false
+    },
+    "//#check:server": {
+      "dependsOn": [
+        "@study/server#test",
+        "@study/db#test",
+        "@study/contracts#test",
+        "@study/localization#test",
+        "@study/theme#test",
+        "@study/integrations#test"
+      ],
+      "cache": false
+    },
+    "//#desktop:runtime": {
+      "cache": false,
+      "envMode": "loose",
+      "inputs": [
+        "package.json",
+        "bun.lock",
+        "apps/*/package.json",
+        "packages/*/package.json",
+        "tooling/package.json",
+        "tooling/scripts/release/prepare-runtime.ts",
+        "apps/server/src/**",
+        "packages/contracts/src/**",
+        "packages/db/src/**",
+        "packages/db/drizzle/**",
+        "packages/integrations/src/**",
+        "packages/localization/src/**",
+        "packages/theme/src/**"
+      ]
+    },
+    "//#runtime:smoke": {
+      "dependsOn": ["//#desktop:runtime"],
+      "cache": false,
+      "envMode": "loose",
+      "inputs": ["tooling/scripts/release/smoke_runtime.py"]
+    },
+    "//#gen:theme:check": {
+      "cache": false,
+      "inputs": ["packages/theme/src/**", "tooling/scripts/development/generate-theme-css.ts"]
+    },
+    "//#check:generated": {
+      "dependsOn": ["//#gen:theme:check", "@study/db#gen:check"],
+      "cache": false
     }
   },
   "futureFlags": {

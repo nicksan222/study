@@ -11,7 +11,17 @@ const config = await Bun.file(`${root}turbo.json`).json();
 const manifest = await Bun.file(`${root}package.json`).json();
 
 type Plan = {
-  tasks: { taskId: string; hash: string; dependencies: string[]; cache: { status: string } }[];
+  tasks: {
+    taskId: string;
+    command?: string;
+    hash: string;
+    dependencies: string[];
+    cache: { status: string };
+  }[];
+};
+
+type Workflow = {
+  jobs: Record<string, { steps?: { run?: string; with?: { runCmd?: string } }[] }>;
 };
 
 async function fixture() {
@@ -67,8 +77,8 @@ async function fixture() {
   await $`git -C ${path} add .`.quiet();
   await $`git -C ${path} -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm baseline`.quiet();
 
-  async function run(args: string[]) {
-    const child = Bun.spawn(['bun', turbo, 'run', ...args], {
+  async function execute(args: string[]) {
+    const child = Bun.spawn(args, {
       cwd: path,
       env: {
         ...process.env,
@@ -88,6 +98,29 @@ async function fixture() {
     return { stdout, stderr, code };
   }
 
+  const run = (args: string[]) => execute(['bun', turbo, 'run', ...args]);
+
+  async function script(name: string, ...args: string[]) {
+    const file = Bun.file(`${path}/package.json`);
+    const pkg = await file.json();
+
+    pkg.scripts[name] = manifest.scripts[name];
+    await Bun.write(file, JSON.stringify(pkg));
+
+    for (const source of ['turbo.ts', 'task-cache.ts'])
+      await Bun.write(
+        `${path}/tooling/scripts/development/${source}`,
+        Bun.file(`${root}tooling/scripts/development/${source}`)
+      );
+
+    await $`mkdir -p ${path}/node_modules/@effect`.quiet();
+
+    for (const dependency of ['turbo', 'effect', '@effect/platform-bun'])
+      await $`ln -sfn ${root}node_modules/${dependency} ${path}/node_modules/${dependency}`.quiet();
+
+    return execute(['bun', 'run', name, ...args]);
+  }
+
   async function plan(...args: string[]): Promise<Plan> {
     const result = await run([...args, '--dry=json']);
 
@@ -101,11 +134,143 @@ async function fixture() {
     directories,
     run,
     plan,
+    script,
     async [Symbol.asyncDispose]() {
       await $`rm -rf ${path}`.quiet();
     }
   };
 }
+
+testStable('CI gate groups cover the full check, including the packaged runtime', async () => {
+  await using repo = await fixture();
+  const commands = (plan: Plan) =>
+    plan.tasks
+      .filter((task) => task.command && task.command !== '<NONEXISTENT>')
+      .map((task) => task.taskId)
+      .sort();
+  const full = commands(await repo.plan('check'));
+  const workflow = Bun.YAML.parse(
+    await Bun.file(`${root}.github/workflows/ci.yml`).text()
+  ) as Workflow;
+  const groups: Plan[] = [];
+
+  for (const job of Object.values(workflow.jobs)) {
+    for (const step of job.steps ?? []) {
+      const script = /^bun run (\S+)$/.exec(step.run ?? step.with?.runCmd ?? '')?.[1];
+
+      if (!script) continue;
+
+      const result = await repo.script(script, '--dry=json');
+
+      assert.equal(result.code, 0, result.stderr);
+      groups.push(JSON.parse(result.stdout));
+    }
+  }
+
+  const selected = [...new Set(groups.flatMap(commands))].sort();
+
+  assert.include(full, '//#runtime:smoke');
+  assert.include(full, '//#desktop:runtime');
+  assert.deepEqual(selected, full);
+  const javascript = commands(await repo.plan('check:javascript'));
+  const server = commands(await repo.plan('check:server'));
+
+  assert.include(javascript, '@study/server#typecheck');
+  assert.notInclude(server, '@study/server#typecheck');
+  assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && server.includes(task)));
+});
+
+testStable(
+  'browser comparison keeps its build prerequisite and forwards runner options',
+  async () => {
+    await using repo = await fixture();
+    const file = Bun.file(`${repo.path}/apps/client/package.json`);
+    const pkg = await file.json();
+
+    pkg.scripts.e2e = 'bun -e "console.log(JSON.stringify(Bun.argv))" --';
+    await Bun.write(file, JSON.stringify(pkg));
+    const result = await repo.script('web:e2e:compare', '--maxWorkers', '2');
+
+    assert.equal(result.code, 0, result.stderr);
+    assert.include(result.stdout, '"--maxWorkers","2"');
+    assert.equal(await Bun.file(`${repo.path}/apps/client/dist/result.txt`).text(), 'built');
+  }
+);
+
+testStable('a failed runtime preparation prevents its smoke test from running', async () => {
+  await using repo = await fixture();
+  const file = Bun.file(`${repo.path}/package.json`);
+  const pkg = await file.json();
+
+  pkg.scripts['desktop:runtime'] = 'bun -e "process.exit(23)"';
+  pkg.scripts['runtime:smoke'] = "bun -e \"await Bun.write('smoke-ran', 'unexpected')\"";
+  await Bun.write(file, JSON.stringify(pkg));
+  const result = await repo.script('ci:native');
+
+  assert.notEqual(result.code, 0);
+  assert.isFalse(await Bun.file(`${repo.path}/smoke-ran`).exists());
+});
+
+testStable('failed lint and formatting leave independent native gates runnable', async () => {
+  await using repo = await fixture();
+  const rootFile = Bun.file(`${repo.path}/package.json`);
+  const rootPkg = await rootFile.json();
+  const nativeFile = Bun.file(`${repo.path}/apps/desktop/package.json`);
+  const nativePkg = await nativeFile.json();
+
+  rootPkg.scripts['lint:repo'] = 'bun -e "process.exit(23)"';
+  rootPkg.scripts['fallow:repo'] = "bun -e \"await Bun.write('fallow-ran', 'ran')\"";
+  nativePkg.scripts['fmt:check'] = 'bun -e "process.exit(23)"';
+
+  for (const task of ['lint', 'deny', 'test', 'docs'])
+    nativePkg.scripts[task] = `bun -e "await Bun.write('gate-${task}', 'ran')"`;
+
+  await Bun.write(rootFile, JSON.stringify(rootPkg));
+  await Bun.write(nativeFile, JSON.stringify(nativePkg));
+  const result = await repo.script('ci:native');
+
+  assert.notEqual(result.code, 0);
+  assert.equal(await Bun.file(`${repo.path}/fallow-ran`).text(), 'ran');
+
+  for (const task of ['lint', 'deny', 'test', 'docs'])
+    assert.equal(await Bun.file(`${repo.path}/apps/desktop/gate-${task}`).text(), 'ran');
+});
+
+testStable.each([
+  {
+    script: 'gen:check',
+    required: ['//#gen:theme:check', '@study/db#gen:check'],
+    excluded: ['@study/server#test', '@study/client#test']
+  },
+  {
+    script: 'frontend-check',
+    required: ['@study/client#build', '@study/client#test', '@study/client#e2e'],
+    excluded: ['@study/server#test', '@study/desktop#test']
+  },
+  {
+    script: 'server-check',
+    required: ['@study/server#typecheck', '@study/server#test', '@study/db#test'],
+    excluded: ['@study/client#e2e', '@study/client#test']
+  },
+  {
+    script: 'landing-check',
+    required: ['//#check:landing'],
+    excluded: ['@study/server#test', '@study/client#test']
+  }
+])(
+  '$script selects its verification scope through Turbo',
+  async ({ script, required, excluded }) => {
+    await using repo = await fixture();
+    const result = await repo.script(script, '--dry=json');
+
+    assert.equal(result.code, 0, result.stderr);
+    const plan: Plan = JSON.parse(result.stdout);
+    const ids = plan.tasks.map((task) => task.taskId);
+
+    assert.includeMembers(ids, required);
+    assert.isEmpty(ids.filter((id) => excluded.includes(id)));
+  }
+);
 
 testStable(
   'Turbo selects dirty, untracked, staged and renamed packages plus their consumers',
@@ -117,7 +282,7 @@ testStable(
     let ids = (await repo.plan('check', '--affected')).tasks.map((task) => task.taskId);
 
     assert.includeMembers(ids, ['@study/ui#test', '@study/client#e2e', '//#check:global']);
-    assert.notInclude(ids, '@study/desktop#check');
+    assert.notInclude(ids, '@study/desktop#check', JSON.stringify(ids));
     await $`git -C ${repo.path} checkout -- packages/ui/src/input.ts`.quiet();
     await Bun.write(`${repo.path}/packages/ui/src/new\nfile.ts`, 'untracked');
     assert.include(
