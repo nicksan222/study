@@ -143,7 +143,7 @@ jobs:
         run: bash tooling/scripts/release/release.sh verify-macos
       - name: Smoke-test Tauri's copied private server resources
         shell: bash
-        run: python3 tooling/scripts/release/smoke_runtime.py target/${{ matrix.target }}/release
+        run: python3 tooling/scripts/release/smoke_runtime.py target/devcontainer/${{ matrix.target }}/release
       - name: Prepare stable platform downloads
         shell: bash
         env:
@@ -155,7 +155,7 @@ jobs:
         env:
           STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
         run: |
-          app="target/${{ matrix.target }}/release/study"
+          app="target/devcontainer/${{ matrix.target }}/release/study"
           if [ "$RUNNER_OS" = Windows ]; then app="$app.exe"; fi
           if [ "$RUNNER_OS" = macOS ]; then
             app=$(printf '%s' "$STUDY_ARTIFACT_PATHS" | jq -er '.[] | select(endswith(".app"))')
