@@ -159,6 +159,13 @@ Bilingual copy lives in `packages/localization`.
   checklists from the description. Keep temporary screenshots, recordings and working notes
   outside tracked source; committed visual test references and product assets are separate
   from review-only evidence.
+- Make PR explanations visual where it helps understanding. UI changes require comparable
+  before/after screenshots, with captions identifying the change; interaction, motion or
+  timing changes require a short recording. When understanding a change depends on a
+  multi-step flow, state transition or component relationship, include a small Mermaid
+  diagram of the actual flow, showing before/after where relevant. Embed visuals beside
+  the explanation they support. State capture limitations explicitly; diagrams and mockups
+  do not substitute for runtime evidence. Omit visuals that add no information.
 - Update existing guidance when a change makes it inaccurate. Do not narrate code, retain
   a second implementation checklist, or add a rule already enforced by a type or lint
   without explaining a constraint the code cannot show. Keep `AGENTS.md` broadly applicable;

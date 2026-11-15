@@ -2,6 +2,10 @@
 > Write for someone who has not followed the conversation or read the diff. Keep the
 > explanation proportional to the change and remove sections that do not apply.
 > CI reports check status; this description explains the behavior and design.
+> Use visuals where they carry the explanation: UI changes require before/after
+> screenshots, interaction or motion changes require a short recording, and changes to
+> multi-step flows, state transitions or component relationships require a Mermaid
+> diagram when those relationships are material to understanding the change.
 
 ## Intent and context
 
@@ -19,9 +23,24 @@ With this change, [describe what someone can now do or observe]. For example,
 [describe a meaningful failure condition], [explain the resulting behavior and recovery].
 
 [Explain any changed defaults, effects on existing workflows and deliberate scope
-limits. For an internal change, describe the resulting capability or invariant. Include
-before/after images or a short recording when they make the behavior clearer; link
-review-only assets without committing them.]
+limits. For an internal change, describe the resulting capability or invariant.]
+
+### Before and after
+
+[For UI changes, embed actual captures of the affected state below, using comparable
+data, viewport and theme. Add a brief caption explaining what to notice. Add pairs for
+other materially different states when needed. Upload review-only assets without
+committing them. If capture is blocked, explain the limitation; a diagram or mockup
+does not substitute for a screenshot of the app. Remove this subsection for changes
+with no visible UI effect.]
+
+| Before                             | After                             |
+| ---------------------------------- | --------------------------------- |
+| [Embed the before screenshot here] | [Embed the after screenshot here] |
+| [Explain the previous behavior]    | [Explain the resulting behavior]  |
+
+[Embed a short recording here when the change involves interaction, motion or timing,
+and explain which part demonstrates the change. Remove this paragraph otherwise.]
 
 ## How it works
 
@@ -31,7 +50,29 @@ components to the final result]. [Explain where state lives and how it is update
 
 [Explain how the substantial parts of the implementation fit together and why each is
 needed. Cover contracts, persistence and resource ownership where relevant. Use source
-links or a small diagram to support the explanation rather than listing changed files.]
+links to support the explanation rather than listing changed files.]
+
+### Flow of the change
+
+[For changes whose explanation depends on multi-step flow, state transitions or
+component relationships, replace this example with a Mermaid flowchart, sequence or
+state diagram of the actual implementation. Show before and after when the relationship
+or sequence changed; otherwise show the new flow. Label the important boundaries and
+failure or recovery paths, then explain the key difference in a sentence. Keep the
+diagram small enough to read. Remove this subsection when there is no meaningful flow
+or relationship to illustrate.]
+
+```mermaid
+flowchart LR
+  subgraph Before
+    A[Previous trigger] --> B[Previous handling] --> C[Previous outcome]
+  end
+  subgraph After
+    D[Same trigger] --> E[New handling] --> F[Intended outcome]
+  end
+```
+
+[Explain how the illustrated change produces the intended outcome.]
 
 ## Decisions and rationale
 
