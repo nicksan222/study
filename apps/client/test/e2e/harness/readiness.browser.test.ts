@@ -1,7 +1,7 @@
 import { expect } from 'playwright/test';
 
 import { testHarness } from './index.ts';
-import { screenshotAssertions, compareScreenshot } from './screenshots.ts';
+import { screenshotAssertions, baselinePath } from './screenshots.ts';
 
 // These exercise the harness contract itself, rather than pretending synthetic HTML is an app journey.
 testHarness(
@@ -30,25 +30,17 @@ testHarness(
   }
 );
 
-testHarness(
-  'a real layout perturbation produces a pixel diff and explicit update restores comparison',
-  async ({ page }, info) => {
-    await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
-    const directory = info.outputPath('contract');
-    const reference = `${directory}/layout.png`;
-    const initial = await page.screenshot();
+testHarness('missing references fail without creating a baseline', async ({ page }, info) => {
+  await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
+  const workflow = `missing-${crypto.randomUUID()}`;
+  const reference = baselinePath('contract', workflow, 'layout');
+  const screenshots = screenshotAssertions(page, workflow, info.outputPath('contract'), 'contract');
 
-    await compareScreenshot(reference, initial, `${directory}/initial`, true);
-    await page.locator('div').evaluate((element) => {
-      element.style.width = '150px';
-    });
-    const changed = await page.screenshot();
-
-    await expect(
-      compareScreenshot(reference, changed, `${directory}/changed`, false)
-    ).rejects.toThrow('changed pixels');
-    expect(await Bun.file(`${directory}/changed-diff.png`).exists()).toBe(true);
-    await compareScreenshot(reference, changed, `${directory}/updated`, true);
-    await compareScreenshot(reference, changed, `${directory}/restored`, false);
-  }
-);
+  await expect(
+    screenshots.expectScreenshot('layout', {
+      target: 'viewport',
+      ready: async () => {}
+    })
+  ).rejects.toThrow('snapshot');
+  expect(await Bun.file(reference).exists()).toBe(false);
+});
