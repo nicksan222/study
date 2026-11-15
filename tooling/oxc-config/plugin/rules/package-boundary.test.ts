@@ -298,7 +298,7 @@ testStable('only explicit web E2E runtime harness files can own server resources
     {
       'apps/client/test/e2e/harness/index.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",
-      'apps/client/test/e2e/harness/lifecycle.test.ts':
+      'apps/client/test/e2e/harness/stack.ts':
         "import '@study/db/testing'; import '@study/server/runtime';",
       'apps/client/test/e2e/harness/creation-response.test.ts':
         "import '@study/db/testing'; import '@study/server/runtime'; import '@study/tooling/development/rpc-proxy';",

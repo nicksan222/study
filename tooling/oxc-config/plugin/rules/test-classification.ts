@@ -8,7 +8,8 @@ import { binding, constantDeclarator, enterNode, memberName } from '../lexical-b
 
 const { dirname, resolve } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
-const runners = /^(?:node:test|test|vitest|vite-plus\/test|@jest\/globals|bun:test)$/;
+const runners =
+  /^(?:node:test|test|vitest|vite-plus\/test|playwright\/test|@playwright\/test|@jest\/globals|bun:test)$/;
 
 const rawNames = new Set(['test', 'it', 'fit', 'xit', 'xtest', 'ftest']);
 
@@ -21,7 +22,17 @@ const classifications = new Set([
   'testCharacterization'
 ]);
 
-const forbidden = new Set(['only', 'skip', 'todo', 'skipIf', 'runIf', 'fails', 'failing']);
+const forbidden = new Set([
+  'only',
+  'skip',
+  'todo',
+  'skipIf',
+  'runIf',
+  'fails',
+  'failing',
+  'fail',
+  'fixme'
+]);
 
 function workspaceRoot(filename: string): string {
   const marker = /\/(?:apps|packages|tooling)\//.exec(filename);
@@ -30,7 +41,9 @@ function workspaceRoot(filename: string): string {
 }
 
 function adapterPath(filename: string): boolean {
-  return filename === resolve(workspaceRoot(filename), 'packages/testing/src/vitest.ts');
+  return ['packages/testing/src/vitest.ts', 'apps/client/test/e2e/harness/index.ts'].some(
+    (path) => filename === resolve(workspaceRoot(filename), path)
+  );
 }
 
 function importName(node: any): string | undefined {
@@ -222,7 +235,11 @@ export default defineRule({
     const edges = moduleEdges(context, (node, source, typeOnly) => {
       if (!source || typeOnly) return;
 
-      if (source.startsWith('.') && adapterPath(resolve(dirname(filename), source))) {
+      if (
+        source.startsWith('.') &&
+        resolve(dirname(filename), source) ===
+          resolve(workspaceRoot(filename), 'packages/testing/src/vitest.ts')
+      ) {
         report(
           node,
           'Import the classified test API through @study/testing/vitest; relative paths are forbidden.'

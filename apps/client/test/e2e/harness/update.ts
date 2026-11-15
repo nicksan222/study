@@ -10,8 +10,11 @@ for (const segment of scope.split('/')) safeName(segment);
 if (process.env.CI) throw new Error('Baseline updates are forbidden in CI');
 
 const updateRun = crypto.randomUUID();
+const root = Bun.fileURLToPath(new URL('../../../../../', import.meta.url));
+const client = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
 const child = Bun.spawn(['bun', 'run', 'web:e2e'], {
+  cwd: root,
   env: { ...process.env, E2E_UPDATE: scope, E2E_UPDATE_RUN: updateRun },
   stdout: 'inherit',
   stderr: 'inherit'
@@ -21,7 +24,9 @@ const exitCode = await child.exited;
 
 if (exitCode) process.exit(exitCode);
 
-const captures = [...new Bun.Glob(`test-results/updates/${updateRun}/*.json`).scanSync()];
+const captures = [
+  ...new Bun.Glob(`test-results/updates/${updateRun}/*.json`).scanSync({ cwd: client })
+];
 
 if (!captures.length)
   throw new Error(`No screenshot updated for ${scope}; check the workflow/screenshot name`);
