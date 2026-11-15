@@ -291,6 +291,8 @@ export class Db {
   static async validateInfrastructure(path: string): Promise<void> {
     if (!(await Bun.file(path).exists())) return;
 
+    await configureSqliteRuntime();
+
     const sqlite = new Database(path, { readonly: true, safeIntegers: true });
 
     try {
