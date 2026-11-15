@@ -40,7 +40,7 @@ testE2e(
     await expect(composer).toHaveValue(original);
     await expect(page).toHaveURL(/\/notes$/);
     const committed = page
-      .getByRole('navigation', { name: copy.Notes, exact: true })
+      .getByRole('navigation', { name: copy.Notes })
       .locator(`a[href="${savedPath}"]`);
 
     await expect(committed).toHaveCount(1);
@@ -62,7 +62,7 @@ testE2e(
     await composer.press('ControlOrMeta+Enter');
 
     // In-app navigation retains the volatile draft and uncertainty fence.
-    await page.getByRole('link', { name: copy.SourcePage, exact: true }).click();
+    await page.getByRole('link', { name: copy.SourcePage }).click();
     await expect(page).toHaveURL(/\/pages\/?$/);
     await expect(composer).toBeHidden();
     await page.goBack();
@@ -135,7 +135,7 @@ testE2e(
     await expect(entry).toHaveCount(1);
     await expect(notebook.locator('[data-role="user"]')).toHaveCount(1);
     await expect(
-      page.getByRole('navigation', { name: copy.Notes, exact: true }).locator('a[href^="/notes/"]')
+      page.getByRole('navigation', { name: copy.Notes }).locator('a[href^="/notes/"]')
     ).toHaveCount(1);
     await entry.focus();
     await entry.press('End');

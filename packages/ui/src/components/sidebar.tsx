@@ -251,12 +251,11 @@ function NavigationItem({
       {...props}
       variant="ghost-muted"
       layout="navigation"
-      aria-label={label}
       title={label}
       className={cn('study-sidebar-navigation-item', props.className)}
     >
       {children}
-      <span className="study-sidebar-navigation-label">{label}</span>
+      <span className="study-sidebar-navigation-label">{label}</span>{' '}
       {count !== undefined && (
         <span className="study-sidebar-navigation-count" data-unresolved={unresolved || undefined}>
           {count}
@@ -337,6 +336,7 @@ function Toggle({
   return (
     <Button
       {...props}
+      aria-label={label}
       className={cn(
         'study-sidebar-toggle',
         placement === 'reveal' && 'study-entry-navigation-toggle',
@@ -344,7 +344,6 @@ function Toggle({
       )}
       size="icon"
       variant="ghost-muted"
-      aria-label={label}
       title={label}
       aria-expanded={expanded}
     >
@@ -647,9 +646,8 @@ function NativeNoteGroup({ title, count, children, defaultOpen = false, variant 
       data-variant={variant}
       data-empty={count === 0 || undefined}
     >
-      <summary aria-label={title}>
-        <span>{title}</span>
-        <span>{count}</span>
+      <summary>
+        <span>{title}</span> <span>{count}</span>
         <DisclosureIcon aria-hidden="true" />
       </summary>
       <div>{children}</div>
@@ -722,15 +720,13 @@ function SlidingNoteGroup({ title, count, children, defaultOpen = false }: NoteG
       data-empty={count === 0 || undefined}
     >
       <summary
-        aria-label={title}
         aria-expanded={disclosure.expanded}
         onClick={(event) => {
           event.preventDefault();
           disclosure.toggle();
         }}
       >
-        <span>{title}</span>
-        <span>{count}</span>
+        <span>{title}</span> <span>{count}</span>
         <DisclosureIcon aria-hidden="true" />
       </summary>
       <div
@@ -777,6 +773,7 @@ function Item({
     render,
     props: {
       ...props,
+      title: props.title ?? (typeof label === 'string' ? label : undefined),
       'data-layout': layout,
       'data-selecting': selection !== undefined || undefined,
       'aria-pressed': selection,
@@ -785,19 +782,16 @@ function Item({
       children:
         layout !== 'detailed' ? (
           <>
-            <span className="study-note-row-icon">{icon}</span>
-            <span className="study-note-title">{label}</span>
-            {description && <span className="study-item-kind">{description}</span>}
-            {timestamp}
+            <span className="study-note-row-icon">{icon}</span>{' '}
+            <span className="study-note-title">{label}</span>{' '}
+            {description && <span className="study-item-kind">{description}</span>} {timestamp}
           </>
         ) : (
           <>
             <span className="study-note-meta">
-              {icon}
-              <span>{context}</span>
-              {timestamp}
-            </span>
-            <span className="study-note-title">{label}</span>
+              {icon} <span>{context}</span> {timestamp}
+            </span>{' '}
+            <span className="study-note-title">{label}</span>{' '}
             {description && <span className="study-item-kind">{description}</span>}
           </>
         )

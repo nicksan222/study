@@ -99,7 +99,6 @@ function SidebarSearchHit({
       icon={<Icon aria-hidden="true" />}
       context={t(label)}
       description={hit.excerpt}
-      aria-label={hit.title}
       title={hit.title}
       render={
         <Link

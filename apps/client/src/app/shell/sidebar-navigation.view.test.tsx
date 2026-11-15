@@ -48,9 +48,9 @@ testStable('shows section totals and emphasizes only the number for open work', 
       onNavigate={() => {}}
     />
   );
-  const notes = await screen.findByRole('link', { name: catalogs.english.Notes });
-  const pages = screen.getByRole('link', { name: catalogs.english.SourcePage });
-  const practice = screen.getByRole('link', { name: catalogs.english.Practice });
+  const notes = await screen.findByRole('link', { name: `${catalogs.english.Notes} 12` });
+  const pages = screen.getByRole('link', { name: `${catalogs.english.SourcePage} 34` });
+  const practice = screen.getByRole('link', { name: `${catalogs.english.Practice} 0` });
 
   expect(notes).toHaveTextContent('12');
   expect(notes.querySelector('[data-unresolved]')).toHaveTextContent('12');
