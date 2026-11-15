@@ -19,13 +19,12 @@ import { failureSchema, StudyError } from '@study/contracts';
 import type { Failure } from '@study/contracts';
 import { materialGenerationRequestedSchema } from '@study/contracts';
 import { materialVersionIdSchema } from '@study/contracts';
-import { contentInputKey } from '@study/contracts';
+import { contentInputKey, contentInputSchema } from '@study/contracts';
 import { materialGenerationPublicationSchema } from '@study/contracts';
 import type { quizGenerationConfigSchema } from '@study/contracts';
 import type { MaterialContentInput } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
-import { materialDocumentPreparation } from '#server/features/materials/agents/document-preparation';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { flashcardsTitledAgent } from '#server/features/materials/agents/flashcards-titled';
 import { quizAgent } from '#server/features/materials/agents/quiz';
@@ -35,7 +34,8 @@ import {
   assertQuizConfig
 } from '#server/features/materials/decoders/question-spec';
 import { Materials } from '#server/features/materials/service/index';
-import { generateDocumentAgent } from '#server/platform/ai/document-processing/index';
+import { generateAgent } from '#server/platform/ai/agents';
+import type { ContextPreparation } from '#server/platform/ai/context-preparation/index';
 import { Database } from '#server/platform/database/database';
 import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
@@ -112,35 +112,36 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
         yield* preflight;
         const options = {
           scope: 'generate-material-1',
-          task: prompt,
-          preparation: materialDocumentPreparation,
-          selection: { mode: 'complete' as const },
-          documents: initial.inputs.map((input) => ({
-            key: contentInputKey(input),
-            reference: input,
-            load: materials.contentInput(input)
-          })),
+          maxRetries: 0,
+          sources: {
+            referenceSchema: contentInputSchema,
+            documents: initial.inputs.map((input) => ({
+              key: contentInputKey(input),
+              reference: input,
+              load: materials.contentInput(input)
+            }))
+          },
           preflight
         };
         const definition: AgentDefinition<
           typeof promptInputSchema,
           Schema.ConstraintDecoder<MaterialContentInput>
-        > = {
+        > & { context: ContextPreparation } = {
           quiz: quizAgent,
           flashcards: flashcardsAgent
         }[event.kind];
         const titledDefinition: AgentDefinition<
           typeof promptInputSchema,
           Schema.ConstraintDecoder<{ title: string; content: MaterialContentInput }>
-        > = {
+        > & { context: ContextPreparation } = {
           quiz: quizTitledAgent,
           flashcards: flashcardsTitledAgent
         }[event.kind];
         const generated = initial.autoTitle
-          ? yield* generateDocumentAgent(titledDefinition, { prompt }, options).pipe(
+          ? yield* generateAgent(titledDefinition, { prompt }, options).pipe(
               Effect.map(({ output, evidence }) => ({ ...output, evidence }))
             )
-          : yield* generateDocumentAgent(definition, { prompt }, options).pipe(
+          : yield* generateAgent(definition, { prompt }, options).pipe(
               Effect.map(({ output, evidence }) => ({
                 content: output,
                 title: undefined,

@@ -105,23 +105,18 @@ testStable('agents in feature-owned folders also require canonical definitions',
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
 });
 
-testStable(
-  'document preparation declarations use the shared factory and canonical reference/result schemas',
-  async () => {
-    const diagnostics = await lintRule('agent-definition', {
-      'src/features/example/agents/preparation.ts':
-        "import {defineDocumentPreparation as define} from '#server/platform/ai/document-processing/index'; import {Input, Output} from '@study/contracts'; const policy = define({referenceSchema: Input, mappedSchema: Output}); export {policy};",
-      'src/features/example/agents/namespace.ts':
-        "import * as processing from '#server/platform/ai/document-processing/index'; import {Input, Output} from '@study/contracts'; export const policy = processing.defineDocumentPreparation({referenceSchema: Input, mappedSchema: Output});",
-      'src/features/example/agents/inline.ts':
-        "import {defineDocumentPreparation} from '#server/platform/ai/document-processing/index'; import {Schema} from 'effect'; import {Input} from '@study/contracts'; export const policy = defineDocumentPreparation({referenceSchema: Input, mappedSchema: Schema.Struct({value: Schema.String})});",
-      'src/features/example/agents/fake-preparation.ts':
-        "import {defineDocumentPreparation} from './fake'; export const policy = defineDocumentPreparation({});"
-    });
+testStable('context preparation declarations reuse canonical feature agents', async () => {
+  const diagnostics = await lintRule('agent-definition', {
+    'src/features/example/agents/preparation.ts':
+      "import {defineContextPreparation as define} from '#server/platform/ai/context-preparation/index'; import {agent} from '#server/features/example/agents/notes'; const policy = define({map: {agent}, reduce: {agent}}); export {policy};",
+    'src/features/example/agents/namespace.ts':
+      "import * as processing from '#server/platform/ai/context-preparation/index'; import {agent} from '#server/features/example/agents/notes'; export const policy = processing.defineContextPreparation({map: {agent}, reduce: {agent}});",
+    'src/features/example/agents/inline.ts':
+      "import {defineContextPreparation} from '#server/platform/ai/context-preparation/index'; import {Schema} from 'effect'; import {Input} from '@study/contracts'; export const policy = defineContextPreparation({referenceSchema: Input, mappedSchema: Schema.Struct({value: Schema.String})});",
+    'src/features/example/agents/fake-preparation.ts':
+      "import {defineContextPreparation} from './fake'; export const policy = defineContextPreparation({});"
+  });
 
-    assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
-    assert.ok(
-      diagnostics.every(({ filename }) => /(?:inline|fake-preparation)\.ts$/.test(filename))
-    );
-  }
-);
+  assert.strictEqual(diagnostics.length, 2, JSON.stringify(diagnostics));
+  assert.ok(diagnostics.every(({ filename }) => /(?:inline|fake-preparation)\.ts$/.test(filename)));
+});

@@ -1,11 +1,11 @@
-# Bounded document processing for agents
+# Bounded context preparation for agents
 
 - Status: Accepted
 - Date: 2026-11-15
 
 ## Decision
 
-### One reusable document-processing capability
+### One reusable context-preparation capability
 
 The server AI platform supplies shared planning and execution for agents that
 consume canonical documents. Features reuse it instead of implementing their own
@@ -17,12 +17,33 @@ for each piece, and rules for combining results. The platform owns piece bounds,
 stable ordering and identities, execution bounds, and resumable intermediate work.
 Agent prompts alone do not establish these guarantees.
 
-The feature-facing entry point applies preparation around agent generation. A
-feature declares its preparation policy once; callers supply captured inputs and
-the task. Shared tooling loads those inputs, prepares bounded context and binds
-original-evidence access to that call. Workflows do not assemble these steps
-individually. Inputs that already fit may pass directly without an extra model
-request.
+Source-consuming agent definitions declare their context preparation once. The
+common `generateAgent` entry point applies it automatically; callers supply the
+actual typed input, captured source references and loaders, a request preflight,
+and a stable invocation scope. The final agent prompt supplies the preparation
+task, so callers cannot accidentally prepare for a different task. Context agents
+require these execution options both in types and at runtime; ordinary agents
+retain their existing output-only generation API.
+
+Preparation policies declare typed extraction and reduction agents, provenance
+markers and rendering semantics. The shared platform owns default planning,
+reduction and prompt budgets; policies override them only when their semantics
+require it. Source reference codecs stay with captured sources rather than the
+semantic preparation policy. Prepared generation returns typed output, original
+evidence resolution and coverage. There is no second generation entry point for
+callers to remember.
+
+Inputs pass directly only when the assembled final prompt fits the declared
+budget. Otherwise they use the preparation agents, including a single piece that
+would overflow when appended to the task. Admission reduces source-piece byte
+budgets to leave room for the actual preparation instruction and task before
+persisting the accepted plan. Direct passage does not manufacture an
+empty intermediate result. Durable checkpoint names and existing result schemas
+retain their original identities, including the `document-processing-v1` suffix.
+The explicit scope distinguishes invocations because native workflow identity and
+retry attempt alone do not identify an individual agent invocation. Context-agent
+streaming is explicitly unsupported until it can provide the same preparation and
+provenance guarantees; ordinary streaming is unchanged.
 
 Raw media decoding, ordinary short prompts, and structured tasks such as grading
 one captured answer do not become document-processing jobs merely because they

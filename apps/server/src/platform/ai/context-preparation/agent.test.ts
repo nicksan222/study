@@ -17,20 +17,21 @@ import { AgentRule } from '@study/contracts/settings/schemas';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Effect, Schema } from 'effect';
+import { Effect, Schema, Stream } from 'effect';
 import { Workflow, WorkflowEngine } from 'effect/workflow';
-import { assert } from 'vite-plus/test';
+import { assert, expectTypeOf } from 'vite-plus/test';
 
-import { Agents } from '#server/platform/ai/agents';
+import { Agents, generateAgent, streamAgent } from '#server/platform/ai/agents';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { defineAgent } from '#server/platform/definitions/define-agent';
+import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 
-import { defineDocumentPreparation, generateDocumentAgent } from './agent.ts';
-import type { processDocumentPieces } from './runner.ts';
+import { defineContextPreparation } from './agent.ts';
+import type { processSourcePassages } from './runner.ts';
 import { document } from './test-helpers.ts';
 
 const notesSchema = Schema.Struct({
@@ -66,28 +67,115 @@ const alternateAgent = defineAgent({
   ]
 });
 
-const preparation = defineDocumentPreparation({
+const preparationDefinition = {
   name: 'reusable-preparation-v1',
-  referenceSchema: Schema.String,
-  mappedSchema: notesSchema,
-  direct: { empty: { notes: [] } },
   map: { agent: notesAgent, instruction: (task: string) => `Map task: ${task}` },
   reduce: { agent: notesAgent, instruction: (task: string) => `Reduce task: ${task}` },
-  markers: (value) => value.notes.flatMap((note) => note.markers),
-  render: (value) =>
+  markers: (value: typeof notesSchema.Type) => value.notes.flatMap((note) => note.markers),
+  render: (value: typeof notesSchema.Type) =>
     value.notes
       .map((note) => `${note.text} ${note.markers.map((marker) => `[${marker}]`).join(' ')}`)
       .join('\n'),
-  planLimits: {
-    maxPassageChars: 1000,
-    maxPieceChars: 1000,
-    maxPieceBytes: 10000,
-    maxPlanChars: 10000,
-    maxPlanBytes: 100000,
-    maxPieces: 20
-  },
-  limits: { maxResultBytes: 5000, maxReductionBytes: 10000, maxFanout: 2, maxLevels: 8 },
-  promptLimits: { maxBytes: 20000, reservedBytes: 100 }
+  limits: {
+    plan: {
+      maxPassageChars: 1000,
+      maxPieceChars: 1000,
+      maxPieceBytes: 10000,
+      maxPlanChars: 10000,
+      maxPlanBytes: 100000,
+      maxPieces: 20
+    },
+    reduction: { maxResultBytes: 5000, maxReductionBytes: 10000, maxFanout: 2, maxLevels: 8 },
+    prompt: { maxBytes: 20000, reservedBytes: 100 }
+  }
+};
+
+const preparation = defineContextPreparation(preparationDefinition);
+
+function contextTypeContracts() {
+  const definition = { ...replyAgent, context: preparation };
+
+  // @ts-expect-error A context-consuming agent cannot omit its captured inputs and ownership checks.
+  generateAgent(definition, { request: 'Study cells' });
+  // @ts-expect-error Preflight alone cannot substitute for captured inputs and a durable identity.
+  generateAgent(definition, { request: 'Study cells' }, { preflight: Effect.void });
+
+  const plain = generateAgent(replyAgent, { request: 'Study cells' });
+
+  expectTypeOf<Effect.Success<typeof plain>>().toEqualTypeOf<string>();
+}
+
+void contextTypeContracts;
+
+testStable('invalid invocation limits reject before any preparation model work', async () => {
+  const execute = generateAgent(
+    { ...replyAgent, context: preparation },
+    { request: 'Learn' },
+    {
+      scope: 'invalid-limits',
+      maxSteps: 0,
+      preflight: Effect.void,
+      sources: {
+        referenceSchema: Schema.String,
+        documents: [
+          {
+            key: 'one',
+            reference: 'original',
+            load: Effect.succeed({
+              name: 'Original',
+              document: document([
+                'First section '.padEnd(1000, 'a'),
+                'Second section '.padEnd(1000, 'b')
+              ])
+            })
+          }
+        ]
+      }
+    }
+  ).pipe(
+    Effect.flip,
+    Effect.map((error) => error.kind)
+  );
+  const prompts: string[] = [];
+
+  assert.equal(await run(execute, Schema.String, prompts), 'invalid_input');
+  assert.lengthOf(prompts, 0);
+});
+
+testStable('prepared context can recover an omitted original through scoped search', async () => {
+  const execute = Effect.gen(function* () {
+    const prepared = yield* preparation.prepare('Learn', {
+      scope: 'recover-original',
+      preflight: Effect.void,
+      sources: {
+        referenceSchema: Schema.String,
+        documents: [
+          {
+            key: 'one',
+            reference: 'original-version',
+            load: Effect.succeed({
+              name: 'Original',
+              document: document([
+                'Front concept '.padEnd(1000, 'a'),
+                'Rare-tail concept '.padEnd(1000, 'b')
+              ])
+            })
+          }
+        ]
+      }
+    });
+
+    assert.equal((yield* Effect.flip(prepared.evidence.citations('[2]'))).kind, 'invalid_input');
+    assert.equal(prepared.search('Rare-tail')[0]?.id, '2');
+    const citation = (yield* prepared.evidence.citations('[2]'))[0]!;
+
+    assert.equal(citation.reference, 'original-version');
+    assert.include(citation.quote, 'Rare-tail concept');
+
+    return 'Recovered original';
+  });
+
+  await run(execute, Schema.String, []);
 });
 
 function fixtureModel(prompts: string[]): LanguageModelV3 {
@@ -165,7 +253,7 @@ async function run<A, E>(
   effect: Effect.Effect<
     A,
     E,
-    Effect.Services<ReturnType<typeof processDocumentPieces<string, string, never>>> | Agents
+    Effect.Services<ReturnType<typeof processSourcePassages<string, string, never>>> | Agents
   >,
   schema: Schema.Codec<A, unknown>,
   prompts: string[]
@@ -188,7 +276,11 @@ async function run<A, E>(
 
           yield* engine.register(workflow, () =>
             effect.pipe(
-              Effect.mapError(() => new StudyError('internal', 'Fixture execution failed'))
+              Effect.mapError((error) =>
+                error instanceof StudyError
+                  ? error
+                  : new StudyError('internal', 'Fixture execution failed')
+              )
             )
           );
 
@@ -214,6 +306,40 @@ async function run<A, E>(
   }
 }
 
+testStable('context agents accept decoded codec inputs before preparing their prompt', async () => {
+  const definition = defineAgent({
+    ...replyAgent,
+    context: preparation,
+    input: Schema.Struct({ request: Schema.BigIntFromString }),
+    prompt: ({ request }) => `Revision ${request}`
+  });
+  const execute = generateAgent(
+    definition,
+    { request: 3n },
+    {
+      scope: 'codec-input',
+      preflight: Effect.void,
+      sources: {
+        referenceSchema: Schema.String,
+        documents: [
+          {
+            key: 'one',
+            reference: 'version-one',
+            load: Effect.succeed({
+              name: 'Original',
+              document: document(['Original exact evidence'])
+            })
+          }
+        ]
+      }
+    }
+  ).pipe(Effect.map(({ output }) => output));
+  const prompts: string[] = [];
+
+  await run(execute, Schema.String, prompts);
+  assert.include(prompts[0]!, 'Revision 3');
+});
+
 testStable(
   'reuses preparation across distinct agents without extra model work for small inputs',
   async () => {
@@ -222,39 +348,47 @@ testStable(
     const execute = Effect.gen(function* () {
       const options = {
         scope: 'first-invocation',
-        task: 'Learn',
-        preparation,
         preflight: Effect.void,
-        documents: [
-          {
-            key: 'one',
-            reference: 'version-one',
-            load: Effect.succeed({ name: 'Original', document: original })
-          }
-        ]
+        sources: {
+          referenceSchema: Schema.String,
+          documents: [
+            {
+              key: 'one',
+              reference: 'version-one',
+              load: Effect.succeed({ name: 'Original', document: original })
+            }
+          ]
+        }
       };
-      const first = yield* generateDocumentAgent(replyAgent, { request: 'one' }, options);
-      const second = yield* generateDocumentAgent(
-        alternateAgent,
+      const first = yield* generateAgent(
+        { ...replyAgent, context: preparation },
+        { request: 'one' },
+        options
+      );
+      const second = yield* generateAgent(
+        { ...alternateAgent, context: preparation },
         { request: 'two' },
         {
           ...options,
           scope: 'second-invocation',
-          task: 'Different task',
-          documents: [
-            {
-              key: 'two',
-              reference: 'version-two',
-              load: Effect.succeed({
-                name: 'Another',
-                document: document(['Another original evidence'])
-              })
-            }
-          ]
+          sources: {
+            referenceSchema: Schema.String,
+            documents: [
+              {
+                key: 'two',
+                reference: 'version-two',
+                load: Effect.succeed({
+                  name: 'Another',
+                  document: document(['Another original evidence'])
+                })
+              }
+            ]
+          }
         }
       );
       const secondCitations = yield* second.evidence.citations(second.output);
 
+      expectTypeOf(secondCitations[0]!.reference).toEqualTypeOf<string>();
       assert.equal(secondCitations[0]!.reference, 'version-two');
       assert.equal(secondCitations[0]!.quote, 'Another original evidence');
       const citations = yield* first.evidence.citations(first.output);
@@ -280,21 +414,22 @@ testStable(
 
 testStable('rejects oversized prompts before admitting provider work', async () => {
   const prompts: string[] = [];
-  const execute = generateDocumentAgent(
-    replyAgent,
+  const execute = generateAgent(
+    { ...replyAgent, context: preparation },
     { request: 'x'.repeat(30000) },
     {
       scope: 'one',
-      task: 'Learn',
-      preparation,
       preflight: Effect.void,
-      documents: [
-        {
-          key: 'one',
-          reference: 'v1',
-          load: Effect.succeed({ name: 'Original', document: document(['exact']) })
-        }
-      ]
+      sources: {
+        referenceSchema: Schema.String,
+        documents: [
+          {
+            key: 'one',
+            reference: 'v1',
+            load: Effect.succeed({ name: 'Original', document: document(['exact']) })
+          }
+        ]
+      }
     }
   ).pipe(
     Effect.flip,
@@ -314,21 +449,22 @@ testStable('binds source tools to each run without mutating the caller environme
   const check = (label: string) =>
     Effect.gen(function* () {
       const parent = yield* Agents;
-      const generated = yield* generateDocumentAgent(
-        searchingAgent,
+      const generated = yield* generateAgent(
+        { ...searchingAgent, context: preparation },
         { request: 'Search isolated sources' },
         {
           scope: 'one',
-          task: 'Learn',
-          preparation,
           preflight: Effect.void,
-          documents: [
-            {
-              key: label,
-              reference: label,
-              load: Effect.succeed({ name: label, document: document([`shared ${label}`]) })
-            }
-          ]
+          sources: {
+            referenceSchema: Schema.String,
+            documents: [
+              {
+                key: label,
+                reference: label,
+                load: Effect.succeed({ name: label, document: document([`shared ${label}`]) })
+              }
+            ]
+          }
         }
       );
 
@@ -357,25 +493,26 @@ testStable(
   async () => {
     const original = document(['prefix selected suffix']);
     const execute = Effect.gen(function* () {
-      const result = yield* generateDocumentAgent(
-        replyAgent,
+      const result = yield* generateAgent(
+        { ...replyAgent, context: preparation },
         { request: 'Select' },
         {
           scope: 'one',
-          task: 'Learn',
-          preparation,
           preflight: Effect.void,
-          selection: {
-            mode: 'selected',
-            ranges: [{ documentKey: 'one', blockId: original.blocks[0]!.id, start: 7, end: 15 }]
-          },
-          documents: [
-            {
-              key: 'one',
-              reference: 'exact',
-              load: Effect.succeed({ name: 'Original', document: original })
-            }
-          ]
+          sources: {
+            referenceSchema: Schema.String,
+            selection: {
+              mode: 'selected',
+              ranges: [{ documentKey: 'one', blockId: original.blocks[0]!.id, start: 7, end: 15 }]
+            },
+            documents: [
+              {
+                key: 'one',
+                reference: 'exact',
+                load: Effect.succeed({ name: 'Original', document: original })
+              }
+            ]
+          }
         }
       );
 
@@ -398,31 +535,41 @@ testStable(
 testStable('preparation agents search only their piece or reduction originals', async () => {
   const prompts: string[] = [];
   const searchingNotes = { ...notesAgent, tools: { sources: sourcesTool } };
-  const execute = generateDocumentAgent(
-    replyAgent,
+  const execute = generateAgent(
+    {
+      ...replyAgent,
+      context: defineContextPreparation({
+        ...preparationDefinition,
+        map: {
+          agent: searchingNotes,
+          instruction: (task: string) => `Map task: Search isolated sources ${task}`
+        },
+        reduce: {
+          agent: searchingNotes,
+          instruction: (task: string) => `Reduce task: Search isolated sources ${task}`
+        }
+      })
+    },
     { request: 'Final synthesis' },
     {
       scope: 'scoped-preparation',
-      task: 'Search isolated sources',
-      preparation: {
-        ...preparation,
-        map: { ...preparation.map, agent: searchingNotes },
-        reduce: { ...preparation.reduce, agent: searchingNotes }
-      },
       preflight: Effect.void,
-      documents: [
-        {
-          key: 'originals',
-          reference: 'original-version',
-          load: Effect.succeed({
-            name: 'Originals',
-            document: document([
-              'shared first-piece '.padEnd(1000, 'a'),
-              'shared second-piece '.padEnd(1000, 'b')
-            ])
-          })
-        }
-      ]
+      sources: {
+        referenceSchema: Schema.String,
+        documents: [
+          {
+            key: 'originals',
+            reference: 'original-version',
+            load: Effect.succeed({
+              name: 'Originals',
+              document: document([
+                'shared first-piece '.padEnd(1000, 'a'),
+                'shared second-piece '.padEnd(1000, 'b')
+              ])
+            })
+          }
+        ]
+      }
     }
   ).pipe(Effect.map(({ output }) => output));
 
@@ -432,6 +579,7 @@ testStable('preparation agents search only their piece or reduction originals', 
   );
 
   assert.equal(maps.length, 2);
+  assert.include(maps[0]!, 'Original agent prompt: Final synthesis');
   assert.include(maps[0]!, 'first-piece');
   assert.notInclude(maps[0]!, 'second-piece');
   assert.include(maps[1]!, 'second-piece');
@@ -447,24 +595,25 @@ testStable('preparation agents search only their piece or reduction originals', 
 
 testStable('invalid final agent input fails before multi-piece provider work', async () => {
   const prompts: string[] = [];
-  const execute = generateDocumentAgent(
-    replyAgent,
+  const execute = generateAgent(
+    { ...replyAgent, context: preparation },
     { request: 42 as unknown as string },
     {
       scope: 'invalid-input',
-      task: 'Learn',
-      preparation,
       preflight: Effect.void,
-      documents: [
-        {
-          key: 'one',
-          reference: 'original',
-          load: Effect.succeed({
-            name: 'Original',
-            document: document(['a'.repeat(600), 'b'.repeat(600)])
-          })
-        }
-      ]
+      sources: {
+        referenceSchema: Schema.String,
+        documents: [
+          {
+            key: 'one',
+            reference: 'original',
+            load: Effect.succeed({
+              name: 'Original',
+              document: document(['a'.repeat(600), 'b'.repeat(600)])
+            })
+          }
+        ]
+      }
     }
   ).pipe(
     Effect.flip,
@@ -474,3 +623,71 @@ testStable('invalid final agent input fails before multi-piece provider work', a
   assert.equal(await run(execute, Schema.String, prompts), 'invalid_input');
   assert.equal(prompts.length, 0);
 });
+
+testStable(
+  'compresses one piece when the assembled final prompt cannot pass directly',
+  async () => {
+    const prompts: string[] = [];
+    const execute = generateAgent(
+      {
+        ...replyAgent,
+        context: defineContextPreparation({
+          ...preparationDefinition,
+          limits: {
+            ...preparationDefinition.limits,
+            plan: { ...preparationDefinition.limits.plan, maxPieceChars: 10_000 },
+            prompt: { maxBytes: 12_000, reservedBytes: 100 }
+          }
+        })
+      },
+      { request: 'x'.repeat(10_000) },
+      {
+        scope: 'single-piece-fallback',
+        preflight: Effect.void,
+        sources: {
+          referenceSchema: Schema.String,
+          documents: [
+            {
+              key: 'one',
+              reference: 'exact',
+              load: Effect.succeed({
+                name: 'Original',
+                document: document(['original '.repeat(375)])
+              })
+            }
+          ]
+        }
+      }
+    ).pipe(Effect.map(({ output }) => output));
+
+    assert.equal(await run(execute, Schema.String, prompts), 'Final [1]');
+    assert.isAbove(prompts.filter((prompt) => prompt.includes('Map task:')).length, 1);
+    assert.include(prompts[0]!, 'Map task:');
+    assert.include(prompts.at(-1)!, 'Prepared concept');
+  }
+);
+
+testStable(
+  'rejects missing captured context at runtime and prevents streaming bypass',
+  async () => {
+    const definition = defineAgent({ ...replyAgent, context: preparation });
+    const widened: AgentDefinition<typeof replyAgent.input, typeof replyAgent.output> = definition;
+
+    expectTypeOf(definition).not.toExtend<Parameters<typeof generateAgent>[0]>();
+    expectTypeOf(widened).not.toExtend<Parameters<typeof generateAgent>[0]>();
+    const missing = Reflect.apply(generateAgent, undefined, [definition, { request: 'Learn' }, {}]);
+    const result = await Effect.runPromise(Effect.flip(missing));
+
+    assert.instanceOf(result, StudyError);
+    assert.equal(result.kind, 'invalid_input');
+    const prompts: string[] = [];
+    const streamed = streamAgent(definition, { request: 'Learn' }).pipe(
+      Stream.runDrain,
+      Effect.flip,
+      Effect.map((error) => error.kind)
+    );
+
+    assert.equal(await run(streamed, Schema.String, prompts), 'unsupported');
+    assert.equal(prompts.length, 0);
+  }
+);

@@ -173,8 +173,8 @@ export default defineRule({
       const value = importedValue(context, node);
 
       return (
-        value?.target === 'platform/ai/document-processing/index' &&
-        value.name === 'defineDocumentPreparation'
+        value?.target === 'platform/ai/context-preparation/index' &&
+        value.name === 'defineContextPreparation'
       );
     }
 
@@ -193,7 +193,7 @@ export default defineRule({
       )
         context.report({
           node,
-          message: 'Agent exports must use defineAgent or defineDocumentPreparation.'
+          message: 'Agent exports must use defineAgent or defineContextPreparation.'
         });
     }
 
@@ -232,17 +232,36 @@ export default defineRule({
       return { properties, values };
     }
 
+    function preparationStep(node: any): boolean {
+      const step = unwrap(node);
+
+      if (step?.type !== 'ObjectExpression') return false;
+
+      const agent = unwrap(
+        step.properties.find(
+          (property: any) =>
+            property.type === 'Property' && (property.key.name ?? property.key.value) === 'agent'
+        )?.value
+      );
+
+      if (agent?.type === 'CallExpression') return target(agent.callee);
+
+      const value = importedValue(context, agent);
+
+      return !!value?.target && /^features\/.+\/agents\//.test(value.target);
+    }
+
     function checkPreparation(node: any) {
       const { properties, values } = configuration(node);
 
       if (
         properties.some((p: any) => p.type === 'SpreadElement') ||
-        !canonical(values.get('referenceSchema')) ||
-        !canonical(values.get('mappedSchema'))
+        !preparationStep(values.get('map')) ||
+        !preparationStep(values.get('reduce'))
       )
         context.report({
           node,
-          message: 'Document preparation must use canonical reference and result schemas.'
+          message: 'Context preparation must use canonical agent definitions.'
         });
     }
 

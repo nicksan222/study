@@ -24,7 +24,7 @@ const natural = Schema.Int.check(
   Schema.isBetween({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER })
 );
 
-const documentPlanLimitsSchema = Schema.Struct({
+const sourcePlanLimitsSchema = Schema.Struct({
   maxPieceChars: positive,
   maxPassageChars: positive,
   maxPieceBytes: positive,
@@ -33,9 +33,18 @@ const documentPlanLimitsSchema = Schema.Struct({
   maxPieces: positive
 }).check(Schema.makeFilter((l) => l.maxPassageChars <= l.maxPieceChars));
 
-export type DocumentPlanLimits = typeof documentPlanLimitsSchema.Type;
+export type SourcePlanLimits = typeof sourcePlanLimitsSchema.Type;
 
-const documentSelectionSchema = Schema.Union([
+export const defaultSourcePlanLimits: SourcePlanLimits = {
+  maxPassageChars: 1000,
+  maxPieceChars: 16_000,
+  maxPieceBytes: 60_000,
+  maxPlanChars: 1_000_000,
+  maxPlanBytes: 8_000_000,
+  maxPieces: 128
+};
+
+const sourceSelectionSchema = Schema.Union([
   Schema.Struct({ mode: Schema.Literal('complete') }),
   Schema.Struct({
     mode: Schema.Literal('selected'),
@@ -50,16 +59,16 @@ const documentSelectionSchema = Schema.Union([
   })
 ]);
 
-export type DocumentSelection = typeof documentSelectionSchema.Type;
+export type SourceSelection = typeof sourceSelectionSchema.Type;
 
-export interface DocumentInput<Ref> {
+export interface SourceInput<Ref> {
   readonly key: string;
   readonly name: string;
   readonly reference: Ref;
   readonly document: Document;
 }
 
-function documentPieceSchema<Ref>(referenceSchema: Schema.Codec<Ref, unknown>) {
+function passageGroupSchema<Ref>(referenceSchema: Schema.Codec<Ref, unknown>) {
   return Schema.Struct({
     index: natural,
     passages: Schema.Array(
@@ -79,18 +88,18 @@ function documentPieceSchema<Ref>(referenceSchema: Schema.Codec<Ref, unknown>) {
   });
 }
 
-export type DocumentPiece<Ref> = ReturnType<typeof documentPieceSchema<Ref>>['Type'];
+export type SourcePassageGroup<Ref> = ReturnType<typeof passageGroupSchema<Ref>>['Type'];
 
 function planShape<Ref>(referenceSchema: Schema.Codec<Ref, unknown>) {
   return Schema.Struct({
     version: Schema.Literal(1),
-    limits: documentPlanLimitsSchema,
-    selection: documentSelectionSchema,
-    pieces: Schema.Array(documentPieceSchema(referenceSchema))
+    limits: sourcePlanLimitsSchema,
+    selection: sourceSelectionSchema,
+    pieces: Schema.Array(passageGroupSchema(referenceSchema))
   });
 }
 
-export function documentPiecePlanSchema<Ref>(referenceSchema: Schema.Codec<Ref, unknown>) {
+export function sourcePassagePlanSchema<Ref>(referenceSchema: Schema.Codec<Ref, unknown>) {
   return planShape(referenceSchema).check(
     Schema.makeFilter((plan) => validPlan(plan, referenceSchema))
   );
@@ -121,16 +130,15 @@ function validPlan<Ref>(
 }
 
 function validPiece<Ref>(
-  piece: DocumentPiece<Ref>,
+  piece: SourcePassageGroup<Ref>,
   index: number,
   marker: number,
-  limits: DocumentPlanLimits,
+  limits: SourcePlanLimits,
   referenceSchema: Schema.Codec<Ref, unknown>
 ) {
   if (piece.index !== index || !piece.passages.length) return false;
 
-  if (encodedBytes(documentPieceSchema(referenceSchema), piece) > limits.maxPieceBytes)
-    return false;
+  if (encodedBytes(passageGroupSchema(referenceSchema), piece) > limits.maxPieceBytes) return false;
 
   if (piece.passages.reduce((sum, p) => sum + p.text.length, 0) > limits.maxPieceChars)
     return false;
@@ -141,8 +149,8 @@ function validPiece<Ref>(
 }
 
 function validPassage<Ref>(
-  passage: DocumentPiece<Ref>['passages'][number],
-  limits: DocumentPlanLimits
+  passage: SourcePassageGroup<Ref>['passages'][number],
+  limits: SourcePlanLimits
 ) {
   return (
     passage.end - passage.start === passage.text.length &&
@@ -150,7 +158,7 @@ function validPassage<Ref>(
   );
 }
 
-export type DocumentPiecePlan<Ref> = ReturnType<typeof documentPiecePlanSchema<Ref>>['Type'];
+export type SourcePassagePlan<Ref> = ReturnType<typeof sourcePassagePlanSchema<Ref>>['Type'];
 
 export function serializedBytes(value: unknown): number {
   return new TextEncoder().encode(JSON.stringify(value)).byteLength;
@@ -161,7 +169,7 @@ function invalid(message: string): never {
 }
 
 function exhausted(): never {
-  throw new StudyError('not_enough', 'Document processing scope exceeds the declared budget');
+  throw new StudyError('not_enough', 'Context preparation scope exceeds the declared budget');
 }
 
 function safeEnd(text: string, start: number, end: number) {
@@ -176,16 +184,18 @@ function safeEnd(text: string, start: number, end: number) {
   return end;
 }
 
-export function planDocumentPieces<Ref>(options: {
-  readonly documents: readonly DocumentInput<Ref>[];
+export function planSourcePassages<Ref>(options: {
+  readonly documents: readonly SourceInput<Ref>[];
   readonly referenceSchema: Schema.Codec<Ref, unknown>;
-  readonly limits: DocumentPlanLimits;
-  readonly selection: DocumentSelection;
+  readonly limits?: SourcePlanLimits;
+  readonly selection: SourceSelection;
 }) {
   return Effect.try({
     try: () => {
-      const limits = Schema.decodeUnknownSync(documentPlanLimitsSchema)(options.limits);
-      const selection = Schema.decodeUnknownSync(documentSelectionSchema)(options.selection);
+      const limits = Schema.decodeUnknownSync(sourcePlanLimitsSchema)(
+        options.limits ?? defaultSourcePlanLimits
+      );
+      const selection = Schema.decodeUnknownSync(sourceSelectionSchema)(options.selection);
 
       validateDocuments(options.documents, options.referenceSchema);
       const selected = validateSelection(selection, options.documents);
@@ -205,7 +215,7 @@ export function planDocumentPieces<Ref>(options: {
 
       const pieces = builder.finish();
 
-      if (!pieces.length) invalid('Document processing scope is empty');
+      if (!pieces.length) invalid('Context preparation scope is empty');
 
       const plan = { version: 1 as const, limits, selection, pieces };
 
@@ -216,13 +226,13 @@ export function planDocumentPieces<Ref>(options: {
         exhausted();
 
       return Schema.decodeUnknownSync(
-        Schema.toType(documentPiecePlanSchema(options.referenceSchema))
+        Schema.toType(sourcePassagePlanSchema(options.referenceSchema))
       )(plan);
     },
     catch: (cause) =>
       cause instanceof StudyError
         ? cause
-        : new StudyError('invalid_input', 'Document processing plan is invalid', { cause })
+        : new StudyError('invalid_input', 'Context preparation plan is invalid', { cause })
   });
 }
 
@@ -250,12 +260,12 @@ export function splitTextRanges(
 }
 
 function createPieceBuilder<Ref>(
-  limits: DocumentPlanLimits,
+  limits: SourcePlanLimits,
   referenceSchema: Schema.Codec<Ref, unknown>
 ) {
-  const pieceSchema = documentPieceSchema(referenceSchema);
-  const pieces: { index: number; passages: DocumentPiece<Ref>['passages'][number][] }[] = [];
-  let current: { index: number; passages: DocumentPiece<Ref>['passages'][number][] } = {
+  const pieceSchema = passageGroupSchema(referenceSchema);
+  const pieces: { index: number; passages: SourcePassageGroup<Ref>['passages'][number][] }[] = [];
+  let current: { index: number; passages: SourcePassageGroup<Ref>['passages'][number][] } = {
     index: 0,
     passages: []
   };
@@ -273,7 +283,7 @@ function createPieceBuilder<Ref>(
     pieceChars = 0;
   };
   const append = (
-    input: DocumentInput<Ref>,
+    input: SourceInput<Ref>,
     block: Block,
     ordinal: number,
     range: { start: number; end: number }
@@ -332,7 +342,7 @@ function createPieceBuilder<Ref>(
 
   return {
     add(
-      input: DocumentInput<Ref>,
+      input: SourceInput<Ref>,
       block: Block,
       ordinal: number,
       range: { start: number; end: number }
@@ -383,10 +393,10 @@ function encodedBytes<A>(schema: Schema.Codec<A, unknown>, value: A) {
 }
 
 function validateDocuments<Ref>(
-  documents: readonly DocumentInput<Ref>[],
+  documents: readonly SourceInput<Ref>[],
   referenceSchema: Schema.Codec<Ref, unknown>
 ) {
-  if (!documents.length) invalid('Document processing requires input');
+  if (!documents.length) invalid('Context preparation requires input');
 
   const keys = new Set<string>();
 
@@ -400,8 +410,8 @@ function validateDocuments<Ref>(
 }
 
 function validateSelection<Ref>(
-  selection: DocumentSelection,
-  documents: readonly DocumentInput<Ref>[]
+  selection: SourceSelection,
+  documents: readonly SourceInput<Ref>[]
 ) {
   if (selection.mode === 'complete') return null;
 
@@ -421,7 +431,7 @@ function validateSelection<Ref>(
   return ranges;
 }
 
-type SelectedRange = Extract<DocumentSelection, { mode: 'selected' }>['ranges'][number];
+type SelectedRange = Extract<SourceSelection, { mode: 'selected' }>['ranges'][number];
 
 function validSelectionRange(document: Document, range: SelectedRange) {
   return range.end > range.start && validBlockTextRange(document, range);

@@ -435,6 +435,11 @@ function SearchField({
   );
 }
 
+/** Keeps expandable background work beneath its owning sidebar row. */
+function WorkProgress(props: ComponentProps<'div'>) {
+  return <div {...props} className="study-sidebar-work-progress" />;
+}
+
 function NoteActivity({ running, ...props }: ComponentProps<'span'> & { running?: boolean }) {
   return <span {...props} className="study-note-activity" data-running={running || undefined} />;
 }
@@ -972,6 +977,7 @@ export const Sidebar = {
   NoteEntry,
   NoteRowActions,
   NoteActivity,
+  WorkProgress,
   NoteCount,
   SettleAction,
   Message,

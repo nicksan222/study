@@ -1,19 +1,29 @@
 import type { ProjectId, materialGenerationSnapshotSchema } from '@study/contracts';
-import { rpc } from '@study/contracts/react';
+import { rpc } from '@study/contracts';
 import { QuizIcon, FlashcardsIcon, StopIcon } from '@study/icons';
+import { RetryButton } from '@study/ui';
 import {
   AiActivity,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
-  ContextMenuItem,
-  Sidebar
+  ContextMenuItem
 } from '@study/ui';
+import { ErrorState } from '@study/ui';
+import { Sidebar } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import type { Subjects } from '#client/lib/study-client/types.ts';
 
+import { AgentActivity } from '../agent-progress';
+import { useGenerationRetry } from './sidebar-generations.queries';
+
 type Generation = typeof materialGenerationSnapshotSchema.Type;
+
+const generationKinds = {
+  flashcards: { Icon: FlashcardsIcon, label: 'Flashcards' },
+  quiz: { Icon: QuizIcon, label: 'SidebarQuiz' }
+} as const;
 
 /** Recover background practice work from persisted requests, including after navigation. */
 export function PracticeSidebarGenerations({
@@ -52,10 +62,17 @@ export function PracticeSidebarGenerations({
 function GenerationCard({ generation, subjects }: { generation: Generation; subjects: Subjects }) {
   const { t } = useI18n();
   const stop = rpc.materials.cancelMaterialGeneration.useMutation();
+  const retry = useGenerationRetry(generation.id);
+  const failed = generation.errorKind !== null && !retry.isPending;
   const owner = subjects.find((subject) => subject.id === generation.projectId);
-  const Icon = generation.kind === 'flashcards' ? FlashcardsIcon : QuizIcon;
+  const { Icon, label } = generationKinds[generation.kind];
   const stopLabel = t('PracticeGenerationStop', { title: generation.title });
-  const status = t(stop.isPending ? 'PracticeGenerationStopping' : 'PracticeGenerationRunning');
+  const activity = generationActivity({
+    stopping: stop.isPending,
+    failed,
+    retrying: retry.isPending
+  });
+  const status = t(activity.label);
 
   return (
     <Sidebar.NoteEntry>
@@ -64,15 +81,8 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           render={
             <Sidebar.Item
               label={generation.title}
-              context={
-                owner?.name ?? t(generation.kind === 'flashcards' ? 'Flashcards' : 'SidebarQuiz')
-              }
+              context={owner?.name ?? t(label)}
               icon={<Icon aria-hidden="true" />}
-              description={
-                <Sidebar.NoteActivity running>
-                  <AiActivity label={status} state={stop.isPending ? 'stopping' : 'running'} />
-                </Sidebar.NoteActivity>
-              }
               title={generation.title}
               render={<div />}
             />
@@ -88,7 +98,32 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
           </ContextMenuItem>
         </ContextMenuPopup>
       </ContextMenu>
-      <Sidebar.NoteRowActions>
+      <Sidebar.WorkProgress>
+        <AgentActivity correlationId={generation.id} label={status} status={activity.status} />
+        {failed && (
+          <ErrorState
+            layout="sidebar"
+            title={t('PracticeGenerationFailed')}
+            description={t('PracticeGenerationFailedDescription')}
+            action={
+              <RetryButton
+                label={t('Retry')}
+                disabled={retry.isPending || stop.isPending}
+                onClick={retry.retry}
+              />
+            }
+          />
+        )}
+        {retry.isPending && <RetryButton label={t('Retry')} disabled />}
+        {retry.isError && (
+          <ErrorState
+            layout="sidebar"
+            title={t('PracticeGenerationRetryError')}
+            description={t('PracticeGenerationRetryErrorDescription')}
+          />
+        )}
+      </Sidebar.WorkProgress>
+      <Sidebar.NoteRowActions placement="top">
         <Sidebar.SettleAction
           aria-label={stopLabel}
           title={stopLabel}
@@ -104,4 +139,22 @@ function GenerationCard({ generation, subjects }: { generation: Generation; subj
       )}
     </Sidebar.NoteEntry>
   );
+}
+
+function generationActivity({
+  stopping,
+  failed,
+  retrying
+}: {
+  stopping: boolean;
+  failed: boolean;
+  retrying: boolean;
+}) {
+  if (stopping) return { label: 'PracticeGenerationStopping', status: 'stopping' } as const;
+
+  if (failed) return { label: 'PracticeGenerationAttention', status: 'failed' } as const;
+
+  if (retrying) return { label: 'PracticeGenerationRetrying', status: 'waiting' } as const;
+
+  return { label: 'PracticeGenerationRunning', status: 'running' } as const;
 }

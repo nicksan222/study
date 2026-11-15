@@ -10,3 +10,37 @@
   outline: 2px solid var(--ring);
   outline-offset: 3px;
 }
+
+.ui-disclosure[data-variant='activity'] {
+  min-width: 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+.ui-disclosure[data-variant='activity'] > summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding-block: 0.25rem;
+  list-style: none;
+}
+.ui-disclosure[data-variant='activity'] > summary::-webkit-details-marker {
+  display: none;
+}
+.ui-disclosure[data-variant='activity'] > summary > svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  transition: transform 160ms ease-out;
+}
+.ui-disclosure[data-variant='activity'][open] > summary > svg {
+  transform: rotate(90deg);
+}
+.ui-disclosure[data-variant='activity'] > :not(summary) {
+  padding-block: 0.375rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ui-disclosure[data-variant='activity'] > summary > svg {
+    transition: none;
+  }
+}

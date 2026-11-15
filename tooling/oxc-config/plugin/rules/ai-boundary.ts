@@ -26,7 +26,6 @@ import { defineRule } from 'vite-plus/lint/plugins';
 import {
   canonicalImport,
   featureRole,
-  importedValue,
   moduleEdges,
   serverPath,
   targetPath
@@ -49,7 +48,7 @@ export default defineRule({
     const inAi = current.startsWith('platform/ai/');
     const generationOwner = current === 'platform/ai/agents.ts';
     // This adapter delegates piece checkpoints to the runner; callers checkpoint final output.
-    const documentOwner = current === 'platform/ai/document-processing/agent.ts';
+    const contextOwner = current === 'platform/ai/context-preparation/agent.ts';
     const effects = effectBindings(context);
     const edges = moduleEdges(context, (node, source, typeOnly) => {
       if (!source) {
@@ -162,17 +161,7 @@ export default defineRule({
       return node;
     }
 
-    function documentAgent(node: any): boolean {
-      const value = importedValue(context, node);
-
-      return (
-        ['platform/ai/document-processing/index', 'platform/ai/document-processing/agent'].includes(
-          value?.target ?? ''
-        ) && value?.name === 'generateDocumentAgent'
-      );
-    }
-
-    function requestOptions(node: any, document = false): boolean {
+    function requestOptions(node: any): boolean {
       const options = constant(node.arguments[2]);
 
       if (options?.type !== 'ObjectExpression') return false;
@@ -186,8 +175,7 @@ export default defineRule({
       const retries = field('maxRetries');
 
       return (
-        validPreflight(field('preflight')) &&
-        (document || (retries?.type === 'Literal' && retries.value === 0))
+        validPreflight(field('preflight')) && retries?.type === 'Literal' && retries.value === 0
       );
     }
 
@@ -200,7 +188,7 @@ export default defineRule({
     }
 
     const checkpointed = (node: any): boolean => {
-      if (documentOwner) return true;
+      if (contextOwner) return true;
 
       if (!current.startsWith('features/') || featureRole(current) !== 'workflow') return false;
 
@@ -246,18 +234,17 @@ export default defineRule({
       return agent;
     }
 
-    function checkGeneration(node: any, document: boolean) {
+    function checkGeneration(node: any) {
       if (!checkpointed(node))
         context.report({
           node,
           message: 'Agent generation belongs in a native workflow activity execute effect.'
         });
-      else if (!requestOptions(node, document))
+      else if (!requestOptions(node))
         context.report({
           node,
-          message: document
-            ? 'Document generation requires a request preflight; shared preparation owns retries.'
-            : 'Workflow generation requires a request preflight and maxRetries: 0; activities own retries.'
+          message:
+            'Workflow generation requires a request preflight and maxRetries: 0; activities own retries.'
         });
     }
 
@@ -270,10 +257,7 @@ export default defineRule({
       CallExpression(node: any) {
         edges.CallExpression(node);
 
-        const document = documentAgent(node.callee);
-
-        if (!generationOwner && (agentBinding(node.callee) || document))
-          checkGeneration(node, document);
+        if (!generationOwner && agentBinding(node.callee)) checkGeneration(node);
 
         const agent = sdkAgentMethod(node);
 

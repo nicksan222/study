@@ -1306,3 +1306,11 @@ button.study-note-row {
 .study-sidebar[data-shortcuts-visible] .study-note-row-actions {
   visibility: hidden;
 }
+
+.study-sidebar-work-progress {
+  min-width: 0;
+  margin: 0 0.625rem 0.5rem;
+}
+.study-shell[data-sidebar-collapsed='true'] .study-sidebar-work-progress {
+  display: none;
+}

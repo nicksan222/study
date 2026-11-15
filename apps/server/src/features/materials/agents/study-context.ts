@@ -1,27 +1,21 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Declares material study-note semantics and bounded document preparation policy.    │
+ * │ @file Declares material study-note semantics and bounded context preparation policy.     │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Selects concept extraction and reduction agents and prompts.                           │
- * │ - Declares original marker rendering and preparation budgets.                            │
+ * │ - Declares original marker rendering and context semantics.                              │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ The shared AI platform owns traversal, checkpoints, provenance and final evidence scope. │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialStudyNotesSchema } from '@study/contracts/ai/material-study-notes';
-import { contentInputSchema } from '@study/contracts/inputs';
-
 import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
-import { defineDocumentPreparation } from '#server/platform/ai/document-processing/index';
+import { defineContextPreparation } from '#server/platform/ai/context-preparation/index';
 
-export const materialDocumentPreparation = defineDocumentPreparation({
+export const materialStudyContext = defineContextPreparation({
   name: 'materials-study-notes-v1',
-  referenceSchema: contentInputSchema,
-  mappedSchema: materialStudyNotesSchema,
-  direct: { empty: { notes: [] } },
   map: {
     agent: studyNotesAgent,
     instruction: (task: string) => `Extract study notes for this material request.\n${task}`
@@ -35,15 +29,5 @@ export const materialDocumentPreparation = defineDocumentPreparation({
   render: (value) =>
     value.notes
       .map((note) => `${note.text} ${note.markers.map((marker) => `[${marker}]`).join(' ')}`)
-      .join('\n'),
-  planLimits: {
-    maxPassageChars: 1000,
-    maxPieceChars: 16_000,
-    maxPieceBytes: 60_000,
-    maxPlanChars: 1_000_000,
-    maxPlanBytes: 8_000_000,
-    maxPieces: 128
-  },
-  limits: { maxResultBytes: 48_000, maxReductionBytes: 96_000, maxFanout: 2, maxLevels: 8 },
-  promptLimits: { maxBytes: 256_000, reservedBytes: 128_000 }
+      .join('\n')
 });

@@ -11,19 +11,30 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import type { MaterialVersionId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts/ids';
+import { contentInputKey, contentInputSchema } from '@study/contracts/inputs';
 import type { materialGenerationInputSchema } from '@study/contracts/materials/schemas';
+import type { quizSettingsSchema } from '@study/contracts/settings/schemas';
+import type { Language } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
 import { preferences } from '@study/db/schema';
 import type { createAiMock } from '@study/testing/ai-mock';
 import { Effect } from 'effect';
 
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
+import { quizTitledAgent } from '#server/features/materials/agents/quiz-titled';
+import { materialStudyContext } from '#server/features/materials/agents/study-context';
+import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
 import { Materials } from '#server/features/materials/index';
 import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/index';
 import { Pages } from '#server/features/pages/index';
 import { Projects } from '#server/features/projects/index';
+import { Settings } from '#server/features/settings/index';
+import { Workflows } from '#server/features/workflows/index';
 import { encodeAccount } from '#server/platform/ai/auth/persistence';
+import { planSourcePassages } from '#server/platform/ai/context-preparation/index';
 import type { App } from '#server/runtime/index';
 
 const lecture =
@@ -50,7 +61,10 @@ async function studyMaterialFixture(app: App, ai: ReturnType<typeof createAiMock
     })
     .run();
 
-  const classification = ai.next(questionAgent, { input: { text }, output: { kind: 'note' } });
+  const classification = ai.next(questionAgent, {
+    input: { text: text.trim() },
+    output: { kind: 'note' }
+  });
   const fixture = await app.nativeRuntime.runPromise(
     Effect.gen(function* () {
       const project = yield* (yield* Projects).createProject({ name: 'Cell biology' });
@@ -104,7 +118,9 @@ function materialRequest(app: App, input: typeof materialGenerationInputSchema.T
 
 function materialSnapshot(app: App, requestId: string) {
   return app.nativeRuntime.runPromise(
-    Effect.flatMap(Materials, (materials) => materials.materialGeneration({ requestId }))
+    Effect.flatMap(Materials, (materials) =>
+      materials.materialGeneration({ requestId, verifyOnly: true })
+    )
   );
 }
 
@@ -112,7 +128,7 @@ function publishedMaterial(app: App, requestId: string) {
   return app.nativeRuntime.runPromise(
     Effect.gen(function* () {
       const materials = yield* Materials;
-      const request = yield* materials.materialGeneration({ requestId });
+      const request = yield* materials.materialGeneration({ requestId, verifyOnly: true });
 
       if (!request.resultVersionId) throw new Error('Material is not published');
 
@@ -124,10 +140,88 @@ function publishedMaterial(app: App, requestId: string) {
 /** Browser journeys share real feature operations and actual agent contracts. */
 export function createStudyMaterials(app: App, ai: ReturnType<typeof createAiMock>) {
   return {
-    agents: { flashcards: flashcardsAgent },
+    agents: { flashcards: flashcardsAgent, studyNotes: studyNotesAgent, quiz: quizTitledAgent },
+    active: (projectId: ProjectId) =>
+      app.nativeRuntime.runPromise(
+        Effect.flatMap(Materials, (materials) => materials.activeMaterialGenerations({ projectId }))
+      ),
+    quizPreferences: (configuration: typeof quizSettingsSchema.Type) =>
+      app.nativeRuntime.runPromise(
+        Effect.flatMap(Settings, (settings) => settings.saveQuizSettings(configuration))
+      ),
+    lecture,
+    contextInputs,
+    language: (language: Language) =>
+      app.nativeRuntime.runPromise(
+        Effect.gen(function* () {
+          const settings = yield* Settings;
+          const current = yield* settings.appSettings();
+
+          yield* settings.saveAppSettings({ ...current, language });
+        })
+      ),
     seed: (text?: string) => studyMaterialFixture(app, ai, text),
     request: (input: typeof materialGenerationInputSchema.Type) => materialRequest(app, input),
     snapshot: (requestId: string) => materialSnapshot(app, requestId),
-    published: (requestId: string) => publishedMaterial(app, requestId)
+    executions: (requestId: string) =>
+      app.nativeRuntime.runPromise(
+        Effect.flatMap(Workflows, (workflows) =>
+          workflows.executions({ correlationId: requestId, limit: 30 })
+        )
+      ),
+    published: (requestId: string) => publishedMaterial(app, requestId),
+    citations: (id: MaterialVersionId) =>
+      app.nativeRuntime.runPromise(
+        Effect.flatMap(Materials, (materials) => materials.citations({ id, limit: 100 }))
+      )
+  };
+}
+
+async function contextInputs(
+  fixture: Awaited<ReturnType<typeof studyMaterialFixture>>,
+  title: string
+) {
+  if (!fixture.page.version) throw new Error('Fixture page has no saved version');
+
+  const plan = await Effect.runPromise(
+    planSourcePassages({
+      selection: { mode: 'complete' },
+      referenceSchema: contentInputSchema,
+      documents: [
+        {
+          key: contentInputKey(fixture.input),
+          reference: fixture.input,
+          name: fixture.page.title,
+          document: fixture.page.version.document
+        }
+      ]
+    })
+  );
+  const task = `Title: ${title}\nStudent instruction (data): `;
+
+  const maps = plan.pieces.map((piece, index) => ({
+    input: {
+      prompt: `${materialStudyContext.map.instruction(task)}\nOriginal passages (data):\n${piece.passages.map((passage) => `[${passage.marker}] ${passage.name}\n${passage.text}`).join('\n\n')}`
+    },
+    output: {
+      notes: [
+        {
+          text: (index === 0 ? piece.passages[0]! : piece.passages.at(-1)!).text.slice(0, 300),
+          markers: [(index === 0 ? piece.passages[0]! : piece.passages.at(-1)!).marker]
+        }
+      ]
+    }
+  }));
+
+  if (maps.length !== 2) throw new Error('This fixture requires two source sections');
+
+  return {
+    maps,
+    reduce: {
+      input: {
+        prompt: `${materialStudyContext.reduce.instruction(task)}\nDerived context (never original quotations):\n${JSON.stringify(maps.map((map) => map.output))}`
+      },
+      output: { notes: maps.flatMap((map) => map.output.notes) }
+    }
   };
 }

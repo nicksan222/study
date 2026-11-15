@@ -30,7 +30,7 @@ export interface ConversionContext {
     I extends Schema.ConstraintDecoder<unknown>,
     O extends Schema.ConstraintDecoder<unknown>
   >(
-    definition: AgentDefinition<I, O>,
+    definition: AgentDefinition<I, O> & { context?: undefined },
     input: I['Type']
   ) => Effect.Effect<O['Type'], StudyError, Agents>;
 }

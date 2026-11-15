@@ -71,4 +71,8 @@ export const agentProgressInputSchema = Schema.Union([
   Schema.Struct({ correlationId: Schema.String.check(Schema.isBetweenLength(1, 256)) })
 ]);
 
-export const agentProgressPageSchema = Schema.Array(agentProgressSchema);
+export const agentProgressLimit = 100;
+
+export const agentProgressPageSchema = Schema.Array(agentProgressSchema).check(
+  Schema.isMaxLength(agentProgressLimit)
+);

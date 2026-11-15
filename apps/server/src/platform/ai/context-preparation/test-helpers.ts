@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Supplies canonical document fixtures for document processing behavior tests.       │
+ * │ @file Supplies canonical document fixtures for context preparation behavior tests.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Creates original canonical blocks with explicit authored source anchors.               │

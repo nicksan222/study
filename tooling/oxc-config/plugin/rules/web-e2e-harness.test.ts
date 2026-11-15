@@ -4,8 +4,10 @@ import { assert } from 'vite-plus/test';
 import { lintRule, lintRulePaths } from '../test/utils.ts';
 
 testStable('native fixture options do not register a browser journey', async () => {
-  const diagnostics = await lintRule('web-e2e-harness', {
-    'apps/client/test/e2e/model.test.ts': `
+  const diagnostics = await lintRule(
+    'web-e2e-harness',
+    {
+      'apps/client/test/e2e/model.test.ts': `
       import { expect, testE2e } from './harness/index.ts';
       testE2e.use({ aiEnabled: true });
       testE2e('Material generation retains progress', async ({ page, expectScreenshot }) => {
@@ -13,7 +15,9 @@ testStable('native fixture options do not register a browser journey', async () 
         await expectScreenshot('ready', { target: 'viewport', ready: () => expect(page.getByRole('heading')).toBeVisible() });
       });
     `
-  }, true);
+    },
+    true
+  );
 
   assert.deepStrictEqual(diagnostics, []);
 });

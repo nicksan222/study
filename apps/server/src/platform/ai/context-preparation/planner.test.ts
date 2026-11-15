@@ -17,11 +17,11 @@ import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { assert } from 'vite-plus/test';
 
-import { planDocumentPieces, splitTextRanges, documentPiecePlanSchema } from './index.ts';
-import type { DocumentPlanLimits, DocumentInput, DocumentSelection } from './index.ts';
+import { planSourcePassages, splitTextRanges, sourcePassagePlanSchema } from './index.ts';
+import type { SourcePlanLimits, SourceInput, SourceSelection } from './index.ts';
 import { document } from './test-helpers.ts';
 
-const limits: DocumentPlanLimits = {
+const limits: SourcePlanLimits = {
   maxPieceChars: 16000,
   maxPassageChars: 1000,
   maxPieceBytes: 100000,
@@ -30,15 +30,15 @@ const limits: DocumentPlanLimits = {
   maxPieces: 128
 };
 
-const completeSelection: DocumentSelection = { mode: 'complete' };
+const completeSelection: SourceSelection = { mode: 'complete' };
 
 const referenceSchema = Schema.Struct({ version: Schema.String });
 
-function plan(input: Document, options: Partial<typeof limits> = {}) {
-  return planDocumentPieces({
+function plan(input: Document, options?: Partial<typeof limits>) {
+  return planSourcePassages({
     documents: [{ key: 'one', name: 'Original', reference: { version: 'exact' }, document: input }],
     referenceSchema,
-    limits: { ...limits, ...options },
+    ...(options ? { limits: { ...limits, ...options } } : {}),
     selection: completeSelection
   });
 }
@@ -95,7 +95,7 @@ testStable(
     const selected = (
       ranges: { documentKey: string; blockId: typeof block.id; start: number; end: number }[]
     ) =>
-      planDocumentPieces({
+      planSourcePassages({
         documents: [
           { key: 'one', name: 'Original', reference: { version: 'exact' }, document: input }
         ],
@@ -130,7 +130,7 @@ testStable(
     });
     const input = document(['original 🌏 text']);
     const result = await Effect.runPromise(
-      planDocumentPieces({
+      planSourcePassages({
         documents: [
           { key: 'source', name: 'Source', reference: contentReference, document: input }
         ],
@@ -148,7 +148,7 @@ testStable(
     });
     const exact = { kind: 'message' as const, messageId: 7n, revision: 12n };
     const selected = await Effect.runPromise(
-      planDocumentPieces({
+      planSourcePassages({
         documents: [
           { key: 'message:7:12', name: 'Conversation', reference: exact, document: input }
         ],
@@ -169,13 +169,13 @@ testStable('counts metadata for empty blocks and rejects duplicate document keys
   );
 
   assert.equal(failure.kind, 'not_enough');
-  const duplicate: DocumentInput<{ version: string }> = {
+  const duplicate: SourceInput<{ version: string }> = {
     key: 'one',
     name: 'Original',
     reference: { version: 'exact' },
     document: document(['x'])
   };
-  const duplicated = planDocumentPieces({
+  const duplicated = planSourcePassages({
     documents: [duplicate, duplicate],
     referenceSchema,
     limits,
@@ -202,7 +202,7 @@ testStable('bounds canonical Unicode ranges with no omitted characters', () => {
 testStable('accepts feature reference codecs whose encoded and decoded shapes differ', async () => {
   const transformedReferenceSchema = Schema.Struct({ revision: Schema.NumberFromString });
   const result = await Effect.runPromise(
-    planDocumentPieces({
+    planSourcePassages({
       documents: [
         { key: 'one', name: 'Original', reference: { revision: 42 }, document: document(['exact']) }
       ],
@@ -217,7 +217,7 @@ testStable('accepts feature reference codecs whose encoded and decoded shapes di
 
 testStable('validates persisted plan markers and encoded metadata bounds', async () => {
   const original = await Effect.runPromise(plan(document(['original'])));
-  const schema = documentPiecePlanSchema(referenceSchema);
+  const schema = sourcePassagePlanSchema(referenceSchema);
   const codec = Schema.toCodecJson(schema);
 
   assert.deepEqual(Schema.decodeUnknownSync(codec)(Schema.encodeSync(codec)(original)), original);

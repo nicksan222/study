@@ -13,6 +13,7 @@
  */
 
 import type { agentProgressInputSchema } from '@study/contracts';
+import { agentProgressLimit } from '@study/contracts';
 import { StudyError } from '@study/contracts';
 import type { WorkflowEvent } from '@study/contracts';
 import { executionIdSchema } from '@study/contracts';
@@ -42,7 +43,7 @@ function* makeWorkflows() {
   const store = yield* useStore(ExecutionStore);
   const progressStore = yield* useStore(AgentProgressStore);
   const agentProgress = (input: typeof agentProgressInputSchema.Type) =>
-    progressStore.agentProgress({ scope: input, limit: 100 });
+    progressStore.agentProgress({ scope: input, limit: agentProgressLimit });
 
   const executions = Effect.fnUntraced(function* (input: typeof executionsInputSchema.Type) {
     const items = yield* store.executions(input);

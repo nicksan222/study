@@ -19,8 +19,10 @@ import { defineAgent } from '#server/platform/definitions/define-agent';
 
 import { titleInstructions } from './generated-title.ts';
 import { quizAgent } from './quiz.ts';
+import { materialStudyContext } from './study-context.ts';
 
 export const quizTitledAgent = defineAgent({
+  context: materialStudyContext,
   id: 'quiz-titled',
   customRules: [AgentRule.Quizzes, AgentRule.Titles],
   input: promptInputSchema,

@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Executes bounded document processing through official native workflow Activities.  │
+ * │ @file Executes bounded context preparation through official native workflow Activities.  │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Checkpoints plans, mapped outputs and deterministic bounded reduction trees.           │
@@ -16,14 +16,14 @@ import { Effect, Schema } from 'effect';
 
 import { resumableActivity } from '#server/platform/definitions/define-activity';
 
-import { documentPiecePlanSchema, serializedBytes } from './planner.ts';
-import type { DocumentPiece, DocumentPiecePlan } from './planner.ts';
+import { sourcePassagePlanSchema, serializedBytes } from './planner.ts';
+import type { SourcePassageGroup, SourcePassagePlan } from './planner.ts';
 
 const positive = Schema.Int.check(
   Schema.isBetween({ minimum: 1, maximum: Number.MAX_SAFE_INTEGER })
 );
 
-const documentProcessingLimitsSchema = Schema.Struct({
+const contextReductionLimitsSchema = Schema.Struct({
   maxResultBytes: positive,
   maxReductionBytes: positive,
   maxFanout: positive,
@@ -34,40 +34,30 @@ const documentProcessingLimitsSchema = Schema.Struct({
   )
 );
 
-export type DocumentProcessingLimits = typeof documentProcessingLimitsSchema.Type;
+export type ContextReductionLimits = typeof contextReductionLimitsSchema.Type;
 
 export interface ReductionContext {
   readonly level: number;
   readonly index: number;
 }
 
-export function processDocumentPieces<Ref, Value, R>(options: {
+export function acceptSourcePlan<Ref, R>(options: {
   readonly name: string;
   readonly referenceSchema: Schema.Codec<Ref, unknown>;
-  readonly mappedSchema: Schema.Codec<Value, unknown>;
-  readonly plan: Effect.Effect<DocumentPiecePlan<Ref>, Failure, R>;
+  readonly plan: Effect.Effect<SourcePassagePlan<Ref>, Failure, R>;
   readonly preflight: Effect.Effect<unknown, Failure, R>;
-  readonly map: (
-    piece: DocumentPiece<Ref>,
-    plan: DocumentPiecePlan<Ref>
-  ) => Effect.Effect<Value, Failure, R>;
-  readonly reduce: (
-    values: readonly Value[],
-    context: ReductionContext,
-    plan: DocumentPiecePlan<Ref>
-  ) => Effect.Effect<Value, Failure, R>;
-  readonly limits: DocumentProcessingLimits;
+  readonly limits: ContextReductionLimits;
 }) {
   return Effect.gen(function* () {
     if (!options.name.trim())
       return yield* Effect.fail(
-        new StudyError('invalid_input', 'Document processing requires a namespace')
+        new StudyError('invalid_input', 'Context preparation requires a namespace')
       );
 
     const prefix = `${options.name}/document-processing-v1`;
     const acceptedSchema = Schema.Struct({
-      plan: documentPiecePlanSchema(options.referenceSchema),
-      limits: documentProcessingLimitsSchema
+      plan: sourcePassagePlanSchema(options.referenceSchema),
+      limits: contextReductionLimitsSchema
     });
 
     yield* options.preflight;
@@ -77,19 +67,44 @@ export function processDocumentPieces<Ref, Value, R>(options: {
       execute: Effect.gen(function* () {
         yield* options.preflight;
         const limits = yield* Effect.try({
-          try: () => Schema.decodeUnknownSync(documentProcessingLimitsSchema)(options.limits),
+          try: () => Schema.decodeUnknownSync(contextReductionLimitsSchema)(options.limits),
           catch: (cause) =>
-            new StudyError('invalid_input', 'Invalid document execution limits', { cause })
+            new StudyError('invalid_input', 'Invalid context execution limits', { cause })
         });
         const plan = yield* options.plan;
 
         return yield* Effect.try({
           try: () => Schema.decodeUnknownSync(Schema.toType(acceptedSchema))({ plan, limits }),
           catch: (cause) =>
-            new StudyError('invalid_input', 'Invalid document execution plan', { cause })
+            new StudyError('invalid_input', 'Invalid context execution plan', { cause })
         });
       })
     });
+
+    return accepted;
+  });
+}
+
+export function processSourcePassages<Ref, Value, R>(options: {
+  readonly name: string;
+  readonly referenceSchema: Schema.Codec<Ref, unknown>;
+  readonly mappedSchema: Schema.Codec<Value, unknown>;
+  readonly plan: Effect.Effect<SourcePassagePlan<Ref>, Failure, R>;
+  readonly preflight: Effect.Effect<unknown, Failure, R>;
+  readonly map: (
+    piece: SourcePassageGroup<Ref>,
+    plan: SourcePassagePlan<Ref>
+  ) => Effect.Effect<Value, Failure, R>;
+  readonly reduce: (
+    values: readonly Value[],
+    context: ReductionContext,
+    plan: SourcePassagePlan<Ref>
+  ) => Effect.Effect<Value, Failure, R>;
+  readonly limits: ContextReductionLimits;
+}) {
+  return Effect.gen(function* () {
+    const prefix = `${options.name}/document-processing-v1`;
+    const accepted = yield* acceptSourcePlan(options);
     const { plan, limits } = accepted;
     const jsonSchema = Schema.toCodecJson(options.mappedSchema);
     const bounded = (effect: Effect.Effect<Value, Failure, R>) =>
@@ -102,7 +117,7 @@ export function processDocumentPieces<Ref, Value, R>(options: {
               if (serializedBytes(encoded) > limits.maxResultBytes)
                 throw new StudyError(
                   'not_enough',
-                  'Document processing result exceeds the declared budget'
+                  'Context preparation result exceeds the declared budget'
                 );
 
               return Schema.decodeUnknownSync(options.mappedSchema)(
@@ -112,7 +127,7 @@ export function processDocumentPieces<Ref, Value, R>(options: {
             catch: (cause) =>
               cause instanceof StudyError
                 ? cause
-                : new StudyError('invalid_input', 'Invalid document processing result', { cause })
+                : new StudyError('invalid_input', 'Invalid context preparation result', { cause })
           })
         )
       );
@@ -185,7 +200,7 @@ function reductionGroup<Value>(
   values: readonly Value[],
   offset: number,
   context: ReductionContext,
-  limits: DocumentProcessingLimits,
+  limits: ContextReductionLimits,
   encode: (value: Value) => unknown
 ) {
   const group: Value[] = [];

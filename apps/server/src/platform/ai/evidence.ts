@@ -16,7 +16,7 @@
 
 import { StudyError } from '@study/contracts';
 
-import { splitTextRanges } from '#server/platform/ai/document-processing/planner';
+import { splitTextRanges } from '#server/platform/ai/context-preparation/planner';
 
 // Corpus limits use UTF-16 code units; serialized search replies use UTF-8 bytes.
 const maxCorpusChars = 1_000_000;
@@ -61,7 +61,10 @@ function createEvidenceIndex<Reference>() {
   const exposed = new Set<number>();
   let corpusChars = 0;
 
-  function addPassages(passages: readonly EvidencePassage<Reference>[], initiallyExposed = false) {
+  function addPassages(
+    passages: readonly EvidencePassage<Reference>[],
+    initiallyExposed: boolean | ReadonlySet<number> = false
+  ) {
     if (entries.size + passages.length > maxPassages)
       throw new StudyError('not_enough', 'Selected evidence exceeds the passage count bound');
 
@@ -84,7 +87,11 @@ function createEvidenceIndex<Reference>() {
     for (const entry of passages) {
       entries.set(entry.marker, { ...entry });
 
-      if (initiallyExposed) exposed.add(entry.marker);
+      if (
+        initiallyExposed === true ||
+        (typeof initiallyExposed !== 'boolean' && initiallyExposed.has(entry.marker))
+      )
+        exposed.add(entry.marker);
     }
 
     corpusChars += addedChars;
@@ -147,7 +154,7 @@ function createEvidenceIndex<Reference>() {
 /** Explicit exposure authorizes passages already supplied to an earlier processing step. */
 export function createPassageEvidenceCatalog<Reference>(
   entries: readonly EvidencePassage<Reference>[],
-  options?: { initiallyExposed?: boolean }
+  options?: { initiallyExposed?: boolean | ReadonlySet<number> }
 ) {
   const index = createEvidenceIndex<Reference>();
 

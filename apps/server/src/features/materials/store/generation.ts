@@ -157,10 +157,7 @@ export function makeGeneration(resources: StoreResources) {
             .get()
       )
       .map((row) => required(readGeneration(row.id)))
-      .filter(
-        (request) =>
-          request.errorKind === null && (request.kind === 'quiz' || request.kind === 'flashcards')
-      );
+      .filter((request) => request.kind === 'quiz' || request.kind === 'flashcards');
   }
 
   function readGeneration(requestId: string) {

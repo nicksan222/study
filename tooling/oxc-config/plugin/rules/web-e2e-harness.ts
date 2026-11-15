@@ -403,8 +403,7 @@ export default defineRule({
       const owner = root(node.callee);
 
       // Native fixture configuration does not register a browser journey.
-      if (node.callee?.type === 'MemberExpression' && node.callee.property?.name === 'use' && canonical(owner))
-        return false;
+      if (memberName(node.callee) === 'use' && canonical(owner)) return false;
 
       return (
         owner?.type === 'Identifier' &&

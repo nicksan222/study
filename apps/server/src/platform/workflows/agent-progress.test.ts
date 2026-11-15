@@ -55,10 +55,10 @@ testStable(
     const read = () => agentProgressSnapshot(context, { executionId });
     const snapshots: string[] = [];
     const unsubscribe = context.subscribe(() => snapshots.push(read()[0]?.text ?? ''));
-    const emit = (event: Parameters<typeof observe>[0]['event']) =>
+    const emit = (event: Parameters<typeof observe>[0]['event'], run = 'agent') =>
       Effect.runPromise(
         observe({
-          runId: agentRunIdSchema.make('agent'),
+          runId: agentRunIdSchema.make(run),
           agentId: 'reply',
           mode: 'text',
           event
@@ -73,6 +73,15 @@ testStable(
       unsubscribe();
       await emit({ type: 'complete' });
       expect(read()[0]?.status).toBe('completed');
+      await emit({ type: 'start' }, 'next-section');
+      expect(read().map((run) => run.runId)).toEqual(['agent', 'next-section']);
+      expect(read()[0]?.text).toBe('Hello');
+      await emit({ type: 'complete' }, 'next-section');
+
+      for (let index = 0; index <= 100; index++) await emit({ type: 'start' }, `section-${index}`);
+
+      expect(read()).toHaveLength(100);
+      expect(read().at(-1)?.runId).toBe('section-100');
       context.db.orm
         .update(workflow_executions)
         .set({ generation: 2 })

@@ -12,6 +12,7 @@
 
 import {
   agentObservationSchema,
+  agentProgressLimit,
   agentProgressSchema,
   agentToolProgressSchema
 } from '@study/contracts';
@@ -101,7 +102,7 @@ function progressChanges(
 
 /**
  * Persist observations only within the current workflow activity's publication fence.
- * Starting an agent replaces its previous preview; later writes require the same live run
+ * Starting an agent replaces only the same invocation; later writes require the same live run
  * and generation. The transaction commits before database subscribers receive refresh hints.
  */
 export function observeAgentProgress(context: ServerContext) {
@@ -151,8 +152,7 @@ export function observeAgentProgress(context: ServerContext) {
                     .where(
                       and(
                         eq(workflow_agent_progress.execution_id, executionId),
-                        eq(workflow_agent_progress.activity_name, activityName),
-                        eq(workflow_agent_progress.agent_id, value.agentId)
+                        eq(workflow_agent_progress.run_id, value.runId)
                       )
                     )
                     .run();
@@ -197,6 +197,16 @@ export function observeAgentProgress(context: ServerContext) {
     });
 }
 
+/** Discard unfinished previews only while the exclusive worker runtime is stopped. */
+export function discardInterruptedAgentProgress(context: ServerContext): void {
+  context.transaction(['workflows'], ({ db }) => {
+    db.orm
+      .delete(workflow_agent_progress)
+      .where(eq(workflow_agent_progress.status, 'running'))
+      .run();
+  });
+}
+
 /**
  * Read bounded, validated snapshots by execution or correlation for reconnecting viewers.
  * Exclude retired and cancelled work and previews from obsolete domain generations.
@@ -204,7 +214,7 @@ export function observeAgentProgress(context: ServerContext) {
 export function agentProgressSnapshot(
   context: Pick<ServerContext | ServerTransactionContext, 'db'>,
   input: typeof agentProgressInputSchema.Type,
-  limit = 100
+  limit = agentProgressLimit
 ): (typeof agentProgressSchema.Type)[] {
   const rows = context.db.orm
     .select({ progress: workflow_agent_progress, execution: workflow_executions })
@@ -234,13 +244,13 @@ export function agentProgressSnapshot(
     .orderBy(
       desc(workflow_executions.created_at),
       desc(workflow_executions.execution_id),
-      workflow_agent_progress.activity_name,
-      workflow_agent_progress.agent_id
+      desc(sql`${workflow_agent_progress}.rowid`)
     )
     .limit(limit)
     .all();
 
-  return rows.map(({ progress, execution }) =>
+  // Select the most recent bounded window, then present invocation order to reconnecting viewers.
+  return rows.reverse().map(({ progress, execution }) =>
     Schema.decodeUnknownSync(agentProgressSchema)({
       executionStatus: execution.status,
       runId: progress.run_id,

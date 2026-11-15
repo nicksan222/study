@@ -870,7 +870,7 @@ testStable(
       async (base, auth) => {
         const run = () =>
           Effect.runPromise(
-            generateAgent(quizAgent, { prompt: 'Ask a question' }).pipe(
+            generateAgent({ ...quizAgent, context: undefined }, { prompt: 'Ask a question' }).pipe(
               Effect.provide(service(base, auth))
             )
           );

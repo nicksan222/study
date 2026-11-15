@@ -1,6 +1,6 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Exposes bounded document planning and durable processing to server features.       │
+ * │ @file Exposes bounded source planning and durable context preparation to features.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
  * │ - Publishes reusable plan schemas, typed views and processing callbacks.                 │
@@ -10,8 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-export { planDocumentPieces, splitTextRanges, documentPiecePlanSchema } from './planner.ts';
-export type { DocumentInput, DocumentPlanLimits, DocumentSelection } from './planner.ts';
-export type { DocumentProcessingLimits, ReductionContext } from './runner.ts';
+export { planSourcePassages, splitTextRanges, sourcePassagePlanSchema } from './planner.ts';
+export type { SourceInput, SourcePlanLimits, SourceSelection } from './planner.ts';
+export type { ContextReductionLimits, ReductionContext } from './runner.ts';
 
-export { defineDocumentPreparation, generateDocumentAgent } from './agent.ts';
+export { defineContextPreparation } from './agent.ts';
+
+export type { ContextPreparation } from './agent.ts';

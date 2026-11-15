@@ -27,14 +27,14 @@ import { Database } from '#server/platform/database/database';
 import { resumableActivity } from '#server/platform/definitions/define-activity';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 
-import type { DocumentProcessingLimits, ReductionContext } from './index.ts';
-import { planDocumentPieces } from './planner.ts';
-import { processDocumentPieces } from './runner.ts';
+import type { ContextReductionLimits, ReductionContext } from './index.ts';
+import { planSourcePassages } from './planner.ts';
+import { processSourcePassages } from './runner.ts';
 import { document } from './test-helpers.ts';
 
 const referenceSchema = Schema.String;
 
-const limits: DocumentProcessingLimits = {
+const limits: ContextReductionLimits = {
   maxResultBytes: 1000,
   maxReductionBytes: 2000,
   maxFanout: 2,
@@ -42,7 +42,7 @@ const limits: DocumentProcessingLimits = {
 };
 
 const makePlan = () =>
-  planDocumentPieces({
+  planSourcePassages({
     documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document(['abcde']) }],
     referenceSchema,
     limits: {
@@ -57,7 +57,7 @@ const makePlan = () =>
   });
 
 type ProcessingServices = Effect.Services<
-  ReturnType<typeof processDocumentPieces<string, string, never>>
+  ReturnType<typeof processSourcePassages<string, string, never>>
 >;
 
 async function run<A, E>(
@@ -102,7 +102,7 @@ async function run<A, E>(
 testStable('maps all pieces and reduces in deterministic bounded levels', async () => {
   const events: string[] = [];
   let preflights = 0;
-  const execute = processDocumentPieces({
+  const execute = processSourcePassages({
     name: 'test',
     referenceSchema,
     mappedSchema: Schema.String,
@@ -146,7 +146,7 @@ testStable(
   'rejects oversized serialized output and cancellation before further units',
   async () => {
     let mapped = 0;
-    const execute = processDocumentPieces({
+    const execute = processSourcePassages({
       name: 'test',
       referenceSchema,
       mappedSchema: Schema.String,
@@ -168,7 +168,7 @@ testStable(
     assert.equal(await run(execute, Schema.String), 'not_enough');
     assert.equal(mapped, 1);
     mapped = 0;
-    const cancelled = processDocumentPieces({
+    const cancelled = processSourcePassages({
       name: 'test',
       referenceSchema,
       mappedSchema: Schema.String,
@@ -199,7 +199,7 @@ testStable(
   async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const workflow = Workflow.make('DocumentPiecesRestartProofV1', {
+    const workflow = Workflow.make('SourcePassageGroupsRestartProofV1', {
       payload: { id: Schema.String },
       success: Schema.String,
       error: failureSchema,
@@ -226,7 +226,7 @@ testStable(
       Layer.provide(BunCrypto.layer)
     );
     const requestedLimits = { ...limits };
-    const processing = processDocumentPieces({
+    const processing = processSourcePassages({
       name: 'restart-proof',
       referenceSchema,
       mappedSchema: Schema.String,
@@ -348,7 +348,7 @@ testStable(
 testStable('rejects reduction input overflow and finite-depth exhaustion', async () => {
   let reductions = 0;
   const execute = (budget: typeof limits) =>
-    processDocumentPieces({
+    processSourcePassages({
       name: 'test',
       referenceSchema,
       mappedSchema: Schema.String,
@@ -381,7 +381,7 @@ testStable('rejects reduction input overflow and finite-depth exhaustion', async
 
 testStable('checks authority again before returning a completed single piece', async () => {
   let finished = false;
-  const onePiece = planDocumentPieces({
+  const onePiece = planSourcePassages({
     documents: [{ key: 'one', name: 'Exact', reference: 'v1', document: document(['one']) }],
     referenceSchema,
     limits: {
@@ -394,7 +394,7 @@ testStable('checks authority again before returning a completed single piece', a
     },
     selection: { mode: 'complete' }
   });
-  const execute = processDocumentPieces({
+  const execute = processSourcePassages({
     name: 'test',
     referenceSchema,
     mappedSchema: Schema.String,
@@ -427,7 +427,7 @@ testStable(
       revision: 2n,
       snapshotId: 3n
     });
-    const plan = planDocumentPieces({
+    const plan = planSourcePassages({
       documents: [
         { key: 'exact', name: 'Original', reference: exact, document: document(['original']) }
       ],
@@ -442,7 +442,7 @@ testStable(
       },
       selection: { mode: 'complete' }
     });
-    const execute = processDocumentPieces({
+    const execute = processSourcePassages({
       name: 'test',
       referenceSchema: contentInputSchema,
       mappedSchema: contentInputSchema,
