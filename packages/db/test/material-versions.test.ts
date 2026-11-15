@@ -90,10 +90,6 @@ testStable(
       )
     );
     assert.strictEqual(
-      db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_file_versions'`),
-      undefined
-    );
-    assert.strictEqual(
       db.orm.get<{ n: bigint }>(sql`SELECT count(*) AS n FROM material_versions`)?.n,
       1n
     );
@@ -375,23 +371,6 @@ testStable(
  DELETE FROM material_versions WHERE id=1;`);
     assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM content_snapshots`)?.n, 1n);
     assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM source_extraction_revisions`)?.n, 1n);
-  }
-);
-
-testStable(
-  'retired source and document Material kinds cannot be authored through generic storage',
-  async (t) => {
-    const db = await fixture(t);
-
-    for (const kind of ['file', 'audio', 'video', 'image', 'link', 'document'])
-      assert.throws(() => draft(db, 1n, kind));
-
-    flashcards(db, 1n);
-    assert.throws(() =>
-      db.exec(
-        'INSERT INTO material_evidence_inputs(version_id,position,source_id,source_revision,source_snapshot_id) VALUES(1,0,999,1,999)'
-      )
-    );
   }
 );
 

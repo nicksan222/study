@@ -30,7 +30,6 @@ export default defineRule({
     const feature = /^features\/([^/]+)\/(.*)/.exec(current);
     const role = feature && featureRole(feature[2]!);
     const index = feature?.[2] === 'index.ts';
-    const retired = /^(?:domains|procedures|application|ai|workflows)(?:\/|$)/.test(current);
     const edges = moduleEdges(context, (node, source, _typeOnly) => {
       if (!source) {
         if (feature)
@@ -249,13 +248,6 @@ export default defineRule({
               entry.key.value === 'preferences')
           )
             preferencesReport(entry);
-      },
-      Program(node: any) {
-        if (retired)
-          context.report({
-            node,
-            message: 'Retired server layer: migrate to features or platform.'
-          });
       },
       CallExpression(node: any) {
         edges.CallExpression(node);

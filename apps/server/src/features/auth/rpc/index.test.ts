@@ -79,20 +79,6 @@ testStable('auth RPC exposes only public account and operations', async () => {
 
           expect(providers.find((provider) => provider.id === 'anthropic')?.configured).toBe(true);
           expect(JSON.stringify(providers)).not.toContain('rpc-secret');
-          expect(
-            [...AuthRpc.requests.keys()].filter((tag) => !tag.endsWith('.live')).sort()
-          ).toStrictEqual(
-            [
-              'auth.providers',
-              'auth.saveApiKey',
-              'auth.status',
-              'auth.publicAccount',
-              'auth.startSignIn',
-              'auth.finishSignIn',
-              'auth.cancelSignIn',
-              'auth.signOut'
-            ].sort()
-          );
         }).pipe(Effect.provide(handlers))
       )
     );

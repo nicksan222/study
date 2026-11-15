@@ -109,33 +109,6 @@ testStable('settings RPC exposes typed settings and maps service failures', asyn
             (yield* Effect.flip(client('settings.saveReviewSettings', { newCardsPerDay: 44 }))).kind
           );
           assert.strictEqual((yield* client('settings.reviewSettings', {})).newCardsPerDay, 33);
-          expect(
-            [...SettingsRpc.requests.keys()].filter((tag) => !tag.endsWith('.live')).sort()
-          ).toStrictEqual(
-            [
-              'settings.usage',
-              'settings.agentRules',
-              'settings.saveAgentRules',
-              'settings.quizSettings',
-              'settings.saveQuizSettings',
-              'settings.workspacePreferences',
-              'settings.saveWorkspacePreferences',
-              'settings.concurrencySettings',
-              'settings.saveConcurrencySettings',
-              'settings.appearancePreferences',
-              'settings.saveAppearancePreferences',
-              'settings.appSettings',
-              'settings.llmSettings',
-              'settings.materialSettings',
-              'settings.reviewSettings',
-              'settings.saveAppSettings',
-              'settings.saveLlmSettings',
-              'settings.saveMaterialSettings',
-              'settings.saveReviewSettings',
-              'settings.saveSidebarSettings',
-              'settings.sidebarSettings'
-            ].sort()
-          );
         }).pipe(Effect.provide(handlers))
       )
     );

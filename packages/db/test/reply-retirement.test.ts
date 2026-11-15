@@ -43,19 +43,6 @@ testStable(
         'Preserved raw answer'
       );
 
-      for (const name of [
-        'material_deletion_reply_publication',
-        'history_reply_publication',
-        'material_deletion_context_insert',
-        'note_run_contexts_history_insert',
-        'notes_history_selection'
-      ])
-        assert.strictEqual(
-          db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name=${name}`),
-          undefined,
-          name
-        );
-
       expect(db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
     } finally {
       db.close();

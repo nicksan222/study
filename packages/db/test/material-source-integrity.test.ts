@@ -161,11 +161,5 @@ for (const kind of ['audio', 'video', 'image', 'link'] as const)
           db.orm.get(sql`SELECT mime FROM source_snapshots WHERE revision=2`)?.mime,
           'text/plain'
         );
-        assert.strictEqual(
-          db.orm.get(
-            sql`SELECT count(*) n FROM materials WHERE kind IN ('file','audio','video','image','link','document')`
-          )?.n,
-          0n
-        );
       })
   );

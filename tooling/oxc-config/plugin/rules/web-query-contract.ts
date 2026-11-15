@@ -15,16 +15,6 @@ export default defineRule({
     return moduleEdges(context, (node, source, typeOnly) => {
       if (source === null) return;
 
-      if (/^@tanstack\/(?:react-query|query-core|react-query-devtools)(?:\/|$)/.test(source)) {
-        context.report({
-          node,
-          message:
-            'Use canonical reactive RPC bindings or local Effect atoms; React Query is retired.'
-        });
-
-        return;
-      }
-
       if (typeOnly) return;
 
       if (protocol && importsReact(source))

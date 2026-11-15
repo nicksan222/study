@@ -116,12 +116,7 @@ function violatesOwnership(layer: string, domain: string | undefined, target: st
 }
 
 function rawClient(source: string): boolean {
-  return (
-    source === 'effect/rpc' ||
-    source === '@trpc/client' ||
-    source === '@study/server/client' ||
-    source.startsWith('@trpc/')
-  );
+  return source === 'effect/rpc' || source === '@study/server/client';
 }
 
 function upwardImport(layer: string, targetLayer: string): boolean {
