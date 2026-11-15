@@ -34,6 +34,7 @@ import { Database } from '#server/platform/database/database';
 import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const pageTransformWorkflow = defineWorkflow({
@@ -135,36 +136,41 @@ function generateTransform(
         anchor: typeof citationSchema.Type.anchor;
       }>([]);
 
-      for (const input of context.inputs)
-        for (const [index, excerpt] of input.excerpts.entries())
-          catalog.addDocument({
-            key: `${selectionReferenceKey(input.input)}:${index}`,
-            name: input.name,
-            reference: {
-              input: input.input,
-              target: { blockId: excerpt.blockId, start: excerpt.start, end: excerpt.end },
-              anchor: excerpt.anchor
-            },
-            quoteLimit: 100000,
-            blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
-          });
+      yield* Effect.try({
+        try: () => {
+          for (const input of context.inputs)
+            for (const [index, excerpt] of input.excerpts.entries())
+              catalog.addDocument({
+                key: `${selectionReferenceKey(input.input)}:${index}`,
+                name: input.name,
+                reference: {
+                  input: input.input,
+                  target: { blockId: excerpt.blockId, start: excerpt.start, end: excerpt.end },
+                  anchor: excerpt.anchor
+                },
+                quoteLimit: 100000,
+                blocks: [{ text: excerpt.text, blockOrdinal: excerpt.blockOrdinal }]
+              });
 
-      for (const message of context.messages)
-        catalog.addDocument({
-          key: `message:${message.versionId}`,
-          name: `${message.role} ${message.messageId}`,
-          reference: {
-            input: { kind: 'message', versionId: message.versionId },
-            target: null,
-            anchor: { type: 'authored' }
-          },
-          quoteLimit: 100000,
-          blocks: [{ text: message.text, blockOrdinal: 0 }]
-        });
+          for (const message of context.messages)
+            catalog.addDocument({
+              key: `message:${message.versionId}`,
+              name: `${message.role} ${message.messageId}`,
+              reference: {
+                input: { kind: 'message', versionId: message.versionId },
+                target: null,
+                anchor: { type: 'authored' }
+              },
+              quoteLimit: 100000,
+              blocks: [{ text: message.text, blockOrdinal: 0 }]
+            });
+        },
+        catch: normalizeError
+      });
 
       const { prompt, editTarget } = yield* Effect.try({
         try: () => pageTransformPrompt(request, context),
-        catch: (cause) => new StudyError('invalid_input', 'Invalid captured Page prompt', { cause })
+        catch: normalizeError
       });
       const output = yield* generateAgent(
         pageTransformAgent,
