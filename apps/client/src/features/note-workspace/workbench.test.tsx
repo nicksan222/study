@@ -1,6 +1,9 @@
-import { noteIdSchema, pageIdSchema } from '@study/contracts/ids';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
+import {
+  noteIdSchema,
+  pageIdSchema,
+  chatMessageSchema,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

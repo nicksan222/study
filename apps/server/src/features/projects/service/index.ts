@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type {
   projectPageInputSchema,
   createProjectInputSchema,
@@ -22,7 +22,7 @@ import type {
   setProjectIconInputSchema,
   projectMaterialInputSchema,
   projectNoteInputSchema
-} from '@study/contracts/projects/rpc';
+} from '@study/contracts';
 
 import { ProjectsStore } from '#server/features/projects/store/index';
 import { defineService } from '#server/platform/definitions/define-service';

@@ -13,8 +13,8 @@
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Db, sql } from '@study/db';
-import * as s from '@study/db/schema';
-import { spawnTestProcess } from '@study/testing/process';
+import * as s from '@study/db';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';

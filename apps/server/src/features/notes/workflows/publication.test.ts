@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { blockIdSchema } from '@study/contracts/sources/schemas';
+import { blockIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
 import {
   blocks,
@@ -23,7 +23,7 @@ import {
   sources,
   source_snapshots,
   source_extraction_revisions
-} from '@study/db/schema';
+} from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

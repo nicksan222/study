@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId } from '@study/contracts/ids';
-import { sniff } from '@study/contracts/sources/sniff';
+import type { ProjectId } from '@study/contracts';
+import { sniff } from '@study/contracts';
 
 import { SourceStore } from '#server/features/sources/store/index';
 import { transaction } from '#server/platform/definitions/define-store';

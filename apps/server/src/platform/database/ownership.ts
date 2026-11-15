@@ -12,7 +12,7 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { CryptoHasher, listen } from 'bun';
 import { Effect, FileSystem, Layer, Option, Path } from 'effect';
 

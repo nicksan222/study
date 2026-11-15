@@ -1,8 +1,13 @@
-import type { NoteId } from '@study/contracts/ids';
-import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogDismissButton } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import type { NoteId } from '@study/contracts';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogFooter,
+  DialogDismissButton,
+  DialogHeading,
+  WorkspaceSurface
+} from '@study/ui';
 import type { ReactElement } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -1,6 +1,6 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { TooltipProvider } from '@study/ui/tooltip';
+import { TooltipProvider } from '@study/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';

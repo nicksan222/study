@@ -1,13 +1,6 @@
-import type { ProjectId } from '@study/contracts/ids';
-import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { ProjectId, transformSnapshotSchema, PageSummary } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
-import { AiActivity } from '@study/ui/ai-button';
-import { Button } from '@study/ui/button';
-import { DialogFooter } from '@study/ui/dialog';
-import { Input } from '@study/ui/input';
-import { PageOverview } from '@study/ui/page-overview';
-import { StatusMessage } from '@study/ui/status-message';
+import { AiActivity, Button, DialogFooter, Input, PageOverview, StatusMessage } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import { useState } from 'react';

@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { StudyError } from '@study/contracts/errors';
+import type { StudyError } from '@study/contracts';
 import { Context, Effect, Layer } from 'effect';
 
 import { normalizeError } from '#server/platform/errors/classify-error';

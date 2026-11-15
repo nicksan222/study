@@ -13,11 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type {
   materialGenerationInputSchema,
   materialGenerationPublicationSchema
-} from '@study/contracts/materials/schemas';
+} from '@study/contracts';
 
 export function assertQuestionSpec(
   spec: (typeof materialGenerationInputSchema.Type)['questionSpec'],

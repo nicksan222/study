@@ -1,9 +1,6 @@
 import { rpc } from '@study/contracts/react';
 import { CancelIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { IconButton } from '@study/ui/icon-button';
-import { Thinking } from '@study/ui/loading';
+import { Button, ErrorState, IconButton, Thinking } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

@@ -11,7 +11,7 @@
  */
 
 import { and, eq, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation } from '#server/platform/definitions/define-store';

@@ -1,10 +1,10 @@
 import { RemoveFromPageIcon, DeleteIcon } from '@study/icons';
-import { ContextMenuItem, ContextMenuSeparator } from '@study/ui/context-menu';
-import type { ItemDeletionActions } from '@study/ui/context-menu';
+import { ContextMenuItem, ContextMenuSeparator } from '@study/ui';
+import type { ItemDeletionActions } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 
-export type { ItemDeletionActions } from '@study/ui/context-menu';
+export type { ItemDeletionActions } from '@study/ui';
 
 export function ItemDeletionMenu({
   onDeleteItem,

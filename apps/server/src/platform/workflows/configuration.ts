@@ -15,14 +15,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import type { Db, DbTransaction } from '@study/db';
 import { and, eq, sql } from '@study/db';
 import {
   workflow_configuration_waits,
   workflow_executions,
   workflow_retired_executions
-} from '@study/db/schema';
+} from '@study/db';
 import { Context, Effect, Exit } from 'effect';
 import { DurableDeferred } from 'effect/workflow';
 import type { WorkflowEngine } from 'effect/workflow';

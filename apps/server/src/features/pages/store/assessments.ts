@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as c from '@study/contracts/pages/evidence';
+import * as c from '@study/contracts';
 import { and, desc, eq, lt } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

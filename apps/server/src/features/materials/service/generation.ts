@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { materialGenerationRequestedSchema } from '@study/contracts/events';
-import type { MaterialId, MaterialVersionId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { materialGenerationRequestedSchema } from '@study/contracts';
+import type { MaterialId, MaterialVersionId } from '@study/contracts';
 
 import { Workflows } from '#server/features/workflows/index';
 import type { Transaction } from '#server/platform/definitions/define-store';

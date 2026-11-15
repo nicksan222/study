@@ -12,16 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import { contentInputSchema } from '@study/contracts/inputs';
-import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { materialCitationSchema } from '@study/contracts/materials/schemas';
-import type { materialContentInputSchema } from '@study/contracts/materials/schemas';
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { SourcesRpc } from '@study/contracts/sources/rpc';
+import { materialVersionIdSchema } from '@study/contracts';
+import { contentInputSchema } from '@study/contracts';
+import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts';
+import { MaterialsRpc } from '@study/contracts';
+import { materialCitationSchema } from '@study/contracts';
+import type { materialContentInputSchema } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
+import { SourcesRpc } from '@study/contracts';
 import { eq, and } from '@study/db';
-import { material_flashcard_entries } from '@study/db/schema';
+import { material_flashcard_entries } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

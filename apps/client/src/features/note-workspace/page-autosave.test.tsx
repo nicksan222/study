@@ -1,8 +1,10 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import {
+  StudyError,
+  noteIdSchema,
+  chatMessageSchema,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, cleanup } from '@testing-library/react';
 import { Schema } from 'effect';

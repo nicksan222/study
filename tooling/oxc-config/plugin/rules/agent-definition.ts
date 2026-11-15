@@ -12,8 +12,8 @@
  * │ Allowed:                                                                                 │
  * │   // apps/server/src/features/pages/agents/page-transform.ts                             │
  * │   import { defineAgent } from '#server/platform/definitions/define-agent';               │
- * │   import { promptInputSchema } from '@study/contracts/ai/shared';                        │
- * │   import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';        │
+ * │   import { promptInputSchema } from '@study/contracts';                                  │
+ * │   import { pageTransformOutputSchema } from '@study/contracts';                          │
  * │   export const agent = defineAgent({ id: 'page-transform', input: promptInputSchema,     │
  * │     output: pageTransformOutputSchema, model: 'medium',                                  │
  * │     instructions: 'Transform captured notes.', prompt: ({ prompt }) => prompt });        │

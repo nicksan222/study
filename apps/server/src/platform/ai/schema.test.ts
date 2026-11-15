@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
+import { pageTransformOutputSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { assert } from 'vite-plus/test';

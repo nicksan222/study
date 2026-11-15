@@ -1,6 +1,6 @@
-import type { SourceId } from '@study/contracts/ids';
+import type { SourceId } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
-import { downloadFile } from '@study/ui/download';
+import { downloadFile } from '@study/ui';
 import { Effect } from 'effect';
 
 import { toStudyError } from '#client/lib/study-client/errors.ts';

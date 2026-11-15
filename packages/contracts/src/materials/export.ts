@@ -1,9 +1,9 @@
 import { Schema } from 'effect';
 
 import { exportOmissionSchema } from '../exports.ts';
+export { exportFormatSchema } from '../exports.ts';
 import { materialVersionIdSchema } from '../ids.ts';
 import { materialVersionDetailSchema, materialCitationSchema } from './schemas.ts';
-export { exportFormatSchema, exportOmissionSchema, MAX_EXPORT_BYTES } from '../exports.ts';
 
 export const learningExportFormatSchema = Schema.Literals(['aid_json', 'csv']);
 

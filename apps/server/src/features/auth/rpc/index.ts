@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { AuthRpc } from '@study/contracts/auth/rpc';
+import { AuthRpc } from '@study/contracts';
 
 import { Auth } from '#server/features/auth/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

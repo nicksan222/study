@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
+import { StudyRpc } from '@study/contracts';
 import { Effect, Exit, Layer, Scope } from 'effect';
 import { HttpRouter } from 'effect/http';
 

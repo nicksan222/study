@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ContentInput } from '@study/contracts/inputs';
+import type { ContentInput } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { Activity, DurableDeferred, WorkflowEngine } from 'effect/workflow';

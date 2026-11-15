@@ -1,10 +1,10 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { BunPath } from '@effect/platform-bun';
 import { Db, sql } from '@study/db';
-import { projects, source_blobs, sources, page_versions } from '@study/db/schema';
+import { projects, source_blobs, sources, page_versions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
-import { spawnTestProcessSync } from '@study/testing/process';
+import { spawnTestProcessSync } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';
@@ -238,7 +238,7 @@ testStable(
           '-e',
           `
       import { Db } from '@study/db';
-      import { projects } from '@study/db/schema';
+      import { projects } from '@study/db';
       const db = await Db.open(process.argv[1]);
       db.orm.insert(projects).values({
         name: 'Old WAL subject', created_at: 1n, updated_at: 1n

@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { noteDeletionRequestedSchema } from '@study/contracts/events';
+import { noteDeletionRequestedSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Option } from 'effect';
 import { DurableDeferred, Workflow, WorkflowEngine } from 'effect/workflow';

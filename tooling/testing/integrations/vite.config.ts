@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testPolicy } from '@study/testing/config';
+import { testPolicy } from '@study/testing';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({

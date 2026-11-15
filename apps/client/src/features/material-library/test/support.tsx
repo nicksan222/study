@@ -1,12 +1,12 @@
-import { StudyError } from '@study/contracts/errors';
 import {
+  StudyError,
   materialDetailSchema,
   materialSummarySchema,
-  materialVersionDetailSchema
-} from '@study/contracts/materials/schemas';
+  materialVersionDetailSchema,
+  defaultWorkspacePreferences,
+  sourceSchema
+} from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import { sourceSchema } from '@study/contracts/sources/schemas';
 import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
 import { render, waitFor } from '@testing-library/react';
 import { Effect, Option, Schema } from 'effect';

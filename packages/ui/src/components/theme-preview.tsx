@@ -1,7 +1,8 @@
 import { DarkThemeIcon, LightThemeIcon } from '@study/icons';
-import { resolveTheme } from '@study/ui/theme';
-import type { Appearance, ThemeDefinition, ThemeColors } from '@study/ui/theme';
 import type { CSSProperties } from 'react';
+
+import { resolveTheme } from '../theme.ts';
+import type { Appearance, ThemeDefinition, ThemeColors } from '../theme.ts';
 
 function previewColor(
   colors: ThemeColors,

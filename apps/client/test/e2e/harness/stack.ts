@@ -1,5 +1,4 @@
-import { StudyRpc } from '@study/contracts/rpc';
-import { Appearance, Language } from '@study/contracts/settings/types';
+import { StudyRpc, Appearance, Language } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { makeStudyClient } from '@study/server/client';
 import { App, serve } from '@study/server/runtime';

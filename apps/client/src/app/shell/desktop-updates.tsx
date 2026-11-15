@@ -1,4 +1,4 @@
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { useCallback, useEffect, useRef } from 'react';
 
 import { useDesktopUpdate, useDesktopInstallation } from '#client/lib/desktop-updates.ts';

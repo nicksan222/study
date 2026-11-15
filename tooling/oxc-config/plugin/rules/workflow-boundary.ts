@@ -185,7 +185,11 @@ export default defineRule({
       const imported = importedValue(context, node);
 
       if (imported?.name.endsWith('.toLayer')) {
-        if (/^@study\/contracts\/.+\/rpc$/.test(imported.source)) return true;
+        if (
+          /^@study\/contracts\/.+\/rpc$/.test(imported.source) ||
+          (imported.source === '@study/contracts' && /[A-Z]\w*Rpc\.toLayer$/.test(imported.name))
+        )
+          return true;
 
         if (
           imported.target &&

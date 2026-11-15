@@ -13,16 +13,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError, errorKindSchema } from '@study/contracts/errors';
-import { materialIdSchema } from '@study/contracts/ids';
-import type { MaterialId } from '@study/contracts/ids';
+import { StudyError, errorKindSchema } from '@study/contracts';
+import { materialIdSchema } from '@study/contracts';
+import type { MaterialId } from '@study/contracts';
 import {
   materialDeletionSchema,
   materialDeletionPreviewSchema,
   requestMaterialDeletionSchema
-} from '@study/contracts/materials/deletion';
+} from '@study/contracts';
 import { eq, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema, Option } from 'effect';
 

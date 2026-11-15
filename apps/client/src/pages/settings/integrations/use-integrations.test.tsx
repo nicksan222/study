@@ -1,5 +1,5 @@
-import { integrationImportIdSchema } from '@study/contracts/integrations/schemas';
-import type { integrationImportSchema } from '@study/contracts/integrations/schemas';
+import { integrationImportIdSchema } from '@study/contracts';
+import type { integrationImportSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { transformSuggestionRequestedSchema } from '@study/contracts/events';
+import { failureSchema } from '@study/contracts';
+import { transformSuggestionRequestedSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';

@@ -1,7 +1,7 @@
 import { Input as InputPrimitive } from '@base-ui/react/input';
-import { cn } from '@study/ui/utils';
 import type * as React from 'react';
 
+import { cn } from '../utils.ts';
 import { CONTROL_SURFACE_CLASS } from './control-styles';
 
 type InputProps = Omit<InputPrimitive.Props & React.RefAttributes<HTMLInputElement>, 'size'> & {

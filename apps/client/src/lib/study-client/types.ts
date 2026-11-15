@@ -1,7 +1,4 @@
-import type { MaterialSummaryDto } from '@study/contracts/materials/schemas';
-import type { NoteDto } from '@study/contracts/notes/schemas';
-import type { Project } from '@study/contracts/projects/schemas';
-import type { searchResultSchema } from '@study/contracts/system/schemas';
+import type { MaterialSummaryDto, NoteDto, Project, searchResultSchema } from '@study/contracts';
 
 export type Subjects = readonly Project[];
 

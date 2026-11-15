@@ -16,8 +16,8 @@ import {
   themePageInputSchema,
   themePageSchema,
   selectThemeInputSchema
-} from '@study/contracts/themes/rpc';
-import { themeFileSchema } from '@study/contracts/themes/schemas';
+} from '@study/contracts';
+import { themeFileSchema } from '@study/contracts';
 import { serializeTheme } from '@study/theme';
 import { Effect, Schema } from 'effect';
 

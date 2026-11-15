@@ -1,4 +1,4 @@
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema } from 'effect';
 import { expect } from 'vite-plus/test';

@@ -1,5 +1,6 @@
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
-import { cn } from '@study/ui/utils';
+
+import { cn } from '../utils.ts';
 
 export const Menu: typeof MenuPrimitive.Root = MenuPrimitive.Root;
 

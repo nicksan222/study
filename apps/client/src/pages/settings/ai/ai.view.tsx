@@ -1,11 +1,6 @@
-import type { TierSetup } from '@study/contracts/settings/types';
-import { LlmModel } from '@study/contracts/settings/types';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Loading } from '@study/ui/loading';
-import { Settings } from '@study/ui/settings';
-import { SignInActions } from '@study/ui/sign-in-actions';
-import { Spinner } from '@study/ui/spinner';
+import { LlmModel } from '@study/contracts';
+import type { TierSetup } from '@study/contracts';
+import { RetryButton, Button, Loading, Settings, SignInActions, Spinner } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

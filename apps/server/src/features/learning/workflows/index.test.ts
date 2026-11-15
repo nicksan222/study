@@ -14,14 +14,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { failureSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';
 import { Effect, Layer, Option, Schema } from 'effect';

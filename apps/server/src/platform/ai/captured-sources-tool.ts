@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sourcesInputSchema, sourcesOutputSchema } from '@study/contracts/ai/sources';
+import { sourcesInputSchema, sourcesOutputSchema } from '@study/contracts';
 
 import { defineTool } from '#server/platform/definitions/define-agent';
 

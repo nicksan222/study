@@ -1,4 +1,4 @@
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { Schema } from 'effect';
 
 function typeAssertions() {

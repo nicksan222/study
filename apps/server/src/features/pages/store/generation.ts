@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as e from '@study/contracts/pages/editing';
+import * as e from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { intentHash } from '#server/features/pages/decoders/intent';
 import type { StoreResources } from '#server/platform/definitions/define-store';

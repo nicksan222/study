@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { answerQuestionInputSchema } from '@study/contracts/learning/rpc';
-import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
-import { isTextQuestionKind } from '@study/contracts/materials/schemas';
+import type { answerQuestionInputSchema } from '@study/contracts';
+import { orderingAnswerJsonSchema } from '@study/contracts';
+import { isTextQuestionKind } from '@study/contracts';
 import { and, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

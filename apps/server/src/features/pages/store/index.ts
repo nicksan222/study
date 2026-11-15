@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import * as e from '@study/contracts/pages/editing';
-import * as r from '@study/contracts/pages/rpc';
-import * as c from '@study/contracts/pages/schemas';
+import { StudyError } from '@study/contracts';
+import * as e from '@study/contracts';
+import * as r from '@study/contracts';
+import * as c from '@study/contracts';
 import { and, eq, sql } from '@study/db';
-import { note_pages } from '@study/db/schema';
+import { note_pages } from '@study/db';
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
@@ -34,7 +34,7 @@ export const PagesStore = defineStore({
       queries: {
         count: storeQuery({
           role: 'required',
-          input: r.countInputSchema,
+          input: r.pageCountInputSchema,
           output: Schema.BigInt,
           run: d.count
         }),
@@ -202,7 +202,7 @@ export const PageVersionsStore = defineStore({
         versions: storeQuery({
           role: 'collection',
           input: r.versionsSchema,
-          output: c.versionPageSchema,
+          output: c.pageVersionPageSchema,
           run: d.versions
         })
       },

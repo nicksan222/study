@@ -13,9 +13,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
-import { pages } from '@study/db/schema';
+import { StudyRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { pages } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Result, Stream } from 'effect';

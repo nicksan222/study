@@ -9,13 +9,13 @@
  * │ Allowed:                                                                                 │
  * │   // apps/server/src/features/projects/store/read.ts                                     │
  * │   import type { Db } from '@study/db';                                                   │
- * │   import { notes } from '@study/db/schema';                                              │
+ * │   import { notes } from '@study/db';                                                     │
  * │   function read(db: Db) { return db.orm.select().from(notes).all(); }                    │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // apps/server/src/features/projects/store/write.ts                                    │
  * │   import type { Db } from '@study/db';                                                   │
- * │   import { notes } from '@study/db/schema';                                              │
+ * │   import { notes } from '@study/db';                                                     │
  * │   function write(db: Db) { db.orm.update(notes).set({ title: 'bypass' }); }              │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */

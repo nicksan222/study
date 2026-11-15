@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import * as t from '@study/contracts/pages/transform';
+import { StudyError } from '@study/contracts';
+import * as t from '@study/contracts';
 import { Schema, Option } from 'effect';
 
 import { PagesStore, PageVersionsStore } from '#server/features/pages/store/index';

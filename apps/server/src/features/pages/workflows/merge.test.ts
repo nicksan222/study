@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createBlock } from '@study/contracts/sources/document';
-import * as s from '@study/db/schema';
+import { createBlock } from '@study/contracts';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';

@@ -9,11 +9,11 @@
  * │ string.                                                                                  │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   import { decodeBlockContent } from '@study/contracts/sources/document';                │
+ * │   import { decodeBlockContent } from '@study/contracts';                                 │
  * │   const body = decodeBlockContent(row.content);                                          │
  * │                                                                                          │
  * │ Rejected:                                                                                │
- * │   import type { BlockContent } from '@study/contracts/sources/schemas';                  │
+ * │   import type { BlockContent } from '@study/contracts';                                  │
  * │   const body = JSON.parse(row.content) as BlockContent;                                  │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */

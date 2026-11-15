@@ -1,17 +1,22 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId, PageVersionId } from '@study/contracts/ids';
-import type { noteGenerationSchema } from '@study/contracts/notes/rpc';
+import { StudyError } from '@study/contracts';
+import type {
+  NoteId,
+  PageVersionId,
+  noteGenerationSchema,
+  executionSchema
+} from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
-import type { executionSchema } from '@study/contracts/workflows/schemas';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Disclosure } from '@study/ui/disclosure';
-import { Input } from '@study/ui/input';
-import { Notebook } from '@study/ui/note-workspace';
-import { StatusMessage } from '@study/ui/status-message';
-import { Textarea } from '@study/ui/textarea';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  RetryButton,
+  Button,
+  Disclosure,
+  Input,
+  Notebook,
+  StatusMessage,
+  Textarea,
+  WorkspaceSurface
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import { useContext, useEffect, useRef } from 'react';

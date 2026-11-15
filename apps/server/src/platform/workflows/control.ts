@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
+import { StudyError } from '@study/contracts';
+import { cancelExecutionInputSchema } from '@study/contracts';
 import { Cause, Context, Effect, Schema } from 'effect';
 import type { WorkflowEngine } from 'effect/workflow';
 import type { Workflow } from 'effect/workflow';

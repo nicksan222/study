@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId } from '@study/contracts/ids';
-import { ProjectsRpc } from '@study/contracts/projects/rpc';
+import type { ProjectId } from '@study/contracts';
+import { ProjectsRpc } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';

@@ -41,8 +41,8 @@ testStable(
   async () => {
     const diagnostics = await lintRule('decode-persisted-json', {
       'src/features/materials/store/content.ts': `
-      import { decodeBlockContent } from '@study/contracts/sources/document';
-      import type { BlockContent } from '@study/contracts/sources/schemas';
+      import { decodeBlockContent } from '@study/contracts';
+      import type { BlockContent } from '@study/contracts';
       const safe = decodeBlockContent(row.content);
       const asserted = JSON.parse(row.content) as BlockContent;
       const assigned: BlockContent = JSON.parse(row.content);
@@ -58,7 +58,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('decode-persisted-json', {
       'src/features/notes/store/capture.ts': `
-      import { runSelectionContextSchema } from '@study/contracts/notes/context';
+      import { runSelectionContextSchema } from '@study/contracts';
       import { Schema } from 'effect';
       const codec = Schema.fromJsonString(Schema.toCodecJson(runSelectionContextSchema));
       const snapshot = Schema.decodeUnknownSync(codec)(row.snapshot);
@@ -77,14 +77,14 @@ testStable(
     const diagnostics = await lintRule('decode-persisted-json', {
       'src/features/materials/store/citations.ts': `
       import { Schema } from 'effect';
-      import { documentTextRangeSchema } from '@study/contracts/sources/schemas';
+      import { documentTextRangeSchema } from '@study/contracts';
       const codec = Schema.fromJsonString(Schema.toCodecJson(documentTextRangeSchema));
       const target = Schema.decodeUnknownSync(codec)(row.target);
       const unsafe = JSON.parse(row.target) as typeof documentTextRangeSchema.Type;
     `,
       'src/features/materials/store/generation.ts': `
       import { Schema } from 'effect';
-      import { transformReportSchema } from '@study/contracts/pages/transform';
+      import { transformReportSchema } from '@study/contracts';
       const codec = Schema.fromJsonString(Schema.toCodecJson(transformReportSchema));
       const report = Schema.decodeUnknownSync(codec)(row.result_metadata);
       const unsafe: typeof transformReportSchema.Type = JSON.parse(row.result_metadata);
@@ -101,14 +101,14 @@ testStable(
     const diagnostics = await lintRule('decode-persisted-json', {
       'src/features/materials/store/annotations.ts': `
       import { Schema } from 'effect';
-      import { annotationRevisionSchema } from '@study/contracts/materials/evidence';
+      import { annotationRevisionSchema } from '@study/contracts';
       const codec = Schema.fromJsonString(Schema.toCodecJson(annotationRevisionSchema));
       const revision = Schema.decodeUnknownSync(codec)(row.payload);
       const unchecked = JSON.parse(row.payload) as typeof annotationRevisionSchema.Type;
     `,
       'src/features/materials/store/citation-support.ts': `
       import { Schema } from 'effect';
-      import { citationAssessmentSchema } from '@study/contracts/materials/evidence';
+      import { citationAssessmentSchema } from '@study/contracts';
       const codec = Schema.fromJsonString(Schema.toCodecJson(citationAssessmentSchema));
       const assessment = Schema.decodeUnknownSync(codec)(row.payload);
       const unchecked: typeof citationAssessmentSchema.Type = JSON.parse(row.payload);
@@ -125,7 +125,7 @@ testStable(
     const diagnostics = await lintRule('decode-persisted-json', {
       'src/features/materials/store/note-retirement.ts': `
       import { Schema } from 'effect';
-      import { keepProposalSchema } from '@study/contracts/pages/editing';
+      import { keepProposalSchema } from '@study/contracts';
       const codec = Schema.fromJsonString(Schema.toCodecJson(keepProposalSchema));
       const safe = Schema.decodeUnknownSync(codec)(row.intent);
       const unsafe = JSON.parse(row.intent) as typeof keepProposalSchema.Type;

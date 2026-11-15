@@ -13,9 +13,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { replyOutputSchema } from '@study/contracts/ai/reply';
-import { rewriteAgentInputSchema } from '@study/contracts/notes/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { replyOutputSchema } from '@study/contracts';
+import { rewriteAgentInputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { defineAgent } from '#server/platform/definitions/define-agent';

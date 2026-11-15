@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import {
   noteContextIntentSchema,
   runSelectionContextSchema,
@@ -21,8 +21,8 @@ import {
   updateNoteSelectionSchema,
   selectionTargetsSchema,
   resolvedSelectionSchema
-} from '@study/contracts/notes/context';
-import { replySnapshotInputSchema } from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { replySnapshotInputSchema } from '@study/contracts';
 import { and, eq } from '@study/db';
 import {
   notes,
@@ -34,7 +34,7 @@ import {
   message_parts,
   message_versions,
   note_deletions
-} from '@study/db/schema';
+} from '@study/db';
 import { Schema, Option } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';

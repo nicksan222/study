@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { ProjectsRpc } from '@study/contracts/projects/rpc';
+import { ProjectsRpc } from '@study/contracts';
 
 import { Projects } from '#server/features/projects/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

@@ -13,13 +13,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { messageVersionSchema } from '@study/contracts/notes/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import { createBlock } from '@study/contracts/sources/document';
-import { blockIdSchema } from '@study/contracts/sources/schemas';
+import type { messageVersionSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { defaultWorkspacePreferences } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import { blockIdSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';

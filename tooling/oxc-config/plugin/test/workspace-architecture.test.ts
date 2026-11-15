@@ -18,6 +18,7 @@ const valid = {
   },
   'packages/db': {
     name: '@study/db',
+    exports: { '.': './src/index.ts' },
     dependencies: { 'drizzle-orm': '1.0.0-rc.5' },
     devDependencies: { 'drizzle-kit': '1.0.0-rc.5' }
   }
@@ -62,13 +63,19 @@ testStable(
     expect(
       workspaceArchitecture({
         ...valid,
-        'packages/testing': { dependencies: { '@ai-sdk/provider': '3.0.19' } }
+        'packages/testing': {
+          exports: { '.': './src/index.ts' },
+          dependencies: { '@ai-sdk/provider': '3.0.19' }
+        }
       })
     ).toStrictEqual([]);
 
     const issues = workspaceArchitecture({
       ...valid,
-      'packages/testing': { dependencies: { ai: '6.0.316', '@ai-sdk/openai': '3.0.132' } },
+      'packages/testing': {
+        exports: { '.': './src/index.ts' },
+        dependencies: { ai: '6.0.316', '@ai-sdk/openai': '3.0.132' }
+      },
       'apps/client': { dependencies: { '@ai-sdk/provider': '3.0.19' } }
     });
 
@@ -88,7 +95,7 @@ testStable(
       }
     });
 
-    assert.strictEqual(issues.length, 4, issues.join('\n'));
+    expect(issues.filter((issue) => issue.includes('packages/contracts'))).toHaveLength(5);
     assert.ok(
       workspaceArchitecture({ 'apps/server': valid['apps/server'] }).some((issue) =>
         issue.includes('packages/contracts')
@@ -121,4 +128,26 @@ testStable('optional contract React bindings use official Effect state', () => {
       }
     })
   ).toEqual([]);
+});
+
+testStable('package manifests expose root APIs and only explicit approved facets', () => {
+  const issues = workspaceArchitecture({
+    ...valid,
+    'packages/ui': {
+      name: '@study/ui',
+      exports: { './*': './src/components/*.tsx', './private': './src/private.ts' }
+    },
+    'packages/testing': {
+      name: '@study/testing',
+      exports: { './vitest': './src/vitest.ts', './process': './src/process.ts' }
+    },
+    'apps/server': {
+      ...valid['apps/server'],
+      exports: { '.': './src/index.ts', './client': './src/client/index.ts' }
+    }
+  });
+
+  expect(issues.some((issue) => issue.includes('packages/ui'))).toBe(true);
+  expect(issues.some((issue) => issue.includes('packages/testing'))).toBe(true);
+  expect(issues.some((issue) => issue.includes('apps/server'))).toBe(true);
 });

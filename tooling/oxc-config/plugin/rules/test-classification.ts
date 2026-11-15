@@ -18,7 +18,7 @@
  */
 
 import { BunPath } from '@effect/platform-bun';
-import { classificationLabel } from '@study/testing/classification';
+import { classificationLabel } from '@study/testing';
 import { Effect, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 

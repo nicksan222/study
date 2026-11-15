@@ -1,8 +1,6 @@
-import type { VersionId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { VersionId, ChatMessage } from '@study/contracts';
 import { AnswerQuestionIcon, InsertAnswerIcon, SaveAnswerIcon } from '@study/icons';
-import { IconButton } from '@study/ui/icon-button';
-import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
+import { IconButton, Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';

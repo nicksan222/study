@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts/ids';
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import type { MaterialContentInput } from '@study/contracts/materials/schemas';
-import { NotesRpc } from '@study/contracts/notes/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
+import { projectIdSchema, materialIdSchema, noteIdSchema } from '@study/contracts';
+import { MaterialsRpc } from '@study/contracts';
+import type { MaterialContentInput } from '@study/contracts';
+import { NotesRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import { workflowEvents } from '@study/db/schema';
+import { workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { PartId, NoteId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { PartId, NoteId } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import { message_parts, messages } from '@study/db/schema';
+import { message_parts, messages } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

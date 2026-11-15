@@ -1,7 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
-import { sourceIdSchema } from '@study/contracts/ids';
-import { createBlock } from '@study/contracts/sources/document';
-import { revisionExportSchema } from '@study/contracts/sources/rpc';
+import { StudyError, sourceIdSchema, createBlock, revisionExportSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';

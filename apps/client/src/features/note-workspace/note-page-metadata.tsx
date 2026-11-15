@@ -1,12 +1,16 @@
-import type { Page } from '@study/contracts/pages/types';
+import type { Page } from '@study/contracts';
 import { DescriptionIcon } from '@study/icons';
-import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
-import { DialogFormActions } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { IconButton } from '@study/ui/icon-button';
-import { Input } from '@study/ui/input';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogFormActions,
+  DialogHeading,
+  IconButton,
+  Input,
+  Notebook,
+  WorkspaceSurface
+} from '@study/ui';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 

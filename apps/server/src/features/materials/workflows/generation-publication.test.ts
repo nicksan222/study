@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialVersionId, PageVersionId } from '@study/contracts/ids';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { MaterialVersionId, PageVersionId } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

@@ -1,4 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Cause, Effect, Exit } from 'effect';
 
 export async function runRequest<A>(

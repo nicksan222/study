@@ -9,11 +9,11 @@
  * │ flow.                                                                                    │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   import { Button } from '@study/ui/button';                                             │
+ * │   import { Button } from '@study/ui';                                                    │
  * │   const view = <Button variant="secondary" />;                                           │
  * │                                                                                          │
  * │ Rejected:                                                                                │
- * │   import { Button } from '@study/ui/button';                                             │
+ * │   import { Button } from '@study/ui';                                                    │
  * │   const view = <Button className="p-2" />;                                               │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
@@ -34,7 +34,7 @@ export default defineRule({
 
     return {
       ImportDeclaration(node) {
-        if (!node.source.value.startsWith('@study/ui/') || node.importKind === 'type') return;
+        if (node.source.value !== '@study/ui' || node.importKind === 'type') return;
 
         for (const specifier of node.specifiers) {
           if (specifier.type === 'ImportNamespaceSpecifier') namespaces.add(specifier.local.name);

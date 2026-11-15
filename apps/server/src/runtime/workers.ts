@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
+import { StudyError } from '@study/contracts';
+import { cancelExecutionInputSchema } from '@study/contracts';
 import { Cause, Effect, Fiber, Queue, Semaphore, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 

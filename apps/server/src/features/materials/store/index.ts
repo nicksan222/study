@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { errorKindSchema } from '@study/contracts/errors';
-import { materialGenerationRequestedSchema } from '@study/contracts/events';
-import { projectIdSchema } from '@study/contracts/ids';
-import { resolvedContentInputSchema } from '@study/contracts/inputs';
-import * as input from '@study/contracts/materials/rpc';
+import { errorKindSchema } from '@study/contracts';
+import { materialGenerationRequestedSchema } from '@study/contracts';
+import { projectIdSchema } from '@study/contracts';
+import { resolvedContentInputSchema } from '@study/contracts';
+import * as input from '@study/contracts';
 import {
   materialGenerationSchema,
   materialGenerationSnapshotSchema,
@@ -25,9 +25,9 @@ import {
   materialDetailSchema,
   materialVersionDetailSchema,
   materialCitationSchema
-} from '@study/contracts/materials/schemas';
+} from '@study/contracts';
 import { and, asc, eq, gt } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';
@@ -88,7 +88,7 @@ export const MaterialsStore = defineStore({
       queries: {
         count: storeQuery({
           role: 'required',
-          input: input.countInputSchema,
+          input: input.materialCountInputSchema,
           output: Schema.BigInt,
           run: count
         }),
@@ -107,7 +107,7 @@ export const MaterialsStore = defineStore({
         materials: storeQuery({
           role: 'collection',
           input: input.materialsInputSchema,
-          output: input.materialPageSchema,
+          output: input.materialListPageSchema,
           run: list
         })
       },
@@ -220,7 +220,7 @@ export const MaterialVersionsStore = defineStore({
         materialVersions: storeQuery({
           role: 'collection',
           input: input.materialVersionsInputSchema,
-          output: input.versionPageSchema,
+          output: input.materialVersionPageSchema,
           run: listVersions
         })
       },

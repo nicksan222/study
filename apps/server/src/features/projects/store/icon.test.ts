@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { projectIdSchema } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Clock, Effect } from 'effect';

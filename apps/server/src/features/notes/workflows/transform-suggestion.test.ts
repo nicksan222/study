@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import { StudyRpc } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';

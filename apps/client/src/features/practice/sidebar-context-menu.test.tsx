@@ -1,4 +1,4 @@
-import { materialSummarySchema } from '@study/contracts/materials/schemas';
+import { materialSummarySchema } from '@study/contracts';
 import { RpcProvider } from '@study/contracts/react';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';

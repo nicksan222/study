@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as t from '@study/contracts/pages/transform';
+import * as t from '@study/contracts';
 import { Schema } from 'effect';
 
 export const transformRequestCodec = Schema.fromJsonString(

@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { workflow_executions } from '@study/db/schema';
+import { executionIdSchema } from '@study/contracts';
+import { workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Schema } from 'effect';

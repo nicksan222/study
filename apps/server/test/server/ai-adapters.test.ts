@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { AgentRule } from '@study/contracts/settings/schemas';
-import { createAiMock } from '@study/testing/ai-mock';
+import { AgentRule } from '@study/contracts';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { expect } from 'vite-plus/test';

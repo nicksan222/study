@@ -45,7 +45,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('effect-no-throw', {
       'src/domains/projects/service.ts':
-        "import {Effect} from 'effect'; import {StudyError} from '@study/contracts/errors'; Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
+        "import {Effect} from 'effect'; import {StudyError} from '@study/contracts'; Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
     });
 
     assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
@@ -57,9 +57,9 @@ testStable('enforces the Effect contract in browser operations', async () => {
     'effect-no-throw',
     {
       'apps/client/src/features/example/page.logic.ts':
-        "import { Effect } from 'effect'; import { StudyError } from '@study/contracts/errors'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });",
+        "import { Effect } from 'effect'; import { StudyError } from '@study/contracts'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });",
       'apps/client/src/features/example/page.logic.test.ts':
-        "import { Effect } from 'effect'; import { StudyError } from '@study/contracts/errors'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
+        "import { Effect } from 'effect'; import { StudyError } from '@study/contracts'; export const task = Effect.gen(function* () { throw new StudyError('internal', 'bad'); });"
     },
     true
   );
@@ -72,9 +72,9 @@ testStable('keeps typed failures in native untraced generators', async () => {
     'effect-no-throw',
     await lintRule('effect-no-throw', {
       'src/bad.ts':
-        "import {Effect as E} from 'effect'; import {StudyError as Failure} from '@study/contracts/errors'; E.fnUntraced(function* () { throw new Failure('internal', 'bad'); }); E.fnUntracedEager(function* () { throw new Failure('internal', 'bad'); });",
+        "import {Effect as E} from 'effect'; import {StudyError as Failure} from '@study/contracts'; E.fnUntraced(function* () { throw new Failure('internal', 'bad'); }); E.fnUntracedEager(function* () { throw new Failure('internal', 'bad'); });",
       'src/good.ts':
-        "import {Effect as E} from 'effect'; import {StudyError} from '@study/contracts/errors'; E.fnUntraced(function* () { yield* E.fail(new StudyError('internal', 'bad')); }); E.fnUntraced(function* () { function nested() { throw new StudyError('internal', 'sync'); } throw new Error('defect'); }); function f(E: any) { E.fnUntraced(function* () { throw new StudyError('internal', 'sync'); }); }"
+        "import {Effect as E} from 'effect'; import {StudyError} from '@study/contracts'; E.fnUntraced(function* () { yield* E.fail(new StudyError('internal', 'bad')); }); E.fnUntraced(function* () { function nested() { throw new StudyError('internal', 'sync'); } throw new Error('defect'); }); function f(E: any) { E.fnUntraced(function* () { throw new StudyError('internal', 'sync'); }); }"
     }),
     [
       ['src/bad.ts', message],

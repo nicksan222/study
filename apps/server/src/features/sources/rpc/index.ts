@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { SourcesRpc } from '@study/contracts/sources/rpc';
+import { SourcesRpc } from '@study/contracts';
 
 import { Sources } from '#server/features/sources/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

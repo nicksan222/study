@@ -12,17 +12,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { Failure } from '@study/contracts/errors';
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import {
-  sourceProcessingRequestedSchema,
-  sourceCorrectionRequestedSchema
-} from '@study/contracts/events';
-import { contentSnapshotIdSchema } from '@study/contracts/ids';
-import { conversionStrategyIdSchema } from '@study/contracts/sources/conversion';
-import { correctBlockText } from '@study/contracts/sources/document';
-import { documentSchema } from '@study/contracts/sources/schemas';
-import { detectedMime, sniff } from '@study/contracts/sources/sniff';
+import type { Failure } from '@study/contracts';
+import { failureSchema, StudyError } from '@study/contracts';
+import { sourceProcessingRequestedSchema, sourceCorrectionRequestedSchema } from '@study/contracts';
+import { contentSnapshotIdSchema } from '@study/contracts';
+import { conversionStrategyIdSchema } from '@study/contracts';
+import { correctBlockText } from '@study/contracts';
+import { documentSchema } from '@study/contracts';
+import { detectedMime, sniff } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Settings } from '#server/features/settings/index';

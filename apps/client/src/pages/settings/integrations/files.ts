@@ -1,4 +1,4 @@
-import { MAX_INTEGRATION_BYTES } from '@study/contracts/integrations/schemas';
+import { MAX_INTEGRATION_BYTES } from '@study/contracts';
 
 /** Read only visible vault files and bound memory before loading any content. */
 export async function vaultFiles(selection: readonly File[]) {

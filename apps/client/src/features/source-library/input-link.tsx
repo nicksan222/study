@@ -1,7 +1,6 @@
-import type { PageVersionId } from '@study/contracts/ids';
-import type { selectionReferenceSchema } from '@study/contracts/notes/context';
+import type { PageVersionId, selectionReferenceSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
+import { Button } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import type { ReactElement } from 'react';
 

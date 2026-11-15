@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
+import { PagesRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';

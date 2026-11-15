@@ -1,13 +1,13 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { OpenIcon, PageIcon, ChecklistIcon, DeleteIcon } from '@study/icons';
-import { AiIcon } from '@study/ui/ai-button';
 import {
+  AiIcon,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem,
   ContextMenuSeparator
-} from '@study/ui/context-menu';
+} from '@study/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import type { ReactElement } from 'react';

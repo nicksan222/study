@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { replySnapshotSchema } from '@study/contracts/notes/schemas';
+import { StudyError } from '@study/contracts';
+import type { replySnapshotSchema } from '@study/contracts';
 import { and, eq } from '@study/db';
-import { note_reply_sources } from '@study/db/schema';
+import { note_reply_sources } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

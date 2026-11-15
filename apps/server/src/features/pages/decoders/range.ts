@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { validBlockTextRange } from '@study/contracts/sources/document';
-import type { documentSchema, blockIdSchema } from '@study/contracts/sources/schemas';
+import { validBlockTextRange } from '@study/contracts';
+import type { documentSchema, blockIdSchema } from '@study/contracts';
 
 /** Canonical ranges use UTF-16 code units and may not split a surrogate pair. */
 export function validRange(

@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { errorKindSchema, failureSchema } from '@study/contracts/errors';
-import type { ErrorKind } from '@study/contracts/errors';
-import { projectIdSchema, quizQuestionIdSchema } from '@study/contracts/ids';
-import type { MaterialVersionId, ProjectId } from '@study/contracts/ids';
-import { contentInputSchema, contentInputKey } from '@study/contracts/inputs';
-import type { ContentInput } from '@study/contracts/inputs';
+import { errorKindSchema, failureSchema } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import { projectIdSchema, quizQuestionIdSchema } from '@study/contracts';
+import type { MaterialVersionId, ProjectId } from '@study/contracts';
+import { contentInputSchema, contentInputKey } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
 import {
   practiceInputSchema,
   startPracticeInputSchema,
@@ -26,11 +26,11 @@ import {
   practiceSchema,
   practiceSlotSchema,
   retryPracticeQuestionInputSchema
-} from '@study/contracts/learning/rpc';
-import { quizAttemptSchema } from '@study/contracts/learning/schemas';
-import { materialGenerationPayloadSchema } from '@study/contracts/materials/schemas';
+} from '@study/contracts';
+import { quizAttemptSchema } from '@study/contracts';
+import { materialGenerationPayloadSchema } from '@study/contracts';
 import { and, desc, eq, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Cause, Exit, Schema, Option } from 'effect';
 import { Workflow } from 'effect/workflow';
 

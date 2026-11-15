@@ -1,4 +1,4 @@
-import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui/rich-note';
+import { RichNoteEditor, RichNoteContent, RichNoteSummary } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

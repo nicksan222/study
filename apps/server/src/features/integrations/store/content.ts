@@ -10,13 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sourceIdSchema } from '@study/contracts/ids';
-import {
-  integrationImportIdSchema,
-  integrationNoteSchema
-} from '@study/contracts/integrations/schemas';
+import { sourceIdSchema } from '@study/contracts';
+import { integrationImportIdSchema, integrationNoteSchema } from '@study/contracts';
 import { and, eq, inArray } from '@study/db';
-import { integration_import_notes, integration_import_files } from '@study/db/schema';
+import { integration_import_notes, integration_import_files } from '@study/db';
 import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

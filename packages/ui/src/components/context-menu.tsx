@@ -1,6 +1,6 @@
 import { ContextMenu as Primitive } from '@base-ui/react/context-menu';
-import { cn } from '@study/ui/utils';
 
+import { cn } from '../utils.ts';
 import { MenuItem, MenuSeparator } from './menu';
 
 export const ContextMenu: typeof Primitive.Root = Primitive.Root;

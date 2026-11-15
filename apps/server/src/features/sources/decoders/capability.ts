@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { SourceKind } from '@study/contracts/sources/sniff';
+import type { SourceKind } from '@study/contracts';
 
 export function decoderPath(input: { kind: SourceKind; mime: string }) {
   if (

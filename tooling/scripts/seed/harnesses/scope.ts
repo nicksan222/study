@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import type { DbTransaction } from '@study/db';
 
 import type { SeedSummary } from '../types.ts';

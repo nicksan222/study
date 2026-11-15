@@ -1,9 +1,9 @@
-import { projectIdSchema } from '@study/contracts/ids';
 import {
+  projectIdSchema,
   materialDetailSchema,
   materialSummarySchema,
   materialVersionDetailSchema
-} from '@study/contracts/materials/schemas';
+} from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';

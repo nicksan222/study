@@ -1,13 +1,20 @@
-import type { SourceId, NoteId, ContentSnapshotId } from '@study/contracts/ids';
-import type { Page } from '@study/contracts/pages/types';
+import type {
+  SourceId,
+  NoteId,
+  ContentSnapshotId,
+  Page,
+  documentSchema,
+  Source
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { documentSchema, Source } from '@study/contracts/sources/schemas';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { StatusMessage } from '@study/ui/status-message';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import {
+  RetryButton,
+  Button,
+  ErrorState,
+  Loading,
+  StatusMessage,
+  WorkspaceDeskSurface as Desk
+} from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 

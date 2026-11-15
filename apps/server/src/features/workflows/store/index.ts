@@ -12,16 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { sourceProcessingRequestedSchema } from '@study/contracts/events';
+import { failureSchema, StudyError } from '@study/contracts';
+import { sourceProcessingRequestedSchema } from '@study/contracts';
 import {
   configurationWaitReasonSchema,
   executionIdSchema,
   executionSchema,
   executionsInputSchema
-} from '@study/contracts/workflows/schemas';
+} from '@study/contracts';
 import { inArray, and, desc, eq, getTableColumns, lt, or, sql } from '@study/db';
-import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
+import { workflow_configuration_waits, workflow_executions } from '@study/db';
 import { Cause, Exit, Option, Schema } from 'effect';
 import { Workflow } from 'effect/workflow';
 

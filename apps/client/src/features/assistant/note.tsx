@@ -1,4 +1,4 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { createContext, useContext, useState, useRef } from 'react';
 import type { Dispatch, SetStateAction, ReactNode } from 'react';
 

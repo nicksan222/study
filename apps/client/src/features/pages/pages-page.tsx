@@ -1,9 +1,7 @@
-import type { ProjectId } from '@study/contracts/ids';
-import { projectIdSchema } from '@study/contracts/ids';
-import type { PageSummary } from '@study/contracts/pages/types';
+import { projectIdSchema } from '@study/contracts';
+import type { ProjectId, PageSummary } from '@study/contracts';
 import { OpenIcon, PageIcon, RefreshIcon } from '@study/icons';
-import { IconButton } from '@study/ui/icon-button';
-import { PageOverview } from '@study/ui/page-overview';
+import { IconButton, PageOverview } from '@study/ui';
 import { Link, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

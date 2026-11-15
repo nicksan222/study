@@ -1,7 +1,10 @@
-import { sourceIdSchema } from '@study/contracts/ids';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import { blockIdSchema, canonicalText } from '@study/contracts/sources/schemas';
-import type { BlockContent, documentSchema } from '@study/contracts/sources/schemas';
+import {
+  sourceIdSchema,
+  defaultWorkspacePreferences,
+  blockIdSchema,
+  canonicalText
+} from '@study/contracts';
+import type { BlockContent, documentSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';

@@ -12,15 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import {
-  messageIdSchema,
-  projectIdSchema,
-  noteIdSchema,
-  sourceIdSchema
-} from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { messageIdSchema, projectIdSchema, noteIdSchema, sourceIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import { note_recording_posts, messages, notes, sources } from '@study/db/schema';
+import { note_recording_posts, messages, notes, sources } from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 

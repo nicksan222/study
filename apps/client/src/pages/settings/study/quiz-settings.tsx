@@ -1,10 +1,7 @@
+import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts';
+import type { QuizSettings, SpecializedPracticeKind } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { defaultQuizSettings, practiceGenerationSettings } from '@study/contracts/settings/types';
-import type { QuizSettings, SpecializedPracticeKind } from '@study/contracts/settings/types';
-import { RetryButton } from '@study/ui/action-button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Settings } from '@study/ui/settings';
+import { RetryButton, ErrorState, Loading, Settings } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

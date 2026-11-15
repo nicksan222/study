@@ -1,8 +1,7 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import type { NoteId } from '@study/contracts/ids';
-import type { NoteArchiveTarget } from '@study/contracts/notes/archive';
+import type { NoteId, NoteArchiveTarget } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';
 

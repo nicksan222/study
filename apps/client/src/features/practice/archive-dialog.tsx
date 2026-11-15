@@ -1,11 +1,14 @@
-import type { MaterialId, ProjectId } from '@study/contracts/ids';
+import type { MaterialId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { ArchiveIcon, QuizIcon, FlashcardsIcon, RestoreIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogTrigger } from '@study/ui/dialog';
-import { ErrorState } from '@study/ui/error-state';
-import { IconButton } from '@study/ui/icon-button';
-import { SelectionSurface as Surface } from '@study/ui/selection';
+import {
+  Button,
+  Dialog,
+  DialogTrigger,
+  ErrorState,
+  IconButton,
+  SelectionSurface as Surface
+} from '@study/ui';
 import { useState } from 'react';
 
 import { MaterialVersionContent } from '#client/features/material-library/index.ts';

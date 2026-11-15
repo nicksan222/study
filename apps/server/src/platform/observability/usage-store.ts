@@ -11,13 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import {
-  usageQuerySchema,
-  usageRecordSchema,
-  usageReportSchema
-} from '@study/contracts/settings/usage';
+import { usageQuerySchema, usageRecordSchema, usageReportSchema } from '@study/contracts';
 import { sql } from '@study/db';
-import { aiUsage } from '@study/db/schema';
+import { aiUsage } from '@study/db';
 import { Schema } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';

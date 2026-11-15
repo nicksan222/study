@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
+import { failureSchema } from '@study/contracts';
+import type { Failure } from '@study/contracts';
 import { Effect } from 'effect';
 import type { Schema } from 'effect';
 import { Activity } from 'effect/workflow';

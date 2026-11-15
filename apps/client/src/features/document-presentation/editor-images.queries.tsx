@@ -1,7 +1,6 @@
-import { StudyError } from '@study/contracts/errors';
-import type { ContentSnapshotId, ProjectId } from '@study/contracts/ids';
+import { StudyError, sniff } from '@study/contracts';
+import type { ContentSnapshotId, ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { sniff } from '@study/contracts/sources/sniff';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { EditableDocument } from './document-editor-content';

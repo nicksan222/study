@@ -1,7 +1,6 @@
-import { StudyError } from '@study/contracts/errors';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { StudyError, chatMessageSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { ChatMessageActionToolbar } from '@study/ui/chat';
+import { ChatMessageActionToolbar } from '@study/ui';
 import type * as Router from '@tanstack/react-router';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';

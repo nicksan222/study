@@ -1,4 +1,4 @@
-import { testPolicy } from '@study/testing/config';
+import { testPolicy } from '@study/testing';
 import { defineConfig } from 'vite-plus';
 
 import { fmt } from './tooling/oxc-config/fmt.ts';

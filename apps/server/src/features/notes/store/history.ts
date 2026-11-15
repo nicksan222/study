@@ -12,12 +12,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { MessageId, PartId, NoteId } from '@study/contracts/ids';
-import { NoteMode } from '@study/contracts/notes/schemas';
-import type { noteMessageSnapshotSchema } from '@study/contracts/notes/schemas';
+import { StudyError } from '@study/contracts';
+import type { MessageId, PartId, NoteId } from '@study/contracts';
+import { NoteMode } from '@study/contracts';
+import type { noteMessageSnapshotSchema } from '@study/contracts';
 import { and, desc, eq, isNull, lte } from '@study/db';
-import { messages, message_versions, notes, note_merges } from '@study/db/schema';
+import { messages, message_versions, notes, note_merges } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

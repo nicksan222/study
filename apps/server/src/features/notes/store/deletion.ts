@@ -10,11 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError, errorKindSchema } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import { noteDeletionSchema } from '@study/contracts/notes/deletion';
+import { StudyError, errorKindSchema } from '@study/contracts';
+import { noteIdSchema } from '@study/contracts';
+import { noteDeletionSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

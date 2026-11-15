@@ -12,14 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { SourcePublicationRequested } from '@study/contracts/events';
-import type { ProjectId, NoteId, SourceId } from '@study/contracts/ids';
-import type {
-  importCapabilityInputSchema,
-  importCapabilitySchema
-} from '@study/contracts/sources/capabilities';
-import type { Document } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import type { SourcePublicationRequested } from '@study/contracts';
+import type { ProjectId, NoteId, SourceId } from '@study/contracts';
+import type { importCapabilityInputSchema, importCapabilitySchema } from '@study/contracts';
+import type { Document } from '@study/contracts';
 import type {
   sourceHistoryInputSchema,
   sourceHistoryRetireSchema,
@@ -28,8 +25,8 @@ import type {
   exactExtractionInputSchema,
   correctBlockInputSchema,
   setSourceProjectInputSchema
-} from '@study/contracts/sources/rpc';
-import { sniff } from '@study/contracts/sources/sniff';
+} from '@study/contracts';
+import { sniff } from '@study/contracts';
 import { Effect, Option } from 'effect';
 
 import { Settings } from '#server/features/settings/index';

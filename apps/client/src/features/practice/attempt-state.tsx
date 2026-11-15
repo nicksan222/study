@@ -1,9 +1,6 @@
-import type { MaterialId } from '@study/contracts/ids';
-import type { quizAttemptSchema } from '@study/contracts/learning/schemas';
+import type { MaterialId, quizAttemptSchema } from '@study/contracts';
 import type { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
+import { Button, ErrorState, Loading } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

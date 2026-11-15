@@ -1,17 +1,22 @@
-import type { MaterialId, QuizAttemptId } from '@study/contracts/ids';
 import type {
+  MaterialId,
+  QuizAttemptId,
   quizAttemptSchema,
   quizAttemptInProgressSchema
-} from '@study/contracts/learning/schemas';
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { OpenIcon, HistoryIcon } from '@study/icons';
 import { questionNumber, reviewProgress } from '@study/localization';
-import { Dialog, DialogTrigger } from '@study/ui/dialog';
-import { NextButton, PreviousButton } from '@study/ui/navigation-button';
-import { Practice } from '@study/ui/practice';
-import { SelectionSurface as Surface } from '@study/ui/selection';
-import { Textarea } from '@study/ui/textarea';
-import { WorkspaceCard } from '@study/ui/workspace';
+import {
+  Dialog,
+  DialogTrigger,
+  NextButton,
+  PreviousButton,
+  Practice,
+  SelectionSurface as Surface,
+  Textarea,
+  WorkspaceCard
+} from '@study/ui';
 import { Link, useSearch } from '@tanstack/react-router';
 import { useState } from 'react';
 

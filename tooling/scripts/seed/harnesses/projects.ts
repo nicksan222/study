@@ -1,4 +1,4 @@
-import { projects } from '@study/db/schema';
+import { projects } from '@study/db';
 
 import type { ProjectFixture } from '../types.ts';
 import type { ProjectHarness, SeedHarness } from './scope.ts';

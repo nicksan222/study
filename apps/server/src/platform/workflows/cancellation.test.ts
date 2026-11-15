@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { workflow_executions, workflow_retired_executions } from '@study/db/schema';
+import { workflow_executions, workflow_retired_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, ManagedRuntime, Schema, Option, Context, Scope, Exit } from 'effect';

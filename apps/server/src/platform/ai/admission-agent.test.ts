@@ -15,9 +15,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { AgentRule } from '@study/contracts/settings/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import { StudyError } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Schema } from 'effect';
 import { assert } from 'vite-plus/test';

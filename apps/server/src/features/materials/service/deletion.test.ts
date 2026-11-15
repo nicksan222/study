@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
+import { MaterialsRpc } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 /** Genuine learning deletion uses exact output ownership; Pages and Sources retain their independent lifetimes. */
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema, Exit } from 'effect';

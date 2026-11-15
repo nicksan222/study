@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { materialIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { materialIdSchema } from '@study/contracts';
 import { eq, inArray } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery, storeMutation } from '#server/platform/definitions/define-store';

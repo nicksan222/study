@@ -1,6 +1,6 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';

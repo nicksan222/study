@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { StudyError } from '@study/contracts/errors';
-import type { ConcurrencySettings } from '@study/contracts/settings/types';
+import type { StudyError } from '@study/contracts';
+import type { ConcurrencySettings } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Metric, Result } from 'effect';
 import { assert, expect } from 'vite-plus/test';

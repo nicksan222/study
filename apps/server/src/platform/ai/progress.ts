@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentObservationSchema } from '@study/contracts/ai/progress';
-import type { StudyError } from '@study/contracts/errors';
+import type { agentObservationSchema } from '@study/contracts';
+import type { StudyError } from '@study/contracts';
 import { Deferred, Effect, Queue, Semaphore } from 'effect';
 
 type Event = (typeof agentObservationSchema.Type)['event'];

@@ -1,8 +1,6 @@
-import type { NoteId, PageId, SourceId } from '@study/contracts/ids';
+import type { NoteId, PageId, SourceId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading } from '@study/ui/loading';
-import { WorkspaceSurface } from '@study/ui/workspace';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { Loading, WorkspaceSurface, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { CursorWindowActions } from '#client/lib/cursor-window.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';

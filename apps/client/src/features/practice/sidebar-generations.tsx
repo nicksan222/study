@@ -1,15 +1,14 @@
-import type { ProjectId } from '@study/contracts/ids';
-import type { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
+import type { ProjectId, materialGenerationSnapshotSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { QuizIcon, FlashcardsIcon, StopIcon } from '@study/icons';
-import { AiActivity } from '@study/ui/ai-button';
 import {
+  AiActivity,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
-  ContextMenuItem
-} from '@study/ui/context-menu';
-import { Sidebar } from '@study/ui/sidebar';
+  ContextMenuItem,
+  Sidebar
+} from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 import type { Subjects } from '#client/lib/study-client/types.ts';

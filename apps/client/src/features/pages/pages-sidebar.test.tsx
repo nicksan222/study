@@ -1,8 +1,10 @@
-import { StudyError } from '@study/contracts/errors';
-import { projectIdSchema } from '@study/contracts/ids';
-import { summarySchema } from '@study/contracts/pages/schemas';
+import {
+  StudyError,
+  projectIdSchema,
+  summarySchema,
+  defaultWorkspacePreferences
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import {

@@ -15,7 +15,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Clock, Effect, Stream } from 'effect';
 import type { HttpClientResponse } from 'effect/http';
 import { FetchHttpClient, HttpBody, HttpClient, HttpClientRequest } from 'effect/http';

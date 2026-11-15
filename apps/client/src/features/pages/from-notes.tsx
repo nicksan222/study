@@ -1,8 +1,6 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import { NoteIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogTrigger, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
+import { Button, Dialog, DialogTrigger, DialogPopup, DialogFooter, DialogHeading } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -14,9 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentUpdateSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
-import type { UsageRecord } from '@study/contracts/settings/usage';
+import type { agentUpdateSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { UsageRecord } from '@study/contracts';
 import { dynamicTool } from 'ai';
 import { Cause, Effect, Exit, Option, Schema } from 'effect';
 import type { Context, Tracer } from 'effect';

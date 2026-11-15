@@ -1,6 +1,5 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import type { ErrorKind } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
+import type { ErrorKind, ProjectId } from '@study/contracts';
 import { Atom } from 'effect/reactivity';
 import { useContext } from 'react';
 

@@ -1,7 +1,5 @@
-import type { aiProviderSchema } from '@study/contracts/settings/schemas';
-import { Button } from '@study/ui/button';
-import { Input } from '@study/ui/input';
-import { Settings } from '@study/ui/settings';
+import type { aiProviderSchema } from '@study/contracts';
+import { Button, Input, Settings } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as e from '@study/contracts/pages/editing';
-import * as r from '@study/contracts/pages/rpc';
-import * as s from '@study/contracts/pages/schemas';
+import * as e from '@study/contracts';
+import * as r from '@study/contracts';
+import * as s from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';
@@ -116,7 +116,7 @@ export const pageTools = {
       limits: 'At most 100 per page; pass nextCursor as cursor. Retired bodies may be unavailable.'
     },
     input: r.versionsSchema,
-    output: s.versionPageSchema,
+    output: s.pageVersionPageSchema,
     mutates: false,
     execute: (input: typeof r.versionsSchema.Type) =>
       Pages.use((service) => service.versions(input)).pipe(Effect.provide(Pages.layer))

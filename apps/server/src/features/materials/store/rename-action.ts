@@ -12,13 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type {
-  updateDescriptionInputSchema,
-  renameInputSchema
-} from '@study/contracts/materials/rpc';
+import { StudyError } from '@study/contracts';
+import type { updateDescriptionInputSchema, renameInputSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

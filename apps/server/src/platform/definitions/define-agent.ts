@@ -16,9 +16,7 @@
  */
 
 import type { LanguageModelV3 } from '@ai-sdk/provider';
-import type { sourceEvidenceSchema } from '@study/contracts/ai/sources';
-import type { StudyError } from '@study/contracts/errors';
-import type { AgentRule, ModelTier } from '@study/contracts/settings/schemas';
+import type { AgentRule, ModelTier, StudyError, sourceEvidenceSchema } from '@study/contracts';
 import type { ModelMessage } from 'ai';
 import type { Effect, Schema } from 'effect';
 

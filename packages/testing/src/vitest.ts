@@ -5,6 +5,9 @@ import { assertTestDefinition, classificationLabel } from './classification.ts';
 import type { Characterization, Migration, Regression } from './classification.ts';
 import { testPolicy } from './config.ts';
 
+export { spawnTestProcess, spawnTestProcessSync } from './process.ts';
+export { temporaryDirectory } from './resources.ts';
+
 type Options = Omit<TestOptions, 'only' | 'skip' | 'todo' | 'fails'> & {
   only?: never;
   skip?: never;

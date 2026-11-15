@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { gradeResponseInputSchema } from '@study/contracts/learning/rpc';
-import { isTextQuestionKind } from '@study/contracts/materials/schemas';
+import type { gradeResponseInputSchema } from '@study/contracts';
+import { isTextQuestionKind } from '@study/contracts';
 import { and, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 import { invalid } from '#server/platform/errors/domain-error';

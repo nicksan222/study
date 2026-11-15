@@ -10,11 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { AgentRule } from '@study/contracts/settings/schemas';
-import {
-  textConversionInputSchema,
-  textConversionOutputSchema
-} from '@study/contracts/sources/conversion';
+import { AgentRule } from '@study/contracts';
+import { textConversionInputSchema, textConversionOutputSchema } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

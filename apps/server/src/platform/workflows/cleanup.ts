@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ErrorKind, Failure } from '@study/contracts/errors';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import type { ErrorKind, Failure } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import type { ServerContext } from '#server/platform/database/context';

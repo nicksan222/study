@@ -13,7 +13,7 @@
  */
 
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 /** Generated learning history owns private retirement; exact authored inputs stay pinned until release. */
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

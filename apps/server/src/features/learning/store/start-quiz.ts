@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { startQuizInputSchema } from '@study/contracts/learning/rpc';
+import type { startQuizInputSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { requireRow } from '#server/platform/database/rows';
 import type { StoreResources } from '#server/platform/definitions/define-store';

@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { PagesRpc } from '@study/contracts/pages/rpc';
+import { StudyError } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
 import { Effect, Option } from 'effect';
 
 import { Notes } from '#server/features/notes/index';

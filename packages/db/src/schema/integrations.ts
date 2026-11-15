@@ -1,5 +1,5 @@
-import type { ProjectId, NoteId, PageId, SourceId } from '@study/contracts/ids';
-import type { integrationImportIdSchema } from '@study/contracts/integrations/schemas';
+import type { ProjectId, NoteId, PageId, SourceId } from '@study/contracts';
+import type { integrationImportIdSchema } from '@study/contracts';
 
 import { defineTable, text, integer, check, sql, index, primaryKey } from '../schema-builder.ts';
 import { notes } from './notes.ts';

@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { materialHistoryPruneRequestedSchema } from '@study/contracts/events';
-import { historyPruneSchema } from '@study/contracts/materials/history';
+import { failureSchema } from '@study/contracts';
+import { materialHistoryPruneRequestedSchema } from '@study/contracts';
+import { historyPruneSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';

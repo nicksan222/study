@@ -1,5 +1,5 @@
-import type { ContentSnapshotId, ProjectId } from '@study/contracts/ids';
-import { StructuredEditor } from '@study/ui/structured-editor';
+import type { ContentSnapshotId, ProjectId } from '@study/contracts';
+import { StructuredEditor } from '@study/ui';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 

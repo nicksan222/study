@@ -10,13 +10,13 @@
  * │ Allowed:                                                                                 │
  * │   // apps/server/src/features/notes/store/read.ts                                        │
  * │   import type { Db } from '@study/db';                                                   │
- * │   import { workflow_executions } from '@study/db/schema';                                │
+ * │   import { workflow_executions } from '@study/db';                                       │
  * │   function read(db: Db) { return db.orm.select().from(workflow_executions).all(); }      │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // apps/server/src/features/notes/store/write.ts                                       │
  * │   import type { Db } from '@study/db';                                                   │
- * │   import { workflow_executions } from '@study/db/schema';                                │
+ * │   import { workflow_executions } from '@study/db';                                       │
  * │   function write(db: Db) { db.orm.update(workflow_executions).set({}); }                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */

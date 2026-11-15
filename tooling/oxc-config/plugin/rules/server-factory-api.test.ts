@@ -102,7 +102,7 @@ testStable('native feature conversion stays behind canonical factories', async (
   const results = await lintFiles(
     {
       'src/features/a/rpc/index.ts':
-        "import {AuthRpc as group} from '@study/contracts/auth/rpc'; const alias = group; const {toLayer: run} = alias; run(handlers);",
+        "import {AuthRpc as group} from '@study/contracts'; const alias = group; const {toLayer: run} = alias; run(handlers);",
       'src/features/b/workflows/index.ts':
         "import {defineWorkflow as create} from '#server/platform/definitions/define-workflow'; const workflow = create({}); const alias = workflow; alias.toLayer(execute);",
       'src/features/c/workflows/index.ts':
@@ -197,7 +197,7 @@ testStable(
         'src/features/c/workflows/index.ts':
           "import {jobWorkflow} from '#server/features/c/workflows/job'; function local(jobWorkflow) { jobWorkflow.toLayer(execute); }",
         'src/features/d/rpc/index.ts':
-          "import {AuthRpc} from '@study/contracts/auth/rpc'; function local(AuthRpc) { AuthRpc.toLayer(handlers); }"
+          "import {AuthRpc} from '@study/contracts'; function local(AuthRpc) { AuthRpc.toLayer(handlers); }"
       },
       'workflow-boundary'
     );

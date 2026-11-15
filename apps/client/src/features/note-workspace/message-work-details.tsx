@@ -1,10 +1,6 @@
-import type { NoteId, MessageId, VersionId } from '@study/contracts/ids';
+import type { NoteId, MessageId, VersionId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Dialog, DialogPopup } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import { Dialog, DialogPopup, DialogHeading, Loading, Notebook, WorkspaceSurface } from '@study/ui';
 import type { RefObject } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -12,13 +12,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { replaceDraftInputSchema } from '@study/contracts/materials/rpc';
+import { StudyError } from '@study/contracts';
+import type { replaceDraftInputSchema } from '@study/contracts';
 
 type Input = typeof replaceDraftInputSchema.Type;
 
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { makeReads, required } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';

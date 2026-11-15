@@ -1,12 +1,16 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { EditIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogTrigger, DialogPopup } from '@study/ui/dialog';
-import { DialogFormActions } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { Input } from '@study/ui/input';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  Button,
+  Dialog,
+  DialogTrigger,
+  DialogPopup,
+  DialogFormActions,
+  DialogHeading,
+  Input,
+  Notebook,
+  WorkspaceSurface
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

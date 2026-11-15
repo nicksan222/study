@@ -1,6 +1,6 @@
-import { identifyMatchingPair } from '@study/contracts/ids';
-import { quizOrderingItemIdSchema } from '@study/contracts/ids';
-import { materialContentInputSchema } from '@study/contracts/materials/schemas';
+import { identifyMatchingPair } from '@study/contracts';
+import { quizOrderingItemIdSchema } from '@study/contracts';
+import { materialContentInputSchema } from '@study/contracts';
 import { eq } from '@study/db';
 import {
   materials,
@@ -14,7 +14,7 @@ import {
   material_quiz_choices,
   material_quiz_ordering_items,
   material_quiz_open_answers
-} from '@study/db/schema';
+} from '@study/db';
 import { Schema } from 'effect';
 
 import type { MaterialFixture } from '../types.ts';

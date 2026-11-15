@@ -1,10 +1,10 @@
-import type { exportFormatSchema, exportOmissionSchema } from '@study/contracts/materials/export';
-import type { MaterialVersionDetailDto } from '@study/contracts/materials/schemas';
+import type {
+  exportFormatSchema,
+  exportOmissionSchema,
+  MaterialVersionDetailDto
+} from '@study/contracts';
 import { DownloadIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { MaterialLibrary } from '@study/ui/material-library';
-import { SelectControl } from '@study/ui/select-control';
+import { Button, ErrorState, MaterialLibrary, SelectControl } from '@study/ui';
 import { useState } from 'react';
 
 import { exportOmissionLabels } from '#client/lib/export-labels.ts';

@@ -1,8 +1,7 @@
 import { RegistryContext, useAtomValue } from '@effect/atom-react';
-import type { ProjectId, NoteId } from '@study/contracts/ids';
+import type { ProjectId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Loading } from '@study/ui/loading';
-import { WorkspaceCard, WorkspaceSurface } from '@study/ui/workspace';
+import { Loading, WorkspaceCard, WorkspaceSurface } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useContext, useEffect, useState } from 'react';
 

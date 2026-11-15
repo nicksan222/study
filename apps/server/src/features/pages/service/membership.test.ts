@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { projectIdSchema } from '@study/contracts/ids';
-import { PagesRpc } from '@study/contracts/pages/rpc';
+import { projectIdSchema } from '@study/contracts';
+import { PagesRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

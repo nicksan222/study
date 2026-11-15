@@ -13,12 +13,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { SettingsRpc } from '@study/contracts/settings/rpc';
+import { SettingsRpc } from '@study/contracts';
 import {
   defaultAgentRules,
   defaultWorkspacePreferences,
   defaultQuizSettings
-} from '@study/contracts/settings/types';
+} from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

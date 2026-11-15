@@ -13,7 +13,7 @@
  */
 
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 /** Authored proposal receipts survive note cleanup without retired Material tombstones. */
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

@@ -1,22 +1,26 @@
-import type { Project, ProjectIcon } from '@study/contracts/projects/schemas';
 import {
   projectInitials,
   projectIconSchema,
   projectIconColors,
   projectSymbols,
   projectEmojis
-} from '@study/contracts/projects/schemas';
+} from '@study/contracts';
+import type { Project, ProjectIcon } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { EditIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { ErrorState } from '@study/ui/error-state';
-import { IconChoices } from '@study/ui/icon-choices';
-import { IdentityEditor } from '@study/ui/identity-editor';
-import { Input } from '@study/ui/input';
-import { Label } from '@study/ui/label';
-import { toastManager } from '@study/ui/toast';
+import {
+  Button,
+  Dialog,
+  DialogPopup,
+  DialogFooter,
+  DialogHeading,
+  ErrorState,
+  IconChoices,
+  IdentityEditor,
+  Input,
+  Label,
+  toastManager
+} from '@study/ui';
 import { Schema } from 'effect';
 import { useId, useRef, useState } from 'react';
 

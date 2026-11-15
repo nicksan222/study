@@ -7,9 +7,9 @@ testStable(
   'feature writers respect table ownership while reads and shared pages remain available',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
-      'src/features/projects/store.ts': `import { notes, projects } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(notes); db.insert(projects); db.update(notes); db.execute('UPDATE notes SET title = 1');`,
+      'src/features/projects/store.ts': `import { notes, projects } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.select().from(notes); db.insert(projects); db.update(notes); db.execute('UPDATE notes SET title = 1');`,
       'src/features/learning/store.ts': `import type { Db } from '@study/db'; declare const db: Db; db.execute('UPDATE preferences SET value = 1');`,
-      'src/features/pages/store.ts': `import { content_snapshots } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
+      'src/features/pages/store.ts': `import { content_snapshots } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots);`
     });
 
     assert.strictEqual(diagnostics.length, 3);
@@ -19,7 +19,7 @@ testStable(
 testStable('recognizes aliases and SQL without confusing unrelated APIs or reads', async () => {
   const diagnostics = await lintRule('feature-persistence-boundary', {
     'src/features/projects/store.ts': `
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       import { sql as query } from 'drizzle-orm';
       import type { Db } from '@study/db'; declare const db: Db;
       const ns = schema; const { notes: s } = ns; const alias = (s as any)!;
@@ -30,15 +30,15 @@ testStable('recognizes aliases and SQL without confusing unrelated APIs or reads
       logger.update(schema.notes); parser.run('UPDATE notes SET x=1');
       function shadow(s) { db.delete(s); }
     `,
-    'src/features/sources/store.ts': `import { content_snapshots, chunks } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots); db.insert(chunks);`,
-    'src/features/projects/store.test.ts': `import { notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.update(notes);`
+    'src/features/sources/store.ts': `import { content_snapshots, chunks } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(content_snapshots); db.insert(chunks);`,
+    'src/features/projects/store.test.ts': `import { notes } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.update(notes);`
   });
 
   assert.strictEqual(diagnostics.length, 4);
 });
 
 testStable('every exported database table has an explicit ownership policy', async () => {
-  const schema = await import('@study/db/schema');
+  const schema = await import('@study/db');
   const { tableOwners } = await import('./feature-persistence-boundary.ts');
   const tables = Object.values(schema)
     .filter(
@@ -54,7 +54,7 @@ testStable('table ownership applies to contextual native factory receivers', asy
   const diagnostics = await lintRule('feature-persistence-boundary', {
     'src/features/projects/store/index.ts': `
       import { defineStore, storeMutation } from '#server/platform/definitions/define-store';
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       defineStore({make: ({db}) => ({queries: {}, mutations: {save: storeMutation({ run(input) { db.orm.update(schema.notes).set({ title: 'bypass' }).where(predicate).run(); } })}})});
       function shadow(storeMutation) { storeMutation({ run(db) { db.orm.update(schema.notes).run(); } }); }
     `
@@ -67,11 +67,11 @@ testStable(
   'collection membership writes stay with organization and the identity-creating feature',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
-      'src/features/projects/store.ts': `import { project_materials as materials, project_notes as notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(notes);`,
-      'src/features/materials/store.ts': `import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_notes);`,
-      'src/features/notes/store.ts': `import { project_notes, project_materials as links } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_notes); db.delete(links);`,
-      'src/features/sources/store.ts': `import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; const ns = schema; const { project_materials: links } = ns; const alias = (links as any)!; db.insert(alias); db.update(ns['project_notes']);`,
-      'src/features/learning/store.ts': `import { project_materials, project_notes } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_notes);`
+      'src/features/projects/store.ts': `import { project_materials as materials, project_notes as notes } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(materials); db.delete(notes);`,
+      'src/features/materials/store.ts': `import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(s.project_materials); db.insert(s.project_notes);`,
+      'src/features/notes/store.ts': `import { project_notes, project_materials as links } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.insert(project_notes); db.delete(links);`,
+      'src/features/sources/store.ts': `import * as schema from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; const ns = schema; const { project_materials: links } = ns; const alias = (links as any)!; db.insert(alias); db.update(ns['project_notes']);`,
+      'src/features/learning/store.ts': `import { project_materials, project_notes } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.delete(project_materials); db.delete(project_notes);`
     });
 
     expect(diagnostics.map(({ message }) => message).sort()).toStrictEqual(
@@ -92,7 +92,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store.ts': `
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       const { source_recording_imports: identities } = schema;
@@ -103,7 +103,7 @@ testStable(
       sql\`DELETE FROM source_recording_imports WHERE source_id=1\`;
     `,
       'src/features/sources/store.ts': `
-      import { source_recording_imports, source_extraction_revisions } from '@study/db/schema';
+      import { source_recording_imports, source_extraction_revisions } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.insert(source_recording_imports); db.insert(source_extraction_revisions);
     `
@@ -122,7 +122,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store.ts': `
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       const { document_assets: roots } = schema;
       db.select().from(roots); db.insert(roots); db.delete(roots);
@@ -133,7 +133,7 @@ testStable(
       sql\`UPDATE document_assets SET revision=2\`;
     `,
       'src/features/learning/store.ts': `
-      import { blocks, document_assets } from '@study/db/schema';
+      import { blocks, document_assets } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.update(blocks); db.insert(document_assets);
     `
@@ -154,7 +154,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store/participants.ts': `
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       const { note_run_contexts: captures } = schema;
@@ -164,7 +164,7 @@ testStable(
       db.insert(schema.material_evidence_inputs);
     `,
       'src/features/notes/store/capture.ts': `
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.insert(schema.note_run_contexts);
       db.delete(schema.note_run_contexts);
@@ -188,7 +188,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/notes/store/transform.ts': `
-      import * as s from '@study/db/schema';
+      import * as s from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.select().from(s.material_generation_requests);
       db.update(s.material_generation_requests);
@@ -196,7 +196,7 @@ testStable(
       db.delete(s.material_evidence_citations);
     `,
       'src/features/materials/store/generation.ts': `
-      import * as s from '@study/db/schema';
+      import * as s from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.update(s.material_generation_requests);
       db.insert(s.material_evidence_inputs);
@@ -217,7 +217,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/pages/store/editing.ts': `
-      import * as s from '@study/db/schema';
+      import * as s from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.page_edit_receipts);
       db.insert(s.page_proposals);
@@ -225,7 +225,7 @@ testStable(
       db.delete(s.document_assets);
     `,
       'src/features/notes/store/proposals.ts': `
-      import * as schema from '@study/db/schema';
+      import * as schema from '@study/db';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.select().from(schema.page_proposals);
@@ -250,7 +250,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/notes/store/evidence.ts': `
-      import * as s from '@study/db/schema';
+      import * as s from '@study/db';
       import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       const { page_annotations: annotations } = s;
@@ -261,13 +261,13 @@ testStable(
       db.insert(s.citations);
     `,
       'src/features/sources/store/correction.ts': `
-      import * as s from '@study/db/schema';
+      import * as s from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.page_citation_assessments);
       db.delete(s.page_annotation_revisions);
     `,
       'src/features/pages/store/evidence.ts': `
-      import * as s from '@study/db/schema';
+      import * as s from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.page_annotations);
       db.insert(s.page_annotation_revisions);
@@ -295,13 +295,13 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/notes/store/deletion.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.note_deletions); db.insert(s.note_deletion_correlations);
       db.select().from(s.page_transform_requests);
       db.delete(s.page_proposal_receipts); db.insert(s.page_transform_requests);
     `,
       'src/features/pages/store/note-retirement.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.page_transform_requests); db.insert(s.page_proposal_receipts);
       db.select().from(s.note_deletions); db.update(s.note_deletions); db.delete(s.note_deletion_correlations);
     `
@@ -321,12 +321,12 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store/deletion.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_deletions); db.insert(s.material_deletion_members); db.insert(s.material_deletion_requests);
       db.select().from(s.source_extraction_revisions); db.delete(s.source_extraction_revisions);
     `,
       'src/features/sources/store/material-deletion.ts': `
-      import * as s from '@study/db/schema'; import { sql } from '@study/db';
+      import * as s from '@study/db'; import { sql } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db;
       const { source_extraction_revisions: candidates } = s;
       db.insert(candidates); db.delete(s.source_blobs); db.delete(s.source_snapshots);
@@ -335,12 +335,12 @@ testStable(
       db.delete(s.material_deletion_requests);
     `,
       'src/features/notes/store/material-deletion.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.delete(s.message_versions); db.delete(s.note_reply_requests); db.delete(s.note_run_contexts);
       db.update(s.material_deletion_requests);
     `,
       'src/features/learning/store/material-deletion.ts': `
-      import { source_extraction_revisions as candidates } from '@study/db/schema';
+      import { source_extraction_revisions as candidates } from '@study/db';
       import type { Db } from '@study/db'; declare const db: Db; db.insert(candidates);
     `
     });
@@ -363,16 +363,16 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/materials/store/history.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.material_history_prunes); db.insert(s.material_history_members); db.insert(s.material_history_requests);
       db.insert(s.source_extraction_revisions); db.insert(s.note_retired_intents);
     `,
       'src/features/sources/store/history.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.source_extraction_revisions); db.insert(s.source_snapshots); db.update(s.material_history_members);
     `,
       'src/features/notes/store/history.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.note_retired_intents); db.insert(s.material_history_requests);
     `
     });
@@ -393,7 +393,7 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/learning/store/material-history.ts': `
-      import * as schema from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as schema from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       import { sql } from '@study/db';
       const { material_history_requests: owners } = schema;
 
@@ -407,12 +407,12 @@ testStable(
 
     `,
       'src/features/sources/store/material-history.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.source_extraction_revisions); db.insert(s.source_snapshots);
 
     `,
       'src/features/notes/store/material-history.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.insert(s.note_retired_intents);
 
     `
@@ -434,12 +434,12 @@ testStable(
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
       'src/features/system/store/backup.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.select().from(s.messages); db.delete(s.preferences); db.delete(s.message_versions);
       db.update(s.material_generation_requests); db.update(s.learning_practice_controls);
     `,
       'src/features/notes/store/backup.ts': `
-      import * as s from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db;
+      import * as s from '@study/db'; import type { Db } from '@study/db'; declare const db: Db;
       db.delete(s.message_versions);
     `
     });
@@ -453,7 +453,7 @@ testStable(
   'features cannot advance shared revision metadata outside the transaction boundary',
   async () => {
     const diagnostics = await lintRule('feature-persistence-boundary', {
-      'src/features/notes/store/index.ts': `import { reactiveGeneration, reactiveRevisions } from '@study/db/schema'; import type { Db } from '@study/db'; declare const db: Db; db.orm.update(reactiveGeneration).set({ generation: 'bypass' }).run(); db.orm.insert(reactiveRevisions).values({ scope: 'notes', revision: 1n }).run();`
+      'src/features/notes/store/index.ts': `import { reactiveGeneration, reactiveRevisions } from '@study/db'; import type { Db } from '@study/db'; declare const db: Db; db.orm.update(reactiveGeneration).set({ generation: 'bypass' }).run(); db.orm.insert(reactiveRevisions).values({ scope: 'notes', revision: 1n }).run();`
     });
 
     expect(diagnostics).toHaveLength(2);

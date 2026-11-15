@@ -1,4 +1,4 @@
-import type { AssistantToolName } from '@study/contracts/ai/assistant-tools';
+import type { AssistantToolName } from '@study/contracts';
 import type { StaticMessageKey } from '@study/localization';
 
 export const toolLabels = {

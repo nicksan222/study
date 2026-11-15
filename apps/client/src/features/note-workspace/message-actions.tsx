@@ -1,4 +1,4 @@
-import type { VersionId } from '@study/contracts/ids';
+import type { VersionId } from '@study/contracts';
 import {
   EditIcon,
   RewriteIcon,
@@ -9,15 +9,20 @@ import {
   ConvertToTextIcon
 } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
-import { Button } from '@study/ui/button';
-import { ChatMessageActionToolbar } from '@study/ui/chat';
-import { Dialog, DialogPopup } from '@study/ui/dialog';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { Textarea } from '@study/ui/textarea';
-import { Tooltip, TooltipTrigger, TooltipPopup } from '@study/ui/tooltip';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  Button,
+  ChatMessageActionToolbar,
+  Dialog,
+  DialogPopup,
+  DialogHeading,
+  Loading,
+  Notebook,
+  Textarea,
+  Tooltip,
+  TooltipTrigger,
+  TooltipPopup,
+  WorkspaceSurface
+} from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';

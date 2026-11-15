@@ -1,11 +1,11 @@
-import { StudyError } from '@study/contracts/errors';
 import {
+  StudyError,
   materialDetailSchema,
-  materialVersionDetailSchema
-} from '@study/contracts/materials/schemas';
-import { summarySchema } from '@study/contracts/pages/schemas';
-import { projectSchema } from '@study/contracts/projects/schemas';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
+  materialVersionDetailSchema,
+  summarySchema,
+  projectSchema,
+  defaultQuizSettings
+} from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { screen, waitFor, within } from '@testing-library/react';

@@ -1,5 +1,5 @@
-import { defaultAppearancePreferences } from '@study/contracts/settings/types';
-import { Settings } from '@study/ui/settings';
+import { defaultAppearancePreferences } from '@study/contracts';
+import { Settings } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

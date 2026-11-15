@@ -1,16 +1,14 @@
 import { useAtom } from '@effect/atom-react';
-import type { MaterialId } from '@study/contracts/ids';
 import type {
+  MaterialId,
   materialDeletionPreviewSchema,
-  materialDeletionSchema
-} from '@study/contracts/materials/deletion';
-import type {
+  materialDeletionSchema,
   historyPreviewSchema,
   historyPruneSchema,
   requestHistoryPruneSchema
-} from '@study/contracts/materials/history';
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { Atom } from 'effect/reactivity';
 import { useRef, useState } from 'react';
 

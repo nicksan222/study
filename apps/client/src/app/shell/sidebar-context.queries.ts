@@ -1,5 +1,5 @@
-import type { ProjectId } from '@study/contracts/ids';
-import { noteIdSchema, pageIdSchema, materialIdSchema } from '@study/contracts/ids';
+import { noteIdSchema, pageIdSchema, materialIdSchema } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useMatches, useParams, useSearch } from '@tanstack/react-router';
 

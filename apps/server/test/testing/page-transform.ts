@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
-import type { pageGenerationRequestedSchema } from '@study/contracts/events';
-import type { materialGenerationRequestedSchema } from '@study/contracts/events';
-import type { materialFlashcardsContentInputSchema } from '@study/contracts/materials/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import * as s from '@study/db/schema';
+import type { pageTransformOutputSchema } from '@study/contracts';
+import type { pageGenerationRequestedSchema } from '@study/contracts';
+import type { materialGenerationRequestedSchema } from '@study/contracts';
+import type { materialFlashcardsContentInputSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { Effect, Layer } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';

@@ -1,4 +1,4 @@
-import type { NoteId, PageVersionId } from '@study/contracts/ids';
+import type { NoteId, PageVersionId } from '@study/contracts';
 
 import { defineTable, sql, text, integer, index, check } from '../schema-builder.ts';
 import { notes } from './notes.ts';

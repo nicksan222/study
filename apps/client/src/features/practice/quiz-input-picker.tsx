@@ -1,13 +1,6 @@
-import type { PageId } from '@study/contracts/ids';
-import type { ContentInput } from '@study/contracts/inputs';
-import type { summarySchema } from '@study/contracts/pages/schemas';
+import type { PageId, ContentInput, summarySchema } from '@study/contracts';
 import type { rpc } from '@study/contracts/react';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Practice } from '@study/ui/practice';
-import { Settings } from '@study/ui/settings';
+import { RetryButton, Button, ErrorState, Loading, Practice, Settings } from '@study/ui';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { useCursorWindow } from '#client/lib/cursor-window.tsx';

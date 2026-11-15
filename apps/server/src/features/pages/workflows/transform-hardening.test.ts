@@ -10,11 +10,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { createBlock } from '@study/contracts/sources/document';
-import type { Block } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import type { Block } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Exit, Fiber } from 'effect';
 import { Activity, WorkflowEngine } from 'effect/workflow';

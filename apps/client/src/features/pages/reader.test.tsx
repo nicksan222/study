@@ -1,5 +1,5 @@
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import type { Page } from '@study/contracts/pages/types';
+import { pageVersionIdSchema } from '@study/contracts';
+import type { Page } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';

@@ -1,7 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import { contentSnapshotIdSchema, noteIdSchema } from '@study/contracts/ids';
+import { StudyError, contentSnapshotIdSchema, noteIdSchema, createBlock } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
-import { createBlock } from '@study/contracts/sources/document';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen, waitFor } from '@testing-library/react';

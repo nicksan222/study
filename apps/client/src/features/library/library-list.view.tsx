@@ -1,10 +1,6 @@
 import { FlashcardsIcon, QuizIcon } from '@study/icons';
 import { age } from '@study/localization';
-import { Button } from '@study/ui/button';
-import { useNowMinute } from '@study/ui/clock';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Sidebar } from '@study/ui/sidebar';
+import { Button, useNowMinute, ErrorState, Loading, Sidebar } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
 import { PracticeSidebarContextMenu } from '#client/features/practice/index.ts';

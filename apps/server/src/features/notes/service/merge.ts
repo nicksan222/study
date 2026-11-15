@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { mergeNotesInputSchema } from '@study/contracts/notes/rpc';
+import type { mergeNotesInputSchema } from '@study/contracts';
 
 import { Materials } from '#server/features/materials/index';
 import { NoteStore } from '#server/features/notes/store/index';

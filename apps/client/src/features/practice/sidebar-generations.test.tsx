@@ -1,6 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
-import { projectIdSchema } from '@study/contracts/ids';
-import { materialGenerationSnapshotSchema } from '@study/contracts/materials/schemas';
+import { StudyError, projectIdSchema, materialGenerationSnapshotSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen, waitFor } from '@testing-library/react';

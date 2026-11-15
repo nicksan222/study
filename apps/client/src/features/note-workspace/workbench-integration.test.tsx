@@ -1,9 +1,12 @@
-import { noteIdSchema } from '@study/contracts/ids';
-import { contentSnapshotIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import { createSchema as createManualPageSchema } from '@study/contracts/pages/editing';
-import { detailSchema as materialDetailSchema } from '@study/contracts/pages/schemas';
+import {
+  noteIdSchema,
+  contentSnapshotIdSchema,
+  sourceIdSchema,
+  createSchema as createManualPageSchema,
+  detailSchema as materialDetailSchema
+} from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { WorkspaceCard } from '@study/ui/workspace';
+import { WorkspaceCard } from '@study/ui';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Schema } from 'effect';
 import { useState } from 'react';

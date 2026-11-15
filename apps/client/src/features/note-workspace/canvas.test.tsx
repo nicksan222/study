@@ -1,8 +1,6 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
+import { StudyError, noteIdSchema, chatMessageSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { TooltipProvider } from '@study/ui/tooltip';
+import { TooltipProvider } from '@study/ui';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';

@@ -1,11 +1,11 @@
-import { sniff } from '@study/contracts/sources/sniff';
+import { sniff } from '@study/contracts';
 import {
   sources,
   source_blobs,
   source_snapshots,
   source_extraction_revisions,
   source_processing
-} from '@study/db/schema';
+} from '@study/db';
 import { CryptoHasher } from 'bun';
 
 import type { SourceFixture } from '../types.ts';

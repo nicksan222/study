@@ -1,5 +1,6 @@
-import { cn } from '@study/ui/utils';
 import type { ComponentProps, ReactNode } from 'react';
+
+import { cn } from '../utils.ts';
 
 // Surface composition adapted from T3 Code's ComposerSurface and coss UI's composer.
 // https://github.com/pingdotgg/t3code/blob/edc37c96c810d42761ab510c6a3e9d0a741547dc/apps/web/src/components/chat/ComposerSurface.tsx

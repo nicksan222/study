@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Context, Effect } from 'effect';
 
 import type { ServerContext, ServerTransactionContext } from '#server/platform/database/context';

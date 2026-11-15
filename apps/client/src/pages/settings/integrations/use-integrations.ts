@@ -1,8 +1,5 @@
-import { projectIdSchema } from '@study/contracts/ids';
-import type {
-  integrationImportIdSchema,
-  integrationImportSchema
-} from '@study/contracts/integrations/schemas';
+import { projectIdSchema } from '@study/contracts';
+import type { integrationImportIdSchema, integrationImportSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Schema } from 'effect';
 import { useState } from 'react';

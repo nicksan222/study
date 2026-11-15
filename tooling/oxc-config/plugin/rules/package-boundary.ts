@@ -9,7 +9,7 @@
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // apps/client/src/example.ts                                                          │
- * │   import '@study/ui/button';                                                             │
+ * │   import '@study/ui';                                                                    │
  * │                                                                                          │
  * │ Rejected:                                                                                │
  * │   // apps/client/src/example.ts                                                          │

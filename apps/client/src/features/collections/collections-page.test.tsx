@@ -1,10 +1,8 @@
-import { StudyError } from '@study/contracts/errors';
-import { materialSummarySchema } from '@study/contracts/materials/schemas';
-import { noteSchema } from '@study/contracts/notes/schemas';
-import { projectSchema } from '@study/contracts/projects/schemas';
+import { StudyError, materialSummarySchema, noteSchema, projectSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { toastManager } from '@study/ui/toast';
+import type * as UiModule from '@study/ui';
+import { toastManager } from '@study/ui';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -25,7 +23,11 @@ import type { StudyClient } from '#client/test/rpc.tsx';
 
 import { CollectionsPage } from './collections-page';
 
-vi.mock('@study/ui/toast', () => ({ toastManager: { add: vi.fn() } }));
+vi.mock('@study/ui', async (load) => {
+  const actual = await load<typeof UiModule>();
+
+  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+});
 
 const rpc = vi.hoisted(() => ({
   'projects.projects': vi.fn<StudyClient['projects.projects']>(),

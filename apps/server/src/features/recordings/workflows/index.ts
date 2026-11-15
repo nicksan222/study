@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { recordingPostRequestedSchema } from '@study/contracts/events';
-import { messageIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import { recordingPostSchema } from '@study/contracts/recordings/schemas';
-import type { sourceSchema } from '@study/contracts/sources/schemas';
+import { failureSchema, StudyError } from '@study/contracts';
+import { recordingPostRequestedSchema } from '@study/contracts';
+import { messageIdSchema, sourceIdSchema } from '@study/contracts';
+import { recordingPostSchema } from '@study/contracts';
+import type { sourceSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';

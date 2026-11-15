@@ -1,6 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import { archivedNoteItemSchema } from '@study/contracts/notes/archive';
+import { StudyError, noteIdSchema, archivedNoteItemSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

@@ -13,26 +13,23 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ErrorKind } from '@study/contracts/errors';
-import { StudyError } from '@study/contracts/errors';
-import type { MessageId, ProjectId, NoteId, SourceId } from '@study/contracts/ids';
-import type { ContentInput } from '@study/contracts/inputs';
-import type {
-  noteArchiveInputSchema,
-  setNoteItemArchivedSchema
-} from '@study/contracts/notes/archive';
-import { resolvedSelectionSchema, selectionReferenceKey } from '@study/contracts/notes/context';
+import type { ErrorKind } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { MessageId, ProjectId, NoteId, SourceId } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
+import type { noteArchiveInputSchema, setNoteItemArchivedSchema } from '@study/contracts';
+import { resolvedSelectionSchema, selectionReferenceKey } from '@study/contracts';
 import type {
   runSelectionContextSchema,
   noteContextIntentSchema,
   captureNoteContextSchema,
   updateNoteSelectionSchema
-} from '@study/contracts/notes/context';
-import { canConvertMessage } from '@study/contracts/notes/conversion';
-import type { convertMessageInputSchema } from '@study/contracts/notes/conversion';
-import type { noteDeletionSchema } from '@study/contracts/notes/deletion';
-import type { ChatMessage } from '@study/contracts/notes/messages';
-import type { transformSuggestionInputSchema } from '@study/contracts/notes/rpc';
+} from '@study/contracts';
+import { canConvertMessage } from '@study/contracts';
+import type { convertMessageInputSchema } from '@study/contracts';
+import type { noteDeletionSchema } from '@study/contracts';
+import type { ChatMessage } from '@study/contracts';
+import type { transformSuggestionInputSchema } from '@study/contracts';
 import type {
   assistantAskInputSchema,
   createNoteInputSchema,
@@ -46,7 +43,7 @@ import type {
   notePageInputSchema,
   setNoteSettledInputSchema,
   noteGenerationPageInputSchema
-} from '@study/contracts/notes/rpc';
+} from '@study/contracts';
 import type {
   questionVersionInputSchema,
   setMessageKindInputSchema,
@@ -59,14 +56,11 @@ import type {
   replyRequestInputSchema,
   reanswerInputSchema,
   rewriteMessageInputSchema
-} from '@study/contracts/notes/schemas';
-import { NoteMode } from '@study/contracts/notes/schemas';
-import type { noteWorkInputSchema } from '@study/contracts/notes/work';
-import type * as editing from '@study/contracts/pages/editing';
-import type {
-  transformRequestSchema,
-  transformPublicationSchema
-} from '@study/contracts/pages/transform';
+} from '@study/contracts';
+import { NoteMode } from '@study/contracts';
+import type { noteWorkInputSchema } from '@study/contracts';
+import type * as editing from '@study/contracts';
+import type { transformRequestSchema, transformPublicationSchema } from '@study/contracts';
 import { mentionLabel, text } from '@study/localization';
 import { Effect, Option, Schema } from 'effect';
 

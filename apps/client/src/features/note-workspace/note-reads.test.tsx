@@ -1,5 +1,4 @@
-import { noteIdSchema, projectIdSchema } from '@study/contracts/ids';
-import { notePageInputSchema } from '@study/contracts/notes/rpc';
+import { noteIdSchema, projectIdSchema, notePageInputSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

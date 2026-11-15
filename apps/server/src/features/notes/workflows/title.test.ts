@@ -13,11 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import * as s from '@study/db/schema';
+import { defaultAgentRules } from '@study/contracts';
+import { defaultWorkspacePreferences } from '@study/contracts';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';

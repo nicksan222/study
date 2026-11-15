@@ -5,7 +5,7 @@
  * │ Prevents:                                                                                │
  * │ Imports, reexports and loader edges to assert/node:assert, including strict variants, in │
  * │ any file. Runtime imports of supported test runners/wrappers are limited to test/spec    │
- * │ files, test/tests folders and packages/testing/src; type-only runner imports are         │
+ * │ files, test/tests folders and the shared testing owners; type-only imports are           │
  * │ allowed.                                                                                 │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
@@ -33,6 +33,7 @@ export default defineRule({
       else if (
         !test &&
         !filename.includes('/packages/testing/src/') &&
+        !filename.includes('/tooling/testing/') &&
         !typeOnly &&
         source &&
         /^(?:vitest|vite-plus\/test|bun:test|@study\/testing\/vitest)$/.test(source)

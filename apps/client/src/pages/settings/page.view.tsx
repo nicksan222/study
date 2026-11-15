@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import {
   AppearanceIcon,
   GeneralSettingsIcon,
@@ -25,7 +25,7 @@ import {
 } from '@study/icons';
 import type { IconComponent } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
-import { Settings } from '@study/ui/settings';
+import { Settings } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { ProjectSettings } from '#client/features/collections/index.ts';

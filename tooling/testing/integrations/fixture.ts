@@ -1,4 +1,4 @@
-import { temporaryDirectory } from '@study/testing/resources';
+import { temporaryDirectory } from '@study/testing/vitest';
 import { $ } from 'bun';
 
 export async function integrationFixture(mode = 'success') {

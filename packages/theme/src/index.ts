@@ -1,8 +1,8 @@
 import { color as parseColor } from '@csstools/css-color-parser';
 import { parseComponentValue } from '@csstools/css-parser-algorithms';
 import { tokenize } from '@csstools/css-tokenizer';
-import { themeColorKeys } from '@study/contracts/themes/keys';
-import type { ThemeColorKey } from '@study/contracts/themes/keys';
+import { themeColorKeys } from '@study/contracts';
+import type { ThemeColorKey } from '@study/contracts';
 export { themeColorKeys };
 export type { ThemeColorKey };
 

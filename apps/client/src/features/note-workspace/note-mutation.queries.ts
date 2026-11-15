@@ -1,4 +1,4 @@
-import type { NoteId } from '@study/contracts/ids';
+import type { NoteId } from '@study/contracts';
 import { useIndependentMutation } from '@study/contracts/react';
 import { Effect } from 'effect';
 

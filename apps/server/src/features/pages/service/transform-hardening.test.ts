@@ -10,12 +10,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import type { citationSchema } from '@study/contracts/pages/schemas';
-import type { transformPublicationSchema } from '@study/contracts/pages/transform';
-import { createBlock } from '@study/contracts/sources/document';
+import { pageVersionIdSchema } from '@study/contracts';
+import type { pageCitationSchema as citationSchema } from '@study/contracts';
+import type { transformPublicationSchema } from '@study/contracts';
+import { createBlock } from '@study/contracts';
 import { sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';

@@ -1,8 +1,6 @@
-import type { PageId, PageVersionId } from '@study/contracts/ids';
+import type { PageId, PageVersionId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
+import { Button, ErrorState, Loading } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

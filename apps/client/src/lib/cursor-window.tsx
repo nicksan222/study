@@ -1,6 +1,5 @@
-import { failureSchema } from '@study/contracts/errors';
-import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
+import { failureSchema } from '@study/contracts';
+import { LoadMoreButton, Button } from '@study/ui';
 import { Schema } from 'effect';
 import { useCallback, useEffect, useState } from 'react';
 
