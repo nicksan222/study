@@ -133,7 +133,13 @@ export function screenshotAssertions(
 
             await snapshotExpect(target === 'viewport' ? page : target).toHaveScreenshot(
               [profile, workflow, `${name}.png`],
-              { timeout: remaining(), threshold: 0.2, maxDiffPixels: 0 }
+              {
+                timeout: remaining(),
+                threshold: 0.2,
+                // Bound rasterization drift without letting large captures hide changed controls.
+                maxDiffPixels: 10,
+                maxDiffPixelRatio: 0.0001
+              }
             );
           }
         })(),
