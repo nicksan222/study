@@ -1,33 +1,32 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Configures classified integration suites to run under Bun.                         │
+ * │ @file Launches provider integration tests with native output and exit status.            │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Discovers container and real provider scenario tests.                                  │
+ * │ - Forwards interruption through scoped environment cleanup before exiting.               │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ The provider scenario runs only inside disposable containers.                            │
+ * │ The environment module owns resources while Vitest owns test results.                    │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { defineConfig } from 'vite-plus';
+import { runIntegrationTests } from './environment.ts';
 
-export default defineConfig({
-  root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
-  test: {
-    reporters: process.env.CI
-      ? [
-          'verbose',
-          ['junit', { outputFile: `${process.cwd()}/test-results/vitest/integrations.xml` }]
-        ]
-      : ['verbose'],
-    disableConsoleIntercept: true,
-    include: [
-      'apps/server/test/integrations/integrations.e2e.ts',
-      'apps/server/test/integrations/providers/**/scenario.ts'
-    ],
-    pool: 'forks',
-    testTimeout: 180000,
-    hookTimeout: 900000
-  }
+const controller = new AbortController();
+
+const handlers = (['SIGINT', 'SIGTERM', 'SIGHUP'] as const).map((signal) => {
+  const handler = () => controller.abort(new Error(`Integration tests interrupted by ${signal}`));
+
+  process.on(signal, handler);
+
+  return { signal, handler };
 });
+
+try {
+  process.exitCode = await runIntegrationTests(undefined, controller.signal);
+} catch (error) {
+  console.error(error);
+  process.exitCode = controller.signal.aborted ? 130 : 1;
+} finally {
+  for (const { signal, handler } of handlers) process.off(signal, handler);
+}

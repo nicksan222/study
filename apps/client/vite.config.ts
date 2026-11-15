@@ -34,7 +34,8 @@ export default defineConfig({
     include: [
       'src/**/*.test.{ts,tsx}',
       '../../packages/ui/src/**/*.test.{ts,tsx}',
-      '../../packages/localization/test/**/*.test.tsx'
+      '../../packages/localization/test/**/*.test.tsx',
+      '../../packages/testing/test/react.test.ts'
     ],
     restoreMocks: true
   }

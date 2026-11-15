@@ -4,6 +4,7 @@ import { Db, sql } from '@study/db';
 import { projects, source_blobs, sources, page_versions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { acquireDatabaseOwnership } from '@study/server/runtime/ownership';
+import { spawnTestProcessSync } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';
@@ -138,14 +139,14 @@ testStable('bun seed honors STUDY_DATABASE and help leaves its target untouched'
   const cwd = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
   try {
-    const help = Bun.spawnSync(['bun', 'seed', '--help'], { env, cwd });
+    const help = spawnTestProcessSync(['bun', 'seed', '--help'], { env, cwd });
 
     expect(help.exitCode, help.stderr.toString()).toBe(0);
     expect(help.stdout.toString()).toContain('STUDY_DATABASE');
     expect(await Bun.file(location.path).exists()).toBe(false);
-    expect(Bun.spawnSync(['bun', 'seed', '--unknown'], { env, cwd }).exitCode).not.toBe(0);
+    expect(spawnTestProcessSync(['bun', 'seed', '--unknown'], { env, cwd }).exitCode).not.toBe(0);
     expect(await Bun.file(location.path).exists()).toBe(false);
-    expect(Bun.spawnSync(['bun', 'seed'], { env, cwd }).exitCode).toBe(0);
+    expect(spawnTestProcessSync(['bun', 'seed'], { env, cwd }).exitCode).toBe(0);
 
     const db = await location.open();
 
@@ -231,7 +232,7 @@ testStable(
     const location = await createTestDatabase();
 
     try {
-      const crashed = Bun.spawnSync(
+      const crashed = spawnTestProcessSync(
         [
           process.execPath,
           '-e',

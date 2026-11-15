@@ -1,3 +1,4 @@
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
@@ -35,7 +36,7 @@ async function fixture(titles: string[], suite = '') {
   return {
     directory,
     async run(scope?: string, flags: string[] = []) {
-      const child = Bun.spawn(
+      const child = spawnTestProcess(
         ['bun', '--bun', 'playwright', 'test', '--config', config, ...flags],
         {
           env: { ...process.env, E2E_UPDATE: scope },

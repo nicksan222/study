@@ -1,4 +1,5 @@
 import { BunPath } from '@effect/platform-bun';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';
@@ -23,7 +24,7 @@ testStable('online backup delivers completion while the event loop is otherwise 
   env.STUDY_BACKUP_IDLE_TARGET = join(location.dir, 'idle.sqlite');
 
   try {
-    const child = Bun.spawn(
+    const child = spawnTestProcess(
       [process.execPath, Bun.fileURLToPath(new URL('./fixtures/backup-idle.ts', import.meta.url))],
       {
         env,

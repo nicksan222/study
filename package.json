@@ -80,10 +80,12 @@
     "lint:repo": "bun tooling/oxc-config/check-theme-css.ts && bun run architecture:check && bun --bun vp check --deny-warnings",
     "fallow:repo": "bun --bun fallow --config tooling/fallow.jsonc --fail-on-issues",
     "gen:theme:check": "bun tooling/scripts/development/generate-theme-css.ts --check",
-    "ci:native": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:native --concurrency=1 --continue=dependencies-successful",
-    "ci:javascript": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:javascript --concurrency=1 --continue=dependencies-successful",
-    "ci:server": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:server --concurrency=1 --continue=dependencies-successful",
-    "runtime:smoke": "python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime"
+    "ci:native": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:native --concurrency=2 --continue=dependencies-successful",
+    "ci:javascript": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:javascript --concurrency=2 --continue=dependencies-successful",
+    "ci:server": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:server --concurrency=2 --continue=dependencies-successful",
+    "runtime:smoke": "python3 tooling/scripts/release/smoke_runtime.py target/desktop-runtime",
+    "ci:hygiene": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:hygiene --concurrency=2 --continue=dependencies-successful",
+    "ci:database": "TURBO_TELEMETRY_DISABLED=1 bun tooling/scripts/development/turbo.ts run check:database --concurrency=2 --continue=dependencies-successful"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

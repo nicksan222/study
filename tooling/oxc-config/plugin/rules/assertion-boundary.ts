@@ -13,7 +13,7 @@ export default defineRule({
         context.report({ node, message: 'Use test runner assertions instead of node:assert.' });
       else if (
         !test &&
-        !filename.endsWith('/packages/testing/src/vitest.ts') &&
+        !filename.includes('/packages/testing/src/') &&
         !typeOnly &&
         source &&
         /^(?:vitest|vite-plus\/test|bun:test|@study\/testing\/vitest)$/.test(source)

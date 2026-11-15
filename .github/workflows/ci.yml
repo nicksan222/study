@@ -17,70 +17,36 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TARGET_DIR: target/devcontainer
 
+# Every lane runs on every revision. Turbo owns prerequisite ordering and task reuse.
 jobs:
-  gates:
-    name: 🦀 Native and package checks
+  hygiene:
+    name: 🧹 Code hygiene
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
-      - name: Restore Turbo task cache
-        uses: ./.github/actions/turbo-cache
-
-      - name: 🧰 Set up build tools and dependencies
-        id: setup
-        uses: ./.github/actions/setup
-        with:
-          tools: cargo-deny@0.20.2
-          target-dir: target/devcontainer
-
-      # Turbo owns the gate list and prerequisites shared with `bun run check`.
-      - name: 🦀 Run native and repository gates
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' }}
-        run: bun run ci:native
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🐚 Install shell checker
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends shellcheck
+      - name: ✨ Check formatting, architecture, code health and generated files
+        run: bun run ci:hygiene
 
   javascript:
-    name: 🔎 JavaScript checks
+    name: 🧩 Types & unit tests
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
-      - name: Restore Turbo task cache
-        uses: ./.github/actions/turbo-cache
-      # These checks do not need Rust or the Linux GUI toolchain.
-      - name: 🥟 Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: apps/landing/package.json
-      - name: 📦 Install workspace dependencies
-        id: dependencies
-        env:
-          ONNXRUNTIME_NODE_INSTALL: skip
-        run: bun install --frozen-lockfile
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
       - name: 🔏 Install release test dependency
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends minisign
-      - name: 🧪 Run JavaScript package gates
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
+      - name: 🏗️ Typecheck, build the client and run unit tests
         run: bun run ci:javascript
-      - name: 🌐 Test browser flows in the canonical devcontainer
-        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' }}
-        uses: devcontainers/ci@v0.3
-        with:
-          push: never
-          env: |
-            CI=true
-            GITHUB_SHA
-          runCmd: bun run web:e2e
-      - name: 📸 Retain browser diagnostics
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: web-e2e-diagnostics
-          path: apps/client/test-results/
-          if-no-files-found: ignore
-
-      - name: Retain native Vitest reports
+      - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
@@ -89,76 +55,132 @@ jobs:
           if-no-files-found: ignore
 
   server_tests:
-    name: 🧪 Server tests
+    name: ⚙️ Server & contracts
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     env:
-      # RAM-backed real files preserve WAL, locking, backup and process-restart coverage.
+      # Real files retain WAL, locking, backup and restart semantics.
       TMPDIR: /dev/shm
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
-      - name: Restore Turbo task cache
-        uses: ./.github/actions/turbo-cache
-      # This suite needs Bun and SQLite, not the native Linux GUI toolchain.
-      - name: 🥟 Set up Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: apps/landing/package.json
-      - name: 📦 Install workspace dependencies
-        # CPU binaries are bundled; CI does not need the optional CUDA download.
-        env:
-          ONNXRUNTIME_NODE_INSTALL: skip
-        run: bun install --frozen-lockfile
-      - name: 🧪 Test server, AI, database and localization
-        timeout-minutes: 10
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🧪 Test feature services, RPC, workflows and shared contracts
         run: bun run ci:server
-
-      - name: Retain native Vitest reports
+      - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: vitest-server-reports
+          name: vitest-server_tests-reports
           path: '**/test-results/vitest/*.xml'
           if-no-files-found: ignore
 
+  database:
+    name: 🗄️ Database
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      TMPDIR: /dev/shm
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 💾 Test schema, migrations and persistence
+        run: bun run ci:database
+      - name: 📎 Retain test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: vitest-database-reports
+          path: '**/test-results/vitest/*.xml'
+          if-no-files-found: ignore
+
+  browser:
+    name: 🌐 Browser journeys
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: ♻️ Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
+      - name: 🎭 Run browser tests
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          env: |
+            CI=true
+            GITHUB_SHA
+          runCmd: bun run web:e2e
+      - name: 📸 Retain screenshots, traces and browser reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e-diagnostics
+          path: apps/client/test-results/
+          if-no-files-found: ignore
+
+  native:
+    name: 🦀 Desktop & runtime
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: ♻️ Restore Turbo task cache
+        uses: ./.github/actions/turbo-cache
+      - name: 🧰 Prepare Rust, Bun and desktop build libraries
+        uses: ./.github/actions/setup
+        with:
+          tools: cargo-deny@0.20.2
+          target-dir: target/devcontainer
+      - name: 🦀 Check the native shell and smoke-test its private runtime
+        run: bun run ci:native
+
   integrations:
-    name: 🔌 Real integration tests
+    name: 🔌 Provider integrations
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: 📥 Check out repository
         uses: actions/checkout@v7
-      - name: Restore Turbo task cache
-        uses: ./.github/actions/turbo-cache
-      - name: 🥟 Set up Bun
-        uses: oven-sh/setup-bun@v2
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
         with:
-          bun-version-file: apps/landing/package.json
-      - name: 📦 Install workspace dependencies
-        env:
-          ONNXRUNTIME_NODE_INSTALL: skip
-        run: bun install --frozen-lockfile --ignore-scripts
-      - name: 🔌 Run every provider in a fresh Testcontainers environment
-        env:
-          DEBUG: testcontainers:build
+          ignore-scripts: 'true'
+      - name: 🧪 Run integration tests
         run: bun run integrations:e2e
-
-      - name: Retain native Vitest reports
+      - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: vitest-integrations-reports
-          path: '**/test-results/vitest/*.xml'
+          name: integrations-reports
+          path: tooling/test-results/
           if-no-files-found: ignore
 
+  landing:
+    name: 🌍 Landing page
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: 📥 Check out repository
+        uses: actions/checkout@v7
+      - name: 🥟 Prepare Bun, dependencies and task cache
+        uses: ./.github/actions/setup-javascript
+      - name: 🌍 Validate and build the localized website
+        run: bun run landing-check
+
   check:
-    # Required by the main branch ruleset; keep this name.
+    # Required by the main branch ruleset; keep this exact name.
     name: Test and build
-    needs: [gates, javascript, server_tests, integrations]
+    needs: [hygiene, javascript, server_tests, database, browser, native, integrations, landing]
     if: ${{ always() }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: 🏁 Require every check to pass
+      - name: 🏁 Require every lane to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
@@ -169,13 +191,22 @@ jobs:
 
           results = json.loads(os.environ['RESULTS'])
           icons = {'success': '✅', 'failure': '❌', 'cancelled': '🚫', 'skipped': '⏭️'}
-          labels = {'gates': '🦀 Native and package checks', 'javascript': '🔎 JavaScript checks', 'server_tests': '🧪 Server tests', 'integrations': '🔌 Real integration tests'}
+          labels = {
+              'hygiene': '🧹 Code hygiene',
+              'javascript': '🧩 Types & unit tests',
+              'server_tests': '⚙️ Server & contracts',
+              'database': '🗄️ Database',
+              'browser': '🌐 Browser journeys',
+              'native': '🦀 Desktop & runtime',
+              'integrations': '🔌 Provider integrations',
+              'landing': '🌍 Landing page',
+          }
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               summary.write('## 🏁 Study CI\n\n| Check | Result |\n| :--- | :--- |\n')
               for name, job in results.items():
                   result = job['result']
                   summary.write(f"| {labels[name]} | {icons[result]} {result} |\n")
-          sys.exit(any(job['result'] != 'success' for job in results.values()))
+          sys.exit(set(results) != set(labels) or any(job['result'] != 'success' for job in results.values()))
           PYTHON
 
   release:

@@ -80,6 +80,7 @@ export const lint = {
     'study/feature-persistence-boundary': 'error',
     'study/harness-boundary': 'error',
     'study/test-classification': 'error',
+    'study/test-infrastructure': 'error',
     'study/web-e2e-harness': 'error',
     'study/assertion-boundary': 'error',
     'study/test-guard-assertions': 'error',

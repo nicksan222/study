@@ -53,6 +53,7 @@ import sharedUiVariants from './rules/shared-ui-variants.ts';
 import synchronousTransactions from './rules/synchronous-transactions.ts';
 import testClassification from './rules/test-classification.ts';
 import testGuardAssertions from './rules/test-guard-assertions.ts';
+import testInfrastructure from './rules/test-infrastructure.ts';
 import themeRule from './rules/theme-colors.ts';
 import transactionNoIo from './rules/transaction-no-io.ts';
 import validatedMutation from './rules/validated-mutation.ts';
@@ -68,6 +69,7 @@ import webRouterNavigation from './rules/web-router-navigation.ts';
 export default definePlugin({
   meta: { name: 'study' },
   rules: {
+    'test-infrastructure': testInfrastructure,
     'effect-function-harness': effectFunctionHarness,
     'service-access': serviceAccess,
     'validated-mutation': validatedMutation,

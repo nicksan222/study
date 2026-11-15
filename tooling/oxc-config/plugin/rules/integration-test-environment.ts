@@ -2,14 +2,19 @@ import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { Effect, FileSystem, Path } from 'effect';
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { moduleEdges } from '../architecture-imports.ts';
+import { imported } from '../lexical-bindings.ts';
+import { bunOperation } from '../process-operations.ts';
+import { property } from './effect-lifecycle-syntax.ts';
+import { resolveValue } from './module-factories.ts';
 
 const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
 function workspace(filename: string) {
-  const marker = filename.match(/^(.*)\/(?:packages\/integrations|apps\/server)\//);
+  const marker = filename.match(
+    /^(.*)\/(?:packages\/integrations|apps\/server|tooling\/testing)\//
+  );
 
   return marker?.[1];
 }
@@ -26,7 +31,7 @@ const problemsByRoot = new Map<string, string[]>();
 
 for (const root of roots) problemsByRoot.set(root, await fixtureProblems(root));
 
-type Fixture = { scenario?: string; executable?: string };
+type Fixture = { executable?: string };
 
 async function providerDirectories(root: string): Promise<Set<string>> {
   const directory = join(root, 'packages/integrations/src/providers');
@@ -61,11 +66,11 @@ async function providerProblems(
 ): Promise<string[]> {
   const problems: string[] = [];
 
-  if (
-    fixture.scenario !== `providers/${id}/scenario.ts` ||
-    !(await Bun.file(join(directory, fixture.scenario)).exists())
-  )
-    problems.push(`Provider ${id} needs providers/${id}/scenario.ts.`);
+  const tests = await Array.fromAsync(
+    new Bun.Glob(`providers/${id}/**/*.integration.test.ts`).scan({ cwd: directory })
+  );
+
+  if (!tests.length) problems.push(`Provider ${id} needs ordinary *.integration.test.ts files.`);
 
   if (!fixture.executable?.startsWith(`/opt/${id}/`))
     problems.push(`Provider ${id} needs an executable installed below /opt/${id}/.`);
@@ -82,7 +87,7 @@ async function providerProblems(
 }
 
 async function fixtureProblems(root: string): Promise<string[]> {
-  const directory = join(root, 'apps/server/test/integrations');
+  const directory = join(root, 'tooling/testing/integrations');
   const manifest = Bun.file(join(directory, 'providers.json'));
   const dockerfile = Bun.file(join(directory, 'Dockerfile'));
 
@@ -108,19 +113,60 @@ async function fixtureProblems(root: string): Promise<string[]> {
   return problems;
 }
 
+function commandArguments(context: any, input: any): any[] {
+  const value = resolveValue(context, input);
+  const command =
+    value?.type === 'ObjectExpression' ? resolveValue(context, property(value, 'cmd')) : value;
+
+  return command?.type === 'ArrayExpression' ? command.elements : [];
+}
+
+function processCall(context: any, node: any): boolean {
+  const operation = bunOperation(context, node);
+
+  return (
+    operation === 'spawn' ||
+    operation === 'spawnSync' ||
+    imported(context, resolveValue(context, node), /^@study\/testing\/process$/)
+  );
+}
+
+function dockerArguments(context: any, node: any, shared: boolean): any[] | null {
+  const helper = shared && node.callee.type === 'Identifier' && node.callee.name === 'docker';
+
+  if (!helper && !processCall(context, node.callee)) return null;
+
+  const args = commandArguments(context, node.arguments[0]);
+
+  if (helper) return args;
+
+  return args[0]?.value === 'docker' ? args.slice(1) : null;
+}
+
+function sharedDockerfile(args: any[]): boolean {
+  const index = args.findIndex((arg) => arg?.type === 'Literal' && arg.value === '--file');
+  const file = args[index + 1];
+
+  return (
+    index >= 0 &&
+    file?.type === 'Literal' &&
+    file.value === 'tooling/testing/integrations/Dockerfile'
+  );
+}
+
 export default defineRule({
   meta: {
     type: 'problem',
     docs: {
       description:
-        'Keep provider scenarios and installations in one shared disposable integration image.'
+        'Keep provider tests and installations in one shared disposable integration image.'
     },
     messages: {
       environment: '{{reason}}',
       image:
-        'Build integration environments from apps/server/test/integrations/Dockerfile using a literal path.',
+        'Build integration environments from tooling/testing/integrations/Dockerfile using a literal path.',
       runtime:
-        'Only test/integrations/environment.ts may build or start Testcontainers; use the shared integrations Dockerfile.'
+        'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
     }
   },
   create(context) {
@@ -129,30 +175,25 @@ export default defineRule({
 
     if (!root) return {};
 
-    const edges = moduleEdges(context, (node, source) => {
-      if (
-        filename.includes('/test/integrations/') &&
-        !filename.endsWith('/environment.ts') &&
-        source === 'testcontainers'
-      )
-        context.report({ node, messageId: 'runtime' });
-    });
+    const shared = filename.endsWith('/testing/integrations/environment.ts');
 
     return {
-      ...edges,
       CallExpression(node) {
-        edges.CallExpression(node);
-        const dockerfile = node.arguments[1];
+        const args = dockerArguments(context, node, shared);
 
-        if (
-          filename.endsWith('/test/integrations/environment.ts') &&
-          node.callee.type === 'MemberExpression' &&
-          node.callee.property.type === 'Identifier' &&
-          node.callee.property.name === 'fromDockerfile' &&
-          (dockerfile?.type !== 'Literal' ||
-            dockerfile.value !== 'apps/server/test/integrations/Dockerfile')
-        )
+        if (!args) return;
+
+        if (!shared) context.report({ node, messageId: 'runtime' });
+        else if (args[0]?.value === 'build' && !sharedDockerfile(args))
           context.report({ node, messageId: 'image' });
+      },
+      TaggedTemplateExpression(node) {
+        if (
+          !shared &&
+          bunOperation(context, node.tag) === '$' &&
+          /^\s*docker\s/.test(node.quasi.quasis[0]?.value.cooked ?? '')
+        )
+          context.report({ node, messageId: 'runtime' });
       },
       Program(node) {
         if (filename === join(root, 'packages/integrations/src/index.ts')) {

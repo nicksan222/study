@@ -1,3 +1,5 @@
+import { spawnTestProcess } from '@study/testing/process';
+import { temporaryDirectory } from '@study/testing/resources';
 import { testStable } from '@study/testing/vitest';
 import { $ } from 'bun';
 import { assert, onTestFinished } from 'vite-plus/test';
@@ -25,7 +27,8 @@ type Workflow = {
 };
 
 async function fixture() {
-  const path = (await $`mktemp -d`.quiet().text()).trim();
+  const temporary = await temporaryDirectory();
+  const path = temporary.path;
   const directories: string[] = [];
   const command = 'bun -e "console.log(\'executed\')"';
   const rootScripts = Object.fromEntries(
@@ -78,7 +81,7 @@ async function fixture() {
   await $`git -C ${path} -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm baseline`.quiet();
 
   async function execute(args: string[]) {
-    const child = Bun.spawn(args, {
+    const child = spawnTestProcess(args, {
       cwd: path,
       env: {
         ...process.env,
@@ -136,7 +139,7 @@ async function fixture() {
     plan,
     script,
     async [Symbol.asyncDispose]() {
-      await $`rm -rf ${path}`.quiet();
+      await temporary[Symbol.asyncDispose]();
     }
   };
 }
@@ -174,8 +177,15 @@ testStable('CI gate groups cover the full check, including the packaged runtime'
   assert.deepEqual(selected, full);
   const javascript = commands(await repo.plan('check:javascript'));
   const server = commands(await repo.plan('check:server'));
+  const database = commands(await repo.plan('check:database'));
+  const native = commands(await repo.plan('check:native'));
 
   assert.include(javascript, '@study/server#typecheck');
+  assert.include(javascript, '@study/client#build');
+  assert.deepEqual(database, ['@study/db#test']);
+  assert.notInclude(server, '@study/db#test');
+  assert.notInclude(native, '//#lint:repo');
+  assert.notInclude(native, '//#check:landing');
   assert.notInclude(server, '@study/server#typecheck');
   assert.isEmpty(javascript.filter((task) => task.endsWith('#test') && server.includes(task)));
 });
@@ -211,29 +221,53 @@ testStable('a failed runtime preparation prevents its smoke test from running', 
   assert.isFalse(await Bun.file(`${repo.path}/smoke-ran`).exists());
 });
 
-testStable('failed lint and formatting leave independent native gates runnable', async () => {
+testStable('failed formatting leaves independent native gates runnable', async () => {
   await using repo = await fixture();
-  const rootFile = Bun.file(`${repo.path}/package.json`);
-  const rootPkg = await rootFile.json();
   const nativeFile = Bun.file(`${repo.path}/apps/desktop/package.json`);
   const nativePkg = await nativeFile.json();
 
-  rootPkg.scripts['lint:repo'] = 'bun -e "process.exit(23)"';
-  rootPkg.scripts['fallow:repo'] = "bun -e \"await Bun.write('fallow-ran', 'ran')\"";
   nativePkg.scripts['fmt:check'] = 'bun -e "process.exit(23)"';
 
   for (const task of ['lint', 'deny', 'test', 'docs'])
     nativePkg.scripts[task] = `bun -e "await Bun.write('gate-${task}', 'ran')"`;
 
-  await Bun.write(rootFile, JSON.stringify(rootPkg));
   await Bun.write(nativeFile, JSON.stringify(nativePkg));
   const result = await repo.script('ci:native');
 
   assert.notEqual(result.code, 0);
-  assert.equal(await Bun.file(`${repo.path}/fallow-ran`).text(), 'ran');
 
   for (const task of ['lint', 'deny', 'test', 'docs'])
     assert.equal(await Bun.file(`${repo.path}/apps/desktop/gate-${task}`).text(), 'ran');
+});
+
+testStable('CI overlaps the client build with independent tooling tests', async () => {
+  await using repo = await fixture();
+
+  for (const [directory, task, own, other] of [
+    ['apps/client', 'build', 'build-started', 'tests-started'],
+    ['tooling', 'test', 'tests-started', 'build-started']
+  ]) {
+    const file = Bun.file(`${repo.path}/${directory}/package.json`);
+    const pkg = await file.json();
+
+    pkg.scripts[task!] = 'bun overlap.ts';
+    await Bun.write(file, JSON.stringify(pkg));
+    await Bun.write(
+      `${repo.path}/${directory}/overlap.ts`,
+      `await Bun.write('${repo.path}/${own}', 'started');
+       const deadline = Date.now() + 5000;
+       while (!(await Bun.file('${repo.path}/${other}').exists())) {
+         if (Date.now() > deadline) process.exit(23);
+         await Bun.sleep(10);
+       }`
+    );
+  }
+
+  const result = await repo.script('ci:javascript');
+
+  assert.equal(result.code, 0, result.stdout + result.stderr);
+  assert.isTrue(await Bun.file(`${repo.path}/build-started`).exists());
+  assert.isTrue(await Bun.file(`${repo.path}/tests-started`).exists());
 });
 
 testStable.each([
@@ -368,6 +402,16 @@ testStable('shared test setup and native permissions affect the owning tasks', a
   const hash = (plan: Plan, id: string) => plan.tasks.find((task) => task.taskId === id)?.hash;
   const before = await repo.plan('test');
 
+  await Bun.write(`${repo.path}/tooling/test-results/integrations/setup.log`, 'diagnostics');
+  const reports = await repo.plan('test');
+
+  assert.equal(hash(reports, '@study/ui#test'), hash(before, '@study/ui#test'));
+  await Bun.write(`${repo.path}/packages/testing/src/config.ts`, 'shared budget changed');
+  const policy = await repo.plan('test');
+
+  for (const id of ['@study/ui#test', '@study/client#test', '@study/testing#test'])
+    assert.notEqual(hash(policy, id), hash(before, id));
+
   await Bun.write(`${repo.path}/apps/client/src/test/setup.ts`, 'changed');
   let after = await repo.plan('test');
 
@@ -420,7 +464,7 @@ testStable.each([
       `${repo.path}/turbo.json`,
       JSON.stringify({ ...config, tasks: { ...config.tasks, hold: { cache: false } } })
     );
-    const child = Bun.spawn(
+    const child = spawnTestProcess(
       [
         'bun',
         `${root}tooling/scripts/development/turbo.ts`,

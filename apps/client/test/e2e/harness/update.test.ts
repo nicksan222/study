@@ -1,3 +1,4 @@
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
@@ -22,7 +23,7 @@ testStable(
     await Bun.write('apps/client/test-results/updates/' + process.env.E2E_UPDATE_RUN + '/capture.json', '{}');
   `
     );
-    const child = Bun.spawn(['bun', `${harness}/update.ts`, 'notes/editing'], {
+    const child = spawnTestProcess(['bun', `${harness}/update.ts`, 'notes/editing'], {
       cwd: harness,
       env: { ...process.env, CI: undefined },
       stdout: 'pipe',
@@ -54,7 +55,7 @@ testStable(
       'notes/../editing',
       'a'.repeat(81)
     ]) {
-      const child = Bun.spawn(
+      const child = spawnTestProcess(
         [process.execPath, Bun.fileURLToPath(new URL('./update.ts', import.meta.url)), scope],
         {
           env: { ...process.env, CI: '1' },

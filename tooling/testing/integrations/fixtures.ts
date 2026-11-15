@@ -1,25 +1,16 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Defines shared integration test infrastructure for disposable environments.        │
+ * │ @file Defines shared installation paths for every supported integration provider.        │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps provider tests within the shared container lifecycle.                            │
+ * │ - Keeps executable locations aligned with adapters and image installation.               │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Real provider processes use isolated files and never host vaults or profiles.            │
+ * │ The manifest is test infrastructure and never reads host applications.                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-/** Real provider software may only run in a disposable integration container. */
-export async function requireIntegrationContainer(provider: string) {
-  if (
-    !process.versions.bun ||
-    process.platform !== 'linux' ||
-    process.env.STUDY_INTEGRATION_PROVIDER !== provider ||
-    !process.env.STUDY_INTEGRATION_EXECUTABLE ||
-    !(await Bun.file('/.dockerenv').exists())
-  )
-    throw new Error('Real integration scenarios require the shared Testcontainers runner');
+import fixtures from './providers.json' with { type: 'json' };
 
-  return process.env.STUDY_INTEGRATION_EXECUTABLE;
-}
+/** Installation paths share one manifest checked against provider adapters by Oxlint. */
+export const integrationFixtures = fixtures as Record<string, { executable: string }>;

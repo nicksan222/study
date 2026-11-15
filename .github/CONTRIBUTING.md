@@ -16,14 +16,15 @@ Thank you for helping with Study.
   checks and CI: Rust formatting/Clippy/dependencies/tests/doctests/docs, repository-wide
   Vite+ format/lint, Fallow, TypeScript checks, package tests, web build and browser E2E,
   generated database drift, real integrations, the packaged-runtime smoke test, and landing
-  checks/build. Docker is required for real integrations. CI selects `ci:native`,
-  `ci:javascript`, `ci:server`, `web:e2e`, and `integrations:e2e` from the same graph rather
-  than maintaining another gate list. Native gates include repository-wide static checks
-  and landing verification; JavaScript gates own TypeScript checks and client/tooling tests;
-  server gates own server/database and shared server-package tests. Browser CI uses the same
-  devcontainer; other checks run on the runner. The required `Test and build` check requires
-  every job. Independent gates continue after failures; dependent tasks run only when their
-  prerequisites pass. The web build reuses its prerequisite type check.
+  checks/build. Docker is required for real integrations. CI starts eight unconditional,
+  unsharded lanes in parallel: 🧹 Code hygiene, 🧩 Types & unit tests, ⚙️ Server & contracts,
+  🗄️ Database, 🌐 Browser journeys, 🦀 Desktop & runtime, 🔌 Provider integrations and
+  🌍 Landing page. Each lane selects tasks from the same Turbo graph. Static checks and
+  landing builds no longer wait for native toolchain setup; browser journeys have their
+  own runner and canonical devcontainer. The required `Test and build` check fails if any
+  lane fails, is cancelled, is skipped or is missing. Independent tasks continue after
+  failures; dependent tasks run only when their prerequisites pass. The client build
+  reuses its prerequisite typecheck and can overlap independent unit and tooling tests.
 - **CI runs the complete server suite once without sharding**, retaining two Vitest workers.
   Server fixtures use `/dev/shm` for RAM-backed
   temporary files on Linux CI, retaining WAL, locks, backup and restart behavior. Local
@@ -75,7 +76,7 @@ mise exec -- bun run check
 
 Setup uses sudo for system packages, then installs the project toolchain, both locked
 dependency sets, and the pinned Playwright Chromium. Start Docker separately for the
-Testcontainers integration suite. For Linux release packaging, use
+provider integration suite. For Linux release packaging, use
 `PATCHELF="$PWD/target/mise/bin/patchelf"`. The devcontainer installs the same dependencies during
 its image build and workspace setup.
 
@@ -285,25 +286,30 @@ desktop permission, and shared runner tests. Server fixtures use Vitest lifecycl
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
 of production modules.
 
-Run `bun run integrations:e2e` with Docker available to test a real Obsidian import.
-Bun installs the locked dependencies and runs the classified integration tests directly.
-Testcontainers builds the shared `apps/server/test/integrations/Dockerfile` once,
-including the pinned Obsidian release, and runs each provider case in
-a fresh container. Release downloads use bounded retries for transient HTTP failures
-and verify their pinned checksums. CI enables `DEBUG=testcontainers:build` so image
-build failures include the underlying command output. Obsidian uses Xvfb; its profile,
-synthetic vault and Study SQLite
-database stay inside the container. No host vault or profile is mounted. Teardown
-removes containers and volumes after successful and failed commands, verifies their
-removal and removes the test image. The Testcontainers resource reaper must remain
-enabled for cleanup after interrupted runs. Ordinary adapter tests do not launch
-Obsidian.
+Run `bun run integrations:e2e` with Docker available to run the real provider tests.
+The launcher prepares one shared disposable environment and invokes Vitest once.
+Ordinary `*.integration.test.ts` files under `tooling/testing/integrations/providers`
+report the behavior being checked, with native assertion failures, exit codes and JUnit
+results. Every provider's tests are discovered on every run; no matrix or shard is used.
 
-Adding a provider requires a matching `providers.json` fixture, a provider scenario,
-and an `integration-<provider>` install stage copied into the shared image. Oxlint
-enforces these together and forbids provider-specific Dockerfiles and container
-builders. The shared runner selects every registered fixture automatically. CI runs
-the same command in its required real-integration test job.
+Each test owns fresh application processes, profiles, vaults, a database and RPC server.
+Provider software and its pinned install remain in the shared
+`tooling/testing/integrations/Dockerfile`. Release downloads use bounded retries and
+verify checksums. The test environment has no network and mounts no host vault,
+credentials, dependencies or profile.
+
+The Bun launcher uses the Docker CLI directly. It collects native JUnit reports and
+failure logs, stops and removes the container and removes its image on success, failure
+and handled interruption. Setup output stays in
+`tooling/test-results/integrations/setup.log`; normal console output shows the tests.
+Provider logs are retained for failed tests. CI uploads `tooling/test-results/`,
+including `vitest/integrations.xml`. The launcher preserves the test exit code and fails
+if environment setup, report collection or cleanup fails.
+
+Adding a provider requires its executable in `providers.json`, ordinary
+`providers/<provider>/*.integration.test.ts` files and a matching installation stage in
+the shared image. Oxlint enforces the shared installation and test coverage. Keep
+infrastructure lifecycle tests in the normal server suite, separate from provider behavior.
 
 ### Release size reports
 
@@ -405,7 +411,7 @@ its HTML report lives under `apps/client/test-results/report`. Playwright clears
 run outputs at the start of the next run and retains test artifacts only for failures.
 CI also enables Vitest's built-in JUnit reporter. Every package writes under its own
 `test-results/vitest/` directory; integration runs use `integrations.xml` alongside unit
-`junit.xml`. CI retains reports for JavaScript, server and integration jobs even on failures.
+`junit.xml`. CI retains reports for JavaScript, server, database and integration jobs even on failures.
 Turbo caches restore report files with deterministic test results. Use `CI=true` for the
 same reporters locally; ordinary local runs keep console output only.
 
@@ -437,14 +443,29 @@ Turbo handles selection, dependency ordering, and local caching. Shared source-o
 packages participate in the graph without redundant builds or separate typecheck projects.
 The existing server, client and tooling TypeScript projects remain the checking boundaries.
 
-CI group membership is defined in `turbo.json`: `check:native`, `check:javascript`, and
-`check:server` are aggregate tasks without shell commands. The `ci:*` scripts select those
-groups. Native and repository-wide static gates are sibling tasks, so a lint or formatting
-failure does not suppress other independent checks. Browser and integration commands select the client `e2e` and server `integrations`
-tasks, respectively. `web:e2e:compare` uses the same browser task and forwards runner options
-such as `--workers`; it keeps the build prerequisite. The full check also stages the
-private server before running its packaged-runtime smoke test. Regression tests compare
-runnable tasks across local and CI plans to detect missing gates.
+CI group membership is defined in `turbo.json`: `check:hygiene`, `check:javascript`,
+`check:server`, `check:database` and `check:native` are aggregate tasks without shell
+commands. Their `ci:*` scripts allow two independent tasks at once. The JavaScript lane
+owns typechecks, the client build and client/tooling unit tests; server and database
+suites have separate jobs and reports. Browser, integration and landing jobs select
+`web:e2e`, `integrations:e2e` and `landing-check`, respectively. No lane uses a path filter,
+change detector, matrix or shard. Turbo decides which deterministic task results can be
+reused; server, database, integration and browser tests still execute every run.
+`web:e2e:compare` forwards runner options such as `--workers` and keeps the build
+prerequisite. The full check also stages the private server before its packaged-runtime
+smoke test. Regression tests compare runnable tasks across local and CI plans, exercise
+the required gate with failures/cancellations/skips, and verify that builds can overlap
+independent tests.
+
+The shared JavaScript setup caches Bun dependency downloads and Turbo results. Native
+checks retain the Cargo cache. Browser CI restores the workspace Turbo cache before
+entering the devcontainer, where client builds can reuse it. Artifact uploads retain
+per-lane test reports and browser diagnostics even on failure.
+
+Release builds use four explicit parallel jobs for Linux x64, Linux ARM64, macOS ARM64
+and Windows x64. They call the same reusable platform workflow without a matrix. The
+single publisher waits for every platform, verifies the complete signed artifact set,
+and only then publishes the release.
 
 Pure unit tests, typechecks and web builds are cached locally under `.turbo/cache`.
 Root task commands evict entries older than seven days and then the oldest entries above
@@ -458,10 +479,21 @@ Repository-wide static gates also run fresh. Their inputs select shared policy c
 affected checks; selected package checks still require the complete static gates.
 Build output and generated routes are restored on cache hits. Shared configuration and
 explicit cross-package inputs invalidate affected task results; task-input-aware selection
-is enabled and covered by regression tests. Tasks run one at a time to avoid contention
-between route generation, shared builds and test infrastructure. No remote cache is configured,
+is enabled and covered by regression tests. Local full checks keep sequential task execution. CI aggregate tasks run up to two
+independent tasks concurrently; Turbo preserves prerequisites for route generation and builds. No remote cache is configured,
 and the root commands disable Turbo telemetry.
 
 Affected checks do not establish that the entire repository passes. `bun run check` and the
 full CI gates remain required; native launchers and desktop lifecycle commands keep their
 existing interface. The standalone landing workspace is checked as an uncached root task.
+
+Tests use the native Vite+ runner and classified registrations from `@study/testing/vitest`.
+Shared waiting and worker budgets live in `@study/testing/config`; React setup lives in
+`@study/testing/react/setup`. CI uses one worker per runner so concurrent Turbo tasks do
+not multiply test workers. Use `waitFor` or `withinTestDeadline` from the shared package,
+`@study/testing/process` for bounded subprocesses with automatic test cleanup, and
+`await using` with `temporaryDirectory` from `@study/testing/resources` for fixture storage.
+Oxlint rejects local subprocess management, sleep polling, temporary-directory shell
+commands, test wrappers and runner configuration in test cases. Add reusable infrastructure
+to `packages/testing` or `tooling/testing`; integration environment setup and diagnostics
+live in `tooling/testing/integrations`, separate from native provider test reports.

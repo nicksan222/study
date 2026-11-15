@@ -7,7 +7,12 @@ import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';
 
 import { authoredPage } from '../document-editing/test-support';
-import { materialRpc, mountLibraryRoute, importedSource } from '../material-library/test/support';
+import {
+  deferred,
+  materialRpc,
+  mountLibraryRoute,
+  importedSource
+} from '../material-library/test/support';
 
 const t = catalogs.english;
 
@@ -18,10 +23,12 @@ testStable(
     const current = authoredPage(41n, 'Current authored body', 103n);
     const old = authoredPage(41n, 'Historical authored body', 91n).version!;
 
+    const history = { items: [current.version!, old], nextCursor: null };
+    const versions = deferred<typeof history>();
+    const user = userEvent.setup();
+
     rpc['pages.page'].mockReturnValue(Effect.succeed(current));
-    rpc['pages.versions'].mockReturnValue(
-      Effect.succeed({ items: [current.version!, old], nextCursor: null })
-    );
+    rpc['pages.versions'].mockReturnValue(Effect.promise(() => versions.promise));
     rpc['pages.version'].mockImplementation(({ id }) =>
       Effect.succeed(id === old.id ? old : current.version!)
     );
@@ -29,13 +36,21 @@ testStable(
     const main = within(await screen.findByRole('main'));
 
     expect(await main.findByText('Current authored body')).toBeVisible();
-    await userEvent.setup().click(await main.findByRole('button', { name: t.NotePreviousVersion }));
+    const previous = await main.findByRole('button', { name: t.NotePreviousVersion });
+
+    expect(previous).toBeDisabled();
+    await act(async () => versions.resolve(history));
+    await waitFor(() => expect(previous).toBeEnabled());
+    await user.click(previous);
     expect(await main.findByText('Historical authored body')).toBeVisible();
     expect(main.queryByText('Current authored body')).toBeNull();
     await waitFor(() => expect(rpc['pages.version']).toHaveBeenCalledWith({ id: old.id }));
     expect(rpc['sources.currentExtraction']).not.toHaveBeenCalled();
     expect(rpc['materials.materialVersion']).not.toHaveBeenCalled();
-    await userEvent.setup().click(main.getByRole('button', { name: t.NoteNextVersion }));
+    const next = main.getByRole('button', { name: t.NoteNextVersion });
+
+    await waitFor(() => expect(next).toBeEnabled());
+    await user.click(next);
     expect(await main.findByText('Current authored body')).toBeVisible();
   }
 );

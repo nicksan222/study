@@ -8,12 +8,14 @@
     ".devcontainer/**",
     ".agents/**",
     "tooling/**",
+    "packages/testing/src/**",
     "apps/landing/**",
     "!**/.turbo/**",
     "!**/node_modules/**",
     "!**/dist/**",
     "!**/.astro/**",
-    "!**/.tanstack/**"
+    "!**/.tanstack/**",
+    "!**/test-results/**"
   ],
   "globalEnv": ["CI", "NODE_ENV", "STUDY_*", "VITE_*", "CARGO_*", "RUST*", "BUN_*"],
   "tasks": {
@@ -162,7 +164,12 @@
       "dependsOn": ["^typecheck"],
       "cache": true,
       "envMode": "strict",
-      "outputs": ["test-results/vitest/**"]
+      "outputs": ["test-results/vitest/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/client/vite.config.ts",
+        "$TURBO_ROOT$/apps/client/src/test/**"
+      ]
     },
     "@study/client#test": {
       "dependsOn": ["^typecheck"],
@@ -219,7 +226,14 @@
       "cache": false
     },
     "//#check:native": {
-      "dependsOn": ["@study/desktop#check", "@study/db#gen:check"],
+      "dependsOn": [
+        "//#runtime:smoke",
+        "@study/desktop#fmt:check",
+        "@study/desktop#lint",
+        "@study/desktop#deny",
+        "@study/desktop#test",
+        "@study/desktop#docs"
+      ],
       "cache": false
     },
     "//#check:javascript": {
@@ -229,14 +243,14 @@
         "@study/client#test",
         "@study/ui#test",
         "@study/tooling#test",
-        "@study/testing#test"
+        "@study/testing#test",
+        "@study/client#build"
       ],
       "cache": false
     },
     "//#check:server": {
       "dependsOn": [
         "@study/server#test",
-        "@study/db#test",
         "@study/contracts#test",
         "@study/localization#test",
         "@study/theme#test",
@@ -275,6 +289,14 @@
     },
     "//#check:generated": {
       "dependsOn": ["//#gen:theme:check", "@study/db#gen:check"],
+      "cache": false
+    },
+    "//#check:hygiene": {
+      "dependsOn": ["//#check:global", "//#check:generated"],
+      "cache": false
+    },
+    "//#check:database": {
+      "dependsOn": ["@study/db#test"],
       "cache": false
     }
   },

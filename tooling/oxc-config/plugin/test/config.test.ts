@@ -1,4 +1,5 @@
 import { BunPath } from '@effect/platform-bun';
+import { spawnTestProcessSync } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Path } from 'effect';
 import { assert } from 'vite-plus/test';
@@ -51,7 +52,7 @@ testStable(
 );
 
 testStable('Bun resolves and loads extensionless nested server and testing aliases', () => {
-  const result = Bun.spawnSync(
+  const result = spawnTestProcessSync(
     [
       process.execPath,
       '--eval',

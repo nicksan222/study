@@ -1,0 +1,151 @@
+name: 📦 Build release platform
+
+on:
+  workflow_call:
+    inputs:
+      platform:
+        required: true
+        type: string
+      runner:
+        required: true
+        type: string
+      target:
+        required: true
+        type: string
+      version:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  STUDY_UPDATE_PUBLIC_KEY: ${{ vars.STUDY_UPDATE_PUBLIC_KEY }}
+  STUDY_UPDATE_ENDPOINT: https://github.com/${{ github.repository }}/releases/latest/download/latest.json
+
+jobs:
+  bundle:
+    name: 📦 Build and verify bundle
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Select the existing updater signing identity
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY }}
+          CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD: ${{ secrets.CARGO_PACKAGER_SIGN_PRIVATE_KEY_PASSWORD }}
+        run: bash tooling/scripts/release/release.sh signing-environment
+      - name: Set up Linux
+        if: runner.os == 'Linux'
+        uses: ./.github/actions/setup
+        with:
+          packages: patchelf file
+          optimize-dependencies: 'true'
+      - name: Set up Bun
+        if: runner.os != 'Linux'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: apps/landing/package.json
+      - name: Install Rust
+        if: runner.os != 'Linux'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ inputs.target }}
+      - name: Restore native build cache
+        if: runner.os != 'Linux'
+        uses: Swatinem/rust-cache@v2
+      - name: Native build tools
+        if: runner.os == 'macOS'
+        run: brew install cmake pkg-config python sqlite
+      - name: Install frontend dependencies
+        if: runner.os != 'Linux'
+        run: bun install --frozen-lockfile
+      - name: Verify Bun survives AppImage ELF rewriting
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          probe=$(mktemp -d)
+          trap 'rm -rf "$probe"' EXIT
+          cp "$(command -v bun)" "$probe/bun"
+          strip "$probe/bun"
+          for rpath in '$ORIGIN' '$ORIGIN/../lib:$ORIGIN'; do
+            "$PATCHELF" --set-rpath "$rpath" "$probe/bun"
+            ldd "$probe/bun"
+            "$probe/bun" --version
+          done
+      - name: Prepare effective signed updater configuration
+        id: config
+        shell: bash
+        env:
+          STUDY_RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          config=$(bash tooling/scripts/release/release.sh configure "$STUDY_RELEASE_VERSION" target/release-config.json)
+          printf 'path=%s\n' "$config" >> "$GITHUB_OUTPUT"
+      - name: Normalize optional Apple credentials
+        shell: bash
+        if: runner.os == 'macOS'
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: bash tooling/scripts/release/release.sh apple-environment
+      - name: Build signed Tauri bundles and updater assets
+        id: build
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: apps/desktop
+          tauriScript: bun --bun tauri
+          includeUpdaterJson: false
+          args: --verbose --config "${{ steps.config.outputs.path }}" --target ${{ inputs.target }} -- --locked
+      - name: Verify signed macOS microphone permission metadata
+        shell: bash
+        if: runner.os == 'macOS'
+        env:
+          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+        run: bash tooling/scripts/release/release.sh verify-macos
+      - name: Smoke-test Tauri's copied private server resources
+        shell: bash
+        run: python3 tooling/scripts/release/smoke_runtime.py target/devcontainer/${{ inputs.target }}/release
+      - name: Prepare stable platform downloads
+        shell: bash
+        env:
+          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+          STUDY_RELEASE_VERSION: ${{ inputs.version }}
+        run: bash tooling/scripts/release/release.sh prepare "${{ inputs.platform }}" "$STUDY_RELEASE_VERSION" "target/release-stage/${{ inputs.platform }}"
+      - name: Measure release payload and downloads
+        shell: bash
+        env:
+          STUDY_ARTIFACT_PATHS: ${{ steps.build.outputs.artifactPaths }}
+        run: |
+          app="target/devcontainer/${{ inputs.target }}/release/study"
+          if [ "$RUNNER_OS" = Windows ]; then app="$app.exe"; fi
+          if [ "$RUNNER_OS" = macOS ]; then
+            app=$(printf '%s' "$STUDY_ARTIFACT_PATHS" | jq -er '.[] | select(endswith(".app"))')
+          fi
+          stage="target/release-stage/${{ inputs.platform }}"
+          installer=$(jq -r .installer "$stage/manifest.json" | tr -d '\r')
+          update=$(jq -r .update "$stage/manifest.json" | tr -d '\r')
+          python3 tooling/scripts/release/size_report.py --runtime target/desktop-runtime --app "$app" \
+            --artifact "$stage/$installer" --artifact "$stage/$update" > "target/size-report-${{ inputs.platform }}.json"
+      - name: Retain size analysis
+        uses: actions/upload-artifact@v7
+        with:
+          name: size-report-${{ inputs.platform }}
+          path: target/size-report-${{ inputs.platform }}.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Retain this platform for single-writer release assembly
+        uses: actions/upload-artifact@v7
+        with:
+          name: bundle-${{ inputs.platform }}
+          path: target/release-stage/${{ inputs.platform }}/
+          if-no-files-found: error
+          retention-days: 3

@@ -261,8 +261,7 @@
     "packages/testing/test/api.types.ts",
     "packages/testing/test/vitest.types.ts",
     "apps/server/test/testing/automatic-fixture-scenario.ts",
-    "apps/server/test/integrations/providers/*/scenario.ts",
-    "apps/server/test/integrations/integrations.e2e.ts"
+    "tooling/testing/integrations/run.ts"
   ],
   // Oxlint loads this plugin from the specifier in tooling/oxc-config/lint.ts.
   "framework": [

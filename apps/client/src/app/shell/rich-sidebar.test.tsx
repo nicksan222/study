@@ -347,7 +347,7 @@ testStable(
     const row = screen.getByRole('button', { name: /\bNote 1\b/ });
 
     expect(row).toHaveAttribute('data-layout', 'detailed');
-    expect(within(row).getByText('SidebarReady')).toBeVisible();
+    expect(await within(row).findByText('SidebarReady')).toBeVisible();
     expect(within(row).getByTitle('SidebarGeneratedPages')).toBeVisible();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(router.state.location.pathname).toBe('/');
@@ -517,7 +517,7 @@ testStable(
     expect(row).toHaveAttribute('aria-pressed', 'true');
     await userEvent.setup().keyboard('{Enter}');
     expect(row).toHaveAttribute('aria-pressed', 'false');
-    expect(within(row).getByText('SidebarReady')).toBeVisible();
+    expect(await within(row).findByText('SidebarReady')).toBeVisible();
     expect(router.state.location.pathname).toBe('/');
   }
 );

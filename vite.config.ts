@@ -1,3 +1,4 @@
+import { testPolicy } from '@study/testing/config';
 import { defineConfig } from 'vite-plus';
 
 import { fmt } from './tooling/oxc-config/fmt.ts';
@@ -11,7 +12,7 @@ export default defineConfig({
     reporters: process.env.CI
       ? ['verbose', ['junit', { outputFile: `${process.cwd()}/test-results/vitest/junit.xml` }]]
       : ['verbose'],
-    maxWorkers: 2,
+    maxWorkers: testPolicy.workers[process.env.CI ? 'ci' : 'local'],
     silent: 'passed-only',
     projects: [
       'apps/client',
@@ -34,7 +35,12 @@ export default defineConfig({
       {
         test: {
           name: 'tooling',
-          exclude: ['**/*.browser.test.ts', '**/test-results/**'],
+          exclude: [
+            '**/*.browser.test.ts',
+            '**/test-results/**',
+            'packages/testing/test/react.test.ts',
+            'tooling/testing/integrations/providers/**'
+          ],
           environment: 'node',
           include: [
             'tooling/**/*.test.ts',
