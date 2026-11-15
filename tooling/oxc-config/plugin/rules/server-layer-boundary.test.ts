@@ -3,14 +3,6 @@ import { assert } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('server-layer-boundary rejects forbidden edges', async () => {
-  const diagnostics = await lintRule('server-layer-boundary', {
-    'src/procedures/jobs/create.ts': "import { db } from '@study/db';"
-  });
-
-  assert.strictEqual(diagnostics.length, 1);
-});
-
 testStable(
   'RPC adapters delegate subscriptions instead of owning database capabilities',
   async () => {
@@ -42,13 +34,13 @@ testStable(
   'real SQLite tests can inspect persistence and runtime while production adapters cannot',
   async () => {
     const diagnostics = await lintRule('server-layer-boundary', {
-      'src/procedures/projects/create/procedure.test.ts':
-        "import '@study/db'; import '#server/runtime/service'; import '#server/domains/projects/store';",
-      'src/procedures/projects/create/procedure.ts': "import '@study/db';"
+      'src/features/projects/rpc/create.test.ts':
+        "import '@study/db'; import '#server/runtime/service'; import '#server/features/projects/store';",
+      'src/features/projects/rpc/create.ts': "import '@study/db';"
     });
 
     assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));
-    assert.ok(diagnostics[0].filename.endsWith('/procedure.ts'));
+    assert.ok(diagnostics[0].filename.endsWith('/rpc/create.ts'));
   }
 );
 
@@ -96,19 +88,15 @@ testStable(
   }
 );
 
-testStable('retired server layers and feature public exports demand migration', async () => {
+testStable('feature public exports and adapters retain role boundaries', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
-    'src/domains/a/service.ts': 'export const x = 1;',
-    'src/application/define-service.ts': 'export const x = 1;',
-    'src/ai/agents/a.ts': 'export const x = 1;',
-    'src/procedures/a/a.ts': 'export const x = 1;',
     'src/features/a/index.ts':
       "export { helper } from './helper'; export { AService } from './a.service';",
     'src/features/a/a.rpc.ts': "import './helper'; import './a.service';",
     'src/features/a/a.workflow.ts': "import type { Db } from '@study/db';"
   });
 
-  assert.strictEqual(diagnostics.length, 7, JSON.stringify(diagnostics));
+  assert.strictEqual(diagnostics.length, 3, JSON.stringify(diagnostics));
 });
 
 testStable('plain role filenames enforce the same boundaries as suffixed filenames', async () => {

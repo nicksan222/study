@@ -3,21 +3,6 @@ import { expect } from 'vite-plus/test';
 
 import { lintRule } from '../test/utils.ts';
 
-testStable('rejects React Query across production, tests and reexports', async () => {
-  const diagnostics = await lintRule(
-    'web-query-contract',
-    {
-      'apps/client/src/routes/home.tsx': `import {useQuery} from '@tanstack/react-query';`,
-      'apps/client/src/lib/state.test.ts': `import type {QueryClient} from '@tanstack/query-core';`,
-      'packages/testing/src/query.ts': `export * from '@tanstack/react-query';`,
-      'apps/client/src/lib/load.ts': `export const load = () => import('@tanstack/react-query');`
-    },
-    true
-  );
-
-  expect(diagnostics).toHaveLength(4);
-});
-
 testStable('keeps protocol execution in the application composition boundary', async () => {
   const diagnostics = await lintRule(
     'web-query-contract',

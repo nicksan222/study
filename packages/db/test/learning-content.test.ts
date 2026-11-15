@@ -118,3 +118,56 @@ testStable('learning tables enforce typed content and ownership', async (t) => {
 
   for (const query of invalid) assert.throws(() => run(query));
 });
+
+testStable(
+  'quiz publication validates blank prompts, truth tokens and ordering content',
+  async (t) => {
+    const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-quiz-content-' }));
+    const db = await Db.open(join(folder, 'study.db'));
+
+    t.onTestFinished(async () => {
+      db.close();
+      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
+    });
+    const run = (query: ReturnType<typeof sql>) => db.orm.run(query);
+
+    for (const id of [1, 2, 3]) {
+      run(
+        sql`INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (${id},'quiz','Recall',1,1)`
+      );
+      run(
+        sql`INSERT INTO material_versions(id,material_id,kind,number,created_at) VALUES (${id},${id},'quiz',1,1)`
+      );
+      run(sql`INSERT INTO material_quiz_versions(version_id) VALUES (${id})`);
+    }
+
+    run(
+      sql`INSERT INTO material_quiz_questions(id,version_id,position,kind,prompt,explanation) VALUES (1,1,0,'fill_blank','ATP is made in the ____.','Energy'),(2,2,0,'true_false','ATP carries energy.','Energy'),(3,3,0,'ordering','Order the process.','First A, then B.')`
+    );
+    run(
+      sql`INSERT INTO material_quiz_open_answers(question_id,kind,reference_answer) VALUES (1,'fill_blank','mitochondria')`
+    );
+    assert.throws(() =>
+      run(sql`UPDATE material_quiz_questions SET prompt='____ and ____' WHERE id=1`)
+    );
+    run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=1`);
+
+    run(
+      sql`INSERT INTO material_quiz_choices(id,question_id,question_kind,position,text,is_correct) VALUES (1,2,'true_false',0,'Yes',1),(2,2,'true_false',1,'No',0)`
+    );
+    assert.throws(() =>
+      run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=2`)
+    );
+    run(sql`UPDATE material_quiz_choices SET text='true' WHERE id=1`);
+    run(sql`UPDATE material_quiz_choices SET text='false' WHERE id=2`);
+    run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=2`);
+
+    assert.throws(() =>
+      run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=3`)
+    );
+    run(
+      sql`INSERT INTO material_quiz_ordering_items(id,question_id,position,text) VALUES (1,3,0,'A'),(2,3,1,'B')`
+    );
+    run(sql`UPDATE material_versions SET status='published',published_at=1 WHERE id=3`);
+  }
+);

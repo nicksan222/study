@@ -61,20 +61,6 @@ testStable(
   }
 );
 
-testStable('browser consumers cannot import server package or retired transports', async () => {
-  const diagnostics = await lintRule(
-    'browser-boundary',
-    {
-      'apps/client/src/a.ts':
-        "import type { AppRouter } from '@study/server'; export * from '@trpc/client'; const load = require; load('superjson'); function f(require: any) { require('superjson'); }",
-      'packages/contracts/src/a.ts': "export { x } from '@trpc/server';"
-    },
-    true
-  );
-
-  assert.strictEqual(diagnostics.length, 4, JSON.stringify(diagnostics));
-});
-
 testStable('browser consumers use only the explicit native client entrypoint', async () => {
   const diagnostics = await lintRule(
     'browser-boundary',

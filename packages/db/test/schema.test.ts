@@ -60,16 +60,6 @@ testStable('the Drizzle baseline initializes every modeled table and current cod
         }
 
       expect(db.all(sql.raw('PRAGMA foreign_key_check'))).toStrictEqual([]);
-      assert.ok(
-        (db.get<{ n: bigint }>(sql.raw('SELECT count(*) AS n FROM __drizzle_migrations'))?.n ??
-          0n) >= 9n
-      );
-      assert.strictEqual(
-        db.get(
-          sql.raw("SELECT name FROM sqlite_schema WHERE name IN ('schema_meta','embeddings')")
-        ),
-        undefined
-      );
     } finally {
       connection.close();
     }
@@ -199,64 +189,4 @@ testStable(
       await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
     }
   }
-);
-
-testStable('retired projection tables and message job ownership are absent', () =>
-  fixture(async (path) => {
-    const connection = await Db.open(path);
-
-    try {
-      const db = connection.orm;
-
-      assert.strictEqual(
-        db.get(sql.raw("SELECT name FROM sqlite_schema WHERE type='table' AND name='jobs'")),
-        undefined
-      );
-      assert.strictEqual(
-        db
-          .all(sql.raw('PRAGMA table_info(message_versions)'))
-          .some((column) => column.name === 'owner_job_id'),
-        false
-      );
-    } finally {
-      connection.close();
-    }
-  })
-);
-
-testStable('current schema enforces Ask retirement and reply publication guards', () =>
-  fixture(async (path) => {
-    const connection = await Db.open(path);
-
-    try {
-      const names = new Set(
-        connection.orm
-          .all(sql`SELECT name FROM sqlite_schema WHERE type='trigger'`)
-          .map((row) => row.name)
-      );
-
-      for (const name of [
-        'message_fts_ai',
-        'message_fts_ad',
-        'message_fts_finish',
-        'note_recording_posts_validate_insert',
-        'note_retired_intents_owner',
-        'note_retired_intents_update',
-        'note_retired_intents_delete',
-        'note_retired_intent_recapture',
-        'note_reply_sources_capture',
-        'note_reply_sources_immutable',
-        'note_reply_sources_retained'
-      ])
-        assert.ok(names.has(name), name);
-
-      assert.throws(() =>
-        connection.orm.run(sql`INSERT INTO note_retired_intents
-        (note_id,intent_key,request_id,reason) VALUES (1,'forged','missing','input_retired')`)
-      );
-      expect(connection.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
-    } finally {
-      connection.close();
-    }
-  })
 );

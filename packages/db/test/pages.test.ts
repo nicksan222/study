@@ -112,24 +112,6 @@ testStable('publication cannot use empty, source-owned or already-owned snapshot
 });
 
 testStable(
-  'superseded generic document kinds and payload storage cannot claim authored snapshots',
-  async (t) => {
-    const db = await fixture(t);
-
-    assert.throws(() =>
-      db.exec(
-        `INSERT INTO materials(id,kind,title,created_at,updated_at) VALUES (77,'document','Bypass',1,1)`
-      )
-    );
-    assert.strictEqual(
-      db.orm.get(sql`SELECT 1 FROM sqlite_schema WHERE name='material_document_versions'`),
-      undefined
-    );
-    assert.strictEqual(db.orm.get(sql`SELECT count(*) n FROM page_versions`)?.n, 3n);
-  }
-);
-
-testStable(
   'authored publication rejects an exact input draft or retired dependent body',
   async (t) => {
     const db = await fixture(t);

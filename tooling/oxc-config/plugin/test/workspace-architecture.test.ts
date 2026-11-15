@@ -43,22 +43,18 @@ testStable('the lockfile cannot split Effect schema identity or Drizzle instance
   );
 });
 
-testStable(
-  'workspace ownership permits the target design and rejects retired packages even when unused',
-  () => {
-    expect(workspaceArchitecture(valid)).toStrictEqual([]);
-    const issues = workspaceArchitecture({
-      ...valid,
-      'packages/ai': { name: '@study/ai' },
-      'apps/client': {
-        name: '@study/client',
-        optionalDependencies: { '@study/ai': '*', '@ai-sdk/openai': '3.0.132', 'drizzle-orm': '1' }
-      }
-    });
+testStable('workspace ownership rejects misplaced AI providers and Drizzle dependencies', () => {
+  expect(workspaceArchitecture(valid)).toStrictEqual([]);
+  const issues = workspaceArchitecture({
+    ...valid,
+    'apps/client': {
+      name: '@study/client',
+      optionalDependencies: { '@ai-sdk/openai': '3.0.132', 'drizzle-orm': '1' }
+    }
+  });
 
-    assert.strictEqual(issues.length, 4, issues.join('\n'));
-  }
-);
+  assert.strictEqual(issues.length, 2, issues.join('\n'));
+});
 
 testStable(
   'contracts expose browser-safe explicit entrypoints and cannot gain implementation dependencies',
@@ -94,36 +90,15 @@ testStable(
   }
 );
 
-testStable('retired transport dependencies are rejected in every manifest section', () => {
-  const issues = workspaceArchitecture({
-    ...valid,
-    'apps/client': {
-      dependencies: { '@trpc/client': '1', superjson: '1' },
-      devDependencies: { '@trpc/server': '1' }
-    }
-  });
-
-  assert.strictEqual(issues.length, 3, issues.join('\n'));
+testStable('optional contract React bindings use official Effect state', () => {
+  expect(
+    workspaceArchitecture({
+      ...valid,
+      'packages/contracts': {
+        ...valid['packages/contracts'],
+        dependencies: { effect: '4.0.7', '@effect/atom-react': '4.0.7' },
+        peerDependencies: { react: '^19.3.1' }
+      }
+    })
+  ).toEqual([]);
 });
-
-testStable(
-  'optional contract React bindings use official Effect state without alternative query dependencies',
-  () => {
-    expect(
-      workspaceArchitecture({
-        ...valid,
-        'packages/contracts': {
-          ...valid['packages/contracts'],
-          dependencies: { effect: '4.0.7', '@effect/atom-react': '4.0.7' },
-          peerDependencies: { react: '^19.3.1' }
-        }
-      })
-    ).toEqual([]);
-    expect(
-      workspaceArchitecture({
-        ...valid,
-        'apps/client': { dependencies: { '@tanstack/react-query': '5' } }
-      })
-    ).toHaveLength(1);
-  }
-);

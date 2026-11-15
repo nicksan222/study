@@ -111,22 +111,6 @@ testStable(
   }
 );
 
-testStable(
-  'the scoped AI callback bridge is canonical and retired paths cannot execute Effects',
-  async () => {
-    const diagnostics = await lintRule('effect-runtime-boundary', {
-      'src/platform/ai/tool-adapter.ts':
-        "import {Effect} from 'effect'; Effect.runPromiseExit(check);",
-      'src/ai/runtime/tool-adapter.ts':
-        "import {Effect} from 'effect'; Effect.runPromiseExit(check);"
-    });
-
-    assertDiagnostics('effect-runtime-boundary', diagnostics, [
-      ['src/ai/runtime/tool-adapter.ts', message]
-    ]);
-  }
-);
-
 testStable('only the exported HTTP Promise bridge can execute an HTTP Effect', async () => {
   const diagnostics = await lintRule('effect-runtime-boundary', {
     'src/platform/http/index.ts': `

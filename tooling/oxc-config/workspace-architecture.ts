@@ -29,24 +29,6 @@ export function dependencyIdentity(
   return issues;
 }
 
-function retiredDependencyIssues(path: string, name: string): string[] {
-  const issues: string[] = [];
-
-  if (
-    name.startsWith('@trpc/') ||
-    name === 'superjson' ||
-    /^@tanstack\/(?:react-query|query-core|react-query-devtools)(?:\/|$)/.test(name)
-  )
-    issues.push(`${path}: remove retired transport dependency ${name}.`);
-
-  if (name === '@study/ai') issues.push(`${path}: remove the retired @study/ai dependency.`);
-
-  if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
-    issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
-
-  return issues;
-}
-
 function dependencyIssues(
   path: string,
   section: string,
@@ -56,7 +38,8 @@ function dependencyIssues(
   const issues: string[] = [];
 
   for (const [name, requirement] of Object.entries(dependencies)) {
-    issues.push(...retiredDependencyIssues(path, name));
+    if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
+      issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
 
     if ((name === 'ai' || name.startsWith('@ai-sdk/')) && path !== 'apps/server')
       issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
@@ -102,9 +85,6 @@ export function workspaceArchitecture(manifests: Record<string, WorkspaceManifes
   const version = manifests['apps/server']?.dependencies?.effect;
 
   for (const [path, manifest] of Object.entries(manifests)) {
-    if (path === 'packages/ai' || manifest.name === '@study/ai')
-      issues.push(`${path}: retire @study/ai; AI belongs in apps/server.`);
-
     for (const section of [
       'dependencies',
       'devDependencies',

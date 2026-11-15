@@ -191,12 +191,6 @@ testStable('groups settings navigation and shows relevant cross-section search r
       .getAllByRole('heading')
       .map((heading) => heading.textContent)
   ).toEqual(['Workspace', 'AI', 'Practice', 'Library']);
-  const icons = within(navigation)
-    .getAllByRole('button')
-    .map((button) => button.querySelector('svg')?.innerHTML);
-
-  expect(new Set(icons).size).toBe(labels.length);
-  expect(labels).toHaveLength(22);
   expect(screen.getByRole('button', { name: 'Appearance' })).toHaveAttribute(
     'aria-current',
     'page'

@@ -156,38 +156,6 @@ testStable('production config enforces database ownership', async () => {
   assert.ok(diagnostics.some(({ code }) => code === 'study(database-ownership)'));
 });
 
-testStable('Effect v4 rejects obsolete package paths in global and server config', async () => {
-  const diagnostics = await lintFiles(
-    {
-      'apps/server/src/old.ts': "export * from '@effect/platform/HttpClient';\n",
-      'packages/ai/src/old.ts': "export * from 'effect/unstable/http';\n",
-      'apps/client/src/old.ts': "export const old = import('@effect/rpc');\n",
-      'packages/ai/src/modern.ts':
-        "export * from 'effect/http';\nexport * from '@effect/platform-node';\n"
-    },
-    undefined,
-    true
-  );
-  const restricted = diagnostics.filter(({ code }) => code.includes('no-restricted-imports'));
-
-  assert.strictEqual(restricted.length, 3, JSON.stringify(diagnostics));
-  assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/server/src/old.ts')));
-  assert.ok(restricted.some(({ filename }) => filename.endsWith('/packages/ai/src/old.ts')));
-  assert.ok(restricted.some(({ filename }) => filename.endsWith('/apps/client/src/old.ts')));
-  assert.ok(restricted.every(({ filename }) => !filename.endsWith('/modern.ts')));
-});
-
-testStable('production config enables Effect v4 renamed API guard', async () => {
-  const diagnostics = await lintFiles({
-    'src/old-effect.ts': "import { Effect } from 'effect';\n\nexport const old = Effect.catchAll;\n"
-  });
-
-  assert.ok(
-    diagnostics.some(({ code }) => code === 'study(effect-v4-api)'),
-    JSON.stringify(diagnostics)
-  );
-});
-
 testStable(
   'production config rejects direct Drizzle imports outside the database package',
   async () => {
@@ -198,39 +166,6 @@ testStable(
     assert.ok(diagnostics.some(({ code }) => code === 'study(drizzle-boundary)'));
   }
 );
-
-testStable('the database package alone owns Drizzle dependencies', async () => {
-  const manifests = [join(root, 'package.json')];
-
-  for (const folder of ['apps', 'packages']) {
-    for await (const file of new Bun.Glob('*/package.json').scan({
-      cwd: join(root, folder),
-      absolute: true
-    }))
-      manifests.push(file);
-  }
-
-  for (const file of manifests) {
-    const manifest = await Bun.file(file).json();
-    const dependencies = {
-      ...manifest.dependencies,
-      ...manifest.devDependencies,
-      ...manifest.optionalDependencies,
-      ...manifest.peerDependencies
-    };
-
-    if (manifest.name === '@study/db') {
-      assert.ok(dependencies['drizzle-orm']);
-      continue;
-    }
-
-    for (const name of Object.keys(dependencies))
-      assert.ok(
-        !/^drizzle-(?:orm|kit)(?:\/|$)/.test(name),
-        `${manifest.name} must use @study/db instead of ${name}`
-      );
-  }
-});
 
 testStable('future contracts subpaths are checked against explicit manifest exports', async () => {
   const diagnostics = await lintFiles(

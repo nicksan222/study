@@ -11,8 +11,7 @@ export {
   primaryKey,
   foreignKey,
   check,
-  customType,
-  getTableConfig
+  customType
 } from 'drizzle-orm/sqlite-core';
 export type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 export { defineTable } from './table.ts';

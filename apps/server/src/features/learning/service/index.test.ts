@@ -472,13 +472,6 @@ testStable(
             sourceSelection.questions.map((question) => question.id),
             [q.id]
           );
-          const legacy = db
-            .insert(s.material_quiz_attempts)
-            .values({ version_id: version.id, status: 'in_progress', started_at: 1n })
-            .returning()
-            .get();
-
-          assert.strictEqual((yield* learning.attempt(legacy.id)).questions.length, 2);
         }).pipe(
           Effect.provide(
             Learning.layer

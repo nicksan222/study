@@ -46,29 +46,6 @@ const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFile
 
 const path = await Effect.runPromise(Effect.provide(Path.Path, BunPath.layer));
 
-testStable('System native API inventory includes the managed backup lifecycle', async () => {
-  const { SystemRpc } = await import('@study/contracts/system/rpc');
-
-  expect([...SystemRpc.requests.keys()]).toEqual(
-    expect.arrayContaining([
-      'system.acceptRestore',
-      'system.createBackup',
-      'system.deleteBackup',
-      'system.discardRestoreRecovery',
-      'system.health',
-      'system.importBackup',
-      'system.listBackups',
-      'system.materialSearch',
-      'system.previewRestore',
-      'system.readBackup',
-      'system.restoreStatus',
-      'system.search',
-      'system.startWorkers',
-      'system.stopWorkers'
-    ])
-  );
-});
-
 testStable(
   'native RPC creates, inspects and exports a backup without changing live content',
   async () => {

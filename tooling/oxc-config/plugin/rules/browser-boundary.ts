@@ -47,14 +47,10 @@ export default defineRule({
         target !== null &&
         /^(?:domains|ai|runtime|procedures|features|platform)(?:\/|$)/.test(target);
 
-      if (
-        /^@trpc(?:\/|$)|^superjson(?:\/|$)/.test(source) ||
-        rawServerClient(browser, server, source)
-      ) {
+      if (rawServerClient(browser, server, source)) {
         context.report({
           node,
-          message:
-            'Browser consumers must use contracts and the native RPC client; retired transport imports are forbidden.'
+          message: 'Browser consumers must use contracts and the native RPC client.'
         });
 
         return;

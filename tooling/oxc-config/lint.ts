@@ -7,17 +7,6 @@ type LintConfig = NonNullable<UserConfig['lint']>;
 const noServerMocks =
   'Server tests must exercise real procedures and dependencies without mocking.';
 
-const effectV4Imports = [
-  {
-    regex: '^effect/unstable(/|$)',
-    message: 'Effect v4 moved these modules to effect/*; remove the unstable segment.'
-  },
-  {
-    regex: '^@effect/(platform|rpc)(/|$)',
-    message: 'Effect v4 merged this package into effect; use the corresponding effect module.'
-  }
-];
-
 const declarations = [
   'interface',
   'type',
@@ -80,7 +69,6 @@ export const lint = {
     'study/definition-generators': 'error',
     'study/feature-orchestration': 'error',
     'study/native-clock': 'error',
-    'study/notes-pages-vocabulary': 'error',
     'study/metric-cardinality': 'error',
     'study/context-identity': 'error',
     'study/service-definition': 'error',
@@ -98,7 +86,6 @@ export const lint = {
     'study/feature-layout': 'error',
     'study/server-layer-boundary': 'error',
     'study/ai-boundary': 'error',
-    'study/retired-module-boundary': 'error',
     'study/contract-schema': 'error',
     'study/agent-definition': 'error',
     'study/no-double-assertion': 'error',
@@ -135,8 +122,6 @@ export const lint = {
     'study/server-file-description': 'error',
     'study/server-no-mocks': 'error',
     'study/effect-native-combinators': 'error',
-    'study/effect-v4-api': 'error',
-    'eslint/no-restricted-imports': ['error', { patterns: effectV4Imports }],
     'study/database-ownership': 'error',
     'study/library-ownership': 'error',
     'study/browser-boundary': 'error',
@@ -251,7 +236,6 @@ export const lint = {
               { name: 'jest-mock', message: noServerMocks }
             ],
             patterns: [
-              ...effectV4Imports,
               {
                 regex: '^\\.\\./',
                 message:

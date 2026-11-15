@@ -75,12 +75,3 @@ testStable('corrects a foreign subject prefix instead of exposing a mismatched n
     )
   );
 });
-
-testStable('does not keep the retired session URL registered', async () => {
-  const { router } = renderNoteRoute('/session/9007199254740993');
-
-  expect(await screen.findByTestId('note-route')).toHaveTextContent('starter');
-  expect(
-    router.state.matches.some((match) => String(match.routeId) === '/session/$sessionId')
-  ).toBe(false);
-});
