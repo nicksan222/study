@@ -79,6 +79,13 @@ testStable(
           Effect.repeat({
             while: (result) => Option.isNone(result) || result.value._tag !== 'Suspended',
             schedule: Schedule.spaced('5 millis')
+          }),
+          Effect.timeoutOrElse({
+            duration: '5 seconds',
+            orElse: () =>
+              Effect.die(
+                new Error('Workflow did not reach Suspended before restart within 5 seconds')
+              )
           })
         )
       );
