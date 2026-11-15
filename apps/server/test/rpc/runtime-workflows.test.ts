@@ -24,6 +24,14 @@ import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
+
+const isSourceIngestion = (item: { workflow: string }) => item.workflow === 'source-ingestion/v1';
+
+const isCancelledSource = (item: { workflow: string; status: string }) =>
+  isSourceIngestion(item) && item.status === 'cancelled';
+
+const isCompleted = (item: { status: string }) => item.status === 'completed';
 
 testStable(
   'native workflow RPC exposes bounded status and persists cancellation while the worker is stopped',
@@ -49,53 +57,57 @@ testStable(
 
             yield* client['system.startWorkers']({});
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              const page = yield* client['workflows.executions']({
-                limit: 10,
-                correlationId: processing.requestId!
-              });
-              const execution = page.items.find((item) => item.workflow === 'source-ingestion/v1');
-
-              if (execution?.status === 'suspended') {
-                assert.ok(execution.canCancel === true);
-                assert.ok(execution.outcome === null);
-                expect(
-                  (yield* client['workflows.execution']({ id: execution.id })).id
-                ).toStrictEqual(execution.id);
-                yield* client['system.stopWorkers']({});
-                const cancelled = yield* client['workflows.cancelExecution']({
-                  id: execution.id,
-                  mode: 'unsafe'
+            const execution = yield* pollUntil(
+              Effect.gen(function* () {
+                const page = yield* client['workflows.executions']({
+                  limit: 10,
+                  correlationId: processing.requestId!
                 });
 
-                assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
-                assert.ok(cancelled.canCancel === false);
-                const repeated = yield* client['workflows.cancelExecution']({
-                  id: execution.id,
-                  mode: 'safe'
-                });
-
-                assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
-                assert.ok('payload' in repeated === false);
-                assert.ok('ownerToken' in repeated === false);
-
-                for (const createdAtMs of [-1n, 9223372036854775808n])
-                  assert.ok(
-                    (yield* Effect.exit(
-                      client['workflows.executions']({
-                        limit: 1,
-                        before: { id: execution.id, createdAtMs }
-                      })
-                    ))._tag === 'Failure'
-                  );
-
-                return;
+                return page.items.find(isSourceIngestion);
+              }),
+              (value) => value?.status === 'suspended',
+              {
+                attempts: 100,
+                interval: '25 millis',
+                message: 'Source did not reach its durable configuration wait'
               }
+            );
 
-              yield* Effect.sleep('25 millis');
-            }
+            assert.ok(execution?.status === 'suspended');
+            assert.ok(execution.canCancel === true);
+            assert.ok(execution.outcome === null);
+            expect((yield* client['workflows.execution']({ id: execution.id })).id).toStrictEqual(
+              execution.id
+            );
+            yield* client['system.stopWorkers']({});
+            const cancelled = yield* client['workflows.cancelExecution']({
+              id: execution.id,
+              mode: 'unsafe'
+            });
 
-            assert.fail('Source did not reach its durable configuration wait');
+            assert.ok(['cancelling', 'cancelled'].includes(cancelled.status));
+            assert.ok(cancelled.canCancel === false);
+            const repeated = yield* client['workflows.cancelExecution']({
+              id: execution.id,
+              mode: 'safe'
+            });
+
+            assert.ok(['cancelling', 'cancelled'].includes(repeated.status));
+            assert.ok('payload' in repeated === false);
+            assert.ok('ownerToken' in repeated === false);
+
+            for (const createdAtMs of [-1n, 9223372036854775808n])
+              assert.ok(
+                (yield* Effect.exit(
+                  client['workflows.executions']({
+                    limit: 1,
+                    before: { id: execution.id, createdAtMs }
+                  })
+                ))._tag === 'Failure'
+              );
+
+            return;
           })
         )
       );
@@ -109,28 +121,29 @@ testStable(
           Effect.gen(function* () {
             const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              const page = yield* client['workflows.executions']({ limit: 10 });
-              const execution = page.items.find((item) => item.workflow === 'source-ingestion/v1');
-
-              if (execution?.status === 'cancelled') {
-                assert.ok(
-                  (yield* client['sources.sourceProcessing']({
-                    id: (yield* client['sources.sources']({ limit: 1 })).items[0]!.id
-                  })).documentId === null
-                );
-                assert.ok(
-                  Option.isSome(yield* client['workflows.findExecution']({ id: execution.id }))
-                );
-                assert.ok(page.next === null);
-
-                return;
+            const page = yield* pollUntil(
+              client['workflows.executions']({ limit: 10 }),
+              (value) => value.items.some(isCancelledSource),
+              {
+                attempts: 100,
+                interval: '25 millis',
+                message: 'Cancelled workflow was not recovered after reopening'
               }
+            );
+            const execution = page.items.find(isSourceIngestion);
 
-              yield* Effect.sleep('25 millis');
-            }
+            assert.ok(execution?.status === 'cancelled');
+            assert.ok(
+              (yield* client['sources.sourceProcessing']({
+                id: (yield* client['sources.sources']({ limit: 1 })).items[0]!.id
+              })).documentId === null
+            );
+            assert.ok(
+              Option.isSome(yield* client['workflows.findExecution']({ id: execution.id }))
+            );
+            assert.ok(page.next === null);
 
-            assert.fail('Cancelled workflow was not recovered after reopening');
+            return;
           })
         )
       );
@@ -169,79 +182,77 @@ testStable(
               projectId: null
             });
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              const page = yield* client['workflows.executions']({ limit: 100 });
-              const ingestions = page.items.filter(
-                (execution) => execution.workflow === 'source-ingestion/v1'
-              );
+            const { page, ingestions } = yield* pollUntil(
+              Effect.gen(function* () {
+                const page = yield* client['workflows.executions']({ limit: 100 });
+                const ingestions = page.items.filter(isSourceIngestion);
 
-              if (
-                ingestions.length === 2 &&
-                page.items.every((execution) => execution.status === 'completed')
-              ) {
-                expect(
-                  ingestions
-                    .map((execution) => execution.outcome)
-                    .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
-                ).toStrictEqual(['failure', 'success']);
-                assert.ok(
-                  ingestions.find((execution) => execution.outcome === 'failure')?.failureKind ===
-                    'unsupported'
-                );
-                assert.ok(page.items.every((execution) => !execution.canCancel));
-                const first = yield* client['workflows.executions']({ limit: 1 });
-
-                assert.ok(first.next);
-                const second = yield* client['workflows.executions']({
-                  limit: 1,
-                  before: first.next
-                });
-
-                assert.strictEqual(second.items.length, 1);
-                assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
-                const seen = [first.items[0]!.id, second.items[0]!.id];
-                let cursor = second.next;
-
-                while (cursor !== null) {
-                  const next = yield* client['workflows.executions']({ limit: 1, before: cursor });
-
-                  seen.push(...next.items.map((execution) => execution.id));
-                  cursor = next.next;
-                }
-
-                assert.strictEqual(new Set(seen).size, seen.length);
-                assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
-                const target = ingestions[0]!;
-
-                expect(
-                  yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' })
-                ).toStrictEqual(target);
-                expect(Object.keys(target).sort()).toStrictEqual(
-                  [
-                    'id',
-                    'workflow',
-                    'correlationId',
-                    'status',
-                    'outcome',
-                    'failureKind',
-                    'configurationWaitReason',
-                    'canCancel',
-                    'createdAtMs',
-                    'updatedAtMs'
-                  ].sort()
-                );
-                assert.ok(
-                  (yield* Effect.exit(client['workflows.executions']({ limit: 0 })))._tag ===
-                    'Failure'
-                );
-
-                return;
+                return { page, ingestions };
+              }),
+              (value) => value.ingestions.length === 2 && value.page.items.every(isCompleted),
+              {
+                attempts: 100,
+                interval: '25 millis',
+                message: 'Source workflows did not reach terminal states'
               }
+            );
 
-              yield* Effect.sleep('25 millis');
+            expect(
+              ingestions
+                .map((execution) => execution.outcome)
+                .sort((a, b) => (a ?? '').localeCompare(b ?? ''))
+            ).toStrictEqual(['failure', 'success']);
+            assert.ok(
+              ingestions.find((execution) => execution.outcome === 'failure')?.failureKind ===
+                'unsupported'
+            );
+            assert.ok(page.items.every((execution) => !execution.canCancel));
+            const first = yield* client['workflows.executions']({ limit: 1 });
+
+            assert.ok(first.next);
+            const second = yield* client['workflows.executions']({
+              limit: 1,
+              before: first.next
+            });
+
+            assert.strictEqual(second.items.length, 1);
+            assert.notStrictEqual(first.items[0]?.id, second.items[0]?.id);
+            const seen = [first.items[0]!.id, second.items[0]!.id];
+            let cursor = second.next;
+
+            while (cursor !== null) {
+              const next = yield* client['workflows.executions']({ limit: 1, before: cursor });
+
+              seen.push(...next.items.map((execution) => execution.id));
+              cursor = next.next;
             }
 
-            assert.fail('Source workflows did not reach terminal states');
+            assert.strictEqual(new Set(seen).size, seen.length);
+            assert.ok(ingestions.every((execution) => seen.includes(execution.id)));
+            const target = ingestions[0]!;
+
+            expect(
+              yield* client['workflows.cancelExecution']({ id: target.id, mode: 'unsafe' })
+            ).toStrictEqual(target);
+            expect(Object.keys(target).sort()).toStrictEqual(
+              [
+                'id',
+                'workflow',
+                'correlationId',
+                'status',
+                'outcome',
+                'failureKind',
+                'configurationWaitReason',
+                'canCancel',
+                'createdAtMs',
+                'updatedAtMs'
+              ].sort()
+            );
+            assert.ok(
+              (yield* Effect.exit(client['workflows.executions']({ limit: 0 })))._tag === 'Failure'
+            );
+
+            return;
           })
         )
       );
@@ -307,7 +318,7 @@ testStable(
             const execution = (yield* client['workflows.executions']({
               limit: 10,
               correlationId: processing.requestId!
-            })).items.find((item) => item.workflow === 'source-ingestion/v1');
+            })).items.find(isSourceIngestion);
 
             assert.ok(execution);
             const result = yield* client['workflows.cancelExecution']({

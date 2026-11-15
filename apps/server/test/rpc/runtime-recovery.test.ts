@@ -22,6 +22,7 @@ import { assert } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 
 testStable(
   'a failed dispatcher tick recovers without restarting the application',
@@ -49,19 +50,16 @@ testStable(
           app.store.db.orm.run(sql`DROP TRIGGER fail_dispatch`);
           app.workers.wake();
 
-          for (let i = 0; i < 100; i++) {
-            const state = yield* client['sources.sourceProcessing']({ id: source.id });
-
-            if (state.documentId !== null) {
-              assert.ok(app.workers.started);
-
-              return;
+          yield* pollUntil(
+            client['sources.sourceProcessing']({ id: source.id }),
+            (value) => value.documentId !== null,
+            {
+              attempts: 100,
+              interval: '5 millis',
+              message: 'Worker did not recover after dispatch became available'
             }
-
-            yield* Effect.sleep('5 millis');
-          }
-
-          throw new Error('Worker did not recover after dispatch became available');
+          );
+          assert.ok(app.workers.started);
         }).pipe(Effect.scoped)
       );
     } finally {

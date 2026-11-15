@@ -160,10 +160,7 @@ testStable(
         )
       );
 
-      for (let i = 0; i < 100 && listeners; i++)
-        await new Promise((resolve) => setTimeout(resolve, 10));
-
-      expect(listeners).toBe(0);
+      await expect.poll(() => listeners, { interval: 10, timeout: 1000 }).toBe(0);
     } finally {
       await server.close();
       await app.close();

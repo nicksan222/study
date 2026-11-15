@@ -25,6 +25,7 @@ import { assert } from 'vite-plus/test';
 import { makeStudyClient } from '#server/client/index';
 import { Sources } from '#server/features/sources/index';
 import { App, serve } from '#server/runtime/index';
+import { pollUntil } from '#testing/poll';
 
 testStable(
   'runtime consumes source requests made over HTTP and recovers pending requests on reopen',
@@ -59,44 +60,32 @@ testStable(
       function* verifyRecoveredSource() {
         const client = yield* makeStudyClient(StudyRpc, { baseUrl: server.url });
 
-        for (let attempt = 0; attempt < 100; attempt++) {
-          const state = yield* client['sources.sourceProcessing']({ id });
+        const state = yield* pollUntil(
+          client['sources.sourceProcessing']({ id }),
+          (value) => value.documentId !== null,
+          { attempts: 100, interval: '50 millis', message: 'Source was not processed' }
+        );
 
-          if (state.documentId === null) {
-            yield* Effect.sleep('50 millis');
-            continue;
-          }
+        assert.ok(state.documentId !== null);
+        yield* client['sources.correctBlock']({
+          id,
+          documentId: state.documentId,
+          ordinal: 0,
+          before: 'Hello',
+          after: 'Corrected'
+        });
+        yield* pollUntil(
+          client['sources.sourceProcessing']({ id }),
+          (value) => value.documentId !== null && value.documentId !== state.documentId,
+          { attempts: 100, interval: '50 millis', message: 'Source correction was not consumed' }
+        );
+        const document = yield* Effect.promise(() =>
+          app.nativeRuntime.runPromise(
+            Effect.flatMap(Sources, (sources) => sources.sourceDocument(id))
+          )
+        );
 
-          yield* client['sources.correctBlock']({
-            id,
-            documentId: state.documentId,
-            ordinal: 0,
-            before: 'Hello',
-            after: 'Corrected'
-          });
-
-          for (let correction = 0; correction < 100; correction++) {
-            const updated = yield* client['sources.sourceProcessing']({ id });
-
-            if (updated.documentId !== null && updated.documentId !== state.documentId) {
-              const document = yield* Effect.promise(() =>
-                app.nativeRuntime.runPromise(
-                  Effect.flatMap(Sources, (sources) => sources.sourceDocument(id))
-                )
-              );
-
-              assert.ok(document.document.blocks[0]?.text === 'Corrected');
-
-              return;
-            }
-
-            yield* Effect.sleep('50 millis');
-          }
-
-          assert.fail('source correction was not consumed');
-        }
-
-        assert.fail('source was not processed');
+        assert.ok(document.document.blocks[0]?.text === 'Corrected');
       }
 
       await Effect.runPromise(Effect.scoped(Effect.gen(verifyRecoveredSource)));
@@ -129,27 +118,20 @@ testStable(
               projectId: null
             });
 
-            for (let attempt = 0; attempt < 100; attempt++) {
-              if (
-                (yield* client['sources.sourceProcessing']({ id: source.id })).documentId !== null
-              ) {
-                const search = yield* client['system.search']({ query: 'mitochondria', limit: 5 });
-                const hit = search.hits.find(
-                  (item) => item.target.type === 'source' && item.target.sourceId === source.id
-                );
+            yield* pollUntil(
+              client['sources.sourceProcessing']({ id: source.id }),
+              (value) => value.documentId !== null,
+              { attempts: 100, interval: '50 millis', message: 'Source was not processed' }
+            );
+            const search = yield* client['system.search']({ query: 'mitochondria', limit: 5 });
+            const hit = search.hits.find(
+              (item) => item.target.type === 'source' && item.target.sourceId === source.id
+            );
 
-                assert.ok(hit);
-                assert.ok(hit.target.type === 'source');
+            assert.ok(hit);
+            assert.ok(hit.target.type === 'source');
 
-                if (hit.target.type === 'source') assert.ok(hit.target.anchor?.type === 'text');
-
-                return;
-              }
-
-              yield* Effect.sleep('50 millis');
-            }
-
-            assert.fail('source was not processed');
+            if (hit.target.type === 'source') assert.ok(hit.target.anchor?.type === 'text');
           })
         )
       );
@@ -184,15 +166,19 @@ testStable(
             });
 
             function* waitForExtraction(text: string) {
-              for (let attempt = 0; attempt < 100; attempt++) {
-                const extraction = yield* client['sources.currentExtraction']({ id: source.id });
+              const extraction = yield* pollUntil(
+                client['sources.currentExtraction']({ id: source.id }),
+                (value) => value?.document.blocks[0]?.text === text,
+                {
+                  attempts: 100,
+                  interval: '50 millis',
+                  message: 'Source extraction did not publish'
+                }
+              );
 
-                if (extraction?.document.blocks[0]?.text === text) return extraction;
+              assert.ok(extraction);
 
-                yield* Effect.sleep('50 millis');
-              }
-
-              throw new Error('Source extraction did not publish');
+              return extraction;
             }
 
             const extracted = yield* waitForExtraction('Mitochondria generate ATP');
