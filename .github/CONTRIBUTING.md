@@ -76,7 +76,7 @@ mise exec -- bun run check
 
 Setup uses sudo for system packages, then installs the project toolchain, both locked
 dependency sets, and the pinned Playwright Chromium. Start Docker separately for the
-Testcontainers integration suite. For Linux release packaging, use
+provider integration suite. For Linux release packaging, use
 `PATCHELF="$PWD/target/mise/bin/patchelf"`. The devcontainer installs the same dependencies during
 its image build and workspace setup.
 
@@ -286,25 +286,30 @@ desktop permission, and shared runner tests. Server fixtures use Vitest lifecycl
 hooks to close resources before deleting SQLite files. Test-runner imports stay out
 of production modules.
 
-Run `bun run integrations:e2e` with Docker available to test a real Obsidian import.
-Bun installs the locked dependencies and runs the classified integration tests directly.
-Testcontainers builds the shared `apps/server/test/integrations/Dockerfile` once,
-including the pinned Obsidian release, and runs each provider case in
-a fresh container. Release downloads use bounded retries for transient HTTP failures
-and verify their pinned checksums. CI enables `DEBUG=testcontainers:build` so image
-build failures include the underlying command output. Obsidian uses Xvfb; its profile,
-synthetic vault and Study SQLite
-database stay inside the container. No host vault or profile is mounted. Teardown
-removes containers and volumes after successful and failed commands, verifies their
-removal and removes the test image. The Testcontainers resource reaper must remain
-enabled for cleanup after interrupted runs. Ordinary adapter tests do not launch
-Obsidian.
+Run `bun run integrations:e2e` with Docker available to run the real provider tests.
+The launcher prepares one shared disposable environment and invokes Vitest once.
+Ordinary `*.integration.test.ts` files under `apps/server/test/integrations/providers`
+report the behavior being checked, with native assertion failures, exit codes and JUnit
+results. Every provider's tests are discovered on every run; no matrix or shard is used.
 
-Adding a provider requires a matching `providers.json` fixture, a provider scenario,
-and an `integration-<provider>` install stage copied into the shared image. Oxlint
-enforces these together and forbids provider-specific Dockerfiles and container
-builders. The shared runner selects every registered fixture automatically. CI runs
-the same command in its required real-integration test job.
+Each test owns fresh application processes, profiles, vaults, a database and RPC server.
+Provider software and its pinned install remain in the shared
+`apps/server/test/integrations/Dockerfile`. Release downloads use bounded retries and
+verify checksums. The test environment has no network and mounts no host vault,
+credentials, dependencies or profile.
+
+The Bun launcher uses the Docker CLI directly. It collects native JUnit reports and
+failure logs, stops and removes the container and removes its image on success, failure
+and handled interruption. Setup output stays in
+`apps/server/test-results/integrations/setup.log`; normal console output shows the tests.
+Provider logs are retained for failed tests. CI uploads `apps/server/test-results/`,
+including `vitest/integrations.xml`. The launcher preserves the test exit code and fails
+if environment setup, report collection or cleanup fails.
+
+Adding a provider requires its executable in `providers.json`, ordinary
+`providers/<provider>/*.integration.test.ts` files and a matching installation stage in
+the shared image. Oxlint enforces the shared installation and test coverage. Keep
+infrastructure lifecycle tests in the normal server suite, separate from provider behavior.
 
 ### Release size reports
 

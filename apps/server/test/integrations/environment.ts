@@ -1,16 +1,14 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Builds the shared image and fresh disposable integration test containers.          │
+ * │ @file Prepares one disposable environment for ordinary provider integration tests.       │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Copies only authored source and removes temporary build inputs.                        │
+ * │ - Owns setup output, test execution, report collection and cleanup.                      │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Testcontainers owns cleanup and no host profile database or vault is mounted.            │
+ * │ Provider software runs without network or host profiles and credentials.                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
-
-import { GenericContainer, getContainerRuntimeClient } from 'testcontainers';
 
 import { fs, path, run } from './filesystem.ts';
 
@@ -79,77 +77,140 @@ export async function buildContext(
   }
 }
 
-export async function buildIntegrationImage() {
-  if (!process.versions.bun) throw new Error('Integration tests require the Bun runtime');
+/** Run the native provider suite once and retain its reports before disposing its environment. */
+export async function runIntegrationTests(
+  root = Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
+  signal?: AbortSignal
+) {
+  const reports = path.join(root, 'apps/server/test-results');
+  const diagnostics = path.join(reports, 'integrations');
 
-  if (process.env.TESTCONTAINERS_RYUK_DISABLED === 'true')
-    throw new Error('Integration tests require Testcontainers resource-reaper cleanup');
+  await run(fs.remove(diagnostics, { recursive: true, force: true }));
+  await run(fs.remove(path.join(reports, 'vitest/integrations.xml'), { force: true }));
+  await run(fs.makeDirectory(diagnostics, { recursive: true }));
+  const log = Bun.file(path.join(diagnostics, 'setup.log'));
 
-  const directory = await buildContext();
-  const imageName = `study-integrations-e2e:${crypto.randomUUID()}`;
-  let close: (() => Promise<void>) | undefined;
+  await Bun.write(log, '');
 
-  try {
-    const client = await getContainerRuntimeClient();
+  const docker = async (
+    args: string[],
+    options: { cwd?: string; visible?: boolean; signal?: AbortSignal; check?: boolean } = {}
+  ) => {
+    const child = Bun.spawn(['docker', ...args], {
+      cwd: options.cwd ?? root,
+      env: process.env,
+      stdin: 'ignore',
+      stdout: options.visible ? 'inherit' : 'pipe',
+      stderr: options.visible ? 'inherit' : 'pipe',
+      signal: options.signal ?? AbortSignal.timeout(30000)
+    });
+    const read = (stream: typeof child.stdout) =>
+      stream instanceof ReadableStream ? new Response(stream).text() : Promise.resolve('');
+    const [code, stdout, stderr] = await Promise.all([
+      child.exited,
+      read(child.stdout),
+      read(child.stderr)
+    ]);
 
-    close = async () => {
-      try {
-        await client.container.dockerode.getImage(imageName).remove({ force: true });
-      } catch (error) {
-        if (!notFound(error)) throw error;
-      }
-    };
-    const image = await GenericContainer.fromDockerfile(
-      directory,
-      'apps/server/test/integrations/Dockerfile'
-    ).build(imageName);
+    await Bun.write(log, `${await log.text()}$ docker ${args.join(' ')}\n${stdout}${stderr}\n`);
+    options.signal?.throwIfAborted();
 
-    return {
-      start: (provider: string, executable: string) =>
-        image
-          .withName(`study-integrations-${crypto.randomUUID()}`)
-          .withAutoCleanup(true)
-          .withAutoRemove(true)
-          .withNetworkMode('none')
-          .withTmpFs({ '/run/study-test': 'rw,nosuid,nodev,mode=1777,size=256m' })
-          .withSharedMemorySize(128 * 1024 * 1024)
-          .withEnvironment({
-            TMPDIR: '/run/study-test',
-            STUDY_INTEGRATION_PROVIDER: provider,
-            STUDY_INTEGRATION_EXECUTABLE: executable
-          })
-          .start(),
-      close
-    };
-  } catch (error) {
-    try {
-      await close?.();
-    } catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], 'Integration image build and cleanup failed');
-    }
+    if (code !== 0 && options.check !== false)
+      throw new Error(`Integration command failed (${args[0]}, exit ${code}). See ${log.name}`);
 
-    throw error;
-  } finally {
-    await run(fs.remove(directory, { recursive: true, force: true }));
-  }
-}
+    return stdout;
+  };
 
-export async function integrationContainerRemoved(id: string) {
-  const client = await getContainerRuntimeClient();
+  await using resources = new AsyncDisposableStack();
+  const directory = await buildContext(root);
 
-  try {
-    await client.container.inspect(client.container.getById(id));
+  resources.defer(() => run(fs.remove(directory, { recursive: true, force: true })));
+  const name = `study-integrations-${crypto.randomUUID()}`;
+  const image = `study-integrations-e2e:${crypto.randomUUID()}`;
+  const execution = signal
+    ? AbortSignal.any([signal, AbortSignal.timeout(900000)])
+    : AbortSignal.timeout(900000);
 
-    return false;
-  } catch (error) {
-    if (notFound(error)) return true;
+  resources.defer(async () => {
+    const existing = await docker(['images', '--quiet', '--filter', `reference=${image}`]);
 
-    throw error;
-  }
-}
+    if (existing.trim()) await docker(['rmi', '--force', image]);
+  });
 
-function notFound(error: unknown): boolean {
-  return (
-    typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 404
+  await docker(
+    [
+      'build',
+      '--load',
+      '--quiet',
+      '--file',
+      'apps/server/test/integrations/Dockerfile',
+      '--tag',
+      image,
+      '.'
+    ],
+    { cwd: directory, signal: execution }
   );
+  resources.defer(async () => {
+    const existing = await docker(['ps', '--all', '--quiet', '--filter', `name=^/${name}$`]);
+
+    if (existing.trim()) await docker(['rm', '--force', '--volumes', name]);
+  });
+
+  await docker(
+    [
+      'create',
+      '--name',
+      name,
+      '--init',
+      '--network',
+      'none',
+      '--tmpfs',
+      '/run/study-test:rw,nosuid,nodev,mode=1777,size=256m',
+      '--shm-size',
+      '128m',
+      '--env',
+      'TMPDIR=/run/study-test',
+      '--env',
+      'STUDY_INTEGRATION_ENVIRONMENT=true',
+      '--env',
+      'CI=true',
+      image,
+      'xvfb-run',
+      '-a',
+      'bun',
+      '--bun',
+      'vp',
+      'test',
+      'run',
+      '--config',
+      'apps/server/test/integrations/vite.config.ts'
+    ],
+    { signal: execution }
+  );
+  resources.defer(() =>
+    docker(['cp', `${name}:/workspace/apps/server/test-results/.`, reports]).then(() => {})
+  );
+  resources.defer(() => docker(['stop', '--time', '5', name]).then(() => {}));
+
+  // docker start attaches the runner's own output; inspect supplies its actual exit status.
+  await docker(['start', '--attach', name], { visible: true, signal: execution, check: false });
+  const output = await docker([
+    'inspect',
+    '--format',
+    '{{.State.Status}} {{.State.ExitCode}}',
+    name
+  ]);
+  const [status, value] = output.trim().split(/\s+/);
+  const code = Number(value);
+
+  if (
+    status !== 'exited' ||
+    value === undefined ||
+    !Number.isInteger(code) ||
+    code < 0 ||
+    code > 255
+  )
+    throw new Error(`Integration runner returned an invalid exit status. See ${log.name}`);
+
+  return code;
 }

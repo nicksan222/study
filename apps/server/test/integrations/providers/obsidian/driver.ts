@@ -81,8 +81,6 @@ async function renderer(port: number) {
   };
 }
 
-export { requireIntegrationContainer as requireObsidianContainer } from '#integration-tests/guard';
-
 export async function startObsidian(directory: string) {
   const executable = await requireIntegrationContainer('obsidian');
 

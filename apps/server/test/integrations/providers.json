@@ -1,6 +1,3 @@
 {
-  "obsidian": {
-    "scenario": "providers/obsidian/scenario.ts",
-    "executable": "/opt/obsidian/obsidian"
-  }
+  "obsidian": { "executable": "/opt/obsidian/obsidian" }
 }

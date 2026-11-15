@@ -106,7 +106,7 @@ jobs:
         uses: actions/checkout@v7
       - name: ♻️ Restore Turbo task cache
         uses: ./.github/actions/turbo-cache
-      - name: 🎭 Build and test the real app in the canonical devcontainer
+      - name: 🎭 Run browser tests
         uses: devcontainers/ci@v0.3
         with:
           push: never
@@ -150,16 +150,14 @@ jobs:
         uses: ./.github/actions/setup-javascript
         with:
           ignore-scripts: 'true'
-      - name: 🐳 Test every provider in a fresh container
-        env:
-          DEBUG: testcontainers:build
+      - name: 🧪 Run integration tests
         run: bun run integrations:e2e
       - name: 📎 Retain test reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: vitest-integrations-reports
-          path: '**/test-results/vitest/*.xml'
+          name: integrations-reports
+          path: apps/server/test-results/
           if-no-files-found: ignore
 
   landing:

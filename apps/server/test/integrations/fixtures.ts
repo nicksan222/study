@@ -1,19 +1,16 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Defines shared integration test infrastructure for disposable environments.        │
+ * │ @file Defines shared installation paths for every supported integration provider.        │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Keeps provider tests within the shared container lifecycle.                            │
+ * │ - Keeps executable locations aligned with adapters and image installation.               │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Real provider processes use isolated files and never host vaults or profiles.            │
+ * │ The manifest is test infrastructure and never reads host applications.                   │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
 import fixtures from './providers.json' with { type: 'json' };
 
-/** Installation paths and scenarios share one manifest checked against provider adapters by Oxlint. */
-export const integrationFixtures = fixtures as Record<
-  string,
-  { scenario: string; executable: string }
->;
+/** Installation paths share one manifest checked against provider adapters by Oxlint. */
+export const integrationFixtures = fixtures as Record<string, { executable: string }>;

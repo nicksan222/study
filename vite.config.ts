@@ -24,7 +24,11 @@ export default defineConfig({
             'packages/*/test/**/*.test.ts',
             'packages/*/src/**/*.test.ts'
           ],
-          exclude: ['packages/testing/**', 'packages/ui/**'],
+          exclude: [
+            'packages/testing/**',
+            'packages/ui/**',
+            'apps/server/test/integrations/providers/**'
+          ],
           setupFiles: ['./apps/server/test/testing/preload.ts'],
           pool: 'forks',
           testTimeout: 180000,

@@ -1,12 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Configures classified integration suites to run under Bun.                         │
+ * │ @file Configures native discovery and reporting for provider integration tests.          │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Discovers container and real provider scenario tests.                                  │
+ * │ - Discovers ordinary provider tests and writes their native JUnit report.                │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ The provider scenario runs only inside disposable containers.                            │
+ * │ This configuration runs once inside the disposable provider test environment.            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -15,19 +15,15 @@ import { defineConfig } from 'vite-plus';
 export default defineConfig({
   root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
   test: {
-    reporters: process.env.CI
-      ? [
-          'verbose',
-          ['junit', { outputFile: `${process.cwd()}/test-results/vitest/integrations.xml` }]
-        ]
-      : ['verbose'],
-    disableConsoleIntercept: true,
-    include: [
-      'apps/server/test/integrations/integrations.e2e.ts',
-      'apps/server/test/integrations/providers/**/scenario.ts'
+    name: 'integrations',
+    reporters: [
+      'verbose',
+      ['junit', { outputFile: 'apps/server/test-results/vitest/integrations.xml' }]
     ],
+    include: ['apps/server/test/integrations/providers/**/*.integration.test.ts'],
     pool: 'forks',
-    testTimeout: 180000,
-    hookTimeout: 900000
+    maxWorkers: 2,
+    testTimeout: 60000,
+    hookTimeout: 30000
   }
 });
