@@ -41,6 +41,91 @@ function create(title: string, text: string) {
   );
 }
 
+testStable(
+  'entity deletion scrubs owned metadata and annotation history atomically across reopen',
+  async () => {
+    const f = await pageTransformFixture();
+
+    try {
+      const saved = await Effect.runPromise(
+        Effect.gen(function* () {
+          const docs = yield* Pages;
+          const page = yield* create('PRIVATE_TITLE', 'First body');
+
+          assert.ok(page.version);
+          yield* docs.updateMetadata({
+            id: page.id,
+            title: page.title,
+            expectedTitle: page.title,
+            description: 'PRIVATE_DESCRIPTION',
+            expectedDescription: null
+          });
+          const annotation = yield* docs.createAnnotation({
+            target: target(page.version),
+            kind: 'note',
+            note: 'PRIVATE_ANNOTATION'
+          });
+
+          yield* docs.save({
+            pageId: page.id,
+            expectedVersionId: page.version.id,
+            key: 'new-version',
+            document: deletionDocument('Current body')
+          });
+          const history = { pageId: page.id, keepLatest: 1 };
+          const preview = yield* docs.previewHistory(history);
+
+          yield* docs.retireHistory({ ...history, token: preview.token });
+          assert.strictEqual(
+            f.context.db.orm.get(sql`SELECT count(*) n FROM page_annotation_revisions`)?.n,
+            1n
+          );
+          const deletion = yield* docs.previewDeletion({ id: page.id });
+
+          f.context.db.exec(
+            "CREATE TRIGGER reject_annotation_cleanup BEFORE DELETE ON page_annotation_revisions BEGIN SELECT RAISE(ABORT,'injected cleanup failure'); END"
+          );
+          yield* Effect.flip(docs.delete({ pageId: page.id, token: deletion.token }));
+          assert.strictEqual((yield* docs.page({ id: page.id })).title, 'PRIVATE_TITLE');
+          assert.strictEqual(
+            f.context.db.orm.get(sql`SELECT count(*) n FROM page_deletions`)?.n,
+            0n
+          );
+          f.context.db.exec('DROP TRIGGER reject_annotation_cleanup');
+          yield* docs.delete({ pageId: page.id, token: deletion.token });
+
+          return {
+            pageId: page.id,
+            versionId: page.version.id,
+            annotationId: annotation.annotation.id
+          };
+        }).pipe(Effect.provide(f.domain()))
+      );
+
+      await f.reopen();
+      const row = f.context.db.orm.get(
+        sql`SELECT title,description FROM pages WHERE id=${saved.pageId}`
+      );
+
+      assert.strictEqual(row?.title, '-');
+      assert.strictEqual(row?.description, null);
+      assert.strictEqual(
+        f.context.db.orm.get(sql`SELECT count(*) n FROM page_annotation_revisions`)?.n,
+        0n
+      );
+      assert.ok(
+        f.context.db.orm.get(sql`SELECT id FROM page_annotations WHERE id=${saved.annotationId}`)
+      );
+      assert.ok(
+        f.context.db.orm.get(sql`SELECT id FROM page_versions WHERE id=${saved.versionId}`)
+      );
+      expect(f.context.db.orm.all(sql`PRAGMA foreign_key_check`)).toStrictEqual([]);
+    } finally {
+      await f.close();
+    }
+  }
+);
+
 function target(version: PageVersion) {
   return {
     pageId: version.pageId,

@@ -25,7 +25,7 @@ import { pageTransformFixture } from '#testing/page-transform';
 
 for (const mode of ['history', 'delete'] as const)
   testStable(
-    `generated authored ${mode} retires bodies without reassigning receipts, erasing instructions or resurrecting captures`,
+    `generated authored ${mode} preserves receipt identities and scrubs instructions on entity deletion`,
     async () => {
       const f = await pageTransformFixture();
 
@@ -152,6 +152,10 @@ for (const mode of ['history', 'delete'] as const)
 
               expect(preview.versionIds).toStrictEqual([output.id]);
               yield* docs.retireHistory({ ...scope, token: preview.token });
+              assert.strictEqual(
+                (yield* docs.transform({ requestId: saved.request.id })).instruction,
+                'Retained authored generation instruction'
+              );
               assert.ok(
                 (yield* docs.version({ id: current.submittedVersionId })).document.blocks[0]
                   ?.text === 'Current authored body'
@@ -235,7 +239,9 @@ for (const mode of ['history', 'delete'] as const)
             const request = yield* docs.transform({ requestId: saved.request.id });
 
             assert.strictEqual(request.resultVersionId, resultId);
-            assert.ok(request.instruction === 'Retained authored generation instruction');
+            assert.strictEqual(request.instruction, '');
+            assert.strictEqual(request.title, '-');
+            assert.strictEqual(request.report, null);
           }).pipe(Effect.provide(f.services()))
         );
         const receipt = f.context.db.orm.select().from(s.page_generation_requests).get();
@@ -245,10 +251,13 @@ for (const mode of ['history', 'delete'] as const)
         assert.strictEqual(receipt.result_version_id, resultId);
         assert.ok(
           f.context.db.orm.get(sql`SELECT instruction FROM page_versions WHERE id=${resultId}`)
-            ?.instruction === 'Retained authored generation instruction'
+            ?.instruction === null
         );
 
         for (const mutation of [
+          sql`UPDATE page_transform_requests SET instruction='Restored private instruction' WHERE id=${saved.request.id}`,
+          sql`UPDATE page_transform_requests SET request=json_set(request,'$.title','Restored title') WHERE id=${saved.request.id}`,
+          sql`UPDATE page_transform_requests SET report='{"notes":[]}' WHERE id=${saved.request.id}`,
           sql`UPDATE page_generation_requests SET result_version_id=NULL`,
           sql`UPDATE page_generation_requests SET page_id=${saved.input.id}`,
           sql`DELETE FROM page_generation_requests`
