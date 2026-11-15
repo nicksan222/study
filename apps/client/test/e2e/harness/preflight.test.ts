@@ -2,6 +2,7 @@ import { testStable } from '@study/testing/vitest';
 import { expect } from 'vite-plus/test';
 
 import { workflowName } from './identity.ts';
+import { assertSnapshotComparison } from './preflight.ts';
 import { temporaryArtifacts } from './temporary.ts';
 
 async function fixture(titles: string[], suite = '') {
@@ -99,3 +100,16 @@ testStable.each(['--update-snapshots', '--ignore-snapshots'])(
     expect(await Bun.file(`${directory}/0.txt`).exists()).toBe(false);
   }
 );
+
+testStable('per-comparison policy rejects UI run overrides and ignored snapshots', () => {
+  expect(() => assertSnapshotComparison('none', false)).not.toThrow();
+
+  for (const mode of ['all', 'changed', 'missing', 'default'] as const)
+    expect(() => assertSnapshotComparison(mode, false)).toThrow(
+      'native snapshot overrides are forbidden'
+    );
+
+  expect(() => assertSnapshotComparison('none', true)).toThrow(
+    'native snapshot overrides are forbidden'
+  );
+});

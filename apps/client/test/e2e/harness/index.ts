@@ -48,6 +48,7 @@ export const testHarness = test.extend<Fixtures>({
       workflow,
       info.outputPath('captures'),
       'linux-x64-chromium',
+      info,
       true
     );
 

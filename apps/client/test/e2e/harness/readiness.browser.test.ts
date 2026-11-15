@@ -9,7 +9,13 @@ testHarness(
   async ({ page }, info) => {
     await page.setContent('<p>Loading</p>');
     const directory = info.outputPath('contract');
-    const screenshots = screenshotAssertions(page, 'readiness-contract', directory, 'contract');
+    const screenshots = screenshotAssertions(
+      page,
+      'readiness-contract',
+      directory,
+      'contract',
+      info
+    );
 
     await expect(
       screenshots.expectScreenshot('loading', {
@@ -34,7 +40,13 @@ testHarness('missing references fail without creating a baseline', async ({ page
   await page.setContent('<div style="width:100px;height:100px;background:black"></div>');
   const workflow = `missing-${crypto.randomUUID()}`;
   const reference = baselinePath('contract', workflow, 'layout');
-  const screenshots = screenshotAssertions(page, workflow, info.outputPath('contract'), 'contract');
+  const screenshots = screenshotAssertions(
+    page,
+    workflow,
+    info.outputPath('contract'),
+    'contract',
+    info
+  );
 
   await expect(
     screenshots.expectScreenshot('layout', {
