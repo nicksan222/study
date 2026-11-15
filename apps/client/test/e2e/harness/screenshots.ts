@@ -22,6 +22,8 @@ export type ExpectScreenshot = (
     center?: Locator;
     ready: () => Promise<void>;
     timeoutMs?: number;
+    /** Expected application zoom for journeys that exercise the appearance scale. */
+    zoomPercent?: number;
     /** Keep intentional focus snapshots; otherwise normalize only passive notebook entry focus. */
     focus?: 'preserve';
   }

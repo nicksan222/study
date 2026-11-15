@@ -325,7 +325,7 @@
   overflow-wrap: anywhere;
 }
 .ui-workspace-work-empty {
-  color: var(--muted-foreground);
+  color: var(--contrast-muted-foreground);
   font-size: 0.8125rem;
   margin: 0.625rem 0 0;
 }
