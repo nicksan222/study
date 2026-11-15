@@ -7,8 +7,8 @@
  * │ - Checks automatic answer opt out and obsolete version retirement.                       │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Tests use migrated SQLite and the real provider adapter against a local fixture          │
- * │ endpoint.                                                                                │
+ * │ Tests use migrated SQLite and typed model fixtures with isolated real workflow           │
+ * │ services.                                                                                │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -16,19 +16,20 @@ import { noteQuestionRequestedSchema } from '@study/contracts/events';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { workflowEvents } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing/ai-mock';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import type { Context } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
+import { questionAgent } from '#server/features/notes/agents/question';
 import { Notes } from '#server/features/notes/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
-import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model';
-import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
@@ -43,43 +44,7 @@ testStable(
     const location = await createTestDatabase();
     let context = new ServerContext(await location.open());
     let calls = 0;
-    let during: (() => Promise<void>) | undefined;
-    const peer = Bun.serve({
-      hostname: '127.0.0.1',
-      port: 0,
-      fetch: async (req) => {
-        let events = '';
-
-        await req.text();
-
-        calls++;
-        await during?.();
-        during = undefined;
-
-        for (const event of [
-          {
-            type: 'response.output_item.added',
-            output_index: 0,
-            item: { type: 'message', id: 'm' }
-          },
-          { type: 'response.output_text.delta', item_id: 'm', delta: '{"kind":"question"}' },
-          { type: 'response.completed', response: {} }
-        ])
-          events += `data: ${JSON.stringify(event)}\n\n`;
-
-        return new Response(events, { headers: { 'content-type': 'text/event-stream' } });
-      }
-    });
-
-    assert.ok(peer.port, 'missing address');
-    const base = peer.url.origin;
-    const auth = new AuthManager({ issuer: base, saveRefresh: async () => {} });
-
-    await auth.replace(
-      { subject: 'u', clientId: 'c', sharing: true, refreshToken: 'r' },
-      { accessToken: 'a', expiresIn: 3600 }
-    );
-    const model = createChatGptModel({ auth, modelId: 'test', baseUrl: base });
+    using mock = createAiMock();
     const domain = () =>
       Layer.merge(Notes.layer, Settings.layer).pipe(
         Layer.provideMerge(Layer.succeed(Database, { store: context }))
@@ -88,10 +53,12 @@ testStable(
       Layer.mergeAll(
         domain(),
         agentsLayer({
-          model: (tier) => {
+          model: (tier, call) => {
             expect(tier).toBe('tiny');
 
-            return Effect.succeed(model);
+            calls++;
+
+            return mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError));
           },
           language: 'english',
           rules: Effect.succeed(defaultAgentRules),
@@ -160,6 +127,10 @@ testStable(
       assert.ok(persisted);
       context.close();
       context = new ServerContext(await location.open());
+      mock.next(questionAgent, {
+        input: { text: 'Why do stars shine?' },
+        output: { kind: 'question' }
+      });
       await execute(eventFor(note.id), 'question-recovered');
       expect(calls).toBe(1);
       await execute(eventFor(note.id), 'question-recovered');
@@ -177,15 +148,23 @@ testStable(
       );
       const optout = await make();
 
-      during = () =>
-        run(
-          Effect.flatMap(Settings, (s) =>
-            Effect.flatMap(s.workspacePreferences(), (p) =>
-              s.saveWorkspacePreferences({ ...p, autoAnswerQuestions: false })
-            )
+      const optoutPlan = mock.next(questionAgent, {
+        input: { text: 'Why do stars shine?' },
+        output: { kind: 'question' },
+        hold: true
+      });
+      const optoutExecution = execute(eventFor(optout.id), 'question-optout');
+
+      await optoutPlan.called;
+      await run(
+        Effect.flatMap(Settings, (s) =>
+          Effect.flatMap(s.workspacePreferences(), (p) =>
+            s.saveWorkspacePreferences({ ...p, autoAnswerQuestions: false })
           )
-        ).then(() => {});
-      await execute(eventFor(optout.id), 'question-optout');
+        )
+      );
+      optoutPlan.release();
+      await optoutExecution;
       expect(
         (await run(Effect.flatMap(Notes, (c) => c.message(optout.id)))).question?.answerMessageId
       ).toBeUndefined();
@@ -244,8 +223,6 @@ testStable(
         (await run(Effect.flatMap(Notes, (c) => c.message(manual.id)))).question?.answerMessageId
       ).toBe(answered.question?.answerMessageId);
     } finally {
-      await auth.dispose();
-      await peer.stop(true);
       context.close();
       await location.cleanup();
     }

@@ -20,6 +20,7 @@ import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { createAiMock } from '@study/testing/ai-mock';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';
@@ -37,6 +38,7 @@ import {
 import { layer as agentsLayer } from '#server/platform/ai/agents';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { normalizeError } from '#server/platform/errors/classify-error';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
 import { cancelExecution } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
@@ -46,6 +48,7 @@ import { withTestAdmission } from '#testing/workflow-admission';
 import { materialGenerationWorkflow, materialGenerationHandler } from './generation.ts';
 
 testStable('rejects mismatched generation event before reaching a provider', async () => {
+  using mock = createAiMock();
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   const database = Layer.succeed(Database, { store: context });
@@ -58,7 +61,7 @@ testStable('rejects mismatched generation event before reaching a provider', asy
     workflowEngineLayer(context),
     Layer.succeed(WorkflowConfiguration, { revision: Effect.succeed('test') }),
     agentsLayer({
-      model: () => Effect.die('unexpected model'),
+      model: (tier, call) => mock.runtime.model(tier, call).pipe(Effect.mapError(normalizeError)),
       language: 'en',
       rules: Effect.succeed(defaultAgentRules),
       searchSources: () => Effect.succeed([])
