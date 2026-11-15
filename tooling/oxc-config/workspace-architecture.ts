@@ -29,6 +29,15 @@ export function dependencyIdentity(
   return issues;
 }
 
+function misplacedAiDependency(path: string, name: string): boolean {
+  if (path === 'apps/server') return false;
+
+  // Shared mocks implement the SDK protocol; real provider integrations remain server-owned.
+  if (path === 'packages/testing' && name === '@ai-sdk/provider') return false;
+
+  return name === 'ai' || name.startsWith('@ai-sdk/');
+}
+
 function dependencyIssues(
   path: string,
   section: string,
@@ -41,12 +50,7 @@ function dependencyIssues(
     if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
       issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
 
-    // Shared mocks implement the SDK protocol; real provider integrations remain server-owned.
-    if (
-      (name === 'ai' || name.startsWith('@ai-sdk/')) &&
-      path !== 'apps/server' &&
-      !(path === 'packages/testing' && name === '@ai-sdk/provider')
-    )
+    if (misplacedAiDependency(path, name))
       issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
 
     if (
