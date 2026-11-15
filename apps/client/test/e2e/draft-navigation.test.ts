@@ -77,12 +77,12 @@ testE2e(
       await page.getByRole('option', { name: scope.name, exact: true }).click();
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
-      await navigation.getByRole('link', { name: copy.Notes, exact: true }).click();
-      await page.getByRole('link', { name: scope.title, exact: true }).click();
+      await navigation.getByRole('link', { name: copy.Notes }).click();
+      await page.getByRole('link', { name: scope.title }).click();
     }
 
     async function visitOtherRoutes() {
-      await navigation.getByRole('link', { name: copy.SourcePage, exact: true }).click();
+      await navigation.getByRole('link', { name: copy.SourcePage }).click();
       await expect(page).toHaveURL(/\/pages$/);
       await page.getByRole('button', { name: copy.Settings, exact: true }).click();
       const dialog = page.getByRole('dialog', { name: copy.Settings });
@@ -108,7 +108,7 @@ testE2e(
       await expect(dialog).toBeHidden();
       await expect(picker).toHaveAccessibleName(scope.name);
       await expect(picker).toContainText(scope.name);
-      await navigation.getByRole('link', { name: copy.Notes, exact: true }).click();
+      await navigation.getByRole('link', { name: copy.Notes }).click();
       await expect(page).toHaveURL(/\/projects\/[^/]+\/notes$/);
       projects.set(scope.name, page.url().replace(/\/notes$/, ''));
       await expect(composer).toHaveValue('');
@@ -319,7 +319,7 @@ testE2e(
       await page.getByRole('option', { name: scope.name, exact: true }).click();
       await expect(page).toHaveURL(projects.get(scope.name)!);
       await expect(page.getByRole('heading', { name: scope.name, exact: true })).toBeVisible();
-      const members = page.getByRole('region', { name: copy.Notes, exact: true });
+      const members = page.getByRole('region', { name: copy.Notes });
 
       await expect(members.getByRole('link')).toHaveCount(1);
       await expect(members.getByRole('link')).toHaveAttribute(

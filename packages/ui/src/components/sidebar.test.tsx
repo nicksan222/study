@@ -373,3 +373,22 @@ testStable(
     }
   }
 );
+
+testStable('sidebar names include the visible navigation count and note metadata', () => {
+  render(
+    <>
+      <Sidebar.NavigationItem label="Pages" count={3}>
+        <svg aria-hidden="true" />
+      </Sidebar.NavigationItem>
+      <Sidebar.Item
+        label="Cell notes"
+        icon={<svg aria-hidden="true" />}
+        context="Biology"
+        description="Draft"
+      />
+    </>
+  );
+
+  expect(screen.getByRole('button', { name: 'Pages 3' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Biology Cell notes Draft' })).toBeInTheDocument();
+});

@@ -18,11 +18,7 @@
   background: var(--sidebar);
   color: var(--contrast-sidebar-foreground);
   --sidebar-label: var(--contrast-foreground);
-  --sidebar-supporting: color-mix(
-    in srgb,
-    var(--contrast-sidebar-muted-foreground) 80%,
-    transparent
-  );
+  --sidebar-supporting: var(--contrast-sidebar-muted-foreground);
   border-right: 1px solid var(--ui-divider-border);
 }
 .study-sidebar-header {

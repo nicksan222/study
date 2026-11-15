@@ -387,7 +387,6 @@ function NoteLink({
         timestamp={<NoteTime at={note.updatedAt} />}
         selection={selection.items?.some((item) => item.id === note.id)}
         description={settled ? undefined : <NoteProgress progress={progress} />}
-        aria-label={note.title}
         aria-current={selectedNote === String(note.id) ? 'page' : undefined}
         title={note.title}
         render={noteDestination(note, project, selection)}

@@ -85,7 +85,6 @@ export function PagesSidebar({
                     : age(locale, now - Number(item.updatedAt))}
                 </time>
               }
-              aria-label={item.title}
               aria-current={pageId === String(item.id) ? 'page' : undefined}
               title={item.title}
               render={

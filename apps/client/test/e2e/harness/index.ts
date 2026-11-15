@@ -47,7 +47,8 @@ export const testHarness = test.extend<Fixtures>({
       page,
       workflow,
       info.outputPath('captures'),
-      'linux-x64-chromium'
+      'linux-x64-chromium',
+      true
     );
 
     page.on('pageerror', (error) => failures.push(error));
@@ -96,7 +97,7 @@ export const testE2e = testHarness.extend<{
         body: JSON.stringify(result, null, 2),
         contentType: 'application/json'
       });
-      expect(result.violations).toEqual([]);
+      expect.soft(result.violations).toEqual([]);
     });
   },
   loseCreationResponse: async ({ journey }, provide) => provide(journey.loseCreationResponse),

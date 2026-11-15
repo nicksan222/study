@@ -573,17 +573,31 @@
   );
   --contrast-muted-foreground: color-mix(
     in oklab,
-    color-mix(in oklab, var(--muted-foreground) var(--appearance-contrast-base), var(--background)),
+    color-mix(
+      in oklab,
+      color-mix(in oklab, var(--muted-foreground) 60%, var(--foreground))
+        var(--appearance-contrast-base),
+      var(--background)
+    ),
     var(--appearance-contrast-target) var(--appearance-contrast-boost)
   );
   --contrast-placeholder: color-mix(
     in oklab,
-    color-mix(in oklab, var(--placeholder) var(--appearance-contrast-base), var(--background)),
+    color-mix(
+      in oklab,
+      color-mix(in oklab, var(--placeholder) 60%, var(--foreground)) var(--appearance-contrast-base),
+      var(--background)
+    ),
     var(--appearance-contrast-target) var(--appearance-contrast-boost)
   );
   --contrast-secondary-label: color-mix(
     in oklab,
-    color-mix(in oklab, var(--secondary-label) var(--appearance-contrast-base), var(--background)),
+    color-mix(
+      in oklab,
+      color-mix(in oklab, var(--secondary-label) 60%, var(--foreground))
+        var(--appearance-contrast-base),
+      var(--background)
+    ),
     var(--appearance-contrast-target) var(--appearance-contrast-boost)
   );
   --contrast-icon-muted: color-mix(
@@ -624,7 +638,8 @@
     in oklab,
     color-mix(
       in oklab,
-      var(--sidebar-muted-foreground) var(--appearance-contrast-base),
+      color-mix(in oklab, var(--sidebar-muted-foreground) 60%, var(--sidebar-foreground))
+        var(--appearance-contrast-base),
       var(--sidebar)
     ),
     var(--appearance-contrast-target) var(--appearance-contrast-boost)
