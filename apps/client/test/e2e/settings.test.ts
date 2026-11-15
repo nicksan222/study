@@ -2217,7 +2217,8 @@ testE2e(
       await expect(zoom).toHaveValue(String(value));
       await expect(zoom).toBeEnabled();
       await expectScreenshot(`zoom-boundary-${value}`, {
-        target: dialog,
+        // Preserve the real viewport when the zoomed dialog is larger than the screen.
+        target: 'viewport',
         zoomPercent: value,
         center: zoom,
         ready: () => expect(zoom).toHaveValue(String(value))
