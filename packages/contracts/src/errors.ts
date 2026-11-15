@@ -18,7 +18,7 @@ export type ErrorKind = typeof errorKindSchema.Type;
 
 export const failureSchema = Schema.Struct({
   kind: errorKindSchema,
-  resource: Schema.optional(Schema.Literal('ai_capacity')),
+  resource: Schema.optionalKey(Schema.Literal('ai_capacity')),
   message: Schema.String,
   retryAfterMs: Schema.NullOr(Schema.Number)
 });
@@ -28,7 +28,7 @@ export type Failure = typeof failureSchema.Type;
 export class StudyError extends Error {
   readonly kind: ErrorKind;
   readonly retryAfterMs: number | null;
-  readonly resource?: 'ai_capacity';
+  declare readonly resource?: 'ai_capacity';
 
   constructor(
     kind: ErrorKind,
@@ -36,7 +36,9 @@ export class StudyError extends Error {
     options?: { cause?: unknown; retryAfterMs?: number | null; resource?: 'ai_capacity' }
   ) {
     super(message, { cause: options?.cause });
-    this.resource = options?.resource;
+
+    if (options?.resource) this.resource = options.resource;
+
     this.name = 'StudyError';
     this.kind = kind;
     this.retryAfterMs = options?.retryAfterMs ?? null;
