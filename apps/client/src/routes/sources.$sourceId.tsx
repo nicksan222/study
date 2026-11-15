@@ -1,4 +1,4 @@
-import { sourceIdSchema } from '@study/contracts/ids';
+import { sourceIdSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { createFileRoute } from '@tanstack/react-router';
 import { Schema } from 'effect';

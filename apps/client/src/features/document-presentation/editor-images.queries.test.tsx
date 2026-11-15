@@ -1,5 +1,9 @@
-import { contentSnapshotIdSchema, projectIdSchema, sourceIdSchema } from '@study/contracts/ids';
-import { createBlock } from '@study/contracts/sources/document';
+import {
+  contentSnapshotIdSchema,
+  projectIdSchema,
+  sourceIdSchema,
+  createBlock
+} from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { createRef, useImperativeHandle } from 'react';

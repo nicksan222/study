@@ -11,15 +11,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { PageId } from '@study/contracts/ids';
-import * as e from '@study/contracts/pages/editing';
-import type * as r from '@study/contracts/pages/rpc';
-import * as c from '@study/contracts/pages/schemas';
-import type { Page, PageVersion } from '@study/contracts/pages/types';
-import { documentDifferences } from '@study/contracts/sources/document';
-import { blockIdSchema } from '@study/contracts/sources/schemas';
+import type { PageId } from '@study/contracts';
+import * as e from '@study/contracts';
+import type * as r from '@study/contracts';
+import * as c from '@study/contracts';
+import type { Page, PageVersion } from '@study/contracts';
+import { documentDifferences } from '@study/contracts';
+import { blockIdSchema } from '@study/contracts';
 import { and, desc, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema } from 'effect';
 

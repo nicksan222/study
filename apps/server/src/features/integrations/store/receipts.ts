@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { noteIdSchema, pageIdSchema } from '@study/contracts/ids';
-import { integrationImportIdSchema } from '@study/contracts/integrations/schemas';
+import { noteIdSchema, pageIdSchema } from '@study/contracts';
+import { integrationImportIdSchema } from '@study/contracts';
 import { eq } from '@study/db';
-import { integration_receipts } from '@study/db/schema';
+import { integration_receipts } from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

@@ -1,11 +1,15 @@
 import { RegistryContext, useAtomInitialValues, useAtomValue } from '@effect/atom-react';
-import { StudyError } from '@study/contracts/errors';
-import type { PageId, PageVersionId, ProjectId, NoteId } from '@study/contracts/ids';
-import type { createSchema, saveSchema } from '@study/contracts/pages/editing';
-import type { Page } from '@study/contracts/pages/types';
+import { StudyError, plainBlock, documentSchema } from '@study/contracts';
+import type {
+  PageId,
+  PageVersionId,
+  ProjectId,
+  NoteId,
+  createSchema,
+  saveSchema,
+  Page
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { plainBlock } from '@study/contracts/sources/document';
-import { documentSchema } from '@study/contracts/sources/schemas';
 import { Schema } from 'effect';
 import { Atom } from 'effect/reactivity';
 import type { AtomRegistry } from 'effect/reactivity';

@@ -15,9 +15,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sourceIdSchema } from '@study/contracts/ids';
-import { SourcesRpc } from '@study/contracts/sources/rpc';
-import { workflowEvents } from '@study/db/schema';
+import { sourceIdSchema } from '@study/contracts';
+import { SourcesRpc } from '@study/contracts';
+import { workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';

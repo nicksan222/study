@@ -13,11 +13,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { defaultAgentRules } from '@study/contracts/settings/types';
+import { defaultAgentRules } from '@study/contracts';
 import { eq } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
 import type { MessageStorage, Sharding } from 'effect/cluster';

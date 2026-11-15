@@ -1,5 +1,4 @@
-import { projectIdSchema } from '@study/contracts/ids';
-import { defaultAppearancePreferences } from '@study/contracts/settings/types';
+import { projectIdSchema, defaultAppearancePreferences } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { expect, vi } from 'vite-plus/test';

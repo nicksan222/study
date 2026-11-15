@@ -20,7 +20,7 @@ testStable(
       'apps/server/test/poll.test.ts': 'await Bun.sleep(50);',
       'apps/server/test/temp.test.ts': "import { $ } from 'bun'; await $`mktemp -d`;",
       'apps/server/test/good.test.ts':
-        "import { spawnTestProcess } from '@study/testing/process'; import { waitFor } from '@study/testing/vitest'; spawnTestProcess(['bun', 'server.ts']); await waitFor(() => true);",
+        "import { spawnTestProcess } from '@study/testing/vitest'; import { waitFor } from '@study/testing/vitest'; spawnTestProcess(['bun', 'server.ts']); await waitFor(() => true);",
       'apps/server/test/shadow.test.ts': "function check(Bun: any) { Bun.spawn(['fixture']); }",
       'tooling/testing/runner.ts': "Bun.spawn(['bun', 'runner.ts']);"
     });

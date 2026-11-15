@@ -1,7 +1,8 @@
 import { Toast as ToastPrimitive } from '@base-ui/react/toast';
 import { ErrorIcon, SuccessIcon, InfoIcon, CloseIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
 import type { ComponentProps, ReactNode } from 'react';
+
+import { Button } from './button.tsx';
 
 export const toastManager = ToastPrimitive.createToastManager();
 

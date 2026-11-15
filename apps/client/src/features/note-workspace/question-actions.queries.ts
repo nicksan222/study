@@ -1,8 +1,6 @@
-import { isRetryable } from '@study/contracts/errors';
-import type { VersionId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import { isRetryable } from '@study/contracts';
+import type { VersionId, ChatMessage, executionSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { executionSchema } from '@study/contracts/workflows/schemas';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';
 import { toStudyError } from '#client/lib/study-client/errors.ts';

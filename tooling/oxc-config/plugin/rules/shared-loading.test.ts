@@ -10,8 +10,8 @@ async function lint(source: string, path = 'apps/client/src/features/example/exa
 testStable('allows component loading indicators and isLoading usage', async () => {
   expect(
     await lint(`
-    import { Loading as Wait } from '@study/ui/loading';
-    import { Spinner } from '@study/ui/spinner';
+    import { Loading as Wait } from '@study/ui';
+    import { Spinner } from '@study/ui';
     export function Preview({ query, saving }) {
       if (query.isLoading) return <Wait label="Loading" />;
       return <button disabled={saving}>{saving && <Spinner label="Saving" />}</button>;
@@ -24,7 +24,7 @@ testStable('rejects initial page loading returns including imported aliases', as
   assert.strictEqual(
     (
       await lint(`
-    import { Loading as Wait } from '@study/ui/loading';
+    import { Loading as Wait } from '@study/ui';
     export function LibraryPage({ query }) {
       if (query.isLoading) return <section><Wait label="Loading" /></section>;
       return <Content />;

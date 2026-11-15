@@ -14,14 +14,14 @@ import {
   integrationImportIdSchema,
   integrationImportSchema,
   integrationPlanSchema
-} from '@study/contracts/integrations/schemas';
+} from '@study/contracts';
 import { desc, eq } from '@study/db';
 import {
   integration_imports,
   integration_import_notes,
   integration_import_files,
   projects
-} from '@study/db/schema';
+} from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

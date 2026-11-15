@@ -1,10 +1,7 @@
-import { AgentRule, maxAgentRuleLength } from '@study/contracts/settings/schemas';
-import type { AgentRuleKey } from '@study/contracts/settings/schemas';
+import { AgentRule, maxAgentRuleLength } from '@study/contracts';
+import type { AgentRuleKey } from '@study/contracts';
 import type { StaticMessageKey } from '@study/localization';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Loading } from '@study/ui/loading';
-import { Settings } from '@study/ui/settings';
+import { RetryButton, Button, Loading, Settings } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

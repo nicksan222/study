@@ -1,4 +1,4 @@
-import { Button } from '@study/ui/button';
+import { Button } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 
 import type { AiReadiness } from '#client/lib/ai-readiness.ts';

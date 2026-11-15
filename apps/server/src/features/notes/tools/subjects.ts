@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import * as inputs from '@study/contracts/projects/rpc';
-import { projectSchema } from '@study/contracts/projects/schemas';
+import * as inputs from '@study/contracts';
+import { projectSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Projects } from '#server/features/projects/index';

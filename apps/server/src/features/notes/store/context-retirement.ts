@@ -14,7 +14,7 @@
  */
 
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

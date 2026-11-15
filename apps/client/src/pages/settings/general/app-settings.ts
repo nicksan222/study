@@ -1,5 +1,5 @@
+import type { AppSettings } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { AppSettings } from '@study/contracts/settings/types';
 import { useState } from 'react';
 
 type AppSettingsPatch = Partial<

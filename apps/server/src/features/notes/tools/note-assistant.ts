@@ -11,15 +11,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { messageIdSchema, sourceIdSchema, versionIdSchema } from '@study/contracts/ids';
-import type { NoteId } from '@study/contracts/ids';
-import * as r from '@study/contracts/notes/rpc';
-import { chatMessageSchema } from '@study/contracts/notes/schemas';
-import * as e from '@study/contracts/pages/editing';
-import * as d from '@study/contracts/pages/rpc';
-import * as ds from '@study/contracts/pages/schemas';
-import * as sources from '@study/contracts/sources/rpc';
-import { documentSchema } from '@study/contracts/sources/schemas';
+import { messageIdSchema, sourceIdSchema, versionIdSchema } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
+import * as r from '@study/contracts';
+import { chatMessageSchema } from '@study/contracts';
+import * as e from '@study/contracts';
+import * as d from '@study/contracts';
+import * as ds from '@study/contracts';
+import * as sources from '@study/contracts';
+import { documentSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';

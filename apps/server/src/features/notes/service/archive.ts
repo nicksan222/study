@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { NoteId } from '@study/contracts/ids';
-import type { ArchivedNoteItem } from '@study/contracts/notes/archive';
+import type { NoteId } from '@study/contracts';
+import type { ArchivedNoteItem } from '@study/contracts';
 
 import { NoteArchiveStore } from '#server/features/notes/store/archive';
 import type { Transaction } from '#server/platform/definitions/define-store';

@@ -1,6 +1,5 @@
-import type { projectSchema } from '@study/contracts/projects/schemas';
-import { Sidebar } from '@study/ui/sidebar';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import type { projectSchema } from '@study/contracts';
+import { Sidebar, WorkspaceSurface } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

@@ -12,27 +12,18 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import type {
-  MaterialId,
-  MaterialVersionId,
-  QuizChoiceId,
-  QuizQuestionId
-} from '@study/contracts/ids';
-import { isTextQuestionKind } from '@study/contracts/materials/schemas';
-import {
-  materialCreatorSchema,
-  materialKindSchema,
-  materialSummarySchema
-} from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import { materialVersionIdSchema } from '@study/contracts';
+import type { MaterialId, MaterialVersionId, QuizChoiceId, QuizQuestionId } from '@study/contracts';
+import { isTextQuestionKind } from '@study/contracts';
+import { materialCreatorSchema, materialKindSchema, materialSummarySchema } from '@study/contracts';
 import type {
   MaterialDetailDto,
   MaterialSummaryDto,
   MaterialVersionDetailDto
-} from '@study/contracts/materials/schemas';
+} from '@study/contracts';
 import { eq, and, asc, desc, sql, inArray } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

@@ -1,8 +1,7 @@
-import type { ProjectId } from '@study/contracts/ids';
+import { Appearance } from '@study/contracts';
+import type { ProjectId, AppearancePreferences } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { AppearancePreferences } from '@study/contracts/settings/types';
-import { Appearance } from '@study/contracts/settings/types';
-import type { Appearance as AppearanceMode } from '@study/ui/theme';
+import type { Appearance as AppearanceMode } from '@study/ui';
 import { useNavigate, useSearch } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 

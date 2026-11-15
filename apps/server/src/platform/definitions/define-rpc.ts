@@ -14,9 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { Failure } from '@study/contracts/errors';
-import { EndpointPolicy } from '@study/contracts/protocol';
+import { StudyError } from '@study/contracts';
+import type { Failure } from '@study/contracts';
+import { EndpointPolicy } from '@study/contracts';
 import { Context, Effect, Stream, Queue } from 'effect';
 import type { Layer, Scope } from 'effect';
 import type { RpcGroup } from 'effect/rpc';

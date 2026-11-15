@@ -1,6 +1,6 @@
-import { automaticProjectIcon, projectInitials } from '@study/contracts/projects/schemas';
-import type { ProjectIcon } from '@study/contracts/projects/schemas';
-import { Identity } from '@study/ui/identity';
+import { automaticProjectIcon, projectInitials } from '@study/contracts';
+import type { ProjectIcon } from '@study/contracts';
+import { Identity } from '@study/ui';
 
 import { subjectSymbols } from './subject-icon-options';
 

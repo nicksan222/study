@@ -1,9 +1,13 @@
-import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogFooter } from '@study/ui/dialog';
-import { DialogDismissButton } from '@study/ui/dialog-form-actions';
-import { DialogHeading } from '@study/ui/dialog-heading';
-import { Notebook } from '@study/ui/note-workspace';
-import { WorkspaceSurface } from '@study/ui/workspace';
+import {
+  Button,
+  Dialog,
+  DialogPopup,
+  DialogFooter,
+  DialogDismissButton,
+  DialogHeading,
+  Notebook,
+  WorkspaceSurface
+} from '@study/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 

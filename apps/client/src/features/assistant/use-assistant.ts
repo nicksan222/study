@@ -1,7 +1,5 @@
-import type { NoteId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { NoteId, ChatMessage, executionSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { executionSchema } from '@study/contracts/workflows/schemas';
 import { useEffect } from 'react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';

@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { ThemesRpc } from '@study/contracts/themes/rpc';
+import { ThemesRpc } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';

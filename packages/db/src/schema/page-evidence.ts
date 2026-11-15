@@ -7,7 +7,7 @@ import type {
   VersionId,
   NoteId,
   PageAnnotationId
-} from '@study/contracts/ids';
+} from '@study/contracts';
 
 import { requiredIdReference } from '../columns.ts';
 import {

@@ -1,5 +1,5 @@
-import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
-import { Button } from '@study/ui/button';
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import { Button } from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

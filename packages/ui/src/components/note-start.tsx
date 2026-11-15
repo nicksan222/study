@@ -1,8 +1,8 @@
-import { ComposerSurface } from '@study/ui/composer';
-import { WorkspaceSurface } from '@study/ui/workspace';
 import type { ComponentProps } from 'react';
 
 import { ActionGroup } from './action-group';
+import { ComposerSurface } from './composer.tsx';
+import { WorkspaceSurface } from './workspace.tsx';
 
 function Root(props: Omit<ComponentProps<typeof WorkspaceSurface.Root>, 'variant' | 'className'>) {
   return <WorkspaceSurface.Root {...props} variant="welcome" className="note-start" />;

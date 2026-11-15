@@ -15,7 +15,7 @@ The native shell owns windows, devices, and the private server process. Native E
    event. A missed event must not lose work.
 4. **No stringly-typed contracts.** No raw `i64` IDs across crate boundaries, no unchecked workflow payloads or stringly typed operation inputs, and no matching on error text.
 5. **Log Rust with `tracing`.** Don't print. Native libraries return typed errors;
-   TypeScript domain failures use `StudyError` and `ErrorKind` from `@study/contracts/errors`.
+   TypeScript domain failures use `StudyError` and `ErrorKind` from `@study/contracts`.
 6. **All user-visible text comes from `@study/localization`**, in English and Italian.
 7. **Model work runs on the user's ChatGPT plan**, using AI SDK in `apps/server/src/platform/ai`.
    Feature-owned agents, tools and workflows live under `apps/server/src/features`. Shared provider

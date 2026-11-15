@@ -1,8 +1,7 @@
 import { RegistryContext } from '@effect/atom-react';
-import { noteIdSchema } from '@study/contracts/ids';
+import { noteIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { AttachmentPreview } from '@study/ui/attachment-preview';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import { AttachmentPreview, WorkspaceDeskSurface as Desk } from '@study/ui';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { AtomRegistry } from 'effect/reactivity';
 import { afterEach, expect, vi } from 'vite-plus/test';

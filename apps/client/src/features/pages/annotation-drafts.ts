@@ -1,9 +1,11 @@
-import type { PageId, PageAnnotationId, PageVersionId } from '@study/contracts/ids';
 import type {
+  PageId,
+  PageAnnotationId,
+  PageVersionId,
   annotationOutcomeSchema,
   createAnnotationSchema,
   rangeSchema
-} from '@study/contracts/pages/evidence';
+} from '@study/contracts';
 import { Atom } from 'effect/reactivity';
 
 import type { Annotation, AnnotationDraft } from './annotation-state';

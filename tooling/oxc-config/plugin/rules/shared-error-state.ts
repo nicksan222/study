@@ -9,7 +9,7 @@
  * │ check of recognized flags/statuses, not exhaustive error-flow analysis.                  │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   import { ErrorState } from '@study/ui/error-state';                                    │
+ * │   import { ErrorState } from '@study/ui';                                                │
  * │   const view = error && <ErrorState title={t('Failure')} />;                             │
  * │                                                                                          │
  * │ Rejected:                                                                                │
@@ -119,7 +119,7 @@ export default defineRule({
     const sidebars = new Set<ESTree.Node>();
     const sidebarNamespaces = new Set<ESTree.Node>();
     const message =
-      'Render ErrorState from @study/ui/error-state for error feedback; keep recovery actions inside the shared presentation.';
+      'Render ErrorState from @study/ui for error feedback; keep recovery actions inside the shared presentation.';
 
     function canonical(node: ESTree.JSXElement): boolean {
       const name = node.openingElement.name;
@@ -256,20 +256,15 @@ export default defineRule({
       ImportDeclaration(node) {
         if (node.importKind === 'type') return;
 
-        switch (node.source.value) {
-          case '@study/ui/sidebar':
-            recordImports(node, 'Sidebar', sidebars, sidebarNamespaces);
-            break;
-          case '@study/ui/button':
-            recordImports(node, 'Button', buttons);
-            break;
-          case '@study/ui/error-state':
-            recordImports(node, 'ErrorState', errorStates, errorNamespaces);
+        if (node.source.value !== '@study/ui') return;
 
-            for (const specifier of errorStates) imports.set(specifier, 'ErrorState');
+        recordImports(node, 'Sidebar', sidebars, sidebarNamespaces);
+        recordImports(node, 'Button', buttons);
+        recordImports(node, 'ErrorState', errorStates, errorNamespaces);
 
-            for (const specifier of errorNamespaces) imports.set(specifier, '*');
-        }
+        for (const specifier of errorStates) imports.set(specifier, 'ErrorState');
+
+        for (const specifier of errorNamespaces) imports.set(specifier, '*');
       },
       JSXElement(node) {
         const role = attributes(node, 'role');

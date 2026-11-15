@@ -1,4 +1,4 @@
-import type { materialQuestionInputSchema } from '@study/contracts/materials/schemas';
+import type { materialQuestionInputSchema } from '@study/contracts';
 
 type Question = typeof materialQuestionInputSchema.Type;
 

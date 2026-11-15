@@ -14,12 +14,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { workflowEventSchema } from '@study/contracts/events';
-import type { WorkflowEvent } from '@study/contracts/events';
+import { StudyError } from '@study/contracts';
+import { workflowEventSchema } from '@study/contracts';
+import type { WorkflowEvent } from '@study/contracts';
 import type { Db, DbTransaction } from '@study/db';
 import { and, eq, inArray, sql } from '@study/db';
-import { workflowEvents, workflow_retired_correlations } from '@study/db/schema';
+import { workflowEvents, workflow_retired_correlations } from '@study/db';
 import { Schema } from 'effect';
 
 import type { ServerTransactionContext } from '#server/platform/database/context';

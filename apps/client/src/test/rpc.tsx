@@ -1,9 +1,8 @@
-import { StudyError } from '@study/contracts/errors';
-import { EndpointPolicy } from '@study/contracts/protocol';
+import { StudyError, EndpointPolicy } from '@study/contracts';
+import type { StudyRpc } from '@study/contracts';
 /** Controlled, schema-validated protocol streams for component product tests. */
 import { RpcProvider, configureRpcTransport } from '@study/contracts/react';
 import type { ProtocolTransport } from '@study/contracts/react';
-import type { StudyRpc } from '@study/contracts/rpc';
 import { Context, Effect, Option, Queue, Result, Schema, Stream } from 'effect';
 import type { AtomRegistry } from 'effect/reactivity';
 import { RpcSchema } from 'effect/rpc';

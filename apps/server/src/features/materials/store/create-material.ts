@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialDetailDto } from '@study/contracts/materials/schemas';
-import { createMaterialInputSchema } from '@study/contracts/materials/schemas';
-import * as s from '@study/db/schema';
+import type { MaterialDetailDto } from '@study/contracts';
+import { createMaterialInputSchema } from '@study/contracts';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { required, makeReads } from '#server/features/materials/store/reads';

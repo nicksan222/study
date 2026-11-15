@@ -1,4 +1,4 @@
-import type { ChunkId } from '@study/contracts/ids';
+import type { ChunkId } from '@study/contracts';
 
 import { contentSnapshotReference } from '../columns.ts';
 import {

@@ -1,10 +1,4 @@
-import type {
-  PageId,
-  PageVersionId,
-  ContentSnapshotId,
-  NoteId,
-  ProjectId
-} from '@study/contracts/ids';
+import type { PageId, PageVersionId, ContentSnapshotId, NoteId, ProjectId } from '@study/contracts';
 
 import {
   defineTable,

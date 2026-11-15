@@ -9,7 +9,7 @@
  * │                                                                                          │
  * │ Allowed:                                                                                 │
  * │   // example.test.ts                                                                     │
- * │   import { spawnTestProcess } from '@study/testing/process';                             │
+ * │   import { spawnTestProcess } from '@study/testing/vitest';                              │
  * │   spawnTestProcess(['bun', 'server.ts']);                                                │
  * │                                                                                          │
  * │ Rejected:                                                                                │
@@ -70,7 +70,7 @@ export default defineRule({
   meta: {
     type: 'problem',
     messages: {
-      resource: 'Use @study/testing/process and @study/testing/resources for owned test resources.',
+      resource: 'Use @study/testing/vitest for process and resource test helpers.',
       polling:
         'Use native waitFor or expect.poll through the shared testing policy, not sleep loops.',
       policy:

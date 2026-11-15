@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { Block, Document } from '@study/contracts/sources/document';
+import { StudyError } from '@study/contracts';
+import type { Block, Document } from '@study/contracts';
 
 export const DEFAULT_MAX_BYTES = 32 * 1024 * 1024;
 

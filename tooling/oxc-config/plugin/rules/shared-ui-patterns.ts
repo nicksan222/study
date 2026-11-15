@@ -9,11 +9,11 @@
  * │ free.                                                                                    │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   import { RetryButton } from '@study/ui/action-button';                                 │
+ * │   import { RetryButton } from '@study/ui';                                               │
  * │   const view = <RetryButton label={t('Retry')} onClick={retry} />;                       │
  * │                                                                                          │
  * │ Rejected:                                                                                │
- * │   import { Button } from '@study/ui/button';                                             │
+ * │   import { Button } from '@study/ui';                                                    │
  * │   const view = <Button onClick={retry}>{t('Retry')}</Button>;                            │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
@@ -33,15 +33,15 @@ const selectionParts: Record<string, string> = {
 };
 
 const settingRows: Record<string, string> = {
-  '@study/ui/switch-control:SwitchControl': 'ToggleRow',
-  '@study/ui/select-control:SelectControl': 'SelectRow',
-  '@study/ui/number-control:NumberControl': 'NumberRow',
-  '@study/ui/range-control:RangeControl': 'RangeRow'
+  '@study/ui:SwitchControl': 'ToggleRow',
+  '@study/ui:SelectControl': 'SelectRow',
+  '@study/ui:NumberControl': 'NumberRow',
+  '@study/ui:RangeControl': 'RangeRow'
 };
 
 const dialogParts: Record<string, string> = {
-  '@study/ui/dialog:DialogClose': 'DialogDismissButton from @study/ui/dialog-form-actions',
-  '@study/ui/dialog:DialogHeader': 'DialogHeading from @study/ui/dialog-heading'
+  '@study/ui:DialogClose': 'DialogDismissButton from @study/ui',
+  '@study/ui:DialogHeader': 'DialogHeading from @study/ui'
 };
 
 type Name = ESTree.JSXElement['openingElement']['name'];
@@ -92,22 +92,22 @@ function nativePattern(
   tag: string,
   identify: Identify
 ): string | undefined {
-  if (tag === 'details') return 'Disclosure from @study/ui/disclosure for expandable sections';
+  if (tag === 'details') return 'Disclosure from @study/ui for expandable sections';
 
   if (tag === 'p' && literal(node, 'role') === 'status')
-    return 'StatusMessage from @study/ui/status-message for operation feedback';
+    return 'StatusMessage from @study/ui for operation feedback';
 
   if (
     tag === 'label' &&
     childNames(node, identify).some((name) =>
-      ['@study/ui/input:Input', '@study/ui/textarea:Textarea'].includes(name)
+      ['@study/ui:Input', '@study/ui:Textarea'].includes(name)
     )
   )
-    return 'Field from @study/ui/field for labelled text controls';
+    return 'Field from @study/ui for labelled text controls';
 }
 
 function selectionPattern(node: ESTree.JSXElement, tag: string): string | undefined {
-  const prefix = '@study/ui/selection:SelectionSurface.';
+  const prefix = '@study/ui:SelectionSurface.';
 
   if (!tag.startsWith(prefix)) return;
 
@@ -127,7 +127,7 @@ function settingsPattern(
   tag: string,
   identify: Identify
 ): string | undefined {
-  if (tag !== '@study/ui/settings:Settings.Row') return;
+  if (tag !== '@study/ui:Settings.Row') return;
 
   const children = childNames(node, identify);
   const row = children.length === 1 ? settingRows[children[0]] : undefined;
@@ -139,7 +139,7 @@ function buttonPattern(node: ESTree.JSXElement, identify: Identify): string | un
   const size = literal(node, 'size');
 
   if (typeof size === 'string' && size.startsWith('icon') && attribute(node, 'aria-label'))
-    return 'IconButton from @study/ui/icon-button for labelled icon actions';
+    return 'IconButton from @study/ui for labelled icon actions';
 
   const children = content(node);
 
@@ -149,13 +149,11 @@ function buttonPattern(node: ESTree.JSXElement, identify: Identify): string | un
       ['@study/icons:BackIcon', '@study/icons:NextIcon'].includes(name)
     )
   )
-    return 'PreviousButton or NextButton from @study/ui/navigation-button for directional actions';
+    return 'PreviousButton or NextButton from @study/ui for directional actions';
 
   const key = children.length === 1 ? translation(children[0]) : undefined;
 
-  return key && actions[key]
-    ? `${actions[key]} from @study/ui/action-button for this shared action`
-    : undefined;
+  return key && actions[key] ? `${actions[key]} from @study/ui for this shared action` : undefined;
 }
 
 /** Binding-aware checks enforce UI scaffolding without constraining document prose or custom controls. */
@@ -197,7 +195,7 @@ export default defineRule({
           nativePattern(node, tag, identify) ??
           selectionPattern(node, tag) ??
           settingsPattern(node, tag, identify) ??
-          (tag === '@study/ui/button:Button' ? buttonPattern(node, identify) : undefined);
+          (tag === '@study/ui:Button' ? buttonPattern(node, identify) : undefined);
 
         if (pattern) context.report({ node: node.openingElement, message: `Use ${pattern}.` });
       }

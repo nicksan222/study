@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { transaction } from '#server/platform/definitions/define-store';

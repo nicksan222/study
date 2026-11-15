@@ -1,6 +1,5 @@
-import { agentRulesSchema } from '@study/contracts/settings/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import type { AgentRules } from '@study/contracts/settings/types';
+import { agentRulesSchema, defaultAgentRules } from '@study/contracts';
+import type { AgentRules } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

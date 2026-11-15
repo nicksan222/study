@@ -11,7 +11,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ContentInput } from '@study/contracts/inputs';
+import type { ContentInput } from '@study/contracts';
 
 export function contentInputColumns(input: ContentInput) {
   return input.kind === 'page'

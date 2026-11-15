@@ -1,6 +1,5 @@
+import type { ModelTier, TierSetup } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { ModelTier } from '@study/contracts/settings/schemas';
-import type { TierSetup } from '@study/contracts/settings/types';
 import { useState } from 'react';
 
 import type { AiConfiguration } from '#client/lib/study-client/ai-settings.ts';

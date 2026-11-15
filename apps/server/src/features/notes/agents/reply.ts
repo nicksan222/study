@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { replyInputSchema, replyOutputSchema } from '@study/contracts/ai/reply';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { replyInputSchema, replyOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { sourcesTool } from '#server/platform/ai/captured-sources-tool';
 import { webSearchTool } from '#server/platform/ai/web-search-tool';

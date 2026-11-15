@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import * as t from '@study/contracts/pages/transform';
+import { StudyError } from '@study/contracts';
+import { noteIdSchema } from '@study/contracts';
+import * as t from '@study/contracts';
 import { and, eq, lt, desc, inArray, or } from '@study/db';
-import { page_transform_requests as requests } from '@study/db/schema';
+import { page_transform_requests as requests } from '@study/db';
 import { Schema, Option } from 'effect';
 
 import { intentHash } from '#server/features/pages/decoders/intent';

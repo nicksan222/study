@@ -1,6 +1,6 @@
-import { projectSchema } from '@study/contracts/projects/schemas';
+import { projectSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
-import { Sidebar } from '@study/ui/sidebar';
+import { Sidebar } from '@study/ui';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Schema } from 'effect';

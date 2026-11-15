@@ -1,13 +1,13 @@
 import { RegistryContext } from '@effect/atom-react';
-import { rpc } from '@study/contracts/react';
+import { MAX_MANAGED_BACKUPS } from '@study/contracts';
 import type {
   BackupId,
   BackupManifest,
   RestorePreview,
   acceptRestoreSchema,
   restoreStatusSchema
-} from '@study/contracts/system/backups';
-import { MAX_MANAGED_BACKUPS } from '@study/contracts/system/backups';
+} from '@study/contracts';
+import { rpc } from '@study/contracts/react';
 import type { AtomRegistry } from 'effect/reactivity';
 import { useContext, useEffect, useSyncExternalStore } from 'react';
 

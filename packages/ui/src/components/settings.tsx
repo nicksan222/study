@@ -1,10 +1,10 @@
 import { CloseIcon, DisclosureIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Dialog, DialogPopup, DialogTitle, DialogClose } from '@study/ui/dialog';
-import { cn } from '@study/ui/utils';
 import { useEffect, useRef } from 'react';
 import type { ReactNode, KeyboardEvent } from 'react';
 
+import { cn } from '../utils.ts';
+import { Button } from './button.tsx';
+import { Dialog, DialogPopup, DialogTitle, DialogClose } from './dialog.tsx';
 import { SearchField } from './search-field';
 import { semanticPart } from './semantic-part';
 import { ToggleRow, SelectRow, NumberRow, RangeRow, TextareaRow } from './settings-controls';

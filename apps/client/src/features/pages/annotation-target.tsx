@@ -1,15 +1,16 @@
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import type { annotationTargetSchema } from '@study/contracts/pages/evidence';
+import { validBlockTextRange } from '@study/contracts';
+import type { PageId, PageVersionId, annotationTargetSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { validBlockTextRange } from '@study/contracts/sources/document';
-import { Button } from '@study/ui/button';
-import { Disclosure } from '@study/ui/disclosure';
-import { ErrorState } from '@study/ui/error-state';
-import { EvidenceExcerpt } from '@study/ui/evidence-target';
-import { Field } from '@study/ui/field';
-import { Loading } from '@study/ui/loading';
-import { SelectControl } from '@study/ui/select-control';
-import { Textarea } from '@study/ui/textarea';
+import {
+  Button,
+  Disclosure,
+  ErrorState,
+  EvidenceExcerpt,
+  Field,
+  Loading,
+  SelectControl,
+  Textarea
+} from '@study/ui';
 import { useState } from 'react';
 
 import {

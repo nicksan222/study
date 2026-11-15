@@ -1,9 +1,6 @@
 /** Independent capabilities keep provider code separate from Study's execution and storage. */
-import type {
-  integrationInputSchema,
-  integrationPlanSchema
-} from '@study/contracts/integrations/schemas';
-import type { Document } from '@study/contracts/sources/document';
+import type { integrationInputSchema, integrationPlanSchema } from '@study/contracts';
+import type { Document } from '@study/contracts';
 
 export type ImportCapability = {
   plan(input: typeof integrationInputSchema.Type): typeof integrationPlanSchema.Type;

@@ -1,5 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import type { NoteId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { NoteId } from '@study/contracts';
 import { Atom } from 'effect/reactivity';
 
 import { captureContext, transformPage } from './note-workspace.queries';

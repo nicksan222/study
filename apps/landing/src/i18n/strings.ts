@@ -3,7 +3,7 @@
 // The landing's sections keep their copy in landing/<section>.ts, spread in here so `t(lang)`
 // stays the one way in; nav, meta, footer and the docs' chrome stay in this file.
 
-import { landingCopy } from '@study/localization/landing';
+import { landingCopy } from '@study/localization';
 
 import * as download from './landing/download';
 import * as hero from './landing/hero';

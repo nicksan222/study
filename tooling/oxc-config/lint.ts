@@ -127,6 +127,7 @@ export const lint = {
     'study/server-file-description': 'error',
     'study/lint-rule-description': 'error',
     'study/server-no-mocks': 'error',
+    'study/package-root-exports': 'error',
     'study/effect-native-combinators': 'error',
     'study/database-ownership': 'error',
     'study/library-ownership': 'error',

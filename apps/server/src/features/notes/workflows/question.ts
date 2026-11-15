@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { noteQuestionRequestedSchema } from '@study/contracts/events';
-import { questionClassificationSchema } from '@study/contracts/notes/schemas';
+import { failureSchema, StudyError } from '@study/contracts';
+import { noteQuestionRequestedSchema } from '@study/contracts';
+import { questionClassificationSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { questionAgent } from '#server/features/notes/agents/question';

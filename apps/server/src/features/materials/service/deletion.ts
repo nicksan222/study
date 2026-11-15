@@ -13,13 +13,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ErrorKind } from '@study/contracts/errors';
-import type { MaterialVersionId, MaterialId } from '@study/contracts/ids';
-import type {
-  requestMaterialDeletionSchema,
-  materialDeletionSchema
-} from '@study/contracts/materials/deletion';
+import { StudyError } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import type { MaterialVersionId, MaterialId } from '@study/contracts';
+import type { requestMaterialDeletionSchema, materialDeletionSchema } from '@study/contracts';
 import { CryptoHasher } from 'bun';
 import { Context, Layer, Option } from 'effect';
 

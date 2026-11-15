@@ -1,7 +1,7 @@
-import { Button } from '@study/ui/button';
 import type { ComponentProps } from 'react';
 
 import { ActionTooltip } from './action-tooltip';
+import { Button } from './button.tsx';
 
 export function IconButton({
   label,

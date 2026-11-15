@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
+import { failureSchema, StudyError } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Context, Effect, Schema } from 'effect';

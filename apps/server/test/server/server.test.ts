@@ -14,11 +14,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { projectIdSchema } from '@study/contracts/ids';
-import { StudyRpc } from '@study/contracts/rpc';
-import { Appearance, Language } from '@study/contracts/settings';
+import { projectIdSchema } from '@study/contracts';
+import { StudyRpc } from '@study/contracts';
+import { Appearance, Language } from '@study/contracts';
 import { sql } from '@study/db';
-import * as schema from '@study/db/schema';
+import * as schema from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable, withinTestDeadline } from '@study/testing/vitest';
 import { Effect, Option, Schema } from 'effect';

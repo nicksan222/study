@@ -1,8 +1,6 @@
-import type { ProjectId } from '@study/contracts/ids';
-import type { Page } from '@study/contracts/pages/types';
+import type { ProjectId, Page } from '@study/contracts';
 import { useIndependentMutation } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { DialogFooter } from '@study/ui/dialog';
+import { Button, DialogFooter } from '@study/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { Effect } from 'effect';
 import { useState } from 'react';

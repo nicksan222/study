@@ -1,6 +1,6 @@
-import { cn } from '@study/ui/utils';
 import type { ComponentProps } from 'react';
 
+import { cn } from '../utils.ts';
 import { CONTROL_SURFACE_CLASS } from './control-styles';
 
 export function Textarea({

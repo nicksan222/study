@@ -1,5 +1,6 @@
 import { Tooltip as Primitive } from '@base-ui/react/tooltip';
-import { cn } from '@study/ui/utils';
+
+import { cn } from '../utils.ts';
 
 export const TooltipProvider = Primitive.Provider;
 

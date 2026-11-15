@@ -1,6 +1,5 @@
 import { RegistryContext } from '@effect/atom-react';
-import { StudyError } from '@study/contracts/errors';
-import { annotationSchema } from '@study/contracts/pages/evidence';
+import { StudyError, annotationSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

@@ -1,9 +1,7 @@
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import type { PageVersion } from '@study/contracts/pages/types';
+import type { PageId, PageVersionId, PageVersion } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { PreviousVersionIcon, NextVersionIcon } from '@study/icons';
-import { IconButton } from '@study/ui/icon-button';
-import { Notebook } from '@study/ui/note-workspace';
+import { IconButton, Notebook } from '@study/ui';
 import { useEffect } from 'react';
 
 import {

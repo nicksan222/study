@@ -1,6 +1,7 @@
 import { DisclosureIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Spinner } from '@study/ui/spinner';
+
+import { Button } from './button.tsx';
+import { Spinner } from './spinner.tsx';
 
 export type DeletionVersion<Id> = {
   id: Id;

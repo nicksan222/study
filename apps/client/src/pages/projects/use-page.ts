@@ -1,4 +1,4 @@
-import { projectIdSchema } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
 import { useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

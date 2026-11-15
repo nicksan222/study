@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MessageId, NoteId, VersionId } from '@study/contracts/ids';
-import { NoteMode } from '@study/contracts/notes/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import * as s from '@study/db/schema';
+import type { MessageId, NoteId, VersionId } from '@study/contracts';
+import { NoteMode } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';

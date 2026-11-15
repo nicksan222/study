@@ -11,10 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import * as evidence from '@study/contracts/pages/evidence';
+import { StudyError } from '@study/contracts';
+import * as evidence from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { decodeTransformRequest } from '#server/features/pages/store/transforms';

@@ -1,6 +1,5 @@
 import { StartIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Settings } from '@study/ui/settings';
+import { Button, Settings } from '@study/ui';
 import { createContext, useContext } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

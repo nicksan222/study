@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { materialVersionIdSchema } from '@study/contracts/ids';
-import { MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
-import { materialCitationSchema } from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import { materialVersionIdSchema } from '@study/contracts';
+import { MAX_EXPORT_BYTES } from '@study/contracts';
+import { materialCitationSchema } from '@study/contracts';
 import { and, asc, eq, gt } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { exportBudget } from '#server/platform/content-export/budget';

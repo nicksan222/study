@@ -12,14 +12,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { pageGenerationRequestedSchema } from '@study/contracts/events';
-import { pageVersionIdSchema } from '@study/contracts/ids';
-import { selectionReferenceKey } from '@study/contracts/notes/context';
-import type { citationSchema } from '@study/contracts/pages/schemas';
-import type { pageTransformContextSchema } from '@study/contracts/pages/transform';
-import { transformPublicationSchema } from '@study/contracts/pages/transform';
-import type { transformSnapshotSchema } from '@study/contracts/pages/transform';
+import { failureSchema, StudyError } from '@study/contracts';
+import { pageGenerationRequestedSchema } from '@study/contracts';
+import { pageVersionIdSchema } from '@study/contracts';
+import { selectionReferenceKey } from '@study/contracts';
+import type { pageCitationSchema as citationSchema } from '@study/contracts';
+import type { pageTransformContextSchema } from '@study/contracts';
+import { transformPublicationSchema } from '@study/contracts';
+import type { transformSnapshotSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Notes } from '#server/features/notes/index';

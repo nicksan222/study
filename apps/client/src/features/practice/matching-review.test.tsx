@@ -1,4 +1,4 @@
-import { quizAttemptCompletedSchema } from '@study/contracts/learning/schemas';
+import { quizAttemptCompletedSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { render, screen, within } from '@testing-library/react';

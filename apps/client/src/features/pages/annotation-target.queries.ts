@@ -1,7 +1,6 @@
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import type { annotationTargetSchema } from '@study/contracts/pages/evidence';
+import { validBlockTextRange } from '@study/contracts';
+import type { PageId, PageVersionId, annotationTargetSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { validBlockTextRange } from '@study/contracts/sources/document';
 
 type Target = typeof annotationTargetSchema.Type;
 

@@ -1,13 +1,16 @@
+import type { UsageQuery } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import type { UsageQuery } from '@study/contracts/settings/usage';
 import { RefreshIcon } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { IconButton } from '@study/ui/icon-button';
-import { Loading } from '@study/ui/loading';
-import { SelectControl } from '@study/ui/select-control';
-import { Settings } from '@study/ui/settings';
-import { Toggle, ToggleGroup } from '@study/ui/toggle-group';
-import { Usage } from '@study/ui/usage';
+import {
+  RetryButton,
+  IconButton,
+  Loading,
+  SelectControl,
+  Settings,
+  Toggle,
+  ToggleGroup,
+  Usage
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

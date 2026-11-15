@@ -1,4 +1,4 @@
-import { projectIdSchema } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { Schema } from 'effect';
 

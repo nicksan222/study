@@ -1,4 +1,4 @@
-import { noteIdSchema, pageIdSchema, pageVersionIdSchema } from '@study/contracts/ids';
+import { noteIdSchema, pageIdSchema, pageVersionIdSchema } from '@study/contracts';
 import { configureRpcTransport } from '@study/contracts/react';
 import { testStable } from '@study/testing/vitest';
 import { expect, beforeEach, vi } from 'vite-plus/test';

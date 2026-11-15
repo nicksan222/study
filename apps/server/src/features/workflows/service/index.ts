@@ -12,15 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentProgressInputSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
-import type { WorkflowEvent } from '@study/contracts/events';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import type { agentProgressInputSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import type { WorkflowEvent } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
 import type {
   executionSchema,
   cancelExecutionInputSchema,
   executionsInputSchema
-} from '@study/contracts/workflows/schemas';
+} from '@study/contracts';
 import type { Cause } from 'effect';
 import { Effect, Option, Queue, Schema, Stream } from 'effect';
 

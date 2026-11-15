@@ -9,10 +9,10 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
     {
       'packages/ui/src/app.ts': "import '@study/client';\n",
       'packages/ui/src/bad.ts': "import '@study/server/client';\n",
-      'packages/localization/src/bad.ts': "export * from '@study/ui/button';\n",
+      'packages/localization/src/bad.ts': "export * from '@study/ui';\n",
       'packages/db/src/bad.ts': "import type { Account } from '@study/ai';\n",
       'packages/ai/src/bad.ts': "export * from '@study/db';\n",
-      'apps/server/src/bad.ts': "import '@study/ui/button';\n",
+      'apps/server/src/bad.ts': "import '@study/ui';\n",
       'apps/client/src/bad.ts': "export * from '@study/server/runtime';\n",
       'apps/client/src/root.ts': "import '@study/server';\n",
       'apps/client/src/node.ts': "import 'node:fs';\n",
@@ -23,12 +23,11 @@ testStable('package ownership, public exports, and browser entrypoints are enfor
         "export const db = import('../../../packages/db/src/index.ts');\n",
       'apps/desktop/src/bad.ts': "import '@study/server/client';\n",
       'apps/landing/src/bad.ts': "import '@study/server/client';\n",
-      'apps/landing/src/good.ts':
-        "import '@study/ui/button';\nimport '@study/localization/landing';\n",
+      'apps/landing/src/good.ts': "import '@study/ui';\nimport '@study/localization';\n",
       'tooling/scripts/seed/index.ts': "import '@study/localization';\n",
       'packages/ai/src/good.ts': "import '@study/localization';\n",
-      'apps/server/src/good.ts': "import type { jobs } from '@study/db/schema';\n",
-      'apps/client/src/good.ts': "import '@study/ui/button';\nimport '@study/server/client';\n",
+      'apps/server/src/good.ts': "import type { jobs } from '@study/db';\n",
+      'apps/client/src/good.ts': "import '@study/ui';\nimport '@study/server/client';\n",
       'packages/ui/src/same.ts': "import './other.ts';\n"
     },
     true

@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 
 import { SubjectPage } from '#client/features/collections/index.ts';
 

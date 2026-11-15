@@ -1,14 +1,17 @@
-import { MAX_MANAGED_BACKUPS, restoreStatusSchema } from '@study/contracts/system/backups';
-import type { BackupId, RestorePreview } from '@study/contracts/system/backups';
+import { MAX_MANAGED_BACKUPS, restoreStatusSchema } from '@study/contracts';
+import type { BackupId, RestorePreview } from '@study/contracts';
 import { ArchiveIcon, DownloadIcon, RefreshIcon, DeleteIcon, UploadIcon } from '@study/icons';
 import { mediaSize } from '@study/localization';
-import { Button } from '@study/ui/button';
-import { DangerDialog, DangerDialogContext } from '@study/ui/danger-dialog';
-import { DataManagement } from '@study/ui/data-management';
-import { ErrorState } from '@study/ui/error-state';
-import { IconButton } from '@study/ui/icon-button';
-import { Settings } from '@study/ui/settings';
-import { StatusMessage } from '@study/ui/status-message';
+import {
+  Button,
+  DangerDialog,
+  DangerDialogContext,
+  DataManagement,
+  ErrorState,
+  IconButton,
+  Settings,
+  StatusMessage
+} from '@study/ui';
 import { Schema } from 'effect';
 import { useRef, useState } from 'react';
 

@@ -1,7 +1,4 @@
-import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Disclosure } from '@study/ui/disclosure';
-import { SelectionSurface } from '@study/ui/selection';
+import { LoadMoreButton, Button, Disclosure, SelectionSurface } from '@study/ui';
 import type { ReactNode } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

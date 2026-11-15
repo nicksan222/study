@@ -1,7 +1,5 @@
-import type { ChatMessage, MessageVersion } from '@study/contracts/notes/messages';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
+import type { ChatMessage, MessageVersion } from '@study/contracts';
+import { RetryButton, Button, ErrorState } from '@study/ui';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';

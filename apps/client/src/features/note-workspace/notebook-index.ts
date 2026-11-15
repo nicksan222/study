@@ -1,6 +1,4 @@
-import type { NoteId, PageId, MessageId, PartId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { NoteId, PageId, MessageId, PartId, ChatMessage, PageSummary } from '@study/contracts';
 
 export const notebookTargetId = (
   noteId: NoteId,

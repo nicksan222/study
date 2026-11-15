@@ -1,6 +1,6 @@
 import { RegistryContext } from '@effect/atom-react';
 import { testStable } from '@study/testing/vitest';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { act, render, waitFor } from '@testing-library/react';
 import { AtomRegistry } from 'effect/reactivity';
 import { expect, vi } from 'vite-plus/test';

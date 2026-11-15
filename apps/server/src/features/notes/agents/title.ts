@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { titleInputSchema, titleOutputSchema } from '@study/contracts/ai/title';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { titleInputSchema, titleOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

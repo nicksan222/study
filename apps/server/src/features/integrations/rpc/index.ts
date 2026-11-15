@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { IntegrationsRpc } from '@study/contracts/integrations/rpc';
+import { IntegrationsRpc } from '@study/contracts';
 
 import { Integrations } from '#server/features/integrations/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

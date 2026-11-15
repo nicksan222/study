@@ -13,7 +13,7 @@
  */
 
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 /** Generated learning output deletion releases evidence pins and retires only its original native ownership. */
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

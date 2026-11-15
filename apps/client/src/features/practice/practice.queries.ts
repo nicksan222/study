@@ -1,4 +1,4 @@
-import type { MaterialId, ProjectId, QuizAttemptId } from '@study/contracts/ids';
+import type { MaterialId, ProjectId, QuizAttemptId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import { useCursorRecovery, useCursorWindow } from '#client/lib/cursor-window.tsx';

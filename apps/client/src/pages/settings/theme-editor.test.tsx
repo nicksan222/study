@@ -1,6 +1,7 @@
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
-import { toastManager } from '@study/ui/toast';
+import type * as UiModule from '@study/ui';
+import { toastManager } from '@study/ui';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, vi } from 'vite-plus/test';
@@ -8,7 +9,11 @@ import { expect, vi } from 'vite-plus/test';
 import { ThemeEditor } from './theme-editor';
 import type { AppearanceModel } from './use-page';
 
-vi.mock('@study/ui/toast', () => ({ toastManager: { add: vi.fn() } }));
+vi.mock('@study/ui', async (load) => {
+  const actual = await load<typeof UiModule>();
+
+  return { ...actual, toastManager: { ...actual.toastManager, add: vi.fn() } };
+});
 
 testStable(
   'requires the deletion phrase before deleting the selected theme and announcing success',

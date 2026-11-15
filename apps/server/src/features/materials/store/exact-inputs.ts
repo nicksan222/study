@@ -10,14 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { MaterialVersionId } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { MaterialVersionId } from '@study/contracts';
 /** Learning-owned exact references; canonical bodies stay with Pages and Sources. */
-import { contentInputKey, contentInputSchema } from '@study/contracts/inputs';
-import type { ContentInput } from '@study/contracts/inputs';
-import { learningCitationSchema } from '@study/contracts/materials/inputs';
+import { contentInputKey, contentInputSchema } from '@study/contracts';
+import type { ContentInput } from '@study/contracts';
+import { learningCitationSchema } from '@study/contracts';
 import { and, asc, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { contentInputColumns } from '#server/platform/database/content-input';

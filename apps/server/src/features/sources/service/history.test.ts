@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { PagesRpc } from '@study/contracts/pages/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
-import { SourcesRpc } from '@study/contracts/sources/rpc';
+import { PagesRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { SourcesRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

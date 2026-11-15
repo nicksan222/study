@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
+import { StudyRpc } from '@study/contracts';
 import { makeStudyClient } from '@study/server/client';
 import { App, serve } from '@study/server/runtime';
 import { Effect, Exit } from 'effect';

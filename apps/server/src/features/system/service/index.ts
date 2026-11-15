@@ -12,12 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type {
-  BackupId,
-  acceptRestoreSchema,
-  backupScopeSchema
-} from '@study/contracts/system/backups';
-import type { searchInputSchema, materialSearchInputSchema } from '@study/contracts/system/rpc';
+import type { BackupId, acceptRestoreSchema, backupScopeSchema } from '@study/contracts';
+import type { searchInputSchema, materialSearchInputSchema } from '@study/contracts';
 import { Effect } from 'effect';
 
 import { BackupScopeStore } from '#server/features/system/store/backup';

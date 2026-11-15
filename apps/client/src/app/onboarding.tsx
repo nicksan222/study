@@ -1,10 +1,12 @@
 import { rpc } from '@study/contracts/react';
-import { Onboarding, OnboardingNotebook, OnboardingSetup } from '@study/ui/onboarding';
 import {
+  Onboarding,
+  OnboardingNotebook,
+  OnboardingSetup,
   OnboardingSubject,
   OnboardingPage,
   OnboardingWorkflow
-} from '@study/ui/onboarding-previews';
+} from '@study/ui';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 

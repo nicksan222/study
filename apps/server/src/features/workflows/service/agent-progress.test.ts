@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { agentRunIdSchema } from '@study/contracts/ai/progress';
-import type { agentProgressPageSchema } from '@study/contracts/ai/progress';
-import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { workflow_executions } from '@study/db/schema';
+import { agentRunIdSchema } from '@study/contracts';
+import type { agentProgressPageSchema } from '@study/contracts';
+import { executionIdSchema } from '@study/contracts';
+import { workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Layer, Queue, Stream } from 'effect';

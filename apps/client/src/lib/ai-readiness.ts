@@ -1,4 +1,4 @@
-import type { ModelTier } from '@study/contracts/settings/schemas';
+import type { ModelTier } from '@study/contracts';
 
 import { useAiConfiguration } from '#client/lib/study-client/ai-settings.queries.ts';
 import type { AiConfiguration } from '#client/lib/study-client/ai-settings.ts';

@@ -1,5 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import type { selectionReferenceSchema } from '@study/contracts/notes/context';
+import { StudyError } from '@study/contracts';
+import type { selectionReferenceSchema } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 type Selection = typeof selectionReferenceSchema.Type;

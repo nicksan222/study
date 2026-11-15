@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
-import { workflow_executions } from '@study/db/schema';
+import { StudyRpc } from '@study/contracts';
+import { workflow_executions } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Stream } from 'effect';

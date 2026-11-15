@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { SystemRpc } from '@study/contracts/system/rpc';
+import { SystemRpc } from '@study/contracts';
 
 import { System } from '#server/features/system/service/index';
 import { defineRpc } from '#server/platform/definitions/define-rpc';

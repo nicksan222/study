@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Db } from '@study/db';
 import { Cause, Clock, Effect, Exit, Queue, Scope } from 'effect';
 

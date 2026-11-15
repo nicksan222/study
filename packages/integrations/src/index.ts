@@ -1,5 +1,5 @@
 /** Provider adapters normalize transfers; the server owns execution, identity and publication. */
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 
 import type { IntegrationProvider } from './capabilities.ts';
 import { obsidianProvider } from './providers/obsidian/index.ts';

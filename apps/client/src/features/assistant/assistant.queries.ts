@@ -1,5 +1,4 @@
-import type { MessageId, NoteId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { MessageId, NoteId, ChatMessage } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useState } from 'react';
 

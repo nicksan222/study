@@ -15,8 +15,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { workflowEventSchema } from '@study/contracts/events';
-import { workflow_executions, workflowReceipts } from '@study/db/schema';
+import { workflowEventSchema } from '@study/contracts';
+import { workflow_executions, workflowReceipts } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, ManagedRuntime, Layer, Schema } from 'effect';

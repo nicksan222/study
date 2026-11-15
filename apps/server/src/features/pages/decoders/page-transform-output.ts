@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { pageTransformOutputSchema } from '@study/contracts/ai/page-transform';
-import { StudyError } from '@study/contracts/errors';
-import { createBlock } from '@study/contracts/sources/document';
-import type { Block } from '@study/contracts/sources/document';
-import { blockContentSchema } from '@study/contracts/sources/schemas';
+import type { pageTransformOutputSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import type { Block } from '@study/contracts';
+import { blockContentSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { intentHash } from './intent.ts';

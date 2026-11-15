@@ -12,10 +12,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { visionTranscriptionOutputSchema } from '@study/contracts/ai/vision-transcription';
-import { StudyError } from '@study/contracts/errors';
-import { plainBlock } from '@study/contracts/sources/document';
-import type { Document } from '@study/contracts/sources/document';
+import type { visionTranscriptionOutputSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import type { Document } from '@study/contracts';
 
 export function visionDocument(
   pages: typeof visionTranscriptionOutputSchema.Type.pages,

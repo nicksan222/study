@@ -1,4 +1,4 @@
-import type { ProjectId } from '@study/contracts/ids';
+import type { ProjectId } from '@study/contracts';
 import {
   CreatePageIcon,
   PageIcon,
@@ -14,9 +14,9 @@ import {
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem,
-  ContextMenuSeparator
-} from '@study/ui/context-menu';
-import { toastManager } from '@study/ui/toast';
+  ContextMenuSeparator,
+  toastManager
+} from '@study/ui';
 import { Link, useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useContext } from 'react';

@@ -1,11 +1,12 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import { StudyError } from '@study/contracts/errors';
-import type { SourceId, ContentSnapshotId } from '@study/contracts/ids';
-import { rpc, useIndependentMutation } from '@study/contracts/react';
+import { StudyError } from '@study/contracts';
 import type {
+  SourceId,
+  ContentSnapshotId,
   sourceHistoryPreviewSchema,
   sourceHistoryRetireSchema
-} from '@study/contracts/sources/rpc';
+} from '@study/contracts';
+import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { Effect } from 'effect';
 import { Atom } from 'effect/reactivity';
 import { useContext, useState } from 'react';

@@ -10,10 +10,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { noteIdSchema } from '@study/contracts/ids';
-import { NoteMode } from '@study/contracts/notes/schemas';
+import { noteIdSchema } from '@study/contracts';
+import { NoteMode } from '@study/contracts';
 import { and, eq } from '@study/db';
-import { notes } from '@study/db/schema';
+import { notes } from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

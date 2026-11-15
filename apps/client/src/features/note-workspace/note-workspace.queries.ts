@@ -1,11 +1,14 @@
-import type { NoteId, MessageId, SourceId } from '@study/contracts/ids';
-import type { captureNoteContextSchema } from '@study/contracts/notes/context';
 import type {
+  NoteId,
+  MessageId,
+  SourceId,
+  captureNoteContextSchema,
   editMessageInputSchema,
-  setActiveVersionInputSchema
-} from '@study/contracts/notes/rpc';
-import type { rewriteMessageInputSchema, askInputSchema } from '@study/contracts/notes/schemas';
-import type { transformRequestSchema } from '@study/contracts/pages/transform';
+  setActiveVersionInputSchema,
+  rewriteMessageInputSchema,
+  askInputSchema,
+  transformRequestSchema
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 export type AskInput = typeof askInputSchema.Type;

@@ -13,15 +13,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ProjectId } from '@study/contracts/ids';
-import { NotesRpc } from '@study/contracts/notes/rpc';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { ProjectId } from '@study/contracts';
+import { NotesRpc } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import type { Db } from '@study/db';
 import { sql } from '@study/db';
-import * as tables from '@study/db/schema';
+import * as tables from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import { RpcTest } from 'effect/rpc';
@@ -267,7 +267,7 @@ testStable(
     const { sourceIngestionRegistration } =
       await import('#server/features/sources/workflows/index');
     const { workflowStore } = await import('#server/platform/workflows/store');
-    const { workflow_executions } = await import('@study/db/schema');
+    const { workflow_executions } = await import('@study/db');
     const { SourceStore } = await import('#server/features/sources/store/index');
     const { transaction } = await import('#server/platform/definitions/define-store');
     const location = await createTestDatabase();

@@ -1,4 +1,4 @@
-import type { PageVersionId, SourceId, ContentSnapshotId, NoteId } from '@study/contracts/ids';
+import type { PageVersionId, SourceId, ContentSnapshotId, NoteId } from '@study/contracts';
 
 import { defineTable, text, integer, primaryKey, foreignKey } from '../schema-builder.ts';
 import { note_run_contexts } from './notes.ts';

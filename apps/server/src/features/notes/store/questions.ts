@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import {
   questionVersionInputSchema,
   setMessageKindInputSchema,
   questionClassificationSchema,
   replyRequestSchema
-} from '@study/contracts/notes/schemas';
+} from '@study/contracts';
 import { and, eq } from '@study/db';
 import {
   messages,
@@ -25,7 +25,7 @@ import {
   note_question_answers,
   note_deletions,
   workflowEvents
-} from '@study/db/schema';
+} from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

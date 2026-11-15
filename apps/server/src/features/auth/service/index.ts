@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { apiKeyInputSchema } from '@study/contracts/settings/schemas';
+import { StudyError } from '@study/contracts';
+import { apiKeyInputSchema } from '@study/contracts';
 import { Effect, Exit, Option, Scope, Schema } from 'effect';
 
 import {

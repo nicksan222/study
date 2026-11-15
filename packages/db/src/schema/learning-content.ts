@@ -1,4 +1,4 @@
-import type { MatchingDefinitionId } from '@study/contracts/ids';
+import type { MatchingDefinitionId } from '@study/contracts';
 import type {
   MaterialCardId,
   MaterialId,
@@ -7,8 +7,8 @@ import type {
   QuizChoiceId,
   QuizQuestionId,
   QuizOrderingItemId
-} from '@study/contracts/ids';
-import type { matchingPairsSchema } from '@study/contracts/materials/schemas';
+} from '@study/contracts';
+import type { matchingPairsSchema } from '@study/contracts';
 
 import {
   defineTable,

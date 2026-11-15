@@ -1,5 +1,5 @@
+import type { Source } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
-import type { Source } from '@study/contracts/sources/schemas';
 import { Effect } from 'effect';
 import { useState } from 'react';
 

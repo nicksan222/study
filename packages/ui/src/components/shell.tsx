@@ -1,7 +1,8 @@
 import { BackIcon } from '@study/icons';
-import { cn } from '@study/ui/utils';
 import { cloneElement, isValidElement } from 'react';
 import type { ComponentPropsWithRef, ReactElement, ReactNode } from 'react';
+
+import { cn } from '../utils.ts';
 
 type HeaderProps = Omit<ComponentPropsWithRef<'div'>, 'title'> & {
   title: ReactNode;

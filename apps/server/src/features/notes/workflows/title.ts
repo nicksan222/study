@@ -13,9 +13,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema, StudyError } from '@study/contracts/errors';
-import { noteTitleRequestedSchema } from '@study/contracts/events';
-import { publishTitleInputSchema, titleRequestSchema } from '@study/contracts/notes/schemas';
+import { failureSchema, StudyError } from '@study/contracts';
+import { noteTitleRequestedSchema } from '@study/contracts';
+import { publishTitleInputSchema, titleRequestSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { titleAgent } from '#server/features/notes/agents/title';

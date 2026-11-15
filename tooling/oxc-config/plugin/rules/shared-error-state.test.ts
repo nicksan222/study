@@ -51,8 +51,8 @@ testStable('handles negation, compound guards, and error branches passed as prop
 testStable('accepts canonical imports, aliases, namespaces, and feature wrappers', async () => {
   expect(
     await lint(`
-    import { ErrorState as Failure } from '@study/ui/error-state';
-    import * as Feedback from '@study/ui/error-state';
+    import { ErrorState as Failure } from '@study/ui';
+    import * as Feedback from '@study/ui';
     export function NoteError() { return <Failure title="Failed" />; }
     export function View({ error, state }) {
       return <>{error && <NoteError />}
@@ -65,7 +65,7 @@ testStable('accepts canonical imports, aliases, namespaces, and feature wrappers
 
 testStable('does not trust a same-named local implementation or a shadowed import', async () => {
   const diagnostics = await lint(`
-    import { ErrorState } from '@study/ui/error-state';
+    import { ErrorState } from '@study/ui';
     function LocalErrorState() { return <p role="alert">Failed</p>; }
     export function View({ error, ErrorState }) {
       return <>{error && <ErrorState role="alert" />}</>;
@@ -77,7 +77,7 @@ testStable('does not trust a same-named local implementation or a shadowed impor
 
 testStable('does not let the success branch supply the canonical error presentation', async () => {
   const diagnostics = await lint(`
-    import { ErrorState } from '@study/ui/error-state';
+    import { ErrorState } from '@study/ui';
     export function View({ error }) {
       return error ? <p>Failed</p> : <ErrorState title="Failed" />;
     }
@@ -121,7 +121,7 @@ testStable(
   'checks custom component alerts but accepts the canonical component itself',
   async () => {
     const diagnostics = await lint(`
-    import { ErrorState } from '@study/ui/error-state';
+    import { ErrorState } from '@study/ui';
     export function View() {
       return <><Notice role={'alert'}>Failed</Notice><ErrorState role="alert" title="Failed" /></>;
     }
@@ -147,7 +147,7 @@ testStable('ignores tests, server code and canonical UI implementations', async 
 
 testStable('checks shared button aliases used as a whole error presentation', async () => {
   const diagnostics = await lint(`
-    import { Button as RetryButton } from '@study/ui/button';
+    import { Button as RetryButton } from '@study/ui';
     export function View({ error }) { return error && <RetryButton>{t('Retry')}</RetryButton>; }
   `);
 
@@ -159,13 +159,13 @@ testStable(
   async () => {
     expect(
       await lint(`
-    import { Sidebar as AppSidebar } from '@study/ui/sidebar';
-    import * as UI from '@study/ui/sidebar';
+    import { Sidebar as AppSidebar } from '@study/ui';
+    import * as UI from '@study/ui';
     export function View({ error }) { return <>{error && <AppSidebar.Message role="alert">Failed</AppSidebar.Message>}<UI.Sidebar.Message role="alert">Failed</UI.Sidebar.Message></>; }
   `)
     ).toStrictEqual([]);
     const diagnostics = await lint(`
-    import { Sidebar } from '@study/ui/sidebar';
+    import { Sidebar } from '@study/ui';
     export function View({ error, Sidebar }) { return <>{error && <Sidebar.Message role="alert">Failed</Sidebar.Message>}<p role="alert">Failed</p></>; }
   `);
 

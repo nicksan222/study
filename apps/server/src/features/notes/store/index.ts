@@ -12,16 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ProjectId } from '@study/contracts/ids';
-import { noteIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import type { ProjectId } from '@study/contracts';
+import { noteIdSchema } from '@study/contracts';
 import {
   countNotesInputSchema,
   createNoteInputSchema,
   renameNoteInputSchema,
   notePageInputSchema
-} from '@study/contracts/notes/rpc';
-import { NoteMode, noteModeSchema, noteSchema } from '@study/contracts/notes/schemas';
+} from '@study/contracts';
+import { NoteMode, noteModeSchema, noteSchema } from '@study/contracts';
 import { and, asc, desc, eq, lt, or, sql } from '@study/db';
 import {
   notes,
@@ -32,7 +32,7 @@ import {
   note_pages,
   note_run_contexts,
   note_deletions
-} from '@study/db/schema';
+} from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { requireRow } from '#server/platform/database/rows';

@@ -1,4 +1,4 @@
-import { projectIdSchema } from '@study/contracts/ids';
+import { projectIdSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';

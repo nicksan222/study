@@ -1,8 +1,6 @@
-import type { WorkspacePreferences } from '@study/contracts/settings/types';
+import type { WorkspacePreferences } from '@study/contracts';
 import type { StaticMessageKey } from '@study/localization';
-import { RetryButton } from '@study/ui/action-button';
-import { Loading } from '@study/ui/loading';
-import { Settings } from '@study/ui/settings';
+import { RetryButton, Loading, Settings } from '@study/ui';
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
 

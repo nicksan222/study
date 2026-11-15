@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { createInputSchema } from '@study/contracts/materials/rpc';
+import { StudyError } from '@study/contracts';
+import type { createInputSchema } from '@study/contracts';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

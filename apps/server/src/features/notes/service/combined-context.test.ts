@@ -12,7 +12,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { NotesRpc } from '@study/contracts/notes/rpc';
+import { NotesRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

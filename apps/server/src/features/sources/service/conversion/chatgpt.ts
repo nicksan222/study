@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Effect } from 'effect';
 
 import { pdfConversionAgent } from '#server/features/sources/agents/pdf-text-conversion';

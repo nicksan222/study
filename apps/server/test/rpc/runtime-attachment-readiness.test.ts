@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyRpc } from '@study/contracts/rpc';
+import { StudyRpc } from '@study/contracts';
 import { sql } from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';

@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { noteQuestionRequestedSchema } from '@study/contracts/events';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { workflowEvents } from '@study/db/schema';
+import { noteQuestionRequestedSchema } from '@study/contracts';
+import { defaultAgentRules } from '@study/contracts';
+import { workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { createAiMock } from '@study/testing/ai-mock';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';
 import type { Context } from 'effect';

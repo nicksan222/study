@@ -10,7 +10,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { Effect, Option } from 'effect';
 import { Activity, WorkflowEngine } from 'effect/workflow';
 

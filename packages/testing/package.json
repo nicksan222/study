@@ -3,13 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./ai-mock": "./src/ai-mock.ts",
+    ".": "./src/index.ts",
     "./vitest": "./src/vitest.ts",
-    "./catalog": "./src/catalog.ts",
-    "./classification": "./src/classification.ts",
-    "./config": "./src/config.ts",
-    "./process": "./src/process.ts",
-    "./resources": "./src/resources.ts",
     "./react/setup": "./src/react/setup.ts"
   },
   "scripts": {

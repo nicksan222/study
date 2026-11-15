@@ -1,6 +1,5 @@
-import type { NoteId } from '@study/contracts/ids';
-import { MessageScrollerLayout } from '@study/ui/message-scroller';
-import { WorkspaceDeskSurface as Desk } from '@study/ui/workspace-desk';
+import type { NoteId } from '@study/contracts';
+import { MessageScrollerLayout, WorkspaceDeskSurface as Desk } from '@study/ui';
 
 import { AssistantThread, AssistantComposer } from './chat';
 import { useAssistant } from './use-assistant';

@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MaterialId } from '@study/contracts/ids';
+import type { MaterialId } from '@study/contracts';
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { required, makeReads } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';

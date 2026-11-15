@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { ErrorKind } from '@study/contracts/errors';
+import type { ErrorKind } from '@study/contracts';
 import type {
   answerQuestionInputSchema,
   attemptInputSchema,
@@ -24,14 +24,14 @@ import type {
   reviewCardInputSchema,
   reviewHistoryInputSchema,
   startQuizInputSchema
-} from '@study/contracts/learning/rpc';
+} from '@study/contracts';
 import type {
   startPracticeInputSchema,
   practiceInputSchema,
   answerPracticeQuestionInputSchema,
   retryPracticeQuestionInputSchema,
   publishPracticeSlotInputSchema
-} from '@study/contracts/learning/rpc';
+} from '@study/contracts';
 import { CryptoHasher } from 'bun';
 import { Effect, Option } from 'effect';
 

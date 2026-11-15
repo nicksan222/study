@@ -71,8 +71,8 @@ testStable(
   { timeout: 10000 },
   async (t) => {
     const { Sources } = await import('#server/features/sources/index');
-    const { workflow_executions } = await import('@study/db/schema');
-    const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+    const { workflow_executions } = await import('@study/db');
+    const { executionIdSchema } = await import('@study/contracts');
     const { Layer } = await import('effect');
     const { WorkflowEngine } = await import('effect/workflow');
     let reached!: () => void;
@@ -156,7 +156,7 @@ testStable(
 
 testStable('stopped concurrent cancellations and start share one embedded runtime', async (t) => {
   const { Layer } = await import('effect');
-  const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+  const { executionIdSchema } = await import('@study/contracts');
   const { app } = await createServerTest(t);
   let acquisitions = 0;
 
@@ -188,8 +188,8 @@ testStable(
   'stopped cancellation persists intent without acquiring the embedded runner',
   async (t) => {
     const { Layer } = await import('effect');
-    const { workflow_executions } = await import('@study/db/schema');
-    const { executionIdSchema } = await import('@study/contracts/workflows/schemas');
+    const { workflow_executions } = await import('@study/db');
+    const { executionIdSchema } = await import('@study/contracts');
     const { app } = await createServerTest(t);
     let acquisitions = 0;
 

@@ -140,18 +140,18 @@ testStable('FSRS has one platform adapter rather than feature-specific copies', 
 
 testStable('preferences are private to settings, auth, and themes stores', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
-    'src/features/settings/store.ts': "import { preferences } from '@study/db/schema';",
+    'src/features/settings/store.ts': "import { preferences } from '@study/db';",
     'src/features/auth/token.store.ts': "import { preferences as credentials } from '@study/db';",
     'src/features/themes/store/selection.ts':
-      "import * as schema from '@study/db/schema'; schema.preferences;",
-    'src/features/learning/store.ts': "import { preferences as prefs } from '@study/db/schema';",
+      "import * as schema from '@study/db'; schema.preferences;",
+    'src/features/learning/store.ts': "import { preferences as prefs } from '@study/db';",
     'src/features/materials/materials.store.ts': "import { preferences } from '@study/db';",
     'src/features/notes/store/query.ts':
-      "import * as schema from '@study/db/schema'; schema.preferences; schema['preferences'];",
+      "import * as schema from '@study/db'; schema.preferences; schema['preferences'];",
     'src/features/sources/store.ts':
-      "import * as schema from '@study/db/schema'; const tables = schema; const { ['preferences']: prefs } = tables;",
-    'src/features/settings/service.ts': "import { preferences } from '@study/db/schema';",
-    'src/features/learning/store.test.ts': "import { preferences } from '@study/db/schema';"
+      "import * as schema from '@study/db'; const tables = schema; const { ['preferences']: prefs } = tables;",
+    'src/features/settings/service.ts': "import { preferences } from '@study/db';",
+    'src/features/learning/store.test.ts': "import { preferences } from '@study/db';"
   });
 
   assert.strictEqual(diagnostics.length, 6, JSON.stringify(diagnostics));
@@ -160,9 +160,9 @@ testStable('preferences are private to settings, auth, and themes stores', async
 testStable('preferences checks respect shadows, type imports, and unrelated tables', async () => {
   const diagnostics = await lintRule('server-layer-boundary', {
     'src/features/learning/store.ts':
-      "import * as schema from '@study/db/schema'; import type { preferences } from '@study/db/schema'; schema.cards; const { cards } = schema; function f(schema: { preferences: string }) { const tables = schema; tables.preferences; const { preferences } = tables; }",
+      "import * as schema from '@study/db'; import type { preferences } from '@study/db'; schema.cards; const { cards } = schema; function f(schema: { preferences: string }) { const tables = schema; tables.preferences; const { preferences } = tables; }",
     'src/features/materials/store.ts':
-      "import type * as schema from '@study/db/schema'; type P = typeof schema.preferences;"
+      "import type * as schema from '@study/db'; type P = typeof schema.preferences;"
   });
 
   assert.strictEqual(diagnostics.length, 0, JSON.stringify(diagnostics));
@@ -260,7 +260,7 @@ testStable(
     const diagnostics = await lintRule('server-layer-boundary', {
       'src/features/notes/service/citations.ts': `
       import { Materials } from '#server/features/materials/index';
-      import type { evidenceReferenceSchema } from '@study/contracts/materials/evidence';
+      import type { evidenceReferenceSchema } from '@study/contracts';
       import { transaction } from '#server/platform/definitions/define-store';
       export const resolve = reference => transaction(tx => Materials.resolveEvidence(tx, reference));
     `,

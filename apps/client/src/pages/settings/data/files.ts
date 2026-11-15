@@ -1,5 +1,5 @@
-import { MAX_BACKUP_BYTES } from '@study/contracts/system/backups';
-import { downloadFile } from '@study/ui/download';
+import { MAX_BACKUP_BYTES } from '@study/contracts';
+import { downloadFile } from '@study/ui';
 
 export const MAX_ARTIFACT_BYTES = MAX_BACKUP_BYTES + 16384;
 

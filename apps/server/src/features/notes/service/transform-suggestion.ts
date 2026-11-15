@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { runSelectionContextSchema } from '@study/contracts/notes/context';
-import type { transformSuggestionInputSchema } from '@study/contracts/notes/rpc';
+import { StudyError } from '@study/contracts';
+import type { runSelectionContextSchema } from '@study/contracts';
+import type { transformSuggestionInputSchema } from '@study/contracts';
 import { Effect, Option } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';
 

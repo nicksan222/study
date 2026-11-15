@@ -1,4 +1,4 @@
-import type { MaterialId, MaterialVersionId, ProjectId } from '@study/contracts/ids';
+import type { MaterialId, MaterialVersionId, ProjectId } from '@study/contracts';
 
 import { materialKinds, materialOperations } from '../material-kinds.ts';
 import {

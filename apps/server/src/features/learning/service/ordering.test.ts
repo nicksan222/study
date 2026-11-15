@@ -11,12 +11,12 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { quizOrderingItemIdSchema } from '@study/contracts/ids';
-import { orderingAnswerJsonSchema } from '@study/contracts/learning/schemas';
-import { materialAidExportSchema } from '@study/contracts/materials/export';
-import { defaultQuizSettings } from '@study/contracts/settings/types';
+import { quizOrderingItemIdSchema } from '@study/contracts';
+import { orderingAnswerJsonSchema } from '@study/contracts';
+import { materialAidExportSchema } from '@study/contracts';
+import { defaultQuizSettings } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Schema } from 'effect';

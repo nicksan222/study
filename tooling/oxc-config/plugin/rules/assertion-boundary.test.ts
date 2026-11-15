@@ -20,7 +20,9 @@ testStable(
       {
         'apps/server/src/production.ts': "import { testStable } from '@study/testing/vitest';",
         'packages/testing/src/vitest.ts': "import { test } from 'vite-plus/test';",
-        'apps/server/test/testing/helper.ts': "import { assert } from 'vite-plus/test';"
+        'apps/server/test/testing/helper.ts': "import { assert } from 'vite-plus/test';",
+        'tooling/testing/integrations/fixture.ts':
+          "import { temporaryDirectory } from '@study/testing/vitest';"
       },
       true
     );

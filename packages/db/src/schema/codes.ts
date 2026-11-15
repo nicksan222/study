@@ -1,4 +1,4 @@
-import { blockKinds } from '@study/contracts/sources/schemas';
+import { blockKinds } from '@study/contracts';
 
 import { defineTable, text } from '../schema-builder.ts';
 

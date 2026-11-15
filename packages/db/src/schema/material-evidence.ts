@@ -1,5 +1,5 @@
 /** Learning artifacts consume authored versions and source extractions directly. */
-import type { MaterialVersionId } from '@study/contracts/ids';
+import type { MaterialVersionId } from '@study/contracts';
 
 import { defineTable, sql, integer, text, index, uniqueIndex, check } from '../schema-builder.ts';
 import {

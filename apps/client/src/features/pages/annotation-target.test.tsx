@@ -1,4 +1,4 @@
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

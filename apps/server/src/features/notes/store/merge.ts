@@ -11,14 +11,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { materialIdSchema, pageIdSchema, sourceIdSchema, noteIdSchema } from '@study/contracts/ids';
-import { selectionTargetsSchema } from '@study/contracts/notes/context';
-import { copyNoteContentSchema } from '@study/contracts/notes/notes';
-import { mergeNotesInputSchema } from '@study/contracts/notes/rpc';
-import { NoteMode } from '@study/contracts/notes/schemas';
+import { StudyError } from '@study/contracts';
+import { materialIdSchema, pageIdSchema, sourceIdSchema, noteIdSchema } from '@study/contracts';
+import { selectionTargetsSchema } from '@study/contracts';
+import { copyNoteContentSchema } from '@study/contracts';
+import { mergeNotesInputSchema } from '@study/contracts';
+import { NoteMode } from '@study/contracts';
 import { and, asc, eq, inArray, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

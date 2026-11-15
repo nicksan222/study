@@ -21,7 +21,7 @@ testStable(
     ).toHaveLength(0);
     expect(
       await lint(
-        `import { Button as Action } from '@study/ui/button'; import { QuizQuestion } from '../features/quiz/components/quiz-question'; export const Preview = () => <><QuizQuestion /><Action>Send</Action></>;`,
+        `import { Button as Action } from '@study/ui'; import { QuizQuestion } from '../features/quiz/components/quiz-question'; export const Preview = () => <><QuizQuestion /><Action>Send</Action></>;`,
         path
       )
     ).toHaveLength(1);

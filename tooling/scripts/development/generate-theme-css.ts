@@ -1,7 +1,7 @@
 import { BunFileSystem } from '@effect/platform-bun';
 import { BunPath } from '@effect/platform-bun';
 import { Db, eq } from '@study/db';
-import { themes } from '@study/db/schema';
+import { themes } from '@study/db';
 import { defaultThemeId, parseTheme, renderThemeCss } from '@study/theme';
 import { Effect, FileSystem, Path } from 'effect';
 

@@ -1,8 +1,11 @@
 import { RegistryContext, useAtom } from '@effect/atom-react';
-import type { PageAnnotationId } from '@study/contracts/ids';
-import type { annotationSchema, createAnnotationSchema } from '@study/contracts/pages/evidence';
-import type { rangeSchema } from '@study/contracts/pages/evidence';
-import type { PageVersion } from '@study/contracts/pages/types';
+import type {
+  PageAnnotationId,
+  annotationSchema,
+  createAnnotationSchema,
+  rangeSchema,
+  PageVersion
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useContext, useEffect, useState } from 'react';
 

@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { StudyRpc } from '@study/contracts/rpc';
-import type { executionsInputSchema } from '@study/contracts/workflows/schemas';
+import type { StudyRpc } from '@study/contracts';
+import type { executionsInputSchema } from '@study/contracts';
 import type { RpcClient, RpcGroup } from 'effect/rpc';
 import type { RpcClientError } from 'effect/rpc/RpcClientError';
 

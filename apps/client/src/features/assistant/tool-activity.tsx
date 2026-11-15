@@ -1,8 +1,8 @@
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { ChatMessage } from '@study/contracts';
 import { CompletedIcon, PendingIcon, ErrorIcon, FailedIcon } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { ToolActivity } from '@study/ui/tool-activity';
 import {
+  RetryButton,
+  ToolActivity,
   Trace,
   TraceCollapsible,
   TraceCollapsibleTrigger,
@@ -10,7 +10,7 @@ import {
   TraceIcon,
   TraceLine,
   TraceTitle
-} from '@study/ui/trace';
+} from '@study/ui';
 import { useState } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

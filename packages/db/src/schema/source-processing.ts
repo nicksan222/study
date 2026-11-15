@@ -1,5 +1,5 @@
-import type { ContentSnapshotId, SourceId } from '@study/contracts/ids';
-import type { BlockId } from '@study/contracts/sources/document';
+import type { ContentSnapshotId, SourceId } from '@study/contracts';
+import type { BlockId } from '@study/contracts';
 
 import {
   defineTable,

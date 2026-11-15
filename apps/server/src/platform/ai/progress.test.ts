@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { agentObservationSchema } from '@study/contracts/ai/progress';
-import { StudyError } from '@study/contracts/errors';
+import type { agentObservationSchema } from '@study/contracts';
+import { StudyError } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { expect } from 'vite-plus/test';

@@ -1,5 +1,5 @@
 import { rpc } from '@study/contracts/react';
-import { toastManager } from '@study/ui/toast';
+import { toastManager } from '@study/ui';
 import { useEffect, useRef } from 'react';
 
 import { useI18n } from '#client/lib/i18n.tsx';

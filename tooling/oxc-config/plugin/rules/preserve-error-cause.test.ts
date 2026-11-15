@@ -39,7 +39,7 @@ testStable('preserve-error-cause covers direct unsafe forms', async () => {
 testStable('canonical contracts error wrappers retain their original cause', async () => {
   const diagnostics = await lintRule('preserve-error-cause', {
     'src/domains/projects/service.ts':
-      "import {StudyError} from '@study/contracts/errors'; try { work(); } catch(error) { throw new StudyError('internal', 'failed'); }"
+      "import {StudyError} from '@study/contracts'; try { work(); } catch(error) { throw new StudyError('internal', 'failed'); }"
   });
 
   assert.strictEqual(diagnostics.length, 1, JSON.stringify(diagnostics));

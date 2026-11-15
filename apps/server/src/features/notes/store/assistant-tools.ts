@@ -10,14 +10,14 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import {
   assistantToolIntentSchema,
   assistantToolReceiptSchema,
   assistantToolResultSchema
-} from '@study/contracts/notes/assistant';
+} from '@study/contracts';
 import { and, eq } from '@study/db';
-import { assistant_tool_receipts } from '@study/db/schema';
+import { assistant_tool_receipts } from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation } from '#server/platform/definitions/define-store';

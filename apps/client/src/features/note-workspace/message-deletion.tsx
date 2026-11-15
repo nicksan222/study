@@ -1,9 +1,7 @@
-import type { VersionId } from '@study/contracts/ids';
-import type { ChatMessage } from '@study/contracts/notes/messages';
+import type { VersionId, ChatMessage } from '@study/contracts';
 import { rpc, useIndependentMutation } from '@study/contracts/react';
 import { RemoveFromPageIcon, DeleteIcon } from '@study/icons';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { IconButton } from '@study/ui/icon-button';
+import { DangerDialog, IconButton } from '@study/ui';
 import { Effect } from 'effect';
 import { useState } from 'react';
 import type { ReactNode } from 'react';

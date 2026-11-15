@@ -1,6 +1,6 @@
 /** Raw-note citation identity points at exact external content owners. */
-import type { ContentSnapshotId, PageVersionId, SourceId, VersionId } from '@study/contracts/ids';
-import type { BlockId } from '@study/contracts/sources/document';
+import type { ContentSnapshotId, PageVersionId, SourceId, VersionId } from '@study/contracts';
+import type { BlockId } from '@study/contracts';
 
 import { defineTable, sql, integer, text, primaryKey, index, check } from '../schema-builder.ts';
 import type { AnySQLiteColumn } from '../schema-builder.ts';

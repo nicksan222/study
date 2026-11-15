@@ -13,9 +13,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { QuizAttemptId } from '@study/contracts/ids';
-import { LearningRpc } from '@study/contracts/learning/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
+import type { QuizAttemptId } from '@study/contracts';
+import { LearningRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option } from 'effect';
@@ -67,7 +67,7 @@ testStable('native learning RPC maps missing attempts to typed failures', async 
 });
 
 testStable('native practice RPC starts, reads, and stops project practice', async () => {
-  const s = await import('@study/db/schema');
+  const s = await import('@study/db');
   const location = await createTestDatabase();
   const context = new ServerContext(await location.open());
   const db = Layer.succeed(Database, { store: context });

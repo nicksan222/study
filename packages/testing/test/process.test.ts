@@ -1,5 +1,5 @@
-import { spawnTestProcess, spawnTestProcessSync } from '@study/testing/process';
-import { temporaryDirectory } from '@study/testing/resources';
+import { spawnTestProcess, spawnTestProcessSync } from '@study/testing/vitest';
+import { temporaryDirectory } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { afterAll, assert, expect } from 'vite-plus/test';
 

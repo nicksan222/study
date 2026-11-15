@@ -13,10 +13,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError, errorKindSchema } from '@study/contracts/errors';
-import * as h from '@study/contracts/materials/history';
+import { StudyError, errorKindSchema } from '@study/contracts';
+import * as h from '@study/contracts';
 import { eq, and, desc, inArray } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Schema, Option } from 'effect';
 

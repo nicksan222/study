@@ -1,11 +1,7 @@
-import type { PageVersionId } from '@study/contracts/ids';
-import type { PageSummary } from '@study/contracts/pages/types';
+import type { PageVersionId, PageSummary } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import type { ItemDeletionActions } from '@study/ui/context-menu';
-import { DangerDialog } from '@study/ui/danger-dialog';
-import { Loading } from '@study/ui/loading';
-import { VersionDeletionList } from '@study/ui/version-deletion-list';
+import { Button, DangerDialog, Loading, VersionDeletionList } from '@study/ui';
+import type { ItemDeletionActions } from '@study/ui';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 

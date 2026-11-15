@@ -12,7 +12,7 @@
  */
 
 import { and, desc, eq } from '@study/db';
-import { messages, message_versions } from '@study/db/schema';
+import { messages, message_versions } from '@study/db';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 

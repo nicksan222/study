@@ -1,5 +1,4 @@
-import { detailSchema } from '@study/contracts/pages/schemas';
-import { plainBlock } from '@study/contracts/sources/document';
+import { detailSchema, plainBlock } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { blankDocument } from './block-editor';

@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import * as c from '@study/contracts/pages/schemas';
-import type { ExactPageInput, PageVersion } from '@study/contracts/pages/types';
-import { encodeBlockContent } from '@study/contracts/sources/document';
-import type { documentSchema } from '@study/contracts/sources/schemas';
+import type { PageId, PageVersionId } from '@study/contracts';
+import * as c from '@study/contracts';
+import type { ExactPageInput, PageVersion } from '@study/contracts';
+import { encodeBlockContent } from '@study/contracts';
+import type { documentSchema } from '@study/contracts';
 import { and, desc, eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
@@ -42,7 +42,7 @@ export function makePageRevisions(resources: StoreResources) {
     body: typeof documentSchema.Type,
     parents: readonly PageVersionId[],
     inputs: readonly ExactPageInput[],
-    citations: readonly (typeof c.citationSchema.Type)[],
+    citations: readonly (typeof c.pageCitationSchema.Type)[],
     operation: PageVersion['operation'] = 'original',
     creator: PageVersion['creator'] = 'user',
     instruction: string | null = null,

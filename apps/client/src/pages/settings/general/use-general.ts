@@ -1,5 +1,5 @@
+import { Language } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Language } from '@study/contracts/settings/types';
 
 import { useLanguage } from '#client/lib/i18n.tsx';
 

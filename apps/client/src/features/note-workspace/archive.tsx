@@ -1,14 +1,23 @@
-import type { MessageId, NoteId, SourceId, PageId } from '@study/contracts/ids';
-import type { ArchivedNoteItem, NoteArchiveTarget } from '@study/contracts/notes/archive';
+import type {
+  MessageId,
+  NoteId,
+  SourceId,
+  PageId,
+  ArchivedNoteItem,
+  NoteArchiveTarget
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { PageIcon, ConvertedMessageIcon, RestoreIcon } from '@study/icons';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ChatMessage, ChatMessageText } from '@study/ui/chat';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Notebook } from '@study/ui/note-workspace';
-import { SelectionSurface as Surface } from '@study/ui/selection';
+import {
+  RetryButton,
+  Button,
+  ChatMessage,
+  ChatMessageText,
+  ErrorState,
+  Loading,
+  Notebook,
+  SelectionSurface as Surface
+} from '@study/ui';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 

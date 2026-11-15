@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { quizSettingsSchema } from '@study/contracts/settings/schemas';
+import { quizSettingsSchema } from '@study/contracts';
 import {
   defaultQuizSettings,
   defaultAgentRules,
@@ -22,7 +22,7 @@ import {
   Language,
   LlmModel,
   LlmProvider
-} from '@study/contracts/settings/types';
+} from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

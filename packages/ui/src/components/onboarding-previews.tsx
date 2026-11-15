@@ -1,10 +1,11 @@
 import { PageIcon, NoteIcon, NextIcon } from '@study/icons';
-import { Button } from '@study/ui/button';
-import { Identity } from '@study/ui/identity';
-import { List } from '@study/ui/list';
-import { OnboardingNotebook } from '@study/ui/onboarding';
-import { RichNoteContent } from '@study/ui/rich-note';
 import { useState } from 'react';
+
+import { Button } from './button.tsx';
+import { Identity } from './identity.tsx';
+import { List } from './list.tsx';
+import { OnboardingNotebook } from './onboarding.tsx';
+import { RichNoteContent } from './rich-note.tsx';
 
 /** Shows the subject identity and its real navigation primitives without creating saved data. */
 export function OnboardingSubject({

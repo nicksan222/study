@@ -12,11 +12,11 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { QuizAnswerSubmitted } from '@study/contracts/events';
-import { isTextQuestionKind } from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import type { QuizAnswerSubmitted } from '@study/contracts';
+import { isTextQuestionKind } from '@study/contracts';
 import { and, eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { CryptoHasher } from 'bun';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';

@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { PageId, PageVersionId, ContentSnapshotId } from '@study/contracts/ids';
-import type * as r from '@study/contracts/pages/rpc';
-import type { ExactPageInput, PageVersion } from '@study/contracts/pages/types';
-import { documentSchema } from '@study/contracts/sources/schemas';
+import { StudyError } from '@study/contracts';
+import type { PageId, PageVersionId, ContentSnapshotId } from '@study/contracts';
+import type * as r from '@study/contracts';
+import type { ExactPageInput, PageVersion } from '@study/contracts';
+import { documentSchema } from '@study/contracts';
 import { and, asc, desc, eq, isNull, lt, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { decodeStoredBlock } from '#server/platform/database/content-block';
@@ -171,7 +171,7 @@ export function makePageReads({ db }: StoreResources) {
     return { ...a, version: a.headVersionId === null ? null : version(a.headVersionId) };
   }
 
-  const pageFilters = (v: typeof r.countInputSchema.Type) =>
+  const pageFilters = (v: typeof r.pageCountInputSchema.Type) =>
     and(
       v.archived ? sql`${s.pages.archived_at} IS NOT NULL` : isNull(s.pages.archived_at),
       sql`NOT EXISTS(SELECT 1 FROM page_deletions d WHERE d.page_id=${s.pages.id})`,
@@ -183,7 +183,7 @@ export function makePageReads({ db }: StoreResources) {
         : sql`EXISTS(SELECT 1 FROM note_pages p WHERE p.page_id=${s.pages.id} AND p.note_id=${v.noteId} AND p.archived_at IS NULL)`
     );
 
-  function count(v: typeof r.countInputSchema.Type) {
+  function count(v: typeof r.pageCountInputSchema.Type) {
     return required(
       orm
         .select({ count: sql<bigint>`count(*)` })

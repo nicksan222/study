@@ -1,10 +1,10 @@
-import { StudyError } from '@study/contracts/errors';
 import {
+  StudyError,
   comparisonSchema,
   proposalOutcomeSchema,
   applyProposalSchema,
   keepProposalSchema
-} from '@study/contracts/pages/editing';
+} from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

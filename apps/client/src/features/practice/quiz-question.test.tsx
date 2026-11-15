@@ -1,4 +1,4 @@
-import { quizAttemptInProgressSchema } from '@study/contracts/learning/schemas';
+import { quizAttemptInProgressSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';

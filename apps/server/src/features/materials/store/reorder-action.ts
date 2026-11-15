@@ -12,15 +12,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { reorderInputSchema } from '@study/contracts/materials/rpc';
+import { StudyError } from '@study/contracts';
+import type { reorderInputSchema } from '@study/contracts';
 
 import type { StoreResources } from '#server/platform/definitions/define-store';
 
 type Input = typeof reorderInputSchema.Type;
 
 import { eq } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 
 import { required } from '#server/features/materials/store/reads';
 import { materialIntegrity } from '#server/features/materials/store/transactions';

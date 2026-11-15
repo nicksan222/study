@@ -1,7 +1,4 @@
-import type {
-  integrationNoteSchema,
-  integrationWarningSchema
-} from '@study/contracts/integrations/schemas';
+import type { integrationNoteSchema, integrationWarningSchema } from '@study/contracts';
 
 type Warning = typeof integrationWarningSchema.Type;
 

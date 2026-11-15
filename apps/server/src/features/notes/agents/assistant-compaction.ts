@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { compactionInputSchema, compactionOutputSchema } from '@study/contracts/ai/compaction';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { compactionInputSchema, compactionOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

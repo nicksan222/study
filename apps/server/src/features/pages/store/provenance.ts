@@ -11,13 +11,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { PageId, PageVersionId } from '@study/contracts/ids';
-import * as c from '@study/contracts/pages/schemas';
-import type { PageCitation, ExactPageInput } from '@study/contracts/pages/types';
-import { anchorSchema } from '@study/contracts/sources/schemas';
-import type { documentSchema } from '@study/contracts/sources/schemas';
+import type { PageId, PageVersionId } from '@study/contracts';
+import * as c from '@study/contracts';
+import type { PageCitation, ExactPageInput } from '@study/contracts';
+import { anchorSchema } from '@study/contracts';
+import type { documentSchema } from '@study/contracts';
 import { and, eq, inArray } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { validRange } from '#server/features/pages/decoders/range';

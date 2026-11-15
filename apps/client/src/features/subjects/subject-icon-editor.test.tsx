@@ -1,5 +1,5 @@
-import { projectSchema, automaticProjectIcon } from '@study/contracts/projects/schemas';
-import type { ProjectIcon } from '@study/contracts/projects/schemas';
+import { projectSchema, automaticProjectIcon } from '@study/contracts';
+import type { ProjectIcon } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Schema } from 'effect';

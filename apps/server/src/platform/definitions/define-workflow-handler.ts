@@ -14,8 +14,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { WorkflowEvent } from '@study/contracts/events';
-import { workflow_executions } from '@study/db/schema';
+import type { WorkflowEvent } from '@study/contracts';
+import { workflow_executions } from '@study/db';
 import { Effect, Schema } from 'effect';
 import type * as Workflow from 'effect/workflow/Workflow';
 

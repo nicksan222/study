@@ -1,9 +1,5 @@
-import type { MessageId } from '@study/contracts/ids';
-import { RetryButton } from '@study/ui/action-button';
-import { AiActivity } from '@study/ui/ai-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { RichNoteContent } from '@study/ui/rich-note';
+import type { MessageId } from '@study/contracts';
+import { RetryButton, AiActivity, Button, ErrorState, RichNoteContent } from '@study/ui';
 
 import { AiReadinessNotice } from '#client/lib/ai-readiness-notice.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';

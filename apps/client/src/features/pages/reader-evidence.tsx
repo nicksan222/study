@@ -1,15 +1,19 @@
-import type { assessmentViewSchema } from '@study/contracts/pages/evidence';
-import { exactInputSchema } from '@study/contracts/pages/schemas';
-import type { citationSchema } from '@study/contracts/pages/schemas';
-import type { PageVersion } from '@study/contracts/pages/types';
-import { LoadMoreButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Field } from '@study/ui/field';
-import { Loading } from '@study/ui/loading';
-import { MaterialLibrary } from '@study/ui/material-library';
-import { StatusMessage } from '@study/ui/status-message';
-import { Textarea } from '@study/ui/textarea';
+import { exactInputSchema } from '@study/contracts';
+import type {
+  assessmentViewSchema,
+  pageCitationSchema as citationSchema,
+  PageVersion
+} from '@study/contracts';
+import {
+  LoadMoreButton,
+  Button,
+  ErrorState,
+  Field,
+  Loading,
+  MaterialLibrary,
+  StatusMessage,
+  Textarea
+} from '@study/ui';
 import { Schema } from 'effect';
 
 import { useI18n } from '#client/lib/i18n.tsx';

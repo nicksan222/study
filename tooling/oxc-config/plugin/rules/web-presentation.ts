@@ -9,7 +9,7 @@
  * │ shared component overrides are checked separately by shared-ui-variants.                 │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   import { Button } from '@study/ui/button';                                             │
+ * │   import { Button } from '@study/ui';                                                    │
  * │   const view = <Button variant="secondary" />;                                           │
  * │                                                                                          │
  * │ Rejected:                                                                                │

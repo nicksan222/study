@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { MatchingDefinitionId } from '@study/contracts/ids';
-import { matchingAssociationsSchema } from '@study/contracts/learning/schemas';
-import type { matchingPairsSchema } from '@study/contracts/materials/schemas';
+import type { MatchingDefinitionId } from '@study/contracts';
+import { matchingAssociationsSchema } from '@study/contracts';
+import type { matchingPairsSchema } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { invalid } from '#server/platform/errors/domain-error';

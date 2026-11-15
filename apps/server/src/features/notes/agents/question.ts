@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { questionClassificationSchema, questionInputSchema } from '@study/contracts/notes/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { questionClassificationSchema, questionInputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { defineAgent } from '#server/platform/definitions/define-agent';
 

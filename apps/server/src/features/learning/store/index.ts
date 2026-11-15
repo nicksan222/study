@@ -12,9 +12,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { quizAnswerSubmittedSchema } from '@study/contracts/events';
-import { quizAttemptIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { quizAnswerSubmittedSchema } from '@study/contracts';
+import { quizAttemptIdSchema } from '@study/contracts';
 import {
   answerQuestionInputSchema,
   attemptSummarySchema,
@@ -32,15 +32,15 @@ import {
   reviewHistoryItemSchema,
   startQuizInputSchema,
   attemptInputSchema
-} from '@study/contracts/learning/rpc';
+} from '@study/contracts';
 import {
   quizAttemptCompletedSchema,
   quizAttemptInProgressSchema,
   quizAttemptSchema
-} from '@study/contracts/learning/schemas';
-import { reviewSettingsSchema } from '@study/contracts/settings/schemas';
+} from '@study/contracts';
+import { reviewSettingsSchema } from '@study/contracts';
 import { and, eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { makeAnswerQuestion } from '#server/features/learning/store/answer-question';

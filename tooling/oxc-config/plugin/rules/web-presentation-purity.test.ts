@@ -8,7 +8,7 @@ testStable('views cannot fetch, run page hooks or own application state', async 
     'web-presentation-purity',
     {
       'apps/client/src/pages/home/page.view.tsx': `import { useState as state } from 'react'; import { useNavigate } from '@tanstack/react-router'; import { Effect } from 'effect'; import { usePage } from './use-page'; import { load } from './page.logic';`,
-      'apps/client/src/pages/home/page.logic.ts': `import { useState } from 'react'; import { Button } from '@study/ui/button'; import { Link } from '@tanstack/react-router';`,
+      'apps/client/src/pages/home/page.logic.ts': `import { useState } from 'react'; import { Button } from '@study/ui'; import { Link } from '@tanstack/react-router';`,
       'apps/client/src/pages/home/other.logic.tsx': `export const element = <div />;`
     },
     true
@@ -24,7 +24,7 @@ testStable(
       await lintRule(
         'web-presentation-purity',
         {
-          'apps/client/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; import { useI18n } from '../../lib/i18n'; import { useNowMinute } from '@study/ui/clock'; import type { Model } from './use-page'; export const PageView = () => <Link to="/Home" />;`,
+          'apps/client/src/pages/home/page.view.tsx': `import { Link } from '@tanstack/react-router'; import { useI18n } from '../../lib/i18n'; import { useNowMinute } from '@study/ui'; import type { Model } from './use-page'; export const PageView = () => <Link to="/Home" />;`,
           'apps/client/src/pages/home/page.logic.ts': `import { Effect } from 'effect'; import type { ReactNode } from 'react'; export const load = Effect.succeed(1);`
         },
         true

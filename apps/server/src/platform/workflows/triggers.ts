@@ -14,15 +14,15 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { workflowEventSchema } from '@study/contracts/events';
-import type { WorkflowEvent } from '@study/contracts/events';
+import { workflowEventSchema } from '@study/contracts';
+import type { WorkflowEvent } from '@study/contracts';
 import { and, eq, lt, sql } from '@study/db';
 import {
   workflowEvents,
   workflowReceipts,
   workflow_executions,
   workflow_retired_executions
-} from '@study/db/schema';
+} from '@study/db';
 import { CryptoHasher } from 'bun';
 import { Effect, Option, Schema } from 'effect';
 import { WorkflowEngine } from 'effect/workflow';

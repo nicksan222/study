@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { projectIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { projectIdSchema } from '@study/contracts';
 import {
   createProjectInputSchema as createInput,
   projectIdInputSchema as deleteInput,
@@ -23,14 +23,10 @@ import {
   projectPageInputSchema,
   projectMaterialInputSchema,
   projectNoteInputSchema
-} from '@study/contracts/projects/rpc';
-import {
-  projectSchema,
-  projectIconSchema,
-  automaticProjectIcon
-} from '@study/contracts/projects/schemas';
+} from '@study/contracts';
+import { projectSchema, projectIconSchema, automaticProjectIcon } from '@study/contracts';
 import { and, desc, eq, lt } from '@study/db';
-import { projects, materials, notes, project_materials, project_notes } from '@study/db/schema';
+import { projects, materials, notes, project_materials, project_notes } from '@study/db';
 import { Option, Schema } from 'effect';
 
 import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';

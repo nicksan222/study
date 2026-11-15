@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { MAX_EXPORT_BYTES } from '@study/contracts/exports';
+import { StudyError } from '@study/contracts';
+import { MAX_EXPORT_BYTES } from '@study/contracts';
 
 function jsonCharacterBytes(character: string) {
   const point = character.codePointAt(0)!;

@@ -13,8 +13,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { AuthRpc } from '@study/contracts/auth/rpc';
-import { preferences } from '@study/db/schema';
+import { AuthRpc } from '@study/contracts';
+import { preferences } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';

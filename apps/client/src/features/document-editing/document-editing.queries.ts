@@ -3,10 +3,10 @@ import type {
   comparisonSchema,
   editOutcomeSchema,
   saveSchema,
-  restoreSchema
-} from '@study/contracts/pages/editing';
-import type { PageVersion } from '@study/contracts/pages/types';
-import type { documentSchema } from '@study/contracts/sources/schemas';
+  restoreSchema,
+  PageVersion,
+  documentSchema
+} from '@study/contracts';
 import { Atom } from 'effect/reactivity';
 import { useContext, useRef, useState } from 'react';
 

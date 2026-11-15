@@ -1,4 +1,4 @@
-import type { ProjectId, MaterialId, NoteId } from '@study/contracts/ids';
+import type { ProjectId, MaterialId, NoteId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 import { useEffect } from 'react';
 

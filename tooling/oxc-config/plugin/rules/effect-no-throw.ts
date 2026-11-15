@@ -8,12 +8,12 @@
  * │ errors are outside this check.                                                           │
  * │                                                                                          │
  * │ Allowed:                                                                                 │
- * │   import { StudyError } from '@study/contracts/errors';                                  │
+ * │   import { StudyError } from '@study/contracts';                                         │
  * │   import { Effect } from 'effect';                                                       │
  * │   Effect.gen(function* () { yield* Effect.fail(new StudyError('internal', 'bad')); });   │
  * │                                                                                          │
  * │ Rejected:                                                                                │
- * │   import { StudyError } from '@study/contracts/errors';                                  │
+ * │   import { StudyError } from '@study/contracts';                                         │
  * │   import { Effect } from 'effect';                                                       │
  * │   Effect.gen(function* () { throw new StudyError('internal', 'bad'); });                 │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯

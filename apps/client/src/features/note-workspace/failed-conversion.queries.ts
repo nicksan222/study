@@ -1,5 +1,5 @@
-import { StudyError } from '@study/contracts/errors';
-import type { ChatMessage, MessageVersion } from '@study/contracts/notes/messages';
+import { StudyError } from '@study/contracts';
+import type { ChatMessage, MessageVersion } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 import { useAiReadiness } from '#client/lib/ai-readiness.ts';

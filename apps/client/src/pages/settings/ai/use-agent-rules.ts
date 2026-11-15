@@ -1,6 +1,6 @@
+import { AgentRule } from '@study/contracts';
+import type { AgentRules } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { AgentRule } from '@study/contracts/settings/schemas';
-import type { AgentRules } from '@study/contracts/settings/types';
 import { useState } from 'react';
 
 /** Keeps task drafts until a confirmed save, including across refetches and failed mutations. */

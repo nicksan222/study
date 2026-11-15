@@ -11,9 +11,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import type { ErrorKind } from '@study/contracts/errors';
-import type * as h from '@study/contracts/materials/history';
+import { StudyError } from '@study/contracts';
+import type { ErrorKind } from '@study/contracts';
+import type * as h from '@study/contracts';
 import { Option } from 'effect';
 
 import { MaterialGenerationCleanupStore } from '#server/features/materials/store/generation-cleanup';

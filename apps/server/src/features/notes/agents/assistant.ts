@@ -12,8 +12,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { replyInputSchema, replyOutputSchema } from '@study/contracts/ai/reply';
-import { AgentRule } from '@study/contracts/settings/schemas';
+import { replyInputSchema, replyOutputSchema } from '@study/contracts';
+import { AgentRule } from '@study/contracts';
 
 import { noteTools } from '#server/features/notes/tools/notes';
 import { pageTools } from '#server/features/notes/tools/pages';

@@ -1,4 +1,4 @@
-import type { executionSchema } from '@study/contracts/workflows/schemas';
+import type { executionSchema } from '@study/contracts';
 
 /** Waiting and cancellation remain visible without pretending that execution is active. */
 export function workActivityState(

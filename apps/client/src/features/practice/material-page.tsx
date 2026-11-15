@@ -1,14 +1,12 @@
-import type { MaterialId, ProjectId } from '@study/contracts/ids';
-import { materialVersionIdSchema } from '@study/contracts/ids';
+import { materialVersionIdSchema } from '@study/contracts';
 import type {
+  MaterialId,
+  ProjectId,
   MaterialDetailDto,
   MaterialVersionDetailDto
-} from '@study/contracts/materials/schemas';
+} from '@study/contracts';
 import { rpc } from '@study/contracts/react';
-import { Button } from '@study/ui/button';
-import { ErrorState } from '@study/ui/error-state';
-import { Loading } from '@study/ui/loading';
-import { Practice } from '@study/ui/practice';
+import { Button, ErrorState, Loading, Practice } from '@study/ui';
 import { Link, useParams, useSearch } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

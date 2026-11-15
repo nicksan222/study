@@ -1,6 +1,6 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { projectIdSchema } from '@study/contracts/ids';
-import { spawnTestProcess } from '@study/testing/process';
+import { projectIdSchema } from '@study/contracts';
+import { spawnTestProcess } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Effect, FileSystem, Path, Schema } from 'effect';

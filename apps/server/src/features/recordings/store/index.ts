@@ -12,16 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { recordingIdSchema, noteIdSchema } from '@study/contracts/ids';
+import { StudyError } from '@study/contracts';
+import { recordingIdSchema, noteIdSchema } from '@study/contracts';
 import {
   appendRecordingInputSchema,
   postRecordingInputSchema,
   recordingPageInputSchema
-} from '@study/contracts/recordings/rpc';
-import { recordingPostSchema, recordingViewSchema } from '@study/contracts/recordings/schemas';
+} from '@study/contracts';
+import { recordingPostSchema, recordingViewSchema } from '@study/contracts';
 import { and, asc, desc, eq, lt, sql } from '@study/db';
-import { recording_chunks, recording_posts, recordings, notes } from '@study/db/schema';
+import { recording_chunks, recording_posts, recordings, notes } from '@study/db';
 import { Option, Schema } from 'effect';
 
 import {

@@ -1,3 +1,5 @@
+import { packageExportIssues } from './plugin/package-export-policy.ts';
+
 export interface WorkspaceManifest {
   name?: string;
   dependencies?: Record<string, string>;
@@ -94,6 +96,8 @@ export function workspaceArchitecture(manifests: Record<string, WorkspaceManifes
   const version = manifests['apps/server']?.dependencies?.effect;
 
   for (const [path, manifest] of Object.entries(manifests)) {
+    issues.push(...packageExportIssues(path, manifest.exports));
+
     for (const section of [
       'dependencies',
       'devDependencies',
@@ -102,29 +106,6 @@ export function workspaceArchitecture(manifests: Record<string, WorkspaceManifes
     ] as const) {
       issues.push(...dependencyIssues(path, section, manifest[section] ?? {}, version));
     }
-  }
-
-  if (contracts) {
-    function explicitExports(value: unknown): boolean {
-      if (typeof value === 'string')
-        return (
-          value.startsWith('./src/') && !value.includes('*') && !value.split('/').includes('..')
-        );
-
-      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-
-      return (
-        Object.entries(value).length > 0 &&
-        Object.entries(value).every(
-          ([key, target]) => !key.includes('*') && explicitExports(target)
-        )
-      );
-    }
-
-    if (!explicitExports(contracts.exports))
-      issues.push(
-        'packages/contracts: expose explicit browser-safe source entrypoints, without wildcard exports.'
-      );
   }
 
   return issues.sort();

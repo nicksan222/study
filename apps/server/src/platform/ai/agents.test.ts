@@ -15,11 +15,13 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { titledFlashcardsGenerationOutputSchema } from '@study/contracts/materials/schemas';
-import { AgentRule } from '@study/contracts/settings/schemas';
-import { defaultAgentRules } from '@study/contracts/settings/types';
-import { createAiMock } from '@study/testing/ai-mock';
+import {
+  AgentRule,
+  StudyError,
+  defaultAgentRules,
+  titledFlashcardsGenerationOutputSchema
+} from '@study/contracts';
+import { createAiMock } from '@study/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Fiber, Schema, Stream } from 'effect';
 import { TestClock } from 'effect/testing';

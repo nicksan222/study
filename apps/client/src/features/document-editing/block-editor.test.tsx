@@ -1,5 +1,4 @@
-import { createBlock } from '@study/contracts/sources/document';
-import { canonicalText } from '@study/contracts/sources/schemas';
+import { createBlock, canonicalText } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

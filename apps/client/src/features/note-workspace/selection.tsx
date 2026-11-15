@@ -1,8 +1,6 @@
-import type { noteSelectionTargetSchema } from '@study/contracts/notes/context';
-import { validBlockTextRange } from '@study/contracts/sources/document';
-import type { documentSchema } from '@study/contracts/sources/schemas';
-import { Notebook } from '@study/ui/note-workspace';
-import { SelectionSurface } from '@study/ui/selection';
+import { validBlockTextRange } from '@study/contracts';
+import type { noteSelectionTargetSchema, documentSchema } from '@study/contracts';
+import { Notebook, SelectionSurface } from '@study/ui';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 

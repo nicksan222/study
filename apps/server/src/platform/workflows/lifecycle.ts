@@ -13,7 +13,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { StudyError } from '@study/contracts/errors';
+import type { StudyError } from '@study/contracts';
 import { Context } from 'effect';
 import type { Effect } from 'effect';
 

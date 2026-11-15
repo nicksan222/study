@@ -1,4 +1,4 @@
-import type { NoteId, PageId, PageVersionId } from '@study/contracts/ids';
+import type { NoteId, PageId, PageVersionId } from '@study/contracts';
 import { rpc } from '@study/contracts/react';
 
 /** Pins an exact page version without replacing the note's other selected context. */

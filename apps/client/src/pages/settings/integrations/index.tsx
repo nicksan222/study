@@ -1,16 +1,7 @@
-import type {
-  integrationImportSchema,
-  integrationWarningSchema
-} from '@study/contracts/integrations/schemas';
+import type { integrationImportSchema, integrationWarningSchema } from '@study/contracts';
 import { UploadIcon } from '@study/icons';
 import type { StaticMessageKey } from '@study/localization';
-import { RetryButton } from '@study/ui/action-button';
-import { Button } from '@study/ui/button';
-import { Disclosure } from '@study/ui/disclosure';
-import { ErrorState } from '@study/ui/error-state';
-import { Input } from '@study/ui/input';
-import { Loading } from '@study/ui/loading';
-import { Settings } from '@study/ui/settings';
+import { RetryButton, Button, Disclosure, ErrorState, Input, Loading, Settings } from '@study/ui';
 import { Link } from '@tanstack/react-router';
 import { useRef } from 'react';
 

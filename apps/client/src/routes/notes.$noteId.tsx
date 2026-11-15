@@ -1,4 +1,4 @@
-import { noteIdSchema } from '@study/contracts/ids';
+import { noteIdSchema } from '@study/contracts';
 import { createFileRoute, notFound } from '@tanstack/react-router';
 import { Schema } from 'effect';
 

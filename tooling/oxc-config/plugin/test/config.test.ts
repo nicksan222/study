@@ -1,5 +1,5 @@
 import { BunPath } from '@effect/platform-bun';
-import { spawnTestProcessSync } from '@study/testing/process';
+import { spawnTestProcessSync } from '@study/testing/vitest';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Path } from 'effect';
 import { assert } from 'vite-plus/test';
@@ -51,19 +51,19 @@ testStable(
   }
 );
 
-testStable('Bun resolves and loads extensionless nested server and testing aliases', () => {
+testStable('Bun resolves package roots and explicit testing facets', () => {
   const result = spawnTestProcessSync(
     [
       process.execPath,
       '--eval',
       `
     for (const [specifier, suffix] of [
-      ['@study/contracts/json', '/src/json.ts'],
-      ['@study/contracts/errors', '/src/errors.ts'],
-      ['#testing/automatic', '/test/testing/automatic.ts']
+      ['@study/contracts', '/src/index.ts'],
+      ['@study/db', '/src/index.ts'],
+      ['@study/testing/vitest', '/src/vitest.ts']
     ]) {
       if (!Bun.fileURLToPath(import.meta.resolve(specifier)).endsWith(suffix)) throw new Error(specifier);
-      if (!specifier.startsWith('#testing/')) await import(specifier);
+      await import(specifier);
     }
   `
     ],
@@ -138,7 +138,7 @@ testStable('production config loads the Study plugin', async () => {
 
 testStable('production config enforces package boundaries', async () => {
   const diagnostics = await lintFiles({
-    'src/package-smoke.ts': "import '@study/ui/button';\n"
+    'src/package-smoke.ts': "import '@study/ui';\n"
   });
 
   assert.ok(

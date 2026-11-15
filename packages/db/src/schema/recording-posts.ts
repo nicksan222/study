@@ -1,4 +1,4 @@
-import type { MessageId, ProjectId, RecordingId, NoteId, SourceId } from '@study/contracts/ids';
+import type { MessageId, ProjectId, RecordingId, NoteId, SourceId } from '@study/contracts';
 
 import { defineTable, sql, blob, check, integer, text, uniqueIndex } from '../schema-builder.ts';
 import { recordings, notes } from './notes.ts';

@@ -14,8 +14,8 @@
  */
 
 import { eq, sql } from '@study/db';
-import type { messages } from '@study/db/schema';
-import { notes, sources } from '@study/db/schema';
+import type { messages } from '@study/db';
+import { notes, sources } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import type { Context } from 'effect';

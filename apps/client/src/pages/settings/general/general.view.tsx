@@ -1,7 +1,5 @@
-import { Language } from '@study/contracts/settings/types';
-import { RetryButton } from '@study/ui/action-button';
-import { Loading } from '@study/ui/loading';
-import { Settings } from '@study/ui/settings';
+import { Language } from '@study/contracts';
+import { RetryButton, Loading, Settings } from '@study/ui';
 
 import { ReplayOnboarding } from '#client/features/onboarding/index.tsx';
 import { useI18n } from '#client/lib/i18n.tsx';

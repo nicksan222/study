@@ -14,9 +14,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { MaterialsRpc } from '@study/contracts/materials/rpc';
-import { plainBlock } from '@study/contracts/sources/document';
-import { notes, workflowEvents } from '@study/db/schema';
+import { MaterialsRpc } from '@study/contracts';
+import { plainBlock } from '@study/contracts';
+import { notes, workflowEvents } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer, Option, Schema } from 'effect';
@@ -250,7 +250,7 @@ testStable('native materials RPC uses the service and maps canonical failures', 
         const exportFailure = yield* Effect.flip(
           client('materials.exportMaterialVersion', {
             id: Schema.decodeUnknownSync(
-              (yield* Effect.promise(() => import('@study/contracts/ids'))).materialVersionIdSchema
+              (yield* Effect.promise(() => import('@study/contracts'))).materialVersionIdSchema
             )(999999n),
             format: 'aid_json'
           })

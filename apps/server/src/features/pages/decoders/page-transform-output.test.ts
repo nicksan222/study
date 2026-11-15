@@ -11,8 +11,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { createBlock } from '@study/contracts/sources/document';
-import { blockContentSchema } from '@study/contracts/sources/schemas';
+import { createBlock } from '@study/contracts';
+import { blockContentSchema } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { Schema } from 'effect';
 import { expect } from 'vite-plus/test';

@@ -1,5 +1,5 @@
 import { testStable } from '@study/testing/vitest';
-import { ChatNote, ChatMessage, ChatMessageText, ChatMessageActionToolbar } from '@study/ui/chat';
+import { ChatNote, ChatMessage, ChatMessageText, ChatMessageActionToolbar } from '@study/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect } from 'vite-plus/test';
 

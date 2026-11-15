@@ -1,8 +1,14 @@
-import type { ChatMessage as NoteMessage } from '@study/contracts/notes/messages';
-import { Bubble, BubbleContent } from '@study/ui/bubble';
-import { CodeBlockCopyButton } from '@study/ui/code-block';
-import { Message, MessageContent, MessageHeader, MessageFooter } from '@study/ui/message';
-import { RichNoteContent } from '@study/ui/rich-note';
+import type { ChatMessage as NoteMessage } from '@study/contracts';
+import {
+  Bubble,
+  BubbleContent,
+  CodeBlockCopyButton,
+  Message,
+  MessageContent,
+  MessageHeader,
+  MessageFooter,
+  RichNoteContent
+} from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

@@ -12,16 +12,16 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
+import { StudyError } from '@study/contracts';
 import {
   noteContextIntentSchema,
   runSelectionContextSchema,
   selectionTargetsSchema
-} from '@study/contracts/notes/context';
-import { replySnapshotSchema } from '@study/contracts/notes/schemas';
-import { anchorSchema } from '@study/contracts/sources/schemas';
+} from '@study/contracts';
+import { replySnapshotSchema } from '@study/contracts';
+import { anchorSchema } from '@study/contracts';
 import { eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { Schema } from 'effect';
 
 import { defineStore, storeQuery } from '#server/platform/definitions/define-store';

@@ -1,4 +1,4 @@
-import { noteSchema } from '@study/contracts/notes/schemas';
+import { noteSchema } from '@study/contracts';
 import { Schema } from 'effect';
 import { RpcSerialization } from 'effect/rpc';
 import type { ProxyOptions } from 'vite-plus';

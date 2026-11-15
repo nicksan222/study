@@ -12,11 +12,11 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
-import { StudyRpc } from '@study/contracts/rpc';
-import { createBlock } from '@study/contracts/sources/document';
-import { backupIdSchema, restoreTokenSchema } from '@study/contracts/system/backups';
+import { StudyRpc } from '@study/contracts';
+import { createBlock } from '@study/contracts';
+import { backupIdSchema, restoreTokenSchema } from '@study/contracts';
 import { Db, eq, sql } from '@study/db';
-import * as s from '@study/db/schema';
+import * as s from '@study/db';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';

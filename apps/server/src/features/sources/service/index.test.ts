@@ -14,10 +14,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import type { NoteId } from '@study/contracts/ids';
-import { projectIdSchema } from '@study/contracts/ids';
-import type { ProjectId, SourceId } from '@study/contracts/ids';
-import { correctBlockText, plainBlock } from '@study/contracts/sources/document';
+import type { NoteId } from '@study/contracts';
+import { projectIdSchema } from '@study/contracts';
+import type { ProjectId, SourceId } from '@study/contracts';
+import { correctBlockText, plainBlock } from '@study/contracts';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';

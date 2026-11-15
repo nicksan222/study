@@ -1,4 +1,4 @@
-import type { StructuredEditorLabels } from '@study/ui/structured-editor';
+import type { StructuredEditorLabels } from '@study/ui';
 
 import { useI18n } from '#client/lib/i18n.tsx';
 

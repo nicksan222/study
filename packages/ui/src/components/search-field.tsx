@@ -1,7 +1,7 @@
 import { SearchIcon } from '@study/icons';
-import { cn } from '@study/ui/utils';
 import type { ReactNode } from 'react';
 
+import { cn } from '../utils.ts';
 import { Input } from './input';
 import type { InputProps } from './input';
 

@@ -11,16 +11,10 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { StudyError } from '@study/contracts/errors';
-import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts/materials/export';
-import type {
-  learningExportFormatSchema,
-  exportOmissionSchema
-} from '@study/contracts/materials/export';
-import type {
-  materialCitationSchema,
-  MaterialVersionDetailDto
-} from '@study/contracts/materials/schemas';
+import { StudyError } from '@study/contracts';
+import { materialAidExportSchema, MAX_EXPORT_BYTES } from '@study/contracts';
+import type { learningExportFormatSchema, exportOmissionSchema } from '@study/contracts';
+import type { materialCitationSchema, MaterialVersionDetailDto } from '@study/contracts';
 import { Schema } from 'effect';
 
 import { exportBudget } from '#server/platform/content-export/budget';

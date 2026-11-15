@@ -7,14 +7,14 @@ import {
   ChecklistIcon,
   ConvertToTextIcon
 } from '@study/icons';
-import { ChatMessageContent } from '@study/ui/chat';
 import {
+  ChatMessageContent,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuPopup,
   ContextMenuItem,
   ContextMenuSeparator
-} from '@study/ui/context-menu';
+} from '@study/ui';
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 

@@ -10,9 +10,9 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { failureSchema } from '@study/contracts/errors';
-import { materialDeletionRequestedSchema } from '@study/contracts/events';
-import { materialDeletionSchema } from '@study/contracts/materials/deletion';
+import { failureSchema } from '@study/contracts';
+import { materialDeletionRequestedSchema } from '@study/contracts';
+import { materialDeletionSchema } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
 import { Materials } from '#server/features/materials/index';

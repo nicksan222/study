@@ -1,8 +1,7 @@
-import { StudyError } from '@study/contracts/errors';
-import { noteIdSchema } from '@study/contracts/ids';
-import { noteDeletionSchema } from '@study/contracts/notes/deletion';
+import { StudyError, noteIdSchema, noteDeletionSchema } from '@study/contracts';
 import { catalogs } from '@study/localization';
 import { testStable } from '@study/testing/vitest';
+import type * as UiModule from '@study/ui';
 import {
   createMemoryHistory,
   createRootRoute,
@@ -22,7 +21,11 @@ const titles = vi.hoisted(() => ({ request: vi.fn(), executions: vi.fn() }));
 
 const notices = vi.hoisted(() => ({ add: vi.fn() }));
 
-vi.mock('@study/ui/toast', () => ({ toastManager: notices }));
+vi.mock('@study/ui', async (load) => {
+  const actual = await load<typeof UiModule>();
+
+  return { ...actual, toastManager: { ...actual.toastManager, ...notices } };
+});
 
 const deletion = vi.hoisted(() => ({ remove: vi.fn(), read: vi.fn(), retry: vi.fn() }));
 

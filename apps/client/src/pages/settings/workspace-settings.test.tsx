@@ -1,6 +1,5 @@
-import { workspacePreferencesSchema } from '@study/contracts/settings/schemas';
-import { defaultWorkspacePreferences } from '@study/contracts/settings/types';
-import type { WorkspacePreferences } from '@study/contracts/settings/types';
+import { workspacePreferencesSchema, defaultWorkspacePreferences } from '@study/contracts';
+import type { WorkspacePreferences } from '@study/contracts';
 import { testStable } from '@study/testing/vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
