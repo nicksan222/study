@@ -423,7 +423,7 @@ export class ManagedBackups {
 
         const manifest = Schema.decodeUnknownSync(backupManifestSchema)({
           format: 'study-managed-backup',
-          version: 1,
+          version: 2,
           id: crypto.randomUUID(),
           createdAtMs: this.clock.currentTimeMillisUnsafe(),
           schema,
@@ -431,7 +431,7 @@ export class ManagedBackups {
           bytes: bytes.length,
           scope,
           credentials: 'excluded',
-          nativeWork: 'retired',
+          nativeWork: 'preserved',
           compatibility: 'exact-schema'
         });
 

@@ -22,7 +22,7 @@ import { assert } from 'vite-plus/test';
 import { MaterialsRpcLive } from '#server/features/materials/rpc/index';
 import {
   materialHistoryWorkflow,
-  materialHistoryHandler
+  materialHistoryRegistration
 } from '#server/features/materials/workflows/history';
 import {
   sourceIngestionWorkflow,
@@ -33,6 +33,7 @@ import {
 import { decodeEvent } from '#server/platform/workflows/events';
 import { testLiveQueries } from '#testing/live-queries';
 import type { MaterialDeletionFixture } from '#testing/material-deletion';
+import { admitTestExecution, refreshTestExecution } from '#testing/workflow-admission';
 
 function historyEvent(f: MaterialDeletionFixture, operationId: string) {
   const event = f.context.db.orm
@@ -58,13 +59,23 @@ export function cleanupHistory(f: MaterialDeletionFixture, operationId: string) 
       Effect.gen(function* () {
         const engine = yield* WorkflowEngine.WorkflowEngine;
 
-        yield* engine.register(materialHistoryWorkflow, materialHistoryHandler);
+        const result = yield* engine
+          .execute(materialHistoryWorkflow, {
+            executionId: `history-test/${event.eventId}`,
+            payload: { event }
+          })
+          .pipe(
+            Effect.onExit(() =>
+              refreshTestExecution(
+                f.context,
+                materialHistoryWorkflow,
+                `history-test/${event.eventId}`
+              )
+            )
+          );
 
-        return yield* engine.execute(materialHistoryWorkflow, {
-          executionId: `history-test/${event.eventId}`,
-          payload: { event }
-        });
-      }).pipe(Effect.provide(f.services()))
+        return result;
+      }).pipe(Effect.provide(materialHistoryRegistration.layer), Effect.provide(f.services()))
     )
   );
 }
@@ -126,16 +137,45 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
 
         yield* engine.register(sourceCorrectionWorkflow, sourceCorrectionHandler);
 
+        if (event.type === 'SourceCorrectionRequested')
+          admitTestExecution(f.context, sourceCorrectionWorkflow, `correction/${event.eventId}`, {
+            event
+          });
+        else
+          admitTestExecution(f.context, sourceIngestionWorkflow, `ingestion/${event.eventId}`, {
+            event
+          });
+
         const documentId: ContentSnapshotId =
           event.type === 'SourceCorrectionRequested'
-            ? yield* engine.execute(sourceCorrectionWorkflow, {
-                executionId: `correction/${event.eventId}`,
-                payload: { event }
-              })
-            : yield* engine.execute(sourceIngestionWorkflow, {
-                executionId: `ingestion/${event.eventId}`,
-                payload: { event }
-              });
+            ? yield* engine
+                .execute(sourceCorrectionWorkflow, {
+                  executionId: `correction/${event.eventId}`,
+                  payload: { event }
+                })
+                .pipe(
+                  Effect.onExit(() =>
+                    refreshTestExecution(
+                      f.context,
+                      sourceCorrectionWorkflow,
+                      `correction/${event.eventId}`
+                    )
+                  )
+                )
+            : yield* engine
+                .execute(sourceIngestionWorkflow, {
+                  executionId: `ingestion/${event.eventId}`,
+                  payload: { event }
+                })
+                .pipe(
+                  Effect.onExit(() =>
+                    refreshTestExecution(
+                      f.context,
+                      sourceIngestionWorkflow,
+                      `ingestion/${event.eventId}`
+                    )
+                  )
+                );
 
         const indexed = f.context.db.orm
           .select()
@@ -149,7 +189,7 @@ export function processSource(f: MaterialDeletionFixture, correction = false) {
         assert.ok(indexed?.type === 'SourceIndexed');
 
         return { documentId };
-      }).pipe(Effect.provide(f.services()))
+      }).pipe(Effect.provide(materialHistoryRegistration.layer), Effect.provide(f.services()))
     )
   );
 }

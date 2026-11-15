@@ -269,7 +269,7 @@ testStable(
             2
           );
 
-          for (const status of ['running', 'cancelled'] as const) {
+          for (const status of ['cancelling', 'cancelled'] as const) {
             context.db.orm
               .insert(s.workflow_executions)
               .values({
@@ -278,7 +278,8 @@ testStable(
                 version: 1,
                 payload: JSON.stringify({ event: { correlationId: request.id } }),
                 status,
-                result: status === 'running' ? JSON.stringify('__interrupt_safe__') : null,
+                cancellation_mode: 'safe',
+                result: null,
                 created_at: 1n,
                 updated_at: 1n
               })

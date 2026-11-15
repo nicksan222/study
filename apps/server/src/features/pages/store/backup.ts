@@ -1,9 +1,9 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Validates authored payloads and retires pending authority in backup copies.        │
+ * │ @file Validates authored payloads without altering durable work.                         │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Validates authored payloads and retires pending authority in backup copies.            │
+ * │ - Validates authored payloads without altering durable work.                             │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
  * │ Private synchronous persistence stays inside Pages ownership; callers own                │
@@ -13,12 +13,12 @@
 
 import { StudyError } from '@study/contracts/errors';
 import * as evidence from '@study/contracts/pages/evidence';
-import { eq, isNull, sql } from '@study/db';
+import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { Schema } from 'effect';
 
 import { decodeTransformRequest } from '#server/features/pages/store/transforms';
-import { defineStore, storeMutation, storeQuery } from '#server/platform/definitions/define-store';
+import { defineStore, storeQuery } from '#server/platform/definitions/define-store';
 
 import { makePageReads } from './reads.ts';
 
@@ -55,16 +55,6 @@ export const PageBackupStore = defineStore({
           run: () => {
             if (
               db.orm.get(
-                sql`SELECT 1 FROM page_transform_requests WHERE cancelled=0 AND result_version_id IS NULL LIMIT 1`
-              )
-            )
-              throw new StudyError(
-                'invalid_input',
-                'Backup contains pending authored generation authority'
-              );
-
-            if (
-              db.orm.get(
                 sql`SELECT 1 FROM note_context_pages c JOIN page_retirements r ON r.version_id=c.version_id LIMIT 1`
               )
             )
@@ -94,21 +84,7 @@ export const PageBackupStore = defineStore({
           }
         })
       },
-      mutations: {
-        prepareBackup: storeMutation({
-          changes: ['pages'],
-          input: Schema.Void,
-          output: Schema.Array(Schema.String),
-          run: () =>
-            db.orm
-              .update(s.page_transform_requests)
-              .set({ cancelled: true, error_kind: 'cancelled' })
-              .where(isNull(s.page_transform_requests.result_version_id))
-              .returning({ id: s.page_transform_requests.id })
-              .all()
-              .map((row) => row.id)
-        })
-      }
+      mutations: {}
     };
   }
 });

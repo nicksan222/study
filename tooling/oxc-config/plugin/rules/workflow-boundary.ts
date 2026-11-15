@@ -227,7 +227,7 @@ export default defineRule({
 
         if (
           (name === 'Workflow.make' && !workflowOwner) ||
-          (name === 'WorkflowEngine.makeUnsafe' && !engineOwner) ||
+          name === 'WorkflowEngine.makeUnsafe' ||
           (name === 'Activity.make' && !activityOwner)
         )
           context.report({

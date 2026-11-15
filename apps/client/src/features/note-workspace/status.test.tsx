@@ -113,3 +113,23 @@ testStable('explains a configuration wait and offers settings', async () => {
     '/settings'
   );
 });
+
+testStable('labels unsupported persisted work as blocked with its typed error', async () => {
+  api.executions.mockResolvedValue({
+    items: [
+      {
+        id: 'blocked',
+        workflow: 'conversation-reply',
+        createdAtMs: 1000n,
+        updatedAtMs: 2000n,
+        status: 'blocked',
+        outcome: 'failure',
+        failureKind: 'unsupported'
+      }
+    ],
+    next: null
+  });
+  mount();
+  expect(await screen.findByText(catalogs.english['workspace.state.blocked'])).toBeInTheDocument();
+  expect(screen.queryByText(catalogs.english['workspace.state.failure'])).not.toBeInTheDocument();
+});

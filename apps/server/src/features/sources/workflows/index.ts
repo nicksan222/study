@@ -253,6 +253,7 @@ export const sourceIngestionHandler = ({
   }).pipe(noticeSourceFailure(event));
 
 export const sourceIngestionRegistration = defineWorkflowHandler(sourceIngestionWorkflow, {
+  workload: 'bulk',
   execute: sourceIngestionHandler,
   triggers: [
     {

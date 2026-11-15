@@ -355,7 +355,15 @@ for (const mode of [
                 yield* Effect.sleep('25 millis');
               }
 
-              assert.ok(drained === true);
+              assert.ok(
+                drained === true,
+                JSON.stringify(
+                  app.store.db.orm.all(
+                    'SELECT workflow_tag,status,version,cancellation_mode,result FROM workflow_executions'
+                  ),
+                  (_, value) => (typeof value === 'bigint' ? String(value) : value)
+                )
+              );
             }
 
             assert.strictEqual(generations, count);

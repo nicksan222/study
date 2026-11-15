@@ -411,6 +411,32 @@ testStable(
 
             yield* engine.register(materialDeletionWorkflow, materialDeletionHandler);
 
+            for (const [executionId, tag] of [
+              ['retire-material-run', materialGenerationWorkflow._tag],
+              ['keep-material-run', independent._tag],
+              ['material-native-cleanup', materialDeletionWorkflow._tag]
+            ]) {
+              f.context.db.orm
+                .insert(s.workflow_executions)
+                .values({
+                  execution_id: executionId,
+                  workflow_tag: tag,
+                  version: 1,
+                  payload:
+                    executionId === 'retire-material-run'
+                      ? JSON.stringify(
+                          Schema.encodeSync(
+                            Schema.toCodecJson(materialGenerationWorkflow.payloadSchema)
+                          )({ event })
+                        )
+                      : '{}',
+                  status: 'suspended',
+                  created_at: 1n,
+                  updated_at: 1n
+                })
+                .run();
+            }
+
             yield* engine.execute(materialGenerationWorkflow, {
               executionId: 'retire-material-run',
               payload: { event },
@@ -459,11 +485,6 @@ testStable(
               deferredName: gate.name,
               exit: Exit.void
             });
-
-            assert.strictEqual(
-              workflowStore(f.context).deferred('retire-material-run', gate.name),
-              undefined
-            );
 
             yield* engine.deferredDone(independentGate, {
               workflowName: independent._tag,

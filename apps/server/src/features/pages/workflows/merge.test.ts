@@ -22,9 +22,11 @@ import {
   pageTransformHandler,
   pageTransformWorkflow
 } from '#server/features/pages/workflows/transform';
+import { reconcileCancellation } from '#server/platform/workflows/cancellation';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
 import { pageTransformFixture } from '#testing/page-transform';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 const content = () => ({
   blocks: [
@@ -228,16 +230,29 @@ testStable(
             );
             yield* engine.register(pageTransformWorkflow, pageTransformHandler);
             const fiber = yield* Effect.forkChild(
-              engine.execute(pageTransformWorkflow, {
-                executionId: 'merge-cancel',
-                payload: { event: eventFor(fixture, request.id) }
-              })
+              withTestAdmission(
+                fixture.context,
+                pageTransformWorkflow,
+                'merge-cancel',
+                { event: eventFor(fixture, request.id) },
+                engine.execute(pageTransformWorkflow, {
+                  executionId: 'merge-cancel',
+                  payload: { event: eventFor(fixture, request.id) }
+                })
+              )
             );
 
             yield* Deferred.await(received);
             yield* (yield* Pages).cancelTransform({ requestId: request.id });
             yield* Deferred.succeed(release, undefined);
             expect(Exit.isFailure(yield* Fiber.await(fiber))).toBe(true);
+            yield* reconcileCancellation(
+              fixture.context,
+              pageTransformWorkflow,
+              'merge-cancel',
+              'safe',
+              true
+            );
             expect(workflowStore(fixture.context).execution('merge-cancel')?.status).toBe(
               'cancelled'
             );

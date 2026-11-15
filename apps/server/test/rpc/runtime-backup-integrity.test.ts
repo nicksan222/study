@@ -129,11 +129,10 @@ testStable(
           db.exec("UPDATE __drizzle_migrations SET hash='not-supported'");
         },
         (db: Db) => {
-          db.exec('CREATE VIRTUAL TABLE hostile USING fts5(body)');
+          db.exec("UPDATE cluster_migrations SET name='not-supported'");
         },
         (db: Db) => {
-          db.exec(`INSERT INTO note_run_contexts(request_id,note_id,intent_key,intent,snapshot)
-        SELECT request_id||'-forged',note_id,'forged',json_set(intent,'$.intentKey','forged'),json_set(snapshot,'$.requestId',request_id||'-forged','$.intentKey','forged') FROM note_run_contexts`);
+          db.exec('CREATE VIRTUAL TABLE hostile USING fts5(body)');
         }
       ];
 

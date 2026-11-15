@@ -665,7 +665,7 @@ export const english = Object.freeze({
   DataAcknowledge: 'I’ve checked the result',
   DataReceipt: 'Operation completed; receipt retained.',
   DataRestoreWarning:
-    'Restoring replaces all application content. Credentials are excluded and native work is retired. Restart and sign-in are required. Backups retain deleted content and history; restoring can bring them back. No restart happens from this screen.',
+    'Restoring replaces all application content. Credentials are excluded and background work is preserved. Restart and sign-in are required. Backups retain deleted content and history; restoring can bring them back. No restart happens from this screen.',
   DataBlocked:
     'Restore is blocked by current deletion or history barriers. This screen cannot bypass them.',
   DataRecoveryBlocked:
@@ -795,6 +795,7 @@ export const english = Object.freeze({
   'workspace.state.completed': 'Completed',
   'workspace.state.cancelled': 'Cancelled',
   'workspace.state.cancelling': 'Stopping',
+  'workspace.state.blocked': 'Blocked',
   'workspace.state.failure': 'Failed',
   AnnotationStoredRevision: 'Stored annotation revision',
   AnnotationSubmittedCreate: 'Creation awaiting confirmation',

@@ -22,7 +22,8 @@ import type { exportPageInputSchema } from '@study/contracts/pages/export';
 import type * as r from '@study/contracts/pages/rpc';
 import type * as t from '@study/contracts/pages/transform';
 import type { Page } from '@study/contracts/pages/types';
-import { Effect, Option } from 'effect';
+import { executionIdSchema } from '@study/contracts/workflows/schemas';
+import { Effect, Option, Schema } from 'effect';
 
 import {
   PageAnnotationsStore,
@@ -51,6 +52,7 @@ import {
   publicationTransaction
 } from '#server/platform/definitions/define-store';
 import type { Transaction } from '#server/platform/definitions/define-store';
+import { WorkflowControl } from '#server/platform/workflows/control';
 
 import { assessCitation, citationAssessments } from './assessments.ts';
 import { serializePageVersion } from './export-serializer.ts';
@@ -291,18 +293,18 @@ export const Pages = defineService(
         transaction((tx) => {
           const preview = tx.store(PageHistoryStore).previewHistory(v);
 
-          retireBodyWorkflows(tx, preview.versionIds);
+          const executions = retireBodyWorkflows(tx, preview.versionIds);
 
-          return tx.store(PagesStore).retireHistory(v);
-        }),
+          return { executions, result: tx.store(PagesStore).retireHistory(v) };
+        }).pipe(afterBodyRetirement),
       delete: (v: typeof r.deleteSchema.Type) =>
         transaction((tx) => {
           const preview = tx.store(PageDeletionStore).previewDeletion({ id: v.pageId });
 
-          retireBodyWorkflows(tx, preview.versionIds);
+          const executions = retireBodyWorkflows(tx, preview.versionIds);
 
-          return tx.store(PagesStore).delete(v);
-        }),
+          return { executions, result: tx.store(PagesStore).delete(v) };
+        }).pipe(afterBodyRetirement),
       createGenerated: (v: typeof e.createGeneratedSchema.Type) =>
         publicationTransaction((tx) => tx.store(PagesStore).createGenerated(v)),
       publishGenerated: (v: typeof e.publishSchema.Type) =>
@@ -315,7 +317,6 @@ export const Pages = defineService(
       v: { noteId: NoteId; contextIds: readonly string[] }
     ) => tx.store(PageTransformsStore).retireNoteRequests(v),
     validateBackup: (tx: Transaction) => tx.store(PageBackupStore).backupPage(undefined),
-    prepareBackup: (tx: Transaction) => tx.store(PageBackupStore).prepareBackup(undefined),
     findProposalReceiptInTransaction: (
       tx: Transaction,
       v:
@@ -366,9 +367,41 @@ export const Pages = defineService(
 function retireBodyWorkflows(tx: Transaction, ids: readonly PageVersionId[]) {
   const { ids: correlations } = tx.store(PageBodyRetirementStore).bodyRetirementCorrelation(ids);
 
-  Workflows.retireCorrelations(tx, correlations, [
+  const executions = Workflows.retireCorrelations(tx, correlations, [
     'PageGenerationRequested',
     'PageGenerationFailed'
   ]);
+
   Workflows.scrubRetiredCorrelations(tx, correlations);
+
+  return executions;
+}
+
+/** Await private execution cleanup after the retirement transaction has committed. */
+function afterBodyRetirement<A, E, R>(
+  effect: Effect.Effect<{ readonly executions: readonly string[]; readonly result: A }, E, R>
+) {
+  return effect.pipe(
+    Effect.tap(({ executions }) => finishBodyRetirement(executions)),
+    Effect.map(({ result }) => result)
+  );
+}
+
+function finishBodyRetirement(ids: readonly string[]) {
+  return Effect.gen(function* () {
+    if (!ids.length) return;
+
+    const control = yield* Effect.serviceOption(WorkflowControl);
+
+    if (Option.isNone(control))
+      return yield* Effect.fail(
+        new StudyError('unsupported', 'Native retirement control is unavailable')
+      );
+
+    for (const id of ids)
+      yield* control.value.cancel({
+        id: Schema.decodeUnknownSync(executionIdSchema)(id),
+        mode: 'unsafe'
+      });
+  });
 }

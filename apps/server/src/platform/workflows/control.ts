@@ -17,12 +17,13 @@
 import { StudyError } from '@study/contracts/errors';
 import { cancelExecutionInputSchema } from '@study/contracts/workflows/schemas';
 import { Cause, Context, Effect, Schema } from 'effect';
-import { WorkflowEngine } from 'effect/workflow';
+import type { WorkflowEngine } from 'effect/workflow';
 import type { Workflow } from 'effect/workflow';
 
 import type { ServerContext } from '#server/platform/database/context';
 import { isTerminalExecution } from '#server/platform/workflows/status';
 
+import { reconcileCancellation } from './cancellation.ts';
 import { workflowStore } from './store.ts';
 
 /** Application-owned access to the actual scoped native workflow engine. */
@@ -67,11 +68,7 @@ export function cancelExecution(
     if (!workflow)
       return yield* Effect.fail(new StudyError('unsupported', 'Workflow version is unavailable'));
 
-    const engine = yield* WorkflowEngine.WorkflowEngine;
-
-    yield* value.mode === 'safe'
-      ? engine.interrupt(workflow, value.id)
-      : engine.interruptUnsafe(workflow, value.id);
+    yield* reconcileCancellation(context, workflow, value.id, value.mode, value.mode === 'unsafe');
   }).pipe(
     Effect.catchCause((cause) => {
       const error = Cause.squash(cause);

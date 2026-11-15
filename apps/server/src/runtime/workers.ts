@@ -27,8 +27,7 @@ import {
   notifyConfigurationChanged
 } from '#server/platform/workflows/configuration';
 import { cancelExecution } from '#server/platform/workflows/control';
-import { recoverWorkflowEngine } from '#server/platform/workflows/engine';
-import { dispatchPending } from '#server/platform/workflows/triggers';
+import { dispatchPending, refreshExecutionSnapshots } from '#server/platform/workflows/triggers';
 
 import { createWorkflowRuntime } from './layers.ts';
 import type { createNativeRuntime } from './layers.ts';
@@ -56,6 +55,11 @@ export class Workers {
   private readonly store: ServerContext;
   private readonly transitions = Semaphore.makeUnsafe(1);
   private state: Lifecycle = { tag: 'stopped' };
+  private workflowRuntime: ReturnType<typeof createWorkflowRuntime> | undefined;
+  private readonly cancellations = new Set<{
+    controller: AbortController;
+    runtime: ReturnType<typeof createWorkflowRuntime>;
+  }>();
 
   constructor(
     store: ServerContext,
@@ -96,7 +100,7 @@ export class Workers {
     const store = this.store;
     const queue = this.queue;
 
-    const runtime = createWorkflowRuntime(this.layers, this.runtime);
+    const runtime = this.sharedWorkflowRuntime();
     const fiber = runtime.runFork(
       Effect.gen(function* () {
         const engine = yield* WorkflowEngine.WorkflowEngine;
@@ -105,13 +109,11 @@ export class Workers {
         const tick = observeOperation(
           'workflow.tick',
           Effect.gen(function* () {
-            yield* Effect.try(() =>
-              dispatchPending(store, workflowTriggers, store.clock.currentTimeMillisUnsafe())
-            );
+            yield* dispatchPending(store, workflowTriggers, store.clock.currentTimeMillisUnsafe());
+            yield* refreshExecutionSnapshots(store, workflowTriggers);
             const revision = yield* configuration.revision;
 
             yield* notifyConfigurationChanged(store, engine, revision);
-            yield* recoverWorkflowEngine(store, engine, workflowDefinitions);
           })
         );
 
@@ -154,29 +156,54 @@ export class Workers {
     return runtime.runPromise(effect);
   }
 
-  cancelExecution(input: typeof cancelExecutionInputSchema.Type): Promise<void> {
-    return this.transition(
-      Effect.gen({ self: this }, function* () {
+  async cancelExecution(input: typeof cancelExecutionInputSchema.Type): Promise<void> {
+    const operation = await this.transition(
+      Effect.sync(() => {
         if (this.state.tag === 'closing' || this.state.tag === 'closed')
-          return yield* Effect.fail(new StudyError('cancelled', 'Workflow worker is closing'));
+          throw new StudyError('cancelled', 'Workflow worker is closing');
 
-        const active = this.state.tag === 'running' ? this.state.consumer.runtime : undefined;
-        const runtime = active ?? createWorkflowRuntime(this.layers, this.runtime);
+        const operation = {
+          controller: new AbortController(),
+          runtime: this.sharedWorkflowRuntime()
+        };
 
-        return yield* Effect.tryPromise({
-          try: () => runtime.runPromise(cancelExecution(this.store, workflowDefinitions, input)),
-          catch: (error) => error
-        }).pipe(
-          Effect.ensuring(
-            active
-              ? Effect.void
-              : Effect.tryPromise({ try: () => runtime.dispose(), catch: (error) => error }).pipe(
-                  Effect.orDie
-                )
-          )
-        );
+        this.cancellations.add(operation);
+
+        return operation;
       })
     );
+
+    try {
+      await operation.runtime.runPromise(cancelExecution(this.store, workflowDefinitions, input), {
+        signal: operation.controller.signal
+      });
+    } finally {
+      operation.controller.abort();
+      this.cancellations.delete(operation);
+    }
+  }
+
+  private stopCancellations() {
+    const operations = [...this.cancellations];
+
+    for (const operation of operations) operation.controller.abort();
+
+    return Effect.void;
+  }
+
+  private sharedWorkflowRuntime() {
+    return (this.workflowRuntime ??= createWorkflowRuntime(this.layers, this.runtime));
+  }
+
+  private disposeWorkflowRuntime() {
+    return Effect.gen({ self: this }, function* () {
+      const runtime = this.workflowRuntime;
+
+      if (!runtime) return;
+
+      yield* Effect.tryPromise({ try: () => runtime.dispose(), catch: (cause) => cause });
+      this.workflowRuntime = undefined;
+    });
   }
 
   wake() {
@@ -186,7 +213,9 @@ export class Workers {
   stop(): Promise<void> {
     return this.transition(
       Effect.gen({ self: this }, function* () {
-        if (this.state.tag !== 'running') return;
+        yield* this.stopCancellations();
+
+        if (this.state.tag !== 'running') return yield* this.disposeWorkflowRuntime();
 
         const consumer = this.state.consumer;
 
@@ -215,7 +244,8 @@ export class Workers {
 
         const consumer = this.state.consumer;
 
-        yield* (consumer ? this.disposeConsumer(consumer) : Effect.void).pipe(
+        yield* this.stopCancellations();
+        yield* (consumer ? this.disposeConsumer(consumer) : this.disposeWorkflowRuntime()).pipe(
           Effect.ensuring(
             Effect.sync(() => {
               this.state = { tag: 'closed' };
@@ -227,7 +257,7 @@ export class Workers {
   }
 
   private disposeConsumer(consumer: Consumer) {
-    return Effect.gen(function* () {
+    return Effect.gen({ self: this }, function* () {
       const errors: unknown[] = [];
 
       try {
@@ -240,10 +270,7 @@ export class Workers {
 
       if (interruption._tag === 'Failure') errors.push(Cause.squash(interruption.cause));
 
-      yield* Effect.tryPromise({
-        try: () => consumer.runtime.dispose(),
-        catch: (error) => error
-      }).pipe(
+      yield* this.disposeWorkflowRuntime().pipe(
         Effect.catch((error) =>
           Effect.sync(() => {
             errors.push(error);

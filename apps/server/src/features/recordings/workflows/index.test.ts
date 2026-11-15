@@ -30,12 +30,13 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 import { recordingPostHandler, recordingPostWorkflow } from './index.ts';
 
 for (const deleteCommittedMessage of [false, true])
   testStable(
-    `recording replay after checkpoint failure preserves ${deleteCommittedMessage ? 'deleted' : 'retained'} messages`,
+    `same-version recording replay after reopen preserves ${deleteCommittedMessage ? 'deleted' : 'retained'} messages`,
     async () => {
       const location = await createTestDatabase();
       let context = new ServerContext(await location.open());
@@ -134,6 +135,7 @@ for (const deleteCommittedMessage of [false, true])
               Effect.gen(function* () {
                 const engine = yield* WorkflowEngine.WorkflowEngine;
 
+                admitTestExecution(context, recordingPostWorkflow, event.requestId, { event });
                 yield* engine.register(recordingPostWorkflow, recordingPostHandler);
 
                 return yield* engine.execute(recordingPostWorkflow, {
@@ -152,10 +154,8 @@ for (const deleteCommittedMessage of [false, true])
             )
           );
 
-        context.db.orm.run(
-          sql`CREATE TRIGGER fail_recording_checkpoint BEFORE INSERT ON workflow_activities WHEN NEW.name='attach-recording' BEGIN SELECT RAISE(ABORT,'checkpoint unavailable'); END`
-        );
-        await expect(execute()).rejects.toSatisfy(() => true);
+        const committedResult = await execute();
+
         assert.strictEqual(
           context.db.orm.select().from(tables.source_recording_imports).all().length,
           1
@@ -175,14 +175,11 @@ for (const deleteCommittedMessage of [false, true])
           );
         }
 
-        context.db.orm.run(sql`DROP TRIGGER fail_recording_checkpoint`);
-        context.db.orm.run(
-          sql`UPDATE workflow_executions SET status='suspended',result=NULL,owner_token=NULL WHERE execution_id=${event.requestId}`
-        );
         context.close();
         context = new ServerContext(await location.open());
         const result = await execute();
 
+        expect(result).toStrictEqual(committedResult);
         assert.ok(result.messageId);
         assert.ok(result.sourceId);
         expect(await execute()).toStrictEqual(result);

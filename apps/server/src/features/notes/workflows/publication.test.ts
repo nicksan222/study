@@ -37,6 +37,7 @@ import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 testStable(
   'guarded publication validates captured citations and replays without writes',
@@ -310,10 +311,16 @@ testStable(
             ).pipe(Effect.orDie)
           })
         );
-        yield* engine.execute(workflow, {
-          executionId: 'reply-publication-test',
-          payload: { id: 'one' }
-        });
+        yield* withTestAdmission(
+          context,
+          workflow,
+          'reply-publication-test',
+          { id: 'one' },
+          engine.execute(workflow, {
+            executionId: 'reply-publication-test',
+            payload: { id: 'one' }
+          })
+        );
       }
 
       await Effect.runPromise(

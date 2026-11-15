@@ -45,14 +45,14 @@ const scope = {
 const backup = {
   id,
   format: 'study-managed-backup' as const,
-  version: 1 as const,
+  version: 2 as const,
   createdAtMs: 1,
   schema: 'a'.repeat(64),
   sha256: 'b'.repeat(64),
   bytes: 100,
   scope,
   credentials: 'excluded' as const,
-  nativeWork: 'retired' as const,
+  nativeWork: 'preserved' as const,
   compatibility: 'exact-schema' as const
 };
 

@@ -993,7 +993,6 @@ export const Notes = defineService(
     createNoteInTransaction: (tx: Transaction, input: typeof createNoteInputSchema.Type) =>
       tx.store(NoteStore).createNote({ ...input, titleSource: 'user' }),
     postMessageInTransaction: postMessage,
-    prepareBackup: (tx: Transaction) => tx.store(NoteBackupStore).prepare(undefined),
     validateBackup: (tx: Transaction, requireRetired = false) =>
       tx.store(NoteBackupStore).backupNote(requireRetired)
   }

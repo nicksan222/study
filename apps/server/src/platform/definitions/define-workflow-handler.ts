@@ -15,9 +15,12 @@
  */
 
 import type { WorkflowEvent } from '@study/contracts/events';
-import type { Effect, Schema } from 'effect';
+import { workflow_executions } from '@study/db/schema';
+import { Effect, Schema } from 'effect';
 import type * as Workflow from 'effect/workflow/Workflow';
 
+import { AiWorkload } from '#server/platform/ai/admission';
+import { Database } from '#server/platform/database/database';
 import type { EventType, Trigger } from '#server/platform/workflows/triggers';
 
 type PayloadEvent<P extends Workflow.AnyStructSchema> = {
@@ -35,6 +38,33 @@ type WorkflowSubscription<P extends Workflow.AnyStructSchema> = {
   readonly enabled?: () => boolean;
 };
 
+function admitExecution(identity: {
+  executionId: string;
+  tag: string;
+  version: number;
+  payload: string;
+}) {
+  return Database.use(({ store }) =>
+    Effect.sync(() => {
+      store.transaction(['workflows'], (tx) => {
+        tx.db.orm
+          .insert(workflow_executions)
+          .values({
+            execution_id: identity.executionId,
+            workflow_tag: identity.tag,
+            version: identity.version,
+            payload: identity.payload,
+            status: 'running',
+            created_at: BigInt(store.clock.currentTimeMillisUnsafe()),
+            updated_at: BigInt(store.clock.currentTimeMillisUnsafe())
+          })
+          .onConflictDoNothing()
+          .run();
+      });
+    })
+  );
+}
+
 /** Register native execution and subscriptions from one versioned workflow definition. */
 export function defineWorkflowHandler<
   const Name extends string,
@@ -45,6 +75,7 @@ export function defineWorkflowHandler<
 >(
   workflow: Workflow.Workflow<Name, P, S, E> & { readonly version: number },
   options: {
+    readonly workload?: 'interactive' | 'bulk';
     readonly execute: (
       payload: NoInfer<P['Type']>,
       executionId: string
@@ -61,7 +92,29 @@ export function defineWorkflowHandler<
 
   return {
     definition: workflow,
-    layer: workflow.toLayer(options.execute),
+    layer: workflow.toLayer((payload, executionId) => {
+      const initialize = Schema.encodeEffect(Schema.toCodecJson(workflow.payloadSchema))(
+        payload
+      ).pipe(
+        Effect.orDie,
+        Effect.flatMap((encoded) =>
+          admitExecution({
+            executionId,
+            tag: workflow._tag,
+            version: workflow.version,
+            payload: JSON.stringify(encoded)
+          })
+        )
+      );
+
+      return initialize.pipe(
+        Effect.andThen(
+          options
+            .execute(payload, executionId)
+            .pipe(Effect.provideService(AiWorkload, options.workload ?? 'interactive'))
+        )
+      );
+    }),
     triggers
   };
 }

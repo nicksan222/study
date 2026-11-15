@@ -19,13 +19,11 @@ import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
 import { Effect, Layer } from 'effect';
 import type { Context } from 'effect';
-import { WorkflowEngine } from 'effect/workflow';
 import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 import { Notes } from '#server/features/notes/service/index';
 import { suggestTransformField } from '#server/features/notes/service/transform-suggestion';
-import { transformSuggestionWorkflow } from '#server/features/notes/service/transform-suggestion-definition';
 import { Pages } from '#server/features/pages/index';
 import { Settings } from '#server/features/settings/index';
 import { layer as agentsLayer } from '#server/platform/ai/agents';
@@ -40,10 +38,7 @@ import { App, serve } from '#server/runtime/index';
 import { deletionDocument } from '#testing/material-deletion';
 import { withTestPublication } from '#testing/publication';
 
-import {
-  transformSuggestionHandler,
-  transformSuggestionRegistration
-} from './transform-suggestion.ts';
+import { transformSuggestionRegistration } from './transform-suggestion.ts';
 
 testStable(
   'transform suggestions use saved combined context, tiny models, checkpoint results and reject changed evidence',
@@ -167,10 +162,6 @@ testStable(
         Effect.runPromise(
           Effect.scoped(
             Effect.gen(function* () {
-              const engine = yield* WorkflowEngine.WorkflowEngine;
-
-              yield* engine.register(transformSuggestionWorkflow, transformSuggestionHandler);
-
               return yield* suggestTransformField({
                 noteId,
                 additionalNoteIds,
@@ -178,7 +169,11 @@ testStable(
                 field,
                 language: 'italian'
               });
-            }).pipe(Effect.provide(services()))
+            }).pipe(
+              Effect.provide(
+                transformSuggestionRegistration.layer.pipe(Layer.provideMerge(services()))
+              )
+            )
           )
         );
       const empty = await run(Effect.flatMap(Notes, (c) => c.createNote({ title: 'Empty' })));
@@ -189,7 +184,11 @@ testStable(
       assert.strictEqual(calls, 0);
       assert.strictEqual(await execute('title', 'title-one'), 'Cell Biology');
       assert.strictEqual(
-        dispatchPending(context, transformSuggestionRegistration.triggers, Date.now()),
+        await Effect.runPromise(
+          dispatchPending(context, transformSuggestionRegistration.triggers, Date.now()).pipe(
+            Effect.provide(workflowEngineLayer(context))
+          )
+        ),
         1
       );
       assert.strictEqual(await execute('title', 'title-one'), 'Cell Biology');

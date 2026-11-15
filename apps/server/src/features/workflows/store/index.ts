@@ -38,30 +38,33 @@ const metadataCodec = Schema.fromJsonString(
   })
 );
 
+function exitFailureKind(
+  exit: Exit.Exit<unknown, unknown>
+): typeof executionSchema.Type.failureKind {
+  if (Exit.isSuccess(exit)) return null;
+
+  const failure = Cause.squash(exit.cause);
+
+  return Schema.is(failureSchema)(failure) ? failure.kind : 'internal';
+}
+
 function executionOutcome(
   status: typeof workflow_executions.$inferSelect.status,
   result: typeof resultCodec.Type | null
-) {
-  let outcome: (typeof executionSchema.Type)['outcome'] = null;
-  let failureKind: (typeof executionSchema.Type)['failureKind'] = null;
+): Pick<typeof executionSchema.Type, 'outcome' | 'failureKind'> {
+  if (status === 'blocked' || status === 'cancelled')
+    return { outcome: 'failure', failureKind: status === 'blocked' ? 'unsupported' : 'cancelled' };
 
-  if (status === 'cancelled') {
-    outcome = 'failure';
-    failureKind = 'cancelled';
-  } else if (result?._tag === 'Complete') {
-    outcome = Exit.isSuccess(result.exit) ? 'success' : 'failure';
+  if (result?._tag === 'Complete')
+    return {
+      outcome: Exit.isSuccess(result.exit) ? 'success' : 'failure',
+      failureKind: exitFailureKind(result.exit)
+    };
 
-    if (Exit.isFailure(result.exit)) {
-      const failure = Cause.squash(result.exit.cause);
+  if (result?._tag === 'Suspended' && result.failed)
+    return { outcome: 'failure', failureKind: 'internal' };
 
-      failureKind = Schema.is(failureSchema)(failure) ? failure.kind : 'internal';
-    }
-  } else if (result?._tag === 'Suspended' && result.failed) {
-    outcome = 'failure';
-    failureKind = 'internal';
-  }
-
-  return { outcome, failureKind };
+  return { outcome: null, failureKind: null };
 }
 
 const columns = {
@@ -87,11 +90,9 @@ function configurationReason(
 function view(
   row: typeof workflow_executions.$inferSelect & { waitReason: string | null }
 ): typeof executionSchema.Type {
-  const pending = row.result === '"__interrupt_safe__"' || row.result === '"__interrupt_unsafe__"';
-  const result =
-    row.result !== null && !pending ? Schema.decodeUnknownSync(resultCodec)(row.result) : null;
+  const result = row.result !== null ? Schema.decodeUnknownSync(resultCodec)(row.result) : null;
   const { outcome, failureKind } = executionOutcome(row.status, result);
-  const status = pending ? 'cancelling' : row.status;
+  const status = row.status;
 
   let correlationId: string | null = null;
 

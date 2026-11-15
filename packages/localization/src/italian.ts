@@ -678,7 +678,7 @@ export const italian = Object.freeze({
   DataAcknowledge: 'Ho verificato il risultato',
   DataReceipt: 'Operazione completata; ricevuta conservata.',
   DataRestoreWarning:
-    'Il ripristino sostituisce tutti i contenuti dell’app. Le credenziali sono escluse e il lavoro nativo è dismesso. Sono necessari riavvio e accesso. I backup conservano contenuti eliminati e cronologia: il ripristino può recuperarli. Questa schermata non riavvia l’app.',
+    'Il ripristino sostituisce tutti i contenuti dell’app. Le credenziali sono escluse e il lavoro in background viene conservato. Sono necessari riavvio e accesso. I backup conservano contenuti eliminati e cronologia: il ripristino può recuperarli. Questa schermata non riavvia l’app.',
   DataBlocked:
     'Il ripristino è bloccato dalle attuali barriere di eliminazione o cronologia. Questa schermata non può aggirarle.',
   DataRecoveryBlocked:
@@ -810,6 +810,7 @@ export const italian = Object.freeze({
   'workspace.state.completed': 'Completata',
   'workspace.state.cancelled': 'Annullata',
   'workspace.state.cancelling': 'Annullamento in corso',
+  'workspace.state.blocked': 'Bloccato',
   'workspace.state.failure': 'Non riuscita',
   AnnotationStoredRevision: 'Revisione salvata dell’annotazione',
   AnnotationSubmittedCreate: 'Creazione in attesa di conferma',

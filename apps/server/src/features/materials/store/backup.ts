@@ -52,13 +52,6 @@ export const MaterialBackupStore = defineStore({
           )
             throw new StudyError('invalid_input', 'Backup requires completed learning cleanup');
 
-          if (
-            db.orm.get(
-              sql`SELECT 1 FROM material_generation_requests WHERE cancelled=0 AND result_version_id IS NULL AND payload!='{}' LIMIT 1`
-            )
-          )
-            throw new StudyError('invalid_input', 'Backup contains pending learning authority');
-
           const generation = Schema.decodeUnknownSync(
             Schema.fromJsonString(Schema.toCodecJson(materialGenerationPayloadSchema))
           );
@@ -87,30 +80,6 @@ export const MaterialBackupStore = defineStore({
 
           return result;
         }
-      })
-    },
-    mutations: {}
-  })
-});
-
-export const MaterialPendingBackupStore = defineStore({
-  name: 'study/MaterialPendingBackupStore',
-  entity: { singular: 'pendingGenerations', plural: 'pendingGenerationBatches' },
-  make: ({ db }) => ({
-    queries: {
-      pendingGenerations: storeQuery({
-        role: 'required',
-        input: Schema.Void,
-        output: Schema.Array(Schema.String),
-        run: () =>
-          db.orm
-            .select()
-            .from(s.material_generation_requests)
-            .all()
-            .filter(
-              (row) => row.result_version_id === null && !row.cancelled && row.payload !== '{}'
-            )
-            .map((row) => row.id)
       })
     },
     mutations: {}

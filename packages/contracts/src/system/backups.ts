@@ -37,7 +37,7 @@ export const backupScopeSchema = Schema.Struct({
 
 export const backupManifestSchema = Schema.Struct({
   format: Schema.Literal('study-managed-backup'),
-  version: Schema.Literal(1),
+  version: Schema.Literal(2),
   id: backupIdSchema,
   createdAtMs: Schema.Int,
   schema: backupDigestSchema,
@@ -45,7 +45,7 @@ export const backupManifestSchema = Schema.Struct({
   bytes: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: MAX_BACKUP_BYTES })),
   scope: backupScopeSchema,
   credentials: Schema.Literal('excluded'),
-  nativeWork: Schema.Literal('retired'),
+  nativeWork: Schema.Literal('preserved'),
   compatibility: Schema.Literal('exact-schema')
 });
 

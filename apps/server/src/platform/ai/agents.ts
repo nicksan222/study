@@ -40,7 +40,7 @@ import {
 
 import { makeAdmission } from '#server/platform/ai/admission';
 import type { Admission } from '#server/platform/ai/admission';
-import { batchAgentProgress } from '#server/platform/ai/progress';
+import { scopedAgentProgress } from '#server/platform/ai/progress';
 import { withRequestCheck } from '#server/platform/ai/providers/request-check';
 import { adaptProviderTool } from '#server/platform/ai/providers/tools';
 import { standardSchema } from '#server/platform/ai/schema';
@@ -192,7 +192,7 @@ export function streamAgent<
       agentId: definition.id,
       mode: definition.mode ?? ('text' as const)
     };
-    const progress = batchAgentProgress(
+    const progress = yield* scopedAgentProgress(
       (event) => service.observe?.({ ...run, event }) ?? Effect.void
     );
     const { observe } = progress;
@@ -202,14 +202,19 @@ export function streamAgent<
     return yield* service.admission
       .run(
         Effect.gen(function* () {
-          if (options.preflight) yield* options.preflight;
+          if (options.preflight) yield* progress.preflight(options.preflight);
 
           const checkedModel = options.preflight
             ? yield* Effect.try({
                 try: () =>
                   withRequestCheck(
                     model,
-                    adaptRequestCheck(options.preflight!, span, annotations, callbackContext)
+                    adaptRequestCheck(
+                      progress.preflight(options.preflight!),
+                      span,
+                      annotations,
+                      callbackContext
+                    )
                   ),
                 catch: failure
               })
@@ -355,12 +360,12 @@ export function streamAgent<
           Effect.forever(Effect.sleep('100 millis').pipe(Effect.andThen(progress.flush)))
         ),
         Effect.onExit((exit) =>
-          Exit.isFailure(exit)
+          // Process shutdown interrupts execution without recording user cancellation.
+          // Explicit cancellation is persisted by the domain cancellation owner.
+          Exit.isFailure(exit) && !EffectCause.hasInterruptsOnly(exit.cause)
             ? observe({
                 type: 'failed',
-                kind: EffectCause.hasInterruptsOnly(exit.cause)
-                  ? 'cancelled'
-                  : failure(EffectCause.squash(exit.cause)).kind
+                kind: failure(EffectCause.squash(exit.cause)).kind
               }).pipe(Effect.ignore)
             : Effect.void
         )
@@ -370,6 +375,7 @@ export function streamAgent<
   return Stream.callback<AgentProgress<O['Type']>, StudyError, Agents | Requirements>(
     (queue) =>
       Effect.gen(() => runAgentStream(queue)).pipe(
+        Effect.scoped,
         Effect.mapError(failure),
         Effect.withSpan(`agent.${definition.id}.stream`)
       ),

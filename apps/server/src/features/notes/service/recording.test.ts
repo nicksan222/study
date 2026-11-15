@@ -29,6 +29,7 @@ import { Database } from '#server/platform/database/database';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import type { PublicationGuard } from '#server/platform/workflows/publication';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
+import { admitTestExecution } from '#testing/workflow-admission';
 
 import { Notes } from './index.ts';
 
@@ -68,6 +69,7 @@ testStable('recording publication posts once and rejects changed or deleted resu
               )
             })
           );
+          admitTestExecution(context, workflow, id, { id });
           yield* engine.execute(workflow, { executionId: id, payload: { id } });
         }).pipe(Effect.provide(layer()), Effect.provide(workflowEngineLayer(context)))
       )

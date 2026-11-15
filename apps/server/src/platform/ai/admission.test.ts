@@ -16,10 +16,10 @@
 import type { StudyError } from '@study/contracts/errors';
 import type { ConcurrencySettings } from '@study/contracts/settings/types';
 import { testStable } from '@study/testing/vitest';
-import { Deferred, Effect, Fiber, Metric } from 'effect';
+import { Deferred, Effect, Fiber, Metric, Result } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
-import { makeAdmission, withAdmissionSettings } from '#server/platform/ai/admission';
+import { AiWorkload, makeAdmission, withAdmissionSettings } from '#server/platform/ai/admission';
 
 testStable(
   'limits active work, interrupts queued work without dispatch, and releases on failure',
@@ -270,6 +270,45 @@ testStable(
         );
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(first);
+      })
+    );
+  }
+);
+
+testStable(
+  'bulk saturation reserves admission for interactive work and releases interrupted capacity',
+  async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const gate = makeAdmission({ concurrency: 1, maxWaiting: 1 });
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const bulk = yield* Effect.forkChild(
+          gate
+            .run(Deferred.succeed(started, undefined).pipe(Effect.andThen(Deferred.await(release))))
+            .pipe(Effect.provideService(AiWorkload, 'bulk'))
+        );
+
+        yield* Deferred.await(started);
+        const rejected = yield* Effect.result(
+          gate.run(Effect.void).pipe(Effect.provideService(AiWorkload, 'bulk'))
+        );
+
+        assert.isTrue(Result.isFailure(rejected));
+
+        if (Result.isFailure(rejected)) expect(rejected.failure.kind).toBe('rate_limited');
+
+        const interactive = yield* Effect.forkChild(gate.run(Effect.succeed('interactive')));
+
+        yield* Effect.yieldNow;
+        yield* Deferred.succeed(release, undefined);
+        expect(yield* Fiber.join(interactive)).toBe('interactive');
+        yield* Fiber.join(bulk);
+        expect(
+          yield* gate
+            .run(Effect.succeed('released'))
+            .pipe(Effect.provideService(AiWorkload, 'bulk'))
+        ).toBe('released');
       })
     );
   }

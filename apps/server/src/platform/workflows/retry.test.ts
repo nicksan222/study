@@ -35,3 +35,25 @@ testStable('classifies workflow failures without retrying terminal errors', () =
   ] as const)
     assert.ok(retryDisposition(new StudyError(kind, 'test')) === 'terminal');
 });
+
+testStable('shutdown interruption does not settle a terminal domain failure', async () => {
+  const { Cause, Effect, Exit } = await import('effect');
+  const { settleWorkflowFailure } = await import('#server/platform/workflows/retry');
+  let settled = false;
+  const interrupted = await Effect.runPromiseExit(Effect.interrupt);
+
+  const interruption = Exit.match(interrupted, {
+    onFailure: (cause) => cause,
+    onSuccess: () => assert.fail('Expected interruption')
+  });
+  const outcome = await Effect.runPromiseExit(
+    settleWorkflowFailure(interruption, 'failed', () =>
+      Effect.sync(() => {
+        settled = true;
+      })
+    )
+  );
+
+  assert.ok(Exit.isFailure(outcome) && Cause.hasInterrupts(outcome.cause));
+  assert.ok(!settled);
+});

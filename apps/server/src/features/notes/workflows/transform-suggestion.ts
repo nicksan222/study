@@ -39,7 +39,7 @@ function suggestionPrompt(context: typeof runSelectionContextSchema.Type) {
 }
 
 /** Generate and validate one bounded field suggestion inside a durable activity. */
-export const transformSuggestionHandler = Effect.fnUntraced(function* ({
+const transformSuggestionHandler = Effect.fnUntraced(function* ({
   event: input
 }: typeof transformSuggestionWorkflow.payloadSchema.Type) {
   const notes = yield* Notes;

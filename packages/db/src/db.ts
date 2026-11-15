@@ -14,7 +14,22 @@ type QueryOrm = Omit<SQLiteBunDatabase, 'transaction'>;
 /** Owns a SQLite connection and synchronous, nested Drizzle transactions. */
 
 export class Db {
-  private static snapshotSchema: { sql: string; identity: string } | undefined;
+  private static infrastructure:
+    | {
+        initialize: (path: string) => Promise<void>;
+        migrationIdentity: (query: Pick<QueryOrm, 'all'>) => unknown;
+      }
+    | undefined;
+
+  /** Runtime supplies the official migrator; domain persistence never duplicates its schema. */
+  static configureSnapshotInfrastructure(infrastructure: NonNullable<typeof Db.infrastructure>) {
+    Db.infrastructure = infrastructure;
+    Db.snapshotSchema = undefined;
+  }
+
+  private static snapshotSchema:
+    | { sql: string; identity: string; infrastructure: string }
+    | undefined;
   readonly path: string;
   private readonly sqlite: Database;
   private readonly database: SQLiteBunDatabase;
@@ -210,8 +225,13 @@ export class Db {
 
     return new CryptoHasher('sha256')
       .update(
-        JSON.stringify({ schema, migrations }, (_, value) =>
-          typeof value === 'bigint' ? value.toString() : value
+        JSON.stringify(
+          {
+            schema,
+            migrations,
+            infrastructure: Db.infrastructure?.migrationIdentity(this.database)
+          },
+          (_, value) => (typeof value === 'bigint' ? value.toString() : value)
         )
       )
       .digest('hex');
@@ -229,18 +249,70 @@ export class Db {
   private static async supportedSnapshotSchema() {
     if (Db.snapshotSchema) return Db.snapshotSchema;
 
-    const reference = await Db.open(':memory:');
+    const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
+    const folder = await Effect.runPromise(fs.makeTempDirectory({ prefix: 'study-schema-' }));
+    const path = folder + '/reference.sqlite';
+    let reference: Db | undefined;
 
     try {
+      reference = await Db.open(path);
+      reference.close();
+      reference = undefined;
+      await Db.infrastructure?.initialize(path);
+      reference = await Db.open(path);
       Db.snapshotSchema = {
+        infrastructure: reference.infrastructureIdentity(),
         sql: reference.schemaSqlIdentity(),
         identity: reference.schemaIdentity()
       };
 
       return Db.snapshotSchema;
     } finally {
-      reference.close();
+      reference?.close();
+      await Effect.runPromise(fs.remove(folder, { recursive: true, force: true }));
     }
+  }
+
+  private infrastructureIdentity(): string {
+    return JSON.stringify(
+      {
+        schema: this.sqlite
+          .prepare(
+            "SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE name GLOB 'cluster_*' ORDER BY type,name"
+          )
+          .all(),
+        migrations: Db.infrastructure?.migrationIdentity(this.database)
+      },
+      (_, value) => (typeof value === 'bigint' ? value.toString() : value)
+    );
+  }
+
+  /** Refuse unknown infrastructure before either migrator can alter the live database. */
+  static async validateInfrastructure(path: string): Promise<void> {
+    if (!(await Bun.file(path).exists())) return;
+
+    const sqlite = new Database(path, { readonly: true, safeIntegers: true });
+
+    try {
+      if (!sqlite.prepare("SELECT 1 FROM sqlite_schema WHERE name GLOB 'cluster_*' LIMIT 1").get())
+        return;
+
+      const candidate = new Db(sqlite, path);
+      const reference = await Db.supportedSnapshotSchema();
+
+      if (candidate.infrastructureIdentity() !== reference.infrastructure)
+        throw new TypeError('Unsupported execution infrastructure schema');
+    } finally {
+      sqlite.close(true);
+    }
+  }
+
+  /** Validate both initialized schema owners without scanning application content. */
+  async validateInitializedSchema(): Promise<void> {
+    const reference = await Db.supportedSnapshotSchema();
+
+    if (this.schemaSqlIdentity() !== reference.sql || this.schemaIdentity() !== reference.identity)
+      throw new TypeError('Unsupported initialized database schema');
   }
 
   /** Validate untrusted schema before running integrity checks or opening it for writes. */

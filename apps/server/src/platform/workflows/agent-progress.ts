@@ -1,14 +1,12 @@
 /**
  * ╭──────────────────────────────────────────────────────────────────────────────────────────╮
- * │ @file Persists live agent previews and recovers generation snapshots across viewer       │
- * │ reconnects.                                                                              │
+ * │ @file Persists authoritative agent progress snapshots for reconnecting viewers.          │
  * │                                                                                          │
  * │ Responsibilities:                                                                        │
- * │ - Checks activity ownership before saving generated text and tool lifecycle changes.     │
+ * │ - Checks domain generation before committing agent text and tools.                       │
  * │                                                                                          │
  * │ Boundaries:                                                                              │
- * │ Uses the shared SQLite workflow lease; feature services expose snapshots through typed   │
- * │ RPC.                                                                                     │
+ * │ Domain authorization protects snapshots independently of native execution ownership.     │
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
@@ -26,10 +24,12 @@ import {
   workflow_retired_executions
 } from '@study/db/schema';
 import { Effect, Option, Schema } from 'effect';
+import { WorkflowEngine } from 'effect/workflow';
 
 import type { ServerContext, ServerTransactionContext } from '#server/platform/database/context';
-import { WorkflowActivityOwner } from '#server/platform/workflows/ownership';
+import { currentWorkflowActivityOwner } from '#server/platform/workflows/ownership';
 import { withPublicationGuard, PublicationGuard } from '#server/platform/workflows/publication';
+import { workflowStore } from '#server/platform/workflows/store';
 
 const toolsCodec = Schema.fromJsonString(Schema.toCodecJson(Schema.Array(agentToolProgressSchema)));
 
@@ -102,16 +102,24 @@ function progressChanges(
 /**
  * Persist observations only within the current workflow activity's publication fence.
  * Starting an agent replaces its previous preview; later writes require the same live run
- * and lease. The transaction commits before database subscribers receive refresh hints.
+ * and generation. The transaction commits before database subscribers receive refresh hints.
  */
 export function observeAgentProgress(context: ServerContext) {
   return (observation: typeof agentObservationSchema.Type): Effect.Effect<void, StudyError> =>
     Effect.gen(function* () {
-      const owner = yield* Effect.serviceOption(WorkflowActivityOwner);
+      const owner = yield* Effect.serviceOption(WorkflowEngine.WorkflowInstance);
 
       if (Option.isNone(owner)) return;
 
-      const { executionId, ownerToken, activityName, attempt } = owner.value;
+      const { executionId, attempt } = yield* currentWorkflowActivityOwner;
+      const generation = yield* Effect.try({
+        try: () => workflowStore(context).capturePublication(executionId),
+        catch: (cause) =>
+          cause instanceof StudyError
+            ? cause
+            : new StudyError('internal', 'Workflow progress state is unavailable', { cause })
+      });
+      const activityName = observation.agentId;
 
       yield* withPublicationGuard(
         context,
@@ -128,7 +136,7 @@ export function observeAgentProgress(context: ServerContext) {
                 const existing = db
                   .select({
                     execution_id: workflow_agent_progress.execution_id,
-                    owner_token: workflow_agent_progress.owner_token,
+                    generation: workflow_agent_progress.generation,
                     status: workflow_agent_progress.status,
                     revision: workflow_agent_progress.revision,
                     tools: workflow_agent_progress.tools
@@ -152,7 +160,7 @@ export function observeAgentProgress(context: ServerContext) {
                     .values({
                       run_id: value.runId,
                       execution_id: executionId,
-                      owner_token: ownerToken,
+                      generation,
                       activity_name: activityName,
                       attempt,
                       agent_id: value.agentId,
@@ -169,7 +177,7 @@ export function observeAgentProgress(context: ServerContext) {
                 if (
                   !existing ||
                   existing.execution_id !== executionId ||
-                  existing.owner_token !== ownerToken ||
+                  Number(existing.generation) !== generation ||
                   existing.status !== 'running'
                 )
                   throw new StudyError('cancelled', 'Agent progress is no longer active');
@@ -191,8 +199,7 @@ export function observeAgentProgress(context: ServerContext) {
 
 /**
  * Read bounded, validated snapshots by execution or correlation for reconnecting viewers.
- * Exclude retired and interrupted work, and hide running previews from superseded owners.
- * Completed previews rely on claim-time cleanup because checkpoints clear owner tokens.
+ * Exclude retired and cancelled work and previews from obsolete domain generations.
  */
 export function agentProgressSnapshot(
   context: Pick<ServerContext | ServerTransactionContext, 'db'>,
@@ -220,8 +227,8 @@ export function agentProgressSnapshot(
             ),
         sql`${workflow_retired_executions.execution_id} IS NULL`,
         sql`${workflow_executions.status} IN ('running', 'completed')`,
-        sql`(${workflow_executions.result} IS NULL OR ${workflow_executions.result} NOT IN ('"__interrupt_safe__"', '"__interrupt_unsafe__"'))`,
-        sql`(${workflow_executions.status} != 'running' OR ${workflow_executions.owner_token} = ${workflow_agent_progress.owner_token})`
+        sql`${workflow_executions.cancellation_mode} IS NULL`,
+        eq(workflow_executions.generation, workflow_agent_progress.generation)
       )
     )
     .orderBy(

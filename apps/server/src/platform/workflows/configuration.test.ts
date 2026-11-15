@@ -22,7 +22,7 @@ import { eq, sql } from '@study/db';
 import { workflow_configuration_waits, workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Effect, Layer, Option, Schema } from 'effect';
+import { Effect, Layer, Option, Schema, Schedule } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
 import { assert } from 'vite-plus/test';
 
@@ -36,6 +36,22 @@ import {
 } from '#server/platform/workflows/configuration';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
+
+function admit(context: ServerContext, tag: string, id: string) {
+  context.db.orm
+    .insert(workflow_executions)
+    .values({
+      execution_id: id,
+      workflow_tag: tag,
+      version: 1,
+      payload: '{}',
+      status: 'running',
+      created_at: 1n,
+      updated_at: 1n
+    })
+    .onConflictDoNothing()
+    .run();
+}
 
 for (const kind of ['auth', 'config', 'model_unavailable'] as const)
   testStable(
@@ -80,7 +96,7 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
         expected: 'Suspended' | 'Complete'
       ) =>
         Effect.gen(function* () {
-          for (let i = 0; i < 100; i++) {
+          for (let i = 0; i < 1000; i++) {
             const state = yield* engine.poll(workflow, 'configuration-run');
 
             if (Option.isSome(state) && state.value._tag === expected) return state.value;
@@ -97,12 +113,14 @@ for (const kind of ['auth', 'config', 'model_unavailable'] as const)
             const engine = yield* WorkflowEngine.WorkflowEngine;
 
             yield* engine.register(workflow, () => retryResumableActivity(activity));
+            admit(context, workflow._tag, 'configuration-run');
             yield* engine.execute(workflow, {
               executionId: 'configuration-run',
               payload: { id: 'one' },
               discard: true
             });
             yield* awaitStatus(engine, 'Suspended');
+            context.db.orm.update(workflow_executions).set({ status: 'suspended' }).run();
             assert.strictEqual(calls, 1);
             assert.throws(() =>
               context.db.orm.run(
@@ -213,7 +231,7 @@ testStable(
           const engine = yield* WorkflowEngine.WorkflowEngine;
           const wait = (id: string, expected: 'Complete' | 'Suspended') =>
             Effect.gen(function* () {
-              for (let i = 0; i < 100; i++) {
+              for (let i = 0; i < 1000; i++) {
                 const state = yield* engine.poll(workflow, id);
 
                 if (Option.isSome(state) && state.value._tag === expected) return;
@@ -225,6 +243,7 @@ testStable(
             });
 
           yield* engine.register(workflow, () => retryResumableActivity(activity));
+          admit(context, workflow._tag, 'race');
           yield* engine.execute(workflow, {
             executionId: 'race',
             payload: { id: 'race' },
@@ -237,6 +256,7 @@ testStable(
           assert.strictEqual(calls, 2);
 
           ready = false;
+          admit(context, workflow._tag, 'cancel');
           yield* engine.execute(workflow, {
             executionId: 'cancel',
             payload: { id: 'cancel' },
@@ -258,7 +278,7 @@ testStable(
               .select()
               .from(workflow_executions)
               .all()
-              .find((row) => row.execution_id === 'cancel')?.status === 'cancelled'
+              .find((row) => row.execution_id === 'cancel')?.cancellation_mode === null
           );
         }).pipe(Effect.provide(services), Effect.scoped)
       );
@@ -304,13 +324,14 @@ for (const kind of ['invalid_input', 'transient'] as const) {
             yield* engine.register(workflow, () =>
               retryResumableActivity(activity, { maxRetries: 2, delayMs: 1 })
             );
+            admit(context, workflow._tag, 'limit');
             yield* engine.execute(workflow, {
               executionId: 'limit',
               payload: { id: 'limit' },
               discard: true
             });
 
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < 1000; i++) {
               const state = yield* engine.poll(workflow, 'limit');
 
               if (Option.isSome(state) && state.value._tag === 'Complete') {
@@ -406,3 +427,170 @@ testStable(
     }
   }
 );
+
+testStable('configuration revisions cannot exceed the total activity attempt bound', async () => {
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
+  let revision = '0';
+  let calls = 0;
+  const workflow = Workflow.make('configuration-attempt-bound', {
+    payload: { id: Schema.String },
+    error: failureSchema,
+    idempotencyKey: ({ id }) => id
+  });
+
+  context.db.orm
+    .insert(workflow_executions)
+    .values({
+      execution_id: 'bounded-config',
+      workflow_tag: workflow._tag,
+      version: 1,
+      payload: '{}',
+      status: 'running',
+      created_at: 0n,
+      updated_at: 0n
+    })
+    .run();
+  const activity = Activity.make({
+    name: 'always-needs-setup',
+    error: failureSchema,
+    execute: Effect.suspend(() => {
+      calls++;
+
+      return Effect.fail(new StudyError('config', 'Setup required'));
+    })
+  });
+
+  try {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const engine = yield* WorkflowEngine.WorkflowEngine;
+
+        yield* engine.register(workflow, () => retryResumableActivity(activity, { maxRetries: 2 }));
+        yield* engine.execute(workflow, {
+          executionId: 'bounded-config',
+          payload: { id: 'bounded' },
+          discard: true
+        });
+
+        for (let next = 1; next <= 2; next++) {
+          yield* Effect.sync(
+            () => context.db.orm.select().from(workflow_configuration_waits).all().length
+          ).pipe(
+            Effect.repeat({ while: (count) => count === 0, schedule: Schedule.spaced('5 millis') })
+          );
+          revision = String(next);
+          yield* notifyConfigurationChanged(context, engine, revision);
+        }
+
+        const reply = yield* engine.poll(workflow, 'bounded-config').pipe(
+          Effect.repeat({
+            while: (value) => Option.isNone(value) || value.value._tag !== 'Complete',
+            schedule: Schedule.spaced('5 millis')
+          })
+        );
+
+        assert.ok(Option.isSome(reply) && reply.value._tag === 'Complete');
+        assert.strictEqual(calls, 3);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            workflowEngineLayer(context),
+            Layer.succeed(Database, { store: context }),
+            Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
+          )
+        ),
+        Effect.scoped,
+        Effect.timeout('5 seconds')
+      )
+    );
+  } finally {
+    context.close();
+    await location.cleanup();
+  }
+});
+
+testStable('configuration revision changes exhaust the bounded total attempt budget', async () => {
+  const location = await createTestDatabase();
+  const context = new ServerContext(await location.open());
+  let calls = 0;
+  let revision = 'initial';
+  const workflow = Workflow.make('bounded-configuration-retries', {
+    payload: { id: Schema.String },
+    error: failureSchema,
+    idempotencyKey: ({ id }) => id
+  });
+
+  context.db.orm
+    .insert(workflow_executions)
+    .values({
+      execution_id: 'bounded',
+      workflow_tag: workflow._tag,
+      version: 1,
+      payload: '{}',
+      status: 'running',
+      created_at: 0n,
+      updated_at: 0n
+    })
+    .run();
+
+  const needsSettings = Effect.suspend(() => {
+    calls++;
+
+    return Effect.fail(new StudyError('config', 'Settings needed'));
+  });
+
+  try {
+    await Effect.runPromise(
+      Effect.scoped(
+        Effect.gen(function* () {
+          const engine = yield* WorkflowEngine.WorkflowEngine;
+
+          yield* engine.register(workflow, () =>
+            retryResumableActivity(
+              Activity.make({
+                name: 'needs-settings',
+                error: failureSchema,
+                execute: needsSettings
+              }),
+              { maxRetries: 1 }
+            )
+          );
+          yield* engine.execute(workflow, {
+            executionId: 'bounded',
+            payload: { id: 'bounded' },
+            discard: true
+          });
+          yield* Effect.sync(() =>
+            context.db.orm.select().from(workflow_configuration_waits).get()
+          ).pipe(Effect.repeat({ while: (row) => !row, schedule: Schedule.spaced('5 millis') }));
+          revision = 'changed';
+          yield* notifyConfigurationChanged(context, engine, revision);
+          const terminal = yield* engine.poll(workflow, 'bounded').pipe(
+            Effect.repeat({
+              while: (result) => Option.isNone(result) || result.value._tag !== 'Complete',
+              schedule: Schedule.spaced('5 millis')
+            })
+          );
+
+          assert.ok(Option.isSome(terminal) && terminal.value._tag === 'Complete');
+          assert.strictEqual(calls, 2);
+          yield* notifyConfigurationChanged(context, engine, 'changed-again');
+          assert.strictEqual(calls, 2);
+        })
+      ).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            workflowEngineLayer(context),
+            Layer.succeed(Database, { store: context }),
+            Layer.succeed(WorkflowConfiguration, { revision: Effect.sync(() => revision) })
+          )
+        ),
+        Effect.timeout('5 seconds')
+      )
+    );
+  } finally {
+    context.close();
+    await location.cleanup();
+  }
+});

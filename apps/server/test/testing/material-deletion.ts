@@ -23,10 +23,11 @@ import { assert } from 'vite-plus/test';
 import { Materials } from '#server/features/materials/index';
 import {
   materialDeletionWorkflow,
-  materialDeletionHandler
+  materialDeletionRegistration
 } from '#server/features/materials/workflows/deletion';
 import { decodeEvent } from '#server/platform/workflows/events';
 import type { pageTransformFixture } from '#testing/page-transform';
+import { refreshTestExecution } from '#testing/workflow-admission';
 
 export type MaterialDeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
@@ -67,13 +68,26 @@ export function cleanupMaterial(fixture: MaterialDeletionFixture, materialId: Ma
       Effect.gen(function* () {
         const engine = yield* WorkflowEngine.WorkflowEngine;
 
-        yield* engine.register(materialDeletionWorkflow, materialDeletionHandler);
+        const result = yield* engine
+          .execute(materialDeletionWorkflow, {
+            executionId: `material-cleanup/${event.eventId}`,
+            payload: { event }
+          })
+          .pipe(
+            Effect.onExit(() =>
+              refreshTestExecution(
+                fixture.context,
+                materialDeletionWorkflow,
+                `material-cleanup/${event.eventId}`
+              )
+            )
+          );
 
-        return yield* engine.execute(materialDeletionWorkflow, {
-          executionId: `material-cleanup/${event.eventId}`,
-          payload: { event }
-        });
-      }).pipe(Effect.provide(fixture.services()))
+        return result;
+      }).pipe(
+        Effect.provide(materialDeletionRegistration.layer),
+        Effect.provide(fixture.services())
+      )
     )
   );
 }

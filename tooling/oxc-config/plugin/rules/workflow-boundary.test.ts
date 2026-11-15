@@ -27,6 +27,7 @@ testStable(
       'apps/server/src/domains/a/service.ts',
       'apps/server/src/domains/a/service.ts',
       'apps/server/src/domains/a/service.ts',
+      'apps/server/src/platform/workflows/engine.ts',
       'packages/contracts/src/a.ts'
     ]);
   }

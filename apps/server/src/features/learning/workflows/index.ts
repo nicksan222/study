@@ -164,6 +164,7 @@ export const practiceSlotHandler = Effect.fnUntraced(function* ({
 });
 
 export const practiceSlotRegistration = defineWorkflowHandler(practiceSlotWorkflow, {
+  workload: 'bulk',
   execute: practiceSlotHandler,
   triggers: [
     {

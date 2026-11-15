@@ -20,7 +20,14 @@ export const executionSchema = Schema.Struct({
   id: executionIdSchema,
   workflow: Schema.String,
   correlationId: Schema.NullOr(Schema.String),
-  status: Schema.Literals(['running', 'suspended', 'completed', 'cancelled', 'cancelling']),
+  status: Schema.Literals([
+    'running',
+    'suspended',
+    'completed',
+    'cancelled',
+    'cancelling',
+    'blocked'
+  ]),
   outcome: Schema.NullOr(Schema.Literals(['success', 'failure'])),
   failureKind: Schema.NullOr(errorKindSchema),
   configurationWaitReason: Schema.NullOr(configurationWaitReasonSchema),

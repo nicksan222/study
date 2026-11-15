@@ -17,6 +17,7 @@
 import { failureSchema } from '@study/contracts/errors';
 import { defaultAgentRules } from '@study/contracts/settings/types';
 import { plainBlock } from '@study/contracts/sources/document';
+import { executionIdSchema } from '@study/contracts/workflows/schemas';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
@@ -35,10 +36,13 @@ import { createChatGptModel } from '#server/platform/ai/providers/chatgpt/model'
 import { AuthManager } from '#server/platform/ai/providers/chatgpt/session';
 import { ServerContext } from '#server/platform/database/context';
 import { Database } from '#server/platform/database/database';
+import { reconcileCancellation } from '#server/platform/workflows/cancellation';
 import { WorkflowConfiguration } from '#server/platform/workflows/configuration';
+import { cancelExecution } from '#server/platform/workflows/control';
 import { workflowEngineLayer } from '#server/platform/workflows/engine';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 import {
   quizGradingHandler,
@@ -218,10 +222,16 @@ testStable(
 
               yield* engine.register(quizGradingWorkflow, quizGradingHandler);
 
-              return yield* engine.execute(quizGradingWorkflow, {
-                executionId: id,
-                payload: { event }
-              });
+              return yield* withTestAdmission(
+                context,
+                quizGradingWorkflow,
+                id,
+                { event },
+                engine.execute(quizGradingWorkflow, {
+                  executionId: id,
+                  payload: { event }
+                })
+              );
             }).pipe(Effect.provide(services()))
           )
         );
@@ -233,19 +243,15 @@ testStable(
       context.db.orm.run(
         sql`CREATE TRIGGER fail_grade BEFORE UPDATE OF score ON material_quiz_responses BEGIN SELECT RAISE(ABORT, 'publication unavailable'); END`
       );
-      await expect(execute(current, 'replay')).rejects.toSatisfy(() => true);
+      await expect(execute(current, 'failed-publication')).rejects.toSatisfy(() => true);
       assert.strictEqual(calls, 1);
       context.db.orm.run(sql`DROP TRIGGER fail_grade`);
-      context.db.orm.run(
-        sql`DELETE FROM workflow_activities WHERE execution_id = 'replay' AND name = 'publish-grade'`
-      );
-      context.db.orm.run(
-        sql`UPDATE workflow_executions SET status = 'suspended', result = NULL, owner_token = NULL WHERE execution_id = 'replay'`
-      );
+      await execute(current, 'replay');
+      assert.strictEqual(calls, 2);
       context.close();
       context = new ServerContext(await location.open());
       await execute(current, 'replay');
-      assert.strictEqual(calls, 1);
+      assert.strictEqual(calls, 2);
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 0.5);
       const racing = await submit('racing');
 
@@ -286,7 +292,7 @@ testStable(
         )
       );
       await expect(execute(manual, 'manual')).rejects.toSatisfy(() => true);
-      assert.strictEqual(calls, 3);
+      assert.strictEqual(calls, 4);
       assert.strictEqual(context.db.orm.select().from(s.material_quiz_responses).get()?.score, 1);
       const finished = await submit('finished');
 
@@ -297,7 +303,7 @@ testStable(
 
       assert.ok(completed.status === 'completed');
       assert.strictEqual(completed.scoring.score, 0.5);
-      assert.strictEqual(calls, 4);
+      assert.strictEqual(calls, 5);
       expect(() =>
         context.db.orm
           .update(s.material_quiz_responses)
@@ -418,18 +424,30 @@ testStable(
             assert.ok(yield* learning.practiceSlot(event.slotId));
             yield* engine.register(practiceSlotWorkflow, practiceSlotHandler);
             yield* engine.register(practicePublicationWorkflow, practicePublicationHandler);
-            yield* engine.execute(practiceSlotWorkflow, {
-              executionId: 'practice-a',
-              payload: { event }
-            });
+            yield* withTestAdmission(
+              context,
+              practiceSlotWorkflow,
+              'practice-a',
+              { event },
+              engine.execute(practiceSlotWorkflow, {
+                executionId: 'practice-a',
+                payload: { event }
+              })
+            );
             const settings = yield* Settings;
             const appSettings = yield* settings.appSettings();
 
             yield* settings.saveAppSettings({ ...appSettings, language: 2 });
-            yield* engine.execute(practiceSlotWorkflow, {
-              executionId: 'practice-b',
-              payload: { event }
-            });
+            yield* withTestAdmission(
+              context,
+              practiceSlotWorkflow,
+              'practice-b',
+              { event },
+              engine.execute(practiceSlotWorkflow, {
+                executionId: 'practice-b',
+                payload: { event }
+              })
+            );
             assert.strictEqual(
               context.db.orm.select().from(s.material_generation_requests).all().length,
               1
@@ -453,10 +471,16 @@ testStable(
               Effect.fail({ kind: 'config' as const, message: 'private', retryAfterMs: null })
             );
             yield* Effect.flip(
-              engine.execute(terminal, {
-                executionId: 'failed-generation',
-                payload: { id: event.slotId }
-              })
+              withTestAdmission(
+                context,
+                terminal,
+                'failed-generation',
+                { id: event.slotId },
+                engine.execute(terminal, {
+                  executionId: 'failed-generation',
+                  payload: { id: event.slotId }
+                })
+              )
             );
             context.db.orm
               .insert(s.workflowReceipts)
@@ -489,10 +513,16 @@ testStable(
             };
 
             assert.strictEqual(
-              yield* engine.execute(practiceFailureWorkflow, {
-                executionId: 'record-failure',
-                payload: { event: failedEvent }
-              }),
+              yield* withTestAdmission(
+                context,
+                practiceFailureWorkflow,
+                'record-failure',
+                { event: failedEvent },
+                engine.execute(practiceFailureWorkflow, {
+                  executionId: 'record-failure',
+                  payload: { event: failedEvent }
+                })
+              ),
               true
             );
             const failed = (yield* learning.practice({ projectId: project.id })).slots[0]!;
@@ -507,10 +537,16 @@ testStable(
             expect(retried.inputs).toStrictEqual(failed.inputs);
             yield* learning.retryPracticeQuestion({ slotId: event.slotId });
             assert.strictEqual(
-              yield* engine.execute(practiceFailureWorkflow, {
-                executionId: 'stale-failure',
-                payload: { event: failedEvent }
-              }),
+              yield* withTestAdmission(
+                context,
+                practiceFailureWorkflow,
+                'stale-failure',
+                { event: failedEvent },
+                engine.execute(practiceFailureWorkflow, {
+                  executionId: 'stale-failure',
+                  payload: { event: failedEvent }
+                })
+              ),
               false
             );
             const retryEvent = context.db.orm
@@ -530,10 +566,16 @@ testStable(
               'missing retry event'
             );
 
-            yield* engine.execute(practiceSlotWorkflow, {
-              executionId: 'practice-retry',
-              payload: { event: retryEvent }
-            });
+            yield* withTestAdmission(
+              context,
+              practiceSlotWorkflow,
+              'practice-retry',
+              { event: retryEvent },
+              engine.execute(practiceSlotWorkflow, {
+                executionId: 'practice-retry',
+                payload: { event: retryEvent }
+              })
+            );
             assert.strictEqual(
               context.db.orm
                 .select()
@@ -556,10 +598,16 @@ testStable(
               'missing second slot'
             );
 
-            yield* engine.execute(practiceSlotWorkflow, {
-              executionId: 'practice-second',
-              payload: { event: secondEvent }
-            });
+            yield* withTestAdmission(
+              context,
+              practiceSlotWorkflow,
+              'practice-second',
+              { event: secondEvent },
+              engine.execute(practiceSlotWorkflow, {
+                executionId: 'practice-second',
+                payload: { event: secondEvent }
+              })
+            );
             const cancelledWorkflow = Workflow.make('practice-cancel-test', {
               payload: { id: Schema.String },
               idempotencyKey: ({ id }) => id
@@ -567,17 +615,32 @@ testStable(
             const gate = DurableDeferred.make('practice-cancel-gate');
 
             yield* engine.register(cancelledWorkflow, () => DurableDeferred.await(gate));
-            yield* engine.execute(cancelledWorkflow, {
-              executionId: 'cancelled-generation',
-              payload: { id: secondEvent.slotId },
-              discard: true
-            });
+            yield* withTestAdmission(
+              context,
+              cancelledWorkflow,
+              'cancelled-generation',
+              { id: secondEvent.slotId },
+              engine.execute(cancelledWorkflow, {
+                executionId: 'cancelled-generation',
+                payload: { id: secondEvent.slotId },
+                discard: true
+              })
+            );
 
             while (Option.isNone(yield* engine.poll(cancelledWorkflow, 'cancelled-generation')))
               yield* Effect.sleep('10 millis');
 
-            yield* engine.interrupt(cancelledWorkflow, 'cancelled-generation');
-            yield* Effect.sleep('50 millis');
+            yield* cancelExecution(context, [cancelledWorkflow], {
+              id: executionIdSchema.make('cancelled-generation'),
+              mode: 'safe'
+            });
+            yield* reconcileCancellation(
+              context,
+              cancelledWorkflow,
+              'cancelled-generation',
+              'safe',
+              true
+            );
             context.db.orm
               .insert(s.workflowReceipts)
               .values({
@@ -593,7 +656,14 @@ testStable(
               (slot) => slot.slotId === secondEvent.slotId
             )!;
 
-            assert.ok(cancelledSlot.status === 'failed');
+            expect(
+              context.db.orm
+                .select()
+                .from(s.workflow_executions)
+                .where(eq(s.workflow_executions.execution_id, 'cancelled-generation'))
+                .get()?.status
+            ).toBe('cancelled');
+            expect(cancelledSlot.status).toBe('failed');
             assert.ok(cancelledSlot.failureKind === 'cancelled');
             assert.ok(
               (yield* learning.retryPracticeQuestion({ slotId: secondEvent.slotId })).status ===
@@ -641,10 +711,16 @@ testStable(
                 )
               })
             );
-            const versionId = yield* engine.execute(publisher, {
-              executionId: 'practice-generate',
-              payload: { id: event.slotId }
-            });
+            const versionId = yield* withTestAdmission(
+              context,
+              publisher,
+              'practice-generate',
+              { id: event.slotId },
+              engine.execute(publisher, {
+                executionId: 'practice-generate',
+                payload: { id: event.slotId }
+              })
+            );
             const publication = decodeEvent(
               context.db.orm
                 .select()
@@ -658,17 +734,29 @@ testStable(
             assert.ok(!(publication.type !== 'MaterialPublished'), 'wrong publication');
 
             assert.strictEqual(
-              yield* engine.execute(practicePublicationWorkflow, {
-                executionId: 'attach-practice',
-                payload: { event: publication }
-              }),
+              yield* withTestAdmission(
+                context,
+                practicePublicationWorkflow,
+                'attach-practice',
+                { event: publication },
+                engine.execute(practicePublicationWorkflow, {
+                  executionId: 'attach-practice',
+                  payload: { event: publication }
+                })
+              ),
               true
             );
             assert.strictEqual(
-              yield* engine.execute(practicePublicationWorkflow, {
-                executionId: 'attach-practice-again',
-                payload: { event: publication }
-              }),
+              yield* withTestAdmission(
+                context,
+                practicePublicationWorkflow,
+                'attach-practice-again',
+                { event: publication },
+                engine.execute(practicePublicationWorkflow, {
+                  executionId: 'attach-practice-again',
+                  payload: { event: publication }
+                })
+              ),
               true
             );
             const snapshot = yield* learning.practice({ projectId: project.id });
@@ -771,10 +859,16 @@ testStable(
             };
 
             assert.strictEqual(
-              yield* engine.execute(practicePublicationWorkflow, {
-                executionId: 'manual-practice',
-                payload: { event: manual }
-              }),
+              yield* withTestAdmission(
+                context,
+                practicePublicationWorkflow,
+                'manual-practice',
+                { event: manual },
+                engine.execute(practicePublicationWorkflow, {
+                  executionId: 'manual-practice',
+                  payload: { event: manual }
+                })
+              ),
               false
             );
           }).pipe(Effect.provide(services))

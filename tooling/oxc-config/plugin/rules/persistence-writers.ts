@@ -116,38 +116,7 @@ export function persistenceWriters(context: any, report: (node: any, table: stri
   }
 
   function sqlWrites(node: any, text: string, expressions: any[] = []) {
-    const tokens = sqlTokens(text);
-
-    let depth = 0;
-    let statement = false;
-
-    for (let i = 0; i < tokens.length; i++) {
-      const word = tokens[i];
-
-      const nesting = bracketDepth(word);
-
-      if (nesting) {
-        depth += nesting;
-        continue;
-      }
-
-      if (word === ';' && depth === 0) {
-        statement = false;
-        continue;
-      }
-
-      if (depth || statement) continue;
-
-      // Only the first top-level operation owns a statement's target.
-      if (!statementStart(tokens, i)) continue;
-
-      statement = true;
-      const at = mutationTarget(tokens, i, word);
-
-      if (at === null) continue;
-
-      reportTable(node, tokens[at], expressions);
-    }
+    for (const target of sqlTargetTokens(text, false)) reportTable(node, target, expressions);
   }
 
   function reportTable(node: any, target: string | undefined, expressions: any[]) {
@@ -261,4 +230,70 @@ function statementStart(tokens: string[], i: number): boolean {
     ['select', 'insert', 'replace', 'update', 'delete'].includes(tokens[i]) &&
     !['as', ',', '('].includes(tokens[i + 1])
   );
+}
+
+/** SQL mutation identifiers, including infrastructure DDL; values and comments stay opaque. */
+export function sqlMutationTargets(text: string): string[] {
+  return [...sqlTargetTokens(text, true)].map((target) => target.replace(/^@/, ''));
+}
+
+function* statementOperations(tokens: string[]) {
+  let depth = 0;
+  let consumed = false;
+
+  for (let i = 0; i < tokens.length; i++) {
+    const word = tokens[i];
+
+    depth += bracketDepth(word);
+
+    if (word === ';' && depth === 0) {
+      consumed = false;
+      continue;
+    }
+
+    if (depth || consumed || !operationStart(tokens, i)) continue;
+
+    consumed = true;
+    yield i;
+  }
+}
+
+function operationStart(tokens: string[], i: number) {
+  return statementStart(tokens, i) || ['create', 'alter', 'drop'].includes(tokens[i]);
+}
+
+function* sqlTargetTokens(text: string, schema: boolean) {
+  const tokens = sqlTokens(text);
+
+  for (const i of statementOperations(tokens)) {
+    const word = tokens[i];
+    const target =
+      schema && ['create', 'alter', 'drop'].includes(word)
+        ? schemaMutationTarget(tokens, i, word)
+        : mutationTarget(tokens, i, word);
+
+    if (target !== null && tokens[target]) yield tokens[target];
+  }
+}
+
+function schemaMutationTarget(tokens: string[], i: number, word: string): number | null {
+  let at = i + 1;
+
+  if (['unique', 'temp', 'temporary', 'virtual'].includes(tokens[at])) at++;
+
+  const kind = tokens[at++];
+
+  if (!['table', 'index', 'trigger', 'view'].includes(kind)) return null;
+
+  if (tokens[at] === 'if') at += tokens[at + 1] === 'not' ? 3 : 2;
+
+  if (word === 'create' && ['index', 'trigger'].includes(kind)) {
+    const on = tokens.indexOf('on', at);
+
+    if (on === -1) return null;
+
+    at = on + 1;
+  }
+
+  return tokens[at + 1] === '.' ? at + 2 : at;
 }

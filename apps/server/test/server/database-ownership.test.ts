@@ -13,6 +13,7 @@
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { StudyError } from '@study/contracts/errors';
+import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
@@ -344,6 +345,45 @@ testStable(
       } finally {
         await f.close();
       }
+    }
+  }
+);
+
+testStable(
+  'future official migration history blocks startup without changing data or retaining ownership',
+  async () => {
+    const location = await createTestDatabase();
+    let app: App | undefined;
+
+    try {
+      app = await App.open({ path: await location.prepare() });
+      await app.close();
+      app = undefined;
+      const db = await location.open();
+
+      db.orm.run(
+        sql`INSERT INTO cluster_migrations (migration_id,name,created_at) VALUES (999999,'future-protocol',CURRENT_TIMESTAMP)`
+      );
+      db.close();
+      await expect(App.open({ path: location.path })).rejects.toSatisfy(
+        (error: unknown) => error instanceof StudyError && error.kind === 'unsupported'
+      );
+      const owner = await acquireDatabaseOwnership(location.path);
+
+      await owner.release();
+      const retained = await location.open();
+
+      assert.equal(
+        retained.orm.all(sql`SELECT name FROM cluster_migrations WHERE migration_id=999999`)[0]
+          ?.name,
+        'future-protocol'
+      );
+      retained.orm.run(sql`DELETE FROM cluster_migrations WHERE migration_id=999999`);
+      retained.close();
+      app = await App.open({ path: location.path });
+    } finally {
+      await app?.close();
+      await location.cleanup();
     }
   }
 );

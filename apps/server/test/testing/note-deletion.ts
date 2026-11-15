@@ -17,7 +17,8 @@ import type { PageVersionId, NoteId } from '@study/contracts/ids';
 import { createBlock } from '@study/contracts/sources/document';
 import { eq, sql } from '@study/db';
 import * as s from '@study/db/schema';
-import { Effect } from 'effect';
+import { Effect, Schema } from 'effect';
+import { Workflow } from 'effect/workflow';
 import { WorkflowEngine } from 'effect/workflow';
 import { assert } from 'vite-plus/test';
 
@@ -29,7 +30,9 @@ import {
 import { Pages } from '#server/features/pages/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { workflowStore } from '#server/platform/workflows/store';
+import { workflowDefinitions } from '#server/runtime/workflows';
 import type { pageTransformFixture } from '#testing/page-transform';
+import { withTestAdmission, refreshTestExecution } from '#testing/workflow-admission';
 
 type DeletionFixture = Awaited<ReturnType<typeof pageTransformFixture>>;
 
@@ -171,10 +174,16 @@ export function cleanup(fixture: DeletionFixture, id: NoteId) {
 
         yield* engine.register(noteDeletionWorkflow, noteDeletionHandler);
 
-        return yield* engine.execute(noteDeletionWorkflow, {
-          executionId: `cleanup/${event.eventId}`,
-          payload: { event }
-        });
+        return yield* withTestAdmission(
+          fixture.context,
+          noteDeletionWorkflow,
+          `cleanup/${event.eventId}`,
+          { event },
+          engine.execute(noteDeletionWorkflow, {
+            executionId: `cleanup/${event.eventId}`,
+            payload: { event }
+          })
+        );
       }).pipe(Effect.provide(fixture.services()))
     )
   );
@@ -290,10 +299,30 @@ export function libraryState(fixture: DeletionFixture, ids: readonly PageVersion
 export function awaitNativeStatus(
   fixture: Awaited<ReturnType<typeof pageTransformFixture>>,
   id: string,
-  status: 'running' | 'suspended' | 'completed' | 'cancelled'
+  status: 'running' | 'suspended' | 'completed' | 'cancelled',
+  definition?: Pick<
+    Workflow.AnyWithProps,
+    '_tag' | 'payloadSchema' | 'successSchema' | 'errorSchema'
+  >
 ) {
   return Effect.gen(function* () {
     for (let attempt = 0; attempt < 100; attempt++) {
+      const row = workflowStore(fixture.context).execution(id);
+
+      if (row)
+        yield* refreshTestExecution(
+          fixture.context,
+          definition ??
+            workflowDefinitions.find((definition) => definition._tag === row.workflow_tag) ??
+            Workflow.make(row.workflow_tag, {
+              payload: { id: Schema.String },
+              success: Schema.Unknown,
+              error: Schema.Unknown,
+              idempotencyKey: ({ id }) => id
+            }),
+          id
+        );
+
       if (workflowStore(fixture.context).execution(id)?.status === status) return;
 
       yield* Effect.sleep('5 millis');

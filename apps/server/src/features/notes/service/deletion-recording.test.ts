@@ -37,10 +37,11 @@ import { Sources } from '#server/features/sources/index';
 import { decodeEvent } from '#server/platform/workflows/events';
 import { withPublicationGuard } from '#server/platform/workflows/publication';
 import { workflowStore } from '#server/platform/workflows/store';
-import { dispatchPending } from '#server/platform/workflows/triggers';
+import { admitPending } from '#server/platform/workflows/triggers';
 import { setup, deletionEvent, assertScrubbed, awaitNativeStatus } from '#testing/note-deletion';
 import { pageTransformFixture } from '#testing/page-transform';
 import { withTestPublication } from '#testing/publication';
+import { withTestAdmission } from '#testing/workflow-admission';
 
 testStable(
   'deleting an in-flight recording fences late attachment and checkpoints while its independent source work survives',
@@ -157,11 +158,17 @@ testStable(
 
             yield* engine.register(noteDeletionWorkflow, noteDeletionHandler);
 
-            yield* engine.execute(recordingPostWorkflow, {
-              executionId: 'recording-in-flight',
-              payload: { event },
-              discard: true
-            });
+            yield* withTestAdmission(
+              fixture.context,
+              recordingPostWorkflow,
+              'recording-in-flight',
+              { event },
+              engine.execute(recordingPostWorkflow, {
+                executionId: 'recording-in-flight',
+                payload: { event },
+                discard: true
+              })
+            );
 
             yield* awaitNativeStatus(fixture, 'recording-in-flight', 'suspended');
 
@@ -185,20 +192,32 @@ testStable(
 
             assert.strictEqual(sourceEvent.correlationId, event.correlationId);
 
-            yield* engine.execute(sourceReader, {
-              executionId: 'shared-source-reader',
-              payload: { event: sourceEvent },
-              discard: true
-            });
+            yield* withTestAdmission(
+              fixture.context,
+              sourceReader,
+              'shared-source-reader',
+              { event: sourceEvent },
+              engine.execute(sourceReader, {
+                executionId: 'shared-source-reader',
+                payload: { event: sourceEvent },
+                discard: true
+              })
+            );
 
             yield* awaitNativeStatus(fixture, 'shared-source-reader', 'suspended');
 
             yield* chats.deleteNote(saved.note.id);
 
-            yield* engine.execute(noteDeletionWorkflow, {
-              executionId: 'recording-cleanup',
-              payload: { event: deletionEvent(fixture, saved.note.id) }
-            });
+            yield* withTestAdmission(
+              fixture.context,
+              noteDeletionWorkflow,
+              'recording-cleanup',
+              { event: deletionEvent(fixture, saved.note.id) },
+              engine.execute(noteDeletionWorkflow, {
+                executionId: 'recording-cleanup',
+                payload: { event: deletionEvent(fixture, saved.note.id) }
+              })
+            );
 
             assert.ok((yield* chats.noteDeletion(saved.note.id)).status === 'completed');
 
@@ -236,10 +255,7 @@ testStable(
               exit: Exit.void
             });
 
-            assert.strictEqual(
-              workflowStore(fixture.context).deferred('recording-in-flight', recordingGate.name),
-              undefined
-            );
+            assert.strictEqual(workflowStore(fixture.context).retired('recording-in-flight'), true);
 
             const rejected = yield* Effect.flip(
               withTestPublication(
@@ -265,10 +281,16 @@ testStable(
               exit: Exit.void
             });
 
-            const bytes = yield* engine.execute(sourceReader, {
-              executionId: 'shared-source-reader',
-              payload: { event: sourceEvent }
-            });
+            const bytes = yield* withTestAdmission(
+              fixture.context,
+              sourceReader,
+              'shared-source-reader',
+              { event: sourceEvent },
+              engine.execute(sourceReader, {
+                executionId: 'shared-source-reader',
+                payload: { event: sourceEvent }
+              })
+            );
 
             expect(bytes).toStrictEqual(snapshot.bytes);
 
@@ -298,7 +320,7 @@ testStable(
       await fixture.reopen();
 
       assert.strictEqual(
-        dispatchPending(
+        admitPending(
           fixture.context,
           [
             {
@@ -317,29 +339,7 @@ testStable(
 
       const native = workflowStore(fixture.context);
 
-      assert.ok(native.claim('recording-in-flight', 'stale-recording-owner') === false);
-
-      native.checkpoint(
-        'recording-in-flight',
-        'stale-recording-owner',
-        JSON.stringify({ marker }),
-        'completed'
-      );
-
-      assert.throws(() =>
-        native.saveActivity(
-          'recording-in-flight',
-          'stale-recording-owner',
-          'attach-recording',
-          1,
-          JSON.stringify({ marker })
-        )
-      );
-
-      assert.ok(
-        native.saveDeferred('recording-in-flight', 'late-recording', JSON.stringify({ marker })) ===
-          false
-      );
+      assert.throws(() => native.assertPublication('recording-in-flight', 1));
 
       assert.strictEqual(
         fixture.context.db.orm.select().from(s.note_recording_posts).all().length,

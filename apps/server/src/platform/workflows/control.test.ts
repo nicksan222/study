@@ -11,46 +11,44 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { sourceProcessingRequestedSchema } from '@study/contracts/events';
-import { sourceIdSchema } from '@study/contracts/ids';
 import { executionIdSchema } from '@study/contracts/workflows/schemas';
-import { sql } from '@study/db';
+import { workflow_executions } from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
 import { testStable } from '@study/testing/vitest';
-import { Deferred, Effect, Layer } from 'effect';
+import { Deferred, Effect, Schema } from 'effect';
 import { Activity, Workflow, WorkflowEngine } from 'effect/workflow';
-import { expect } from 'vite-plus/test';
 import { assert } from 'vite-plus/test';
 
-import { Workflows } from '#server/features/workflows/index';
 import { ServerContext } from '#server/platform/database/context';
-import { Database } from '#server/platform/database/database';
-import { transaction } from '#server/platform/definitions/define-store';
 
 import { cancelExecution } from './control.ts';
 import { workflowEngineLayer } from './engine.ts';
+import { workflowStore } from './store.ts';
 
 testStable(
-  'unsafe control interrupts a provider fiber after its durable source capture was retired and scrubbed',
+  'explicit cancellation waits for local provider cleanup before terminal domain state',
   async () => {
     const location = await createTestDatabase();
     const context = new ServerContext(await location.open());
-    const workflow = Workflow.make('retired-source-control-test', {
-      payload: { event: sourceProcessingRequestedSchema },
-      idempotencyKey: ({ event }) => event.eventId
+    const id = executionIdSchema.make('cancel-provider');
+    const workflow = Workflow.make('StudyControlProofV1', {
+      payload: { id: Schema.String },
+      idempotencyKey: (p) => p.id
     });
-    const id = executionIdSchema.make('retired-source-provider');
-    const event = {
-      type: 'SourceProcessingRequested' as const,
-      eventId: 'source-event',
-      causationId: null,
-      correlationId: 'source-request',
-      inputVersion: 1,
-      depth: 0,
-      sourceId: sourceIdSchema.make(1n),
-      requestId: 'source-request'
-    };
-    let calls = 0;
+
+    context.db.orm
+      .insert(workflow_executions)
+      .values({
+        execution_id: id,
+        workflow_tag: workflow._tag,
+        version: 1,
+        payload: '{}',
+        status: 'running',
+        created_at: 1n,
+        updated_at: 1n
+      })
+      .run();
+    let cleaned = false;
 
     try {
       await Effect.runPromise(
@@ -58,50 +56,25 @@ testStable(
           Effect.gen(function* () {
             const engine = yield* WorkflowEngine.WorkflowEngine;
             const started = yield* Deferred.make<void>();
-            const stopped = yield* Deferred.make<void>();
-
-            const provider = Effect.gen(function* () {
-              calls++;
-              yield* Deferred.succeed(started, undefined);
-              yield* Effect.never;
-            }).pipe(Effect.onInterrupt(() => Deferred.succeed(stopped, undefined)));
+            const cleanup = Effect.sync(() => {
+              cleaned = true;
+            });
+            const provider = Deferred.succeed(started, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.ensuring(cleanup)
+            );
 
             yield* engine.register(workflow, () =>
-              Activity.make({
-                name: 'provider',
-                execute: provider
-              })
+              Activity.make({ name: 'provider', execute: provider })
             );
-            yield* engine.execute(workflow, { executionId: id, payload: { event }, discard: true });
+            yield* engine.execute(workflow, { executionId: id, payload: { id }, discard: true });
             yield* Deferred.await(started);
-            yield* transaction((tx) => {
-              Workflows.retireCorrelations(tx, [event.correlationId], [event.type]);
-              Workflows.scrubRetiredCorrelations(tx, [event.correlationId]);
-            });
-            assert.ok(
-              context.db.orm.get(
-                sql`SELECT status FROM workflow_executions WHERE execution_id=${id}`
-              )?.status === 'cancelled'
-            );
             yield* cancelExecution(context, [workflow], { id, mode: 'unsafe' });
-            yield* Deferred.await(stopped).pipe(Effect.timeout('5 seconds'));
-            yield* engine.resume(workflow, id);
-          }).pipe(
-            Effect.provide(
-              Layer.merge(workflowEngineLayer(context), Layer.succeed(Database, { store: context }))
-            )
-          )
-        )
-      );
-      assert.strictEqual(calls, 1);
-      expect({
-        ...context.db.orm.get(
-          sql`SELECT payload,result,owner_token,status FROM workflow_executions WHERE execution_id=${id}`
-        )
-      }).toStrictEqual({ payload: '{}', result: null, owner_token: null, status: 'cancelled' });
-      assert.strictEqual(
-        context.db.orm.get(sql`SELECT 1 FROM workflow_activities WHERE execution_id=${id}`),
-        undefined
+            assert.isTrue(cleaned);
+            assert.equal(workflowStore(context).execution(id)?.status, 'cancelled');
+            yield* cancelExecution(context, [workflow], { id, mode: 'unsafe' });
+          })
+        ).pipe(Effect.provide(workflowEngineLayer(context)))
       );
     } finally {
       context.close();

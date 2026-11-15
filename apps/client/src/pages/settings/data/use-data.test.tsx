@@ -73,14 +73,14 @@ const scope = {
 const backup: BackupManifest = {
   id,
   format: 'study-managed-backup',
-  version: 1,
+  version: 2,
   createdAtMs: 1,
   schema: 'a'.repeat(64),
   sha256: 'b'.repeat(64),
   bytes: 100,
   scope,
   credentials: 'excluded',
-  nativeWork: 'retired',
+  nativeWork: 'preserved',
   compatibility: 'exact-schema'
 };
 
