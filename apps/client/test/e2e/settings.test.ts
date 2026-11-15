@@ -783,11 +783,12 @@ testE2e(
     await navigation.getByRole('button', { name: copy.Flashcards, exact: true }).click();
     await expect(limit).toHaveValue('35');
     await expect(save).toBeDisabled();
-    await expectAccessibility('flashcards-reloaded');
     await expectScreenshot('flashcards-reloaded', {
       target: dialog,
       ready: () => expect(limit).toHaveValue('35')
     });
+    // Capture readiness settles reloaded theme painting before Axe reads inherited text fill.
+    await expectAccessibility('flashcards-reloaded');
     await limit.fill('20');
     await save.click();
     await expect(save).toBeDisabled();
@@ -2221,6 +2222,7 @@ testE2e(
         target: 'viewport',
         zoomPercent: value,
         center: zoom,
+        scrollToEnd: value === 200 ? dialog.locator('.settings-scroll') : undefined,
         ready: () => expect(zoom).toHaveValue(String(value))
       });
     }
@@ -2464,7 +2466,9 @@ testE2e(
 
 testE2e(
   'Project settings validate names edit identities and guard deletion',
-  async ({ page, expectScreenshot, expectAccessibility }) => {
+  async ({ page, expectScreenshot, expectAccessibility }, testInfo) => {
+    // This page compares 83 states; CI spent 68 seconds on its first 68 comparisons alone.
+    testInfo.setTimeout(180000);
     await page.goto('/notes');
     await page.getByRole('button', { name: copy.Settings, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: copy.Settings });

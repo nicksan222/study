@@ -1,5 +1,5 @@
 import { testStable } from '@study/testing/vitest';
-import type { Page } from 'playwright';
+import type { Locator, Page } from 'playwright';
 import { expect } from 'vite-plus/test';
 
 import { safeName } from './identity.ts';
@@ -37,7 +37,7 @@ testStable('screenshot paths and scoped baseline updates fail closed', () => {
 testStable('expired readiness stages cannot resume screenshot browser work', async () => {
   const { screenshotAssertions } = await import('./screenshots.ts');
 
-  for (const stage of ['ready', 'fonts', 'images']) {
+  for (const stage of ['ready', 'fonts', 'images', 'center']) {
     const delayed = Promise.withResolvers<void>();
     const reached = Promise.withResolvers<void>();
     const calls: string[] = [];
@@ -51,7 +51,7 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
     };
     const page = {
       evaluate: () => pause('fonts'),
-      locator: () => ({ evaluate: () => pause('images') }),
+      locator: () => ({ evaluate: () => pause('images'), count: async () => 0 }),
       screenshot: async (options: { path?: string }) => {
         calls.push(options.path ? 'diagnostic' : 'capture');
 
@@ -68,6 +68,15 @@ testStable('expired readiness stages cannot resume screenshot browser work', asy
     const pending = screenshots.expectScreenshot(stage, {
       target: 'viewport',
       ready: () => pause('ready'),
+      center:
+        stage === 'center'
+          ? ({ evaluate: () => pause('center') } as unknown as Locator)
+          : undefined,
+      scrollToEnd: {
+        evaluate: async () => {
+          calls.push('scroll-end');
+        }
+      } as unknown as Locator,
       timeoutMs: 30
     });
 

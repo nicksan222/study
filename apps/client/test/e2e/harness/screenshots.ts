@@ -20,6 +20,8 @@ export type ExpectScreenshot = (
   options: {
     target: Locator | 'viewport';
     center?: Locator;
+    /** Anchor the owner scroller at its end when zoom makes centering clamp ambiguously. */
+    scrollToEnd?: Locator;
     ready: () => Promise<void>;
     timeoutMs?: number;
     /** Expected application zoom for journeys that exercise the appearance scale. */
@@ -46,7 +48,7 @@ export function screenshotAssertions(
   const names = new Set<string>();
   const expectScreenshot: ExpectScreenshot = async (
     name,
-    { target, ready, timeoutMs = 30000, focus, center }
+    { target, ready, timeoutMs = 30000, focus, center, scrollToEnd }
   ) => {
     safeName(name);
 
@@ -104,10 +106,25 @@ export function screenshotAssertions(
           fence();
 
           if (center) {
-            await center.evaluate((element) =>
-              element.scrollIntoView({ block: 'center', behavior: 'instant' })
+            await center.evaluate(
+              (element) => element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+              undefined,
+              { timeout: remaining() }
             );
           }
+
+          if (scrollToEnd) {
+            fence();
+            await scrollToEnd.evaluate(
+              (element) => {
+                element.scrollTop = element.scrollHeight;
+              },
+              undefined,
+              { timeout: remaining() }
+            );
+          }
+
+          fence();
 
           if (updateAllowed(workflow, name)) {
             // Native snapshot update mode is run-wide. Keep single-capture updates scoped explicitly.
