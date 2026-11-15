@@ -10,7 +10,9 @@ for (const segment of scope.split('/')) safeName(segment);
 if (process.env.CI) throw new Error('Baseline updates are forbidden in CI');
 
 const updateRun = crypto.randomUUID();
+
 const root = Bun.fileURLToPath(new URL('../../../../../', import.meta.url));
+
 const client = Bun.fileURLToPath(new URL('../../../', import.meta.url));
 
 const child = Bun.spawn(['bun', 'run', 'web:e2e'], {
