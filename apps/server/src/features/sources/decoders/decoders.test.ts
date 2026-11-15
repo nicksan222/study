@@ -14,6 +14,7 @@
  */
 
 import { testStable } from '@study/testing/vitest';
+import fc from 'fast-check';
 import { assert, expect } from 'vite-plus/test';
 
 import { decodePdf } from '#server/features/sources/decoders/pdf';
@@ -484,3 +485,40 @@ testStable(
     }
   }
 );
+
+testStable('generated Unicode paragraphs retain exact UTF-8 source anchor slices', () => {
+  const paragraph = fc
+    .string({ unit: 'grapheme', maxLength: 30 })
+    .map((value) => `P:${value.replace(/[\r\n]/g, ' ')}:Q`);
+
+  fc.assert(
+    fc.property(
+      fc.array(paragraph, { minLength: 1, maxLength: 5 }),
+      fc.boolean(),
+      fc.boolean(),
+      (paragraphs, bom, newline) => {
+        const input = new TextEncoder().encode(
+          `${bom ? '\uFEFF' : ''}${paragraphs.join('\n\n')}${newline ? '\n' : ''}`
+        );
+        const document = decodeText({ bytes: input, kind: 'text', mime: 'text/plain' });
+        let previousEnd = bom ? 3 : 0;
+
+        expect(document.blocks).toHaveLength(paragraphs.length);
+
+        for (const [index, block] of document.blocks.entries()) {
+          assert.ok(block.anchor.type === 'text');
+          expect(block.anchor.start).toBeGreaterThanOrEqual(previousEnd);
+          expect(block.anchor.end).toBeLessThanOrEqual(input.length);
+          const raw = paragraphs[index]! + (index < paragraphs.length - 1 || newline ? '\n' : '');
+
+          expect(new TextDecoder().decode(input.slice(block.anchor.start, block.anchor.end))).toBe(
+            raw
+          );
+          expect(block.text).toBe(paragraphs[index]);
+          previousEnd = block.anchor.end;
+        }
+      }
+    ),
+    { numRuns: 100 }
+  );
+});
