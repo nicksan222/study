@@ -355,18 +355,27 @@ function createPieceBuilder<Ref>(
   };
 }
 
-function fitTextEnd(start: number, end: number, fits: (end: number) => boolean) {
-  let low = start,
-    high = end;
+function fitTextEnd(text: string, start: number, end: number, fits: (end: number) => boolean) {
+  const boundaries = [start];
+  let offset = start;
+
+  // UTF-16 prefixes inside a pair serialize as escaped surrogates and break byte monotonicity.
+  for (const point of text.slice(start, end)) {
+    offset += point.length;
+    boundaries.push(offset);
+  }
+
+  let low = 0,
+    high = boundaries.length - 1;
 
   while (low < high) {
     const mid = Math.ceil((low + high) / 2);
 
-    if (fits(mid)) low = mid;
+    if (fits(boundaries[mid]!)) low = mid;
     else high = mid - 1;
   }
 
-  return low;
+  return boundaries[low]!;
 }
 
 function encodedBytes<A>(schema: Schema.Codec<A, unknown>, value: A) {
@@ -434,7 +443,7 @@ function fitEmptyPiece(
   empty: boolean,
   fits: (end: number) => boolean
 ) {
-  const fitted = safeEnd(text, start, fitTextEnd(start, end, fits));
+  const fitted = safeEnd(text, start, fitTextEnd(text, start, end, fits));
 
   if ((!empty && fitted === start) || !fits(fitted)) exhausted();
 

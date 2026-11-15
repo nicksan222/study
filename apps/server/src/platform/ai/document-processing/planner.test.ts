@@ -237,3 +237,28 @@ testStable('validates persisted plan markers and encoded metadata bounds', async
     })
   );
 });
+
+testStable('byte-budget search finds fitting prefixes after a surrogate pair', async () => {
+  const input = document(['🌏abc']);
+  const original = await Effect.runPromise(plan(input, { maxPieceChars: 5, maxPassageChars: 5 }));
+  const piece = original.pieces[0]!;
+  const passage = piece.passages[0]!;
+  const budget = new TextEncoder().encode(
+    JSON.stringify({
+      ...piece,
+      passages: [{ ...passage, text: '🌏', end: 2 }]
+    })
+  ).byteLength;
+  const result = await Effect.runPromise(
+    plan(input, {
+      maxPieceChars: 5,
+      maxPassageChars: 5,
+      maxPieceBytes: budget
+    })
+  );
+
+  assert.deepEqual(
+    result.pieces.flatMap((part) => part.passages.map((span) => span.text)),
+    ['🌏', 'abc']
+  );
+});

@@ -339,9 +339,16 @@ testStable(
       expect(fixture.prompts.some((prompt) => prompt.includes('block-239-tail'))).toBe(true);
       expect(fixture.counts().mapCalls).toBeGreaterThan(1);
       expect(fixture.counts().reduceCalls).toBeGreaterThan(3);
-      const originalMarkers = fixture.prompts
-        .filter((value) => value.includes('Extract study notes for this material request'))
-        .flatMap((value) => Array.from(value.matchAll(/\[(\d+)\]/g), (match) => Number(match[1])));
+      const mapPrompts = fixture.prompts.filter((value) =>
+        value.includes('Extract study notes for this material request')
+      );
+
+      for (let index = 0; index < 240; index++)
+        expect(mapPrompts.join('\n')).toContain(`block-${index}-tail`);
+
+      const originalMarkers = mapPrompts.flatMap((value) =>
+        Array.from(value.matchAll(/\[(\d+)\]/g), (match) => Number(match[1]))
+      );
 
       expect(new Set(originalMarkers).size).toBe(originalMarkers.length);
       expect(Math.max(...originalMarkers)).toBeGreaterThan(200);
