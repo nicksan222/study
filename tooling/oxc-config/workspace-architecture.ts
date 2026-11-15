@@ -41,7 +41,12 @@ function dependencyIssues(
     if (/^drizzle-(?:orm|kit)(?:\/|$)/.test(name) && path !== 'packages/db')
       issues.push(`${path}: ${name} belongs exclusively to @study/db.`);
 
-    if ((name === 'ai' || name.startsWith('@ai-sdk/')) && path !== 'apps/server')
+    // Shared mocks implement the SDK protocol; real provider integrations remain server-owned.
+    if (
+      (name === 'ai' || name.startsWith('@ai-sdk/')) &&
+      path !== 'apps/server' &&
+      !(path === 'packages/testing' && name === '@ai-sdk/provider')
+    )
       issues.push(`${path}: ${name} belongs exclusively to apps/server.`);
 
     if (
