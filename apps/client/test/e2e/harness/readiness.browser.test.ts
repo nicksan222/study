@@ -56,3 +56,71 @@ testHarness('missing references fail without creating a baseline', async ({ page
   ).rejects.toThrow('snapshot');
   expect(await Bun.file(reference).exists()).toBe(false);
 });
+
+testHarness(
+  'screenshot comparison allows isolated drift but rejects larger and resized changes',
+  async ({ page }, info) => {
+    await using resources = new AsyncDisposableStack();
+    const workflow = `drift-${crypto.randomUUID()}`;
+    const screenshots = screenshotAssertions(
+      page,
+      workflow,
+      info.outputPath('contract'),
+      'contract',
+      info
+    );
+
+    for (const [name, size, pixels, resized, accepted] of [
+      ['small-drift', 100, 1, false, true],
+      ['small-regression', 100, 2, false, false],
+      ['large-drift', 1000, 10, false, true],
+      ['large-regression', 1000, 11, false, false],
+      ['resized', 100, 0, true, false]
+    ] as const) {
+      await page.setContent('<canvas></canvas>');
+      const canvas = page.locator('canvas');
+
+      await page.evaluate((size) => {
+        const element = document.querySelector('canvas')!;
+
+        element.width = size;
+        element.height = size;
+        const context = element.getContext('2d')!;
+
+        context.fillStyle = 'black';
+        context.fillRect(0, 0, size, size);
+      }, size);
+      const reference = baselinePath('contract', workflow, name);
+
+      resources.defer(() => Bun.file(reference).delete());
+      await Bun.write(reference, await canvas.screenshot());
+      await page.evaluate(
+        ({ pixels, resized }) => {
+          const element = document.querySelector('canvas')!;
+
+          if (resized) element.width++;
+
+          const context = element.getContext('2d')!;
+
+          context.fillStyle = 'black';
+          context.fillRect(0, 0, element.width, element.height);
+          context.fillStyle = 'white';
+
+          for (let pixel = 0; pixel < pixels; pixel++) context.fillRect(10 + pixel * 3, 10, 1, 1);
+        },
+        { pixels, resized }
+      );
+      const comparison = screenshots.expectScreenshot(name, {
+        target: canvas,
+        ready: async () => {},
+        timeoutMs: 2000
+      });
+
+      if (accepted) await comparison;
+      else
+        await expect(comparison).rejects.toThrow(
+          resized ? /Expected an image/ : /pixels .*different/
+        );
+    }
+  }
+);

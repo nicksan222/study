@@ -399,8 +399,11 @@ references for one workflow; append `/editing` to update only that screenshot.
 Updates are forbidden in CI. Inspect candidate PNGs before
 accepting them; generation does not approve a design. No Git hook updates or stages
 images. Native Playwright screenshot assertions use a 0.2 perceptual color threshold and
-allow zero differing pixels beyond that tolerance. Dimension changes always fail.
-Missing references and changed pixels fail ordinary comparison without
+allow isolated rendering drift beyond that tolerance up to the stricter of 10 pixels
+or 0.01% of the image. Both limits apply: a 100×100 capture permits one differing pixel,
+while a 2560×1440 capture permits at most ten. This is a noise budget, not permission
+to accept changed content or layout. Dimension changes always fail.
+Missing references and differences beyond the budget fail ordinary comparison without
 rewriting references (`updateSnapshots: none`). Playwright owns stabilization, comparison
 and expected/actual/diff attachments; Study retains application readiness, focus normalization
 and explicitly scoped updates. Native runner outputs live under `apps/client/test-results/playwright`, and
