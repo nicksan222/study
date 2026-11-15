@@ -42,7 +42,7 @@ for (const kind of ['quiz', 'flashcards'] as const) {
         </RpcProvider>
       );
       await user.pointer({
-        target: await screen.findByRole('link', { name: material.title }),
+        target: await screen.findByRole('link', { name: new RegExp(material.title) }),
         keys: '[MouseRight]'
       });
       const open = await screen.findByRole('menuitem', { name: catalogs.english.OpenPractice });
@@ -61,7 +61,7 @@ for (const kind of ['quiz', 'flashcards'] as const) {
         screen.getByRole('menuitem', { name: catalogs.english.PracticeArchiveMaterial })
       );
       await waitFor(() => expect(archive).toHaveBeenCalledWith({ id: material.id }));
-      expect(screen.getByRole('link', { name: material.title })).toBeVisible();
+      expect(screen.getByRole('link', { name: new RegExp(material.title) })).toBeVisible();
     }
   );
 }

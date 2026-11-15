@@ -108,7 +108,7 @@ testStable(
     });
     const user = userEvent.setup();
     const { router, notify } = show();
-    const newest = await screen.findByRole('link', { name: 'Document 2' });
+    const newest = await screen.findByRole('link', { name: /\bDocument 2\b/ });
 
     expect(screen.getAllByRole('link').map((link) => link.textContent)).toEqual([
       expect.stringContaining('Document 2'),
@@ -125,7 +125,7 @@ testStable(
     expect(newest).toHaveAttribute('href', '/pages/2?project=1');
     await user.click(newest);
     await waitFor(() => expect(router.state.location.pathname).toBe('/pages/2'));
-    expect(screen.getByRole('link', { name: 'Document 2' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toHaveAttribute(
       'aria-current',
       'page'
     );
@@ -135,7 +135,7 @@ testStable(
       await notify();
     });
     await waitFor(() =>
-      expect(screen.getByRole('link', { name: 'Document 2' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toHaveAttribute(
         'data-layout',
         'compact'
       )
@@ -153,7 +153,7 @@ testStable(
     await act(async () => {
       await notify();
     });
-    expect(await screen.findByRole('link', { name: 'Document 7' })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /\bDocument 7\b/ })).toBeInTheDocument();
     expect(screen.queryByText(en.PagesEmpty)).not.toBeInTheDocument();
   }
 );
@@ -169,10 +169,10 @@ testStable('loads additional document pages without dropping the current rows', 
   const user = userEvent.setup();
 
   show();
-  await screen.findByRole('link', { name: 'Document 2' });
+  await screen.findByRole('link', { name: /\bDocument 2\b/ });
   await user.click(screen.getByRole('button', { name: en.LibraryMore }));
-  expect(await screen.findByRole('link', { name: 'Document 1' })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: 'Document 2' })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: /\bDocument 1\b/ })).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /\bDocument 2\b/ })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: en.LibraryMore })).not.toBeInTheDocument();
 });
 
@@ -204,22 +204,22 @@ testStable(
     const user = userEvent.setup();
 
     show();
-    await screen.findByRole('link', { name: 'Document 151' });
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
 
     for (const limit of [60, 90, 100]) {
       await user.click(screen.getByRole('button', { name: en.LibraryMore }));
       await waitFor(() =>
         expect(api.pages).toHaveBeenCalledWith(expect.objectContaining({ limit }))
       );
-      await screen.findByRole('link', { name: `Document ${152 - limit}` });
+      await screen.findByRole('link', { name: new RegExp(`\\bDocument ${152 - limit}\\b`) });
     }
 
     await user.click(screen.getByRole('button', { name: en.LibraryMore }));
-    await screen.findByRole('link', { name: 'Document 51' });
-    expect(screen.queryByRole('link', { name: 'Document 151' })).toBeNull();
+    await screen.findByRole('link', { name: /\bDocument 51\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 151\b/ })).toBeNull();
     await user.click(screen.getByRole('button', { name: en.LibraryPrevious }));
-    await screen.findByRole('link', { name: 'Document 151' });
-    expect(screen.queryByRole('link', { name: 'Document 51' })).toBeNull();
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 51\b/ })).toBeNull();
   }
 );
 
@@ -229,18 +229,19 @@ testStable(
     api.pages.mockResolvedValue({ items: [document(2n), document(1n)], nextCursor: null });
     const view = show();
 
-    await screen.findByRole('link', { name: 'Document 1' });
+    await screen.findByRole('link', { name: /\bDocument 1\b/ });
     api.pages.mockResolvedValue({
       items: [document(3n), document(2n, { title: 'Renamed page' })],
       nextCursor: null
     });
     await act(() => view.notify());
-    await screen.findByRole('link', { name: 'Renamed page' });
-    expect(screen.queryByRole('link', { name: 'Document 1' })).toBeNull();
-    expect(screen.getAllByRole('link').map((link) => link.getAttribute('aria-label'))).toEqual([
-      'Document 3',
-      'Renamed page'
-    ]);
+    await screen.findByRole('link', { name: /\bRenamed page\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 1\b/ })).toBeNull();
+    expect(
+      screen
+        .getAllByRole('link')
+        .map((link) => link.querySelector('.study-note-title')?.textContent)
+    ).toEqual(['Document 3', 'Renamed page']);
   }
 );
 
@@ -269,18 +270,18 @@ testStable(
     const user = userEvent.setup();
 
     show();
-    await screen.findByRole('link', { name: 'Document 151' });
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
 
     for (const limit of [60, 90, 100]) {
       await user.click(screen.getByRole('button', { name: en.LibraryMore }));
-      await screen.findByRole('link', { name: `Document ${152 - limit}` });
+      await screen.findByRole('link', { name: new RegExp(`\\bDocument ${152 - limit}\\b`) });
     }
 
     await user.click(screen.getByRole('button', { name: en.LibraryMore }));
-    await screen.findByRole('link', { name: 'Document 51' });
+    await screen.findByRole('link', { name: /\bDocument 51\b/ });
     await act(() => rpc.pages.delete.call({ pageId: document(52n).id, token: 'reviewed-anchor' }));
-    await screen.findByRole('link', { name: 'Document 151' });
-    expect(screen.queryByRole('link', { name: 'Document 51' })).toBeNull();
+    await screen.findByRole('link', { name: /\bDocument 151\b/ });
+    expect(screen.queryByRole('link', { name: /\bDocument 51\b/ })).toBeNull();
     expect(screen.queryByRole('button', { name: en.LibraryPrevious })).toBeNull();
     expect(api.remove).toHaveBeenCalledOnce();
   }

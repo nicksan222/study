@@ -85,10 +85,10 @@ testStable(
 
     await screen.findByText('SidebarGenerating');
     const generatingRow = screen
-      .getByRole('link', { name: 'Note 3' })
+      .getByRole('link', { name: /\bNote 3\b/ })
       .closest('.study-note-entry') as HTMLElement;
     const idleRow = screen
-      .getByRole('link', { name: 'Note 1' })
+      .getByRole('link', { name: /\bNote 1\b/ })
       .closest('.study-note-entry') as HTMLElement;
 
     expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
@@ -105,13 +105,17 @@ testStable(
     const groups = view.container.querySelectorAll('details');
 
     expect(groups[0]).toHaveAttribute('open');
-    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Note 1' })).toBeVisible();
-    expect(within(groups[0] as HTMLElement).getByRole('link', { name: 'Note 3' })).toBeVisible();
-    expect(within(groups[0] as HTMLElement).queryByRole('link', { name: 'Note 2' })).toBeNull();
+    expect(
+      within(groups[0] as HTMLElement).getByRole('link', { name: /\bNote 1\b/ })
+    ).toBeVisible();
+    expect(
+      within(groups[0] as HTMLElement).getByRole('link', { name: /\bNote 3\b/ })
+    ).toBeVisible();
+    expect(within(groups[0] as HTMLElement).queryByRole('link', { name: /\bNote 2\b/ })).toBeNull();
     expect(groups[1]).not.toHaveAttribute('open');
     fireEvent.click(within(groups[1] as HTMLElement).getByText('SidebarSettled'));
     expect(
-      await within(groups[1] as HTMLElement).findByRole('link', { name: 'Note 2' })
+      await within(groups[1] as HTMLElement).findByRole('link', { name: /\bNote 2\b/ })
     ).toBeInTheDocument();
     expect(api.summaries).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -121,7 +125,7 @@ testStable(
       };
       await cache.notify();
     });
-    const compact = screen.getByRole('link', { name: 'Note 1' });
+    const compact = screen.getByRole('link', { name: /\bNote 1\b/ });
 
     await waitFor(() => expect(compact).toHaveAttribute('data-layout', 'compact'));
     expect(within(compact).getByTitle('SidebarGeneratedPages')).toHaveTextContent('1');
@@ -131,7 +135,7 @@ testStable(
     );
     expect(within(generatingRow).queryByRole('button', { name: 'SidebarTurnIntoPage' })).toBeNull();
     expect(
-      within(screen.getByRole('link', { name: 'Note 3' })).getByText('SidebarGenerating')
+      within(screen.getByRole('link', { name: /\bNote 3\b/ })).getByText('SidebarGenerating')
     ).toBeInTheDocument();
     await act(async () => {
       preferences = {
@@ -264,12 +268,12 @@ testStable(
     expect(group).not.toHaveAttribute('open');
     fireEvent.click(summary);
     await waitFor(() =>
-      expect(screen.getByRole('link', { name: 'Settled 1' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /\bSettled 1\b/ })).toHaveAttribute(
         'data-layout',
         'summary'
       )
     );
-    const first = screen.getByRole('link', { name: 'Settled 1' });
+    const first = screen.getByRole('link', { name: /\bSettled 1\b/ });
 
     expect(group).toHaveAttribute('open');
     expect(group).toHaveAttribute('data-variant', 'settled');
@@ -325,19 +329,22 @@ testStable(
   async () => {
     const router = mountSelectionSidebar();
 
-    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    expect(await screen.findByRole('button', { name: 'Note 1' })).toHaveAttribute(
+    expect(await screen.findByRole('button', { name: /\bNote 1\b/ })).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Note 2' }));
-    expect(screen.getByRole('button', { name: 'Note 2' })).toHaveAttribute('aria-pressed', 'true');
-    const row = screen.getByRole('button', { name: 'Note 1' });
+    fireEvent.click(screen.getByRole('button', { name: /\bNote 2\b/ }));
+    expect(screen.getByRole('button', { name: /\bNote 2\b/ })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    const row = screen.getByRole('button', { name: /\bNote 1\b/ });
 
     expect(row).toHaveAttribute('data-layout', 'detailed');
     expect(within(row).getByText('SidebarReady')).toBeVisible();
@@ -361,21 +368,21 @@ testStable(
   'disables batch actions for zero selected rows and cancel returns to navigation',
   async () => {
     mountSelectionSidebar();
-    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Note 1' }));
+    fireEvent.click(await screen.findByRole('button', { name: /\bNote 1\b/ }));
     const toolbar = screen.getByRole('toolbar', { name: 'SidebarSelectionActions' });
 
     expect(toolbar).toHaveFocus();
     expect(within(toolbar).getByRole('button', { name: 'NoteCreatePage' })).toBeDisabled();
     expect(within(toolbar).getByRole('button', { name: 'SidebarDeleteSelected' })).toBeDisabled();
     fireEvent.click(within(toolbar).getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByRole('link', { name: 'Note 1' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Note 1' })).toHaveFocus();
+    expect(await screen.findByRole('link', { name: /\bNote 1\b/ })).toBeVisible();
+    expect(screen.getByRole('link', { name: /\bNote 1\b/ })).toHaveFocus();
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
     expect(
       screen.queryByRole('toolbar', { name: 'SidebarSelectionActions' })
@@ -387,13 +394,13 @@ testStable(
   'opens deletion review for the selected notes without deleting on selection',
   async () => {
     mountSelectionSidebar();
-    fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }), {
+    fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }), {
       button: 2,
       clientX: 80,
       clientY: 80
     });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Note 3' }));
+    fireEvent.click(await screen.findByRole('button', { name: /\bNote 3\b/ }));
     fireEvent.click(
       within(screen.getByRole('toolbar')).getByRole('button', { name: 'SidebarDeleteSelected' })
     );
@@ -475,12 +482,12 @@ testStable('keeps loaded settled rows available regardless of the sidebar height
     );
     fireEvent.click(await screen.findByText('SidebarSettled'));
     await waitFor(() =>
-      expect(screen.getByRole('link', { name: 'Recent 1' })).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /\bRecent 1\b/ })).toHaveAttribute(
         'data-layout',
         'summary'
       )
     );
-    const group = screen.getByRole('link', { name: 'Recent 1' }).closest('details')!;
+    const group = screen.getByRole('link', { name: /\bRecent 1\b/ }).closest('details')!;
 
     expect(within(group).getAllByRole('link')).toHaveLength(7);
     expect(
@@ -496,12 +503,12 @@ testStable(
   'uses keyboard row toggles without changing the sidebar density or navigating',
   async () => {
     const router = mountSelectionSidebar();
-    const original = await screen.findByRole('link', { name: 'Note 1' });
+    const original = await screen.findByRole('link', { name: /\bNote 1\b/ });
 
     expect(original).toHaveAttribute('data-layout', 'detailed');
     fireEvent.contextMenu(original, { button: 2, clientX: 80, clientY: 80 });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
-    const row = await screen.findByRole('button', { name: 'Note 2' });
+    const row = await screen.findByRole('button', { name: /\bNote 2\b/ });
 
     expect(row).toHaveAttribute('data-layout', 'detailed');
     expect(row).toHaveAttribute('aria-pressed', 'false');
@@ -517,7 +524,7 @@ testStable(
 
 testStable('opens the conversion dialog from a row without navigating or settling it', async () => {
   const router = mountSelectionSidebar();
-  const link = await screen.findByRole('link', { name: 'Note 1' });
+  const link = await screen.findByRole('link', { name: /\bNote 1\b/ });
   const row = link.closest('.study-note-entry') as HTMLElement;
 
   expect(within(row).getByRole('button', { name: 'SidebarSettle' })).toBeInTheDocument();
@@ -549,10 +556,10 @@ testStable('offers merge only after selecting at least two notes', async () => {
       <RouterProvider router={router} />
     </cache.wrapper>
   );
-  fireEvent.contextMenu(await screen.findByRole('link', { name: 'Note 1' }));
+  fireEvent.contextMenu(await screen.findByRole('link', { name: /\bNote 1\b/ }));
   fireEvent.click(await screen.findByRole('menuitem', { name: 'SidebarSelectNotes' }));
   expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Note 2' }));
+  fireEvent.click(screen.getByRole('button', { name: /\bNote 2\b/ }));
   expect(screen.getByRole('button', { name: 'NoteMerge' })).toBeEnabled();
   fireEvent.click(screen.getByRole('button', { name: 'NoteMerge' }));
   const dialog = await screen.findByRole('dialog');

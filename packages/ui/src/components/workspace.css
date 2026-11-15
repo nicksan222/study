@@ -1,5 +1,5 @@
 :root {
-  --workspace-supporting: color-mix(in srgb, var(--muted-foreground) 88%, var(--foreground));
+  --workspace-supporting: var(--contrast-muted-foreground);
 }
 
 .ui-workspace {

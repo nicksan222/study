@@ -38,6 +38,7 @@ testStable('shows option labels and commits string values through keyboard selec
   expect(trigger).toHaveTextContent('System');
   trigger.focus();
   await user.keyboard('{Enter}');
+  expect(await screen.findByRole('listbox', { name: 'Appearance' })).toBeInTheDocument();
   expect(await screen.findByRole('option', { name: 'System' })).toHaveAttribute(
     'aria-selected',
     'true'
