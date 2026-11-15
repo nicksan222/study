@@ -1,3 +1,5 @@
+import { spawnTestProcess } from '@study/testing/process';
+import { temporaryDirectory } from '@study/testing/resources';
 import { testStable } from '@study/testing/vitest';
 import { $ } from 'bun';
 import { assert, onTestFinished } from 'vite-plus/test';
@@ -25,7 +27,8 @@ type Workflow = {
 };
 
 async function fixture() {
-  const path = (await $`mktemp -d`.quiet().text()).trim();
+  const temporary = await temporaryDirectory();
+  const path = temporary.path;
   const directories: string[] = [];
   const command = 'bun -e "console.log(\'executed\')"';
   const rootScripts = Object.fromEntries(
@@ -78,7 +81,7 @@ async function fixture() {
   await $`git -C ${path} -c user.name=Test -c user.email=test@example.invalid -c commit.gpgsign=false commit -qm baseline`.quiet();
 
   async function execute(args: string[]) {
-    const child = Bun.spawn(args, {
+    const child = spawnTestProcess(args, {
       cwd: path,
       env: {
         ...process.env,
@@ -136,7 +139,7 @@ async function fixture() {
     plan,
     script,
     async [Symbol.asyncDispose]() {
-      await $`rm -rf ${path}`.quiet();
+      await temporary[Symbol.asyncDispose]();
     }
   };
 }
@@ -399,6 +402,16 @@ testStable('shared test setup and native permissions affect the owning tasks', a
   const hash = (plan: Plan, id: string) => plan.tasks.find((task) => task.taskId === id)?.hash;
   const before = await repo.plan('test');
 
+  await Bun.write(`${repo.path}/tooling/test-results/integrations/setup.log`, 'diagnostics');
+  const reports = await repo.plan('test');
+
+  assert.equal(hash(reports, '@study/ui#test'), hash(before, '@study/ui#test'));
+  await Bun.write(`${repo.path}/packages/testing/src/config.ts`, 'shared budget changed');
+  const policy = await repo.plan('test');
+
+  for (const id of ['@study/ui#test', '@study/client#test', '@study/testing#test'])
+    assert.notEqual(hash(policy, id), hash(before, id));
+
   await Bun.write(`${repo.path}/apps/client/src/test/setup.ts`, 'changed');
   let after = await repo.plan('test');
 
@@ -451,7 +464,7 @@ testStable.each([
       `${repo.path}/turbo.json`,
       JSON.stringify({ ...config, tasks: { ...config.tasks, hold: { cache: false } } })
     );
-    const child = Bun.spawn(
+    const child = spawnTestProcess(
       [
         'bun',
         `${root}tooling/scripts/development/turbo.ts`,

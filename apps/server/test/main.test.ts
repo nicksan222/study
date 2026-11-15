@@ -15,7 +15,8 @@
 
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
-import { testStable } from '@study/testing/vitest';
+import { spawnTestProcess } from '@study/testing/process';
+import { testStable, waitFor } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
@@ -34,7 +35,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = Bun.spawn({
+      const child = spawnTestProcess({
         cmd: [
           process.execPath,
           Bun.fileURLToPath(new URL('../src/runtime/main.ts', import.meta.url))
@@ -71,7 +72,7 @@ for (const shutdown of ['stdin EOF', 'SIGTERM'] as const) {
       });
 
       try {
-        while (stdout.length === 0 && child.exitCode === null) await Bun.sleep(10);
+        await waitFor(() => assert.ok(stdout.length > 0 || child.exitCode !== null));
 
         assert.ok(stdout.length > 0, child.exitCode === null ? '' : await stderr);
 

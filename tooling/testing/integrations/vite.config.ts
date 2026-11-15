@@ -10,19 +10,20 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
+import { testPolicy } from '@study/testing/config';
 import { defineConfig } from 'vite-plus';
 
 export default defineConfig({
-  root: Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
+  root: Bun.fileURLToPath(new URL('../../../', import.meta.url)),
   test: {
     name: 'integrations',
     reporters: [
       'verbose',
-      ['junit', { outputFile: 'apps/server/test-results/vitest/integrations.xml' }]
+      ['junit', { outputFile: 'tooling/test-results/vitest/integrations.xml' }]
     ],
-    include: ['apps/server/test/integrations/providers/**/*.integration.test.ts'],
+    include: ['tooling/testing/integrations/providers/**/*.integration.test.ts'],
     pool: 'forks',
-    maxWorkers: 2,
+    maxWorkers: testPolicy.workers[process.env.CI ? 'ci' : 'local'],
     testTimeout: 60000,
     hookTimeout: 30000
   }

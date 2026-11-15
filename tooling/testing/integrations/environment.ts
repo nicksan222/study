@@ -14,7 +14,7 @@ import { fs, path, run } from './filesystem.ts';
 
 /** Copy authored input only; never mount a checkout, host dependencies, credentials or test state. */
 export async function buildContext(
-  root = Bun.fileURLToPath(new URL('../../../../', import.meta.url))
+  root = Bun.fileURLToPath(new URL('../../../', import.meta.url))
 ) {
   const directory = await run(fs.makeTempDirectory({ prefix: 'study-integrations-image-' }));
   const files = [
@@ -79,10 +79,10 @@ export async function buildContext(
 
 /** Run the native provider suite once and retain its reports before disposing its environment. */
 export async function runIntegrationTests(
-  root = Bun.fileURLToPath(new URL('../../../../', import.meta.url)),
+  root = Bun.fileURLToPath(new URL('../../../', import.meta.url)),
   signal?: AbortSignal
 ) {
-  const reports = path.join(root, 'apps/server/test-results');
+  const reports = path.join(root, 'tooling/test-results');
   const diagnostics = path.join(reports, 'integrations');
 
   await run(fs.remove(diagnostics, { recursive: true, force: true }));
@@ -143,7 +143,7 @@ export async function runIntegrationTests(
       '--load',
       '--quiet',
       '--file',
-      'apps/server/test/integrations/Dockerfile',
+      'tooling/testing/integrations/Dockerfile',
       '--tag',
       image,
       '.'
@@ -183,12 +183,12 @@ export async function runIntegrationTests(
       'test',
       'run',
       '--config',
-      'apps/server/test/integrations/vite.config.ts'
+      'tooling/testing/integrations/vite.config.ts'
     ],
     { signal: execution }
   );
   resources.defer(() =>
-    docker(['cp', `${name}:/workspace/apps/server/test-results/.`, reports]).then(() => {})
+    docker(['cp', `${name}:/workspace/tooling/test-results/.`, reports]).then(() => {})
   );
   resources.defer(() => docker(['stop', '--time', '5', name]).then(() => {}));
 

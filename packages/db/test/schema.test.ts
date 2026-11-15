@@ -1,5 +1,6 @@
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
 import { projectIdSchema } from '@study/contracts/ids';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { sql, eq, getTableName } from 'drizzle-orm';
 import { Effect, FileSystem, Path, Schema } from 'effect';
@@ -157,7 +158,7 @@ testStable(
         config,
         `export default ${JSON.stringify({ dialect: 'sqlite', schema: Bun.fileURLToPath(new URL('../src/schema.ts', import.meta.url)), out: output })};`
       );
-      const child = Bun.spawn(
+      const child = spawnTestProcess(
         [
           process.execPath,
           join(

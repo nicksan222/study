@@ -17,7 +17,7 @@ import { buildContext } from './environment.ts';
 import { fs, path, run } from './filesystem.ts';
 
 testStable('default build context resolves the workspace from the server package', async () => {
-  const serverRoot = path.resolve(import.meta.dirname, '../..');
+  const serverRoot = path.resolve(import.meta.dirname, '../../../apps/server');
   const previousDirectory = process.cwd();
   let context: string | undefined;
 
@@ -58,7 +58,7 @@ testStable(
         'packages/integrations/.env.secret',
         'packages/integrations/node_modules/dep/index.js',
         'tooling/.turbo/turbo-test.log',
-        'apps/server/test-results/run/trace.zip',
+        'tooling/test-results/run/trace.zip',
         'packages/db/coverage/report.json',
         'packages/db/.fallow/cache',
         'packages/db/__pycache__/fixture.pyc'
@@ -82,7 +82,7 @@ testStable(
 
       for (const generated of [
         'tooling/.turbo',
-        'apps/server/test-results',
+        'tooling/test-results',
         'packages/db/coverage',
         'packages/db/.fallow',
         'packages/db/__pycache__'
@@ -99,7 +99,7 @@ testStable(
 );
 
 testStable('the integration install layer contains every locked workspace manifest', async () => {
-  const root = new URL('../../../../', import.meta.url);
+  const root = new URL('../../../', import.meta.url);
   const lock = Bun.JSON5.parse(await Bun.file(new URL('bun.lock', root)).text()) as {
     workspaces: Record<string, unknown>;
   };

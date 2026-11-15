@@ -11,11 +11,11 @@
  */
 
 import { StudyRpc } from '@study/contracts/rpc';
+import { makeStudyClient } from '@study/server/client';
+import { App, serve } from '@study/server/runtime';
 import { Effect, Exit } from 'effect';
 
-import { fs, path, run } from '#integration-tests/filesystem';
-import { makeStudyClient } from '#server/client/index';
-import { App, serve } from '#server/runtime/index';
+import { fs, path, run } from '#tooling/testing/integrations/filesystem';
 
 import { readVault, startObsidian } from './driver.ts';
 
@@ -34,7 +34,7 @@ export function obsidianVault(name: string) {
 
           if (await source.exists())
             await Bun.write(
-              path.resolve('apps/server/test-results/integrations', `${name}.log`),
+              path.resolve('tooling/test-results/integrations', `${name}.log`),
               source
             );
         }

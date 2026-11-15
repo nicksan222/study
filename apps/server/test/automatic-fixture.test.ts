@@ -16,6 +16,7 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { assert } from 'vite-plus/test';
@@ -50,7 +51,7 @@ for (const mode of [
   testStable(`automatic fixture cleans databases after ${mode}`, async () => {
     const env = { ...process.env, STUDY_TEST_SCENARIO: mode };
 
-    const child = Bun.spawn([process.execPath, ...runnerArgs], {
+    const child = spawnTestProcess([process.execPath, ...runnerArgs], {
       env,
       stdout: 'pipe',
       stderr: 'pipe'
@@ -111,7 +112,7 @@ testStable('concurrent test files use separate databases and remove them', async
   const env = { ...process.env, STUDY_TEST_SCENARIO: 'success' };
   const results = await Promise.all(
     [0, 1].map(async () => {
-      const child = Bun.spawn([process.execPath, ...runnerArgs], {
+      const child = spawnTestProcess([process.execPath, ...runnerArgs], {
         env,
         stdout: 'pipe',
         stderr: 'pipe'

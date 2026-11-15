@@ -1,5 +1,6 @@
+import { spawnTestProcess } from '@study/testing/process';
+import { temporaryDirectory } from '@study/testing/resources';
 import { testStable } from '@study/testing/vitest';
-import { $ } from 'bun';
 import { assert } from 'vite-plus/test';
 
 type Workflow = {
@@ -50,16 +51,17 @@ testStable('all CI lanes start independently and feed the required merge gate', 
 testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
   'the required gate handles a %s lane result without allowing an unsafe merge',
   async (status) => {
-    const directory = (await $`mktemp -d`.quiet().text()).trim();
+    await using temporary = await temporaryDirectory();
+    const directory = temporary.path;
 
-    try {
+    {
       const results = Object.fromEntries(lanes.map((lane) => [lane, { result: 'success' }]));
 
       if (status === 'missing') delete results.database;
       else results.database!.result = status;
 
       const script = workflow.jobs.check!.steps![0]!.run!;
-      const child = Bun.spawn(['bash', '-c', script], {
+      const child = spawnTestProcess(['bash', '-c', script], {
         env: {
           ...process.env,
           RESULTS: JSON.stringify(results),
@@ -72,8 +74,6 @@ testStable.each(['success', 'failure', 'cancelled', 'skipped', 'missing'])(
 
       assert.equal(code, status === 'success' ? 0 : 1, stderr);
       assert.include(await Bun.file(`${directory}/summary.md`).text(), 'Study CI');
-    } finally {
-      await $`rm -rf ${directory}`.quiet();
     }
   }
 );

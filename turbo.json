@@ -8,12 +8,14 @@
     ".devcontainer/**",
     ".agents/**",
     "tooling/**",
+    "packages/testing/src/**",
     "apps/landing/**",
     "!**/.turbo/**",
     "!**/node_modules/**",
     "!**/dist/**",
     "!**/.astro/**",
-    "!**/.tanstack/**"
+    "!**/.tanstack/**",
+    "!**/test-results/**"
   ],
   "globalEnv": ["CI", "NODE_ENV", "STUDY_*", "VITE_*", "CARGO_*", "RUST*", "BUN_*"],
   "tasks": {
@@ -162,7 +164,12 @@
       "dependsOn": ["^typecheck"],
       "cache": true,
       "envMode": "strict",
-      "outputs": ["test-results/vitest/**"]
+      "outputs": ["test-results/vitest/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/apps/client/vite.config.ts",
+        "$TURBO_ROOT$/apps/client/src/test/**"
+      ]
     },
     "@study/client#test": {
       "dependsOn": ["^typecheck"],

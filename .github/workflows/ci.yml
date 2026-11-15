@@ -157,7 +157,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: integrations-reports
-          path: apps/server/test-results/
+          path: tooling/test-results/
           if-no-files-found: ignore
 
   landing:

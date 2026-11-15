@@ -14,7 +14,7 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { testStable } from '@study/testing/vitest';
+import { testStable, withinTestDeadline } from '@study/testing/vitest';
 import { Effect } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
@@ -300,12 +300,7 @@ testStable('disposing sign-in closes a stalled callback connection', async () =>
 
   try {
     signIn.dispose();
-    await Promise.race([
-      closure,
-      Bun.sleep(2000).then(() => {
-        throw new Error('Stalled callback remained open');
-      })
-    ]);
+    await withinTestDeadline(closure);
   } finally {
     signIn.dispose();
     socket.end();

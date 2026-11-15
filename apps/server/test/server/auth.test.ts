@@ -18,7 +18,7 @@
 import { StudyRpc } from '@study/contracts/rpc';
 import { Appearance, Language, LlmProvider } from '@study/contracts/settings';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { testStable, withinTestDeadline } from '@study/testing/vitest';
 import { Effect, Fiber } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
@@ -54,12 +54,7 @@ async function listenerClosed(url: URL) {
 }
 
 async function waitForSocketEvent(event: Promise<void>) {
-  await Promise.race([
-    event,
-    Bun.sleep(2000).then(() => {
-      throw new Error('Socket event timed out');
-    })
-  ]);
+  await withinTestDeadline(event);
 }
 
 async function fixture() {

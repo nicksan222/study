@@ -3,7 +3,7 @@ import { expect } from 'vite-plus/test';
 
 import { lintFiles } from '../test/utils.ts';
 
-const directory = 'apps/server/test/integrations';
+const directory = 'tooling/testing/integrations';
 
 function fixture(overrides: Record<string, string> = {}): Record<string, string> {
   return {
@@ -53,7 +53,7 @@ testStable('provider tests cannot create a separate Docker runtime', async () =>
   );
 
   expect(diagnostics).toHaveLength(1);
-  expect(diagnostics[0]?.message).toContain('Only test/integrations/environment.ts');
+  expect(diagnostics[0]?.message).toContain('Only testing/integrations/environment.ts');
 });
 
 testStable(
@@ -91,7 +91,7 @@ testStable('the shared container builder cannot drift to a different Dockerfile'
   );
 
   expect(diagnostics).toHaveLength(1);
-  expect(diagnostics[0]?.message).toContain('apps/server/test/integrations/Dockerfile');
+  expect(diagnostics[0]?.message).toContain('tooling/testing/integrations/Dockerfile');
 });
 
 testStable('every provider must have discoverable integration tests', async () => {
@@ -119,6 +119,6 @@ testStable.each([
   );
 
   expect(diagnostics.map((item) => item.message)).toContain(
-    'Only test/integrations/environment.ts may launch Docker; use the shared integration environment.'
+    'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
   );
 });

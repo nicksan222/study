@@ -10,7 +10,9 @@ const { join } = Effect.runSync(Effect.provide(Path.Path, BunPath.layer));
 const fs = await Effect.runPromise(Effect.provide(FileSystem.FileSystem, BunFileSystem.layer));
 
 function workspace(filename: string) {
-  const marker = filename.match(/^(.*)\/(?:packages\/integrations|apps\/server)\//);
+  const marker = filename.match(
+    /^(.*)\/(?:packages\/integrations|apps\/server|tooling\/testing)\//
+  );
 
   return marker?.[1];
 }
@@ -83,7 +85,7 @@ async function providerProblems(
 }
 
 async function fixtureProblems(root: string): Promise<string[]> {
-  const directory = join(root, 'apps/server/test/integrations');
+  const directory = join(root, 'tooling/testing/integrations');
   const manifest = Bun.file(join(directory, 'providers.json'));
   const dockerfile = Bun.file(join(directory, 'Dockerfile'));
 
@@ -124,7 +126,7 @@ function sharedDockerfile(args: any[]): boolean {
   return (
     index >= 0 &&
     file?.type === 'Literal' &&
-    file.value === 'apps/server/test/integrations/Dockerfile'
+    file.value === 'tooling/testing/integrations/Dockerfile'
   );
 }
 
@@ -138,9 +140,9 @@ export default defineRule({
     messages: {
       environment: '{{reason}}',
       image:
-        'Build integration environments from apps/server/test/integrations/Dockerfile using a literal path.',
+        'Build integration environments from tooling/testing/integrations/Dockerfile using a literal path.',
       runtime:
-        'Only test/integrations/environment.ts may launch Docker; use the shared integration environment.'
+        'Only testing/integrations/environment.ts may launch Docker; use the shared integration environment.'
     }
   },
   create(context) {
@@ -149,7 +151,7 @@ export default defineRule({
 
     if (!root) return {};
 
-    const shared = filename.endsWith('/test/integrations/environment.ts');
+    const shared = filename.endsWith('/testing/integrations/environment.ts');
 
     return {
       CallExpression(node) {

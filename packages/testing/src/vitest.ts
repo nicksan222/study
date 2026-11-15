@@ -1,8 +1,9 @@
-import { test } from 'vite-plus/test';
+import { test, vi } from 'vite-plus/test';
 import type { TestAPI, TestContext, TestFunction, TestOptions } from 'vite-plus/test';
 
 import { assertTestDefinition, classificationLabel } from './classification.ts';
 import type { Characterization, Migration, Regression } from './classification.ts';
+import { testPolicy } from './config.ts';
 
 type Options = Omit<TestOptions, 'only' | 'skip' | 'todo' | 'fails'> & {
   only?: never;
@@ -94,4 +95,30 @@ export function testMigration(metadata: Migration): Registration {
 
 export function testCharacterization(metadata: Characterization): Registration {
   return registration(test, classificationLabel('characterization', metadata));
+}
+
+/** Use Vitest's polling implementation with the repository's shared async budget. */
+export const waitFor: typeof vi.waitFor = (callback: any, options?: any) =>
+  vi.waitFor(
+    callback,
+    typeof options === 'number' ? options : { timeout: testPolicy.asyncTimeout, ...options }
+  );
+
+/** Bound event observations without bespoke sleep/race scaffolding in individual tests. */
+export async function withinTestDeadline<T>(event: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      event,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(
+          () => reject(new Error('Test observation timed out')),
+          testPolicy.asyncTimeout
+        );
+      })
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
 }

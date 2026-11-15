@@ -10,8 +10,8 @@
  * ╰──────────────────────────────────────────────────────────────────────────────────────────╯
  */
 
-import { fs, path, run } from '#integration-tests/filesystem';
-import { requireIntegrationContainer } from '#integration-tests/guard';
+import { fs, path, run } from '#tooling/testing/integrations/filesystem';
+import { requireIntegrationContainer } from '#tooling/testing/integrations/guard';
 
 async function unusedPort() {
   const server = Bun.listen({

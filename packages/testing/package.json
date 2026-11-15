@@ -5,12 +5,22 @@
   "exports": {
     "./vitest": "./src/vitest.ts",
     "./catalog": "./src/catalog.ts",
-    "./classification": "./src/classification.ts"
+    "./classification": "./src/classification.ts",
+    "./config": "./src/config.ts",
+    "./process": "./src/process.ts",
+    "./resources": "./src/resources.ts",
+    "./react/setup": "./src/react/setup.ts"
   },
   "scripts": {
-    "test": "bun --bun vp test run --config ../../vite.config.ts --project tooling packages/testing"
+    "test": "bun --bun vp test run --config ../../vite.config.ts --project tooling packages/testing && bun --bun vp test run --config ../../vite.config.ts --project @study/client packages/testing/test/react.test.ts"
   },
   "devDependencies": {
+    "@effect/platform-bun": "4.0.7",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "effect": "4.0.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "vite-plus": "1.4.0"
   }
 }

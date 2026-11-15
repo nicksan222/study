@@ -46,5 +46,5 @@ COPY --chown=bun:bun tooling/package.json tooling/package.json
 USER bun
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY --chown=bun:bun . .
-RUN mkdir -p apps/server/test-results
+RUN mkdir -p tooling/test-results
 CMD ["sleep", "infinity"]

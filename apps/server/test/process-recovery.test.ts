@@ -13,9 +13,10 @@
 import { StudyRpc } from '@study/contracts/rpc';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { spawnTestProcess } from '@study/testing/process';
+import { testStable, waitFor } from '@study/testing/vitest';
 import { Effect } from 'effect';
-import { expect } from 'vite-plus/test';
+import { assert, expect } from 'vite-plus/test';
 
 import { makeStudyClient } from '#server/client/index';
 
@@ -23,7 +24,7 @@ testStable(
   'a pending reply survives abrupt Bun server process death without duplicates',
   async () => {
     const location = await createTestDatabase();
-    const children: ReturnType<typeof Bun.spawn<'pipe', 'pipe', 'pipe'>>[] = [];
+    const children: ReturnType<typeof spawnTestProcess<'pipe', 'pipe', 'pipe'>>[] = [];
 
     async function start() {
       const env: Record<string, string | undefined> = {
@@ -32,7 +33,7 @@ testStable(
       };
 
       delete env.STUDY_SERVER_TOKEN;
-      const child = Bun.spawn(
+      const child = spawnTestProcess(
         [process.execPath, new URL('../src/runtime/main.ts', import.meta.url).pathname],
         {
           env,
@@ -137,18 +138,14 @@ async function waitForReply(location: Awaited<ReturnType<typeof createTestDataba
   const database = await location.open();
 
   try {
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (
+    await waitFor(() => {
+      assert.equal(
         database.orm.all(
           sql`SELECT w.execution_id FROM workflow_configuration_waits w JOIN workflow_executions e ON e.execution_id=w.execution_id WHERE e.workflow_tag='conversation-reply/v1'`
-        ).length === 1
-      )
-        return;
-
-      await Bun.sleep(50);
-    }
-
-    throw new Error('Reply did not reach a durable configuration wait');
+        ).length,
+        1
+      );
+    });
   } finally {
     database.close();
   }

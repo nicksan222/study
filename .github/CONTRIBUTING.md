@@ -288,21 +288,21 @@ of production modules.
 
 Run `bun run integrations:e2e` with Docker available to run the real provider tests.
 The launcher prepares one shared disposable environment and invokes Vitest once.
-Ordinary `*.integration.test.ts` files under `apps/server/test/integrations/providers`
+Ordinary `*.integration.test.ts` files under `tooling/testing/integrations/providers`
 report the behavior being checked, with native assertion failures, exit codes and JUnit
 results. Every provider's tests are discovered on every run; no matrix or shard is used.
 
 Each test owns fresh application processes, profiles, vaults, a database and RPC server.
 Provider software and its pinned install remain in the shared
-`apps/server/test/integrations/Dockerfile`. Release downloads use bounded retries and
+`tooling/testing/integrations/Dockerfile`. Release downloads use bounded retries and
 verify checksums. The test environment has no network and mounts no host vault,
 credentials, dependencies or profile.
 
 The Bun launcher uses the Docker CLI directly. It collects native JUnit reports and
 failure logs, stops and removes the container and removes its image on success, failure
 and handled interruption. Setup output stays in
-`apps/server/test-results/integrations/setup.log`; normal console output shows the tests.
-Provider logs are retained for failed tests. CI uploads `apps/server/test-results/`,
+`tooling/test-results/integrations/setup.log`; normal console output shows the tests.
+Provider logs are retained for failed tests. CI uploads `tooling/test-results/`,
 including `vitest/integrations.xml`. The launcher preserves the test exit code and fails
 if environment setup, report collection or cleanup fails.
 
@@ -483,3 +483,14 @@ and the root commands disable Turbo telemetry.
 Affected checks do not establish that the entire repository passes. `bun run check` and the
 full CI gates remain required; native launchers and desktop lifecycle commands keep their
 existing interface. The standalone landing workspace is checked as an uncached root task.
+
+Tests use the native Vite+ runner and classified registrations from `@study/testing/vitest`.
+Shared waiting and worker budgets live in `@study/testing/config`; React setup lives in
+`@study/testing/react/setup`. CI uses one worker per runner so concurrent Turbo tasks do
+not multiply test workers. Use `waitFor` or `withinTestDeadline` from the shared package,
+`@study/testing/process` for bounded subprocesses with automatic test cleanup, and
+`await using` with `temporaryDirectory` from `@study/testing/resources` for fixture storage.
+Oxlint rejects local subprocess management, sleep polling, temporary-directory shell
+commands, test wrappers and runner configuration in test cases. Add reusable infrastructure
+to `packages/testing` or `tooling/testing`; integration environment setup and diagnostics
+live in `tooling/testing/integrations`, separate from native provider test reports.

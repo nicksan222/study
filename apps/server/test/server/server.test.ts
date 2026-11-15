@@ -20,7 +20,7 @@ import { Appearance, Language } from '@study/contracts/settings';
 import { sql } from '@study/db';
 import * as schema from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
-import { testStable } from '@study/testing/vitest';
+import { testStable, withinTestDeadline } from '@study/testing/vitest';
 import { Effect, Option, Schema } from 'effect';
 import { assert, expect } from 'vite-plus/test';
 
@@ -198,12 +198,7 @@ testStable(
         `POST /rpc HTTP/1.1\r\nHost: ${endpoint.host}\r\nContent-Type: application/json\r\nContent-Length: 1000000\r\n\r\n{`
       );
       await f.server.close();
-      await Promise.race([
-        closed,
-        Bun.sleep(2000).then(() => {
-          throw new Error('Socket did not close');
-        })
-      ]);
+      await withinTestDeadline(closed);
       await expect(fetch(`${f.server.url}/rpc`)).rejects.toSatisfy(() => true);
     } finally {
       socket.end();

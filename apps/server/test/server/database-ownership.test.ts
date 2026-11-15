@@ -16,6 +16,7 @@ import { StudyError } from '@study/contracts/errors';
 import { sql } from '@study/db';
 import * as s from '@study/db/schema';
 import { createTestDatabase } from '@study/db/testing';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { assert, expect } from 'vite-plus/test';
@@ -34,7 +35,7 @@ async function childOwner(path: string) {
   const messagePromise = new Promise<unknown>((resolve) => {
     received = resolve;
   });
-  const child = Bun.spawn({
+  const child = spawnTestProcess({
     cmd: [
       process.execPath,
       Bun.fileURLToPath(new URL('../testing/database-owner-child.ts', import.meta.url)),

@@ -16,6 +16,7 @@ import { BunCrypto } from '@effect/platform-bun';
 import { SqliteClient } from '@effect/sql-sqlite-bun';
 import { sql } from '@study/db';
 import { createTestDatabase } from '@study/db/testing';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Deferred, Effect, Fiber, Layer, ManagedRuntime, Option, Schedule, Schema } from 'effect';
 import { ClusterWorkflowEngine, SingleRunner } from 'effect/cluster';
@@ -189,7 +190,7 @@ testStable(
     const db = await location.open();
 
     db.orm.run(sql`CREATE TABLE proof_calls (id INTEGER PRIMARY KEY)`);
-    const child = Bun.spawn(
+    const child = spawnTestProcess(
       [
         process.execPath,
         new URL('../../../test/testing/official-crash-runner.ts', import.meta.url).pathname,

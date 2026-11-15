@@ -13,6 +13,7 @@
  */
 
 import { BunFileSystem, BunPath } from '@effect/platform-bun';
+import { spawnTestProcess } from '@study/testing/process';
 import { testStable } from '@study/testing/vitest';
 import { Effect, FileSystem, Path } from 'effect';
 import { expect } from 'vite-plus/test';
@@ -56,7 +57,7 @@ for (const mode of ['pass', 'fail', 'imported-fail']) {
 
       if (definition !== fixture) await Bun.write(fixture, `import './definition.mjs';`);
 
-      const child = Bun.spawn(
+      const child = spawnTestProcess(
         [process.execPath, '--bun', runner, 'run', '--root', directory, '--config', config],
         { stdout: 'pipe', stderr: 'pipe' }
       );
