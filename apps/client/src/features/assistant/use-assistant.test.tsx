@@ -101,7 +101,10 @@ testStable(
     fireEvent.change(input, { target: { value: 'Draft for the new chat' } });
     fireEvent.click(screen.getByRole('button', { name: 'Earlier note' }));
     await waitFor(() => expect(input).toHaveValue('Draft for the earlier chat'));
-    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+    const send = screen.getByRole('button', { name: 'Send message' });
+
+    await waitFor(() => expect(send).toBeEnabled());
+    fireEvent.click(send);
     await waitFor(() =>
       expect(api.ask).toHaveBeenCalledWith(
         expect.objectContaining({ noteId: 91n, text: 'Draft for the earlier chat' })
