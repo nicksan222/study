@@ -93,7 +93,8 @@
     "effect": "4.0.7"
   },
   "devDependencies": {
-    "@study/testing": "*"
+    "@study/testing": "*",
+    "fast-check": "4.10.2"
   },
   "peerDependencies": {
     "react": "^19.3.1"
