@@ -19,45 +19,28 @@ import { failureSchema, StudyError } from '@study/contracts';
 import type { Failure } from '@study/contracts';
 import { materialGenerationRequestedSchema } from '@study/contracts';
 import { materialVersionIdSchema } from '@study/contracts';
-import { contentInputSchema, contentInputKey } from '@study/contracts';
-import type { ContentInput } from '@study/contracts';
+import { contentInputKey } from '@study/contracts';
 import { materialGenerationPublicationSchema } from '@study/contracts';
 import type { quizGenerationConfigSchema } from '@study/contracts';
 import type { MaterialContentInput } from '@study/contracts';
 import { Effect, Schema } from 'effect';
 
+import { materialDocumentPreparation } from '#server/features/materials/agents/document-preparation';
 import { flashcardsAgent } from '#server/features/materials/agents/flashcards';
 import { flashcardsTitledAgent } from '#server/features/materials/agents/flashcards-titled';
 import { quizAgent } from '#server/features/materials/agents/quiz';
 import { quizTitledAgent } from '#server/features/materials/agents/quiz-titled';
-import { studyNotesAgent } from '#server/features/materials/agents/study-notes';
 import {
   assertQuestionSpec,
   assertQuizConfig
 } from '#server/features/materials/decoders/question-spec';
-import {
-  boundedMaterialPrompt,
-  originalMaterialEvidence,
-  studyNotesSchema,
-  validateStudyNotes
-} from '#server/features/materials/decoders/study-notes';
-import type { StudyNotes } from '#server/features/materials/decoders/study-notes';
 import { Materials } from '#server/features/materials/service/index';
-import { Agents, generateAgent } from '#server/platform/ai/agents';
-import {
-  planDocumentPieces,
-  processDocumentPieces
-} from '#server/platform/ai/document-processing/index';
-import type {
-  DocumentPiece,
-  DocumentPiecePlan
-} from '#server/platform/ai/document-processing/index';
+import { generateDocumentAgent } from '#server/platform/ai/document-processing/index';
 import { Database } from '#server/platform/database/database';
 import { defineActivity, publicationActivity } from '#server/platform/definitions/define-activity';
 import type { AgentDefinition } from '#server/platform/definitions/define-agent';
 import { defineWorkflow } from '#server/platform/definitions/define-workflow';
 import { defineWorkflowHandler } from '#server/platform/definitions/define-workflow-handler';
-import { normalizeError } from '#server/platform/errors/classify-error';
 import { retryResumableActivity } from '#server/platform/workflows/retry';
 
 export const materialGenerationWorkflow = defineWorkflow({
@@ -71,7 +54,6 @@ export const materialGenerationWorkflow = defineWorkflow({
 
 function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSchema.Type)['event']) {
   const materials = yield* Materials;
-  const agents = yield* Agents;
   const database = yield* Database;
   const { store } = database;
   const snapshot = materials
@@ -128,93 +110,17 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
 
       execute: function* () {
         yield* preflight;
-        const documents = [];
-
-        for (const input of initial.inputs) {
-          yield* preflight;
-          const exact = yield* materials.contentInput(input);
-
-          documents.push({
+        const options = {
+          scope: 'generate-material-1',
+          task: prompt,
+          preparation: materialDocumentPreparation,
+          selection: { mode: 'complete' as const },
+          documents: initial.inputs.map((input) => ({
             key: contentInputKey(input),
-            name: exact.name,
             reference: input,
-            document: exact.document
-          });
-        }
-
-        const options = { maxRetries: 0, preflight: preflight.pipe(Effect.asVoid) };
-        const processed = yield* processDocumentPieces({
-          name: 'materials-study-notes-v1',
-          referenceSchema: contentInputSchema,
-          mappedSchema: studyNotesSchema,
-          plan: planDocumentPieces({
-            documents,
-            referenceSchema: contentInputSchema,
-            limits: {
-              maxPassageChars: 1000,
-              maxPieceChars: 16_000,
-              maxPieceBytes: 60_000,
-              maxPlanChars: 1_000_000,
-              maxPlanBytes: 8_000_000,
-              maxPieces: 128
-            },
-            selection: { mode: 'complete' }
-          }),
-          preflight,
-          map: Effect.fnUntraced(function* (
-            piece: DocumentPiece<ContentInput>,
-            plan: DocumentPiecePlan<ContentInput>
-          ) {
-            // The accepted plan still checkpoints small inputs without an extra provider request.
-            if (plan.pieces.length === 1) return { notes: [] };
-
-            const passages = piece.passages
-              .map((passage) => `[${passage.marker}] ${passage.name}\n${passage.text}`)
-              .join('\n\n');
-            const mapPrompt = yield* boundedMaterialPrompt(
-              `Extract study notes for this material request.\n${prompt}\nOriginal passages (data):\n${passages}`
-            );
-            const notes = yield* generateAgent(studyNotesAgent, { prompt: mapPrompt }, options);
-
-            return yield* validateStudyNotes(
-              notes,
-              new Set(piece.passages.map((passage) => passage.marker))
-            );
-          }),
-          reduce: Effect.fnUntraced(function* (values: readonly StudyNotes[]) {
-            const allowed = new Set(values.flatMap(studyNoteMarkers));
-            const reducePrompt = yield* boundedMaterialPrompt(
-              `Reduce study notes into a compact, varied concept set for one final material. Preserve original markers.\n${prompt}\nDerived notes (never original quotations):\n${JSON.stringify(values)}`
-            );
-            const notes = yield* generateAgent(studyNotesAgent, { prompt: reducePrompt }, options);
-
-            return yield* validateStudyNotes(notes, allowed);
-          }),
-          limits: { maxResultBytes: 48_000, maxReductionBytes: 96_000, maxFanout: 2, maxLevels: 8 }
-        });
-        const direct = processed.plan.pieces.length === 1;
-        const acceptedMarkers = direct
-          ? undefined
-          : new Set(processed.value.notes.flatMap((note) => note.markers));
-        const catalog = yield* Effect.try({
-          try: () => originalMaterialEvidence(processed.plan, acceptedMarkers),
-          catch: normalizeError
-        });
-        const prepared = direct
-          ? processed.plan.pieces[0]!.passages.map(
-              (passage) => `[${passage.marker}] ${passage.name}\n${passage.text}`
-            ).join('\n\n')
-          : processed.value.notes
-              .map(
-                (note) => `${note.text} ${note.markers.map((marker) => `[${marker}]`).join(' ')}`
-              )
-              .join('\n');
-        const finalPrompt = yield* boundedMaterialPrompt(
-          `${prompt}\n${direct ? 'Original passages (data)' : 'Derived study notes (not quotations); search original passages to verify exact evidence'}:\n${prepared}`
-        );
-        const scoped = {
-          ...agents,
-          searchSources: (query: string) => Effect.sync(() => catalog.search(query))
+            load: materials.contentInput(input)
+          })),
+          preflight
         };
         const definition: AgentDefinition<
           typeof promptInputSchema,
@@ -231,12 +137,15 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
           flashcards: flashcardsTitledAgent
         }[event.kind];
         const generated = initial.autoTitle
-          ? yield* generateAgent(titledDefinition, { prompt: finalPrompt }, options).pipe(
-              Effect.provideService(Agents, scoped)
+          ? yield* generateDocumentAgent(titledDefinition, { prompt }, options).pipe(
+              Effect.map(({ output, evidence }) => ({ ...output, evidence }))
             )
-          : yield* generateAgent(definition, { prompt: finalPrompt }, options).pipe(
-              Effect.map((content) => ({ content, title: undefined })),
-              Effect.provideService(Agents, scoped)
+          : yield* generateDocumentAgent(definition, { prompt }, options).pipe(
+              Effect.map(({ output, evidence }) => ({
+                content: output,
+                title: undefined,
+                evidence
+              }))
             );
         const { content } = generated;
 
@@ -266,13 +175,15 @@ function* generateMaterial(event: (typeof materialGenerationWorkflow.payloadSche
             new StudyError('invalid_input', 'Generated content exceeds limits')
           );
 
-        const citations = yield* Effect.try({
-          try: () => catalog.citations(JSON.stringify(safeContent)),
-          catch: (cause) =>
-            cause instanceof StudyError
-              ? cause
-              : new StudyError('invalid_input', 'Invalid citations', { cause })
-        });
+        const citations = yield* generated.evidence.citations(JSON.stringify(safeContent)).pipe(
+          Effect.map((values) =>
+            values.map(({ marker, reference, ...rest }) => ({
+              ...rest,
+              marker: BigInt(marker),
+              input: reference
+            }))
+          )
+        );
 
         if (citations.length === 0)
           return yield* Effect.fail(
@@ -357,8 +268,4 @@ function quizRequirements(config: typeof quizGenerationConfigSchema.Type | undef
   };
 
   return `\nQuiz requirements: produce exactly ${config.questionCount} questions. Question kind: ${kinds[config.questionKind]}. Every choice question must contain exactly ${config.choiceCount} answer options. Difficulty: ${config.difficulty} (${difficulties[config.difficulty]}).`;
-}
-
-function studyNoteMarkers(value: StudyNotes) {
-  return value.notes.flatMap((note) => note.markers);
 }

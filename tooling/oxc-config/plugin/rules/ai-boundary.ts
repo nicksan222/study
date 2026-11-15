@@ -26,6 +26,7 @@ import { defineRule } from 'vite-plus/lint/plugins';
 import {
   canonicalImport,
   featureRole,
+  importedValue,
   moduleEdges,
   serverPath,
   targetPath
@@ -47,6 +48,8 @@ export default defineRule({
 
     const inAi = current.startsWith('platform/ai/');
     const generationOwner = current === 'platform/ai/agents.ts';
+    // This adapter delegates piece checkpoints to the runner; callers checkpoint final output.
+    const documentOwner = current === 'platform/ai/document-processing/agent.ts';
     const effects = effectBindings(context);
     const edges = moduleEdges(context, (node, source, typeOnly) => {
       if (!source) {
@@ -159,28 +162,46 @@ export default defineRule({
       return node;
     }
 
-    function requestOptions(node: any): boolean {
+    function documentAgent(node: any): boolean {
+      const value = importedValue(context, node);
+
+      return (
+        ['platform/ai/document-processing/index', 'platform/ai/document-processing/agent'].includes(
+          value?.target ?? ''
+        ) && value.name === 'generateDocumentAgent'
+      );
+    }
+
+    function requestOptions(node: any, document = false): boolean {
       const options = constant(node.arguments[2]);
 
       if (options?.type !== 'ObjectExpression') return false;
 
       const field = (key: string) =>
-        options.properties.find(
-          (p: any) => p.type === 'Property' && (p.key.name ?? p.key.value) === key
-        )?.value;
-      const preflight = constant(field('preflight'));
-      const retries = constant(field('maxRetries'));
+        constant(
+          options.properties.find(
+            (p: any) => p.type === 'Property' && (p.key.name ?? p.key.value) === key
+          )?.value
+        );
+      const retries = field('maxRetries');
 
       return (
-        !!preflight &&
-        !(preflight.type === 'Literal' && preflight.value == null) &&
-        !(preflight.type === 'Identifier' && preflight.name === 'undefined') &&
-        retries?.type === 'Literal' &&
-        retries.value === 0
+        validPreflight(field('preflight')) &&
+        (document || (retries?.type === 'Literal' && retries.value === 0))
+      );
+    }
+
+    function validPreflight(node: any): boolean {
+      return (
+        !!node &&
+        !(node.type === 'Literal' && node.value == null) &&
+        !(node.type === 'Identifier' && node.name === 'undefined')
       );
     }
 
     const checkpointed = (node: any): boolean => {
+      if (documentOwner) return true;
+
       if (!current.startsWith('features/') || featureRole(current) !== 'workflow') return false;
 
       for (let parent = node.parent; parent; parent = parent.parent) {
@@ -225,6 +246,21 @@ export default defineRule({
       return agent;
     }
 
+    function checkGeneration(node: any, document: boolean) {
+      if (!checkpointed(node))
+        context.report({
+          node,
+          message: 'Agent generation belongs in a native workflow activity execute effect.'
+        });
+      else if (!requestOptions(node, document))
+        context.report({
+          node,
+          message: document
+            ? 'Document generation requires a request preflight; shared preparation owns retries.'
+            : 'Workflow generation requires a request preflight and maxRetries: 0; activities own retries.'
+        });
+    }
+
     return {
       ...edges,
       ImportDeclaration(node: any) {
@@ -234,19 +270,10 @@ export default defineRule({
       CallExpression(node: any) {
         edges.CallExpression(node);
 
-        if (!generationOwner && agentBinding(node.callee)) {
-          if (!checkpointed(node))
-            context.report({
-              node,
-              message: 'Agent generation belongs in a native workflow activity execute effect.'
-            });
-          else if (!requestOptions(node))
-            context.report({
-              node,
-              message:
-                'Workflow generation requires a request preflight and maxRetries: 0; activities own retries.'
-            });
-        }
+        const document = documentAgent(node.callee);
+
+        if (!generationOwner && (agentBinding(node.callee) || document))
+          checkGeneration(node, document);
 
         const agent = sdkAgentMethod(node);
 

@@ -26,7 +26,7 @@
 
 import { defineRule } from 'vite-plus/lint/plugins';
 
-import { featureRole, serverPath, targetPath } from '../architecture-imports.ts';
+import { featureRole, importedValue, serverPath, targetPath } from '../architecture-imports.ts';
 import { effectBindings } from '../effect-bindings.ts';
 import { binding, constantDeclarator, enterNode } from '../lexical-bindings.ts';
 
@@ -169,6 +169,15 @@ export default defineRule({
       return false;
     }
 
+    function preparation(node: any): boolean {
+      const value = importedValue(context, node);
+
+      return (
+        value?.target === 'platform/ai/document-processing/index' &&
+        value.name === 'defineDocumentPreparation'
+      );
+    }
+
     function checkExport(node: any, value: any): void {
       const init = unwrap(value);
 
@@ -180,9 +189,12 @@ export default defineRule({
           'FunctionDeclaration',
           'Literal'
         ].includes(init.type) &&
-        (init.type !== 'CallExpression' || !target(init.callee))
+        (init.type !== 'CallExpression' || (!target(init.callee) && !preparation(init.callee)))
       )
-        context.report({ node, message: 'Agent exports must use defineAgent.' });
+        context.report({
+          node,
+          message: 'Agent exports must use defineAgent or defineDocumentPreparation.'
+        });
     }
 
     function invalidConfiguration(
@@ -208,6 +220,32 @@ export default defineRule({
       );
     }
 
+    function configuration(node: any) {
+      const config = unwrap(node.arguments[0]);
+      const properties = config?.type === 'ObjectExpression' ? config.properties : [];
+      const values = new Map(
+        properties
+          .filter((p: any) => p.type === 'Property')
+          .map((p: any) => [p.key.name ?? p.key.value, p.value])
+      );
+
+      return { properties, values };
+    }
+
+    function checkPreparation(node: any) {
+      const { properties, values } = configuration(node);
+
+      if (
+        properties.some((p: any) => p.type === 'SpreadElement') ||
+        !canonical(values.get('referenceSchema')) ||
+        !canonical(values.get('mappedSchema'))
+      )
+        context.report({
+          node,
+          message: 'Document preparation must use canonical reference and result schemas.'
+        });
+    }
+
     return {
       ImportDeclaration: effects.imports,
       ExportNamedDeclaration(node) {
@@ -224,15 +262,11 @@ export default defineRule({
         checkExport(node, node.declaration);
       },
       CallExpression(node) {
+        if (preparation(node.callee)) return checkPreparation(node);
+
         if (!target(node.callee)) return;
 
-        const config = unwrap(node.arguments[0]);
-        const properties = config?.type === 'ObjectExpression' ? config.properties : [];
-        const values = new Map(
-          properties
-            .filter((p: any) => p.type === 'Property')
-            .map((p: any) => [p.key.name ?? p.key.value, p.value])
-        );
+        const { properties, values } = configuration(node);
         const keys = new Set(
           properties
             .filter((p: any) => p.type === 'Property')

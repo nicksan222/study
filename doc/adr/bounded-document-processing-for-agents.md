@@ -17,6 +17,13 @@ for each piece, and rules for combining results. The platform owns piece bounds,
 stable ordering and identities, execution bounds, and resumable intermediate work.
 Agent prompts alone do not establish these guarantees.
 
+The feature-facing entry point applies preparation around agent generation. A
+feature declares its preparation policy once; callers supply captured inputs and
+the task. Shared tooling loads those inputs, prepares bounded context and binds
+original-evidence access to that call. Workflows do not assemble these steps
+individually. Inputs that already fit may pass directly without an extra model
+request.
+
 Raw media decoding, ordinary short prompts, and structured tasks such as grading
 one captured answer do not become document-processing jobs merely because they
 use a model.

@@ -16,7 +16,7 @@
 
 import { StudyError } from '@study/contracts';
 
-import { splitTextRanges } from '#server/platform/ai/document-processing/index';
+import { splitTextRanges } from '#server/platform/ai/document-processing/planner';
 
 // Corpus limits use UTF-16 code units; serialized search replies use UTF-8 bytes.
 const maxCorpusChars = 1_000_000;

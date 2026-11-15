@@ -11,12 +11,7 @@
  */
 
 export { planDocumentPieces, splitTextRanges, documentPiecePlanSchema } from './planner.ts';
-export type {
-  DocumentInput,
-  DocumentPiece,
-  DocumentPiecePlan,
-  DocumentPlanLimits,
-  DocumentSelection
-} from './planner.ts';
-export { processDocumentPieces } from './runner.ts';
+export type { DocumentInput, DocumentPlanLimits, DocumentSelection } from './planner.ts';
 export type { DocumentProcessingLimits, ReductionContext } from './runner.ts';
+
+export { defineDocumentPreparation, generateDocumentAgent } from './agent.ts';

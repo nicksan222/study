@@ -53,7 +53,8 @@ export function processDocumentPieces<Ref, Value, R>(options: {
   ) => Effect.Effect<Value, Failure, R>;
   readonly reduce: (
     values: readonly Value[],
-    context: ReductionContext
+    context: ReductionContext,
+    plan: DocumentPiecePlan<Ref>
   ) => Effect.Effect<Value, Failure, R>;
   readonly limits: DocumentProcessingLimits;
 }) {
@@ -159,7 +160,7 @@ export function processDocumentPieces<Ref, Value, R>(options: {
             success: options.mappedSchema,
             execute: bounded(
               options.preflight.pipe(
-                Effect.andThen(Effect.suspend(() => options.reduce(group, context)))
+                Effect.andThen(Effect.suspend(() => options.reduce(group, context, plan)))
               )
             )
           })
